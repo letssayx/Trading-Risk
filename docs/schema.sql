@@ -14,6 +14,29 @@ CREATE TABLE system_config (
     description TEXT
 );
 
+-- Market Data (TimescaleDB)
+CREATE TABLE market_data (
+    timestamp TIMESTAMP NOT NULL,
+    symbol VARCHAR(50) NOT NULL,
+    open_interest DOUBLE PRECISION,
+    volume DOUBLE PRECISION,
+    price DOUBLE PRECISION,
+    implied_volatility DOUBLE PRECISION,
+    delta DOUBLE PRECISION,
+    gamma DOUBLE PRECISION,
+    vega DOUBLE PRECISION,
+    PRIMARY KEY (timestamp, symbol)
+);
+
+CREATE TABLE positioning_data (
+    timestamp TIMESTAMP NOT NULL,
+    participant_type VARCHAR(50) NOT NULL, -- FII, DII, PRO, CLIENT
+    net_long_contracts INTEGER,
+    net_short_contracts INTEGER,
+    net_value DOUBLE PRECISION,
+    PRIMARY KEY (timestamp, participant_type)
+);
+
 -- Audit Trail
 CREATE TABLE gemini_audit (
     audit_id SERIAL PRIMARY KEY,
