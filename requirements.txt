@@ -1,0 +1,24 @@
+# --- Core Data & Math ---
+numpy>=1.26.0          # High-speed numerical calculations
+pandas>=2.1.0         # Dataframes for OI, Volume, and Greeks
+scipy>=1.11.0         # Statistical distributions (Bell Curves/Black-Scholes)
+
+# --- Visualization (The "Eyes") ---
+plotly>=5.18.0        # Interactive 3D Volatility Surfaces
+matplotlib>=3.8.0     # Static distribution plots
+seaborn>=0.13.0       # Statistical data visualization
+
+# --- Backend API (The "Shell") ---
+fastapi>=0.104.0      # Modern, fast web framework
+uvicorn[standard]     # ASGI server to run the API
+pydantic>=2.4.0       # Data validation for your "Trade Cards"
+
+# --- Infrastructure & Utilities ---
+python-dotenv>=1.0.0  # Securely loading MARKET_DATA_KEY and AI_KEY
+httpx>=0.25.0         # Async HTTP client for fetching market data
+pytest>=7.4.0         # Testing your risk formulas for deterministic accuracy
+jinja2>=3.1.0         # Templating for Reports
+python-multipart>=0.0.6 # Form handling
+
+# --- Data Sources ---
+nsepython>=1.0.0      # Open source NSE data fetcher
