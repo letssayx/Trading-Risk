@@ -82,8 +82,12 @@ def generate_trade_ideas(market_state: MarketState, market_snapshot: MarketSnaps
     )
 
     # 4. Create Trade Idea
+    # Note: user_id is normally passed in, but this function is pure logic.
+    # The orchestrator should override the user_id or we assume a system user for generation.
+    # For now, we default to "SYSTEM_AUTO" and let the orchestrator update it if needed.
     idea = TradeIdea(
         id=str(uuid.uuid4()),
+        user_id="SYSTEM_AUTO",
         timestamp=datetime.now(),
         instruments=[instrument],
         direction=direction,
@@ -103,6 +107,7 @@ def generate_trade_ideas(market_state: MarketState, market_snapshot: MarketSnaps
 
     idea_with_risk = TradeIdea(
         id=idea.id,
+        user_id=idea.user_id,
         timestamp=idea.timestamp,
         instruments=idea.instruments,
         direction=idea.direction,
