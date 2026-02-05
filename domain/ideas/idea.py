@@ -17,6 +17,7 @@ class TradeRationale:
     summary: str
     evidence: List[IndicatorResult] = field(default_factory=list)
     reasoning_steps: List[str] = field(default_factory=list)
+    risk_narrative: Optional[str] = None # Plain text explanation of key risks
 
 @dataclass(frozen=True)
 class IdeaConstraint:
