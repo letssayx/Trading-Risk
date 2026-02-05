@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from web.auth.routes import get_current_user
 from domain.common.user import User
+from orchestration.pipelines.market_orchestrator import MarketOrchestrator
 
 router = APIRouter(prefix="/api/widgets", tags=["Widgets"])
 
@@ -47,22 +48,28 @@ async def get_widget_data(request: WidgetDataRequest, current_user: User = Depen
          )
 
     elif request.viz_type == "market_scan_results":
+        # 1. Prepare Mock Data for Orchestrator (In prod: Fetch from DB)
+        snapshot = {
+            "symbol": request.parameters.get("symbol", "NIFTY"),
+            "put_oi": 1500000, "call_oi": 2000000, # PCR 0.75
+            "iv": 18.5,
+            "current_tick": {"volume": 5000, "close": 19600, "vwap": 19550, "quantity": 1000},
+            "fii_net_flow": 500
+        }
+        history = {
+            "daily_data": [{"iv": 12}, {"iv": 14}, {"iv": 18}], # Rising IV
+            "avg_volume_20": 1000,
+            "pcr_daily": [0.8, 0.9, 1.0] # Mocked pandas series equivalent
+        }
+
+        # 2. Run Orchestrator
+        orchestrator = MarketOrchestrator()
+        result = await orchestrator.generate_trade_cards(snapshot, history)
+
         return WidgetDataResponse(
             viz_type="market_scan_results",
-            data_payload={
-                "metadata": {"total_opportunities": 12},
-                "results": [
-                    {
-                        "trade_id": "TC-9921",
-                        "symbol": "NIFTY-FEB-26",
-                        "strategy_tag": "Short Covering Play",
-                        "rationale": "High-conviction squeeze identified. FIIs are net long.",
-                        "risk_reward": "1:2.5",
-                        "worst_case": "-12,400 INR"
-                    }
-                ]
-            },
-            rationale="Scanner identified 12 opportunities. Top pick is a Nifty Short Covering play."
+            data_payload=result["data_payload"],
+            rationale=result["rationale"]
         )
 
     else:
