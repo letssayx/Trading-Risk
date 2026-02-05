@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from domain.instruments.instrument import Instrument
+from domain.market.positioning import PositioningSnapshot
 
 @dataclass(frozen=True)
 class InstrumentSnapshot:
@@ -30,6 +31,9 @@ class MarketSnapshot:
 
     # Term structure summary, etc.
     term_structure: Dict[str, Any] = field(default_factory=dict)
+
+    # Optional positioning data (e.g. Participant OI)
+    positioning: Optional[PositioningSnapshot] = None
 
     def get_instrument_snapshot(self, instrument_id: str) -> Optional[InstrumentSnapshot]:
         return self.instruments.get(instrument_id)
