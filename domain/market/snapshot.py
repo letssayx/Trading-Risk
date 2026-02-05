@@ -20,6 +20,7 @@ class InstrumentSnapshot:
 @dataclass(frozen=True)
 class MarketSnapshot:
     """Immutable view of derivative-specific market state at a time."""
+    id: str
     timestamp: datetime
     # Map of instrument ID to its snapshot
     instruments: Dict[str, InstrumentSnapshot] = field(default_factory=dict)

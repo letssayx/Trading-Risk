@@ -16,9 +16,10 @@ class IndicatorResult:
     indicator: Indicator
     timestamp: datetime
     value: Any  # The actual result (float, dict, etc.)
+    snapshot_id: str # Link back to the specific MarketSnapshot
 
     # Provenance
-    inputs_hash: Optional[str] = None # Identifying the snapshot/data used
+    inputs_hash: Optional[str] = None # Identifying specific data subset used
     computation_context: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass(frozen=True)

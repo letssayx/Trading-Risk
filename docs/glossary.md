@@ -10,8 +10,13 @@
 - **VaR (Value at Risk)**: A statistic that quantifies the extent of possible financial losses within a firm, portfolio, or position over a specific time frame.
 - **CVaR (Conditional Value at Risk)**: Also known as Expected Shortfall, it quantifies the expected loss given that the loss is greater than the VaR.
 - **Drawdown**: The peak-to-trough decline during a specific record period of an investment, fund, or commodity.
-- **Greeks**: Sensitivities of the price of derivatives to a change in underlying parameters (Delta, Gamma, Theta, Vega, Rho).
-- **Exposure**: The amount of capital invested in a particular type of security or market sector.
+- **Greeks**: Sensitivities of the price of derivatives to a change in underlying parameters.
+    - **Delta ($\Delta$)**: The rate of change of the option price with respect to the price of the underlying asset. Represents the hedge ratio.
+    - **Gamma ($\Gamma$)**: The rate of change of Delta with respect to the price of the underlying asset. Represents the convexity of the position.
+    - **Theta ($\Theta$)**: The rate of change of the option price with respect to time (time decay).
+    - **Vega ($\nu$)**: The rate of change of the option price with respect to the volatility of the underlying asset.
+    - **Rho ($\rho$)**: The rate of change of the option price with respect to the risk-free interest rate.
+- **Exposure**: The amount of capital invested in a particular type of security or market sector, or the sensitivity to a specific risk factor (e.g., Delta Exposure).
 
 ## System Terms
 - **Market State**: A classification of the current market environment (e.g., "risk-on", "squeeze risk").
