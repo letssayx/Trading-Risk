@@ -31,6 +31,7 @@ class IdeaConstraint:
 class TradeIdea:
     """Proposed trade structure."""
     id: str
+    user_id: str # Author of the idea
     timestamp: datetime
     instruments: List[Instrument]
     direction: TradeDirection
