@@ -1,0 +1,22 @@
+<!-- Greek Heatmap Template -->
+<div class="greek-heatmap">
+  <h3>Sensitivity Analysis</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+        <th>Exposure</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for greek, value in greeks.items() %}
+      <tr class="{{ 'high-risk' if value > threshold else 'normal' }}">
+        <td>{{ greek }}</td>
+        <td>{{ value }}</td>
+        <td>{{ exposure_map[greek] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

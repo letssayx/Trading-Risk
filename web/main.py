@@ -11,8 +11,12 @@ from domain.instruments.option import OptionContract, OptionType, OptionStyle
 from web.auth.routes import router as auth_router
 from web.chat.routes import router as chat_router
 from web.charts.routes import router as charts_router
+from web.risk.routes import router as risk_router
+from web.export.routes import router as export_router
 
 app = FastAPI(title="Derivatives Analysis System")
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(charts_router)
+app.include_router(risk_router)
+app.include_router(export_router)
