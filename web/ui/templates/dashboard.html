@@ -2,182 +2,254 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Jules Analysis Workbench</title>
+    <title>Jules Command Center</title>
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --border-color: #333;
+            --accent-color: #00e676; /* Green Accent */
+            --text-color: #e0e0e0;
+            --header-height: 50px;
+            --sidebar-width: 60px; /* Collapsed width */
+            --chat-width: 350px;
+        }
 
-        /* Layout */
-        #main-pane { flex: 1; display: flex; flex-direction: column; padding: 10px; border-right: 1px solid #333; }
-        #sidebar { width: 350px; display: flex; flex-direction: column; background: #1e1e1e; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
 
-        /* Toolbar */
-        .toolbar { height: 40px; display: flex; align-items: center; padding: 0 10px; background: #252526; border-bottom: 1px solid #333; }
-        .btn { background: #333; border: 1px solid #444; color: #fff; padding: 5px 10px; margin-right: 5px; cursor: pointer; border-radius: 3px; font-size: 0.8em; }
-        .btn:hover { background: #444; }
+        /* Global Navigation Sidebar (Left) */
+        #nav-shell {
+            width: var(--sidebar-width);
+            background: #000;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 10px;
+            z-index: 1000;
+        }
+        .nav-icon {
+            width: 40px; height: 40px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            background: #222;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer;
+            color: #888;
+            font-size: 1.2em;
+            transition: all 0.2s;
+        }
+        .nav-icon:hover, .nav-icon.active {
+            background: var(--accent-color);
+            color: #000;
+        }
 
-        /* Grid / Charts */
-        #dashboard-grid { flex: 1; overflow-y: auto; padding-top: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .widget { background: #252526; border: 1px solid #333; border-radius: 4px; min-height: 250px; position: relative; }
-        .widget-header { padding: 5px 10px; background: #2d2d2d; border-bottom: 1px solid #333; font-size: 0.9em; font-weight: bold; }
-        .tv-widget { grid-column: span 2; height: 400px; }
+        /* Main Content Area */
+        #main-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
 
-        /* Chat Sidebar */
+        /* Global Header / Toolbar */
+        #global-header {
+            height: var(--header-height);
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+        }
+        .context-title { font-weight: bold; font-size: 1.1em; color: var(--accent-color); }
+        .global-tools button {
+            background: #333; border: 1px solid #444; color: #fff;
+            padding: 6px 12px; margin-left: 8px; cursor: pointer;
+            font-family: monospace; font-size: 0.8em;
+        }
+        .global-tools button:hover { background: #444; }
+
+        /* Workspace Grid */
+        #workspace {
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(12, 1fr); /* 12-column grid */
+            gap: 10px;
+            grid-auto-rows: minmax(100px, auto);
+        }
+
+        /* Widget Container */
+        .widget-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .widget-header {
+            padding: 5px 10px;
+            background: #252525;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85em; font-weight: bold;
+            display: flex; justify-content: space-between;
+        }
+        .widget-body { flex: 1; position: relative; padding: 10px; overflow: hidden; }
+
+        /* Widget Types (Classes for Grid Positioning) */
+        .w-chart { grid-column: span 8; grid-row: span 4; }
+        .w-vol-surface { grid-column: span 4; grid-row: span 3; }
+        .w-stats { grid-column: span 4; grid-row: span 3; }
+        .w-greeks { grid-column: span 12; grid-row: span 2; }
+
+        /* Chat Sidebar (Right) */
+        #chat-panel {
+            width: var(--chat-width);
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex; flex-direction: column;
+        }
+
+        /* ... Reuse Chat Styles from previous dashboard ... */
         #chat-history { flex: 1; overflow-y: auto; padding: 10px; font-size: 0.9em; }
         .msg-user { text-align: right; color: #4fc3f7; margin-bottom: 10px; }
         .msg-system { text-align: left; color: #e0e0e0; margin-bottom: 10px; background: #2d2d2d; padding: 8px; border-radius: 4px; }
-        .audit-info { font-family: monospace; font-size: 0.8em; color: #666; display: none; margin-top: 5px; border-top: 1px solid #444; padding-top: 5px; }
-
         #chat-input-area { height: 60px; padding: 10px; border-top: 1px solid #333; background: #252526; display: flex; }
-        #chat-input { flex: 1; background: #1e1e1e; border: 1px solid #333; color: #fff; padding: 5px; font-family: monospace; }
+        #chat-input { flex: 1; background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-family: monospace; }
 
-        /* Risk Section */
-        #risk-panel { border-top: 2px solid #333; padding: 10px; background: #1e1e1e; }
-        .risk-header { font-weight: bold; margin-bottom: 5px; color: #ff5252; }
+        /* 3D Surface Placeholder */
+        .surface-mock {
+            width: 100%; height: 100%;
+            background: linear-gradient(45deg, #222 25%, #333 25%, #333 50%, #222 50%, #222 75%, #333 75%, #333 100%);
+            background-size: 20px 20px;
+            display: flex; justify-content: center; align-items: center;
+            color: #888;
+            position: relative;
+        }
+        .highlight-marker {
+            position: absolute; width: 20px; height: 20px; border: 2px solid red; border-radius: 50%;
+            top: 40%; left: 60%;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
 
-        .worst-case-box { border: 2px solid #ff5252; background: rgba(255, 82, 82, 0.1); padding: 10px; margin-bottom: 10px; border-radius: 4px; }
-        .worst-case-title { color: #ff5252; font-weight: bold; font-size: 0.9em; text-transform: uppercase; }
-
-        .greeks-table { width: 100%; font-size: 0.85em; border-collapse: collapse; }
-        .greeks-table td { padding: 4px; border-bottom: 1px solid #333; }
-        .greeks-table td:last-child { text-align: right; font-family: monospace; }
-
-        /* Utilities */
-        .show-audit { color: #888; cursor: pointer; font-size: 0.7em; margin-left: 5px; }
     </style>
 </head>
 <body>
 
-    <!-- MAIN PANE: Charts & Widgets -->
-    <div id="main-pane">
-        <div class="toolbar">
-            <button class="btn" onclick="saveLayout()">Save Layout</button>
-            <button class="btn" onclick="exportPDF()">Export PDF</button>
-            <button class="btn" onclick="exportCSV()">Download CSV</button>
-            <span style="flex:1;"></span>
-            <span style="font-size:0.8em; color:#888;">STATUS: CONNECTED</span>
-        </div>
+    <!-- 1. Global Nav Shell -->
+    <div id="nav-shell">
+        <div class="nav-icon active" title="Analysis Workbench">📊</div>
+        <div class="nav-icon" title="Data Ingestion" onclick="window.location.href='/ingest'">📥</div>
+        <div class="nav-icon" title="Reports Archive">📁</div>
+        <div class="nav-icon" style="margin-top:auto;" title="Settings">⚙️</div>
+    </div>
 
-        <div id="dashboard-grid">
-            <!-- TradingView Widget Container -->
-            <div class="widget tv-widget">
-                <div class="widget-header">MARKET_OVERVIEW</div>
-                <div id="tv-chart-container" style="height:calc(100% - 30px); display:flex; justify-content:center; align-items:center; color:#555;">
-                    [ TRADINGVIEW WIDGET LOADED HERE ]
+    <!-- 2. Main Wrapper -->
+    <div id="main-wrapper">
+        <!-- Global Header -->
+        <header id="global-header">
+            <div class="context-title">WORKBENCH: NIFTY_VOL_DESK</div>
+            <div class="global-tools">
+                <button onclick="saveLayout()">SAVE_LAYOUT</button>
+                <button onclick="exportPDF()">EXPORT_PDF</button>
+                <button onclick="exportCSV()">DOWNLOAD_DATA</button>
+            </div>
+        </header>
+
+        <!-- Workspace Grid -->
+        <div id="workspace">
+
+            <!-- Widget: Volatility Surface (3D) -->
+            <div class="widget-card w-vol-surface" id="widget-vol-surface">
+                <div class="widget-header">
+                    <span>VOL_SURFACE_3D</span>
+                    <span>⛶</span>
+                </div>
+                <div class="widget-body">
+                    <!-- Visualization Container -->
+                    <div class="surface-mock">
+                        [ 3D VOL MESH ]
+                        <!-- Highlight Marker injected by Jules -->
+                        <div class="highlight-marker" title="Skew Anomaly"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Sample Analytical Widget -->
-            <div class="widget">
-                <div class="widget-header">OI_PROFILE</div>
-                <div style="padding:10px;">
-                    <!-- Placeholder for OI Chart -->
-                    [ OI vs PRICE CHART ]
+            <!-- Widget: TradingView Chart -->
+            <div class="widget-card w-chart">
+                <div class="widget-header">PRICE_ACTION_PRIMARY</div>
+                <div class="widget-body" style="background:#000;">
+                    [ TRADINGVIEW CHART: NSE:NIFTY ]
                 </div>
             </div>
 
-            <!-- Sample Analytical Widget -->
-            <div class="widget">
-                <div class="widget-header">INSTITUTIONAL_FLOW</div>
-                <div style="padding:10px;">
-                    <!-- Placeholder for Flow Data -->
-                    [ FII NET POSITIONING ]
+            <!-- Widget: Statistical Distribution -->
+            <div class="widget-card w-stats">
+                <div class="widget-header">OI_DISTRIBUTION_HIST</div>
+                <div class="widget-body">
+                    [ BELL CURVE / HISTOGRAM ]
                 </div>
             </div>
+
+             <!-- Widget: Greeks Grid -->
+             <div class="widget-card w-greeks">
+                <div class="widget-header">REAL_TIME_GREEKS</div>
+                <div class="widget-body">
+                    <table style="width:100%; color:#aaa; font-family:monospace;">
+                        <tr><th>Strike</th><th>Delta</th><th>Gamma</th><th>Vega</th></tr>
+                        <tr><td>19500 CE</td><td>0.52</td><td>0.0012</td><td>12.4</td></tr>
+                        <tr><td>19600 CE</td><td>0.38</td><td>0.0015</td><td>14.1</td></tr>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <!-- SIDEBAR: Chat & Risk -->
-    <div id="sidebar">
-        <!-- Chat Area -->
+    <!-- 3. Chat Sidebar -->
+    <div id="chat-panel">
+        <div class="widget-header" style="background:#1e1e1e; border-bottom:1px solid #333;">JULES_INTELLIGENCE</div>
         <div id="chat-history">
             <div class="msg-system">
-                Hello. I am Jules. I am ready to analyze derivatives data.
+                System Online. "Vol Surface" widget loaded. Skew detected at 19500 Strike.
             </div>
         </div>
-
         <div id="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Ask Jules (e.g., 'Analyze risk for NIFTY long call')...">
-            <button class="btn" onclick="sendMessage()">></button>
-        </div>
-
-        <!-- Risk Panel (The "Truth" Layer) -->
-        <div id="risk-panel">
-            <div class="risk-header">RISK ANALYSIS</div>
-
-            <!-- Worst Case Box -->
-            <div class="worst-case-box">
-                <div class="worst-case-title">WORST CASE SCENARIO</div>
-                <div id="worst-case-val" style="font-size:1.2em; font-weight:bold; margin:5px 0;">-</div>
-                <div id="worst-case-desc" style="font-size:0.8em;">No active trade analysis.</div>
-            </div>
-
-            <!-- Greeks Table -->
-            <table class="greeks-table">
-                <tr><td>Delta</td><td id="greek-delta">-</td></tr>
-                <tr><td>Gamma</td><td id="greek-gamma">-</td></tr>
-                <tr><td>Vega</td><td id="greek-vega">-</td></tr>
-                <tr><td>Theta</td><td id="greek-theta">-</td></tr>
-            </table>
-
-            <!-- "Why NOT" Section -->
-             <div style="margin-top:10px; border-top:1px solid #333; padding-top:5px;">
-                <div style="color:#ffb74d; font-size:0.8em; font-weight:bold;">CAUTIONARY NOTES</div>
-                <ul id="contra-list" style="margin:5px 0 0 20px; padding:0; font-size:0.8em; color:#ccc;">
-                    <li>Pending Analysis...</li>
-                </ul>
-             </div>
+            <input type="text" id="chat-input" placeholder="Ask Jules...">
+            <button style="background:#333; border:none; color:#fff; cursor:pointer;" onclick="sendMessage()">></button>
         </div>
     </div>
 
     <script>
-        function toggleAudit(id) {
-            const el = document.getElementById(id);
-            if(el.style.display === 'none') el.style.display = 'block';
-            else el.style.display = 'none';
-        }
-
+        // ... (Reuse logic for Chat) ...
         async function sendMessage() {
             const input = document.getElementById('chat-input');
             const query = input.value;
             if(!query) return;
 
-            // 1. Render User Msg
             const chatHistory = document.getElementById('chat-history');
             chatHistory.innerHTML += `<div class="msg-user">${query}</div>`;
             input.value = '';
 
-            // 2. Call API (Mock)
-            // In real implementation: fetch('/api/chat', ...)
-            // For UI Check, we mock response updates
-
+            // Mock Interaction: Jules controlling the widgets
             setTimeout(() => {
-                const auditId = 'audit-' + Date.now();
-                const responseHtml = `
+                chatHistory.innerHTML += `
                     <div class="msg-system">
-                        Analyzing <strong>${query}</strong>...<br>
-                        Market indicates <em>Institutional Accumulation</em>.<br>
-                        <span class="show-audit" onclick="toggleAudit('${auditId}')">[View Code]</span>
-                        <div id="${auditId}" class="audit-info">
-                            > Generated Python:<br>
-                            analysis.infer_state(current_flow, pos_snap)<br>
-                            risk.evaluate_scenario(...)
-                        </div>
+                        Querying <strong>Vol Surface</strong>...<br>
+                        <em>Highlighted the skew anomaly at 19500.</em><br>
+                        Put-Call ratio divergence suggests downside hedging.
                     </div>
                 `;
-                chatHistory.innerHTML += responseHtml;
                 chatHistory.scrollTop = chatHistory.scrollHeight;
+            }, 600);
+        }
 
-                // Update Risk Panel Mock
-                document.getElementById('worst-case-val').textContent = "-25,000 INR";
-                document.getElementById('worst-case-desc').textContent = "10% Gap Down Scenario";
-                document.getElementById('greek-delta').textContent = "0.45";
-                document.getElementById('greek-gamma').textContent = "0.0012";
-                document.getElementById('greek-vega').textContent = "12.5";
-
-                const contraList = document.getElementById('contra-list');
-                contraList.innerHTML = '<li>High Gamma Risk on reversal.</li><li>Liquidity low in far-month.</li>';
-
-            }, 500);
+        function saveLayout() {
+            alert("Layout 'NIFTY_VOL_DESK' Saved to Database.");
         }
     </script>
 </body>
