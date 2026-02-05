@@ -35,12 +35,35 @@ async def get_widget_data(request: WidgetDataRequest, current_user: User = Depen
             rationale="Volatility smile is flattening, indicating reduced tail risk demand."
         )
 
-    elif request.viz_type == "dist_graph":
+    elif request.viz_type == "dist_graph" or request.viz_type == "statistical_distribution":
          return WidgetDataResponse(
-            viz_type="dist_graph",
-            data_payload={"bins": [-2, -1, 0, 1, 2], "counts": [5, 15, 60, 15, 5]},
-            rationale="Returns are normally distributed with no fat tails observed."
+            viz_type="statistical_distribution",
+            data_payload={
+                "labels": [-3.0, -2.0, -1.0, 0, 1.0, 2.0, 3.0],
+                "values": [0.004, 0.054, 0.242, 0.399, 0.242, 0.054, 0.004],
+                "analysis_markers": {"mean": 0.05, "std_dev": 1.2, "var_95": -2.1, "current_position": 1.5}
+            },
+            rationale="Returns follow a normal distribution. Current position (+1.5 SD) suggests extended momentum."
          )
+
+    elif request.viz_type == "market_scan_results":
+        return WidgetDataResponse(
+            viz_type="market_scan_results",
+            data_payload={
+                "metadata": {"total_opportunities": 12},
+                "results": [
+                    {
+                        "trade_id": "TC-9921",
+                        "symbol": "NIFTY-FEB-26",
+                        "strategy_tag": "Short Covering Play",
+                        "rationale": "High-conviction squeeze identified. FIIs are net long.",
+                        "risk_reward": "1:2.5",
+                        "worst_case": "-12,400 INR"
+                    }
+                ]
+            },
+            rationale="Scanner identified 12 opportunities. Top pick is a Nifty Short Covering play."
+        )
 
     else:
         raise HTTPException(status_code=400, detail=f"Unknown widget type: {request.viz_type}")
