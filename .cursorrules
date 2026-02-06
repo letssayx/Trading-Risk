@@ -1,0 +1,26 @@
+{
+  "rules": [
+    {
+      "name": "Disconnected Intelligence",
+      "pattern": "**/*.py",
+      "description": "Ensure AI generated code never accesses raw data tables directly. Use deterministic scanners in `backend/analysis` or `PluginManager`.",
+      "level": "error"
+    },
+    {
+      "name": "Plugin Architecture",
+      "pattern": "backend/plugins/**/*.py",
+      "description": "All strategy and risk logic must be implemented as Plugins inheriting from BaseStrategy or RiskMeasure. Do not modify core engine logic for new strategies.",
+      "level": "warning"
+    },
+    {
+      "name": "Institutional Audit",
+      "pattern": "backend/web/workbench/**/*.py",
+      "description": "Any endpoint modifying configuration must log to `AuditTrail` before committing to DB.",
+      "level": "error"
+    }
+  ],
+  "ignore": [
+    "**/__pycache__/**",
+    "*.log"
+  ]
+}

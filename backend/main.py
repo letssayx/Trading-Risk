@@ -21,6 +21,11 @@ from backend.web.search.routes import router as search_router
 from backend.web.strategies.routes import router as strategies_router
 from backend.web.workbench.routes import router as workbench_router
 from backend.web.live.routes import router as live_router
+from backend.dependencies import engine
+from backend.domain.market.models import Base
+
+# Auto-Migration on Startup
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Derivatives Analysis System")
 app.include_router(auth_router)
