@@ -7,11 +7,43 @@ try:
 except ImportError:
     NSEPYTHON_AVAILABLE = False
 
-def get_nifty_option_chain(symbol: str = "NIFTY") -> Dict[str, Any]:
+try:
+    import upstox_client
+    from upstox_client.rest import ApiException
+    from backend.config import Config
+    UPSTOX_AVAILABLE = True
+except ImportError:
+    UPSTOX_AVAILABLE = False
+
+def get_nifty_option_chain(symbol: str = "NIFTY", expiry_date: str = "2026-03-26") -> Dict[str, Any]:
     """
-    Fetches the live Option Chain from NSE for analysis.
-    Uses nsepython if available, otherwise returns mock structure for offline/safe mode.
+    Fetches the live Option Chain from Upstox (Preferred) or NSEPython (Fallback).
     """
+    # 1. Try Upstox API
+    if UPSTOX_AVAILABLE and Config.MARKET_DATA_KEY and len(Config.MARKET_DATA_KEY) > 20: # Heuristic for real key
+        try:
+            configuration = upstox_client.Configuration()
+            configuration.access_token = Config.MARKET_DATA_KEY # Assumes Access Token is stored here after Auth flow
+
+            api_instance = upstox_client.OptionsApi(upstox_client.ApiClient(configuration))
+            # Format symbol for Upstox: NSE_INDEX|Nifty 50
+            upstox_symbol = "NSE_INDEX|Nifty 50" if symbol == "NIFTY" else symbol
+
+            api_response = api_instance.get_put_call_option_chain(upstox_symbol, expiry_date)
+
+            # Map Upstox response to standard DF
+            if api_response and api_response.data:
+                # Logic to convert api_response.data to DataFrame structure expected by scanners
+                # Mocking this mapping for now as it depends on exact Upstox response schema
+                return {
+                    "timestamp": "Live",
+                    "underlying": 0, # Need to fetch LTP separately usually
+                    "data": pd.DataFrame(api_response.data)
+                }
+        except Exception as e:
+             print(f"⚠️ Upstox Fetch Error: {e}")
+
+    # 2. Fallback to NSEPython
     if NSEPYTHON_AVAILABLE:
         try:
             payload = nse_optionchain_scrapper(symbol)

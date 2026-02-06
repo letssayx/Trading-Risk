@@ -10,6 +10,7 @@ class Config:
     Ensures keys are loaded or raises an error if missing.
     """
     MARKET_DATA_KEY = os.getenv("MARKET_DATA_KEY")
+    UPSTOX_SECRET = os.getenv("UPSTOX_API_SECRET")
     AI_KEY = os.getenv("AI_ORCHESTRATOR_KEY")
     MODE = os.getenv("SYSTEM_MODE", "DEVELOPMENT")
 
@@ -20,6 +21,9 @@ class Config:
             raise EnvironmentError("MISSING: MARKET_DATA_KEY not found in .env")
         if not cls.AI_KEY:
             raise EnvironmentError("MISSING: AI_ORCHESTRATOR_KEY not found in .env")
+        if cls.MODE == "PRODUCTION" and not cls.UPSTOX_SECRET:
+             print("⚠️ UPSTOX_API_SECRET missing (Required for Production Auth).")
+
         print(f"✅ Turtle Terminal Config: {cls.MODE} mode active.")
 
 # Auto-validate on startup
