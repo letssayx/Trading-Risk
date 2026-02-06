@@ -15,3 +15,11 @@ class BaseStrategy(ABC):
     def check_signals(self, df: pd.DataFrame, current_pos: Dict[str, Any]) -> str:
         """Return 'BUY', 'SELL', 'EXIT', or 'HOLD'."""
         pass
+
+    @abstractmethod
+    def youtube(self) -> None:
+        """
+        Placeholder for strategy-specific media/logging actions or external hooks.
+        As per requirements.
+        """
+        pass
