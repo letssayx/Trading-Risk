@@ -250,9 +250,50 @@
             }, 600);
         }
 
+        async function fetchRiskMetrics() {
+            try {
+                const response = await fetch('/api/widgets/data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ viz_type: "risk_metrics", parameters: {} })
+                });
+                const data = await response.json();
+                const greeks = data.data_payload.portfolio_greeks;
+                const varMetrics = data.data_payload.var_metrics;
+
+                // Update Greeks Table
+                const tableHtml = `
+                    <table style="width:100%; color:#aaa; font-family:monospace;">
+                        <tr><th>Metric</th><th>Delta</th><th>Gamma</th><th>Vega</th><th>Theta</th></tr>
+                        <tr>
+                            <td>PORTFOLIO</td>
+                            <td style="color:${greeks.delta > 0 ? '#00e676' : '#ff5252'}">${greeks.delta.toFixed(2)}</td>
+                            <td>${greeks.gamma.toFixed(3)}</td>
+                            <td>${greeks.vega.toFixed(1)}</td>
+                            <td>${greeks.theta.toFixed(1)}</td>
+                        </tr>
+                        <tr>
+                             <td colspan="5" style="text-align:center; padding-top:10px;">
+                                VaR (95%): <span style="color:#ff5252">${varMetrics['VaR 95%']}</span>
+                             </td>
+                        </tr>
+                    </table>
+                `;
+                document.querySelector('.w-greeks .widget-body').innerHTML = tableHtml;
+
+            } catch (e) {
+                console.error("Failed to fetch risk metrics", e);
+            }
+        }
+
         function saveLayout() {
             alert("Layout 'NIFTY_VOL_DESK' Saved to Database.");
         }
+
+        // Init
+        window.onload = () => {
+            fetchRiskMetrics();
+        };
     </script>
 </body>
 </html>
