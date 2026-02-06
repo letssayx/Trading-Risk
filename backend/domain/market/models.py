@@ -1,38 +1,32 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, PrimaryKeyConstraint
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Text, JSON
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import declarative_base
+import uuid
 
 Base = declarative_base()
 
-class InstrumentModel(Base):
+class Instrument(Base):
+    """Universal registry for symbols across NSE, CBOT, etc."""
     __tablename__ = 'instruments'
 
-    turtle_id = Column(String, primary_key=True)
-    symbol = Column(String, nullable=False)
-    exchange = Column(String, nullable=False)
-    exchange_token = Column(String) # Exchange specific key
-    instrument_type = Column(String) # Future, Option, Equity, Commodity, Index
-    asset_class = Column(String) # Equity, Commodity, FX, Crypto
-    details = Column(JSON) # Contract size, expiry, tick_size, lot_size
+    turtle_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ticker = Column(String(20), nullable=False, index=True)
+    name = Column(Text)
+    exchange = Column(String(10), nullable=False) # NSE, CBOT, etc.
+    asset_class = Column(String(20)) # Equity, Option, Future
+    vendor_key = Column(String(50), unique=True) # Upstox instrument_key
+    lot_size = Column(Integer, default=1)
 
 class MarketData(Base):
+    """TimescaleDB Hypertable for time-series price and Greek data."""
     __tablename__ = 'market_data'
 
-    timestamp = Column(DateTime, nullable=False)
-    symbol = Column(String, nullable=False)
-    open = Column(Float)
-    high = Column(Float)
-    low = Column(Float)
-    close = Column(Float)
-    volume = Column(Float)
-    open_interest = Column(Float)
-
-    # Greeks (if applicable)
-    delta = Column(Float)
-    gamma = Column(Float)
-    vega = Column(Float)
-    theta = Column(Float)
-
-    # TimescaleDB Hypertable primary key composite
-    __table_args__ = (
-        PrimaryKeyConstraint('timestamp', 'symbol'),
-    )
+    time = Column(DateTime(timezone=True), primary_key=True)
+    turtle_id = Column(UUID(as_uuid=True), ForeignKey('instruments.turtle_id'), primary_key=True)
+    open = Column(Numeric)
+    high = Column(Numeric)
+    low = Column(Numeric)
+    close = Column(Numeric)
+    volume = Column(Integer)
+    iv = Column(Numeric) # Implied Volatility
+    greeks = Column(JSONB) # {delta: 0.5, gamma: 0.001, ...}
