@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Jules Command Center</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
             --bg-color: #121212;
@@ -35,6 +36,8 @@
         .w-registry { grid-column: span 3; grid-row: span 3; }
         .w-code-audit { grid-column: span 5; grid-row: span 3; }
         .w-tweak { grid-column: span 4; grid-row: span 3; }
+        .w-rollover { grid-column: span 6; grid-row: span 2; }
+        .w-chart-basis { grid-column: span 6; grid-row: span 2; }
         .w-audit-feed { grid-column: span 12; grid-row: span 2; }
         .w-greeks { grid-column: span 12; grid-row: span 2; }
 
@@ -70,7 +73,7 @@
 
     <div id="main-wrapper">
         <header id="global-header">
-            <div class="context-title">WHITE BOX WORKBENCH</div>
+            <div class="context-title">TURTLE TERMINAL</div>
             <div class="global-tools">
                 <button onclick="fetchState()">REFRESH_STATE</button>
             </div>
@@ -101,6 +104,24 @@
                 <div class="widget-body" id="config-editor">
                     <!-- Inputs generated here -->
                 </div>
+            </div>
+
+            <!-- Rollover Table -->
+            <div class="widget-card w-rollover">
+                <div class="widget-header">ROLLOVER MONITOR (Near/Next)</div>
+                <div class="widget-body">
+                    <table style="width:100%; font-size:0.9em; text-align:left; color:#ccc;">
+                        <tr><th>Pair</th><th>Spread (pts)</th><th>Basis (Ann.)</th><th>Signal</th></tr>
+                        <!-- Mock Data Row -->
+                        <tr><td>NIFTY Dec/Jan</td><td>125.0</td><td style="color:var(--accent-color)">8.4%</td><td>LONG_BASIS</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pro Chart: Basis History -->
+            <div class="widget-card w-chart-basis">
+                <div class="widget-header">BASIS SPREAD HISTORY</div>
+                <div class="widget-body" id="chart-basis" style="padding:0;"></div>
             </div>
 
             <!-- Audit Feed -->
@@ -244,6 +265,40 @@
             });
         }
 
+        // --- TurtleChart Integration ---
+        let chart;
+        let areaSeries;
+
+        function initChart() {
+            const container = document.getElementById('chart-basis');
+            chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: container.clientHeight,
+                layout: { background: { color: '#1e1e1e' }, textColor: '#ccc' },
+                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} },
+                timeScale: { timeVisible: true, secondsVisible: false }
+            });
+            areaSeries = chart.addAreaSeries({
+                lineColor: '#2962FF', topColor: '#2962FF', bottomColor: 'rgba(41, 98, 255, 0.28)'
+            });
+
+            // Seed Mock Data
+            const data = [];
+            let time = Math.floor(Date.now() / 1000) - 10000;
+            for(let i=0; i<100; i++) {
+                time += 60;
+                data.push({ time: time, value: 50 + Math.random() * 10 });
+            }
+            areaSeries.setData(data);
+        }
+
+        window.addEventListener('resize', () => {
+             if(chart) {
+                 const container = document.getElementById('chart-basis');
+                 chart.resize(container.clientWidth, container.clientHeight);
+             }
+        });
+
         // ... Existing Chat & Risk Logic ...
         async function fetchRiskMetrics() {
              try {
@@ -275,12 +330,18 @@
         window.onload = () => {
             fetchState();
             fetchRiskMetrics();
+            initChart();
 
             // Connect WS
             const ws = new WebSocket(`ws://${window.location.host}/ws/live-updates`);
             ws.onmessage = (event) => {
-                // Handle live updates (e.g. toast notification)
-                console.log("Live Update:", event.data);
+                const msg = JSON.parse(event.data);
+                if (msg.type === "pnl_update" && areaSeries) {
+                    // Feed Chart (Using PnL stream for demo basis)
+                    // In real app, separate basis stream
+                    const now = Math.floor(Date.now() / 1000);
+                    areaSeries.update({ time: now, value: 50 + msg.payload.delta });
+                }
             };
         };
 

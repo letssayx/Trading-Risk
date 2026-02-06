@@ -1,44 +1,80 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel
-from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from sqlalchemy.orm import Session
+from datetime import datetime
+import asyncio
+
+from backend.dependencies import get_db
+from backend.auth.service import AuthService
+from backend.domain.audit.models import AuditTrail
 from backend.domain.common.user import User
 
-# Mock User DB
-USERS_DB = {
-    "admin": {"password": "secret_password", "user": User(id="USER-001", username="admin", full_name="Admin User")},
-    "trader": {"password": "trade_safe", "user": User(id="USER-002", username="trader", full_name="Trader Joe")}
-}
+router = APIRouter(prefix="/auth", tags=["Auth"])
+auth_service = AuthService()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+# MVP: Hardcoded User getter for now, usually JWT logic
+def get_current_user():
+    return User(id="mvp_user", username="trader", full_name="Local Trader")
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+async def refresh_token_task(db: Session, user_id: str):
+    """
+    Background task to refresh token before expiry.
+    """
+    # Logic: Wait until 15 mins before expiry, then refresh
+    # For MVP: Just log that monitoring is active
+    print(f"[{datetime.now()}] Token Refresh Monitor Active for {user_id}")
+    # In real impl: while True: check time -> refresh -> sleep
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
-    # Simple Mock: Token is just "username:password" base64 or similar?
-    # For demo, let's assume the token IS the username.
-    user_entry = USERS_DB.get(token)
-    if not user_entry:
-         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+    # Audit Log
+    try:
+        audit = AuditTrail(
+            user_id=user_id,
+            action_type="AUTH_REFRESH_INIT",
+            entity_type="SYSTEM",
+            entity_id="UPSTOX_SESSION",
+            timestamp=datetime.utcnow()
         )
-    return user_entry["user"]
+        db.add(audit)
+        db.commit()
+    except Exception as e:
+        print(f"Audit Log Failed: {e}")
 
-@router.post("/token", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user_entry = USERS_DB.get(form_data.username)
-    if not user_entry or user_entry["password"] != form_data.password:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+@router.get("/login")
+def login():
+    """Returns the Login URL (Frontend should redirect here)."""
+    return {"url": auth_service.get_login_url()}
+
+@router.get("/callback")
+def auth_callback(code: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    Upstox Redirects here with ?code=...
+    """
+    try:
+        token_data = auth_service.exchange_code_for_token(code)
+
+        # Log Success
+        user_id = token_data.get("user_id", "unknown")
+        audit = AuditTrail(
+            user_id=user_id,
+            action_type="LOGIN_SUCCESS",
+            entity_type="SYSTEM",
+            entity_id="UPSTOX_SESSION",
+            after_state={"user_name": token_data.get("user_name")},
+            timestamp=datetime.utcnow()
         )
+        db.add(audit)
+        db.commit()
 
-    # Return the username as the "token" for this mock
-    return {"access_token": form_data.username, "token_type": "bearer"}
+        # Start Refresh Task
+        background_tasks.add_task(refresh_token_task, db, user_id)
+
+        return {"status": "Login Successful", "user": token_data.get("user_name")}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/totp")
+def generate_totp_manual(user: User = Depends(get_current_user)):
+    """
+    For manual 2FA entry if needed.
+    """
+    return {"totp": auth_service.generate_totp()}

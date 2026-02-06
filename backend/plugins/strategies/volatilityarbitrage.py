@@ -1,1 +1,0 @@
-class VolatilityArbitrage: pass # Mock
