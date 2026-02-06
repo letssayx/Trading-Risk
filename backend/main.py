@@ -17,6 +17,8 @@ from backend.ingest.routes import router as ingest_router
 from backend.dashboard.routes import router as dashboard_router
 from backend.ui.routes import router as ui_router
 from backend.widgets.routes import router as widgets_router
+from backend.web.search.routes import router as search_router
+from backend.web.strategies.routes import router as strategies_router
 
 app = FastAPI(title="Derivatives Analysis System")
 app.include_router(auth_router)
@@ -28,3 +30,5 @@ app.include_router(ingest_router)
 app.include_router(dashboard_router)
 app.include_router(ui_router)
 app.include_router(widgets_router)
+app.include_router(search_router)
+app.include_router(strategies_router)

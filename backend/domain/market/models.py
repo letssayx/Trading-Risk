@@ -10,8 +10,9 @@ class InstrumentModel(Base):
     symbol = Column(String, nullable=False)
     exchange = Column(String, nullable=False)
     exchange_token = Column(String) # Exchange specific key
-    instrument_type = Column(String) # Future, Option, Equity
-    details = Column(JSON) # Contract size, expiry, etc.
+    instrument_type = Column(String) # Future, Option, Equity, Commodity, Index
+    asset_class = Column(String) # Equity, Commodity, FX, Crypto
+    details = Column(JSON) # Contract size, expiry, tick_size, lot_size
 
 class MarketData(Base):
     __tablename__ = 'market_data'
