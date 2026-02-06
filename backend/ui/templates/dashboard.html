@@ -8,250 +8,245 @@
             --bg-color: #121212;
             --panel-bg: #1e1e1e;
             --border-color: #333;
-            --accent-color: #00e676; /* Green Accent */
+            --accent-color: #00e676;
             --text-color: #e0e0e0;
             --header-height: 50px;
-            --sidebar-width: 60px; /* Collapsed width */
+            --sidebar-width: 60px;
             --chat-width: 350px;
         }
+        body { margin: 0; font-family: 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
 
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
+        /* ... Global Nav, Header, Sidebar ... */
+        #nav-shell { width: var(--sidebar-width); background: #000; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding-top: 10px; z-index: 1000; }
+        .nav-icon { width: 40px; height: 40px; margin-bottom: 15px; border-radius: 8px; background: #222; display: flex; justify-content: center; align-items: center; cursor: pointer; color: #888; font-size: 1.2em; transition: all 0.2s; }
+        .nav-icon:hover, .nav-icon.active { background: var(--accent-color); color: #000; }
 
-        /* Global Navigation Sidebar (Left) */
-        #nav-shell {
-            width: var(--sidebar-width);
-            background: #000;
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 10px;
-            z-index: 1000;
-        }
-        .nav-icon {
-            width: 40px; height: 40px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            background: #222;
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer;
-            color: #888;
-            font-size: 1.2em;
-            transition: all 0.2s;
-        }
-        .nav-icon:hover, .nav-icon.active {
-            background: var(--accent-color);
-            color: #000;
-        }
-
-        /* Main Content Area */
-        #main-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        /* Global Header / Toolbar */
-        #global-header {
-            height: var(--header-height);
-            background: var(--panel-bg);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            justify-content: space-between;
-        }
+        #main-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
+        #global-header { height: var(--header-height); background: var(--panel-bg); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
         .context-title { font-weight: bold; font-size: 1.1em; color: var(--accent-color); }
-        .global-tools button {
-            background: #333; border: 1px solid #444; color: #fff;
-            padding: 6px 12px; margin-left: 8px; cursor: pointer;
-            font-family: monospace; font-size: 0.8em;
-        }
-        .global-tools button:hover { background: #444; }
+        .global-tools button { background: #333; border: 1px solid #444; color: #fff; padding: 6px 12px; margin-left: 8px; cursor: pointer; font-family: monospace; font-size: 0.8em; }
 
-        /* Workspace Grid */
-        #workspace {
-            flex: 1;
-            overflow: auto;
-            padding: 10px;
-            display: grid;
-            grid-template-columns: repeat(12, 1fr); /* 12-column grid */
-            gap: 10px;
-            grid-auto-rows: minmax(100px, auto);
-        }
+        #workspace { flex: 1; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(100px, auto); }
+        .widget-card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .widget-header { padding: 5px 10px; background: #252525; border-bottom: 1px solid var(--border-color); font-size: 0.85em; font-weight: bold; display: flex; justify-content: space-between; }
+        .widget-body { flex: 1; padding: 10px; overflow: auto; }
 
-        /* Widget Container */
-        .widget-card {
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            display: flex; flex-direction: column;
-            overflow: hidden;
-            position: relative;
-        }
-        .widget-header {
-            padding: 5px 10px;
-            background: #252525;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.85em; font-weight: bold;
-            display: flex; justify-content: space-between;
-        }
-        .widget-body { flex: 1; position: relative; padding: 10px; overflow: hidden; }
-
-        /* Widget Types (Classes for Grid Positioning) */
-        .w-chart { grid-column: span 8; grid-row: span 4; }
-        .w-vol-surface { grid-column: span 4; grid-row: span 3; }
-        .w-stats { grid-column: span 4; grid-row: span 3; }
+        /* Grid Classes */
+        .w-registry { grid-column: span 3; grid-row: span 3; }
+        .w-code-audit { grid-column: span 5; grid-row: span 3; }
+        .w-tweak { grid-column: span 4; grid-row: span 3; }
+        .w-audit-feed { grid-column: span 12; grid-row: span 2; }
         .w-greeks { grid-column: span 12; grid-row: span 2; }
 
-        /* Chat Sidebar (Right) */
-        #chat-panel {
-            width: var(--chat-width);
-            background: var(--panel-bg);
-            border-left: 1px solid var(--border-color);
-            display: flex; flex-direction: column;
-        }
+        /* White Box Components */
+        .registry-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #333; cursor: pointer; }
+        .registry-item:hover { background: #2a2a2a; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .status-active { background: var(--accent-color); }
+        .status-inactive { background: #666; }
 
-        /* ... Reuse Chat Styles from previous dashboard ... */
+        pre.code-block { background: #111; padding: 10px; margin: 0; font-size: 0.85em; height: 100%; overflow: auto; color: #a9b7c6; }
+
+        .audit-row { display: grid; grid-template-columns: 150px 100px 150px 1fr; border-bottom: 1px solid #333; padding: 5px; font-size: 0.85em; }
+        .audit-header { font-weight: bold; background: #252525; }
+
+        /* Chat Sidebar */
+        #chat-panel { width: var(--chat-width); background: var(--panel-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; }
         #chat-history { flex: 1; overflow-y: auto; padding: 10px; font-size: 0.9em; }
         .msg-user { text-align: right; color: #4fc3f7; margin-bottom: 10px; }
         .msg-system { text-align: left; color: #e0e0e0; margin-bottom: 10px; background: #2d2d2d; padding: 8px; border-radius: 4px; }
         #chat-input-area { height: 60px; padding: 10px; border-top: 1px solid #333; background: #252526; display: flex; }
         #chat-input { flex: 1; background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-family: monospace; }
-
-        /* 3D Surface Placeholder */
-        .surface-mock {
-            width: 100%; height: 100%;
-            background: linear-gradient(45deg, #222 25%, #333 25%, #333 50%, #222 50%, #222 75%, #333 75%, #333 100%);
-            background-size: 20px 20px;
-            display: flex; justify-content: center; align-items: center;
-            color: #888;
-            position: relative;
-        }
-        .highlight-marker {
-            position: absolute; width: 20px; height: 20px; border: 2px solid red; border-radius: 50%;
-            top: 40%; left: 60%;
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
-
     </style>
 </head>
 <body>
-
-    <!-- 1. Global Nav Shell -->
     <div id="nav-shell">
-        <div class="nav-icon active" title="Analysis Workbench">📊</div>
-        <div class="nav-icon" title="Market Scan Hub">🔍</div>
-        <div class="nav-icon" title="Risk Analytics Center">🛡️</div>
-        <div class="nav-icon" title="Data Ingestion" onclick="window.location.href='/ingest'">📥</div>
-        <div class="nav-icon" title="Reports Archive">📁</div>
-        <div class="nav-icon" style="margin-top:auto;" title="Settings">⚙️</div>
+        <div class="nav-icon active">📊</div>
+        <div class="nav-icon">🔍</div>
+        <div class="nav-icon">🛡️</div>
+        <div class="nav-icon">📁</div>
+        <div class="nav-icon" style="margin-top:auto;">⚙️</div>
     </div>
 
-    <!-- 2. Main Wrapper -->
     <div id="main-wrapper">
-        <!-- Global Header -->
         <header id="global-header">
-            <div class="context-title">WORKBENCH: NIFTY_VOL_DESK</div>
+            <div class="context-title">WHITE BOX WORKBENCH</div>
             <div class="global-tools">
-                <button onclick="saveLayout()">SAVE_LAYOUT</button>
-                <button onclick="exportPDF()">EXPORT_PDF</button>
-                <button onclick="exportCSV()">DOWNLOAD_DATA</button>
+                <button onclick="fetchState()">REFRESH_STATE</button>
             </div>
         </header>
 
-        <!-- Workspace Grid -->
         <div id="workspace">
 
-            <!-- Widget: Volatility Surface (3D) -->
-            <div class="widget-card w-vol-surface" id="widget-vol-surface">
-                <div class="widget-header">
-                    <span>VOL_SURFACE_3D</span>
-                    <span>⛶</span>
+            <!-- Registry Panel -->
+            <div class="widget-card w-registry">
+                <div class="widget-header">PLUGIN REGISTRY</div>
+                <div class="widget-body" id="registry-list">
+                    <!-- Populated via JS -->
+                    <div style="padding:10px; color:#666;">Loading Plugins...</div>
                 </div>
-                <div class="widget-body">
-                    <!-- Visualization Container -->
-                    <div class="surface-mock">
-                        [ 3D VOL MESH ]
-                        <!-- Highlight Marker injected by Jules -->
-                        <div class="highlight-marker" title="Skew Anomaly"></div>
+            </div>
+
+            <!-- Code Audit Panel -->
+            <div class="widget-card w-code-audit">
+                <div class="widget-header">CODE AUDIT (Read-Only)</div>
+                <div class="widget-body" style="padding:0;">
+                    <pre class="code-block" id="code-viewer">// Select a plugin to view source logic...</pre>
+                </div>
+            </div>
+
+            <!-- Tweak Config Panel -->
+            <div class="widget-card w-tweak">
+                <div class="widget-header">PARAMETER TWEAKS</div>
+                <div class="widget-body" id="config-editor">
+                    <!-- Inputs generated here -->
+                </div>
+            </div>
+
+            <!-- Audit Feed -->
+            <div class="widget-card w-audit-feed">
+                <div class="widget-header">INSTITUTIONAL AUDIT TRAIL</div>
+                <div class="widget-body" style="padding:0;">
+                    <div class="audit-row audit-header">
+                        <span>Timestamp</span><span>User</span><span>Action</span><span>Detail</span>
                     </div>
+                    <div id="audit-feed-content"></div>
                 </div>
             </div>
 
-            <!-- Widget: TradingView Chart -->
-            <div class="widget-card w-chart">
-                <div class="widget-header">PRICE_ACTION_PRIMARY</div>
-                <div class="widget-body" style="background:#000;">
-                    [ TRADINGVIEW CHART: NSE:NIFTY ]
-                </div>
-            </div>
-
-            <!-- Widget: Statistical Distribution -->
-            <div class="widget-card w-stats">
-                <div class="widget-header">OI_DISTRIBUTION_HIST</div>
-                <div class="widget-body">
-                    [ BELL CURVE / HISTOGRAM ]
-                </div>
-            </div>
-
-             <!-- Widget: Greeks Grid -->
+             <!-- Greeks Grid (Existing) -->
              <div class="widget-card w-greeks">
-                <div class="widget-header">REAL_TIME_GREEKS</div>
+                <div class="widget-header">RISK ANALYTICS</div>
                 <div class="widget-body">
-                    <table style="width:100%; color:#aaa; font-family:monospace;">
-                        <tr><th>Strike</th><th>Delta</th><th>Gamma</th><th>Vega</th></tr>
-                        <tr><td>19500 CE</td><td>0.52</td><td>0.0012</td><td>12.4</td></tr>
-                        <tr><td>19600 CE</td><td>0.38</td><td>0.0015</td><td>14.1</td></tr>
-                    </table>
+                    <!-- Populated by existing logic -->
                 </div>
             </div>
 
         </div>
     </div>
 
-    <!-- 3. Chat Sidebar -->
     <div id="chat-panel">
-        <div class="widget-header" style="background:#1e1e1e; border-bottom:1px solid #333;">JULES_INTELLIGENCE</div>
+        <div class="widget-header">JULES_INTELLIGENCE</div>
         <div id="chat-history">
-            <div class="msg-system">
-                System Online. "Vol Surface" widget loaded. Skew detected at 19500 Strike.
-            </div>
+            <div class="msg-system">System Online. Registry Loaded.</div>
         </div>
         <div id="chat-input-area">
             <input type="text" id="chat-input" placeholder="Ask Jules...">
-            <button style="background:#333; border:none; color:#fff; cursor:pointer;" onclick="sendMessage()">></button>
+            <button style="background:#333; border:none; color:#fff;" onclick="sendMessage()">></button>
         </div>
     </div>
 
     <script>
-        // ... (Reuse logic for Chat) ...
-        async function sendMessage() {
-            const input = document.getElementById('chat-input');
-            const query = input.value;
-            if(!query) return;
+        // State Management
+        let selectedStrategyId = null;
+        let currentConfig = {};
 
-            const chatHistory = document.getElementById('chat-history');
-            chatHistory.innerHTML += `<div class="msg-user">${query}</div>`;
-            input.value = '';
-
-            // Mock Interaction: Jules controlling the widgets
-            setTimeout(() => {
-                chatHistory.innerHTML += `
-                    <div class="msg-system">
-                        Querying <strong>Vol Surface</strong>...<br>
-                        <em>Highlighted the skew anomaly at 19500.</em><br>
-                        Put-Call ratio divergence suggests downside hedging.
-                    </div>
-                `;
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-            }, 600);
+        async function fetchState() {
+            try {
+                const res = await fetch('/workbench/state');
+                const data = await res.json();
+                renderRegistry(data.registry);
+                renderAuditFeed(data.audit_feed);
+            } catch (e) { console.error("State Fetch Error", e); }
         }
 
-        async function fetchRiskMetrics() {
+        function renderRegistry(registry) {
+            const container = document.getElementById('registry-list');
+            container.innerHTML = '';
+            registry.forEach(plugin => {
+                const div = document.createElement('div');
+                div.className = 'registry-item';
+                div.onclick = () => selectPlugin(plugin);
+                div.innerHTML = `
+                    <span>
+                        <span class="status-dot ${plugin.is_active ? 'status-active' : 'status-inactive'}"></span>
+                        ${plugin.name}
+                    </span>
+                    <span style="font-size:0.8em; color:#888;">v${plugin.version}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function selectPlugin(plugin) {
+            selectedStrategyId = plugin.id;
+            currentConfig = plugin.config;
+
+            // Render Code
+            document.getElementById('code-viewer').textContent = plugin.source_code || "# No Source Code Available";
+
+            // Render Config Editor
+            const editor = document.getElementById('config-editor');
+            editor.innerHTML = '';
+
+            if (!plugin.config) return;
+
+            Object.keys(plugin.config).forEach(key => {
+                const wrapper = document.createElement('div');
+                wrapper.style.marginBottom = "10px";
+                wrapper.innerHTML = `
+                    <label style="display:block; color:#888; font-size:0.8em;">${key}</label>
+                    <input type="number" id="cfg-${key}" value="${plugin.config[key]}" style="width:100%; background:#333; border:1px solid #444; color:#fff; padding:5px;">
+                `;
+                editor.appendChild(wrapper);
+            });
+
+            const btn = document.createElement('button');
+            btn.textContent = "APPLY TWEAK & RELOAD";
+            btn.style.marginTop = "10px";
+            btn.style.background = "var(--accent-color)";
+            btn.style.border = "none";
+            btn.style.padding = "5px 10px";
+            btn.style.cursor = "pointer";
+            btn.onclick = applyTweak;
+            editor.appendChild(btn);
+        }
+
+        async function applyTweak() {
+            if (!selectedStrategyId) return;
+
+            const newConfig = { ...currentConfig };
+            // Update from inputs
+            Object.keys(newConfig).forEach(key => {
+                const el = document.getElementById(`cfg-${key}`);
+                if (el) newConfig[key] = parseFloat(el.value);
+            });
+
             try {
+                const res = await fetch('/workbench/strategies/tweak', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ strategy_id: selectedStrategyId, config: newConfig })
+                });
+                const result = await res.json();
+                if (result.status === "Success") {
+                    alert(`Tweak Applied. New Version: ${result.new_version}`);
+                    fetchState(); // Refresh
+                } else {
+                    alert("Update Failed");
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderAuditFeed(logs) {
+            const container = document.getElementById('audit-feed-content');
+            container.innerHTML = '';
+            logs.forEach(log => {
+                const row = document.createElement('div');
+                row.className = 'audit-row';
+                row.innerHTML = `
+                    <span>${log.timestamp.split('T')[1].split('.')[0]}</span>
+                    <span>${log.user_id.substring(0,8)}</span>
+                    <span style="color:${log.action_type === 'TWEAK_PARAM' ? '#ffab40' : '#4fc3f7'}">${log.action_type}</span>
+                    <span>${log.entity_type} ID:${log.entity_id.substring(0,6)}</span>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // ... Existing Chat & Risk Logic ...
+        async function fetchRiskMetrics() {
+             try {
                 const response = await fetch('/api/widgets/data', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -261,39 +256,40 @@
                 const greeks = data.data_payload.portfolio_greeks;
                 const varMetrics = data.data_payload.var_metrics;
 
-                // Update Greeks Table
                 const tableHtml = `
                     <table style="width:100%; color:#aaa; font-family:monospace;">
-                        <tr><th>Metric</th><th>Delta</th><th>Gamma</th><th>Vega</th><th>Theta</th></tr>
+                        <tr><th>Metric</th><th>Delta</th><th>Gamma</th><th>Vega</th></tr>
                         <tr>
                             <td>PORTFOLIO</td>
                             <td style="color:${greeks.delta > 0 ? '#00e676' : '#ff5252'}">${greeks.delta.toFixed(2)}</td>
                             <td>${greeks.gamma.toFixed(3)}</td>
                             <td>${greeks.vega.toFixed(1)}</td>
-                            <td>${greeks.theta.toFixed(1)}</td>
                         </tr>
-                        <tr>
-                             <td colspan="5" style="text-align:center; padding-top:10px;">
-                                VaR (95%): <span style="color:#ff5252">${varMetrics['VaR 95%']}</span>
-                             </td>
-                        </tr>
+                         <tr><td colspan="4">VaR (95%): <span style="color:#ff5252">${varMetrics['VaR 95%']}</span></td></tr>
                     </table>
                 `;
                 document.querySelector('.w-greeks .widget-body').innerHTML = tableHtml;
-
-            } catch (e) {
-                console.error("Failed to fetch risk metrics", e);
-            }
+            } catch (e) {}
         }
 
-        function saveLayout() {
-            alert("Layout 'NIFTY_VOL_DESK' Saved to Database.");
-        }
-
-        // Init
         window.onload = () => {
+            fetchState();
             fetchRiskMetrics();
+
+            // Connect WS
+            const ws = new WebSocket(`ws://${window.location.host}/ws/live-updates`);
+            ws.onmessage = (event) => {
+                // Handle live updates (e.g. toast notification)
+                console.log("Live Update:", event.data);
+            };
         };
+
+        // Mock Chat
+        function sendMessage() {
+             const input = document.getElementById('chat-input');
+             document.getElementById('chat-history').innerHTML += `<div class="msg-user">${input.value}</div>`;
+             input.value = '';
+        }
     </script>
 </body>
 </html>

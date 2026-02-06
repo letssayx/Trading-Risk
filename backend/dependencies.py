@@ -4,6 +4,21 @@ from backend.domain.instruments.asset import UnderlyingAsset
 from backend.domain.market.snapshot import MarketSnapshot, InstrumentSnapshot
 from backend.domain.market.state import MarketState, SentimentSignal
 from backend.orchestration.pipelines.executor import Executor
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from backend.config import Config
+
+# Database Setup
+# Using connect_args check_same_thread=False for SQLite compatibility in MVP/Test mode if needed
+engine = create_engine(Config.DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 def get_mock_context():
     asset = UnderlyingAsset(symbol="NIFTY", name="Nifty 50", asset_class="Index")

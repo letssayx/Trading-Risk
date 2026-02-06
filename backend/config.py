@@ -9,6 +9,9 @@ class Config:
     Centralized configuration manager for Turtle Terminal.
     Ensures keys are loaded or raises an error if missing.
     """
+    # Database Config
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://jules:jules123@localhost:5432/turtle_db")
+
     MARKET_DATA_KEY = os.getenv("MARKET_DATA_KEY")
     UPSTOX_SECRET = os.getenv("UPSTOX_API_SECRET")
     AI_KEY = os.getenv("AI_ORCHESTRATOR_KEY")
