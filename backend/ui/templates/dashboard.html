@@ -120,7 +120,13 @@
 
             <!-- Pro Chart: Basis History -->
             <div class="widget-card w-chart-basis">
-                <div class="widget-header">BASIS SPREAD HISTORY</div>
+                <div class="widget-header">
+                    <span>MARKET ANALYTICS</span>
+                    <select id="chart-selector" style="background:#333; color:#fff; border:none; font-size:0.8em;" onchange="switchChart()">
+                        <option value="basis">Basis Spread</option>
+                        <option value="greeks">Portfolio Greeks</option>
+                    </select>
+                </div>
                 <div class="widget-body" id="chart-basis" style="padding:0;"></div>
             </div>
 
@@ -268,6 +274,7 @@
         // --- TurtleChart Integration ---
         let chart;
         let areaSeries;
+        let activeSeriesType = 'basis';
 
         function initChart() {
             const container = document.getElementById('chart-basis');
@@ -278,18 +285,35 @@
                 grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} },
                 timeScale: { timeVisible: true, secondsVisible: false }
             });
-            areaSeries = chart.addAreaSeries({
-                lineColor: '#2962FF', topColor: '#2962FF', bottomColor: 'rgba(41, 98, 255, 0.28)'
-            });
+            createSeries('basis');
+        }
 
-            // Seed Mock Data
+        function createSeries(type) {
+            if(areaSeries) chart.removeSeries(areaSeries);
+
+            if (type === 'basis') {
+                areaSeries = chart.addAreaSeries({ lineColor: '#2962FF', topColor: '#2962FF', bottomColor: 'rgba(41, 98, 255, 0.28)' });
+            } else {
+                areaSeries = chart.addLineSeries({ color: '#00e676', lineWidth: 2 });
+            }
+            activeSeriesType = type;
+            seedData();
+        }
+
+        function seedData() {
             const data = [];
             let time = Math.floor(Date.now() / 1000) - 10000;
+            let baseVal = activeSeriesType === 'basis' ? 50 : 120; // 120 for Delta
             for(let i=0; i<100; i++) {
                 time += 60;
-                data.push({ time: time, value: 50 + Math.random() * 10 });
+                data.push({ time: time, value: baseVal + Math.random() * 10 });
             }
             areaSeries.setData(data);
+        }
+
+        function switchChart() {
+            const selector = document.getElementById('chart-selector');
+            createSeries(selector.value);
         }
 
         window.addEventListener('resize', () => {

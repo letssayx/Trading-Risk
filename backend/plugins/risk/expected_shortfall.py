@@ -10,10 +10,22 @@ class ExpectedShortfall:
 
     def calculate(self, portfolio_value: float, returns: list) -> float:
         confidence = self.config.get("confidence_level", 0.99)
+        vol_model = self.config.get("vol_model", "HISTORICAL") # HISTORICAL or GARCH_PROXY
+
         alpha = 1 - confidence
 
+        # Simulate GARCH effect: Scale recent returns if volatility clustering detected
+        # (Proxy logic until 'arch' package is available)
+        final_returns = np.array(returns)
+        if vol_model == "GARCH_PROXY":
+            recent_vol = np.std(final_returns[-20:]) if len(final_returns) > 20 else np.std(final_returns)
+            long_term_vol = np.std(final_returns)
+            if long_term_vol > 0:
+                scaling_factor = recent_vol / long_term_vol
+                final_returns = final_returns * scaling_factor
+
         # Sort returns
-        sorted_rets = np.sort(returns)
+        sorted_rets = np.sort(final_returns)
         # Find cutoff index
         cutoff_index = int(alpha * len(sorted_rets))
 
