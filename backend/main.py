@@ -21,6 +21,7 @@ from backend.web.search.routes import router as search_router
 from backend.web.strategies.routes import router as strategies_router
 from backend.web.workbench.routes import router as workbench_router
 from backend.web.live.routes import router as live_router
+from backend.web.performance.routes import router as perf_router
 from backend.dependencies import engine
 from backend.domain.market.models import Base
 
@@ -41,3 +42,4 @@ app.include_router(search_router)
 app.include_router(strategies_router)
 app.include_router(workbench_router)
 app.include_router(live_router)
+app.include_router(perf_router)
