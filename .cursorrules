@@ -17,6 +17,12 @@
       "pattern": "backend/web/workbench/**/*.py",
       "description": "Any endpoint modifying configuration must log to `AuditTrail` before committing to DB.",
       "level": "error"
+    },
+    {
+      "name": "Smart Money Logic",
+      "pattern": "backend/plugins/strategies/smart_money_pulse.py",
+      "description": "Always check 'ParticipantPosition' when calculating Smart Money signals.",
+      "level": "warning"
     }
   ],
   "ignore": [

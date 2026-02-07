@@ -31,11 +31,16 @@ class RolloverAnalysis(BaseStrategy):
 
         basis_yield = latest.get('basis_annualized', 0)
 
+        # Smart Money Integration: If FIIs are net long, reduce threshold for LONG_BASIS
+        sm_bias = latest.get('smart_money_bias', 'NEUTRAL')
+        threshold = self.config.get("arb_threshold", 1.0)
+
+        if sm_bias == "BULLISH":
+            threshold *= 0.5 # More aggressive entry
+
         # Signal Logic:
         # If Basis Yield > RFR + Threshold => Cash & Carry Opportunity (Long Spot, Short Fut)
         # If Basis Yield < RFR - Threshold => Reverse Arb (Short Spot, Long Fut)
-
-        threshold = self.config.get("arb_threshold", 1.0)
 
         if basis_yield > (rfr + threshold):
             return "LONG_BASIS"

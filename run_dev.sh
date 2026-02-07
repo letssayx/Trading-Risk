@@ -21,6 +21,9 @@ celery -A backend.celery_worker.celery_app worker --loglevel=info > celery.log 2
 CELERY_PID=$!
 echo "         Worker PID: $CELERY_PID"
 
+# Mock Initial Ingestion Trigger (Optional)
+# echo "   [Info] Run 'python backend/data/nse_ingestion.py' to seed institutional data if needed."
+
 # 3. Start Backend (with Hot Reload)
 echo "   [3/3] Starting Backend API (Live Sync Active)..."
 echo "         Open http://localhost:8000/dashboard"
