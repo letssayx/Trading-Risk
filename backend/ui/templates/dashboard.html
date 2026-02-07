@@ -152,6 +152,36 @@
                 <div class="widget-body" id="chart-basis" style="padding:0;"></div>
             </div>
 
+            <!-- Data Integrity Panel -->
+            <div class="widget-card" style="grid-column: span 6; grid-row: span 2;">
+                <div class="widget-header">DATA INTEGRITY ({{ date }})</div>
+                <div class="widget-body">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span>NSE Cash (MTO)</span><span style="color:#00e676;">Synced</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span>F&O Bhavcopy</span><span style="color:#00e676;">Synced</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span>Participant OI</span><span style="color:#ff5252;">Missing</span>
+                    </div>
+                    <button style="width:100%; margin-top:10px; background:#333; color:#fff; border:1px solid #555; cursor:pointer;">FORCE SYNC ALL</button>
+                </div>
+            </div>
+
+            <!-- Historical Load Panel -->
+            <div class="widget-card" style="grid-column: span 6; grid-row: span 2;">
+                <div class="widget-header">HISTORICAL VAULT</div>
+                <div class="widget-body">
+                    <p>Total Coverage: <strong>4.2 Years</strong></p>
+                    <p>Data Gaps: <span style="color:#ffab40">3 Days detected</span></p>
+                    <div style="background:#333; height:10px; width:100%; margin-top:10px;">
+                        <div style="background:#00e676; height:100%; width:85%;"></div>
+                    </div>
+                    <small>Vault Size: 45 GB</small>
+                </div>
+            </div>
+
             <!-- Audit Feed -->
             <div class="widget-card w-audit-feed">
                 <div class="widget-header">INSTITUTIONAL AUDIT TRAIL</div>

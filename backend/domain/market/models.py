@@ -35,3 +35,34 @@ class MarketData(Base):
     volume = Column(Integer)
     iv = Column(Numeric) # Implied Volatility
     greeks = Column(JSONB) # {delta: 0.5, gamma: 0.001, ...}
+
+    # Ensure no duplicates for same instrument at same time
+    # Note: TimescaleDB handles PK constraint on time+turtle_id naturally if defined as PK.
+    # We already have (time, turtle_id) as primary_key=True in definitions.
+
+class CashDelivery(Base):
+    """
+    NSE Delivery Data (MTO).
+    """
+    __tablename__ = 'cash_delivery'
+
+    date = Column(DateTime, primary_key=True)
+    symbol = Column(String(20), primary_key=True)
+    traded_qty = Column(Integer)
+    delivery_qty = Column(Integer)
+    delivery_pct = Column(Numeric)
+
+class LargeDeal(Base):
+    """
+    Bulk and Block Deals.
+    """
+    __tablename__ = 'large_deals'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    date = Column(DateTime)
+    symbol = Column(String(20))
+    client_name = Column(String)
+    deal_type = Column(String) # 'BULK', 'BLOCK'
+    buy_sell = Column(String(4)) # 'BUY', 'SELL'
+    quantity = Column(Integer)
+    price = Column(Numeric)
