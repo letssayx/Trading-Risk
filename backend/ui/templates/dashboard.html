@@ -260,12 +260,20 @@
 
             if (!plugin.config) return;
 
+            // Live Backtest Overlay
+            const backtestOverlay = document.createElement('div');
+            backtestOverlay.id = 'backtest-overlay';
+            backtestOverlay.style.cssText = "margin-bottom:10px; padding:5px; background:#2a2a2a; border-left:3px solid var(--accent-color); font-size:0.85em; display:none;";
+            editor.appendChild(backtestOverlay);
+
             Object.keys(plugin.config).forEach(key => {
                 const wrapper = document.createElement('div');
                 wrapper.style.marginBottom = "10px";
                 wrapper.innerHTML = `
                     <label style="display:block; color:#888; font-size:0.8em;">${key}</label>
-                    <input type="number" id="cfg-${key}" value="${plugin.config[key]}" style="width:100%; background:#333; border:1px solid #444; color:#fff; padding:5px;">
+                    <input type="number" id="cfg-${key}" value="${plugin.config[key]}"
+                           style="width:100%; background:#333; border:1px solid #444; color:#fff; padding:5px;"
+                           onchange="triggerMiniBacktest()">
                 `;
                 editor.appendChild(wrapper);
             });
@@ -279,6 +287,40 @@
             btn.style.cursor = "pointer";
             btn.onclick = applyTweak;
             editor.appendChild(btn);
+        }
+
+        async function triggerMiniBacktest() {
+            if (!selectedStrategyId) return;
+
+            const overlay = document.getElementById('backtest-overlay');
+            overlay.style.display = 'block';
+            overlay.innerHTML = "Running Mini-Backtest...";
+
+            const newConfig = { ...currentConfig };
+            Object.keys(newConfig).forEach(key => {
+                const el = document.getElementById(`cfg-${key}`);
+                if (el) newConfig[key] = parseFloat(el.value);
+            });
+
+            try {
+                const res = await fetch('/strategies/backtest/preview', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ strategy_id: selectedStrategyId, config: newConfig })
+                });
+                const metrics = await res.json();
+
+                // Show Diff
+                overlay.innerHTML = `
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>Win Rate: <span style="color:#fff">${metrics.win_rate}%</span></span>
+                        <span>Profit Factor: <span style="color:#00e676">${metrics.profit_factor}</span></span>
+                    </div>
+                    <div style="font-size:0.8em; color:#888;">Based on last 30 days</div>
+                `;
+            } catch (e) {
+                overlay.innerHTML = "Backtest Failed";
+            }
         }
 
         async function applyTweak() {

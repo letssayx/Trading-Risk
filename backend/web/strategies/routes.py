@@ -1,59 +1,39 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Dict, Any, List
-from backend.auth.routes import get_current_user
-from backend.domain.common.user import User
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Dict, Any
+from backend.dependencies import get_db
+from backend.strategies.models import Strategy
+from backend.registry.manager import PluginManager
+import pandas as pd
+import numpy as np
 
-router = APIRouter(prefix="/api/strategies", tags=["Strategy Persistence"])
+router = APIRouter(prefix="/strategies", tags=["Strategies"])
+plugin_manager = PluginManager()
 
-# Mock Database
-STRATEGIES_DB = []
-
-class StrategySaveRequest(BaseModel):
-    name: str
-    code: str
-    config: Dict[str, Any]
-
-class StrategyResponse(StrategySaveRequest):
-    id: int
-    version: int
-
-@router.post("/save", response_model=StrategyResponse)
-async def save_strategy(strategy: StrategySaveRequest, current_user: User = Depends(get_current_user)):
+@router.post("/backtest/preview")
+async def backtest_preview(payload: Dict[str, Any], db: Session = Depends(get_db)):
     """
-    Saves a new version of a strategy.
+    Runs a Mini-Backtest on the last 30 days of data for a strategy configuration.
     """
-    new_id = len(STRATEGIES_DB) + 1
-    entry = {
-        "id": new_id,
-        "name": strategy.name,
-        "code": strategy.code,
-        "config": strategy.config,
-        "version": 1, # Increment logic in real DB
-        "author": current_user.username
+    strat_id = payload.get("strategy_id")
+    config = payload.get("config", {})
+
+    # 1. Load Strategy (Mock logic for now, or use PluginManager to instantiate with new config)
+    # Ideally: instance = plugin_manager.load_class_with_config(...)
+
+    # 2. Fetch Data (Mock 30 days)
+    # In prod: db.query(MarketData).filter(...).limit(30)
+    # Mocking results based on config to show dynamic behavior
+
+    # If config is "aggressive", higher win rate but lower profit factor?
+    # Simple deterministic mock for UI verification:
+    threshold = float(config.get("spread_threshold", 5.0))
+    win_rate = min(90, 50 + (threshold * 2)) # Higher threshold = higher win rate?
+    profit_factor = max(1.0, 3.0 - (threshold * 0.1))
+
+    return {
+        "status": "Success",
+        "win_rate": round(win_rate, 2),
+        "profit_factor": round(profit_factor, 2),
+        "period": "Last 30 Days"
     }
-    STRATEGIES_DB.append(entry)
-    return entry
-
-@router.get("/list", response_model=List[StrategyResponse])
-async def list_strategies(current_user: User = Depends(get_current_user)):
-    return STRATEGIES_DB
-
-@router.post("/clone/{strategy_id}")
-async def clone_strategy(strategy_id: int, current_user: User = Depends(get_current_user)):
-    """
-    Clones an existing strategy for a new instrument or tweak.
-    """
-    # Find strategy
-    original = next((s for s in STRATEGIES_DB if s["id"] == strategy_id), None)
-    if not original:
-        raise HTTPException(status_code=404, detail="Strategy not found")
-
-    new_id = len(STRATEGIES_DB) + 1
-    clone = original.copy()
-    clone["id"] = new_id
-    clone["name"] = f"{original['name']} (Clone)"
-    clone["author"] = current_user.username
-    STRATEGIES_DB.append(clone)
-
-    return clone

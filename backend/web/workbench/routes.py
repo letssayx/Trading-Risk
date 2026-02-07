@@ -112,3 +112,27 @@ async def market_search(q: str, db: Session = Depends(get_db)):
         if q.lower() in m.lower():
             results.append({"ticker": m, "name": f"{m} Futures"})
     return results
+
+@router.get("/history/{strategy_id}")
+async def get_strategy_history(strategy_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieves version history for a strategy from the AuditTrail.
+    """
+    logs = db.query(AuditTrail).filter(
+        AuditTrail.entity_id == strategy_id,
+        AuditTrail.action_type == "TWEAK_PARAM"
+    ).order_by(AuditTrail.timestamp.desc()).all()
+
+    history = []
+    for log in logs:
+        history.append({
+            "version_timestamp": log.timestamp,
+            "user": log.user_id,
+            "config_snapshot": log.after_state,
+            "diff": {
+                "before": log.before_state,
+                "after": log.after_state
+            }
+        })
+
+    return {"history": history}

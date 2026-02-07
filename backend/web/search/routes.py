@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-from backend.auth.service import TurtleAuth # Using authentication dependency
+from backend.auth.service import AuthService # Using authentication dependency
 from backend.domain.market.registry import MarketRegistry
 from backend.domain.market.schemas import InstrumentSchema
 
