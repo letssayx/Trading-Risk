@@ -120,19 +120,22 @@
 
             <!-- Institutional Pulse Card -->
             <div class="widget-card" style="grid-column: span 12; grid-row: span 1;">
-                <div class="widget-header">INSTITUTIONAL PULSE</div>
+                <div class="widget-header">INSTITUTIONAL PARTICIPATION</div>
                 <div class="widget-body" style="display:flex; justify-content:space-around; align-items:center;">
                     <div style="text-align:center;">
-                        <div style="font-size:0.8em; color:#888;">FII NET INDEX</div>
-                        <div style="font-size:1.2em; color:#00e676;">+15,400 Cr (Bullish)</div>
+                        <div style="font-size:0.8em; color:#4fc3f7;">GLOBAL FLOW (FII)</div>
+                        <div style="font-size:1.2em;" id="pulse-fii">Loading...</div>
+                        <div style="height:4px; width:80px; background:#333; margin:5px auto;"><div id="bar-fii" style="height:100%; width:0%; background:#4fc3f7;"></div></div>
                     </div>
                     <div style="text-align:center;">
-                        <div style="font-size:0.8em; color:#888;">RETAIL SENTIMENT</div>
-                        <div style="font-size:1.2em; color:#ff5252;">62% Short (Contrarian Buy)</div>
+                        <div style="font-size:0.8em; color:#ffab40;">LOCAL DESK (PRO)</div>
+                        <div style="font-size:1.2em;" id="pulse-pro">Loading...</div>
+                        <div style="height:4px; width:80px; background:#333; margin:5px auto;"><div id="bar-pro" style="height:100%; width:0%; background:#ffab40;"></div></div>
                     </div>
                     <div style="text-align:center;">
-                        <div style="font-size:0.8em; color:#888;">TOP BUILDUP</div>
-                        <div style="font-size:1em; color:#ccc;">RELIANCE, ICICIBANK, LT</div>
+                        <div style="font-size:0.8em; color:#ff5252;">RETAIL (CLIENT)</div>
+                        <div style="font-size:1.2em;" id="pulse-client">Loading...</div>
+                        <div style="height:4px; width:80px; background:#333; margin:5px auto;"><div id="bar-client" style="height:100%; width:0%; background:#ff5252;"></div></div>
                     </div>
                 </div>
             </div>
@@ -328,6 +331,13 @@
                 data.push({ time: time, value: baseVal + Math.random() * 10 });
             }
             areaSeries.setData(data);
+
+            // Set Participant Markers (Mock)
+            const markers = [
+                { time: time - 300, position: 'aboveBar', color: '#ffab40', shape: 'arrowDown', text: 'PRO Sell' },
+                { time: time - 1200, position: 'belowBar', color: '#00e676', shape: 'arrowUp', text: 'SuperHNI' },
+            ];
+            areaSeries.setMarkers(markers);
         }
 
         function switchChart() {
@@ -380,12 +390,21 @@
             ws.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
                 if (msg.type === "pnl_update" && areaSeries) {
-                    // Feed Chart (Using PnL stream for demo basis)
-                    // In real app, separate basis stream
                     const now = Math.floor(Date.now() / 1000);
                     areaSeries.update({ time: now, value: 50 + msg.payload.delta });
+
+                    // Update Pulse Gauges (Mock Feed Integration)
+                    updatePulse("fii", "1.8 (Strong)", "80%");
+                    updatePulse("pro", "+15K (Accum)", "65%");
+                    updatePulse("client", "0.4 (Short)", "20%");
                 }
             };
+        };
+
+        function updatePulse(type, text, width) {
+            document.getElementById(`pulse-${type}`).textContent = text;
+            document.getElementById(`bar-${type}`).style.width = width;
+        }
         };
 
         // Mock Chat

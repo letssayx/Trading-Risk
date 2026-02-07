@@ -7,6 +7,7 @@ from backend.analysis.scanners.volatility import calculate_iv_metrics
 from backend.analysis.scanners.order_flow import detect_institutional_buying
 from backend.analysis.scanners.relative_value import PairsEngine
 from backend.analysis.scanners.sentiment import SentimentGauge
+from backend.analysis.derivatives_indicators.flow import get_oi_quadrant
 
 # In a real app, import evaluate_scenario. Mocking for now to avoid circular deps or complex setup.
 
@@ -102,7 +103,13 @@ class MarketOrchestrator:
         story = f"Detected {', '.join(triggers)}. " if triggers else "Market monitoring active. "
         story += "High conviction setup." if confidence > 80 else "Watch for confirmation."
 
-        # 5. Risk Snapshot (Mocked evaluate_scenario output)
+        # 5. OI Quadrant
+        # Mocking Pct Change for demonstration (assuming tick data has prev_close or calculating it)
+        price_change = 0.5 # Mock +0.5%
+        oi_change = 1.2 # Mock +1.2%
+        quadrant = get_oi_quadrant(price_change, oi_change)
+
+        # 6. Risk Snapshot (Mocked evaluate_scenario output)
         risk_snapshot = {
             "worst_case": "-18,500 INR",
             "delta": 0.55,
@@ -121,7 +128,8 @@ class MarketOrchestrator:
                 "sentiment_pcr": pcr_res or {"value": 0, "state": "Neutral", "z_score": 0},
                 "volatility_ivr": vol_res,
                 "institutional_footprint": flow_res or {"large_orders": "None"},
-                "relative_value": rel_val_res
+                "relative_value": rel_val_res,
+                "market_quadrant": quadrant
             },
             "risk_snapshot": risk_snapshot,
             "jules_story": story
