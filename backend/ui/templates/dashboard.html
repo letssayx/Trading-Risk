@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jules Command Center</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --border-color: #333;
+            --accent-color: #00e676;
+            --text-color: #e0e0e0;
+            --header-height: 50px;
+            --sidebar-width: 60px;
+            --chat-width: 350px;
+        }
+        body { margin: 0; font-family: 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
+
+        /* Layout */
+        #nav-shell { width: var(--sidebar-width); background: #000; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding-top: 10px; z-index: 1000; }
+        .nav-icon { width: 40px; height: 40px; margin-bottom: 15px; border-radius: 8px; background: #222; display: flex; justify-content: center; align-items: center; cursor: pointer; color: #888; font-size: 1.2em; transition: all 0.2s; }
+        .nav-icon:hover, .nav-icon.active { background: var(--accent-color); color: #000; }
+
+        #main-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
+        #global-header { height: var(--header-height); background: var(--panel-bg); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
+        .context-title { font-weight: bold; font-size: 1.1em; color: var(--accent-color); }
+
+        #workspace { flex: 1; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(100px, auto); }
+        .widget-card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .widget-header { padding: 5px 10px; background: #252525; border-bottom: 1px solid var(--border-color); font-size: 0.85em; font-weight: bold; display: flex; justify-content: space-between; }
+        .widget-body { flex: 1; padding: 10px; overflow: auto; }
+
+        /* Specific Widgets */
+        .w-chart-main { grid-column: span 9; grid-row: span 4; }
+        .w-greeks-hist { grid-column: span 9; grid-row: span 2; }
+        .w-trade-book { grid-column: span 3; grid-row: span 6; }
+
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
+        th, td { text-align: left; padding: 5px; border-bottom: 1px solid #333; }
+        th { color: #888; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); }
+        .modal-content { background-color: var(--panel-bg); margin: 10% auto; padding: 20px; border: 1px solid var(--accent-color); width: 300px; color: #fff; }
+        .input-group { margin-bottom: 10px; }
+        input, select { width: 100%; padding: 8px; background: #121212; border: 1px solid #333; color: #fff; font-family: monospace; }
+        button.btn-primary { width: 100%; padding: 10px; background: var(--accent-color); border: none; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="nav-shell">
+        <div class="nav-icon active">📈</div>
+        <div class="nav-icon">📚</div>
+    </div>
+
+    <div id="main-wrapper">
+        <header id="global-header">
+            <div class="context-title">TURTLE TERMINAL - PORTFOLIO MANAGER</div>
+            <button onclick="openTradeModal()" style="background:#333; color:var(--accent-color); border:1px solid var(--accent-color); padding:5px 10px; cursor:pointer;">+ NEW TRADE</button>
+        </header>
+
+        <div id="workspace">
+            <!-- Main Chart with Signals -->
+            <div class="widget-card w-chart-main">
+                <div class="widget-header">MARKET OVERVIEW & SIGNALS</div>
+                <div class="widget-body" id="chart-main" style="padding:0;"></div>
+            </div>
+
+            <!-- Trade Book -->
+            <div class="widget-card w-trade-book">
+                <div class="widget-header">TRADE BOOK</div>
+                <div class="widget-body" style="padding:0;">
+                    <table id="trade-table">
+                        <thead><tr><th>Ticker</th><th>Side</th><th>Qty</th><th>Px</th><th>Stat</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Greeks Histogram -->
+            <div class="widget-card w-greeks-hist">
+                <div class="widget-header">PORTFOLIO RISK (GREEKS)</div>
+                <div class="widget-body" id="chart-greeks" style="padding:0;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Trade Modal -->
+    <div id="tradeModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">Register Trade</h3>
+            <div class="input-group"><input type="text" id="t-ticker" placeholder="Ticker (e.g. NIFTY)"></div>
+            <div class="input-group">
+                <select id="t-side">
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                </select>
+            </div>
+            <div class="input-group"><input type="number" id="t-qty" placeholder="Quantity"></div>
+            <div class="input-group"><input type="number" id="t-price" placeholder="Price"></div>
+            <button class="btn-primary" onclick="submitTrade()">SUBMIT EXECUTION</button>
+            <button onclick="closeTradeModal()" style="width:100%; margin-top:5px; background:transparent; border:1px solid #444; color:#888; padding:5px; cursor:pointer;">CANCEL</button>
+        </div>
+    </div>
+
+    <script>
+        let mainChart, greeksChart;
+        let activePortfolioId = null;
+
+        // Initialize Charts
+        function initCharts() {
+            // Main Chart
+            const mainContainer = document.getElementById('chart-main');
+            mainChart = LightweightCharts.createChart(mainContainer, {
+                width: mainContainer.clientWidth,
+                height: mainContainer.clientHeight,
+                layout: { background: { color: '#1e1e1e' }, textColor: '#ccc' },
+                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} },
+                timeScale: { timeVisible: true }
+            });
+            const candleSeries = mainChart.addCandlestickSeries();
+            // Seed Mock Data
+            const data = [];
+            let time = Math.floor(Date.now() / 1000) - 86400*10;
+            for(let i=0; i<100; i++) {
+                time += 3600;
+                const open = 100 + Math.random()*5;
+                const close = open + (Math.random()-0.5)*2;
+                data.push({ time: time, open: open, high: Math.max(open, close)+1, low: Math.min(open, close)-1, close: close });
+            }
+            candleSeries.setData(data);
+
+            // Add Markers (Signal Overlay)
+            candleSeries.setMarkers([
+                { time: data[80].time, position: 'aboveBar', color: '#e91e63', shape: 'arrowDown', text: 'Sell Signal' },
+                { time: data[90].time, position: 'belowBar', color: '#2196F3', shape: 'arrowUp', text: 'Buy Signal' }
+            ]);
+
+            // Greeks Histogram
+            const greeksContainer = document.getElementById('chart-greeks');
+            greeksChart = LightweightCharts.createChart(greeksContainer, {
+                width: greeksContainer.clientWidth,
+                height: greeksContainer.clientHeight,
+                layout: { background: { color: '#1e1e1e' }, textColor: '#ccc' },
+                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
+            });
+            const deltaSeries = greeksChart.addHistogramSeries({ color: '#26a69a' });
+            deltaSeries.setData([
+                { time: '2023-10-01', value: 50, color: 'green' },
+                { time: '2023-10-02', value: 80, color: 'green' },
+                { time: '2023-10-03', value: -20, color: 'red' },
+                { time: '2023-10-04', value: 10, color: 'green' }
+            ]);
+        }
+
+        // Trade Management
+        async function fetchPortfolio() {
+            // Fetch portfolios list and select first
+            try {
+                const res = await fetch('/portfolio/');
+                const portfolios = await res.json();
+                if (portfolios.length > 0) {
+                    activePortfolioId = portfolios[0].id;
+                    renderTrades(portfolios[0].trades);
+                } else {
+                    // Create Default
+                    const newP = await fetch('/portfolio/', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ name: "Master Fund", user_id: "trader1" })
+                    });
+                    const p = await newP.json();
+                    activePortfolioId = p.id;
+                }
+            } catch(e) { console.error("API Error", e); }
+        }
+
+        function renderTrades(trades) {
+            const tbody = document.querySelector('#trade-table tbody');
+            tbody.innerHTML = '';
+            trades.forEach(t => {
+                const row = `<tr>
+                    <td>${t.ticker}</td>
+                    <td style="color:${t.side=='BUY'?'#00e676':'#ff5252'}">${t.side}</td>
+                    <td>${t.qty}</td>
+                    <td>${t.price}</td>
+                    <td>${t.status}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function openTradeModal() { document.getElementById('tradeModal').style.display = 'block'; }
+        function closeTradeModal() { document.getElementById('tradeModal').style.display = 'none'; }
+
+        async function submitTrade() {
+            if (!activePortfolioId) return alert("No Active Portfolio");
+
+            const payload = {
+                portfolio_id: activePortfolioId,
+                ticker: document.getElementById('t-ticker').value,
+                side: document.getElementById('t-side').value,
+                qty: parseInt(document.getElementById('t-qty').value),
+                price: parseFloat(document.getElementById('t-price').value)
+            };
+
+            try {
+                const res = await fetch(`/portfolio/${activePortfolioId}/trades/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    closeTradeModal();
+                    // Refresh
+                    const pRes = await fetch(`/portfolio/${activePortfolioId}`);
+                    const p = await pRes.json();
+                    renderTrades(p.trades);
+                } else {
+                    alert("Failed to register trade");
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        window.onload = () => {
+            initCharts();
+            fetchPortfolio();
+        };
+
+        window.onresize = () => {
+            // Resize charts logic would go here
+        };
+    </script>
+</body>
+</html>
