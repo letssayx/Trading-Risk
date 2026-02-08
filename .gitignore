@@ -1,13 +1,1 @@
-__pycache__/
-*.py[cod]
-*$py.class
-.DS_Store
-.env
-.venv
-env/
-venv/
-*.log
-backend.log
-verification/
-test_output.txt
-verify_output*
+**/__pycache__/
