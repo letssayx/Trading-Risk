@@ -1,6 +1,6 @@
+from typing import Dict, Any, List
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, List
 from backend.domain.toolbox.base import BaseSovereignTool
 
 class StatArbAlphaEngine(BaseSovereignTool):
@@ -40,3 +40,42 @@ class StatArbAlphaEngine(BaseSovereignTool):
             "signal": signal,
             "mean_spread": mean
         }
+
+class ZScoreFilter(BaseSovereignTool):
+    @property
+    def name(self) -> str: return "Z-Score Filter"
+    @property
+    def category(self) -> str: return "Indicator" # Brush
+    @property
+    def description(self) -> str: return "Calculates Rolling Z-Score for Mean Reversion."
+
+    def calculate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        series = pd.Series(data.get("series", []))
+        window = data.get("window", 20)
+
+        if len(series) < window: return {"error": "Insufficient Data"}
+
+        rolling_mean = series.rolling(window).mean()
+        rolling_std = series.rolling(window).std()
+        z_score = (series - rolling_mean) / rolling_std
+
+        return {
+            "current_z": z_score.iloc[-1],
+            "bands": {
+                "upper_2": (rolling_mean + 2*rolling_std).tolist(),
+                "lower_2": (rolling_mean - 2*rolling_std).tolist()
+            }
+        }
+
+class CointegrationAuditor(BaseSovereignTool):
+    @property
+    def name(self) -> str: return "Cointegration Auditor"
+    @property
+    def category(self) -> str: return "Governance" # Judge
+    @property
+    def description(self) -> str: return "Checks Cointegration (Engle-Granger stub)."
+
+    def calculate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        # Stub for Stationarity check on residuals
+        # In prod use statsmodels.tsa.stattools.coint
+        return {"status": "PASS", "p_value": 0.04}

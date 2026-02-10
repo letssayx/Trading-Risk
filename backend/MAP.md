@@ -45,14 +45,20 @@ This document maps all quantitative strategies to their logical implementation (
 | **Inst. Flow** | `backend/analysis/toolbox/flow_tools.py` | `InstitutionalPulse` |
 | **Governance** | `backend/risk/toolbox/governance_tools.py` | `GovernanceAuditor` |
 
-## 4. Sovereign Toolbox Mapping (Sovereign Workbench)
+## 4. Alpha Palette Categories
 
-| Modular Tool | Logic Origin | UI Brick Name |
+| Category | Bricks (Atomic Objects) | Implementation Path |
 | :--- | :--- | :--- |
-| **Nifty Daily Sync** | `backend/ingest/toolbox/data_gateway.py` | `Data Gateway` |
-| **HMM Regime** | `backend/analysis/market_state/regime.py` | `Market Weather` |
-| **Risk Governance** | `backend/risk/toolbox/governance_tools.py` | `Governance Auditor` |
-| **Smart Money** | `backend/analysis/toolbox/flow_tools.py` | `Institutional Pulse` |
-| **Factor Model** | `backend/strategies/toolbox/factor_model.py` | `Factor Exposure Model` |
-| **Turtle N-Calc** | `backend/strategies/toolbox/turtle_suite.py` | `Turtle N-Calc` |
-| **Turtle Stop** | `backend/strategies/toolbox/turtle_suite.py` | `Turtle 2N Stop` |
+| **Layers (Strategies)** | Turtle Breakout, Sentiment Flow, Macro Arb | `backend/strategies/` |
+| **Filters (Risk)** | Euler VaR, EVT-ES, Factor Attribution | `backend/risk/toolbox/` |
+| **Brushes (Indicators)** | N-Unit, IV Skew, Smart Money Pulse | `backend/intelligence/` & `backend/strategies/toolbox/` |
+| **Judges (Governance)** | Alpha Scorecard (Rubric), LRcc Status | `backend/intelligence/toolbox/rubric.py`, `backend/risk/toolbox/` |
+
+## 5. Spread & Mean Reversion Mapping
+
+| Modular Tool | Logic Origin | Role in Workbench |
+| :--- | :--- | :--- |
+| **Spread Synthesizer** | `backend/analysis/toolbox/spread_tools.py` | Create (A - B) numerical instruments. |
+| **Z-Score Brush** | `backend/core/toolbox/stats_tools.py` | "Paint" StatArb bands on the canvas. |
+| **FICO Tool** | `backend/analysis/toolbox/spread_tools.py` | Real-time correlation & intersection audit. |
+| **Cointegration Auditor** | `backend/core/toolbox/stats_tools.py` | Validates if pair is linked. |

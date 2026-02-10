@@ -71,3 +71,11 @@ class ToolboxRegistry:
         # Ingest
         from backend.ingest.toolbox.data_gateway import DataGateway
         cls.register(DataGateway)
+
+        # Spread & Stats
+        from backend.analysis.toolbox.spread_tools import SpreadSynthesizer, FICOTool
+        from backend.core.toolbox.stats_tools import ZScoreFilter, CointegrationAuditor
+        cls.register(SpreadSynthesizer)
+        cls.register(FICOTool)
+        cls.register(ZScoreFilter)
+        cls.register(CointegrationAuditor)

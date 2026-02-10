@@ -2,144 +2,220 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Jules Sovereign Workbench</title>
+    <title>Jules Sovereign Workbench - Slate & Carbon</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <!-- Placeholder for GridStack or similar if needed later, using pure CSS Grid/Flex for now -->
     <style>
         :root {
-            --bg-color: #1e1e1e; /* Carbon */
-            --panel-bg: #2d2d2d; /* Slate */
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
             --border-color: #424242;
             --text-primary: #e0e0e0;
             --text-secondary: #aaaaaa;
-            --accent-color: #00bcd4; /* Cyan/Teal for "Data/Tech" feel */
+            --accent-color: #00bcd4;
             --header-height: 40px;
-            --sidebar-width: 250px;
+            --palette-width: 280px;
         }
         body { margin: 0; font-family: 'Consolas', 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-primary); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
         /* Top Menu Bar */
-        #menu-bar { height: var(--header-height); background: #121212; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 15px; font-size: 0.9em; }
-        .menu-item { margin-right: 20px; cursor: pointer; color: var(--text-secondary); }
+        #menu-bar { height: var(--header-height); background: #121212; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 15px; font-size: 0.85em; user-select: none; }
+        .brand { font-weight: bold; color: var(--accent-color); margin-right: 30px; letter-spacing: 1px; cursor: default; }
+        .menu-item { margin-right: 20px; cursor: pointer; color: var(--text-secondary); transition: color 0.2s; position: relative; }
         .menu-item:hover { color: #fff; }
-        .brand { font-weight: bold; color: var(--accent-color); margin-right: 30px; letter-spacing: 1px; }
+        .menu-item:active { top: 1px; }
+
+        /* Workbench Tabs */
+        #wb-tabs { display: flex; align-items: center; margin-left: auto; }
+        .wb-tab { padding: 5px 12px; background: #222; border: 1px solid #333; margin-left: 5px; border-radius: 2px; cursor: pointer; font-size: 0.8em; color: #888; }
+        .wb-tab.active { background: var(--panel-bg); border-color: var(--accent-color); color: #fff; }
 
         /* Main Layout */
-        #app-body { flex: 1; display: flex; overflow: hidden; }
+        #app-body { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-        /* Toolbox Sidebar */
-        #toolbox-sidebar { width: var(--sidebar-width); background: #222; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
-        .sidebar-header { padding: 10px; background: #252525; border-bottom: 1px solid var(--border-color); font-weight: bold; color: var(--text-secondary); font-size: 0.8em; text-transform: uppercase; }
-        .toolbox-content { flex: 1; overflow-y: auto; padding: 10px; }
-        .toolbox-brick { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 8px; margin-bottom: 5px; border-radius: 2px; cursor: grab; font-size: 0.85em; display: flex; align-items: center; transition: background 0.2s; }
-        .toolbox-brick:hover { background: #383838; border-color: var(--accent-color); }
-        .brick-icon { margin-right: 8px; font-size: 1.1em; }
+        /* Alpha Palette (Collapsible) */
+        #alpha-palette { width: 0; background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.4,0,0.2,1); overflow: hidden; white-space: nowrap; }
+        #alpha-palette.open { width: var(--palette-width); }
+        .palette-header { padding: 12px; background: #121212; color: var(--accent-color); font-weight: bold; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
+        .palette-content { flex: 1; overflow-y: auto; padding: 10px; }
+
+        .tool-category { font-size: 0.75em; color: #666; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #333; padding-bottom: 2px; }
+        .tool-brick { background: #252525; border: 1px solid #333; padding: 8px 10px; margin-bottom: 6px; border-radius: 2px; cursor: grab; font-size: 0.85em; display: flex; align-items: center; transition: all 0.2s; }
+        .tool-brick:hover { background: #333; border-color: var(--accent-color); transform: translateX(2px); }
+        .brick-icon { margin-right: 10px; opacity: 0.8; font-size: 1.1em; width: 20px; text-align: center; }
 
         /* Canvas Area */
-        #canvas-area { flex: 1; background: var(--bg-color); position: relative; padding: 20px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; grid-auto-rows: 250px; }
-        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .widget-header { padding: 5px 10px; background: #333; border-bottom: 1px solid var(--border-color); font-size: 0.8em; display: flex; justify-content: space-between; align-items: center; cursor: move; }
-        .widget-body { flex: 1; overflow: hidden; padding: 10px; font-size: 0.9em; }
+        #canvas-area { flex: 1; background: var(--bg-color); position: relative; padding: 20px; overflow: auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 15px; grid-auto-rows: 300px; }
+        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; grid-column: span 6; }
+        .widget-header { padding: 6px 10px; background: #222; border-bottom: 1px solid #333; font-size: 0.8em; display: flex; justify-content: space-between; align-items: center; cursor: move; }
+        .widget-body { flex: 1; overflow: hidden; position: relative; }
 
-        /* Jules Chat Drawer */
-        #jules-drawer { width: 300px; background: #1a1a1a; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s; position: relative; }
-        #jules-drawer.collapsed { width: 40px; }
-        .drawer-header { height: 40px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 10px; justify-content: space-between; background: #252525; }
-        .drawer-content { flex: 1; padding: 10px; overflow-y: auto; font-family: monospace; font-size: 0.85em; color: #00ff00; }
-        .chat-input { padding: 10px; border-top: 1px solid var(--border-color); }
-        .chat-input input { width: 100%; background: #333; border: none; color: #fff; padding: 8px; font-family: monospace; }
+        /* Floating Action Button for Palette */
+        #fab-palette { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 20px; height: 60px; background: #333; border: 1px solid #444; border-left: none; border-radius: 0 4px 4px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--accent-color); z-index: 1000; transition: left 0.3s; }
+        #alpha-palette.open + #canvas-area #fab-palette { left: var(--palette-width); } /* Not strictly needed if flex, but good for overlay */
 
-        /* Utilities */
-        .btn-icon { cursor: pointer; color: #888; font-size: 1.2em; }
-        .btn-icon:hover { color: #fff; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; margin-right: 5px; }
-        .status-dot.active { background: var(--accent-color); }
+        /* Jules Drawer */
+        #jules-drawer { width: 300px; background: #151515; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: transform 0.3s; position: fixed; right: 0; top: var(--header-height); bottom: 0; transform: translateX(100%); z-index: 2000; }
+        #jules-drawer.open { transform: translateX(0); }
 
     </style>
 </head>
 <body>
 
     <div id="menu-bar">
-        <div class="brand">JULES WORKBENCH</div>
-        <div class="menu-item">FILE / DATA</div>
-        <div class="menu-item">ANALYTICS</div>
-        <div class="menu-item">VIEW</div>
-        <div class="menu-item">SETTINGS</div>
+        <div class="brand">TURTLE WORKBENCH</div>
+        <div class="menu-item" onclick="mockAction('File/Data Menu')">FILE / DATA</div>
+        <div class="menu-item" onclick="mockAction('Analytics Menu')">ANALYTICS</div>
+        <div class="menu-item" onclick="mockAction('View Menu')">VIEW</div>
+
+        <div id="wb-tabs">
+            <div class="wb-tab active">Macro</div>
+            <div class="wb-tab">Vol Arb</div>
+            <div class="wb-tab">Risk Audit</div>
+            <div class="wb-tab" style="color:var(--accent-color)">+</div>
+        </div>
+
+        <div class="menu-item" style="margin-left:20px; font-size:1.2em;" onclick="toggleJules()">🤖</div>
     </div>
 
     <div id="app-body">
-        <!-- Toolbox -->
-        <div id="toolbox-sidebar">
-            <div class="sidebar-header">Sovereign Toolbox</div>
-            <div class="toolbox-content" id="toolbox-list">
-                <!-- Bricks injected via JS -->
-                <div style="color: #666; font-style: italic; padding: 10px;">Loading Registry...</div>
+        <!-- Alpha Palette -->
+        <div id="alpha-palette" class="open">
+            <div class="palette-header">
+                <span>ALPHA PALETTE</span>
+                <span style="cursor:pointer; opacity:0.6;" onclick="togglePalette()">«</span>
+            </div>
+            <div class="palette-content" id="palette-list">
+                <div style="text-align:center; color:#555; padding:20px;">Loading Registry...</div>
             </div>
         </div>
 
         <!-- Canvas -->
         <div id="canvas-area">
-            <!-- Sample Widget -->
-            <div class="canvas-widget">
+            <!-- Sample Chart -->
+            <div class="canvas-widget" style="grid-column: span 8; grid-row: span 2;">
                 <div class="widget-header">
-                    <span>MARKET WATCH</span>
-                    <span class="btn-icon">×</span>
+                    <span>NIFTY 50 - 5Y TICK</span>
+                    <span style="color:#666;">Waiting for Stream...</span>
                 </div>
-                <div class="widget-body">
-                    Waiting for Data Stream...
-                </div>
+                <div class="widget-body" id="chart-main"></div>
             </div>
-        </div>
 
-        <!-- Jules Drawer -->
-        <div id="jules-drawer">
-            <div class="drawer-header">
-                <span>JULES PYTHON HUB</span>
-                <span class="btn-icon" onclick="toggleDrawer()">«</span>
-            </div>
-            <div class="drawer-content">
-                > System Initialized.
-                > Registry Loaded.
-                > Ready for object synthesis.
-            </div>
-            <div class="chat-input">
-                <input type="text" placeholder="Generate Strategy Object..." />
+            <!-- Sample Widget -->
+            <div class="canvas-widget" style="grid-column: span 4; grid-row: span 1;">
+                <div class="widget-header">STAT ARB SCANNER</div>
+                <div class="widget-body" style="padding:10px; color:#888;">Drop Z-Score Filter Here</div>
             </div>
         </div>
     </div>
 
+    <!-- Jules Drawer -->
+    <div id="jules-drawer">
+        <div style="padding:10px; border-bottom:1px solid #333; font-weight:bold; color:var(--accent-color);">JULES PYTHON HUB</div>
+        <div style="flex:1; padding:10px; font-family:monospace; color:#0f0; font-size:0.85em;">
+            > System Ready.<br>
+            > Alpha Palette Loaded.<br>
+            > Monitoring Canvas...
+        </div>
+    </div>
+
     <script>
-        function toggleDrawer() {
-            const d = document.getElementById('jules-drawer');
-            d.classList.toggle('collapsed');
+        // State
+        let paletteOpen = true;
+        let julesOpen = false;
+
+        function togglePalette() {
+            const p = document.getElementById('alpha-palette');
+            paletteOpen = !paletteOpen;
+            p.className = paletteOpen ? 'open' : '';
+        }
+
+        function toggleJules() {
+            const j = document.getElementById('jules-drawer');
+            julesOpen = !julesOpen;
+            j.className = julesOpen ? 'open' : '';
+        }
+
+        function mockAction(name) {
+            console.log(`Menu Action: ${name}`);
+            alert(`${name} - functionality coming soon.`);
         }
 
         async function loadRegistry() {
             try {
                 const res = await fetch('/strategies/toolbox/registry');
+                if (!res.ok) throw new Error("API Error");
                 const data = await res.json();
-                const container = document.getElementById('toolbox-list');
-                container.innerHTML = '';
-
-                // Sort by category?
-                // Grouping logic can be added here
-
-                data.tools.forEach(tool => {
-                    const div = document.createElement('div');
-                    div.className = 'toolbox-brick';
-                    div.draggable = true;
-                    div.innerHTML = `<span class="brick-icon">${tool.icon}</span> ${tool.title}`;
-                    div.onclick = () => alert(`Inspect Code: ${tool.title}`); // Mock Inspector
-                    container.appendChild(div);
-                });
+                renderPalette(data.tools);
             } catch(e) {
-                console.error("Registry Load Failed", e);
+                console.error(e);
+                document.getElementById('palette-list').innerHTML = `<div style="color:red; text-align:center;">Registry Error</div>`;
             }
         }
 
+        function renderPalette(tools) {
+            const container = document.getElementById('palette-list');
+            container.innerHTML = '';
+
+            // Group tools logic (Layers, Filters, Brushes, Judges)
+            // Mapping Category -> Palette Group
+            const groups = {
+                "Strategy": "LAYERS (Strategies)",
+                "Risk": "FILTERS (Risk Models)",
+                "Indicator": "BRUSHES (Intelligence)",
+                "Governance": "JUDGES (Audit)",
+                "Math": "UTILS"
+            };
+
+            const bucketed = {};
+            tools.forEach(t => {
+                const grp = groups[t.category] || "OTHERS";
+                if (!bucketed[grp]) bucketed[grp] = [];
+                bucketed[grp].push(t);
+            });
+
+            // Render
+            // Order: Layers, Brushes, Filters, Judges
+            const order = ["LAYERS (Strategies)", "BRUSHES (Intelligence)", "FILTERS (Risk Models)", "JUDGES (Audit)", "UTILS", "OTHERS"];
+
+            order.forEach(grpName => {
+                if (!bucketed[grpName]) return;
+
+                const catHeader = document.createElement('div');
+                catHeader.className = 'tool-category';
+                catHeader.innerText = grpName;
+                container.appendChild(catHeader);
+
+                bucketed[grpName].forEach(tool => {
+                    const el = document.createElement('div');
+                    el.className = 'tool-brick';
+                    el.draggable = true;
+                    el.innerHTML = `<span class="brick-icon">${tool.icon}</span> ${tool.title}`;
+                    container.appendChild(el);
+                });
+            });
+        }
+
+        // Init Chart
         window.onload = () => {
             loadRegistry();
+
+            const chartDiv = document.getElementById('chart-main');
+            const chart = LightweightCharts.createChart(chartDiv, {
+                width: chartDiv.clientWidth,
+                height: chartDiv.clientHeight,
+                layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
+                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
+            });
+            chart.addCandlestickSeries().setData([
+                { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
+                { time: '2023-01-02', open: 103, high: 106, low: 102, close: 104 },
+            ]);
         };
+
+        // Hotkey T for Palette
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 't') togglePalette();
+        });
     </script>
 </body>
 </html>
