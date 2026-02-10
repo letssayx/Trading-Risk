@@ -2,8 +2,15 @@ from typing import List, Dict, Optional
 from backend.domain.portfolio.models import Trade, TradeSide
 
 class PortfolioManager:
-    def __init__(self, trades: List[Trade]):
+    def __init__(self, trades: List[Trade], total_capital: float = 1000000.0):
         self.trades = trades
+        self.total_capital = total_capital
+
+    def get_total_capital(self) -> float:
+        return self.total_capital
+
+    def update_capital(self, new_capital: float):
+        self.total_capital = new_capital
 
     def calculate_total_greeks(self) -> Dict[str, float]:
         """
