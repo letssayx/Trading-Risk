@@ -150,11 +150,6 @@ def calculate_lr_cc(
     # Reject if LRcc > 5.99 (at 95% confidence)
     decision = "REJECTED" if lr_cc > 5.99 else "ACCEPTED"
 
-    # Additional governance check: Too few breaches? (Capital inefficiency)
-    # Expected breaches = obs * (1-conf)
-    # If failures < 3 (arbitrary heuristic) in large sample, warn?
-    # Keeping simple per prompt: Reject if > 5.99.
-
     details = {
         "LRpof": lr_pof,
         "LRind": lr_ind,
@@ -165,3 +160,31 @@ def calculate_lr_cc(
     }
 
     return lr_cc, p_value, decision, details
+
+def check_precision_drift(
+    pnl: float,
+    var_threshold: float,
+    var_se: float
+) -> str:
+    """
+    Checks if a breach is a 'Hard Breach' or 'Precision Drift'.
+    Drift: Breach is within 1x SE of the VaR line.
+
+    Args:
+        pnl: Profit/Loss (negative for loss).
+        var_threshold: VaR value (positive).
+        var_se: Standard Error of VaR (positive).
+
+    Returns:
+        Status string: "No Breach", "Precision Drift", "Hard Breach"
+    """
+    loss = -pnl
+    if loss <= var_threshold:
+        return "No Breach"
+
+    # Breach occurred. Check magnitude.
+    # If Loss <= VaR + SE, it's a Drift.
+    if loss <= (var_threshold + var_se):
+        return "Precision Drift"
+    else:
+        return "Hard Breach"
