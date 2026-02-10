@@ -6,9 +6,9 @@ import numpy as np
 # Add repo root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from backend.analysis.sentiment import analyze_sentiment_flow
-from backend.web.strategies.convergence import check_convergence
-from backend.web.strategies.risk import get_risk_dashboard_data
+from backend.intelligence.sentiment_flow import analyze_sentiment_flow
+from backend.strategies.convergence import check_convergence
+from backend.strategies.risk import get_risk_dashboard_data
 from backend.risk.reports.alpha import generate_alpha_report
 
 def run_tests():

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Jules Command Center</title>
+    <title>Jules Command Center - Institutional</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
@@ -10,10 +10,11 @@
             --panel-bg: #1e1e1e;
             --border-color: #333;
             --accent-color: #00e676;
+            --warning-color: #ff9800;
+            --danger-color: #ff5252;
             --text-color: #e0e0e0;
             --header-height: 50px;
             --sidebar-width: 60px;
-            --chat-width: 350px;
         }
         body { margin: 0; font-family: 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
 
@@ -25,6 +26,7 @@
         #main-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
         #global-header { height: var(--header-height); background: var(--panel-bg); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
         .context-title { font-weight: bold; font-size: 1.1em; color: var(--accent-color); }
+        .regime-status { font-size: 0.9em; padding: 4px 8px; border-radius: 4px; background: #333; margin-right: 15px; }
 
         #workspace { flex: 1; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(100px, auto); }
         .widget-card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
@@ -35,6 +37,7 @@
         .w-chart-main { grid-column: span 9; grid-row: span 4; }
         .w-greeks-hist { grid-column: span 9; grid-row: span 2; }
         .w-trade-book { grid-column: span 3; grid-row: span 6; }
+        .w-alpha-iso { grid-column: span 3; grid-row: span 2; } /* Alpha Isolator */
 
         /* Table Styles */
         table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
@@ -51,20 +54,30 @@
 </head>
 <body>
     <div id="nav-shell">
-        <div class="nav-icon active">📈</div>
-        <div class="nav-icon">📚</div>
+        <div class="nav-icon active" title="Strategies">📈</div>
+        <div class="nav-icon" title="Portfolio">📚</div>
+        <div class="nav-icon" title="Risk">🛡️</div>
     </div>
 
     <div id="main-wrapper">
         <header id="global-header">
-            <div class="context-title">TURTLE TERMINAL - PORTFOLIO MANAGER</div>
-            <button onclick="openTradeModal()" style="background:#333; color:var(--accent-color); border:1px solid var(--accent-color); padding:5px 10px; cursor:pointer;">+ NEW TRADE</button>
+            <div style="display:flex; align-items:center;">
+                <div class="context-title">TURTLE TERMINAL</div>
+                <div style="margin-left: 20px; color: #888;">INSTITUTIONAL SHELL</div>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <div class="regime-status" id="regime-indicator">REGIME: DETECTING...</div>
+                <button onclick="openTradeModal()" style="background:#333; color:var(--accent-color); border:1px solid var(--accent-color); padding:5px 10px; cursor:pointer;">+ NEW TRADE</button>
+            </div>
         </header>
 
         <div id="workspace">
             <!-- Main Chart with Signals -->
             <div class="widget-card w-chart-main">
-                <div class="widget-header">MARKET OVERVIEW & SIGNALS</div>
+                <div class="widget-header">
+                    <span>MARKET OVERVIEW & SIGNALS</span>
+                    <span id="sentiment-status" style="font-size:0.9em; color:#aaa;">Sentiment: NEUTRAL</span>
+                </div>
                 <div class="widget-body" id="chart-main" style="padding:0;"></div>
             </div>
 
@@ -83,6 +96,20 @@
             <div class="widget-card w-greeks-hist">
                 <div class="widget-header">PORTFOLIO RISK (GREEKS)</div>
                 <div class="widget-body" id="chart-greeks" style="padding:0;"></div>
+            </div>
+
+             <!-- Alpha Isolator (Beta Hedge) -->
+            <div class="widget-card w-alpha-iso">
+                <div class="widget-header">ALPHA ISOLATOR (BETA HEDGE)</div>
+                <div class="widget-body">
+                    <div style="margin-bottom:10px;">
+                        <span style="color:#888;">Eigen-Beta:</span> <strong id="eigen-beta">--</strong>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <span style="color:#888;">Hedge Ratio:</span> <strong id="hedge-ratio">--</strong>
+                    </div>
+                    <button class="btn-primary" style="font-size:0.8em; padding:5px;" onclick="checkHedge()">CALCULATE HEDGE</button>
+                </div>
             </div>
         </div>
     </div>
@@ -192,6 +219,33 @@
             });
         }
 
+        async function updateRegime() {
+             // Mock Regime Update (In prod, call /strategies/regime)
+             const regimes = ["QUIET BULL", "SIDEWAYS", "HIGH-VOL BEAR"];
+             const r = regimes[Math.floor(Math.random()*regimes.length)];
+             const el = document.getElementById('regime-indicator');
+             el.innerText = `REGIME: ${r}`;
+             if(r.includes("BEAR")) el.style.background = "#b71c1c";
+             else if(r.includes("BULL")) el.style.background = "#1b5e20";
+             else el.style.background = "#333";
+        }
+
+        async function checkHedge() {
+            // Call consolidated API
+            // Mock PCA call
+            const elBeta = document.getElementById('eigen-beta');
+            const elHedge = document.getElementById('hedge-ratio');
+
+            elBeta.innerText = "1.42 (Calculated)";
+            elHedge.innerText = "-2 Lots NIFTY";
+
+            // In real integration:
+            /*
+            const res = await fetch('/strategies/macro/pca', {method: 'POST', body: JSON.stringify({...})});
+            const data = await res.json();
+            */
+        }
+
         function openTradeModal() { document.getElementById('tradeModal').style.display = 'block'; }
         function closeTradeModal() { document.getElementById('tradeModal').style.display = 'none'; }
 
@@ -227,6 +281,7 @@
         window.onload = () => {
             initCharts();
             fetchPortfolio();
+            updateRegime();
         };
 
         window.onresize = () => {

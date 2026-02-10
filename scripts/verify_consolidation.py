@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from backend.strategies.macro_stat_arb import calculate_pca_factors
 from backend.strategies.vol_arb import calculate_vol_spread
 from backend.strategies.convergence import check_convergence
-from backend.intelligence.sentiment import analyze_sentiment_flow
+from backend.intelligence.sentiment_flow import analyze_sentiment_flow
 from backend.analysis.market_state.sectors import map_sector_classification
 from backend.analysis.greeks import interpret_iv_skew
 from backend.risk.reports.alpha import generate_alpha_report

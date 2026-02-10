@@ -12,7 +12,7 @@ from backend.strategies.macro_stat_arb import calculate_pca_factors
 from backend.strategies.vol_arb import calculate_vol_spread
 
 # Analysis & Intelligence
-from backend.intelligence.sentiment import analyze_sentiment_flow
+from backend.intelligence.sentiment_flow import analyze_sentiment_flow
 from backend.analysis.beta import calculate_beta
 from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedge
 
