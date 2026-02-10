@@ -1,0 +1,6 @@
+{
+    "basel_lookback_days": 500,
+    "stress_window_days": 251,
+    "confidence_level": 0.95,
+    "var_model": "PARAMETRIC_WITH_SE_BAND"
+}

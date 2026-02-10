@@ -24,9 +24,16 @@
         .nav-icon:hover, .nav-icon.active { background: var(--accent-color); color: #000; }
 
         #main-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
+        #content-area { flex: 1; display: flex; overflow: hidden; }
+
         #global-header { height: var(--header-height); background: var(--panel-bg); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
         .context-title { font-weight: bold; font-size: 1.1em; color: var(--accent-color); }
         .regime-status { font-size: 0.9em; padding: 4px 8px; border-radius: 4px; background: #333; margin-right: 15px; }
+
+        #toolbox-sidebar { width: 250px; background: #181818; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 10px; overflow-y: auto; }
+        .toolbox-item { background: #2a2a2a; border: 1px solid #333; padding: 8px; margin-bottom: 8px; border-radius: 4px; cursor: grab; font-size: 0.9em; display: flex; justify-content: space-between; }
+        .toolbox-item:hover { border-color: var(--accent-color); }
+        .toolbox-category { font-size: 0.8em; color: #888; margin-top: 10px; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; }
 
         #workspace { flex: 1; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(100px, auto); }
         .widget-card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
@@ -71,45 +78,65 @@
             </div>
         </header>
 
-        <div id="workspace">
-            <!-- Main Chart with Signals -->
-            <div class="widget-card w-chart-main">
-                <div class="widget-header">
-                    <span>MARKET OVERVIEW & SIGNALS</span>
-                    <span id="sentiment-status" style="font-size:0.9em; color:#aaa;">Sentiment: NEUTRAL</span>
-                </div>
-                <div class="widget-body" id="chart-main" style="padding:0;"></div>
-            </div>
-
-            <!-- Trade Book -->
-            <div class="widget-card w-trade-book">
-                <div class="widget-header">TRADE BOOK</div>
-                <div class="widget-body" style="padding:0;">
-                    <table id="trade-table">
-                        <thead><tr><th>Ticker</th><th>Side</th><th>Qty</th><th>Px</th><th>Stat</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Greeks Histogram -->
-            <div class="widget-card w-greeks-hist">
-                <div class="widget-header">PORTFOLIO RISK (GREEKS)</div>
-                <div class="widget-body" id="chart-greeks" style="padding:0;"></div>
-            </div>
-
-             <!-- Alpha Isolator (Beta Hedge) -->
-            <div class="widget-card w-alpha-iso">
-                <div class="widget-header">ALPHA ISOLATOR (BETA HEDGE)</div>
-                <div class="widget-body">
-                    <div style="margin-bottom:10px;">
-                        <span style="color:#888;">Eigen-Beta:</span> <strong id="eigen-beta">--</strong>
+        <div id="content-area">
+            <div id="workspace">
+                <!-- Main Chart with Signals -->
+                <div class="widget-card w-chart-main">
+                    <div class="widget-header">
+                        <span>MARKET OVERVIEW & SIGNALS</span>
+                        <span id="sentiment-status" style="font-size:0.9em; color:#aaa;">Sentiment: NEUTRAL</span>
                     </div>
-                    <div style="margin-bottom:10px;">
-                        <span style="color:#888;">Hedge Ratio:</span> <strong id="hedge-ratio">--</strong>
-                    </div>
-                    <button class="btn-primary" style="font-size:0.8em; padding:5px;" onclick="checkHedge()">CALCULATE HEDGE</button>
+                    <div class="widget-body" id="chart-main" style="padding:0;"></div>
                 </div>
+
+                <!-- Trade Book -->
+                <div class="widget-card w-trade-book">
+                    <div class="widget-header">TRADE BOOK</div>
+                    <div class="widget-body" style="padding:0;">
+                        <table id="trade-table">
+                            <thead><tr><th>Ticker</th><th>Side</th><th>Qty</th><th>Px</th><th>Stat</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Greeks Histogram -->
+                <div class="widget-card w-greeks-hist">
+                    <div class="widget-header">PORTFOLIO RISK (GREEKS)</div>
+                    <div class="widget-body" id="chart-greeks" style="padding:0;"></div>
+                </div>
+
+                 <!-- Alpha Isolator (Beta Hedge) -->
+                <div class="widget-card w-alpha-iso">
+                    <div class="widget-header">ALPHA ISOLATOR (BETA HEDGE)</div>
+                    <div class="widget-body">
+                        <div style="margin-bottom:10px;">
+                            <span style="color:#888;">Eigen-Beta:</span> <strong id="eigen-beta">--</strong>
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <span style="color:#888;">Hedge Ratio:</span> <strong id="hedge-ratio">--</strong>
+                        </div>
+                        <button class="btn-primary" style="font-size:0.8em; padding:5px;" onclick="checkHedge()">CALCULATE HEDGE</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="toolbox-sidebar">
+                <div style="font-weight:bold; margin-bottom:10px; color:var(--accent-color);">MODULAR TOOLBOX</div>
+
+                <div class="toolbox-category">Strategies</div>
+                <div class="toolbox-item" draggable="true">🐢 Turtle Legacy</div>
+                <div class="toolbox-item" draggable="true">🧠 Sentiment Flow</div>
+                <div class="toolbox-item" draggable="true">📐 Vol Arbitrage</div>
+
+                <div class="toolbox-category">Risk Models</div>
+                <div class="toolbox-item" draggable="true">🏛️ Basel VaR (500D)</div>
+                <div class="toolbox-item" draggable="true">🦅 EVT Tail Risk</div>
+                <div class="toolbox-item" draggable="true">⚡ Stressed Risk</div>
+
+                <div class="toolbox-category">Intelligence</div>
+                <div class="toolbox-item" draggable="true">📊 Alpha Scorecard</div>
+                <div class="toolbox-item" draggable="true">🤖 Regime HMM</div>
             </div>
         </div>
     </div>

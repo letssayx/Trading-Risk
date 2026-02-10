@@ -1,0 +1,12 @@
+{
+    "weights": {
+        "sharpe_ratio": 0.4,
+        "sortino_ratio": 0.3,
+        "governance_pass": 0.3
+    },
+    "thresholds": {
+        "sharpe_min": 1.0,
+        "sortino_min": 1.5,
+        "governance_critical_chi_sq": 5.99
+    }
+}

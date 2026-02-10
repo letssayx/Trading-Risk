@@ -29,3 +29,12 @@ This document maps all quantitative strategies to their logical implementation (
 | **Backtest Engine** | `backend/backtest/engine.py` | Strategy Simulator with Transaction Costs (Slippage/STT). |
 | **Portfolio Mgr** | `backend/domain/portfolio/manager.py` | Multi-Portfolio NAV & Greek Aggregation. |
 | **Workspaces** | `backend/domain/user/workspace.py` | Persistent Layout Configurations. |
+
+## 3. Modular Toolbox (Standalone Objects)
+
+| Toolbox Category | Independent Object Location | Standard "OOTB" Implementation |
+| :--- | :--- | :--- |
+| **Scoring (Rubric)** | `backend/intelligence/toolbox/rubric.py` | `StandardAlphaScorecard` |
+| **Regime (HMM)** | `backend/analysis/market_state/regime.py` | `DefaultMarketWeatherHMM` (via `RegimeDetector`) |
+| **Risk Metrics** | `backend/risk/toolbox/measures.py` | `BaselVaR_500D` (via utility functions) |
+| **Strategy Logic** | `backend/strategies/toolbox/library.py` | `TurtleLegacyStrategy`, `VolArbitrageStrategy` |
