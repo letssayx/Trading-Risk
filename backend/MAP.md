@@ -25,3 +25,7 @@ This document maps all quantitative strategies to their logical implementation (
 | **Reporting** | `backend/risk/reports/alpha.py` | 4:15 PM Alpha Report Generator. |
 | **Intelligence** | `backend/intelligence/` | Core Sentiment & Market State logic. |
 | **Security** | `backend/infrastructure/security.py` | TOTP & Session Management (Mock). |
+| **Latency Monitor** | `backend/infrastructure/heartbeat.py` | Data Ingestion Health Check. |
+| **Backtest Engine** | `backend/backtest/engine.py` | Strategy Simulator with Transaction Costs (Slippage/STT). |
+| **Portfolio Mgr** | `backend/domain/portfolio/manager.py` | Multi-Portfolio NAV & Greek Aggregation. |
+| **Workspaces** | `backend/domain/user/workspace.py` | Persistent Layout Configurations. |
