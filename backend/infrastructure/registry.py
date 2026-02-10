@@ -58,4 +58,16 @@ class ToolboxRegistry:
         from backend.risk.toolbox.governance_tools import GovernanceAuditor
         cls.register(GovernanceAuditor)
 
-        # TODO: Add Strategy Wrappers (Turtle, etc) if they inherit BaseSovereignTool
+        # Strategies (Turtle Suite)
+        from backend.strategies.toolbox.turtle_suite import TurtleNCalculator, TurtlePyramiding, TurtleStopLoss
+        cls.register(TurtleNCalculator)
+        cls.register(TurtlePyramiding)
+        cls.register(TurtleStopLoss)
+
+        # Factor Models
+        from backend.strategies.toolbox.factor_model import FactorExposureModel
+        cls.register(FactorExposureModel)
+
+        # Ingest
+        from backend.ingest.toolbox.data_gateway import DataGateway
+        cls.register(DataGateway)

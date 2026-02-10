@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jules Sovereign Workbench</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Placeholder for GridStack or similar if needed later, using pure CSS Grid/Flex for now -->
+    <style>
+        :root {
+            --bg-color: #1e1e1e; /* Carbon */
+            --panel-bg: #2d2d2d; /* Slate */
+            --border-color: #424242;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --accent-color: #00bcd4; /* Cyan/Teal for "Data/Tech" feel */
+            --header-height: 40px;
+            --sidebar-width: 250px;
+        }
+        body { margin: 0; font-family: 'Consolas', 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-primary); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* Top Menu Bar */
+        #menu-bar { height: var(--header-height); background: #121212; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 15px; font-size: 0.9em; }
+        .menu-item { margin-right: 20px; cursor: pointer; color: var(--text-secondary); }
+        .menu-item:hover { color: #fff; }
+        .brand { font-weight: bold; color: var(--accent-color); margin-right: 30px; letter-spacing: 1px; }
+
+        /* Main Layout */
+        #app-body { flex: 1; display: flex; overflow: hidden; }
+
+        /* Toolbox Sidebar */
+        #toolbox-sidebar { width: var(--sidebar-width); background: #222; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .sidebar-header { padding: 10px; background: #252525; border-bottom: 1px solid var(--border-color); font-weight: bold; color: var(--text-secondary); font-size: 0.8em; text-transform: uppercase; }
+        .toolbox-content { flex: 1; overflow-y: auto; padding: 10px; }
+        .toolbox-brick { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 8px; margin-bottom: 5px; border-radius: 2px; cursor: grab; font-size: 0.85em; display: flex; align-items: center; transition: background 0.2s; }
+        .toolbox-brick:hover { background: #383838; border-color: var(--accent-color); }
+        .brick-icon { margin-right: 8px; font-size: 1.1em; }
+
+        /* Canvas Area */
+        #canvas-area { flex: 1; background: var(--bg-color); position: relative; padding: 20px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; grid-auto-rows: 250px; }
+        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .widget-header { padding: 5px 10px; background: #333; border-bottom: 1px solid var(--border-color); font-size: 0.8em; display: flex; justify-content: space-between; align-items: center; cursor: move; }
+        .widget-body { flex: 1; overflow: hidden; padding: 10px; font-size: 0.9em; }
+
+        /* Jules Chat Drawer */
+        #jules-drawer { width: 300px; background: #1a1a1a; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s; position: relative; }
+        #jules-drawer.collapsed { width: 40px; }
+        .drawer-header { height: 40px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 10px; justify-content: space-between; background: #252525; }
+        .drawer-content { flex: 1; padding: 10px; overflow-y: auto; font-family: monospace; font-size: 0.85em; color: #00ff00; }
+        .chat-input { padding: 10px; border-top: 1px solid var(--border-color); }
+        .chat-input input { width: 100%; background: #333; border: none; color: #fff; padding: 8px; font-family: monospace; }
+
+        /* Utilities */
+        .btn-icon { cursor: pointer; color: #888; font-size: 1.2em; }
+        .btn-icon:hover { color: #fff; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; margin-right: 5px; }
+        .status-dot.active { background: var(--accent-color); }
+
+    </style>
+</head>
+<body>
+
+    <div id="menu-bar">
+        <div class="brand">JULES WORKBENCH</div>
+        <div class="menu-item">FILE / DATA</div>
+        <div class="menu-item">ANALYTICS</div>
+        <div class="menu-item">VIEW</div>
+        <div class="menu-item">SETTINGS</div>
+    </div>
+
+    <div id="app-body">
+        <!-- Toolbox -->
+        <div id="toolbox-sidebar">
+            <div class="sidebar-header">Sovereign Toolbox</div>
+            <div class="toolbox-content" id="toolbox-list">
+                <!-- Bricks injected via JS -->
+                <div style="color: #666; font-style: italic; padding: 10px;">Loading Registry...</div>
+            </div>
+        </div>
+
+        <!-- Canvas -->
+        <div id="canvas-area">
+            <!-- Sample Widget -->
+            <div class="canvas-widget">
+                <div class="widget-header">
+                    <span>MARKET WATCH</span>
+                    <span class="btn-icon">×</span>
+                </div>
+                <div class="widget-body">
+                    Waiting for Data Stream...
+                </div>
+            </div>
+        </div>
+
+        <!-- Jules Drawer -->
+        <div id="jules-drawer">
+            <div class="drawer-header">
+                <span>JULES PYTHON HUB</span>
+                <span class="btn-icon" onclick="toggleDrawer()">«</span>
+            </div>
+            <div class="drawer-content">
+                > System Initialized.
+                > Registry Loaded.
+                > Ready for object synthesis.
+            </div>
+            <div class="chat-input">
+                <input type="text" placeholder="Generate Strategy Object..." />
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDrawer() {
+            const d = document.getElementById('jules-drawer');
+            d.classList.toggle('collapsed');
+        }
+
+        async function loadRegistry() {
+            try {
+                const res = await fetch('/strategies/toolbox/registry');
+                const data = await res.json();
+                const container = document.getElementById('toolbox-list');
+                container.innerHTML = '';
+
+                // Sort by category?
+                // Grouping logic can be added here
+
+                data.tools.forEach(tool => {
+                    const div = document.createElement('div');
+                    div.className = 'toolbox-brick';
+                    div.draggable = true;
+                    div.innerHTML = `<span class="brick-icon">${tool.icon}</span> ${tool.title}`;
+                    div.onclick = () => alert(`Inspect Code: ${tool.title}`); // Mock Inspector
+                    container.appendChild(div);
+                });
+            } catch(e) {
+                console.error("Registry Load Failed", e);
+            }
+        }
+
+        window.onload = () => {
+            loadRegistry();
+        };
+    </script>
+</body>
+</html>

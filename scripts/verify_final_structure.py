@@ -21,7 +21,7 @@ def run_verification():
         ("backend/analysis/market_state/regime.py", "Regime Detection"),
         ("backend/risk/measures/basel.py", "Basel VaR & Stress"),
         ("backend/MAP.md", "Master Strategy Index"),
-        ("backend/ui/templates/dashboard.html", "Unified Dashboard"),
+        ("backend/ui/templates/workbench.html", "Unified Workbench"),
         ("backend/web/routes.py", "Unified API Router"),
     ]
 

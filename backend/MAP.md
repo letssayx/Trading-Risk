@@ -44,3 +44,15 @@ This document maps all quantitative strategies to their logical implementation (
 | **Vol Analysis** | `backend/analysis/toolbox/volatility_tools.py` | `VolatilitySurfaceTool` |
 | **Inst. Flow** | `backend/analysis/toolbox/flow_tools.py` | `InstitutionalPulse` |
 | **Governance** | `backend/risk/toolbox/governance_tools.py` | `GovernanceAuditor` |
+
+## 4. Sovereign Toolbox Mapping (Sovereign Workbench)
+
+| Modular Tool | Logic Origin | UI Brick Name |
+| :--- | :--- | :--- |
+| **Nifty Daily Sync** | `backend/ingest/toolbox/data_gateway.py` | `Data Gateway` |
+| **HMM Regime** | `backend/analysis/market_state/regime.py` | `Market Weather` |
+| **Risk Governance** | `backend/risk/toolbox/governance_tools.py` | `Governance Auditor` |
+| **Smart Money** | `backend/analysis/toolbox/flow_tools.py` | `Institutional Pulse` |
+| **Factor Model** | `backend/strategies/toolbox/factor_model.py` | `Factor Exposure Model` |
+| **Turtle N-Calc** | `backend/strategies/toolbox/turtle_suite.py` | `Turtle N-Calc` |
+| **Turtle Stop** | `backend/strategies/toolbox/turtle_suite.py` | `Turtle 2N Stop` |
