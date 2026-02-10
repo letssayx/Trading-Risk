@@ -1,0 +1,5 @@
+{
+    "skew_threshold": 2.0,
+    "term_ratio_threshold_high": 1.15,
+    "term_ratio_threshold_low": 0.85
+}

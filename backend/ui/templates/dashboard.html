@@ -123,20 +123,7 @@
 
             <div id="toolbox-sidebar">
                 <div style="font-weight:bold; margin-bottom:10px; color:var(--accent-color);">MODULAR TOOLBOX</div>
-
-                <div class="toolbox-category">Strategies</div>
-                <div class="toolbox-item" draggable="true">🐢 Turtle Legacy</div>
-                <div class="toolbox-item" draggable="true">🧠 Sentiment Flow</div>
-                <div class="toolbox-item" draggable="true">📐 Vol Arbitrage</div>
-
-                <div class="toolbox-category">Risk Models</div>
-                <div class="toolbox-item" draggable="true">🏛️ Basel VaR (500D)</div>
-                <div class="toolbox-item" draggable="true">🦅 EVT Tail Risk</div>
-                <div class="toolbox-item" draggable="true">⚡ Stressed Risk</div>
-
-                <div class="toolbox-category">Intelligence</div>
-                <div class="toolbox-item" draggable="true">📊 Alpha Scorecard</div>
-                <div class="toolbox-item" draggable="true">🤖 Regime HMM</div>
+                <div id="toolbox-content">Loading Tools...</div>
             </div>
         </div>
     </div>
@@ -265,12 +252,27 @@
 
             elBeta.innerText = "1.42 (Calculated)";
             elHedge.innerText = "-2 Lots NIFTY";
+        }
 
-            // In real integration:
-            /*
-            const res = await fetch('/strategies/macro/pca', {method: 'POST', body: JSON.stringify({...})});
-            const data = await res.json();
-            */
+        async function fetchToolbox() {
+            try {
+                const res = await fetch('/strategies/toolbox/registry');
+                const data = await res.json();
+                const container = document.getElementById('toolbox-content');
+                container.innerHTML = '';
+
+                // Group by Category (simplified)
+                data.tools.forEach(tool => {
+                    const el = document.createElement('div');
+                    el.className = 'toolbox-item';
+                    el.draggable = true;
+                    el.innerText = `${tool.icon} ${tool.title}`;
+                    container.appendChild(el);
+                });
+            } catch(e) {
+                console.error("Toolbox Error", e);
+                document.getElementById('toolbox-content').innerText = "Failed to load Tools";
+            }
         }
 
         function openTradeModal() { document.getElementById('tradeModal').style.display = 'block'; }
@@ -309,6 +311,7 @@
             initCharts();
             fetchPortfolio();
             updateRegime();
+            fetchToolbox();
         };
 
         window.onresize = () => {

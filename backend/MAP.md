@@ -29,6 +29,7 @@ This document maps all quantitative strategies to their logical implementation (
 | **Backtest Engine** | `backend/backtest/engine.py` | Strategy Simulator with Transaction Costs (Slippage/STT). |
 | **Portfolio Mgr** | `backend/domain/portfolio/manager.py` | Multi-Portfolio NAV & Greek Aggregation. |
 | **Workspaces** | `backend/domain/user/workspace.py` | Persistent Layout Configurations. |
+| **Registry** | `backend/infrastructure/registry.py` | Master Toolbox Registry (Auto-Discovery). |
 
 ## 3. Modular Toolbox (Standalone Objects)
 
@@ -38,3 +39,8 @@ This document maps all quantitative strategies to their logical implementation (
 | **Regime (HMM)** | `backend/analysis/market_state/regime.py` | `DefaultMarketWeatherHMM` (via `RegimeDetector`) |
 | **Risk Metrics** | `backend/risk/toolbox/measures.py` | `BaselVaR_500D` (via utility functions) |
 | **Strategy Logic** | `backend/strategies/toolbox/library.py` | `TurtleLegacyStrategy`, `VolArbitrageStrategy` |
+| **Math Utils** | `backend/core/toolbox/math_tools.py` | `CompoundingAuditor` |
+| **StatArb** | `backend/core/toolbox/stats_tools.py` | `StatArbAlphaEngine` |
+| **Vol Analysis** | `backend/analysis/toolbox/volatility_tools.py` | `VolatilitySurfaceTool` |
+| **Inst. Flow** | `backend/analysis/toolbox/flow_tools.py` | `InstitutionalPulse` |
+| **Governance** | `backend/risk/toolbox/governance_tools.py` | `GovernanceAuditor` |

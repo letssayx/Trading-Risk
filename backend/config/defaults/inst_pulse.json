@@ -1,0 +1,5 @@
+{
+    "fii_buy_signal": "SMART_MONEY_LONG",
+    "fii_sell_signal": "SMART_MONEY_SHORT",
+    "min_flow_crores": 100.0
+}

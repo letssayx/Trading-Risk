@@ -68,3 +68,9 @@ def run_pca(req: PCARequest):
         "eigenvalues": res["eigenvalues"],
         "explained_variance": res["explained_variance"]
     }
+
+@router.get("/toolbox/registry")
+def get_toolbox_registry():
+    from backend.infrastructure.registry import ToolboxRegistry
+    ToolboxRegistry.auto_discover()
+    return {"tools": ToolboxRegistry.get_widgets()}
