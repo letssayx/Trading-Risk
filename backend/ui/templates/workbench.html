@@ -57,21 +57,81 @@
         #jules-drawer { width: 300px; background: #151515; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: transform 0.3s; position: fixed; right: 0; top: var(--header-height); bottom: 0; transform: translateX(100%); z-index: 2000; }
         #jules-drawer.open { transform: translateX(0); }
 
+        /* Chat Widget */
+        #chat-widget {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            width: 280px;
+            max-height: 360px;
+            background: #151515;
+            border: 1px solid #333;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            font-size: 0.8em;
+            z-index: 2500;
+            box-shadow: 0 0 8px rgba(0,0,0,0.6);
+        }
+        #chat-header {
+            padding: 6px 8px;
+            background: #202020;
+            border-bottom: 1px solid #333;
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+        #chat-messages {
+            flex: 1;
+            padding: 8px;
+            overflow-y: auto;
+            color: #ccc;
+        }
+        .chat-line {
+            margin-bottom: 4px;
+        }
+        .chat-line span.sender {
+            color: var(--accent-color);
+            margin-right: 4px;
+        }
+        #chat-input-row {
+            display: flex;
+            border-top: 1px solid #333;
+        }
+        #chat-input {
+            flex: 1;
+            padding: 6px 8px;
+            border: none;
+            background: #202020;
+            color: #eee;
+            font-family: inherit;
+            font-size: 0.8em;
+        }
+        #chat-input:focus { outline: none; }
+        #chat-send {
+            padding: 0 10px;
+            border: none;
+            background: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #chat-send:hover { filter: brightness(1.1); }
+
     </style>
 </head>
 <body>
 
     <div id="menu-bar">
         <div class="brand">TURTLE WORKBENCH</div>
-        <div class="menu-item" onclick="mockAction('File/Data Menu')">FILE / DATA</div>
-        <div class="menu-item" onclick="mockAction('Analytics Menu')">ANALYTICS</div>
-        <div class="menu-item" onclick="mockAction('View Menu')">VIEW</div>
+        <div class="menu-item" onclick="onFileDataClick()">FILE / DATA</div>
+        <div class="menu-item" onclick="onAnalyticsClick()">ANALYTICS</div>
+        <div class="menu-item" onclick="onViewClick()">VIEW</div>
 
         <div id="wb-tabs">
-            <div class="wb-tab active">Macro</div>
-            <div class="wb-tab">Vol Arb</div>
-            <div class="wb-tab">Risk Audit</div>
-            <div class="wb-tab" style="color:var(--accent-color)">+</div>
+            <div class="wb-tab active" data-tab="pnl">PnL Tracker</div>
+            <div class="wb-tab" data-tab="risk">Risk Scorecard</div>
+            <div class="wb-tab" data-tab="flow">Order Flow</div>
+            <div class="wb-tab wb-tab-add" style="color:var(--accent-color)">+</div>
         </div>
 
         <div class="menu-item" style="margin-left:20px; font-size:1.2em;" onclick="toggleJules()">🤖</div>
@@ -89,32 +149,29 @@
             </div>
         </div>
 
-        <!-- Canvas -->
-        <div id="canvas-area">
-            <!-- Sample Chart -->
-            <div class="canvas-widget" style="grid-column: span 8; grid-row: span 2;">
-                <div class="widget-header">
-                    <span>NIFTY 50 - 5Y TICK</span>
-                    <span style="color:#666;">Waiting for Stream...</span>
-                </div>
-                <div class="widget-body" id="chart-main"></div>
-            </div>
-
-            <!-- Sample Widget -->
-            <div class="canvas-widget" style="grid-column: span 4; grid-row: span 1;">
-                <div class="widget-header">STAT ARB SCANNER</div>
-                <div class="widget-body" style="padding:10px; color:#888;">Drop Z-Score Filter Here</div>
-            </div>
-        </div>
+        <!-- Canvas (filled dynamically per Workbench tab) -->
+        <div id="canvas-area"></div>
     </div>
 
     <!-- Jules Drawer -->
     <div id="jules-drawer">
         <div style="padding:10px; border-bottom:1px solid #333; font-weight:bold; color:var(--accent-color);">JULES PYTHON HUB</div>
-        <div style="flex:1; padding:10px; font-family:monospace; color:#0f0; font-size:0.85em;">
+        <div id="jules-log" style="flex:1; padding:10px; font-family:monospace; color:#0f0; font-size:0.85em; overflow-y:auto;">
             > System Ready.<br>
             > Alpha Palette Loaded.<br>
             > Monitoring Canvas...
+        </div>
+    </div>
+
+    <!-- Chat Widget -->
+    <div id="chat-widget">
+        <div id="chat-header">Jules Chat</div>
+        <div id="chat-messages">
+            <div class="chat-line"><span class="sender">Jules</span><span>Welcome to the Workbench. Ask anything about this dashboard here.</span></div>
+        </div>
+        <div id="chat-input-row">
+            <input id="chat-input" type="text" placeholder="Ask Jules..." onkeydown="if(event.key==='Enter'){sendChat();}">
+            <button id="chat-send" onclick="sendChat()">Send</button>
         </div>
     </div>
 
@@ -122,6 +179,8 @@
         // State
         let paletteOpen = true;
         let julesOpen = false;
+        let activeTab = 'pnl';
+        let dynamicWorkbenchCount = 0;
 
         function togglePalette() {
             const p = document.getElementById('alpha-palette');
@@ -135,9 +194,48 @@
             j.className = julesOpen ? 'open' : '';
         }
 
-        function mockAction(name) {
-            console.log(`Menu Action: ${name}`);
-            alert(`${name} - functionality coming soon.`);
+        function appendJulesLog(message) {
+            const log = document.getElementById('jules-log');
+            const line = document.createElement('div');
+            line.textContent = `> ${message}`;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Menu actions wired to backend routes
+        async function onFileDataClick() {
+            try {
+                const res = await fetch('/strategies/toolbox/registry');
+                appendJulesLog(`FILE/DATA -> /strategies/toolbox/registry [${res.status}]`);
+            } catch (e) {
+                console.error(e);
+                appendJulesLog('FILE/DATA error: unable to reach backend.');
+            }
+        }
+
+        async function onAnalyticsClick() {
+            try {
+                const payload = { returns_matrix: [[0.01, -0.02, 0.015], [0.005, 0.0, -0.01]] };
+                const res = await fetch('/strategies/macro/pca', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                appendJulesLog(`ANALYTICS -> /strategies/macro/pca [${res.status}]`);
+            } catch (e) {
+                console.error(e);
+                appendJulesLog('ANALYTICS error: unable to reach backend.');
+            }
+        }
+
+        async function onViewClick() {
+            try {
+                const res = await fetch('/portfolio');
+                appendJulesLog(`VIEW -> /portfolio [${res.status}]`);
+            } catch (e) {
+                console.error(e);
+                appendJulesLog('VIEW error: unable to reach backend.');
+            }
         }
 
         async function loadRegistry() {
@@ -195,21 +293,204 @@
             });
         }
 
-        // Init Chart
-        window.onload = () => {
-            loadRegistry();
+        // Workbench rendering
+        function renderPnlWorkbench() {
+            const canvas = document.getElementById('canvas-area');
+            canvas.innerHTML = '';
 
-            const chartDiv = document.getElementById('chart-main');
+            // Main PnL chart
+            const mainWidget = document.createElement('div');
+            mainWidget.className = 'canvas-widget';
+            mainWidget.style.gridColumn = 'span 8';
+            mainWidget.style.gridRow = 'span 2';
+            mainWidget.innerHTML = `
+                <div class="widget-header">
+                    <span>PnL Tracker</span>
+                    <span style="color:#666;">Sample Equity Curve</span>
+                </div>
+                <div class="widget-body" id="chart-pnl-main"></div>
+            `;
+            canvas.appendChild(mainWidget);
+
+            // Secondary PnL widget
+            const sideWidget = document.createElement('div');
+            sideWidget.className = 'canvas-widget';
+            sideWidget.style.gridColumn = 'span 4';
+            sideWidget.style.gridRow = 'span 1';
+            sideWidget.innerHTML = `
+                <div class="widget-header">Daily PnL Heatmap</div>
+                <div class="widget-body" style="padding:10px; color:#888;">Coming soon – connects to your portfolio PnL.</div>
+            `;
+            canvas.appendChild(sideWidget);
+
+            // Chart
+            const chartDiv = document.getElementById('chart-pnl-main');
             const chart = LightweightCharts.createChart(chartDiv, {
                 width: chartDiv.clientWidth,
                 height: chartDiv.clientHeight,
                 layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
                 grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
             });
-            chart.addCandlestickSeries().setData([
-                { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
-                { time: '2023-01-02', open: 103, high: 106, low: 102, close: 104 },
+            chart.addAreaSeries({ lineColor: '#00bcd4', topColor: 'rgba(0,188,212,0.3)', bottomColor: 'rgba(0,188,212,0.05)' }).setData([
+                { time: '2023-01-01', value: 100 },
+                { time: '2023-01-02', value: 103 },
+                { time: '2023-01-03', value: 107 },
+                { time: '2023-01-04', value: 104 },
+                { time: '2023-01-05', value: 111 },
             ]);
+        }
+
+        function renderRiskWorkbench() {
+            const canvas = document.getElementById('canvas-area');
+            canvas.innerHTML = '';
+
+            const riskWidget = document.createElement('div');
+            riskWidget.className = 'canvas-widget';
+            riskWidget.style.gridColumn = 'span 6';
+            riskWidget.style.gridRow = 'span 2';
+            riskWidget.innerHTML = `
+                <div class="widget-header">
+                    <span>Risk Scorecard</span>
+                    <span style="color:#666;">Sample VaR Timeline</span>
+                </div>
+                <div class="widget-body" id="chart-risk-var"></div>
+            `;
+            canvas.appendChild(riskWidget);
+
+            const heatWidget = document.createElement('div');
+            heatWidget.className = 'canvas-widget';
+            heatWidget.style.gridColumn = 'span 6';
+            heatWidget.style.gridRow = 'span 2';
+            heatWidget.innerHTML = `
+                <div class="widget-header">Exposure Breakdown</div>
+                <div class="widget-body" style="padding:10px; color:#888;">Sector and factor risk views will appear here.</div>
+            `;
+            canvas.appendChild(heatWidget);
+
+            const chartDiv = document.getElementById('chart-risk-var');
+            const chart = LightweightCharts.createChart(chartDiv, {
+                width: chartDiv.clientWidth,
+                height: chartDiv.clientHeight,
+                layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
+                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
+            });
+            chart.addLineSeries({ color: '#ff9800' }).setData([
+                { time: '2023-01-01', value: 1.2 },
+                { time: '2023-01-02', value: 1.5 },
+                { time: '2023-01-03', value: 1.1 },
+                { time: '2023-01-04', value: 1.8 },
+                { time: '2023-01-05', value: 1.3 },
+            ]);
+        }
+
+        function renderFlowWorkbench() {
+            const canvas = document.getElementById('canvas-area');
+            canvas.innerHTML = '';
+
+            const flowWidget = document.createElement('div');
+            flowWidget.className = 'canvas-widget';
+            flowWidget.style.gridColumn = 'span 8';
+            flowWidget.style.gridRow = 'span 2';
+            flowWidget.innerHTML = `
+                <div class="widget-header">
+                    <span>Order Flow</span>
+                    <span style="color:#666;">Sample Volume Ladder</span>
+                </div>
+                <div class="widget-body" id="chart-flow-main"></div>
+            `;
+            canvas.appendChild(flowWidget);
+
+            const tapeWidget = document.createElement('div');
+            tapeWidget.className = 'canvas-widget';
+            tapeWidget.style.gridColumn = 'span 4';
+            tapeWidget.style.gridRow = 'span 2';
+            tapeWidget.innerHTML = `
+                <div class="widget-header">Tape Monitor</div>
+                <div class="widget-body" style="padding:10px; color:#888;">Recent prints and imbalance will show here.</div>
+            `;
+            canvas.appendChild(tapeWidget);
+
+            const chartDiv = document.getElementById('chart-flow-main');
+            const chart = LightweightCharts.createChart(chartDiv, {
+                width: chartDiv.clientWidth,
+                height: chartDiv.clientHeight,
+                layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
+                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
+            });
+            chart.addHistogramSeries({ color: '#4caf50' }).setData([
+                { time: '2023-01-01', value: 1200 },
+                { time: '2023-01-02', value: 1800 },
+                { time: '2023-01-03', value: 900 },
+                { time: '2023-01-04', value: 2100 },
+                { time: '2023-01-05', value: 1600 },
+            ]);
+        }
+
+        function renderActiveWorkbench() {
+            if (activeTab === 'pnl') renderPnlWorkbench();
+            else if (activeTab === 'risk') renderRiskWorkbench();
+            else if (activeTab === 'flow') renderFlowWorkbench();
+        }
+
+        function setActiveTab(tabKey) {
+            activeTab = tabKey;
+            document.querySelectorAll('#wb-tabs .wb-tab').forEach(t => {
+                if (!t.dataset.tab) return;
+                t.classList.toggle('active', t.dataset.tab === tabKey);
+            });
+            renderActiveWorkbench();
+        }
+
+        function setupTabs() {
+            document.querySelectorAll('#wb-tabs .wb-tab').forEach(t => {
+                const tabKey = t.dataset.tab;
+                if (tabKey) {
+                    t.addEventListener('click', () => setActiveTab(tabKey));
+                }
+            });
+            const addTab = document.querySelector('#wb-tabs .wb-tab-add');
+            if (addTab) {
+                addTab.addEventListener('click', () => {
+                    dynamicWorkbenchCount += 1;
+                    const newKey = `wb${dynamicWorkbenchCount}`;
+                    const newTab = document.createElement('div');
+                    newTab.className = 'wb-tab';
+                    newTab.dataset.tab = newKey;
+                    newTab.textContent = `Custom ${dynamicWorkbenchCount}`;
+                    addTab.before(newTab);
+                    newTab.addEventListener('click', () => setActiveTab(newKey));
+                    // For now, custom tabs reuse the PnL layout
+                    setActiveTab(newKey);
+                });
+            }
+        }
+
+        // Chat widget
+        function appendChatMessage(sender, text) {
+            const box = document.getElementById('chat-messages');
+            const line = document.createElement('div');
+            line.className = 'chat-line';
+            line.innerHTML = `<span class="sender">${sender}</span><span>${text}</span>`;
+            box.appendChild(line);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            appendChatMessage('You', text);
+            input.value = '';
+
+            // Local, UI-only Jules response
+            appendChatMessage('Jules', "I see your message here on the dashboard. For deeper reasoning, keep chatting with me in the IDE.");
+        }
+
+        // Init
+        window.onload = () => {
+            loadRegistry();
+            setupTabs();
+            renderActiveWorkbench();
         };
 
         // Hotkey T for Palette

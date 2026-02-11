@@ -1,0 +1,50 @@
+---
+description: Core architectural and Python standards for the Trading-Risk backend
+alwaysApply: true
+---
+
+# Core Backend Standards
+
+This project is a quantitative trading and risk engine. Keep strategy "brain" logic,
+execution "general" wiring, and domain models clearly separated.
+
+## Architecture & Folder Boundaries
+
+- **Strategies (`backend/strategies/`)**
+  - Keep high-level trading workflows and orchestration here.
+  - Reuse composable pieces from `backend/strategies/toolbox/` instead of inlining logic.
+- **Toolboxes (`backend/**/toolbox/`)**
+  - Implement small, pure, testable objects and functions.
+  - Avoid direct I/O, network calls, or framework dependencies in toolboxes.
+- **Domain (`backend/domain/`)**
+  - Keep SQLAlchemy models, Pydantic schemas, and portfolio/workspace logic here.
+  - Do not import web or UI layers from domain code.
+- **Web/API (`backend/web/`, `backend/ui/`)**
+  - Keep these as thin adapters over strategies, risk, and domain modules.
+  - No heavy quantitative logic should live in route handlers or templates.
+
+## Python Coding Conventions
+
+- **Type hints**
+  - Use type hints on public functions, methods, and dataclasses.
+  - Prefer explicit return types for strategy, risk, and toolbox functions.
+- **Error handling**
+  - Fail fast on inconsistent market data and invalid configuration.
+  - Wrap external boundary calls (I/O, APIs, databases) with clear error messages.
+- **Logging**
+  - Use structured logging (log message + key fields) instead of print.
+  - Log at the edges (ingest, web, backtest) rather than deep inside math helpers.
+
+## Risk & Strategy Design
+
+- Express core quantitative ideas (signals, filters, risk metrics) as reusable,
+  side-effect-free functions or small classes in the appropriate toolbox module.
+- Keep backtest behavior aligned with live execution by reusing the same
+  strategy and risk building blocks on both paths.
+
+## Tests & Verification Scripts
+
+- Prefer adding or updating verification scripts in `scripts/` instead of
+  writing ad-hoc one-off throwaway code.
+- When fixing bugs, add a focused script or test that would have caught the issue.
+

@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic
+python-dotenv
+
+# Math / quant stack
+numpy
+pandas
+scipy
+scikit-learn
+
+# Optional: Redis client (useful for caching / queues)
+redis
+
