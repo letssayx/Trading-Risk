@@ -18,8 +18,9 @@ class ToolboxRegistry:
         try:
             tool = tool_cls()
             cls._registry[tool.name] = tool
+            print(f"[REGISTRY] Registered: {tool.name}")
         except Exception as e:
-            print(f"Failed to register {tool_cls}: {e}")
+            print(f"[REGISTRY] Failed to register {tool_cls}: {e}")
 
     @classmethod
     def get_all_tools(cls) -> List[Dict[str, Any]]:
@@ -38,44 +39,63 @@ class ToolboxRegistry:
     def auto_discover(cls):
         """
         Recursively finds BaseSovereignTool implementations in backend modules.
+        Wrapped in try/except blocks to prevent partial failures from crashing the UI.
         """
-        # Manual registration for now to ensure order and stability
-        # In a real dynamic system, we'd walk packages.
+        print("[REGISTRY] Starting Auto-Discovery...")
 
-        # Core
-        from backend.core.toolbox.math_tools import CompoundingAuditor
-        from backend.core.toolbox.stats_tools import StatArbAlphaEngine
-        cls.register(CompoundingAuditor)
-        cls.register(StatArbAlphaEngine)
+        # 1. Core & Math
+        try:
+            from backend.core.toolbox.math_tools import CompoundingAuditor
+            cls.register(CompoundingAuditor)
+        except Exception as e: print(f"[REGISTRY] Error loading Math Tools: {e}")
 
-        # Analysis
-        from backend.analysis.toolbox.volatility_tools import VolatilitySurfaceTool
-        from backend.analysis.toolbox.flow_tools import InstitutionalPulse
-        cls.register(VolatilitySurfaceTool)
-        cls.register(InstitutionalPulse)
+        try:
+            from backend.core.toolbox.stats_tools import StatArbAlphaEngine, ZScoreFilter, CointegrationAuditor
+            cls.register(StatArbAlphaEngine)
+            cls.register(ZScoreFilter)
+            cls.register(CointegrationAuditor)
+        except Exception as e: print(f"[REGISTRY] Error loading Stats Tools: {e}")
 
-        # Risk
-        from backend.risk.toolbox.governance_tools import GovernanceAuditor
-        cls.register(GovernanceAuditor)
+        # 2. Analysis & Intelligence
+        try:
+            from backend.analysis.toolbox.volatility_tools import VolatilitySurfaceTool
+            cls.register(VolatilitySurfaceTool)
+        except Exception as e: print(f"[REGISTRY] Error loading Vol Tools: {e}")
 
-        # Strategies (Turtle Suite)
-        from backend.strategies.toolbox.turtle_suite import TurtleNCalculator, TurtlePyramiding, TurtleStopLoss
-        cls.register(TurtleNCalculator)
-        cls.register(TurtlePyramiding)
-        cls.register(TurtleStopLoss)
+        try:
+            from backend.analysis.toolbox.flow_tools import InstitutionalPulse
+            cls.register(InstitutionalPulse)
+        except Exception as e: print(f"[REGISTRY] Error loading Flow Tools: {e}")
 
-        # Factor Models
-        from backend.strategies.toolbox.factor_model import FactorExposureModel
-        cls.register(FactorExposureModel)
+        try:
+            from backend.analysis.toolbox.spread_tools import SpreadSynthesizer, FICOTool
+            cls.register(SpreadSynthesizer)
+            cls.register(FICOTool)
+        except Exception as e: print(f"[REGISTRY] Error loading Spread Tools: {e}")
 
-        # Ingest
-        from backend.ingest.toolbox.data_gateway import DataGateway
-        cls.register(DataGateway)
+        # 3. Risk & Governance
+        try:
+            from backend.risk.toolbox.governance_tools import GovernanceAuditor
+            cls.register(GovernanceAuditor)
+        except Exception as e: print(f"[REGISTRY] Error loading Governance Tools: {e}")
 
-        # Spread & Stats
-        from backend.analysis.toolbox.spread_tools import SpreadSynthesizer, FICOTool
-        from backend.core.toolbox.stats_tools import ZScoreFilter, CointegrationAuditor
-        cls.register(SpreadSynthesizer)
-        cls.register(FICOTool)
-        cls.register(ZScoreFilter)
-        cls.register(CointegrationAuditor)
+        # 4. Strategies (Layers)
+        try:
+            from backend.strategies.toolbox.turtle_suite import TurtleNCalculator, TurtlePyramiding, TurtleStopLoss
+            cls.register(TurtleNCalculator)
+            cls.register(TurtlePyramiding)
+            cls.register(TurtleStopLoss)
+        except Exception as e: print(f"[REGISTRY] Error loading Turtle Suite: {e}")
+
+        try:
+            from backend.strategies.toolbox.factor_model import FactorExposureModel
+            cls.register(FactorExposureModel)
+        except Exception as e: print(f"[REGISTRY] Error loading Factor Models: {e}")
+
+        # 5. Ingest
+        try:
+            from backend.ingest.toolbox.data_gateway import DataGateway
+            cls.register(DataGateway)
+        except Exception as e: print(f"[REGISTRY] Error loading Data Gateway: {e}")
+
+        print(f"[REGISTRY] Discovery Complete. Total Tools: {len(cls._registry)}")
