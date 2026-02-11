@@ -1,0 +1,20 @@
+{
+  "rules": [
+    {
+      "name": "Disconnected Intelligence",
+      "description": "Ensure AI generated code never directly accesses the database or executes trades. It must output code that calls deterministic, white-box engines."
+    },
+    {
+      "name": "Plugin Architecture",
+      "description": "All new strategies, risk models, and indicators must be implemented as plugins in `backend/plugins/` inheriting from base classes."
+    },
+    {
+      "name": "Institutional Audit",
+      "description": "Every analytical output must produce an audit trail log entry linking the result to the input snapshot ID."
+    },
+    {
+      "name": "Sovereign Object Pattern",
+      "description": "Quantitative logic must be encapsulated in standalone classes (Tools) in `backend/*/toolbox/` that do not depend on the web framework."
+    }
+  ]
+}

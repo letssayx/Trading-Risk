@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: turtle_db
+    environment:
+      - POSTGRES_USER=turtle_admin
+      - POSTGRES_PASSWORD=turtle_pass
+      - POSTGRES_DB=turtle_terminal
+    ports:
+      - "5432:5432"
+    volumes:
+      - turtle_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: turtle_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+volumes:
+  turtle_data:
