@@ -2,279 +2,297 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Jules Sovereign Workbench - Slate & Carbon</title>
+    <title>Turtle Terminal - Institutional Workspace</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
-            --bg-color: #1e1e1e;
-            --panel-bg: #2d2d2d;
+            --bg-color: #1e1e1e; /* Carbon */
+            --panel-bg: #2d2d2d; /* Slate */
             --border-color: #424242;
             --text-primary: #e0e0e0;
             --text-secondary: #aaaaaa;
             --accent-color: #00bcd4;
+            --danger-color: #ff5252;
             --header-height: 40px;
-            --palette-width: 280px;
+            --footer-height: 40px;
+            --left-sidebar-width: 250px;
+            --right-sidebar-width: 300px;
         }
         body { margin: 0; font-family: 'Consolas', 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-primary); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-        /* Top Menu Bar */
-        #menu-bar { height: var(--header-height); background: #121212; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 15px; font-size: 0.85em; user-select: none; }
-        .brand { font-weight: bold; color: var(--accent-color); margin-right: 30px; letter-spacing: 1px; cursor: default; }
-        .menu-item { margin-right: 20px; cursor: pointer; color: var(--text-secondary); transition: color 0.2s; position: relative; }
-        .menu-item:hover { color: #fff; }
-        .menu-item:active { top: 1px; }
+        /* --- Top Bar (Breadcrumbs) --- */
+        #top-bar { height: var(--header-height); background: #121212; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 15px; font-size: 0.85em; }
+        .breadcrumb { display: flex; align-items: center; }
+        .bc-item { margin-right: 10px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; }
+        .bc-item:hover { color: #fff; }
+        .bc-item:after { content: '>'; margin-left: 10px; color: #444; }
+        .bc-item:last-child { color: var(--accent-color); font-weight: bold; }
+        .bc-item:last-child:after { content: ''; }
+        .spacer { flex: 1; }
+        .settings-icon { cursor: pointer; font-size: 1.2em; color: #666; }
+        .settings-icon:hover { color: #fff; }
 
-        /* Workbench Tabs */
-        #wb-tabs { display: flex; align-items: center; margin-left: auto; }
-        .wb-tab { padding: 5px 12px; background: #222; border: 1px solid #333; margin-left: 5px; border-radius: 2px; cursor: pointer; font-size: 0.8em; color: #888; }
-        .wb-tab.active { background: var(--panel-bg); border-color: var(--accent-color); color: #fff; }
-
-        /* Main Layout */
+        /* --- Main Layout --- */
         #app-body { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-        /* Institutional Sidebar (Collapsible) */
-        #alpha-palette { width: 0; background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.4,0,0.2,1); overflow: hidden; white-space: nowrap; }
-        #alpha-palette.open { width: var(--palette-width); }
-        .palette-header { padding: 12px; background: #121212; color: var(--accent-color); font-weight: bold; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
-        .palette-content { flex: 1; overflow-y: auto; padding: 10px; }
+        /* Left Sidebar (Risk Scorecard - Fixed) */
+        #left-sidebar { width: var(--left-sidebar-width); background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .sidebar-header { padding: 10px; background: #121212; font-weight: bold; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); text-transform: uppercase; font-size: 0.8em; }
+        .risk-panel { padding: 10px; flex: 1; overflow-y: auto; }
+        .risk-metric { margin-bottom: 15px; background: #252525; padding: 10px; border-radius: 4px; border: 1px solid #333; }
+        .risk-label { font-size: 0.75em; color: #888; margin-bottom: 5px; }
+        .risk-value { font-size: 1.1em; font-weight: bold; color: #fff; }
 
-        .tool-category { font-size: 0.75em; color: #666; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #333; padding-bottom: 2px; }
-        .tool-brick { background: #252525; border: 1px solid #333; padding: 8px 10px; margin-bottom: 6px; border-radius: 2px; cursor: pointer; font-size: 0.85em; display: flex; align-items: center; transition: all 0.2s; }
-        .tool-brick:hover { background: #333; border-color: var(--accent-color); transform: translateX(2px); }
-        .brick-icon { margin-right: 10px; opacity: 0.8; font-size: 1.1em; width: 20px; text-align: center; }
+        /* Center Stage (Tabbed Workspace) */
+        #center-stage { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); min-width: 0; }
 
-        /* Multi-Grid Canvas */
-        #canvas-area { flex: 1; background: var(--bg-color); position: relative; padding: 10px; overflow: auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(200px, auto); }
-        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; grid-column: span 6; grid-row: span 1; transition: box-shadow 0.2s; }
-        .canvas-widget:hover { box-shadow: 0 0 5px rgba(0,0,0,0.5); border-color: #555; }
-        .widget-header { padding: 6px 10px; background: #222; border-bottom: 1px solid #333; font-size: 0.8em; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: move; }
-        .widget-controls span { cursor: pointer; margin-left: 8px; color: #666; }
-        .widget-controls span:hover { color: #fff; }
-        .widget-body { flex: 1; overflow: hidden; position: relative; padding: 0; }
+        /* Workspace Tabs */
+        #workspace-tabs { height: 35px; background: #222; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 5px; }
+        .ws-tab { padding: 5px 15px; margin-right: 2px; background: #333; color: #888; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 0.8em; user-select: none; }
+        .ws-tab.active { background: var(--bg-color); color: var(--accent-color); font-weight: bold; border-top: 2px solid var(--accent-color); }
+        .ws-tab:hover:not(.active) { background: #444; }
+        .add-tab { padding: 5px 10px; cursor: pointer; color: #666; font-weight: bold; }
+        .add-tab:hover { color: #fff; }
 
-        /* Floating Action Button for Palette */
-        #fab-palette { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 20px; height: 60px; background: #333; border: 1px solid #444; border-left: none; border-radius: 0 4px 4px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--accent-color); z-index: 1000; transition: left 0.3s; }
-        #alpha-palette.open + #canvas-area #fab-palette { left: var(--palette-width); } /* Not strictly needed if flex, but good for overlay */
+        /* Canvas (Grid) */
+        #active-canvas { flex: 1; padding: 10px; overflow: auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(250px, auto); position: relative; }
+        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; grid-column: span 6; grid-row: span 1; }
+        .widget-header { padding: 5px 10px; background: #222; border-bottom: 1px solid #333; font-size: 0.8em; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: move; }
+        .widget-body { flex: 1; overflow: hidden; padding: 0; position: relative; }
 
-        /* Jules Drawer */
-        #jules-drawer { width: 300px; background: #151515; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: transform 0.3s; position: fixed; right: 0; top: var(--header-height); bottom: 0; transform: translateX(100%); z-index: 2000; }
-        #jules-drawer.open { transform: translateX(0); }
+        /* Right Sidebar (Jules Console - Collapsible) */
+        #right-sidebar { width: var(--right-sidebar-width); background: #151515; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: transform 0.3s; position: absolute; right: 0; top: 0; bottom: 0; z-index: 1000; transform: translateX(100%); }
+        #right-sidebar.open { transform: translateX(0); }
+        .drawer-toggle { position: absolute; left: -30px; top: 10px; width: 30px; height: 30px; background: #222; border: 1px solid var(--border-color); border-right: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent-color); z-index: 1001; }
+
+        /* Chat & Log Area */
+        #jules-chat { flex: 1; display: flex; flex-direction: column; }
+        .console-logs { flex: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 0.8em; color: #00e676; background: #000; border-top: 1px solid #333; }
+        .chat-input { padding: 10px; background: #222; border-top: 1px solid #333; }
+        .chat-input input { width: 100%; background: #111; border: 1px solid #444; color: #fff; padding: 8px; font-family: monospace; box-sizing: border-box; }
+
+        /* --- Fixed Bottom Bar (PnL Audit) --- */
+        #bottom-bar { height: var(--footer-height); background: #101010; border-top: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; font-size: 0.85em; z-index: 2000; }
+        .pnl-stat { display: flex; align-items: center; margin-right: 30px; }
+        .pnl-label { color: #666; margin-right: 8px; text-transform: uppercase; font-size: 0.75em; }
+        .pnl-val { font-weight: bold; font-family: monospace; font-size: 1.1em; }
+        .dd-val { color: var(--danger-color); }
+        .heartbeat { width: 8px; height: 8px; border-radius: 50%; background: #333; margin-left: 5px; }
+        .heartbeat.active { background: #00e676; box-shadow: 0 0 5px #00e676; }
 
     </style>
 </head>
 <body>
 
-    <div id="menu-bar">
-        <div class="brand">TURTLE WORKBENCH</div>
-        <div class="menu-item" onclick="mockAction('File/Data Menu')">FILE / DATA</div>
-        <div class="menu-item" onclick="mockAction('Analytics Menu')">ANALYTICS</div>
-        <div class="menu-item" onclick="mockAction('View Menu')">VIEW</div>
-
-        <div id="wb-tabs">
-            <div class="wb-tab active">Macro</div>
-            <div class="wb-tab">Vol Arb</div>
-            <div class="wb-tab">Risk Audit</div>
-            <div class="wb-tab" style="color:var(--accent-color)">+</div>
+    <!-- Top Bar -->
+    <div id="top-bar">
+        <div class="breadcrumb">
+            <div class="bc-item" onclick="nav('root')">Turtle Terminal</div>
+            <div class="bc-item" onclick="nav('entity')">Portfolios</div>
+            <div class="bc-item" id="active-focus">Master Fund</div>
         </div>
-
-        <div class="menu-item" style="margin-left:20px; font-size:1.2em;" onclick="toggleJules()">🤖</div>
+        <div class="spacer"></div>
+        <div class="settings-icon" title="Settings">⚙️</div>
     </div>
 
     <div id="app-body">
-        <!-- Institutional Sidebar -->
-        <div id="alpha-palette" class="open">
-            <div class="palette-header">
-                <span>INSTITUTIONAL SIDEBAR</span>
-                <span style="cursor:pointer; opacity:0.6;" onclick="togglePalette()">«</span>
-            </div>
-            <div class="palette-content" id="palette-list">
-                <div style="text-align:center; color:#555; padding:20px;">Loading Tools...</div>
+        <!-- Left Sidebar: Risk Scorecard -->
+        <div id="left-sidebar">
+            <div class="sidebar-header">RISK SCORECARD</div>
+            <div class="risk-panel" id="risk-panel">
+                <div class="risk-metric">
+                    <div class="risk-label">VaR (95%)</div>
+                    <div class="risk-value" id="var-val">--</div>
+                </div>
+                <div class="risk-metric">
+                    <div class="risk-label">Delta Exp</div>
+                    <div class="risk-value" id="delta-val">--</div>
+                </div>
+                <div class="risk-metric">
+                    <div class="risk-label">Gamma</div>
+                    <div class="risk-value" id="gamma-val">--</div>
+                </div>
+                <!-- More metrics spawned here -->
             </div>
         </div>
 
-        <!-- Multi-Grid Canvas -->
-        <div id="canvas-area">
-            <!-- Widgets spawned dynamically -->
+        <!-- Center Stage -->
+        <div id="center-stage">
+            <div id="workspace-tabs">
+                <div class="ws-tab active" onclick="switchTab('macro')">Macro View</div>
+                <div class="ws-tab" onclick="switchTab('arb')">Arbitrage Scanner</div>
+                <div class="add-tab" onclick="addTab()">+</div>
+            </div>
+
+            <div id="active-canvas">
+                <!-- Widgets go here -->
+                <div style="color:#444; padding:20px; grid-column:span 12; text-align:center;">
+                    Select a workbench tab or drop tools here.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Jules Console -->
+        <div id="right-sidebar">
+            <div class="drawer-toggle" onclick="toggleJules()">💬</div>
+            <div style="padding:10px; background:#222; font-weight:bold; border-bottom:1px solid #333;">JULES CONSOLE</div>
+            <div style="flex:1; padding:10px; overflow-y:auto; color:#ccc;">
+                <div class="chat-msg">Jules: I am context-aware. Active: Master Fund.</div>
+            </div>
+            <div class="console-logs" id="console-logs">
+                > System Init...
+            </div>
+            <div class="chat-input">
+                <input type="text" placeholder="Ask Jules regarding this workbench..." onkeypress="handleChat(event)">
+            </div>
         </div>
     </div>
 
-    <!-- Jules Drawer -->
-    <div id="jules-drawer">
-        <div style="padding:10px; border-bottom:1px solid #333; font-weight:bold; color:var(--accent-color);">JULES PYTHON HUB</div>
-        <div style="flex:1; padding:10px; font-family:monospace; color:#0f0; font-size:0.85em;">
-            > System Ready.<br>
-            > Alpha Palette Loaded.<br>
-            > Monitoring Canvas...
+    <!-- Fixed Bottom Bar -->
+    <div id="bottom-bar">
+        <div style="display:flex;">
+            <div class="pnl-stat">
+                <span class="pnl-label">Running NAV</span>
+                <span class="pnl-val" id="nav-val">--</span>
+            </div>
+            <div class="pnl-stat">
+                <span class="pnl-label">Pk-to-Val DD</span>
+                <span class="pnl-val dd-val" id="dd-val">--</span>
+            </div>
+            <div class="pnl-stat">
+                <span class="pnl-label">Intraday Vol</span>
+                <div style="display:flex; align-items:center;">
+                    <span class="pnl-val" id="vol-val">--</span>
+                    <div class="heartbeat" id="vol-heartbeat"></div>
+                </div>
+            </div>
         </div>
+        <div style="color:#444;">PnL Audit Active</div>
     </div>
 
     <script>
-        // State
-        let paletteOpen = true;
         let julesOpen = false;
 
-        function togglePalette() {
-            const p = document.getElementById('alpha-palette');
-            paletteOpen = !paletteOpen;
-            p.className = paletteOpen ? 'open' : '';
-        }
-
         function toggleJules() {
-            const j = document.getElementById('jules-drawer');
+            const el = document.getElementById('right-sidebar');
             julesOpen = !julesOpen;
-            j.className = julesOpen ? 'open' : '';
+            el.className = julesOpen ? 'open' : '';
         }
 
-        function mockAction(name) {
-            console.log(`Menu Action: ${name}`);
-            alert(`${name} - functionality coming soon.`);
+        function nav(loc) {
+            console.log("Navigating to", loc);
+            // Logic to update breadcrumbs
         }
 
-        async function loadRegistry() {
-            try {
-                const res = await fetch('/strategies/toolbox/registry');
-                if (!res.ok) throw new Error("API Error");
-                const data = await res.json();
-                renderPalette(data.tools);
-            } catch(e) {
-                console.error(e);
-                document.getElementById('palette-list').innerHTML = `<div style="color:red; text-align:center;">Registry Error</div>`;
+        function switchTab(name) {
+            // Update UI tabs
+            document.querySelectorAll('.ws-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // In real app, render different grid content
+            const canvas = document.getElementById('active-canvas');
+            canvas.innerHTML = `<div style="padding:20px; color:#666;">Active Workbench: ${name.toUpperCase()}</div>`;
+
+            // Example: Spawn a chart if Macro
+            if(name === 'macro') {
+                spawnChart();
             }
         }
 
-        function renderPalette(tools) {
-            const container = document.getElementById('palette-list');
-            container.innerHTML = '';
-
-            // New Category Mapping
-            const groups = {
-                "Strategy": "STRATEGIES",
-                "Risk": "RISK SCORECARD",
-                "Indicator": "ARBITRAGE SCANNER",
-                "Governance": "PnL AUDIT",
-                "Math": "UTILS"
-            };
-
-            const bucketed = {};
-            tools.forEach(t => {
-                const grp = groups[t.category] || "MISC";
-                if (!bucketed[grp]) bucketed[grp] = [];
-                bucketed[grp].push(t);
-            });
-
-            const order = ["PnL AUDIT", "ARBITRAGE SCANNER", "RISK SCORECARD", "STRATEGIES", "UTILS"];
-
-            order.forEach(grpName => {
-                if (!bucketed[grpName]) return;
-
-                const catHeader = document.createElement('div');
-                catHeader.className = 'tool-category';
-                catHeader.innerText = grpName;
-                container.appendChild(catHeader);
-
-                bucketed[grpName].forEach(tool => {
-                    const el = document.createElement('div');
-                    el.className = 'tool-brick';
-                    el.innerHTML = `<span class="brick-icon">${tool.icon}</span> ${tool.title}`;
-                    el.onclick = () => spawnWidget(tool);
-                    container.appendChild(el);
-                });
-            });
+        function addTab() {
+            const name = prompt("Workbench Name:");
+            if(name) {
+                const tabs = document.getElementById('workspace-tabs');
+                const div = document.createElement('div');
+                div.className = 'ws-tab';
+                div.innerText = name;
+                div.onclick = (e) => switchTab(name);
+                tabs.insertBefore(div, tabs.lastElementChild);
+            }
         }
 
-        function spawnWidget(tool) {
-            const grid = document.getElementById('canvas-area');
-            const id = 'w-' + Date.now();
-
-            const widget = document.createElement('div');
-            widget.className = 'canvas-widget';
-            widget.id = id;
-
-            // Default size/pos logic (simple stacking)
-            widget.style.gridColumn = "span 6";
-            widget.style.gridRow = "span 2";
-
-            widget.innerHTML = `
-                <div class="widget-header">
-                    <span>${tool.title.toUpperCase()}</span>
-                    <div class="widget-controls">
-                        <span onclick="toggleCode('${tool.title}')">Code</span>
-                        <span onclick="document.getElementById('${id}').remove()">×</span>
-                    </div>
-                </div>
-                <div class="widget-body" id="body-${id}">
-                    <div style="padding:20px; text-align:center; color:#666;">
-                        Loading ${tool.title}...
-                    </div>
-                </div>
-            `;
-
-            grid.appendChild(widget);
-
-            // Fetch Data
-            loadWidgetData(tool, `body-${id}`);
-        }
-
-        async function loadWidgetData(tool, containerId) {
+        async function updatePnLAudit() {
             try {
                 const res = await fetch('/api/widgets/data', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ tool_name: tool.title })
+                    body: JSON.stringify({ tool_name: "pnl_audit" })
                 });
                 const data = await res.json();
+                if(data.data) {
+                    document.getElementById('nav-val').innerText = data.data.nav;
+                    document.getElementById('dd-val').innerText = data.data.drawdown;
+                    document.getElementById('vol-val').innerText = data.data.volatility;
 
-                const container = document.getElementById(containerId);
-
-                if (data.type === 'chart') {
-                    // Render Chart
-                    container.innerHTML = '';
-                    const chart = LightweightCharts.createChart(container, {
-                        width: container.clientWidth,
-                        height: container.clientHeight,
-                        layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
-                        grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
-                    });
-                    const series = chart.addCandlestickSeries();
-                    series.setData(data.data);
-                } else if (data.type === 'metrics') {
-                    container.innerHTML = `<pre style="padding:10px; color:#0f0; font-size:0.8em;">${JSON.stringify(data.data, null, 2)}</pre>`;
-                } else {
-                    container.innerHTML = `<div style="padding:10px;">${JSON.stringify(data)}</div>`;
+                    // Beat
+                    const hb = document.getElementById('vol-heartbeat');
+                    hb.classList.add('active');
+                    setTimeout(() => hb.classList.remove('active'), 500);
                 }
+            } catch(e) { console.error("PnL Fetch Error", e); }
+        }
 
-            } catch(e) {
-                console.error(e);
+        async function updateRiskScorecard() {
+             try {
+                const res = await fetch('/api/widgets/data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ tool_name: "risk_scorecard" })
+                });
+                const data = await res.json();
+                if(data.data) {
+                    document.getElementById('var-val').innerText = data.data.var;
+                    document.getElementById('delta-val').innerText = data.data.delta;
+                    document.getElementById('gamma-val').innerText = data.data.gamma;
+                }
+            } catch(e) { console.error("Risk Fetch Error", e); }
+        }
+
+        function spawnChart() {
+            const grid = document.getElementById('active-canvas');
+            const widget = document.createElement('div');
+            widget.className = 'canvas-widget';
+            widget.style.gridColumn = "span 8";
+            widget.style.gridRow = "span 2";
+            widget.innerHTML = `<div class="widget-header">NIFTY 50</div><div class="widget-body" id="chart-1"></div>`;
+            grid.appendChild(widget);
+
+            const chart = LightweightCharts.createChart(document.getElementById('chart-1'), {
+                width: widget.clientWidth, height: 250,
+                layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
+                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
+            });
+            chart.addCandlestickSeries().setData([
+                { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
+            ]);
+        }
+
+        function handleChat(e) {
+            if(e.key === 'Enter') {
+                const input = e.target;
+                const logs = document.getElementById('console-logs');
+                // Mock send
+                logs.innerHTML += `<div>> User: ${input.value}</div>`;
+                input.value = '';
+                // In real app, POST to /chat endpoint with workspace context
             }
         }
 
-        function toggleCode(toolName) {
-            const drawer = document.getElementById('jules-drawer');
-            if(!drawer.classList.contains('open')) toggleJules();
-            const logArea = drawer.querySelector('.drawer-content'); // Assuming class from prev
-            // Mock code fetch
-            logArea.innerHTML += `<div style="color:var(--accent-color); margin-top:10px;">> Inspecting ${toolName}...</div>`;
-        }
-
         window.onload = () => {
-            loadRegistry();
-            // Connect Websocket
-            const ws = new WebSocket(`ws://${location.host}/ws/logs`);
-            ws.onmessage = (event) => {
-                const drawer = document.querySelector('#jules-drawer .drawer-content');
-                if(drawer) {
-                    const line = document.createElement('div');
-                    line.innerText = `> ${event.data}`;
-                    drawer.appendChild(line);
-                    drawer.scrollTop = drawer.scrollHeight;
-                }
-            };
-        };
+            // Start Loops
+            setInterval(updatePnLAudit, 3000); // 3s polling
+            setInterval(updateRiskScorecard, 5000);
 
-        // Hotkey T for Palette
-        document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 't') togglePalette();
-        });
+            // Logs
+            const ws = new WebSocket(`ws://${location.host}/ws/logs`);
+            ws.onmessage = (e) => {
+                const logs = document.getElementById('console-logs');
+                logs.innerHTML += `<div>> ${e.data}</div>`;
+                logs.scrollTop = logs.scrollHeight;
+            };
+
+            switchTab('macro'); // Default
+        };
     </script>
 </body>
 </html>

@@ -35,6 +35,26 @@ def get_widget_data(req: WidgetRequest):
                 {"time": "2023-01-03", "open": 104, "high": 110, "low": 104, "close": 109}
             ]
         }
+    elif "risk_scorecard" in name:
+        return {
+            "type": "metrics",
+            "data": {
+                "var": "$12,500",
+                "delta": "450",
+                "gamma": "120"
+            }
+        }
+    elif "pnl_audit" in name:
+        # PnL Audit: NAV, Drawdown, Intraday Vol
+        import random
+        return {
+            "type": "metrics",
+            "data": {
+                "nav": "$1,005,230",
+                "drawdown": "-0.45%",
+                "volatility": f"{random.randint(10, 25)}%" # Mock heartbeat
+            }
+        }
     elif "risk" in name or "var" in name:
         return {
             "type": "metrics",

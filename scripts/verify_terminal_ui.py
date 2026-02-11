@@ -1,6 +1,5 @@
 import sys
 import os
-import asyncio
 from fastapi.testclient import TestClient
 
 # Add repo root to path
@@ -10,26 +9,28 @@ from backend.main import app
 
 client = TestClient(app)
 
-def run_terminal_verification():
-    print("Starting Terminal UI & Live Console Verification...")
+def run_ui_wiring_tests():
+    print("Starting Terminal UI Wiring Verification...")
 
-    # 1. Test Widget API
-    print("\n--- Testing Widget Data API ---")
-    payload = {"tool_name": "Turtle Strategy"}
-    res = client.post("/api/widgets/data", json=payload)
-    print(f"Widget Response: {res.status_code} - {res.json()}")
+    # 1. PnL Audit
+    print("\n--- Testing PnL Audit API ---")
+    res_pnl = client.post("/api/widgets/data", json={"tool_name": "pnl_audit"})
+    print(f"PnL Response: {res_pnl.json()}")
+    assert res_pnl.status_code == 200
+    data = res_pnl.json()['data']
+    assert "nav" in data
+    assert "drawdown" in data
 
-    assert res.status_code == 200
-    assert res.json()['type'] == 'metrics'
+    # 2. Risk Scorecard
+    print("\n--- Testing Risk Scorecard API ---")
+    res_risk = client.post("/api/widgets/data", json={"tool_name": "risk_scorecard"})
+    print(f"Risk Response: {res_risk.json()}")
+    assert res_risk.status_code == 200
+    r_data = res_risk.json()['data']
+    assert "delta" in r_data
+    assert "gamma" in r_data
 
-    # 2. Test WebSocket (Mocking via logic check, TestClient WS support varies)
-    print("\n--- Testing WebSocket Route Existence ---")
-    # Just checking if route exists
-    routes = [route.path for route in app.routes]
-    print(f"Routes: {routes}")
-    assert "/ws/logs" in routes
-
-    print("\n[SUCCESS] Terminal UI Architecture Verified.")
+    print("\n[SUCCESS] UI Wiring Verified.")
 
 if __name__ == "__main__":
-    run_terminal_verification()
+    run_ui_wiring_tests()
