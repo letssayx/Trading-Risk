@@ -32,22 +32,25 @@
         /* Main Layout */
         #app-body { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-        /* Alpha Palette (Collapsible) */
+        /* Institutional Sidebar (Collapsible) */
         #alpha-palette { width: 0; background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.4,0,0.2,1); overflow: hidden; white-space: nowrap; }
         #alpha-palette.open { width: var(--palette-width); }
         .palette-header { padding: 12px; background: #121212; color: var(--accent-color); font-weight: bold; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
         .palette-content { flex: 1; overflow-y: auto; padding: 10px; }
 
         .tool-category { font-size: 0.75em; color: #666; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #333; padding-bottom: 2px; }
-        .tool-brick { background: #252525; border: 1px solid #333; padding: 8px 10px; margin-bottom: 6px; border-radius: 2px; cursor: grab; font-size: 0.85em; display: flex; align-items: center; transition: all 0.2s; }
+        .tool-brick { background: #252525; border: 1px solid #333; padding: 8px 10px; margin-bottom: 6px; border-radius: 2px; cursor: pointer; font-size: 0.85em; display: flex; align-items: center; transition: all 0.2s; }
         .tool-brick:hover { background: #333; border-color: var(--accent-color); transform: translateX(2px); }
         .brick-icon { margin-right: 10px; opacity: 0.8; font-size: 1.1em; width: 20px; text-align: center; }
 
-        /* Canvas Area */
-        #canvas-area { flex: 1; background: var(--bg-color); position: relative; padding: 20px; overflow: auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 15px; grid-auto-rows: 300px; }
-        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; grid-column: span 6; }
-        .widget-header { padding: 6px 10px; background: #222; border-bottom: 1px solid #333; font-size: 0.8em; display: flex; justify-content: space-between; align-items: center; cursor: move; }
-        .widget-body { flex: 1; overflow: hidden; position: relative; }
+        /* Multi-Grid Canvas */
+        #canvas-area { flex: 1; background: var(--bg-color); position: relative; padding: 10px; overflow: auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(200px, auto); }
+        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; grid-column: span 6; grid-row: span 1; transition: box-shadow 0.2s; }
+        .canvas-widget:hover { box-shadow: 0 0 5px rgba(0,0,0,0.5); border-color: #555; }
+        .widget-header { padding: 6px 10px; background: #222; border-bottom: 1px solid #333; font-size: 0.8em; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: move; }
+        .widget-controls span { cursor: pointer; margin-left: 8px; color: #666; }
+        .widget-controls span:hover { color: #fff; }
+        .widget-body { flex: 1; overflow: hidden; position: relative; padding: 0; }
 
         /* Floating Action Button for Palette */
         #fab-palette { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 20px; height: 60px; background: #333; border: 1px solid #444; border-left: none; border-radius: 0 4px 4px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--accent-color); z-index: 1000; transition: left 0.3s; }
@@ -78,33 +81,20 @@
     </div>
 
     <div id="app-body">
-        <!-- Alpha Palette -->
+        <!-- Institutional Sidebar -->
         <div id="alpha-palette" class="open">
             <div class="palette-header">
-                <span>ALPHA PALETTE</span>
+                <span>INSTITUTIONAL SIDEBAR</span>
                 <span style="cursor:pointer; opacity:0.6;" onclick="togglePalette()">«</span>
             </div>
             <div class="palette-content" id="palette-list">
-                <div style="text-align:center; color:#555; padding:20px;">Loading Registry...</div>
+                <div style="text-align:center; color:#555; padding:20px;">Loading Tools...</div>
             </div>
         </div>
 
-        <!-- Canvas -->
+        <!-- Multi-Grid Canvas -->
         <div id="canvas-area">
-            <!-- Sample Chart -->
-            <div class="canvas-widget" style="grid-column: span 8; grid-row: span 2;">
-                <div class="widget-header">
-                    <span>NIFTY 50 - 5Y TICK</span>
-                    <span style="color:#666;">Waiting for Stream...</span>
-                </div>
-                <div class="widget-body" id="chart-main"></div>
-            </div>
-
-            <!-- Sample Widget -->
-            <div class="canvas-widget" style="grid-column: span 4; grid-row: span 1;">
-                <div class="widget-header">STAT ARB SCANNER</div>
-                <div class="widget-body" style="padding:10px; color:#888;">Drop Z-Score Filter Here</div>
-            </div>
+            <!-- Widgets spawned dynamically -->
         </div>
     </div>
 
@@ -156,26 +146,23 @@
             const container = document.getElementById('palette-list');
             container.innerHTML = '';
 
-            // Group tools logic (Layers, Filters, Brushes, Judges)
-            // Mapping Category -> Palette Group
+            // New Category Mapping
             const groups = {
-                "Strategy": "LAYERS (Strategies)",
-                "Risk": "FILTERS (Risk Models)",
-                "Indicator": "BRUSHES (Intelligence)",
-                "Governance": "JUDGES (Audit)",
+                "Strategy": "STRATEGIES",
+                "Risk": "RISK SCORECARD",
+                "Indicator": "ARBITRAGE SCANNER",
+                "Governance": "PnL AUDIT",
                 "Math": "UTILS"
             };
 
             const bucketed = {};
             tools.forEach(t => {
-                const grp = groups[t.category] || "OTHERS";
+                const grp = groups[t.category] || "MISC";
                 if (!bucketed[grp]) bucketed[grp] = [];
                 bucketed[grp].push(t);
             });
 
-            // Render
-            // Order: Layers, Brushes, Filters, Judges
-            const order = ["LAYERS (Strategies)", "BRUSHES (Intelligence)", "FILTERS (Risk Models)", "JUDGES (Audit)", "UTILS", "OTHERS"];
+            const order = ["PnL AUDIT", "ARBITRAGE SCANNER", "RISK SCORECARD", "STRATEGIES", "UTILS"];
 
             order.forEach(grpName => {
                 if (!bucketed[grpName]) return;
@@ -188,28 +175,100 @@
                 bucketed[grpName].forEach(tool => {
                     const el = document.createElement('div');
                     el.className = 'tool-brick';
-                    el.draggable = true;
                     el.innerHTML = `<span class="brick-icon">${tool.icon}</span> ${tool.title}`;
+                    el.onclick = () => spawnWidget(tool);
                     container.appendChild(el);
                 });
             });
         }
 
-        // Init Chart
+        function spawnWidget(tool) {
+            const grid = document.getElementById('canvas-area');
+            const id = 'w-' + Date.now();
+
+            const widget = document.createElement('div');
+            widget.className = 'canvas-widget';
+            widget.id = id;
+
+            // Default size/pos logic (simple stacking)
+            widget.style.gridColumn = "span 6";
+            widget.style.gridRow = "span 2";
+
+            widget.innerHTML = `
+                <div class="widget-header">
+                    <span>${tool.title.toUpperCase()}</span>
+                    <div class="widget-controls">
+                        <span onclick="toggleCode('${tool.title}')">Code</span>
+                        <span onclick="document.getElementById('${id}').remove()">×</span>
+                    </div>
+                </div>
+                <div class="widget-body" id="body-${id}">
+                    <div style="padding:20px; text-align:center; color:#666;">
+                        Loading ${tool.title}...
+                    </div>
+                </div>
+            `;
+
+            grid.appendChild(widget);
+
+            // Fetch Data
+            loadWidgetData(tool, `body-${id}`);
+        }
+
+        async function loadWidgetData(tool, containerId) {
+            try {
+                const res = await fetch('/api/widgets/data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ tool_name: tool.title })
+                });
+                const data = await res.json();
+
+                const container = document.getElementById(containerId);
+
+                if (data.type === 'chart') {
+                    // Render Chart
+                    container.innerHTML = '';
+                    const chart = LightweightCharts.createChart(container, {
+                        width: container.clientWidth,
+                        height: container.clientHeight,
+                        layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
+                        grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
+                    });
+                    const series = chart.addCandlestickSeries();
+                    series.setData(data.data);
+                } else if (data.type === 'metrics') {
+                    container.innerHTML = `<pre style="padding:10px; color:#0f0; font-size:0.8em;">${JSON.stringify(data.data, null, 2)}</pre>`;
+                } else {
+                    container.innerHTML = `<div style="padding:10px;">${JSON.stringify(data)}</div>`;
+                }
+
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        function toggleCode(toolName) {
+            const drawer = document.getElementById('jules-drawer');
+            if(!drawer.classList.contains('open')) toggleJules();
+            const logArea = drawer.querySelector('.drawer-content'); // Assuming class from prev
+            // Mock code fetch
+            logArea.innerHTML += `<div style="color:var(--accent-color); margin-top:10px;">> Inspecting ${toolName}...</div>`;
+        }
+
         window.onload = () => {
             loadRegistry();
-
-            const chartDiv = document.getElementById('chart-main');
-            const chart = LightweightCharts.createChart(chartDiv, {
-                width: chartDiv.clientWidth,
-                height: chartDiv.clientHeight,
-                layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
-                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
-            });
-            chart.addCandlestickSeries().setData([
-                { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
-                { time: '2023-01-02', open: 103, high: 106, low: 102, close: 104 },
-            ]);
+            // Connect Websocket
+            const ws = new WebSocket(`ws://${location.host}/ws/logs`);
+            ws.onmessage = (event) => {
+                const drawer = document.querySelector('#jules-drawer .drawer-content');
+                if(drawer) {
+                    const line = document.createElement('div');
+                    line.innerText = `> ${event.data}`;
+                    drawer.appendChild(line);
+                    drawer.scrollTop = drawer.scrollHeight;
+                }
+            };
         };
 
         // Hotkey T for Palette
