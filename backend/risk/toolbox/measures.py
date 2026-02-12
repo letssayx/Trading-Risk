@@ -11,7 +11,7 @@ from backend.risk.measures.evt import (
     calculate_evt_es,
     fit_gpd_parameters
 )
-from backend.risk.measures.validation import (
+from backend.risk.tests import (
     calculate_lr_cc,
     kupiec_pof_test,
     christoffersen_test,

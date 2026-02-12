@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Dict, Any, List
 from backend.domain.toolbox.base import BaseSovereignTool
-from backend.risk.measures.validation import calculate_lr_cc
+from backend.risk.tests import calculate_lr_cc
 
 class GovernanceAuditor(BaseSovereignTool):
     """

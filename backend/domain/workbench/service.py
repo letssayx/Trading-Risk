@@ -1,0 +1,62 @@
+from typing import Dict, Any
+import random
+
+class WidgetService:
+    """
+    Service for generating Widget Data payloads.
+    """
+    @staticmethod
+    def get_widget_data(tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        name = tool_name.lower()
+
+        if "turtle" in name:
+            return {
+                "type": "metrics",
+                "data": {
+                    "N (ATR)": 145.2,
+                    "Unit Size": 12,
+                    "Stop Level": 18200
+                }
+            }
+        elif "chart" in name or "nifty" in name:
+            # Mock Candle Data
+            return {
+                "type": "chart",
+                "data": [
+                    {"time": "2023-01-01", "open": 100, "high": 105, "low": 98, "close": 103},
+                    {"time": "2023-01-02", "open": 103, "high": 106, "low": 102, "close": 104},
+                    {"time": "2023-01-03", "open": 104, "high": 110, "low": 104, "close": 109}
+                ]
+            }
+        elif "risk_scorecard" in name:
+            return {
+                "type": "metrics",
+                "data": {
+                    "var": "$12,500",
+                    "delta": "450",
+                    "gamma": "120"
+                }
+            }
+        elif "pnl_audit" in name:
+            return {
+                "type": "metrics",
+                "data": {
+                    "nav": "$1,005,230",
+                    "drawdown": "-0.45%",
+                    "volatility": f"{random.randint(10, 25)}%"
+                }
+            }
+        elif "risk" in name or "var" in name:
+            return {
+                "type": "metrics",
+                "data": {
+                    "VaR 95%": "$12,500",
+                    "Expected Shortfall": "$18,000",
+                    "Status": "STABLE"
+                }
+            }
+        else:
+            return {
+                "type": "info",
+                "data": f"Data for {tool_name} not implemented yet."
+            }
