@@ -1,0 +1,118 @@
+.
+├── backend
+│   ├── MAP.md
+│   ├── __init__.py
+│   ├── analysis
+│   │   ├── beta.py
+│   │   ├── derivatives_indicators
+│   │   ├── greeks.py
+│   │   ├── market_state
+│   │   ├── scanners
+│   │   └── toolbox
+│   ├── auth
+│   ├── backtest
+│   │   ├── __init__.py
+│   │   └── engine.py
+│   ├── celery_worker.py
+│   ├── charts
+│   ├── chat
+│   ├── config
+│   │   ├── __init__.py
+│   │   └── defaults
+│   ├── core
+│   │   ├── indicators
+│   │   ├── portfolio
+│   │   ├── risk
+│   │   ├── stats
+│   │   ├── strategies
+│   │   └── toolbox
+│   ├── dashboard
+│   ├── data
+│   ├── dependencies.py
+│   ├── domain
+│   │   ├── audit
+│   │   ├── backtest
+│   │   ├── common
+│   │   ├── ideas
+│   │   ├── indicators
+│   │   ├── ingest
+│   │   ├── instruments
+│   │   ├── market
+│   │   ├── portfolio
+│   │   ├── risk
+│   │   ├── toolbox
+│   │   ├── user
+│   │   └── workbench
+│   ├── export
+│   ├── infrastructure
+│   │   ├── heartbeat.py
+│   │   ├── registry.py
+│   │   └── security.py
+│   ├── ingest
+│   │   ├── adapters
+│   │   ├── adjustment.py
+│   │   ├── tick_vault.py
+│   │   └── toolbox
+│   ├── intelligence
+│   │   ├── __init__.py
+│   │   ├── sentiment_flow.py
+│   │   └── toolbox
+│   ├── main.py
+│   ├── ops
+│   ├── orchestration
+│   │   ├── gemini
+│   │   ├── pipelines
+│   │   └── policies
+│   ├── plugins
+│   │   └── strategies
+│   ├── registry
+│   ├── risk
+│   │   ├── __init__.py
+│   │   ├── hedging.py
+│   │   ├── manager.py
+│   │   ├── measures
+│   │   ├── reports
+│   │   ├── scenarios
+│   │   └── toolbox
+│   ├── strategies
+│   │   ├── __init__.py
+│   │   ├── convergence.py
+│   │   ├── macro_stat_arb.py
+│   │   ├── risk.py
+│   │   ├── toolbox
+│   │   ├── turtle.py
+│   │   └── vol_arb.py
+│   ├── ui
+│   │   └── templates
+│   ├── web
+│   │   ├── live
+│   │   ├── macro
+│   │   ├── portfolio
+│   │   ├── routes.py
+│   │   ├── search
+│   │   ├── widgets
+│   │   └── workbench
+│   └── widgets
+├── docker-compose.yml
+├── requirements.txt
+├── run_dev.sh
+├── scripts
+│   ├── debug_registry.py
+│   ├── verify_alpha_palette.py
+│   ├── verify_consolidation.py
+│   ├── verify_deployment_config.py
+│   ├── verify_final_structure.py
+│   ├── verify_governance_evt.py
+│   ├── verify_hedge_basel.py
+│   ├── verify_institutional_modules.py
+│   ├── verify_risk_modules.py
+│   ├── verify_sovereign_workbench.py
+│   ├── verify_strategy_convergence.py
+│   ├── verify_system_stitch.py
+│   ├── verify_terminal_ui.py
+│   ├── verify_toolbox.py
+│   └── verify_turtle_euler.py
+├── setup.sh
+└── structure.txt
+
+69 directories, 47 files

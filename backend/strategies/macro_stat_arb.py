@@ -1,40 +1,40 @@
 from typing import Dict, Any, List
-import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from backend.domain.toolbox.base import BaseSovereignTool
 
-def calculate_pca_factors(
-    returns_matrix: pd.DataFrame,
-    n_components: int = 3
-) -> Dict[str, Any]:
+class MacroStatArbStrategy(BaseSovereignTool):
     """
-    Performs Principal Component Analysis (PCA) on asset returns to isolate systematic factors.
-
-    Args:
-        returns_matrix: DataFrame (Time x Assets).
-        n_components: Number of factors to extract (usually 3-5).
-
-    Returns:
-        Dict with Eigenvalues, Explained Variance, and Factor Loadings.
+    Macro StatArb Strategy: PCA-based Factor Analysis.
     """
-    pca = PCA(n_components=n_components)
-    pca.fit(returns_matrix.dropna())
+    @property
+    def name(self) -> str: return "Macro StatArb Strategy"
+    @property
+    def category(self) -> str: return "Strategy"
+    @property
+    def description(self) -> str: return "Extracts systematic factors using PCA."
 
-    explained_variance = pca.explained_variance_ratio_
-    eigenvalues = pca.explained_variance_
-    loadings = pca.components_
+    def calculate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        data: {returns_matrix: [[...], [...]]} (List of Lists or DataFrame compatible)
+        """
+        matrix = data.get("returns_matrix", [])
+        if not matrix: return {"error": "No Data"}
 
-    factors = pca.transform(returns_matrix.dropna())
+        df = pd.DataFrame(matrix)
+        # Dropna handled in logic or assumed clean
 
-    # Isolate "Alpha" (Residuals)
-    # Reconstruct returns using components
-    reconstructed = pca.inverse_transform(factors)
-    residuals = returns_matrix.dropna() - reconstructed
+        pca = PCA(n_components=3) # Default
+        pca.fit(df.dropna())
 
-    return {
-        "eigenvalues": eigenvalues.tolist(),
-        "explained_variance": explained_variance.tolist(),
-        "factor_loadings": loadings.tolist(),
-        "residuals": residuals,
-        "factors": factors
-    }
+        return {
+            "eigenvalues": pca.explained_variance_.tolist(),
+            "explained_variance": pca.explained_variance_ratio_.tolist(),
+            "components": pca.components_.tolist()
+        }
+
+def calculate_pca_factors(returns_matrix: pd.DataFrame, n_components: int = 3) -> Dict[str, Any]:
+    # Deprecated wrapper
+    strat = MacroStatArbStrategy()
+    # Adapt input
+    return strat.calculate({"returns_matrix": returns_matrix.values.tolist()})

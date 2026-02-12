@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from typing import Dict, Optional, List, Any
 import pandas as pd
 import numpy as np
@@ -16,30 +15,13 @@ from backend.intelligence.sentiment_flow import analyze_sentiment_flow
 from backend.analysis.beta import calculate_beta
 from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedge
 
+# Schemas
+from backend.domain.web.schemas import (
+    StrategyRequest, SentimentRequest, ConvergenceRequest,
+    VolArbRequest, PCARequest
+)
+
 router = APIRouter(prefix="/strategies", tags=["Consolidated Strategies"])
-
-# --- Models ---
-class StrategyRequest(BaseModel):
-    ticker: str
-    signal_type: str = "TURTLE"
-
-class SentimentRequest(BaseModel):
-    fii_net: float
-    pcr: float
-    trin: float
-    price_chg: float
-    oi_chg: float
-
-class ConvergenceRequest(BaseModel):
-    turtle_signal: str
-    sentiment_signal: str
-
-class VolArbRequest(BaseModel):
-    iv_near: float
-    iv_far: float
-
-class PCARequest(BaseModel):
-    returns_matrix: List[List[float]] # Assets x Time? Or Time x Assets? usually simpler list of lists
 
 # --- Endpoints ---
 

@@ -45,16 +45,16 @@ class ToolboxRegistry:
 
         # 1. Core & Math
         try:
-            from backend.core.toolbox.math_tools import CompoundingAuditor
+            from backend.models.math import CompoundingAuditor
             cls.register(CompoundingAuditor)
-        except Exception as e: print(f"[REGISTRY] Error loading Math Tools: {e}")
+        except Exception as e: print(f"[REGISTRY] Error loading Math Models: {e}")
 
         try:
-            from backend.core.toolbox.stats_tools import StatArbAlphaEngine, ZScoreFilter, CointegrationAuditor
+            from backend.models.stats import StatArbAlphaEngine, ZScoreFilter, CointegrationAuditor
             cls.register(StatArbAlphaEngine)
             cls.register(ZScoreFilter)
             cls.register(CointegrationAuditor)
-        except Exception as e: print(f"[REGISTRY] Error loading Stats Tools: {e}")
+        except Exception as e: print(f"[REGISTRY] Error loading Stats Models: {e}")
 
         # 2. Analysis & Intelligence
         try:
@@ -75,7 +75,7 @@ class ToolboxRegistry:
 
         # 3. Risk & Governance
         try:
-            from backend.risk.toolbox.governance_tools import GovernanceAuditor
+            from backend.risk.governance import GovernanceAuditor
             cls.register(GovernanceAuditor)
         except Exception as e: print(f"[REGISTRY] Error loading Governance Tools: {e}")
 
@@ -88,7 +88,7 @@ class ToolboxRegistry:
         except Exception as e: print(f"[REGISTRY] Error loading Turtle Suite: {e}")
 
         try:
-            from backend.strategies.toolbox.factor_model import FactorExposureModel
+            from backend.risk.models.factor import FactorExposureModel
             cls.register(FactorExposureModel)
         except Exception as e: print(f"[REGISTRY] Error loading Factor Models: {e}")
 

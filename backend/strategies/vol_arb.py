@@ -1,46 +1,45 @@
 from typing import Dict, Any, List
 import numpy as np
+from backend.domain.toolbox.base import BaseSovereignTool
 
-def calculate_vol_spread(
-    iv_near: float, # Near-month implied volatility
-    iv_far: float, # Far-month implied volatility
-) -> Dict[str, Any]:
+class VolArbitrageStrategy(BaseSovereignTool):
     """
-    Calculates Calendar Spread (Term Structure) logic.
-    "Calendar King": If Near IV >> Far IV (Backwardation), Buy Calendar (Long Far, Short Near).
-    If Near IV << Far IV (Contango), Sell Calendar (Short Far, Long Near) or just Debit spread.
-    Wait, usually we buy calendars when Near IV is low (cheap to buy front) and expected to rise?
-    Or sell front (high IV) buy back (low IV)? -> Yes, Short High IV, Long Low IV.
-
-    Backwardation (Near > Far): Sell Near Call, Buy Far Call. (Short Calendar).
-    Contango (Near < Far): Buy Near Call, Sell Far Call? No, usually Long Calendar = Long Far, Short Near.
-    The edge is in the IV differential collapsing or expanding.
-
-    If Ratio > 1.2 (Backwardation): Great for Income Calendars (Short Front).
+    Volatility Arbitrage Strategy: Calendar Spreads & Skew.
     """
-    spread = iv_near - iv_far
-    ratio = iv_near / iv_far if iv_far > 0 else 0
+    @property
+    def name(self) -> str: return "Vol Arbitrage Strategy"
+    @property
+    def category(self) -> str: return "Strategy"
+    @property
+    def description(self) -> str: return "Exploits Term Structure and Skew Mispricing."
 
-    signal = "NEUTRAL"
-    if ratio > 1.15:
-        signal = "SHORT_CALENDAR_OPP" # Sell front premium
-    elif ratio < 0.85:
-        signal = "LONG_CALENDAR_OPP" # Buy front premium? Or just cheap term structure.
+    def calculate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        data: {iv_near, iv_far}
+        """
+        iv_near = data.get("iv_near", 0.0)
+        iv_far = data.get("iv_far", 0.0)
 
-    return {
-        "spread": spread,
-        "ratio": ratio,
-        "signal": signal,
-        "strategy": "Calendar Spread"
-    }
+        spread = iv_near - iv_far
+        ratio = iv_near / iv_far if iv_far > 0 else 0
 
-def calculate_theta_efficiency(
-    theta: float,
-    vega: float
-) -> float:
-    """
-    Theta/Vega Ratio. High ratio (>2) implies efficient time decay capture relative to volatility risk.
-    """
-    if abs(vega) < 1e-9:
-        return 0.0
-    return abs(theta / vega)
+        signal = "NEUTRAL"
+        if ratio > 1.15:
+            signal = "SHORT_CALENDAR_OPP" # Backwardation: Sell expensive front
+        elif ratio < 0.85:
+            signal = "LONG_CALENDAR_OPP" # Contango: Buy cheap front? No, Long Cal usually means Long Far.
+            # If Front is cheap, maybe Long Front?
+            # Standard: Long Calendar = Long Far, Short Near.
+            # Ideally enter when Front IV is low relative to Back.
+
+        return {
+            "spread": spread,
+            "ratio": ratio,
+            "signal": signal,
+            "strategy": "Calendar Spread"
+        }
+
+def calculate_vol_spread(iv_near: float, iv_far: float) -> Dict[str, Any]:
+    # Deprecated function wrapper for backward compatibility if needed,
+    # but ideally we remove this. Keeping for safety in this refactor step.
+    return VolArbitrageStrategy().calculate({"iv_near": iv_near, "iv_far": iv_far})
