@@ -4,295 +4,422 @@
     <meta charset="UTF-8">
     <title>Turtle Terminal - Institutional Workspace</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="/static/css/dock.css">
     <style>
         :root {
-            --bg-color: #1e1e1e; /* Carbon */
-            --panel-bg: #2d2d2d; /* Slate */
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
             --border-color: #424242;
             --text-primary: #e0e0e0;
-            --text-secondary: #aaaaaa;
-            --accent-color: #00bcd4;
-            --danger-color: #ff5252;
             --header-height: 40px;
-            --footer-height: 40px;
+            --footer-height: 250px; /* Increased for Trade Book */
             --left-sidebar-width: 250px;
-            --right-sidebar-width: 300px;
+            --right-sidebar-width: 350px;
         }
-        body { margin: 0; font-family: 'Consolas', 'Segoe UI', monospace; background: var(--bg-color); color: var(--text-primary); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-        /* --- Top Bar (Breadcrumbs) --- */
-        #top-bar { height: var(--header-height); background: #121212; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 15px; font-size: 0.85em; }
-        .breadcrumb { display: flex; align-items: center; }
-        .bc-item { margin-right: 10px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; }
-        .bc-item:hover { color: #fff; }
-        .bc-item:after { content: '>'; margin-left: 10px; color: #444; }
-        .bc-item:last-child { color: var(--accent-color); font-weight: bold; }
-        .bc-item:last-child:after { content: ''; }
-        .spacer { flex: 1; }
-        .settings-icon { cursor: pointer; font-size: 1.2em; color: #666; }
-        .settings-icon:hover { color: #fff; }
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
 
-        /* --- Main Layout --- */
-        #app-body { flex: 1; display: flex; overflow: hidden; position: relative; }
+        /* --- Top Bar --- */
+        #top-bar {
+            height: var(--header-height);
+            background: #121212;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 0.9em;
+            flex-shrink: 0;
+        }
+        .logo { font-weight: 700; color: #fff; margin-right: 20px; }
+        .nav-item { color: #888; margin-right: 15px; cursor: pointer; }
+        .nav-item:hover { color: #fff; }
 
-        /* Left Sidebar (Risk Scorecard - Fixed) */
-        #left-sidebar { width: var(--left-sidebar-width); background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
-        .sidebar-header { padding: 10px; background: #121212; font-weight: bold; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); text-transform: uppercase; font-size: 0.8em; }
-        .risk-panel { padding: 10px; flex: 1; overflow-y: auto; }
-        .risk-metric { margin-bottom: 15px; background: #252525; padding: 10px; border-radius: 4px; border: 1px solid #333; }
-        .risk-label { font-size: 0.75em; color: #888; margin-bottom: 5px; }
-        .risk-value { font-size: 1.1em; font-weight: bold; color: #fff; }
+        /* --- Main Grid Layout --- */
+        #main-grid {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
 
-        /* Center Stage (Tabbed Workspace) */
-        #center-stage { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); min-width: 0; }
+        /* Panels */
+        .panel {
+            position: relative;
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            min-width: 50px;
+            min-height: 50px;
+        }
 
-        /* Workspace Tabs */
-        #workspace-tabs { height: 35px; background: #222; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 5px; }
-        .ws-tab { padding: 5px 15px; margin-right: 2px; background: #333; color: #888; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 0.8em; user-select: none; }
-        .ws-tab.active { background: var(--bg-color); color: var(--accent-color); font-weight: bold; border-top: 2px solid var(--accent-color); }
-        .ws-tab:hover:not(.active) { background: #444; }
-        .add-tab { padding: 5px 10px; cursor: pointer; color: #666; font-weight: bold; }
-        .add-tab:hover { color: #fff; }
+        .panel.left {
+            width: var(--left-sidebar-width);
+            border-right: 1px solid var(--border-color);
+            background: #181818;
+        }
 
-        /* Canvas (Grid) */
-        #active-canvas { flex: 1; padding: 10px; overflow: auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-auto-rows: minmax(250px, auto); position: relative; }
-        .canvas-widget { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; position: relative; grid-column: span 6; grid-row: span 1; }
-        .widget-header { padding: 5px 10px; background: #222; border-bottom: 1px solid #333; font-size: 0.8em; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: move; }
-        .widget-body { flex: 1; overflow: hidden; padding: 0; position: relative; }
+        .panel.center {
+            flex: 1;
+            background-color: #f5f5f5; /* Light bg for graph paper contrast if needed, or keep dark */
+            background-image:
+                linear-gradient(to right, #444 1px, transparent 1px),
+                linear-gradient(to bottom, #444 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-color: #1e1e1e; /* Dark theme base */
+            position: relative;
+            overflow: hidden;
+        }
 
-        /* Right Sidebar (Jules Console - Collapsible) */
-        #right-sidebar { width: var(--right-sidebar-width); background: #151515; border-left: 1px solid var(--border-color); display: flex; flex-direction: column; transition: transform 0.3s; position: absolute; right: 0; top: 0; bottom: 0; z-index: 1000; transform: translateX(100%); }
-        #right-sidebar.open { transform: translateX(0); }
-        .drawer-toggle { position: absolute; left: -30px; top: 10px; width: 30px; height: 30px; background: #222; border: 1px solid var(--border-color); border-right: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent-color); z-index: 1001; }
+        /* Graphpaper Override for Dark Mode */
+        .panel.center.graphpaper {
+            background-image:
+                linear-gradient(to right, #333 1px, transparent 1px),
+                linear-gradient(to bottom, #333 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
 
-        /* Chat & Log Area */
-        #jules-chat { flex: 1; display: flex; flex-direction: column; }
-        .console-logs { flex: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 0.8em; color: #00e676; background: #000; border-top: 1px solid #333; }
-        .chat-input { padding: 10px; background: #222; border-top: 1px solid #333; }
-        .chat-input input { width: 100%; background: #111; border: 1px solid #444; color: #fff; padding: 8px; font-family: monospace; box-sizing: border-box; }
+        .panel.right {
+            width: var(--right-sidebar-width);
+            border-left: 1px solid var(--border-color);
+            background: #151515;
+        }
 
-        /* --- Fixed Bottom Bar (PnL Audit) --- */
-        #bottom-bar { height: var(--footer-height); background: #101010; border-top: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; font-size: 0.85em; z-index: 2000; }
-        .pnl-stat { display: flex; align-items: center; margin-right: 30px; }
-        .pnl-label { color: #666; margin-right: 8px; text-transform: uppercase; font-size: 0.75em; }
-        .pnl-val { font-weight: bold; font-family: monospace; font-size: 1.1em; }
-        .dd-val { color: var(--danger-color); }
-        .heartbeat { width: 8px; height: 8px; border-radius: 50%; background: #333; margin-left: 5px; }
-        .heartbeat.active { background: #00e676; box-shadow: 0 0 5px #00e676; }
+        .panel.bottom {
+            height: var(--footer-height);
+            border-top: 1px solid var(--border-color);
+            background: #1a1a1a;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Resizers */
+        .resizer {
+            position: absolute;
+            z-index: 10;
+            background: transparent;
+            transition: background 0.2s;
+        }
+        .resizer:hover { background: var(--accent-color); opacity: 0.5; }
+
+        .resizer.vertical {
+            width: 5px;
+            cursor: col-resize;
+            top: 0; bottom: 0;
+        }
+        .resizer.vertical.left-handle { right: -2.5px; } /* On left panel right edge */
+        .resizer.vertical.right-handle { left: -2.5px; } /* On right panel left edge */
+
+        .resizer.horizontal {
+            height: 5px;
+            cursor: row-resize;
+            left: 0; right: 0;
+        }
+        .resizer.horizontal.top-handle { top: -2.5px; } /* On bottom panel top edge */
+
+        /* Content Areas */
+        .panel-header {
+            padding: 8px 12px;
+            background: #252525;
+            font-size: 0.8em;
+            font-weight: 700;
+            color: #888;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        /* Right Panel Split (Python / Jules) */
+        .split-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .split-top { flex: 1; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .split-bottom { flex: 1; display: flex; flex-direction: column; }
+
+        /* Excel-Style Trade Book */
+        .trade-book-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+            background: #1e1e1e;
+            color: #ccc;
+        }
+
+        .trade-book-table th {
+            background: #252525;
+            position: sticky;
+            top: 0;
+            padding: 6px 10px;
+            text-align: left;
+            border-right: 1px solid #333;
+            border-bottom: 1px solid #444;
+            color: #fff;
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .trade-book-table td {
+            border-right: 1px solid #333;
+            border-bottom: 1px solid #333;
+            padding: 6px 10px;
+            white-space: nowrap;
+        }
+
+        .trade-book-table tr:nth-child(even) { background: #222; }
+        .trade-book-table tr:hover { background: #333; color: #fff; }
+
+        .val-green { color: #4caf50; }
+        .val-red { color: #f44336; }
+
+        /* Cell Editing Stub */
+        .editable:focus {
+            outline: 2px solid #00bcd4;
+            background: #000;
+            color: #fff;
+        }
 
     </style>
 </head>
 <body>
 
-    <!-- Top Bar -->
     <div id="top-bar">
-        <div class="breadcrumb">
-            <div class="bc-item" onclick="nav('root')">Turtle Terminal</div>
-            <div class="bc-item" onclick="nav('entity')">Portfolios</div>
-            <div class="bc-item" id="active-focus">Master Fund</div>
-        </div>
-        <div class="spacer"></div>
-        <div class="settings-icon" title="Settings">⚙️</div>
+        <div class="logo">TURTLE TERMINAL</div>
+        <div class="nav-item">File</div>
+        <div class="nav-item">View</div>
+        <div class="nav-item">Tools</div>
+        <button onclick="window.open('/spread-builder', '_blank')" style="margin-left:auto; background:#333; color:#fff; border:1px solid #555; padding:4px 10px; cursor:pointer;">Spread Builder</button>
     </div>
 
-    <div id="app-body">
-        <!-- Left Sidebar: Risk Scorecard -->
-        <div id="left-sidebar">
-            <div class="sidebar-header">RISK SCORECARD</div>
-            <div class="risk-panel" id="risk-panel">
-                <div class="risk-metric">
-                    <div class="risk-label">VaR (95%)</div>
-                    <div class="risk-value" id="var-val">--</div>
+    <!-- Main Content (Columns) -->
+    <div id="main-grid">
+
+        <!-- Left Panel -->
+        <div class="panel left" id="panel-left">
+            <div id="filter-dock"></div>
+            <div id="indicator-dock"></div>
+            <div class="panel-header">Risk Scorecard</div>
+            <div class="panel-content" style="padding:10px;">
+                <div style="margin-bottom:10px;">VaR (95%): <span style="float:right; font-weight:bold;">$12,450</span></div>
+                <div style="margin-bottom:10px;">Beta: <span style="float:right;">1.24</span></div>
+            </div>
+            <div class="resizer vertical left-handle" id="resizer-left"></div>
+        </div>
+
+        <!-- Center Panel -->
+        <div class="panel center graphpaper" id="panel-center">
+            <div style="position:absolute; top:20px; left:20px; color:#666; font-size:2em; font-weight:900; opacity:0.2; pointer-events:none;">WORKBENCH</div>
+            <!-- Chart Container -->
+            <div id="chart-container" style="width:100%; height:100%;"></div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="panel right" id="panel-right">
+            <div class="resizer vertical right-handle" id="resizer-right"></div>
+            <div class="split-container">
+                <div class="split-top">
+                    <div class="panel-header">Python Console</div>
+                    <div class="panel-content" style="background:#111; font-family:monospace; padding:10px; color:#0f0;">
+                        >>> import pandas as pd<br>
+                        >>> df = pd.read_csv('trades.csv')<br>
+                        >>> _
+                    </div>
                 </div>
-                <div class="risk-metric">
-                    <div class="risk-label">Delta Exp</div>
-                    <div class="risk-value" id="delta-val">--</div>
+                <div class="split-bottom">
+                    <div class="panel-header">Jules Assistant</div>
+                    <div class="panel-content" style="padding:10px; color:#ccc;">
+                        <div style="margin-bottom:10px;"><strong>Jules:</strong> I noticed a volatility spike in Bank Nifty. Should I adjust the hedge?</div>
+                    </div>
+                    <input type="text" placeholder="Ask Jules..." style="background:#222; border:none; border-top:1px solid #333; padding:10px; color:#fff;">
                 </div>
-                <div class="risk-metric">
-                    <div class="risk-label">Gamma</div>
-                    <div class="risk-value" id="gamma-val">--</div>
-                </div>
-                <!-- More metrics spawned here -->
             </div>
         </div>
 
-        <!-- Center Stage -->
-        <div id="center-stage">
-            <div id="workspace-tabs">
-                <div class="ws-tab active" onclick="switchTab('macro')">Macro View</div>
-                <div class="ws-tab" onclick="switchTab('arb')">Arbitrage Scanner</div>
-                <div class="add-tab" onclick="addTab()">+</div>
-            </div>
+    </div>
 
-            <div id="active-canvas">
-                <!-- Widgets go here -->
-                <div style="color:#444; padding:20px; grid-column:span 12; text-align:center;">
-                    Select a workbench tab or drop tools here.
-                </div>
-            </div>
+    <!-- Bottom Panel -->
+    <div class="panel bottom" id="panel-bottom">
+        <div class="resizer horizontal top-handle" id="resizer-bottom"></div>
+        <div class="panel-header">
+            Trade Book
+            <div style="font-size:0.8em; font-weight:normal;">24 Active Positions</div>
         </div>
-
-        <!-- Right Sidebar: Jules Console -->
-        <div id="right-sidebar">
-            <div class="drawer-toggle" onclick="toggleJules()">💬</div>
-            <div style="padding:10px; background:#222; font-weight:bold; border-bottom:1px solid #333;">JULES CONSOLE</div>
-            <div style="flex:1; padding:10px; overflow-y:auto; color:#ccc;">
-                <div class="chat-msg">Jules: I am context-aware. Active: Master Fund.</div>
-            </div>
-            <div class="console-logs" id="console-logs">
-                > System Init...
-            </div>
-            <div class="chat-input">
-                <input type="text" placeholder="Ask Jules regarding this workbench..." onkeypress="handleChat(event)">
-            </div>
+        <div class="panel-content">
+            <table class="trade-book-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Time</th>
+                        <th>Symbol</th>
+                        <th>Side</th>
+                        <th>Qty</th>
+                        <th>Entry</th>
+                        <th>Mark</th>
+                        <th>PnL</th>
+                        <th>Strategy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>#1024</td>
+                        <td>10:45:02</td>
+                        <td>NIFTY 24000 CE</td>
+                        <td style="color:#4caf50;">BUY</td>
+                        <td>500</td>
+                        <td contenteditable="true" class="editable">145.50</td>
+                        <td>152.00</td>
+                        <td class="val-green">+3,250.00</td>
+                        <td>Turtle Breakout</td>
+                    </tr>
+                    <tr>
+                        <td>#1023</td>
+                        <td>10:42:11</td>
+                        <td>BANKNIFTY FUT</td>
+                        <td style="color:#f44336;">SELL</td>
+                        <td>30</td>
+                        <td contenteditable="true" class="editable">44,500</td>
+                        <td>44,480</td>
+                        <td class="val-green">+600.00</td>
+                        <td>StatArb</td>
+                    </tr>
+                    <tr>
+                        <td>#1022</td>
+                        <td>09:15:05</td>
+                        <td>RELIANCE</td>
+                        <td style="color:#4caf50;">BUY</td>
+                        <td>100</td>
+                        <td contenteditable="true" class="editable">2,450</td>
+                        <td>2,440</td>
+                        <td class="val-red">-1,000.00</td>
+                        <td>Momentum</td>
+                    </tr>
+                    <!-- Add more rows for scroll effect -->
+                    <tr><td>#1021</td><td>09:15:00</td><td>TCS</td><td>BUY</td><td>50</td><td>3200</td><td>3210</td><td class="val-green">+500</td><td>Value</td></tr>
+                    <tr><td>#1020</td><td>09:15:00</td><td>INFY</td><td>SELL</td><td>100</td><td>1400</td><td>1405</td><td class="val-red">-500</td><td>Hedge</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- Fixed Bottom Bar -->
-    <div id="bottom-bar">
-        <div style="display:flex;">
-            <div class="pnl-stat">
-                <span class="pnl-label">Running NAV</span>
-                <span class="pnl-val" id="nav-val">--</span>
-            </div>
-            <div class="pnl-stat">
-                <span class="pnl-label">Pk-to-Val DD</span>
-                <span class="pnl-val dd-val" id="dd-val">--</span>
-            </div>
-            <div class="pnl-stat">
-                <span class="pnl-label">Intraday Vol</span>
-                <div style="display:flex; align-items:center;">
-                    <span class="pnl-val" id="vol-val">--</span>
-                    <div class="heartbeat" id="vol-heartbeat"></div>
-                </div>
-            </div>
-        </div>
-        <div style="color:#444;">PnL Audit Active</div>
-    </div>
-
+    <script src="/static/js/dock.js"></script>
     <script>
-        let julesOpen = false;
-
-        function toggleJules() {
-            const el = document.getElementById('right-sidebar');
-            julesOpen = !julesOpen;
-            el.className = julesOpen ? 'open' : '';
-        }
-
-        function nav(loc) {
-            console.log("Navigating to", loc);
-            // Logic to update breadcrumbs
-        }
-
-        function switchTab(name) {
-            // Update UI tabs
-            document.querySelectorAll('.ws-tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
-
-            // In real app, render different grid content
-            const canvas = document.getElementById('active-canvas');
-            canvas.innerHTML = `<div style="padding:20px; color:#666;">Active Workbench: ${name.toUpperCase()}</div>`;
-
-            // Example: Spawn a chart if Macro
-            if(name === 'macro') {
-                spawnChart();
-            }
-        }
-
-        function addTab() {
-            const name = prompt("Workbench Name:");
-            if(name) {
-                const tabs = document.getElementById('workspace-tabs');
-                const div = document.createElement('div');
-                div.className = 'ws-tab';
-                div.innerText = name;
-                div.onclick = (e) => switchTab(name);
-                tabs.insertBefore(div, tabs.lastElementChild);
-            }
-        }
-
-        async function updatePnLAudit() {
-            try {
-                const res = await fetch('/api/widgets/data', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ tool_name: "pnl_audit" })
-                });
-                const data = await res.json();
-                if(data.data) {
-                    document.getElementById('nav-val').innerText = data.data.nav;
-                    document.getElementById('dd-val').innerText = data.data.drawdown;
-                    document.getElementById('vol-val').innerText = data.data.volatility;
-
-                    // Beat
-                    const hb = document.getElementById('vol-heartbeat');
-                    hb.classList.add('active');
-                    setTimeout(() => hb.classList.remove('active'), 500);
-                }
-            } catch(e) { console.error("PnL Fetch Error", e); }
-        }
-
-        async function updateRiskScorecard() {
-             try {
-                const res = await fetch('/api/widgets/data', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ tool_name: "risk_scorecard" })
-                });
-                const data = await res.json();
-                if(data.data) {
-                    document.getElementById('var-val').innerText = data.data.var;
-                    document.getElementById('delta-val').innerText = data.data.delta;
-                    document.getElementById('gamma-val').innerText = data.data.gamma;
-                }
-            } catch(e) { console.error("Risk Fetch Error", e); }
-        }
-
-        function spawnChart() {
-            const grid = document.getElementById('active-canvas');
-            const widget = document.createElement('div');
-            widget.className = 'canvas-widget';
-            widget.style.gridColumn = "span 8";
-            widget.style.gridRow = "span 2";
-            widget.innerHTML = `<div class="widget-header">NIFTY 50</div><div class="widget-body" id="chart-1"></div>`;
-            grid.appendChild(widget);
-
-            const chart = LightweightCharts.createChart(document.getElementById('chart-1'), {
-                width: widget.clientWidth, height: 250,
-                layout: { background: { color: '#2d2d2d' }, textColor: '#ccc' },
-                grid: { vertLines: { color: '#333'}, horzLines: { color: '#333'} }
-            });
-            chart.addCandlestickSeries().setData([
-                { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
-            ]);
-        }
-
-        function handleChat(e) {
-            if(e.key === 'Enter') {
-                const input = e.target;
-                const logs = document.getElementById('console-logs');
-                // Mock send
-                logs.innerHTML += `<div>> User: ${input.value}</div>`;
-                input.value = '';
-                // In real app, POST to /chat endpoint with workspace context
-            }
-        }
-
+        // --- Dock Initialization ---
         window.onload = () => {
-            // Start Loops
-            setInterval(updatePnLAudit, 3000); // 3s polling
-            setInterval(updateRiskScorecard, 5000);
+            new DockManager('filters', 'filter-dock');
+            new DockManager('indicators', 'indicator-dock');
 
-            // Logs
-            const ws = new WebSocket(`ws://${location.host}/ws/logs`);
-            ws.onmessage = (e) => {
-                const logs = document.getElementById('console-logs');
-                logs.innerHTML += `<div>> ${e.data}</div>`;
-                logs.scrollTop = logs.scrollHeight;
-            };
-
-            switchTab('macro'); // Default
+            initResizers();
+            initChart();
         };
+
+        // --- Resizing Logic ---
+        function initResizers() {
+            const container = document.body; // or specific container
+
+            // Left Panel Resizer
+            const leftPanel = document.getElementById('panel-left');
+            const leftResizer = document.getElementById('resizer-left');
+
+            leftResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                document.addEventListener('mousemove', resizeLeft);
+                document.addEventListener('mouseup', stopResizeLeft);
+            });
+
+            function resizeLeft(e) {
+                leftPanel.style.width = e.clientX + 'px';
+            }
+            function stopResizeLeft() {
+                document.removeEventListener('mousemove', resizeLeft);
+                document.removeEventListener('mouseup', stopResizeLeft);
+            }
+
+            // Right Panel Resizer
+            const rightPanel = document.getElementById('panel-right');
+            const rightResizer = document.getElementById('resizer-right');
+
+            rightResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                document.addEventListener('mousemove', resizeRight);
+                document.addEventListener('mouseup', stopResizeRight);
+            });
+
+            function resizeRight(e) {
+                const newWidth = window.innerWidth - e.clientX;
+                rightPanel.style.width = newWidth + 'px';
+            }
+            function stopResizeRight() {
+                document.removeEventListener('mousemove', resizeRight);
+                document.removeEventListener('mouseup', stopResizeRight);
+            }
+
+            // Bottom Panel Resizer
+            const bottomPanel = document.getElementById('panel-bottom');
+            const bottomResizer = document.getElementById('resizer-bottom');
+
+            bottomResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                document.addEventListener('mousemove', resizeBottom);
+                document.addEventListener('mouseup', stopResizeBottom);
+            });
+
+            function resizeBottom(e) {
+                const newHeight = window.innerHeight - e.clientY;
+                bottomPanel.style.height = newHeight + 'px';
+            }
+            function stopResizeBottom() {
+                document.removeEventListener('mousemove', resizeBottom);
+                document.removeEventListener('mouseup', stopResizeBottom);
+            }
+        }
+
+        // --- Chart Initialization ---
+        function initChart() {
+            const chartContainer = document.getElementById('chart-container');
+            const chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight,
+                layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
+                grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+                timeScale: { borderColor: '#444' },
+                rightPriceScale: { borderColor: '#444' },
+            });
+
+            const candleSeries = chart.addCandlestickSeries({
+                upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
+            });
+
+            candleSeries.setData([
+                { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
+                { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
+                { time: '2023-01-03', open: 102, high: 104, low: 99, close: 100 },
+                { time: '2023-01-04', open: 100, high: 108, low: 100, close: 107 },
+            ]);
+
+            // Auto-resize chart
+            new ResizeObserver(entries => {
+                if (entries.length === 0 || entries[0].target !== chartContainer) { return; }
+                const newRect = entries[0].contentRect;
+                chart.applyOptions({ width: newRect.width, height: newRect.height });
+            }).observe(chartContainer);
+        }
     </script>
 </body>
 </html>

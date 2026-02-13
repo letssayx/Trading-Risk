@@ -37,3 +37,7 @@ def read_root():
 @app.get("/spread-builder")
 async def get_spread_builder():
     return FileResponse("backend/ui/templates/spread_builder.html")
+
+@app.get("/workbench")
+async def get_workbench():
+    return FileResponse("backend/ui/templates/workbench.html")
