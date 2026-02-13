@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from backend.risk.measures.optimization import calculate_marginal_var, calculate_component_var, calculate_risk_contributions
 from backend.risk.measures.attribution import calculate_factor_attribution
-from backend.risk.measures.validation import kupiec_pof_test
+from backend.risk.tests import kupiec_pof_test
 from backend.risk.reports.alpha import generate_alpha_report
 
 def run_tests():

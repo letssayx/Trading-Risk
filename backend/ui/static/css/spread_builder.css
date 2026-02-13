@@ -1,0 +1,278 @@
+/* Turtle Terminal Dark Theme - Spread Builder */
+.spread-builder {
+    background: #1E1F25;
+    border: 1px solid #3A3B45;
+    border-radius: 6px;
+    color: #E0E2E8;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, monospace;
+    padding: 16px;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.spread-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #3A3B45;
+}
+
+.spread-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #E0E2E8;
+    margin: 0;
+}
+
+.spread-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.add-leg-btn {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.add-leg-btn:hover {
+    background: #3A3B45;
+    border-color: #5A5B65;
+}
+
+.save-spread-btn {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.save-spread-btn:hover {
+    background: #3A3B45;
+    border-color: #5A5B65;
+}
+
+.leg-container {
+    margin-bottom: 16px;
+}
+
+.leg-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.leg-row {
+    display: grid;
+    grid-template-columns: 120px 60px 80px 80px 60px 40px;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #3A3B45;
+    border-radius: 4px;
+    background: #25262D;
+    align-items: center;
+}
+
+.leg-row:nth-child(even) {
+    background: #212228;
+}
+
+.symbol-dropdown {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.operator-dropdown {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.multiplier-input {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    width: 100%;
+    font-size: 12px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.side-dropdown {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.lots-input {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    width: 100%;
+    font-size: 12px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.remove-leg-btn {
+    background: #3A3B45;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.remove-leg-btn:hover {
+    background: #4A4B55;
+    border-color: #5A5B65;
+}
+
+.formula-display {
+    background: #25262D;
+    border: 1px solid #3A3B45;
+    border-radius: 4px;
+    padding: 12px;
+    margin: 16px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #E0E2E8;
+    word-break: break-all;
+}
+
+.spread-price {
+    background: #25262D;
+    border: 1px solid #3A3B45;
+    border-radius: 4px;
+    padding: 12px;
+    margin: 16px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    color: #E0E2E8;
+    text-align: center;
+    font-weight: bold;
+}
+
+.buy-side {
+    color: #4CAF50 !important;
+}
+
+.sell-side {
+    color: #F44336 !important;
+}
+
+.positive-change {
+    color: #4CAF50;
+}
+
+.negative-change {
+    color: #F44336;
+}
+
+.spread-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+.calculate-btn {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.calculate-btn:hover {
+    background: #3A3B45;
+    border-color: #5A5B65;
+}
+
+.load-spread-btn {
+    background: #2C2D35;
+    border: 1px solid #4A4B55;
+    color: #E0E2E8;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.load-spread-btn:hover {
+    background: #3A3B45;
+    border-color: #5A5B65;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .leg-row {
+        grid-template-columns: 100px 50px 70px 70px 50px 30px;
+        gap: 4px;
+        padding: 4px;
+    }
+
+    .symbol-dropdown,
+    .operator-dropdown,
+    .multiplier-input,
+    .side-dropdown,
+    .lots-input {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+
+    .remove-leg-btn {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+    }
+
+    .formula-display,
+    .spread-price {
+        font-size: 12px;
+        padding: 8px;
+    }
+}

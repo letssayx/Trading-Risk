@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from backend.domain.web.schemas import WidgetRequest
+from backend.api.schemas import WidgetRequest
 from backend.domain.workbench.service import WidgetService
 
 router = APIRouter(prefix="/api/widgets", tags=["Widgets"])

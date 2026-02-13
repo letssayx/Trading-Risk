@@ -15,8 +15,8 @@ from backend.intelligence.sentiment_flow import analyze_sentiment_flow
 from backend.analysis.beta import calculate_beta
 from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedge
 
-# Schemas
-from backend.domain.web.schemas import (
+# Schemas (Refactored Location)
+from backend.api.schemas import (
     StrategyRequest, SentimentRequest, ConvergenceRequest,
     VolArbRequest, PCARequest
 )

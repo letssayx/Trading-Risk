@@ -7,6 +7,7 @@ import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from backend.analysis.beta import calculate_beta
+from backend.risk.tests import check_precision_drift
 from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedge
 from backend.risk.measures.basel import (
     calculate_historical_var,
@@ -16,7 +17,6 @@ from backend.risk.measures.basel import (
     calculate_stressed_var,
     calculate_stressed_es
 )
-from backend.risk.measures.validation import check_precision_drift
 from backend.risk.reports.alpha import generate_alpha_report
 
 def run_tests():

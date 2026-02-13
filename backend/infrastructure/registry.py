@@ -50,11 +50,20 @@ class ToolboxRegistry:
         except Exception as e: print(f"[REGISTRY] Error loading Math Models: {e}")
 
         try:
-            from backend.models.stats import StatArbAlphaEngine, ZScoreFilter, CointegrationAuditor
-            cls.register(StatArbAlphaEngine)
-            cls.register(ZScoreFilter)
+            from backend.models.stats import CointegrationAuditor
             cls.register(CointegrationAuditor)
         except Exception as e: print(f"[REGISTRY] Error loading Stats Models: {e}")
+
+        # 1.1 Strategy Components (Refactored)
+        try:
+            from backend.strategies.stat_arb.alpha_engine import StatArbAlphaEngine
+            cls.register(StatArbAlphaEngine)
+        except Exception as e: print(f"[REGISTRY] Error loading Strategy Components: {e}")
+
+        try:
+            from backend.strategies.toolbox.filters import ZScoreFilter
+            cls.register(ZScoreFilter)
+        except Exception as e: print(f"[REGISTRY] Error loading Filters: {e}")
 
         # 2. Analysis & Intelligence
         try:
@@ -87,8 +96,9 @@ class ToolboxRegistry:
             cls.register(TurtleStopLoss)
         except Exception as e: print(f"[REGISTRY] Error loading Turtle Suite: {e}")
 
+        # 4.1 Risk Models (Refactored)
         try:
-            from backend.risk.models.factor import FactorExposureModel
+            from backend.models.factor import FactorExposureModel
             cls.register(FactorExposureModel)
         except Exception as e: print(f"[REGISTRY] Error loading Factor Models: {e}")
 

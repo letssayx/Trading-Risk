@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional, Any
 from backend.domain.portfolio.models import Trade, TradeSide, Portfolio
-from backend.risk.calculations import RiskCalculations
+from backend.risk.greeks import calculate_total_greeks
 
 class PortfolioManager:
     """
@@ -18,17 +18,35 @@ class PortfolioManager:
         self.total_capital = new_capital
 
     def get_portfolio_greeks(self) -> Dict[str, float]:
-        return RiskCalculations.calculate_total_greeks(self.trades)
+        """
+        Delegates to the refactored risk.greeks module.
+        """
+        return calculate_total_greeks(self.trades)
 
     def get_portfolio_pnl(self, current_prices: Dict[str, float]) -> float:
-        return RiskCalculations.calculate_unrealized_pnl(self.trades, current_prices)
+        """
+        Calculates unrealized PnL based on current market prices.
+        Moved logic inline or to a new PnL module (kept inline for simplicity here as it wasn't the main refactor target).
+        """
+        pnl = 0.0
+        for trade in self.trades:
+            if trade.status == "OPEN":
+                current_price = current_prices.get(trade.ticker)
+                if current_price is None:
+                    continue
+
+                entry_price = trade.price
+                # Direction: 1 for Buy, -1 for Sell
+                direction = 1 if trade.side == TradeSide.BUY else -1
+                pnl += (current_price - entry_price) * float(trade.qty) * direction
+        return pnl
 
     def get_exposure_by_sector(self, sector_map: Dict[str, str]) -> Dict[str, float]:
         exposure = {}
         for trade in self.trades:
             if trade.status == "OPEN":
                 sector = sector_map.get(trade.ticker, "Unknown")
-                amount = trade.qty * trade.price
+                amount = float(trade.qty) * trade.price
                 exposure[sector] = exposure.get(sector, 0.0) + amount
         return exposure
 
@@ -44,11 +62,15 @@ class PortfolioManager:
             # Filter trades for this portfolio
             p_trades = [t for t in self.trades if t.portfolio_id == p.id]
 
-            sub_pnl = RiskCalculations.calculate_unrealized_pnl(p_trades, current_prices)
-
-            # Assuming capital allocated per portfolio? Or just PnL attribution.
-            # Let's return PnL and Position Value.
-            pos_value = sum([t.qty * current_prices.get(t.ticker, t.price) for t in p_trades if t.status == "OPEN"])
+            # Re-implement PnL logic locally for sub-portfolio slice
+            sub_pnl = 0.0
+            pos_value = 0.0
+            for t in p_trades:
+                if t.status == "OPEN":
+                    cp = current_prices.get(t.ticker, t.price)
+                    dr = 1 if t.side == TradeSide.BUY else -1
+                    sub_pnl += (cp - t.price) * float(t.qty) * dr
+                    pos_value += float(t.qty) * cp
 
             breakdown.append({
                 "portfolio_id": str(p.id),

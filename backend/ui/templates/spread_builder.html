@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turtle Terminal - Spread Builder</title>
+    <link rel="stylesheet" href="/static/css/spread_builder.css">
+    <style>
+        body {
+            background: #121212;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .demo-info {
+            background: #25262D;
+            border: 1px solid #3A3B45;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 20px;
+            color: #E0E2E8;
+        }
+
+        .demo-info h3 {
+            margin-top: 0;
+            color: #E0E2E8;
+        }
+
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .feature-card {
+            background: #1E1F25;
+            border: 1px solid #3A3B45;
+            border-radius: 4px;
+            padding: 12px;
+            color: #E0E2E8;
+        }
+
+        .feature-card h4 {
+            margin: 0 0 8px 0;
+            color: #E0E2E8;
+        }
+
+        .feature-card p {
+            margin: 0;
+            font-size: 14px;
+            color: #A0A0A0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="demo-info">
+            <h3> Turtle Terminal - Spread Builder</h3>
+            <p>CQG-style spread builder with real-time calculation and configuration management.</p>
+
+            <div class="features-list">
+                <div class="feature-card">
+                    <h4>Leg Management</h4>
+                    <p>Add/remove legs with symbol, operator, multiplier, side, and lots controls</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Real-time Formula</h4>
+                    <p>Dynamic formula generation as you modify legs</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Spread Calculation</h4>
+                    <p>Live price calculation with market simulation</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Configuration</h4>
+                    <p>Save and load spread configurations</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="spreadBuilderContainer"></div>
+    </div>
+
+    <script src="/static/js/spread_builder.js"></script>
+    <script>
+        // Initialize the spread builder when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded fired');
+            const el = document.getElementById('spreadBuilderContainer');
+            console.log('Container element:', el);
+
+            if (el) {
+                const spreadBuilder = new SpreadBuilder('spreadBuilderContainer');
+
+                // Simulate some market prices for demo
+                setTimeout(() => {
+                    spreadBuilder.simulateMarketPrices();
+                    spreadBuilder.updateSpreadPrice();
+                }, 1000);
+            } else {
+                console.error('Container not found!');
+            }
+        });
+    </script>
+</body>
+</html>
