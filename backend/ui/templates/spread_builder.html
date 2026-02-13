@@ -11,103 +11,160 @@
             margin: 0;
             padding: 20px;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #E0E2E8;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-        }
-
-        .demo-info {
-            background: #25262D;
-            border: 1px solid #3A3B45;
-            border-radius: 6px;
-            padding: 16px;
-            margin-bottom: 20px;
-            color: #E0E2E8;
-        }
-
-        .demo-info h3 {
-            margin-top: 0;
-            color: #E0E2E8;
-        }
-
-        .features-list {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 16px;
-            margin-top: 16px;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
         }
 
-        .feature-card {
+        /* Left Sidebar: Watchlist */
+        .watchlist-panel {
             background: #1E1F25;
             border: 1px solid #3A3B45;
+            border-radius: 6px;
+            padding: 10px;
+            height: 600px;
+            overflow-y: auto;
+        }
+        .watchlist-header {
+            font-weight: bold;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #3A3B45;
+            margin-bottom: 10px;
+        }
+        .symbol-item {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #2d2d2d;
+            display: flex;
+            justify-content: space-between;
+        }
+        .symbol-item:hover { background: #2C2D35; }
+        .symbol-price { color: #4CAF50; font-family: monospace; }
+
+        /* Main Builder Area */
+        .builder-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Formula Input Area */
+        .formula-container {
+            background: #1E1F25;
+            border: 1px solid #3A3B45;
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .formula-input {
+            width: 100%;
+            background: #25262D;
+            border: 1px solid #4A4B55;
+            color: #E0E2E8;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
             border-radius: 4px;
-            padding: 12px;
-            color: #E0E2E8;
+            box-sizing: border-box;
+            margin-bottom: 15px;
         }
 
-        .feature-card h4 {
-            margin: 0 0 8px 0;
+        /* Calculator Keypad */
+        .keypad {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .key-btn {
+            background: #2C2D35;
+            border: 1px solid #4A4B55;
             color: #E0E2E8;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.1s;
+        }
+        .key-btn:hover { background: #3A3B45; transform: translateY(-1px); }
+        .key-btn:active { transform: translateY(1px); }
+        .key-btn.action { background: #00bcd4; color: #000; border: none; }
+
+        /* Result Display */
+        .result-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #25262D;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .spread-val { font-size: 24px; font-weight: bold; color: #4CAF50; }
+
+        /* Chart Placeholder */
+        .chart-placeholder {
+            background: #1E1F25;
+            border: 1px solid #3A3B45;
+            border-radius: 6px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
         }
 
-        .feature-card p {
-            margin: 0;
-            font-size: 14px;
-            color: #A0A0A0;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="demo-info">
-            <h3> Turtle Terminal - Spread Builder</h3>
-            <p>CQG-style spread builder with real-time calculation and configuration management.</p>
-
-            <div class="features-list">
-                <div class="feature-card">
-                    <h4>Leg Management</h4>
-                    <p>Add/remove legs with symbol, operator, multiplier, side, and lots controls</p>
-                </div>
-                <div class="feature-card">
-                    <h4>Real-time Formula</h4>
-                    <p>Dynamic formula generation as you modify legs</p>
-                </div>
-                <div class="feature-card">
-                    <h4>Spread Calculation</h4>
-                    <p>Live price calculation with market simulation</p>
-                </div>
-                <div class="feature-card">
-                    <h4>Configuration</h4>
-                    <p>Save and load spread configurations</p>
-                </div>
+        <!-- Watchlist -->
+        <div class="watchlist-panel">
+            <div class="watchlist-header">MARKET WATCH</div>
+            <div id="watchlist-list">
+                <!-- Populated by JS -->
             </div>
         </div>
 
-        <div id="spreadBuilderContainer"></div>
+        <!-- Builder -->
+        <div class="builder-panel">
+            <div class="formula-container">
+                <div style="margin-bottom:10px; color:#888; font-size:0.9em;">SPREAD FORMULA</div>
+                <input type="text" class="formula-input" id="formula-input" placeholder="e.g. NIFTY - BANKNIFTY * 0.5">
+
+                <div class="keypad">
+                    <button class="key-btn" onclick="insertToken('+')">+</button>
+                    <button class="key-btn" onclick="insertToken('-')">-</button>
+                    <button class="key-btn" onclick="insertToken('*')">*</button>
+                    <button class="key-btn" onclick="insertToken('/')">/</button>
+                    <button class="key-btn" onclick="insertToken('(')">(</button>
+                    <button class="key-btn" onclick="insertToken(')')">)</button>
+                    <button class="key-btn action" onclick="calculateSpread()">CALCULATE</button>
+                    <button class="key-btn" style="background:#f44336; border:none;" onclick="clearFormula()">CLR</button>
+                </div>
+
+                <div class="result-box">
+                    <span>LIVE SPREAD VALUE:</span>
+                    <span class="spread-val" id="spread-value">--</span>
+                </div>
+            </div>
+
+            <div class="chart-placeholder">
+                [ SPREAD CHART AREA ]
+            </div>
+        </div>
     </div>
 
     <script src="/static/js/spread_builder.js"></script>
     <script>
-        // Initialize the spread builder when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOMContentLoaded fired');
-            const el = document.getElementById('spreadBuilderContainer');
-            console.log('Container element:', el);
-
-            if (el) {
-                const spreadBuilder = new SpreadBuilder('spreadBuilderContainer');
-
-                // Simulate some market prices for demo
-                setTimeout(() => {
-                    spreadBuilder.simulateMarketPrices();
-                    spreadBuilder.updateSpreadPrice();
-                }, 1000);
-            } else {
-                console.error('Container not found!');
-            }
-        });
+        // Init logic moved to spread_builder.js but we can trigger it here if needed
+        // The script is loaded at the end of body
     </script>
 </body>
 </html>
