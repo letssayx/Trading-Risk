@@ -1,0 +1,161 @@
+/* Strategy Composer Styles */
+.composer-container {
+    display: flex;
+    height: calc(100vh - 50px);
+    background: #1e1e1e;
+    color: #e0e0e0;
+    overflow: hidden;
+}
+
+/* Sidebar Palette */
+.palette {
+    width: 250px;
+    background: #181818;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+}
+
+.palette-header {
+    padding: 10px;
+    background: #252525;
+    font-weight: bold;
+    border-bottom: 1px solid #333;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    color: #888;
+}
+
+.palette-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.palette-item {
+    padding: 8px 12px;
+    background: #2d2d2d;
+    border: 1px solid #444;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    cursor: grab;
+    user-select: none;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.palette-item:hover {
+    background: #333;
+    border-color: #555;
+}
+
+.palette-item.filter { border-left: 3px solid #00bcd4; }
+.palette-item.indicator { border-left: 3px solid #4caf50; }
+.palette-item.logic { border-left: 3px solid #ff9800; }
+
+/* Main Canvas */
+.canvas-area {
+    flex: 1;
+    position: relative;
+    background-image:
+        radial-gradient(#333 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-color: #1e1e1e;
+    overflow: auto;
+}
+
+.drop-zone {
+    min-height: 100%;
+    position: relative;
+}
+
+/* Nodes on Canvas */
+.node {
+    position: absolute;
+    width: 180px;
+    background: #252525;
+    border: 1px solid #444;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+    padding: 0;
+    z-index: 10;
+}
+
+.node-header {
+    padding: 8px;
+    background: #333;
+    border-bottom: 1px solid #444;
+    border-radius: 6px 6px 0 0;
+    font-weight: bold;
+    font-size: 0.85em;
+    cursor: move;
+    display: flex;
+    justify-content: space-between;
+}
+
+.node-body {
+    padding: 10px;
+    font-size: 0.85em;
+}
+
+.node-ports {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 10px;
+    background: #222;
+    border-radius: 0 0 6px 6px;
+}
+
+.port {
+    width: 10px;
+    height: 10px;
+    background: #666;
+    border-radius: 50%;
+    cursor: crosshair;
+}
+
+.port:hover { background: #fff; }
+
+/* Connections (SVG) */
+#connections-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+path {
+    fill: none;
+    stroke: #666;
+    stroke-width: 2px;
+}
+
+/* Toolbar */
+.composer-toolbar {
+    height: 50px;
+    background: #252525;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    gap: 10px;
+}
+
+.btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background: #333;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+
+.btn:hover { background: #444; }
+.btn-primary { background: #00bcd4; color: #000; border: none; font-weight: bold; }
+.btn-primary:hover { background: #00acc1; }

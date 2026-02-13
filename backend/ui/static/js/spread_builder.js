@@ -3,6 +3,8 @@ class SpreadBuilder {
         this.formulaInput = document.getElementById('formula-input');
         this.spreadValue = document.getElementById('spread-value');
         this.watchlist = document.getElementById('watchlist-list');
+        this.chartArea = document.getElementById('spread-chart-area');
+        this.chartCanvas = document.getElementById('chart-canvas');
 
         // Mock Data
         this.marketData = {
@@ -26,6 +28,10 @@ class SpreadBuilder {
 
         // Auto-calc on input
         this.formulaInput.addEventListener('input', () => this.calculate());
+
+        // Chart buttons
+        document.getElementById('plot-chart-btn').addEventListener('click', () => this.plotChart());
+        document.getElementById('add-indicator-btn').addEventListener('click', () => this.addIndicator());
     }
 
     renderWatchlist() {
@@ -41,8 +47,6 @@ class SpreadBuilder {
 
     insertToken(token) {
         const current = this.formulaInput.value;
-        // Simple append, in prod use cursor position
-        // Add space around operators for readability if needed, but for now strict append
         if (['+', '-', '*', '/'].includes(token)) {
             this.formulaInput.value = current + ' ' + token + ' ';
         } else {
@@ -65,29 +69,19 @@ class SpreadBuilder {
         }
 
         try {
-            // 1. Tokenize and replace symbols with prices
-            // Regex to find words that match market data keys
             let evalExpr = expression;
-
-            // Sort keys by length desc to avoid replacing substring (e.g. NIFTY vs NIFTYBANK)
-            // But here NIFTYBANK contains NIFTY, so order matters.
             const symbols = Object.keys(this.marketData).sort((a,b) => b.length - a.length);
 
             for (const sym of symbols) {
                 const price = this.marketData[sym];
-                // Replace whole word only
                 const regex = new RegExp(`\\b${sym}\\b`, 'g');
                 evalExpr = evalExpr.replace(regex, price);
             }
 
-            // 2. Safety Check: Only allow numbers, operators, parens, spaces
             if (!/^[\d\.\s\+\-\*\/\(\)]+$/.test(evalExpr)) {
                 throw new Error("Invalid characters");
             }
 
-            // 3. Eval (Safe-ish due to regex check above)
-            // Function constructor is slightly safer than direct eval but still...
-            // In strict prod, use a math parser library like mathjs
             const result = new Function('return ' + evalExpr)();
 
             if (isNaN(result) || !isFinite(result)) {
@@ -104,9 +98,33 @@ class SpreadBuilder {
             this.spreadValue.style.color = "#f44336";
         }
     }
+
+    plotChart() {
+        // Stub for charting logic
+        const formula = this.formulaInput.value;
+        if (!formula) return;
+
+        this.chartCanvas.innerHTML = `
+            <div style="text-align:center;">
+                <div style="font-size:1.2em; color:#fff; margin-bottom:10px;">Chart: ${formula}</div>
+                <div style="width:100%; height:300px; background:#222; position:relative; display:flex; align-items:center; justify-content:center;">
+                    <!-- Placeholder for Lightweight Charts -->
+                    <span style="color:#666;">(Chart Visualization Placeholder)</span>
+                </div>
+            </div>
+        `;
+        console.log("Plotting chart for:", formula);
+    }
+
+    addIndicator() {
+        const indicatorName = prompt("Enter Indicator Name (e.g. SMA, RSI):");
+        if (indicatorName) {
+            alert(`Added ${indicatorName} to Spread Chart`);
+            // In real impl, would overlay indicator on chart
+        }
+    }
 }
 
-// Init
 document.addEventListener('DOMContentLoaded', () => {
     new SpreadBuilder();
 });

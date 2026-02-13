@@ -115,9 +115,24 @@
             border-radius: 6px;
             height: 400px;
             display: flex;
+            flex-direction: column;
+            color: #666;
+            position: relative;
+        }
+
+        .chart-toolbar {
+            padding: 10px;
+            border-bottom: 1px solid #3A3B45;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .chart-canvas {
+            flex: 1;
+            display: flex;
             align-items: center;
             justify-content: center;
-            color: #666;
         }
 
     </style>
@@ -153,10 +168,19 @@
                     <span>LIVE SPREAD VALUE:</span>
                     <span class="spread-val" id="spread-value">--</span>
                 </div>
+
+                <div style="margin-top:15px; text-align:right;">
+                    <button class="key-btn" id="plot-chart-btn" style="background:#2C2D35; border:1px solid #4A4B55;">📊 PLOT CHART</button>
+                </div>
             </div>
 
-            <div class="chart-placeholder">
-                [ SPREAD CHART AREA ]
+            <div class="chart-placeholder" id="spread-chart-area">
+                <div class="chart-toolbar">
+                    <button class="key-btn" style="font-size:12px; padding:5px 10px;" id="add-indicator-btn">+ Add Indicator</button>
+                </div>
+                <div class="chart-canvas" id="chart-canvas">
+                    [ SPREAD CHART AREA ]
+                </div>
             </div>
         </div>
     </div>
