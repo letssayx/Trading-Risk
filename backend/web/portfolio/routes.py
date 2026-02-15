@@ -4,7 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from backend.domain.portfolio.models import Portfolio, Trade, TradeStatus
-from backend.domain.portfolio.schemas import PortfolioCreate, PortfolioResponse, TradeCreate, TradeResponse
+from backend.domain.web.schemas import PortfolioRequest as PortfolioCreate, PortfolioResponse, TradeRequest as TradeCreate, TradeResponse
 # from backend.domain.portfolio.vault import TradeVault # Assuming this exists or will be implemented
 from backend.dependencies import get_db
 

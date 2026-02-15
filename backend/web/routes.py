@@ -18,8 +18,16 @@ from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedg
 # Schemas (Refactored Location)
 from backend.domain.web.schemas import (
     StrategyRequest, SentimentRequest, ConvergenceRequest,
-    VolArbRequest, PCARequest
+    VolArbRequest, PCARequest,
+    TradeRequest, TradeResponse,
+    PortfolioRequest, PortfolioResponse,
+    StrategyResponse,
+    SpreadRequest, SpreadResponse,
+    VaRRequest, VaRResponse,
+    MessageResponse, ErrorResponse
 )
+from datetime import datetime
+import uuid
 
 router = APIRouter(prefix="/strategies", tags=["Consolidated Strategies"])
 

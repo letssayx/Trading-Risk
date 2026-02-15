@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Optional, List, Any
+from datetime import datetime
+import uuid
 
 # ==========================================
 # STRATEGY DOMAIN SCHEMAS
@@ -19,6 +21,17 @@ class StrategyRequest(BaseModel):
         description="The type of strategy logic to apply (e.g., TURTLE, MOMENTUM).",
         example="TURTLE"
     )
+
+class StrategyResponse(BaseModel):
+    id: str
+    name: str
+    type: str
+    parameters: Dict[str, Any]
+    filters: List[str]
+    active: bool
+    score: Optional[float]
+    created_at: datetime
+    updated_at: datetime
 
 class SentimentRequest(BaseModel):
     """
@@ -65,7 +78,6 @@ class ConvergenceRequest(BaseModel):
         example="BUY"
     )
 
-
 # ==========================================
 # RISK DOMAIN SCHEMAS
 # ==========================================
@@ -95,6 +107,86 @@ class PCARequest(BaseModel):
         example=[[0.01, -0.02], [0.005, 0.01]]
     )
 
+class VaRRequest(BaseModel):
+    portfolio_id: str
+    confidence: float = Field(0.95, ge=0, le=1)
+    horizon: int = Field(1, ge=1)
+
+class VaRResponse(BaseModel):
+    portfolio_id: str
+    confidence: float
+    horizon: int
+    var_value: float
+    var_percent: float
+    method: str
+    timestamp: datetime
+
+# ==========================================
+# PORTFOLIO / TRADE DOMAIN SCHEMAS
+# ==========================================
+
+class TradeRequest(BaseModel):
+    symbol: str
+    side: str = Field(..., pattern="^(BUY|SELL)$")
+    quantity: int = Field(..., gt=0)
+    price: float = Field(..., gt=0)
+    strategy_id: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+class TradeResponse(BaseModel):
+    id: str
+    symbol: str
+    side: str
+    quantity: int
+    entry_price: float
+    exit_price: Optional[float]
+    pnl: Optional[float]
+    strategy_id: Optional[str]
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+class PortfolioRequest(BaseModel):
+    name: str
+    description: Optional[str]
+    initial_capital: float = Field(..., gt=0)
+    currency: str = "INR"
+
+class PortfolioResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    initial_capital: float
+    current_nav: float
+    currency: str
+    created_at: datetime
+    updated_at: datetime
+
+# ==========================================
+# SPREAD DOMAIN SCHEMAS
+# ==========================================
+
+class LegConfig(BaseModel):
+    symbol: str
+    operator: str = Field(..., pattern="^[+\\-×÷]$")
+    multiplier: float = Field(..., gt=0)
+    side: str = Field(..., pattern="^(Buy|Sell)$")
+    lots: int = Field(..., gt=0)
+
+class SpreadRequest(BaseModel):
+    name: str
+    legs: List[LegConfig]
+    tags: List[str] = []
+
+class SpreadResponse(BaseModel):
+    id: str
+    name: str
+    legs: List[LegConfig]
+    formula: str
+    current_price: Optional[float]
+    tags: List[str]
+    created_at: datetime
+    updated_at: datetime
 
 # ==========================================
 # UI / WORKBENCH DOMAIN SCHEMAS
@@ -114,3 +206,18 @@ class WidgetRequest(BaseModel):
         description="Configuration parameters for the tool initialization.",
         example={"lookback": 20}
     )
+
+# ==========================================
+# GENERIC RESPONSE SCHEMAS
+# ==========================================
+
+class MessageResponse(BaseModel):
+    message: str
+    status: str = "success"
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+class ErrorResponse(BaseModel):
+    error: str
+    detail: Optional[str]
+    status: str = "error"
+    timestamp: datetime = Field(default_factory=datetime.now)
