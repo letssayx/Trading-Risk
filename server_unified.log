@@ -260,3 +260,6 @@ INFO:     127.0.0.1:42540 - "GET /static/css/trade_book.css HTTP/1.1" 404 Not Fo
 INFO:     127.0.0.1:42528 - "GET /static/css/spread_builder.css HTTP/1.1" 200 OK
 INFO:     127.0.0.1:42544 - "GET /static/js/spread_builder.js HTTP/1.1" 200 OK
 INFO:     127.0.0.1:42554 - "GET /static/js/trade_book.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54700 - "GET /workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54700 - "GET /static/css/trade_book.css HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54706 - "GET /static/js/trade_book.js HTTP/1.1" 200 OK

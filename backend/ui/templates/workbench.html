@@ -1,437 +1,301 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Turtle Terminal - Professional Workbench</title>
-    <link rel="stylesheet" href="/static/css/workbench.css">
-    <link rel="stylesheet" href="/static/css/spread_builder.css">
+    <meta charset="UTF-8">
+    <title>Turtle Terminal</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="stylesheet" href="/static/css/trade_book.css">
     <style>
-        /* CRITICAL: Grid layout must match diagram exactly */
+        :root {
+            --bg-color: #1A1B20;
+            --panel-bg: #1E1F25;
+            --border-color: #3A3B45;
+            --accent-color: #00bcd4;
+            --text-primary: #E0E2E8;
+        }
+
         body {
             margin: 0;
-            overflow: hidden;
-        }
-        .workbench {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background: #1A1B20;
-            color: #E0E2E8;
             font-family: 'Inter', sans-serif;
-        }
-
-        /* Top Row - 3 equal columns */
-        .top-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 16px;
-            padding: 16px;
-            background: #25262D;
-            border-bottom: 1px solid #3A3B45;
-            flex-shrink: 0;
-        }
-
-        .risk-card, .market-card, .actions-card {
-            background: #1E1F25;
-            border: 1px solid #3A3B45;
-            border-radius: 8px;
-            padding: 12px;
-        }
-
-        /* Middle Row - 3 columns with specific widths */
-        .middle-row {
-            display: grid;
-            grid-template-columns: 350px 1fr 350px;
-            gap: 16px;
-            padding: 16px;
-            flex: 1;
-            min-height: 0;
-        }
-
-        .left-panel, .center-panel, .right-panel {
-            background: #1E1F25;
-            border: 1px solid #3A3B45;
-            border-radius: 8px;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        .panel-header {
-            padding: 12px;
-            background: #25262D;
-            border-bottom: 1px solid #3A3B45;
-            font-weight: 600;
+        /* Top Menu Bar */
+        #menu-bar {
+            height: 30px;
+            background: #121212;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 0.8em;
+        }
+        .menu-item { margin-right: 15px; cursor: pointer; color: #888; }
+        .menu-item:hover { color: #fff; }
+
+        /* Main Workspace Container (Flex Row) */
+        #workspace-row {
+            flex: 1;
+            display: flex;
+            min-height: 0; /* Important for scroll */
         }
 
-        .panel-content {
+        /* 1. RISK PANEL (Left) */
+        .risk-panel {
+            width: 250px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .risk-header {
+            font-size: 0.9em; font-weight: bold; color: #888; margin-bottom: 15px; text-transform: uppercase;
+        }
+        .risk-metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #2A2B33;
+            font-size: 0.9em;
+        }
+        .risk-label { color: #aaa; }
+        .risk-val { font-weight: bold; }
+        .risk-val.pos { color: #4caf50; }
+        .risk-val.neg { color: #f44336; }
+
+        /* 2. WORKBENCH (Center) */
+        .workbench-center {
             flex: 1;
-            overflow: auto;
-            padding: 12px;
+            background: #1A1B20;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .graph-paper {
+            flex: 1;
+            width: 100%;
+            background-image:
+                linear-gradient(to right, #2A2B33 1px, transparent 1px),
+                linear-gradient(to bottom, #2A2B33 1px, transparent 1px);
+            background-size: 20px 20px;
             position: relative;
         }
 
-        /* Right panel tabs */
-        .right-tabs {
+        /* 3. RIGHT PANEL (Python/Jules) */
+        .right-panel {
+            width: 300px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
             display: flex;
-            border-bottom: 1px solid #3A3B45;
-        }
-
-        .tab-btn {
-            padding: 8px 16px;
-            background: transparent;
-            border: none;
-            color: #8A8C98;
-            cursor: pointer;
-            flex: 1;
-        }
-
-        .tab-btn.active {
-            color: #E0E2E8;
-            border-bottom: 2px solid #0052CC;
-        }
-
-        .tab-content {
-            display: none;
-            height: 100%;
             flex-direction: column;
         }
-
-        .tab-content.active {
-            display: flex; /* Changed from block to flex for better layout control */
+        .right-header {
+            padding: 10px; border-bottom: 1px solid var(--border-color);
+            text-align: center; font-weight: bold; color: #888; font-size: 0.85em;
+        }
+        .console-area {
+            flex: 1; background: #111; color: #0f0; font-family: monospace; padding: 10px; overflow-y: auto; font-size: 0.85em;
+        }
+        .chat-area {
+            height: 200px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column;
         }
 
-        /* Toolbar - Full width */
-        .toolbar {
+        /* 4. STRATEGY RIBBON */
+        .strategy-ribbon {
             display: flex;
-            gap: 24px;
-            padding: 12px 16px;
-            background: #25262D;
-            border-top: 1px solid #3A3B45;
-            border-bottom: 1px solid #3A3B45;
-            align-items: center;
-            flex-wrap: wrap;
-            flex-shrink: 0;
-        }
-
-        .toolbar-group {
-            display: flex;
-            align-items: center;
             gap: 8px;
-        }
-
-        .toolbar-group span {
-            color: #8A8C98;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .toolbar-btn {
-            background: #1E1F25;
-            border: 1px solid #3A3B45;
-            color: #E0E2E8;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .formula-display {
-            background: #1E1F25;
-            border: 1px solid #3A3B45;
-            border-radius: 4px;
-            padding: 4px 12px;
-            font-family: monospace;
-            min-width: 200px;
-        }
-
-        /* Bottom Panel - Resizable */
-        .bottom-panel {
-            background: #1E1F25;
-            border-top: 1px solid #3A3B45;
-            resize: vertical;
-            overflow: auto;
-            min-height: 200px;
-            max-height: 500px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .trade-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: #25262D;
-            border-bottom: 1px solid #3A3B45;
-            flex-shrink: 0;
-        }
-
-        .trade-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .trade-table th {
-            text-align: left;
-            padding: 8px 12px;
-            background: #25262D;
-            color: #8A8C98;
-            font-weight: 500;
-            font-size: 12px;
-            position: sticky;
-            top: 0;
-        }
-
-        .trade-table td {
-            padding: 8px 12px;
-            border-bottom: 1px solid #2A2B33;
-        }
-
-        .positive {
-            color: #4CAF50;
-        }
-
-        .negative {
-            color: #F44336;
-        }
-
-        .trade-footer {
             padding: 8px 16px;
             background: #25262D;
-            border-top: 1px solid #3A3B45;
-            font-size: 12px;
-            color: #8A8C98;
-            flex-shrink: 0;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
         }
+        .ribbon-btn {
+            background: #333; border: 1px solid #444; color: #ccc;
+            padding: 4px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer;
+        }
+        .ribbon-btn:hover { background: #444; color: #fff; }
+
+        /* 5. TRADE BOOK */
+        .trade-book {
+            height: 250px;
+            background: var(--panel-bg);
+            resize: vertical;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100px;
+        }
+        .trade-header-bar {
+            padding: 8px 12px; background: #25262D; border-bottom: 1px solid var(--border-color);
+            font-size: 0.85em; font-weight: bold; display: flex; justify-content: space-between;
+        }
+
+        /* Table Styles from previous integration */
+        .trade-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+        .trade-table th { background: #252525; padding: 6px 10px; text-align: left; position: sticky; top: 0; }
+        .trade-table td { padding: 6px 10px; border-bottom: 1px solid #333; }
+
     </style>
 </head>
 <body>
-    <div class="workbench">
-        <!-- TOP ROW: Risk + Market + Actions -->
-        <div class="top-row">
-            <!-- Risk Scorecard -->
-            <div class="risk-card">
-                <h3>RISK SCORECARD</h3>
-                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                    <span>VaR (95%)</span>
-                    <span class="positive">$12,450</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span>Beta</span>
-                    <span>1.24</span>
-                </div>
-            </div>
 
-            <!-- Market Watch -->
-            <div class="market-card">
-                <h3>MARKET WATCH</h3>
-                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                    <span>NIFTY</span>
-                    <span><span class="positive">22,500 ▲</span> <span style="color: #8A8C98;">+0.5%</span></span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span>BANK</span>
-                    <span><span class="negative">48,100 ▼</span> <span style="color: #8A8C98;">-0.2%</span></span>
-                </div>
-            </div>
+    <!-- Top Menu -->
+    <div id="menu-bar">
+        <div style="font-weight:bold; color:#fff; margin-right:20px;">🐢 TURTLE TERMINAL</div>
+        <div class="menu-item">File</div>
+        <div class="menu-item">Edit</div>
+        <div class="menu-item">View</div>
+        <div class="menu-item">Help</div>
+    </div>
 
-            <!-- Quick Actions -->
-            <div class="actions-card">
-                <h3>QUICK ACTIONS</h3>
-                <div style="display: flex; gap: 8px; margin-top: 8px;">
-                    <button style="flex:1;" class="toolbar-btn">Save</button>
-                    <button style="flex:1;" class="toolbar-btn">Run</button>
-                    <button style="flex:1;" class="toolbar-btn">Export</button>
-                </div>
+    <!-- Main Workspace -->
+    <div id="workspace-row">
+
+        <!-- RISK PANEL -->
+        <div class="risk-panel">
+            <div class="risk-header">Risk Panel (Critical)</div>
+
+            <div class="risk-metric">
+                <span class="risk-label">VaR 95%</span>
+                <span class="risk-val neg">$12,450</span>
+            </div>
+            <div class="risk-metric">
+                <span class="risk-label">Exp. Shortfall</span>
+                <span class="risk-val neg">$18,200</span>
+            </div>
+            <div class="risk-metric">
+                <span class="risk-label">Delta</span>
+                <span class="risk-val pos">+245K</span>
+            </div>
+            <div class="risk-metric">
+                <span class="risk-label">Gamma</span>
+                <span class="risk-val neg">-1.2K</span>
+            </div>
+            <div class="risk-metric">
+                <span class="risk-label">Vega</span>
+                <span class="risk-val pos">450</span>
+            </div>
+            <div class="risk-metric" style="margin-top:20px; border-top:1px solid #444; padding-top:10px;">
+                <span class="risk-label">Stress Loss</span>
+                <span class="risk-val neg">-8.2%</span>
             </div>
         </div>
 
-        <!-- MIDDLE ROW: Spread Builder + Workbench + Python/Jules -->
-        <div class="middle-row">
-            <!-- LEFT PANEL: Spread Builder -->
-            <div class="left-panel">
-                <div class="panel-header">📐 SPREAD BUILDER</div>
-                <div class="panel-content" id="spreadBuilderContainer">
-                    <!-- Spread builder injected here -->
-                    <!-- Placeholder Elements required by spread_builder.js -->
-                    <div style="display:none;">
-                        <input id="formula-input">
-                        <span id="spread-value"></span>
-                        <div id="watchlist-list"></div>
-                        <div id="spread-chart-area"><div id="chart-canvas"></div></div>
-                    </div>
+        <!-- CENTER WORKBENCH -->
+        <div class="workbench-center">
+            <div class="graph-paper" id="chartContainer"></div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="right-panel">
+            <div class="right-header">PYTHON CONSOLE</div>
+            <div class="console-area">
+                >>> import pandas as pd<br>
+                >>> df = pd.read_csv('market.csv')<br>
+                >>> # Calculating Alpha...<br>
+                >>> _
+            </div>
+            <div class="right-header" style="border-top:1px solid #333;">JULES CHAT</div>
+            <div class="chat-area" style="flex:1; background:#202020; padding:10px; overflow-y:auto;" id="chat-history">
+                <div style="background:#333; padding:8px; border-radius:4px; font-size:0.9em; margin-bottom:10px;">
+                    <strong>Jules:</strong> Vol spike detected in Bank Nifty.
                 </div>
             </div>
-
-            <!-- CENTER PANEL: Workbench Charts -->
-            <div class="center-panel">
-                <div class="panel-header">📈 WORKBENCH</div>
-                <div class="panel-content" id="chartContainer" style="padding:0;">
-                    <!-- TradingView charts here -->
-                </div>
-            </div>
-
-            <!-- RIGHT PANEL: Python + Jules (Tabs) -->
-            <div class="right-panel">
-                <div class="right-tabs">
-                    <button class="tab-btn active" data-tab="python">🐍 PYTHON</button>
-                    <button class="tab-btn" data-tab="jules">🤖 JULES</button>
-                </div>
-                <div class="panel-content">
-                    <!-- Python Tab -->
-                    <div id="pythonTab" class="tab-content active">
-                        <div style="font-family: monospace;">
-                            <div>>>> import pandas as pd</div>
-                            <div>>>> df = pd.read_csv('trades.csv')</div>
-                            <div>>>> df.head()</div>
-                            <div style="color: #8A8C98; margin-top: 8px;">   Symbol  Qty  PnL</div>
-                            <div style="color: #8A8C98;">0  NIFTY  500  3250</div>
-                        </div>
-                        <div style="margin-top: 16px;">
-                            <input type="text" placeholder=">>> " style="width:100%; background:#1E1F25; border:1px solid #3A3B45; color:#E0E2E8; padding:8px; box-sizing: border-box;">
-                        </div>
-                    </div>
-
-                    <!-- Jules Tab -->
-                    <div id="julesTab" class="tab-content">
-                        <div id="chat-history" style="height: 200px; overflow-y: auto; flex:1;">
-                            <div class="chat-bubble jules" style="background:#25262D; padding:8px; border-radius:4px; margin-bottom:8px;">
-                                <strong>Jules:</strong> I noticed a volatility spike in Bank Nifty. Should I adjust the hedge?
-                            </div>
-                        </div>
-                        <div style="margin-top: 16px;">
-                            <input id="chat-input" type="text" placeholder="Ask Jules..." style="width:100%; background:#1E1F25; border:1px solid #3A3B45; color:#E0E2E8; padding:8px; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') sendChat()">
-                        </div>
-                    </div>
-                </div>
+            <div style="padding:10px; background:#25262D;">
+                <input type="text" placeholder="Ask Jules..." style="width:100%; background:#111; border:1px solid #444; color:#fff; padding:6px; box-sizing: border-box;" id="chat-input" onkeypress="if(event.key==='Enter') sendChat()">
             </div>
         </div>
 
-        <!-- TOOLBAR: Filters + Indicators + Logic -->
-        <div class="toolbar">
-            <div class="toolbar-group">
-                <span>FILTERS:</span>
-                <button class="toolbar-btn">Z-Score</button>
-                <button class="toolbar-btn">ATR</button>
-                <button class="toolbar-btn">Correlation</button>
-            </div>
-            <div class="toolbar-group">
-                <span>INDICATORS:</span>
-                <button class="toolbar-btn">SMA</button>
-                <button class="toolbar-btn">MACD</button>
-                <button class="toolbar-btn">Bollinger</button>
-            </div>
-            <div class="toolbar-group">
-                <span>LOGIC:</span>
-                <button class="toolbar-btn">AND</button>
-                <button class="toolbar-btn">OR</button>
-                <button class="toolbar-btn">NOT</button>
-            </div>
-            <div class="formula-display">
-                NIFTY - BANKNIFTY*2
-            </div>
-            <div style="display: flex; gap: 4px;">
-                <button class="toolbar-btn">CALC</button>
-                <button class="toolbar-btn">PLOT</button>
-            </div>
-        </div>
+    </div>
 
-        <!-- BOTTOM PANEL: Trade Book (Resizable) -->
-        <div class="bottom-panel" id="panel-bottom">
-            <div class="trade-header">
-                <span>📊 TRADE BOOK (Today)</span>
-                <select style="background:#1E1F25; border:1px solid #3A3B45; color:#E0E2E8; padding:4px;">
-                    <option>Export ▼</option>
-                    <option>Export to Excel</option>
-                    <option>Export to PDF</option>
-                    <option>Export to CSV</option>
-                </select>
-            </div>
-            <div id="tradeBookContainer" style="flex:1; overflow:auto;">
-                <!-- Trade Book Table injected by trade_book.js or static fallback -->
-                <table class="trade-table" id="tradeBookTable">
-                    <thead>
-                        <tr>
-                            <th>ID</th><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>PnL</th><th>Strategy</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>#1024</td><td>10:45</td><td>NIFTY CE</td><td>BUY</td><td>500</td><td class="positive">+3,250</td><td>Turtle</td>
-                        </tr>
-                        <tr>
-                            <td>#1023</td><td>10:42</td><td>BANKNIFTY</td><td>SELL</td><td>30</td><td class="positive">+600</td><td>StatArb</td>
-                        </tr>
-                        <tr>
-                            <td>#1022</td><td>09:15</td><td>RELIANCE</td><td>BUY</td><td>100</td><td class="negative">-1,000</td><td>Momentum</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="trade-footer">
-                24 ACTIVE POSITIONS
-            </div>
+    <!-- STRATEGY RIBBON -->
+    <div class="strategy-ribbon">
+        <span style="font-weight:bold; font-size:0.8em; color:#888; margin-right:10px;">STRATEGY RIBBON:</span>
+        <button class="ribbon-btn">Turtle</button>
+        <button class="ribbon-btn">StatArb</button>
+        <button class="ribbon-btn">VolArb</button>
+        <button class="ribbon-btn">Sentiment</button>
+        <button class="ribbon-btn" style="margin-left:auto;">+ Custom</button>
+    </div>
+
+    <!-- TRADE BOOK -->
+    <div class="trade-book" id="tradeBookContainer">
+        <div class="trade-header-bar">
+            <span>📊 TRADE BOOK (Today)</span>
+            <button class="ribbon-btn" style="padding:2px 8px;" onclick="exportTrades()">EXPORT</button>
+        </div>
+        <div style="flex:1; overflow:auto;">
+            <table class="trade-table" id="tradeBookTable">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>PnL</th><th>Strategy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+        <div style="padding:5px 10px; font-size:0.8em; color:#888; border-top:1px solid #333;">
+            24 ACTIVE POSITIONS
         </div>
     </div>
 
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="/static/js/trade_book.js"></script>
     <script>
-        // Tab switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                // Remove active from all tabs
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-                // Activate clicked tab
-                e.target.classList.add('active');
-                const tabId = e.target.dataset.tab + 'Tab';
-                document.getElementById(tabId).classList.add('active');
-            });
-        });
-
-        // Initialize Components
+        // Init Chart
         window.onload = () => {
-            // Chart Init (Center)
-            const chartContainer = document.getElementById('chartContainer');
-            if(chartContainer && window.LightweightCharts) {
-                const chart = LightweightCharts.createChart(chartContainer, {
+            const container = document.getElementById('chartContainer');
+            if(window.LightweightCharts && container) {
+                const chart = LightweightCharts.createChart(container, {
                     layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
-                    grid: { vertLines: { color: '#333' }, horzLines: { color: '#333' } },
+                    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
                     timeScale: { borderColor: '#444' },
                     rightPriceScale: { borderColor: '#444' },
                 });
-                const candleSeries = chart.addCandlestickSeries({
+                const series = chart.addCandlestickSeries({
                     upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
                 });
-                candleSeries.setData([
+                series.setData([
                     { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
                     { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
                     { time: '2023-01-03', open: 102, high: 104, low: 99, close: 100 },
                 ]);
                 new ResizeObserver(entries => {
-                    if (entries.length === 0 || entries[0].target !== chartContainer) return;
+                    if (entries.length === 0 || entries[0].target !== container) return;
                     const { width, height } = entries[0].contentRect;
                     chart.applyOptions({ width, height });
-                }).observe(chartContainer);
+                }).observe(container);
+            }
+
+            // Init Trade Book
+            if(window.TradeBook) {
+                window.tradeBook = new TradeBook('tradeBookContainer');
             }
         };
 
-        // Chat Stub
         function sendChat() {
             const input = document.getElementById('chat-input');
-            const text = input.value;
-            if(!text) return;
-
-            const div = document.createElement('div');
-            div.style.cssText = "background:#0052CC; color:#fff; padding:8px; border-radius:4px; margin-bottom:8px; align-self:flex-end;";
-            div.innerText = text;
-            document.getElementById('chat-history').appendChild(div);
-            input.value = '';
+            const history = document.getElementById('chat-history');
+            if(input.value) {
+                const div = document.createElement('div');
+                div.style.cssText = "background:#00bcd4; color:#000; padding:8px; border-radius:4px; font-size:0.9em; margin-bottom:10px; align-self:flex-end; text-align:right;";
+                div.innerText = input.value;
+                history.appendChild(div);
+                input.value = '';
+                history.scrollTop = history.scrollHeight;
+            }
         }
+
+        function exportTrades() { alert("Exporting trades..."); }
     </script>
-    <script src="/static/js/spread_builder.js"></script>
-    <script src="/static/js/trade_book.js"></script>
 </body>
 </html>
