@@ -6,6 +6,7 @@ from backend.web import routes
 from backend.web.portfolio import routes as portfolio_routes
 from backend.web.live import logs
 from backend.web.widgets import routes as widget_routes
+from backend.web.jules import routes as jules_routes
 from backend.audit.logger import AuditMiddleware
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
@@ -26,6 +27,7 @@ app.include_router(routes.router)
 app.include_router(portfolio_routes.router)
 app.include_router(logs.router)
 app.include_router(widget_routes.router)
+app.include_router(jules_routes.router)
 
 @app.on_event("startup")
 async def startup_event():
