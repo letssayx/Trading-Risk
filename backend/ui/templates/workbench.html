@@ -1,470 +1,437 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Turtle Terminal - Institutional Workspace</title>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <link rel="stylesheet" href="/static/css/dock.css">
+    <title>Turtle Terminal - Professional Workbench</title>
+    <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/spread_builder.css">
-    <link rel="stylesheet" href="/static/css/strategy_composer.css">
+    <link rel="stylesheet" href="/static/css/trade_book.css">
     <style>
-        :root {
-            --bg-color: #1e1e1e;
-            --panel-bg: #25262D;
-            --border-color: #333;
-            --text-primary: #e0e0e0;
-            --accent-color: #00bcd4;
-        }
-
+        /* CRITICAL: Grid layout must match diagram exactly */
         body {
             margin: 0;
-            font-family: 'Inter', system-ui, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-primary);
-            height: 100vh;
             overflow: hidden;
         }
-
-        /* --- GRID LAYOUT --- */
-        .workbench-grid {
-            display: grid;
-            grid-template-rows: 40px auto 1fr auto auto; /* Header, Metrics, Main, Toolbar, Bottom */
-            height: 100vh;
-            gap: 1px;
-            background: #000; /* Border effect */
-        }
-
-        /* 1. Header */
-        #top-bar {
-            background: #121212;
+        .workbench {
             display: flex;
-            align-items: center;
-            padding: 0 15px;
-            font-size: 0.9em;
-            border-bottom: 1px solid var(--border-color);
+            flex-direction: column;
+            height: 100vh;
+            background: #1A1B20;
+            color: #E0E2E8;
+            font-family: 'Inter', sans-serif;
         }
-        .logo { font-weight: 700; color: #fff; margin-right: 20px; }
-        .nav-item { color: #888; margin-right: 15px; cursor: pointer; }
-        .nav-item:hover { color: #fff; }
 
-        .nav-item-dropdown { position: relative; display: inline-block; }
-        .dropdown-content {
-            display: none; position: absolute; background-color: #252525; min-width: 160px;
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 100; border: 1px solid #444;
-            top: 25px; left: 0;
-        }
-        .dropdown-content div { color: #ccc; padding: 8px 12px; display: block; cursor: pointer; font-size: 0.9em; }
-        .dropdown-content div:hover { background-color: #333; color: #fff; }
-        .nav-item:hover .dropdown-content { display: block; }
-
-        /* 2. Top Metrics Row */
+        /* Top Row - 3 equal columns */
         .top-row {
             display: grid;
-            grid-template-columns: 300px 1fr 200px;
-            background: var(--bg-color);
-            padding: 5px;
-            gap: 1px;
-        }
-
-        .metric-card {
-            background: var(--panel-bg);
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        .metric-card h3 { margin: 0 0 5px 0; font-size: 0.75em; color: #888; text-transform: uppercase; }
-        .metric-val { font-size: 0.9em; font-weight: bold; display: flex; justify-content: space-between; }
-
-        .market-watch-strip {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            background: var(--panel-bg);
-            padding: 0 15px;
-            overflow: hidden;
-        }
-        .ticker { font-family: monospace; font-size: 0.9em; }
-        .up { color: #4caf50; }
-        .down { color: #f44336; }
-
-        .quick-actions {
-            background: var(--panel-bg);
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 10px;
-            gap: 10px;
-        }
-
-        /* 3. Main Workspace Row */
-        .main-row {
-            display: grid;
-            grid-template-columns: 320px 1fr 400px; /* Left, Center, Right */
-            gap: 1px;
-            background: #000;
-            min-height: 0; /* Important for scroll */
-        }
-
-        .panel { background: var(--bg-color); display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .panel-header {
-            padding: 8px 12px; background: #1a1a1a; font-size: 0.75em; font-weight: bold;
-            color: #888; border-bottom: 1px solid var(--border-color); text-transform: uppercase;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .panel-content { flex: 1; overflow: auto; position: relative; }
-
-        /* Center Chart */
-        .graphpaper {
-            background-color: #1e1e1e;
-            background-image: linear-gradient(to right, #2a2a2a 1px, transparent 1px), linear-gradient(to bottom, #2a2a2a 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-
-        /* Right Tabs */
-        .right-tabs { display: flex; gap: 2px; }
-        .tab-btn {
-            background: #333; border: none; color: #aaa; padding: 4px 10px;
-            cursor: pointer; font-size: 0.85em; border-radius: 4px 4px 0 0;
-        }
-        .tab-btn.active { background: #444; color: #fff; font-weight: bold; }
-        .tab-content { display: none; height: 100%; flex-direction: column; }
-        .tab-content.active { display: flex; }
-
-        /* 4. Toolbar */
-        .toolbar {
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            padding: 16px;
             background: #25262D;
-            padding: 5px 10px;
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            font-size: 0.8em;
-            border-top: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid #3A3B45;
+            flex-shrink: 0;
         }
-        .tool-group { display: flex; align-items: center; gap: 8px; }
-        .tool-group span { color: #666; font-weight: bold; margin-right: 5px; }
-        .tool-btn {
-            background: #333; border: 1px solid #444; color: #ccc;
-            padding: 2px 8px; border-radius: 3px; cursor: pointer;
-        }
-        .tool-btn:hover { background: #444; color: #fff; }
 
-        /* 5. Bottom Trade Book */
-        .bottom-row {
-            height: 250px;
-            background: var(--bg-color);
+        .risk-card, .market-card, .actions-card {
+            background: #1E1F25;
+            border: 1px solid #3A3B45;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        /* Middle Row - 3 columns with specific widths */
+        .middle-row {
+            display: grid;
+            grid-template-columns: 350px 1fr 350px;
+            gap: 16px;
+            padding: 16px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .left-panel, .center-panel, .right-panel {
+            background: #1E1F25;
+            border: 1px solid #3A3B45;
+            border-radius: 8px;
             display: flex;
             flex-direction: column;
-            resize: vertical;
             overflow: hidden;
-            min-height: 100px;
         }
 
-        /* --- Component Overrides --- */
-        /* Chat */
-        .chat-container { flex: 1; padding: 10px; overflow-y: auto; background: #202020; display: flex; flex-direction: column; gap: 10px; }
-        .chat-bubble { max-width: 85%; padding: 8px; border-radius: 4px; font-size: 0.9em; }
-        .chat-bubble.jules { background: #333; border-left: 2px solid var(--accent-color); }
-        .chat-bubble.user { background: var(--accent-color); color: #000; align-self: flex-end; }
-
-        /* Modal */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7); z-index: 1000; display: none;
-            justify-content: center; align-items: center;
+        .panel-header {
+            padding: 12px;
+            background: #25262D;
+            border-bottom: 1px solid #3A3B45;
+            font-weight: 600;
         }
-        .modal-window { background: #252525; border: 1px solid #444; padding: 20px; width: 400px; border-radius: 6px; }
 
-        /* Trade Book Table Adjustments */
-        .trade-book-table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
-        .trade-book-table th { background: #252525; position: sticky; top: 0; padding: 4px 8px; text-align: left; }
-        .trade-book-table td { border-bottom: 1px solid #333; padding: 4px 8px; }
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            padding: 12px;
+            position: relative;
+        }
 
+        /* Right panel tabs */
+        .right-tabs {
+            display: flex;
+            border-bottom: 1px solid #3A3B45;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: #8A8C98;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .tab-btn.active {
+            color: #E0E2E8;
+            border-bottom: 2px solid #0052CC;
+        }
+
+        .tab-content {
+            display: none;
+            height: 100%;
+            flex-direction: column;
+        }
+
+        .tab-content.active {
+            display: flex; /* Changed from block to flex for better layout control */
+        }
+
+        /* Toolbar - Full width */
+        .toolbar {
+            display: flex;
+            gap: 24px;
+            padding: 12px 16px;
+            background: #25262D;
+            border-top: 1px solid #3A3B45;
+            border-bottom: 1px solid #3A3B45;
+            align-items: center;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar-group span {
+            color: #8A8C98;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .toolbar-btn {
+            background: #1E1F25;
+            border: 1px solid #3A3B45;
+            color: #E0E2E8;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .formula-display {
+            background: #1E1F25;
+            border: 1px solid #3A3B45;
+            border-radius: 4px;
+            padding: 4px 12px;
+            font-family: monospace;
+            min-width: 200px;
+        }
+
+        /* Bottom Panel - Resizable */
+        .bottom-panel {
+            background: #1E1F25;
+            border-top: 1px solid #3A3B45;
+            resize: vertical;
+            overflow: auto;
+            min-height: 200px;
+            max-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .trade-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #25262D;
+            border-bottom: 1px solid #3A3B45;
+            flex-shrink: 0;
+        }
+
+        .trade-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .trade-table th {
+            text-align: left;
+            padding: 8px 12px;
+            background: #25262D;
+            color: #8A8C98;
+            font-weight: 500;
+            font-size: 12px;
+            position: sticky;
+            top: 0;
+        }
+
+        .trade-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #2A2B33;
+        }
+
+        .positive {
+            color: #4CAF50;
+        }
+
+        .negative {
+            color: #F44336;
+        }
+
+        .trade-footer {
+            padding: 8px 16px;
+            background: #25262D;
+            border-top: 1px solid #3A3B45;
+            font-size: 12px;
+            color: #8A8C98;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
-
-<div class="workbench-grid">
-
-    <!-- 1. HEADER -->
-    <div id="top-bar">
-        <div class="logo">TURTLE TERMINAL</div>
-        <div class="nav-item nav-item-dropdown">
-            View
-            <div class="dropdown-content">
-                <div onclick="saveLayout()">Save Layout</div>
-                <div onclick="loadLayout()">Load Layout</div>
-                <div onclick="resetLayout()">Reset Default</div>
+    <div class="workbench">
+        <!-- TOP ROW: Risk + Market + Actions -->
+        <div class="top-row">
+            <!-- Risk Scorecard -->
+            <div class="risk-card">
+                <h3>RISK SCORECARD</h3>
+                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                    <span>VaR (95%)</span>
+                    <span class="positive">$12,450</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Beta</span>
+                    <span>1.24</span>
+                </div>
             </div>
-        </div>
-        <div class="nav-item">Tools</div>
-        <div class="nav-item" onclick="openReportModal()">Reports</div>
-    </div>
 
-    <!-- 2. METRICS ROW -->
-    <div class="top-row">
-        <!-- Risk Scorecard -->
-        <div class="metric-card">
-            <h3>Risk Scorecard</h3>
-            <div class="metric-val"><span>VaR (95%):</span> <span style="color:#f44336;">$12,450</span></div>
-            <div class="metric-val"><span>Beta:</span> <span style="color:#ff9800;">1.24</span></div>
-        </div>
-        <!-- Market Watch -->
-        <div class="market-watch-strip">
-            <span style="color:#888; font-weight:bold; font-size:0.8em;">MARKET WATCH:</span>
-            <span class="ticker">NIFTY: 22,500 <span class="up">▲ 0.5%</span></span>
-            <span class="ticker">BANKNIFTY: 48,100 <span class="down">▼ 0.2%</span></span>
-            <span class="ticker">VIX: 12.5 <span class="down">▼ 1.2%</span></span>
-        </div>
-        <!-- Quick Actions -->
-        <div class="quick-actions">
-            <button class="tool-btn" style="background: var(--accent-color); color:#000; border:none; font-weight:bold;">Run Strategy</button>
-        </div>
-    </div>
-
-    <!-- 3. MAIN WORKSPACE -->
-    <div class="main-row" id="main-grid">
-
-        <!-- LEFT: Spread Builder -->
-        <div class="panel left">
-            <div class="panel-header">📐 Spread Builder</div>
-            <div class="panel-content spread-builder-container">
-                <!-- Watchlist -->
-                <div class="watchlist-panel" style="height: 150px; overflow-y:auto; border-bottom:1px solid #333; margin-bottom:10px;">
-                    <div style="padding:5px; color:#888; font-size:0.8em;">WATCHLIST</div>
-                    <div id="watchlist-list"></div>
+            <!-- Market Watch -->
+            <div class="market-card">
+                <h3>MARKET WATCH</h3>
+                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                    <span>NIFTY</span>
+                    <span><span class="positive">22,500 ▲</span> <span style="color: #8A8C98;">+0.5%</span></span>
                 </div>
-                <!-- Formula Input -->
-                <div class="formula-container" style="padding:0;">
-                    <input type="text" class="formula-input" id="formula-input" placeholder="Leg A - Leg B" style="width:100%; box-sizing:border-box; margin-bottom:5px;">
-                    <div class="keypad" style="display:flex; gap:2px; flex-wrap:wrap;">
-                        <button class="key-btn" onclick="insertToken('+')">+</button>
-                        <button class="key-btn" onclick="insertToken('-')">-</button>
-                        <button class="key-btn" onclick="insertToken('*')">*</button>
-                        <button class="key-btn" onclick="insertToken('/')">/</button>
-                        <button class="key-btn action" onclick="calculateSpread()">CALC</button>
-                        <button class="key-btn" onclick="clearFormula()" style="background:#f44336;">C</button>
-                    </div>
-                    <div class="result-box" style="margin-top:10px; font-size:1.2em;">
-                        <span class="spread-val" id="spread-value">--</span>
-                    </div>
-                    <button class="key-btn" id="plot-chart-btn" style="width:100%; margin-top:5px;">📊 PLOT</button>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>BANK</span>
+                    <span><span class="negative">48,100 ▼</span> <span style="color: #8A8C98;">-0.2%</span></span>
                 </div>
-                <!-- Hidden Chart Area for compatibility -->
-                <div id="spread-chart-area" style="display:none;">
-                    <div id="chart-canvas"></div>
-                    <button id="add-indicator-btn"></button>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="actions-card">
+                <h3>QUICK ACTIONS</h3>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button style="flex:1;" class="toolbar-btn">Save</button>
+                    <button style="flex:1;" class="toolbar-btn">Run</button>
+                    <button style="flex:1;" class="toolbar-btn">Export</button>
                 </div>
             </div>
         </div>
 
-        <!-- CENTER: Chart -->
-        <div class="panel center graphpaper">
-            <div class="panel-header">📈 Workbench Chart</div>
-            <div id="chart-container" style="width:100%; height:100%; position:relative;"></div>
-        </div>
+        <!-- MIDDLE ROW: Spread Builder + Workbench + Python/Jules -->
+        <div class="middle-row">
+            <!-- LEFT PANEL: Spread Builder -->
+            <div class="left-panel">
+                <div class="panel-header">📐 SPREAD BUILDER</div>
+                <div class="panel-content" id="spreadBuilderContainer">
+                    <!-- Spread builder injected here -->
+                    <!-- Placeholder Elements required by spread_builder.js -->
+                    <div style="display:none;">
+                        <input id="formula-input">
+                        <span id="spread-value"></span>
+                        <div id="watchlist-list"></div>
+                        <div id="spread-chart-area"><div id="chart-canvas"></div></div>
+                    </div>
+                </div>
+            </div>
 
-        <!-- RIGHT: Tabs (Strategy, Python, Jules) -->
-        <div class="panel right">
-            <div class="panel-header">
+            <!-- CENTER PANEL: Workbench Charts -->
+            <div class="center-panel">
+                <div class="panel-header">📈 WORKBENCH</div>
+                <div class="panel-content" id="chartContainer" style="padding:0;">
+                    <!-- TradingView charts here -->
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: Python + Jules (Tabs) -->
+            <div class="right-panel">
                 <div class="right-tabs">
-                    <button class="tab-btn active" onclick="switchTab('strategy')">🧠 Strategy</button>
-                    <button class="tab-btn" onclick="switchTab('python')">🐍 Python</button>
-                    <button class="tab-btn" onclick="switchTab('jules')">🤖 Jules</button>
+                    <button class="tab-btn active" data-tab="python">🐍 PYTHON</button>
+                    <button class="tab-btn" data-tab="jules">🤖 JULES</button>
                 </div>
-            </div>
-            <div class="panel-content">
-
-                <!-- Strategy Tab -->
-                <div id="strategyTab" class="tab-content active">
-                    <div class="composer-toolbar" style="padding: 5px; border-bottom:1px solid #333;">
-                        <button class="tool-btn" id="save-strategy-btn">Save</button>
-                        <button class="tool-btn" id="backtest-btn">Backtest</button>
-                    </div>
-                    <!-- Palette + Canvas -->
-                    <div class="composer-container" style="flex:1; display:flex; flex-direction:column;">
-                        <div class="palette" style="height:150px; overflow-y:auto; border-bottom:1px solid #333;">
-                            <div class="palette-item filter" draggable="true" data-type="filter">Z-Score</div>
-                            <div class="palette-item filter" draggable="true" data-type="filter">ATR</div>
-                            <div class="palette-item indicator" draggable="true" data-type="indicator">SMA</div>
-                            <div class="palette-item logic" draggable="true" data-type="logic">AND</div>
+                <div class="panel-content">
+                    <!-- Python Tab -->
+                    <div id="pythonTab" class="tab-content active">
+                        <div style="font-family: monospace;">
+                            <div>>>> import pandas as pd</div>
+                            <div>>>> df = pd.read_csv('trades.csv')</div>
+                            <div>>>> df.head()</div>
+                            <div style="color: #8A8C98; margin-top: 8px;">   Symbol  Qty  PnL</div>
+                            <div style="color: #8A8C98;">0  NIFTY  500  3250</div>
                         </div>
-                        <div class="canvas-area" id="composer-canvas" style="flex:1; position:relative;">
-                            <svg id="connections-layer" style="position:absolute; width:100%; height:100%; pointer-events:none;"></svg>
+                        <div style="margin-top: 16px;">
+                            <input type="text" placeholder=">>> " style="width:100%; background:#1E1F25; border:1px solid #3A3B45; color:#E0E2E8; padding:8px; box-sizing: border-box;">
                         </div>
                     </div>
-                </div>
 
-                <!-- Python Tab -->
-                <div id="pythonTab" class="tab-content">
-                    <div style="background:#111; font-family:monospace; padding:10px; color:#0f0; height:100%;">
-                        >>> import pandas as pd<br>
-                        >>> # Python Console Ready<br>
-                        >>> _
+                    <!-- Jules Tab -->
+                    <div id="julesTab" class="tab-content">
+                        <div id="chat-history" style="height: 200px; overflow-y: auto; flex:1;">
+                            <div class="chat-bubble jules" style="background:#25262D; padding:8px; border-radius:4px; margin-bottom:8px;">
+                                <strong>Jules:</strong> I noticed a volatility spike in Bank Nifty. Should I adjust the hedge?
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px;">
+                            <input id="chat-input" type="text" placeholder="Ask Jules..." style="width:100%; background:#1E1F25; border:1px solid #3A3B45; color:#E0E2E8; padding:8px; box-sizing: border-box;" onkeypress="if(event.key === 'Enter') sendChat()">
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Jules Tab -->
-                <div id="julesTab" class="tab-content">
-                    <div class="chat-container" id="chat-history">
-                        <div class="chat-bubble jules">Hello. I am Jules. How can I assist with your trading?</div>
-                    </div>
-                    <div style="display:flex; border-top:1px solid #333;">
-                        <input type="text" id="chat-input" placeholder="Ask Jules..." style="flex:1; background:#222; border:none; padding:10px; color:#fff;" onkeypress="handleChatInput(event)">
-                        <button style="background:#333; border:none; color:var(--accent-color); cursor:pointer; padding:0 15px;" onclick="sendChat()">➤</button>
-                    </div>
-                </div>
+        <!-- TOOLBAR: Filters + Indicators + Logic -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <span>FILTERS:</span>
+                <button class="toolbar-btn">Z-Score</button>
+                <button class="toolbar-btn">ATR</button>
+                <button class="toolbar-btn">Correlation</button>
+            </div>
+            <div class="toolbar-group">
+                <span>INDICATORS:</span>
+                <button class="toolbar-btn">SMA</button>
+                <button class="toolbar-btn">MACD</button>
+                <button class="toolbar-btn">Bollinger</button>
+            </div>
+            <div class="toolbar-group">
+                <span>LOGIC:</span>
+                <button class="toolbar-btn">AND</button>
+                <button class="toolbar-btn">OR</button>
+                <button class="toolbar-btn">NOT</button>
+            </div>
+            <div class="formula-display">
+                NIFTY - BANKNIFTY*2
+            </div>
+            <div style="display: flex; gap: 4px;">
+                <button class="toolbar-btn">CALC</button>
+                <button class="toolbar-btn">PLOT</button>
+            </div>
+        </div>
 
+        <!-- BOTTOM PANEL: Trade Book (Resizable) -->
+        <div class="bottom-panel" id="panel-bottom">
+            <div class="trade-header">
+                <span>📊 TRADE BOOK (Today)</span>
+                <select style="background:#1E1F25; border:1px solid #3A3B45; color:#E0E2E8; padding:4px;">
+                    <option>Export ▼</option>
+                    <option>Export to Excel</option>
+                    <option>Export to PDF</option>
+                    <option>Export to CSV</option>
+                </select>
+            </div>
+            <div id="tradeBookContainer" style="flex:1; overflow:auto;">
+                <!-- Trade Book Table injected by trade_book.js or static fallback -->
+                <table class="trade-table" id="tradeBookTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>PnL</th><th>Strategy</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>#1024</td><td>10:45</td><td>NIFTY CE</td><td>BUY</td><td>500</td><td class="positive">+3,250</td><td>Turtle</td>
+                        </tr>
+                        <tr>
+                            <td>#1023</td><td>10:42</td><td>BANKNIFTY</td><td>SELL</td><td>30</td><td class="positive">+600</td><td>StatArb</td>
+                        </tr>
+                        <tr>
+                            <td>#1022</td><td>09:15</td><td>RELIANCE</td><td>BUY</td><td>100</td><td class="negative">-1,000</td><td>Momentum</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="trade-footer">
+                24 ACTIVE POSITIONS
             </div>
         </div>
     </div>
 
-    <!-- 4. TOOLBAR -->
-    <div class="toolbar">
-        <div class="tool-group">
-            <span>FILTERS:</span>
-            <button class="tool-btn">Z-Score</button>
-            <button class="tool-btn">ATR</button>
-        </div>
-        <div class="tool-group">
-            <span>INDICATORS:</span>
-            <button class="tool-btn">SMA</button>
-            <button class="tool-btn">MACD</button>
-        </div>
-        <div class="tool-group">
-            <span>LOGIC:</span>
-            <button class="tool-btn">AND</button>
-            <button class="tool-btn">OR</button>
-        </div>
-    </div>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active from all tabs
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-    <!-- 5. BOTTOM: Trade Book -->
-    <div class="bottom-row" id="panel-bottom">
-        <!-- Trade Book Content loaded via JS -->
-        <div id="trade-book-placeholder" style="padding:20px; color:#666; text-align:center;">Loading Trade Book...</div>
-    </div>
-
-</div>
-
-<!-- Modal: Report Generator -->
-<div class="modal-overlay" id="report-modal">
-    <div class="modal-window">
-        <div class="modal-header" style="border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px; font-weight:bold;">
-            <span>Generate Report</span>
-            <span style="float:right; cursor:pointer;" onclick="closeReportModal()">✕</span>
-        </div>
-        <div style="margin-bottom:10px;">
-            <label style="display:block; font-size:0.8em; color:#aaa;">Type</label>
-            <select id="report-type" style="width:100%; background:#333; color:#fff; border:1px solid #555;">
-                <option value="daily_pnl">Daily PnL</option>
-                <option value="risk">Risk Report</option>
-            </select>
-        </div>
-        <div style="text-align:right;">
-            <button class="tool-btn" onclick="generateReport()">Generate</button>
-        </div>
-    </div>
-</div>
-
-<!-- SCRIPTS -->
-<script src="/static/js/dock.js"></script>
-<script src="/static/js/spread_builder.js"></script>
-<script src="/static/js/strategy_composer.js"></script>
-<script src="/static/js/trade_book.js"></script>
-<script src="/static/js/workbench_manager.js"></script>
-
-<script>
-    // --- Initialization ---
-    window.onload = () => {
-        console.log("Initializing Workbench...");
-
-        // 1. Chart (Wrapped to prevent blocking)
-        try {
-            initChart();
-        } catch (e) {
-            console.error("Chart Init Failed:", e);
-        }
-
-        // 2. Trade Book
-        try {
-            window.tradeBook = new TradeBook('panel-bottom');
-        } catch (e) {
-            console.error("Trade Book Init Failed:", e);
-        }
-
-        // 3. Layout Manager (Restore)
-        // Note: With Grid, pixel-based resizing from prev script might clash.
-        // We'll trust CSS Grid for structure now.
-        // window.wbManager.getActiveWorkbench();
-    };
-
-    // --- Tab Switching ---
-    function switchTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById(tabId + 'Tab').classList.add('active');
-        // Simple active state toggle for buttons
-        event.target.classList.add('active');
-    }
-
-    // --- Chart Logic ---
-    function initChart() {
-        const container = document.getElementById('chart-container');
-        if(!container) return;
-
-        const chart = LightweightCharts.createChart(container, {
-            layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
-            grid: { vertLines: { color: '#333' }, horzLines: { color: '#333' } },
-            timeScale: { borderColor: '#444' },
-            rightPriceScale: { borderColor: '#444' },
+                // Activate clicked tab
+                e.target.classList.add('active');
+                const tabId = e.target.dataset.tab + 'Tab';
+                document.getElementById(tabId).classList.add('active');
+            });
         });
-        const candleSeries = chart.addCandlestickSeries({
-            upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
-        });
-        candleSeries.setData([
-            { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
-            { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
-            { time: '2023-01-03', open: 102, high: 104, low: 99, close: 100 },
-        ]);
-        new ResizeObserver(entries => {
-            if (entries.length === 0 || entries[0].target !== container) return;
-            const { width, height } = entries[0].contentRect;
-            chart.applyOptions({ width, height });
-        }).observe(container);
-    }
 
-    // --- Chat Logic ---
-    function handleChatInput(e) { if(e.key === 'Enter') sendChat(); }
-    function sendChat() {
-        const input = document.getElementById('chat-input');
-        const text = input.value;
-        if(!text) return;
+        // Initialize Components
+        window.onload = () => {
+            // Chart Init (Center)
+            const chartContainer = document.getElementById('chartContainer');
+            if(chartContainer && window.LightweightCharts) {
+                const chart = LightweightCharts.createChart(chartContainer, {
+                    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
+                    grid: { vertLines: { color: '#333' }, horzLines: { color: '#333' } },
+                    timeScale: { borderColor: '#444' },
+                    rightPriceScale: { borderColor: '#444' },
+                });
+                const candleSeries = chart.addCandlestickSeries({
+                    upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
+                });
+                candleSeries.setData([
+                    { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
+                    { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
+                    { time: '2023-01-03', open: 102, high: 104, low: 99, close: 100 },
+                ]);
+                new ResizeObserver(entries => {
+                    if (entries.length === 0 || entries[0].target !== chartContainer) return;
+                    const { width, height } = entries[0].contentRect;
+                    chart.applyOptions({ width, height });
+                }).observe(chartContainer);
+            }
+        };
 
-        appendChat(text, 'user');
-        input.value = '';
+        // Chat Stub
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const text = input.value;
+            if(!text) return;
 
-        setTimeout(() => {
-            appendChat("I am processing your request: " + text, 'jules');
-        }, 500);
-    }
-    function appendChat(text, type) {
-        const div = document.createElement('div');
-        div.className = `chat-bubble ${type}`;
-        div.innerText = text;
-        document.getElementById('chat-history').appendChild(div);
-    }
-
-    // --- Report Modal ---
-    function openReportModal() { document.getElementById('report-modal').style.display = 'flex'; }
-    function closeReportModal() { document.getElementById('report-modal').style.display = 'none'; }
-    function generateReport() { alert('Generating Report...'); closeReportModal(); }
-
-    // --- Layout Actions ---
-    function saveLayout() { alert('Layout Saved (Grid)'); }
-    function loadLayout() { alert('Layout Loaded'); }
-    function resetLayout() { alert('Layout Reset'); }
-
-</script>
+            const div = document.createElement('div');
+            div.style.cssText = "background:#0052CC; color:#fff; padding:8px; border-radius:4px; margin-bottom:8px; align-self:flex-end;";
+            div.innerText = text;
+            document.getElementById('chat-history').appendChild(div);
+            input.value = '';
+        }
+    </script>
+    <script src="/static/js/spread_builder.js"></script>
+    <script src="/static/js/trade_book.js"></script>
 </body>
 </html>

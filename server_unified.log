@@ -248,3 +248,15 @@ INFO:     127.0.0.1:37802 - "GET /static/js/strategy_composer.js HTTP/1.1" 200 O
 INFO:     127.0.0.1:37760 - "GET /static/js/trade_book.js HTTP/1.1" 200 OK
 INFO:     127.0.0.1:37800 - "GET /static/js/spread_builder.js HTTP/1.1" 200 OK
 INFO:     127.0.0.1:37770 - "GET /static/js/workbench_manager.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52786 - "GET /workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52786 - "GET /static/css/workbench.css HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52796 - "GET /static/css/spread_builder.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52816 - "GET /static/js/spread_builder.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52802 - "GET /static/css/trade_book.css HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52820 - "GET /static/js/trade_book.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42522 - "GET /workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42522 - "GET /static/css/workbench.css HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42540 - "GET /static/css/trade_book.css HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:42528 - "GET /static/css/spread_builder.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42544 - "GET /static/js/spread_builder.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42554 - "GET /static/js/trade_book.js HTTP/1.1" 200 OK

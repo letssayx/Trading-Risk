@@ -1,5 +1,8 @@
 class SpreadBuilder {
     constructor() {
+        // Target container in new layout if available
+        this.container = document.getElementById('spreadBuilderContainer');
+
         // Add safety checks for elements
         this.formulaInput = document.getElementById('formula-input');
         this.spreadValue = document.getElementById('spread-value');
@@ -33,8 +36,11 @@ class SpreadBuilder {
         this.formulaInput.addEventListener('input', () => this.calculate());
 
         // Chart buttons
-        document.getElementById('plot-chart-btn').addEventListener('click', () => this.plotChart());
-        document.getElementById('add-indicator-btn').addEventListener('click', () => this.addIndicator());
+        const plotBtn = document.getElementById('plot-chart-btn');
+        if(plotBtn) plotBtn.addEventListener('click', () => this.plotChart());
+
+        const addIndBtn = document.getElementById('add-indicator-btn');
+        if(addIndBtn) addIndBtn.addEventListener('click', () => this.addIndicator());
     }
 
     renderWatchlist() {
