@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from backend.web import routes
 from backend.web.portfolio import routes as portfolio_routes
 from backend.web.live import logs
@@ -31,17 +31,9 @@ async def startup_event():
     asyncio.create_task(logs.log_generator())
 
 @app.get("/")
-def read_root():
-    return {"status": "Turtle Terminal Active"}
-
-@app.get("/spread-builder")
-async def get_spread_builder():
-    return FileResponse("backend/ui/templates/spread_builder.html")
+async def root():
+    return RedirectResponse(url="/workbench")
 
 @app.get("/workbench")
 async def get_workbench():
     return FileResponse("backend/ui/templates/workbench.html")
-
-@app.get("/strategy-composer")
-async def get_strategy_composer():
-    return FileResponse("backend/ui/templates/strategy_composer.html")

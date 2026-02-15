@@ -16,7 +16,7 @@ from backend.analysis.beta import calculate_beta
 from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedge
 
 # Schemas (Refactored Location)
-from backend.api.schemas import (
+from backend.domain.web.schemas import (
     StrategyRequest, SentimentRequest, ConvergenceRequest,
     VolArbRequest, PCARequest
 )
