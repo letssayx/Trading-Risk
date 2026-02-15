@@ -1,13 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
-from backend.jules.strategy_parser import StrategyParser
+from backend.jules.ai_assistant import JulesAssistant
 from backend.jules.executor import CodeExecutor
 
 router = APIRouter(prefix="/api/jules", tags=["Jules AI"])
 
 class ParseRequest(BaseModel):
     text: str
+    context: Optional[Dict[str, Any]] = None
 
 class ExecuteRequest(BaseModel):
     code: str
@@ -15,12 +16,33 @@ class ExecuteRequest(BaseModel):
 
 @router.post("/parse")
 async def parse_strategy(request: ParseRequest):
-    """Convert natural language to strategy config"""
+    """
+    Convert natural language to strategy config/code using Jules AI Assistant.
+    Falls back to deterministic parser if LLM keys are missing.
+    """
     try:
-        parser = StrategyParser()
-        parsed = parser.parse(request.text)
-        code = parser.generate_code(parsed)
-        return {"code": code, "config": parsed}
+        assistant = JulesAssistant()
+
+        # Use the Assistant to generate both code and visualization config
+        result = assistant.generate_strategy(request.text)
+
+        return {
+            "code": result["code"],
+            "config": result["config"],
+            "message": "Strategy generated successfully."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/query")
+async def query_assistant(request: ParseRequest):
+    """
+    General purpose query to Jules Assistant.
+    """
+    try:
+        assistant = JulesAssistant()
+        response = assistant.query(request.text, context=request.context)
+        return {"response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

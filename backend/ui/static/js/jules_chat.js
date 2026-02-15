@@ -31,8 +31,14 @@ class JulesChat {
         const loadingId = this.appendMessage("Analyzing request...", 'jules');
 
         try {
+            // Heuristic Intent Detection
+            const lower = text.toLowerCase();
+            const isStrategyRequest = lower.startsWith("create") || lower.startsWith("generate") || lower.startsWith("build") || lower.includes("strategy") || lower.includes("backtest");
+
+            const endpoint = isStrategyRequest ? '/api/jules/parse' : '/api/jules/query';
+
             // Call Backend
-            const response = await fetch('/api/jules/parse', {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: text })
@@ -43,18 +49,24 @@ class JulesChat {
             // Remove Loading
             document.getElementById(loadingId).remove();
 
-            // Show Response
-            this.appendMessage("Here is the generated strategy code based on your request:", 'jules');
-            this.appendCodeBlock(data.code);
+            if (isStrategyRequest) {
+                // Show Response
+                this.appendMessage("Here is the generated strategy code based on your request:", 'jules');
+                this.appendCodeBlock(data.code);
 
-            // Visualize (if StrategyComposer available)
-            if (window.StrategyComposer && window.strategyComposer) {
-                window.strategyComposer.loadFromCode(data.config);
-                this.appendMessage("I've also visualized this in the Strategy Composer tab.", 'jules');
+                // Visualize (if StrategyComposer available)
+                if (window.StrategyComposer && window.strategyComposer && data.config) {
+                    window.strategyComposer.loadFromCode(data.config);
+                    this.appendMessage("I've also visualized this in the Strategy Composer tab.", 'jules');
+                }
+            } else {
+                // General Query Response
+                this.appendMessage(data.response, 'jules');
             }
 
         } catch (e) {
-            document.getElementById(loadingId).innerText = "Error processing request.";
+            if (document.getElementById(loadingId)) document.getElementById(loadingId).remove();
+            this.appendMessage("Error processing request.", 'jules');
             console.error(e);
         }
     }
