@@ -1,10 +1,13 @@
 class SpreadBuilder {
     constructor() {
+        // Add safety checks for elements
         this.formulaInput = document.getElementById('formula-input');
         this.spreadValue = document.getElementById('spread-value');
         this.watchlist = document.getElementById('watchlist-list');
         this.chartArea = document.getElementById('spread-chart-area');
         this.chartCanvas = document.getElementById('chart-canvas');
+
+        if (!this.watchlist) console.warn("SpreadBuilder: Watchlist element not found");
 
         // Mock Data
         this.marketData = {

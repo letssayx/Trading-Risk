@@ -10,13 +10,10 @@
     <style>
         :root {
             --bg-color: #1e1e1e;
-            --panel-bg: #2d2d2d;
-            --border-color: #424242;
+            --panel-bg: #25262D;
+            --border-color: #333;
             --text-primary: #e0e0e0;
-            --header-height: 40px;
-            --footer-height: 250px;
-            --left-sidebar-width: 300px;
-            --right-sidebar-width: 400px;
+            --accent-color: #00bcd4;
         }
 
         body {
@@ -26,389 +23,173 @@
             color: var(--text-primary);
             height: 100vh;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
         }
 
-        /* --- Top Bar --- */
+        /* --- GRID LAYOUT --- */
+        .workbench-grid {
+            display: grid;
+            grid-template-rows: 40px auto 1fr auto auto; /* Header, Metrics, Main, Toolbar, Bottom */
+            height: 100vh;
+            gap: 1px;
+            background: #000; /* Border effect */
+        }
+
+        /* 1. Header */
         #top-bar {
-            height: var(--header-height);
             background: #121212;
-            border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             padding: 0 15px;
             font-size: 0.9em;
-            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
         }
         .logo { font-weight: 700; color: #fff; margin-right: 20px; }
         .nav-item { color: #888; margin-right: 15px; cursor: pointer; }
         .nav-item:hover { color: #fff; }
-        .nav-item-dropdown {
-            position: relative;
-            display: inline-block;
-        }
+
+        .nav-item-dropdown { position: relative; display: inline-block; }
         .dropdown-content {
-            display: none;
-            position: absolute;
-            background-color: #252525;
-            min-width: 160px;
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
-            z-index: 100;
-            border: 1px solid #444;
-            top: 25px;
-            left: 0;
+            display: none; position: absolute; background-color: #252525; min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 100; border: 1px solid #444;
+            top: 25px; left: 0;
         }
-        .dropdown-content div {
-            color: #ccc;
-            padding: 8px 12px;
-            text-decoration: none;
-            display: block;
-            cursor: pointer;
-            font-size: 0.9em;
-        }
-        .dropdown-content div:hover {background-color: #333; color: #fff;}
-        .nav-item:hover .dropdown-content {display: block;}
+        .dropdown-content div { color: #ccc; padding: 8px 12px; display: block; cursor: pointer; font-size: 0.9em; }
+        .dropdown-content div:hover { background-color: #333; color: #fff; }
+        .nav-item:hover .dropdown-content { display: block; }
 
-        /* Modal Overlay */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 1000;
-            display: none;
-            justify-content: center;
-            align-items: center;
+        /* 2. Top Metrics Row */
+        .top-row {
+            display: grid;
+            grid-template-columns: 300px 1fr 200px;
+            background: var(--bg-color);
+            padding: 5px;
+            gap: 1px;
         }
-        .modal-window {
-            background: #252525;
-            border: 1px solid #444;
-            padding: 20px;
-            width: 400px;
-            border-radius: 6px;
-            color: #e0e0e0;
-        }
-        .modal-header { font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        .modal-form-row { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .modal-form-row label { font-size: 0.9em; color: #ccc; }
-        .modal-form-row input, .modal-form-row select { background: #333; border: 1px solid #555; color: #fff; padding: 4px; border-radius: 2px; }
 
-        /* --- Main Grid Layout --- */
-        #main-grid {
-            flex: 1;
+        .metric-card {
+            background: var(--panel-bg);
+            padding: 10px;
             display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .metric-card h3 { margin: 0 0 5px 0; font-size: 0.75em; color: #888; text-transform: uppercase; }
+        .metric-val { font-size: 0.9em; font-weight: bold; display: flex; justify-content: space-between; }
+
+        .market-watch-strip {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: var(--panel-bg);
+            padding: 0 15px;
             overflow: hidden;
-            position: relative;
+        }
+        .ticker { font-family: monospace; font-size: 0.9em; }
+        .up { color: #4caf50; }
+        .down { color: #f44336; }
+
+        .quick-actions {
+            background: var(--panel-bg);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            gap: 10px;
         }
 
-        /* Panels */
-        .panel {
-            position: relative;
+        /* 3. Main Workspace Row */
+        .main-row {
+            display: grid;
+            grid-template-columns: 320px 1fr 400px; /* Left, Center, Right */
+            gap: 1px;
+            background: #000;
+            min-height: 0; /* Important for scroll */
+        }
+
+        .panel { background: var(--bg-color); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .panel-header {
+            padding: 8px 12px; background: #1a1a1a; font-size: 0.75em; font-weight: bold;
+            color: #888; border-bottom: 1px solid var(--border-color); text-transform: uppercase;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-content { flex: 1; overflow: auto; position: relative; }
+
+        /* Center Chart */
+        .graphpaper {
+            background-color: #1e1e1e;
+            background-image: linear-gradient(to right, #2a2a2a 1px, transparent 1px), linear-gradient(to bottom, #2a2a2a 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Right Tabs */
+        .right-tabs { display: flex; gap: 2px; }
+        .tab-btn {
+            background: #333; border: none; color: #aaa; padding: 4px 10px;
+            cursor: pointer; font-size: 0.85em; border-radius: 4px 4px 0 0;
+        }
+        .tab-btn.active { background: #444; color: #fff; font-weight: bold; }
+        .tab-content { display: none; height: 100%; flex-direction: column; }
+        .tab-content.active { display: flex; }
+
+        /* 4. Toolbar */
+        .toolbar {
+            background: #25262D;
+            padding: 5px 10px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            font-size: 0.8em;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .tool-group { display: flex; align-items: center; gap: 8px; }
+        .tool-group span { color: #666; font-weight: bold; margin-right: 5px; }
+        .tool-btn {
+            background: #333; border: 1px solid #444; color: #ccc;
+            padding: 2px 8px; border-radius: 3px; cursor: pointer;
+        }
+        .tool-btn:hover { background: #444; color: #fff; }
+
+        /* 5. Bottom Trade Book */
+        .bottom-row {
+            height: 250px;
             background: var(--bg-color);
             display: flex;
             flex-direction: column;
-            min-width: 50px;
-            min-height: 50px;
-        }
-
-        .panel.left {
-            width: var(--left-sidebar-width);
-            border-right: 1px solid var(--border-color);
-            background: #181818;
-            overflow-y: auto; /* Allow scrolling for Spread Builder */
-        }
-
-        .panel.center {
-            flex: 1;
-            background-color: #1e1e1e;
-            background-image:
-                linear-gradient(to right, #333 1px, transparent 1px),
-                linear-gradient(to bottom, #333 1px, transparent 1px);
-            background-size: 20px 20px;
-            position: relative;
+            resize: vertical;
             overflow: hidden;
+            min-height: 100px;
         }
 
-        .panel.right {
-            width: var(--right-sidebar-width);
-            border-left: 1px solid var(--border-color);
-            background: #151515;
-        }
+        /* --- Component Overrides --- */
+        /* Chat */
+        .chat-container { flex: 1; padding: 10px; overflow-y: auto; background: #202020; display: flex; flex-direction: column; gap: 10px; }
+        .chat-bubble { max-width: 85%; padding: 8px; border-radius: 4px; font-size: 0.9em; }
+        .chat-bubble.jules { background: #333; border-left: 2px solid var(--accent-color); }
+        .chat-bubble.user { background: var(--accent-color); color: #000; align-self: flex-end; }
 
-        .panel.bottom {
-            height: var(--footer-height);
-            border-top: 1px solid var(--border-color);
-            background: #1a1a1a;
-            position: relative;
-            display: flex;
-            flex-direction: column;
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 1000; display: none;
+            justify-content: center; align-items: center;
         }
+        .modal-window { background: #252525; border: 1px solid #444; padding: 20px; width: 400px; border-radius: 6px; }
 
-        /* Resizers */
-        .resizer {
-            position: absolute;
-            z-index: 10;
-            background: transparent;
-            transition: background 0.2s;
-        }
-        .resizer:hover { background: #00bcd4; opacity: 0.5; }
-
-        .resizer.vertical { width: 5px; cursor: col-resize; top: 0; bottom: 0; }
-        .resizer.vertical.left-handle { right: -2.5px; }
-        .resizer.vertical.right-handle { left: -2.5px; }
-
-        .resizer.horizontal { height: 5px; cursor: row-resize; left: 0; right: 0; }
-        .resizer.horizontal.top-handle { top: -2.5px; }
-
-        /* Content Areas */
-        .panel-header {
-            padding: 8px 12px;
-            background: #252525;
-            font-size: 0.8em;
-            font-weight: 700;
-            color: #888;
-            border-bottom: 1px solid var(--border-color);
-            text-transform: uppercase;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .panel-content {
-            flex: 1;
-            overflow: auto;
-            position: relative;
-        }
-
-        /* --- Right Panel Tabs --- */
-        .right-tabs {
-            display: flex;
-            gap: 2px;
-        }
-        .tab-btn {
-            background: #333;
-            border: none;
-            color: #aaa;
-            padding: 4px 10px;
-            cursor: pointer;
-            font-size: 0.85em;
-            border-radius: 4px 4px 0 0;
-        }
-        .tab-btn.active {
-            background: #444;
-            color: #fff;
-            font-weight: bold;
-        }
-        .tab-btn:hover { color: #fff; }
-
-        .tab-content {
-            display: none;
-            height: 100%;
-            flex-direction: column;
-        }
-        .tab-content.active {
-            display: flex;
-        }
-
-        /* Chat Styles */
-        .chat-container {
-            flex: 1;
-            padding: 10px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            background: #202020;
-        }
-        .chat-bubble {
-            max-width: 85%;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            line-height: 1.4;
-        }
-        .chat-bubble.jules {
-            background: #333;
-            color: #e0e0e0;
-            align-self: flex-start;
-            border-left: 3px solid #00bcd4;
-        }
-        .chat-bubble.user {
-            background: #00bcd4;
-            color: #000;
-            align-self: flex-end;
-            font-weight: 500;
-        }
-        .code-block {
-            background: #111;
-            padding: 8px;
-            border-radius: 4px;
-            margin-top: 5px;
-            font-family: monospace;
-            color: #4caf50;
-            position: relative;
-        }
-        .add-filter-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #444;
-            color: #fff;
-            border: none;
-            padding: 2px 6px;
-            font-size: 0.75em;
-            cursor: pointer;
-            border-radius: 3px;
-        }
-        .add-filter-btn:hover { background: #555; }
-
-        /* --- Risk Dashboard & Spread Builder --- */
-        .left-panel-section {
-            padding: 10px;
-            border-bottom: 1px solid #333;
-        }
-        .section-header {
-            font-size: 0.85em;
-            color: #888;
-            font-weight: bold;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
-
-        /* Gauges */
-        .risk-gauge-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .risk-card {
-            background: #252525;
-            padding: 8px;
-            border-radius: 4px;
-            text-align: center;
-        }
-        .risk-val {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #fff;
-        }
-        .risk-label { font-size: 0.75em; color: #aaa; }
-
-        /* Progress Bar */
-        .progress-bar-bg {
-            background: #333;
-            height: 4px;
-            border-radius: 2px;
-            margin-top: 5px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            border-radius: 2px;
-        }
-        .fill-green { background: #4caf50; }
-        .fill-yellow { background: #ff9800; }
-        .fill-red { background: #f44336; }
-
-        /* Spread Builder Overrides */
-        .spread-builder-container {
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        /* Watchlist adjustment */
-        .watchlist-panel {
-            height: 200px; /* Fixed height for list */
-            overflow-y: auto;
-        }
-        /* Spread chart within left panel */
-        #spread-chart-area {
-            height: 200px;
-            margin-top: 10px;
-        }
-
-        /* --- Strategy Composer Overrides --- */
-        #strategyTab .composer-container {
-            height: 100%;
-            flex-direction: column; /* Stack palette on top of canvas if narrow, or keep row */
-        }
-        /* Since right panel is ~400px, keeping row (palette=250px) leaves 150px for canvas.
-           Let's make palette collapsible or stack them. For now, let's try stacking. */
-        #strategyTab .palette {
-            width: 100%;
-            height: 200px; /* Fixed height palette */
-            border-right: none;
-            border-bottom: 1px solid #333;
-        }
-        #strategyTab .canvas-area {
-            flex: 1;
-        }
-
-        /* --- Trade Book --- */
-        .trade-book-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85em;
-            background: #1e1e1e;
-            color: #ccc;
-            table-layout: fixed; /* For resizing */
-        }
-        .trade-book-table th {
-            background: #252525;
-            position: sticky;
-            top: 0;
-            padding: 6px 10px;
-            text-align: left;
-            border-right: 1px solid #333;
-            border-bottom: 1px solid #444;
-            color: #fff;
-            font-weight: 600;
-            cursor: pointer; /* Sortable */
-            user-select: none;
-            position: relative; /* For resizer handle */
-        }
-        .trade-book-table th:hover { background: #2a2a2a; }
-
-        .column-resizer {
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            width: 5px;
-            cursor: col-resize;
-            background: transparent;
-            z-index: 10;
-        }
-        .column-resizer:hover { background: #00bcd4; opacity: 0.5; }
-
-        .trade-book-table td {
-            border-right: 1px solid #333;
-            border-bottom: 1px solid #333;
-            padding: 6px 10px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        /* Editable Cell Styling */
-        .trade-book-table td[contenteditable="true"]:focus {
-            background: #000;
-            color: #fff;
-            outline: 2px solid #00bcd4;
-            z-index: 1; /* Bring above borders */
-        }
-
-        .trade-book-table tr:nth-child(even) { background: #222; }
-        .val-green { color: #4caf50; }
-        .val-red { color: #f44336; }
+        /* Trade Book Table Adjustments */
+        .trade-book-table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
+        .trade-book-table th { background: #252525; position: sticky; top: 0; padding: 4px 8px; text-align: left; }
+        .trade-book-table td { border-bottom: 1px solid #333; padding: 4px 8px; }
 
     </style>
 </head>
 <body>
 
+<div class="workbench-grid">
+
+    <!-- 1. HEADER -->
     <div id="top-bar">
         <div class="logo">TURTLE TERMINAL</div>
-        <div class="nav-item">File</div>
         <div class="nav-item nav-item-dropdown">
             View
             <div class="dropdown-content">
@@ -421,96 +202,71 @@
         <div class="nav-item" onclick="openReportModal()">Reports</div>
     </div>
 
-    <!-- Main Content (Columns) -->
-    <div id="main-grid">
+    <!-- 2. METRICS ROW -->
+    <div class="top-row">
+        <!-- Risk Scorecard -->
+        <div class="metric-card">
+            <h3>Risk Scorecard</h3>
+            <div class="metric-val"><span>VaR (95%):</span> <span style="color:#f44336;">$12,450</span></div>
+            <div class="metric-val"><span>Beta:</span> <span style="color:#ff9800;">1.24</span></div>
+        </div>
+        <!-- Market Watch -->
+        <div class="market-watch-strip">
+            <span style="color:#888; font-weight:bold; font-size:0.8em;">MARKET WATCH:</span>
+            <span class="ticker">NIFTY: 22,500 <span class="up">▲ 0.5%</span></span>
+            <span class="ticker">BANKNIFTY: 48,100 <span class="down">▼ 0.2%</span></span>
+            <span class="ticker">VIX: 12.5 <span class="down">▼ 1.2%</span></span>
+        </div>
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <button class="tool-btn" style="background: var(--accent-color); color:#000; border:none; font-weight:bold;">Run Strategy</button>
+        </div>
+    </div>
 
-        <!-- Left Panel: Risk & Spread Builder -->
-        <div class="panel left" id="panel-left">
-            <div class="panel-header">Tools & Risk</div>
-            <div class="panel-content">
+    <!-- 3. MAIN WORKSPACE -->
+    <div class="main-row" id="main-grid">
 
-                <!-- Risk Dashboard (Task 5) -->
-                <div class="left-panel-section">
-                    <div class="section-header">Live Risk Metrics</div>
-                    <div class="risk-gauge-container">
-                        <div class="risk-card">
-                            <div class="risk-label">VaR (95%)</div>
-                            <div class="risk-val" style="color:#f44336;">$12,450</div>
-                            <div class="progress-bar-bg"><div class="progress-fill fill-red" style="width: 75%"></div></div>
-                        </div>
-                        <div class="risk-card">
-                            <div class="risk-label">Beta</div>
-                            <div class="risk-val" style="color:#ff9800;">1.24</div>
-                            <div class="progress-bar-bg"><div class="progress-fill fill-yellow" style="width: 60%"></div></div>
-                        </div>
-                    </div>
-                    <div style="margin-top:10px; font-size:0.8em; color:#888; display:flex; justify-content:space-between; cursor:pointer;" onclick="toggleRiskDetails()">
-                        <span>Drill-down Analysis</span>
-                        <span>▼</span>
-                    </div>
-                    <div id="risk-details" style="display:none; margin-top:10px; font-size:0.8em;">
-                        <div style="display:flex; justify-content:space-between; padding:2px 0;"><span>Hedge Ratio</span><span style="color:#fff;">85%</span></div>
-                        <div style="display:flex; justify-content:space-between; padding:2px 0;"><span>Sharpe (1M)</span><span style="color:#4caf50;">2.1</span></div>
-                        <div style="display:flex; justify-content:space-between; padding:2px 0;"><span>Drawdown</span><span style="color:#f44336;">-3.2%</span></div>
-                    </div>
+        <!-- LEFT: Spread Builder -->
+        <div class="panel left">
+            <div class="panel-header">📐 Spread Builder</div>
+            <div class="panel-content spread-builder-container">
+                <!-- Watchlist -->
+                <div class="watchlist-panel" style="height: 150px; overflow-y:auto; border-bottom:1px solid #333; margin-bottom:10px;">
+                    <div style="padding:5px; color:#888; font-size:0.8em;">WATCHLIST</div>
+                    <div id="watchlist-list"></div>
                 </div>
-
-                <!-- Spread Builder -->
-                <div class="spread-builder-container">
-                    <div class="section-header">Spread Builder</div>
-                    <!-- Watchlist -->
-                    <div class="watchlist-panel">
-                        <div class="watchlist-header">MARKET WATCH</div>
-                        <div id="watchlist-list">
-                            <!-- Populated by JS -->
-                        </div>
+                <!-- Formula Input -->
+                <div class="formula-container" style="padding:0;">
+                    <input type="text" class="formula-input" id="formula-input" placeholder="Leg A - Leg B" style="width:100%; box-sizing:border-box; margin-bottom:5px;">
+                    <div class="keypad" style="display:flex; gap:2px; flex-wrap:wrap;">
+                        <button class="key-btn" onclick="insertToken('+')">+</button>
+                        <button class="key-btn" onclick="insertToken('-')">-</button>
+                        <button class="key-btn" onclick="insertToken('*')">*</button>
+                        <button class="key-btn" onclick="insertToken('/')">/</button>
+                        <button class="key-btn action" onclick="calculateSpread()">CALC</button>
+                        <button class="key-btn" onclick="clearFormula()" style="background:#f44336;">C</button>
                     </div>
-
-                    <!-- Builder Form -->
-                    <div class="builder-panel">
-                    <div class="formula-container">
-                        <div style="margin-bottom:5px; color:#888; font-size:0.8em;">FORMULA</div>
-                        <input type="text" class="formula-input" id="formula-input" placeholder="NIFTY - BANKNIFTY">
-
-                        <div class="keypad" style="flex-wrap: wrap;">
-                            <button class="key-btn" onclick="insertToken('+')">+</button>
-                            <button class="key-btn" onclick="insertToken('-')">-</button>
-                            <button class="key-btn" onclick="insertToken('*')">*</button>
-                            <button class="key-btn" onclick="insertToken('/')">/</button>
-                            <button class="key-btn action" onclick="calculateSpread()">CALC</button>
-                            <button class="key-btn" onclick="clearFormula()" style="background:#f44336;">C</button>
-                        </div>
-
-                        <div class="result-box">
-                            <span>VAL:</span>
-                            <span class="spread-val" id="spread-value">--</span>
-                        </div>
-
-                        <div style="margin-top:10px;">
-                            <button class="key-btn" id="plot-chart-btn" style="width:100%;">📊 PLOT</button>
-                        </div>
+                    <div class="result-box" style="margin-top:10px; font-size:1.2em;">
+                        <span class="spread-val" id="spread-value">--</span>
                     </div>
-
-                    <!-- Hidden or Small Chart Area for Script compatibility -->
-                    <div class="chart-placeholder" id="spread-chart-area" style="display:none;">
-                         <div class="chart-canvas" id="chart-canvas"></div>
-                         <button id="add-indicator-btn" style="display:none;"></button>
-                    </div>
+                    <button class="key-btn" id="plot-chart-btn" style="width:100%; margin-top:5px;">📊 PLOT</button>
+                </div>
+                <!-- Hidden Chart Area for compatibility -->
+                <div id="spread-chart-area" style="display:none;">
+                    <div id="chart-canvas"></div>
+                    <button id="add-indicator-btn"></button>
                 </div>
             </div>
-            <div class="resizer vertical left-handle" id="resizer-left"></div>
         </div>
 
-        <!-- Center Panel: Main Chart -->
-        <div class="panel center graphpaper" id="panel-center">
-            <div style="position:absolute; top:20px; left:20px; color:#666; font-size:2em; font-weight:900; opacity:0.2; pointer-events:none;">WORKBENCH</div>
-            <div id="chart-container" style="width:100%; height:100%;"></div>
+        <!-- CENTER: Chart -->
+        <div class="panel center graphpaper">
+            <div class="panel-header">📈 Workbench Chart</div>
+            <div id="chart-container" style="width:100%; height:100%; position:relative;"></div>
         </div>
 
-        <!-- Right Panel: Tabs -->
-        <div class="panel right" id="panel-right">
-            <div class="resizer vertical right-handle" id="resizer-right"></div>
-
+        <!-- RIGHT: Tabs (Strategy, Python, Jules) -->
+        <div class="panel right">
             <div class="panel-header">
                 <div class="right-tabs">
                     <button class="tab-btn active" onclick="switchTab('strategy')">🧠 Strategy</button>
@@ -518,36 +274,24 @@
                     <button class="tab-btn" onclick="switchTab('jules')">🤖 Jules</button>
                 </div>
             </div>
-
             <div class="panel-content">
+
                 <!-- Strategy Tab -->
                 <div id="strategyTab" class="tab-content active">
-                    <!-- Embedded Strategy Composer -->
-                    <div class="composer-toolbar" style="padding: 5px; min-height: 40px;">
-                        <button class="btn btn-primary" id="save-strategy-btn">Save</button>
-                        <button class="btn" id="backtest-btn">Run</button>
+                    <div class="composer-toolbar" style="padding: 5px; border-bottom:1px solid #333;">
+                        <button class="tool-btn" id="save-strategy-btn">Save</button>
+                        <button class="tool-btn" id="backtest-btn">Backtest</button>
                     </div>
-                    <div class="composer-container">
-                        <div class="palette">
-                            <div class="palette-header">Filters</div>
-                            <div class="palette-section">
-                                <div class="palette-item filter" draggable="true" data-type="filter">Z-Score</div>
-                                <div class="palette-item filter" draggable="true" data-type="filter">ATR</div>
-                            </div>
-                            <div class="palette-header">Indicators</div>
-                            <div class="palette-section">
-                                <div class="palette-item indicator" draggable="true" data-type="indicator">SMA</div>
-                                <div class="palette-item indicator" draggable="true" data-type="indicator">MACD</div>
-                            </div>
-                            <div class="palette-header">Logic</div>
-                            <div class="palette-section">
-                                <div class="palette-item logic" draggable="true" data-type="logic">AND</div>
-                                <div class="palette-item logic" draggable="true" data-type="logic">OR</div>
-                            </div>
+                    <!-- Palette + Canvas -->
+                    <div class="composer-container" style="flex:1; display:flex; flex-direction:column;">
+                        <div class="palette" style="height:150px; overflow-y:auto; border-bottom:1px solid #333;">
+                            <div class="palette-item filter" draggable="true" data-type="filter">Z-Score</div>
+                            <div class="palette-item filter" draggable="true" data-type="filter">ATR</div>
+                            <div class="palette-item indicator" draggable="true" data-type="indicator">SMA</div>
+                            <div class="palette-item logic" draggable="true" data-type="logic">AND</div>
                         </div>
-                        <div class="canvas-area" id="composer-canvas">
-                            <svg id="connections-layer"></svg>
-                            <div class="drop-zone"></div>
+                        <div class="canvas-area" id="composer-canvas" style="flex:1; position:relative;">
+                            <svg id="connections-layer" style="position:absolute; width:100%; height:100%; pointer-events:none;"></svg>
                         </div>
                     </div>
                 </div>
@@ -556,315 +300,171 @@
                 <div id="pythonTab" class="tab-content">
                     <div style="background:#111; font-family:monospace; padding:10px; color:#0f0; height:100%;">
                         >>> import pandas as pd<br>
-                        >>> df = pd.read_csv('trades.csv')<br>
+                        >>> # Python Console Ready<br>
                         >>> _
                     </div>
                 </div>
 
-                <!-- Jules Tab (Task 8) -->
+                <!-- Jules Tab -->
                 <div id="julesTab" class="tab-content">
                     <div class="chat-container" id="chat-history">
-                        <div class="chat-bubble jules">
-                            Hello. I am Jules, your Quantitative Assistant.
-                            I can generate Python code for strategies or analysis. Try asking:
-                            "Create a Z-Score filter for pairs trading."
-                        </div>
+                        <div class="chat-bubble jules">Hello. I am Jules. How can I assist with your trading?</div>
                     </div>
                     <div style="display:flex; border-top:1px solid #333;">
-                        <input type="text" id="chat-input" placeholder="Ask Jules to write code..."
-                               style="flex:1; background:#222; border:none; padding:12px; color:#fff; outline:none;"
-                               onkeypress="handleChatInput(event)">
-                        <button style="background:#333; border:none; color:#00bcd4; padding:0 15px; cursor:pointer;" onclick="sendChat()">➤</button>
+                        <input type="text" id="chat-input" placeholder="Ask Jules..." style="flex:1; background:#222; border:none; padding:10px; color:#fff;" onkeypress="handleChatInput(event)">
+                        <button style="background:#333; border:none; color:var(--accent-color); cursor:pointer; padding:0 15px;" onclick="sendChat()">➤</button>
                     </div>
                 </div>
-            </div>
-        </div>
 
-    </div>
-
-    <!-- Modal: Report Generator (Task 7) -->
-    <div class="modal-overlay" id="report-modal">
-        <div class="modal-window">
-            <div class="modal-header">
-                <span>Generate Report</span>
-                <span style="float:right; cursor:pointer;" onclick="closeReportModal()">✕</span>
-            </div>
-
-            <div class="modal-form-row">
-                <label>Report Type</label>
-                <select id="report-type">
-                    <option value="daily_pnl">Daily PnL & Risk</option>
-                    <option value="trade_log">Trade Log</option>
-                    <option value="strategy_audit">Strategy Audit</option>
-                </select>
-            </div>
-
-            <div class="modal-form-row">
-                <label>Format</label>
-                <select id="report-format">
-                    <option value="pdf">PDF (Official)</option>
-                    <option value="excel">Excel (Raw Data)</option>
-                </select>
-            </div>
-
-            <hr style="border-color:#444; margin: 15px 0;">
-            <div style="font-size:0.85em; color:#aaa; margin-bottom:10px;">SCHEDULE (OPTIONAL)</div>
-
-            <div class="modal-form-row">
-                <label>Frequency</label>
-                <select id="schedule-freq">
-                    <option value="none">One-time Only</option>
-                    <option value="daily">Daily (EOD)</option>
-                    <option value="weekly">Weekly (Fri)</option>
-                </select>
-            </div>
-
-            <div class="modal-form-row">
-                <label>Email To</label>
-                <input type="text" placeholder="trader@fund.com" style="width: 180px;">
-            </div>
-
-            <div style="text-align:right; margin-top:20px;">
-                <button class="key-btn" style="padding:6px 15px;" onclick="generateReport()">Generate</button>
             </div>
         </div>
     </div>
 
-    <!-- Bottom Panel: Trade Book -->
-    <div class="panel bottom" id="panel-bottom">
-        <div class="resizer horizontal top-handle" id="resizer-bottom"></div>
-        <div class="panel-content" style="display:flex; flex-direction:column; height:100%;">
-             <!-- Fallback content to ensure container exists -->
-             <div id="trade-book-placeholder" style="padding:20px; text-align:center;">Loading Trade Book...</div>
+    <!-- 4. TOOLBAR -->
+    <div class="toolbar">
+        <div class="tool-group">
+            <span>FILTERS:</span>
+            <button class="tool-btn">Z-Score</button>
+            <button class="tool-btn">ATR</button>
+        </div>
+        <div class="tool-group">
+            <span>INDICATORS:</span>
+            <button class="tool-btn">SMA</button>
+            <button class="tool-btn">MACD</button>
+        </div>
+        <div class="tool-group">
+            <span>LOGIC:</span>
+            <button class="tool-btn">AND</button>
+            <button class="tool-btn">OR</button>
         </div>
     </div>
 
-    <script src="/static/js/dock.js"></script>
-    <script src="/static/js/spread_builder.js"></script>
-    <script src="/static/js/strategy_composer.js"></script>
-    <script src="/static/js/trade_book.js"></script>
-    <script src="/static/js/workbench_manager.js"></script>
-    <script>
-        // --- Tab Logic ---
-        function switchTab(tabId) {
-            // Hide all
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    <!-- 5. BOTTOM: Trade Book -->
+    <div class="bottom-row" id="panel-bottom">
+        <!-- Trade Book Content loaded via JS -->
+        <div id="trade-book-placeholder" style="padding:20px; color:#666; text-align:center;">Loading Trade Book...</div>
+    </div>
 
-            // Show target
-            document.getElementById(tabId + 'Tab').classList.add('active');
+</div>
 
-            // Highlight btn
-            // Note: Simplistic selection, finding button by onclick attr logic or order
-            // Ideally use data-tab attr, but inline onclick is fine for now
-            const btns = document.querySelectorAll('.tab-btn');
-            btns.forEach(btn => {
-                if(btn.innerText.toLowerCase().includes(tabId)) {
-                    btn.classList.add('active');
-                }
-            });
-        }
+<!-- Modal: Report Generator -->
+<div class="modal-overlay" id="report-modal">
+    <div class="modal-window">
+        <div class="modal-header" style="border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px; font-weight:bold;">
+            <span>Generate Report</span>
+            <span style="float:right; cursor:pointer;" onclick="closeReportModal()">✕</span>
+        </div>
+        <div style="margin-bottom:10px;">
+            <label style="display:block; font-size:0.8em; color:#aaa;">Type</label>
+            <select id="report-type" style="width:100%; background:#333; color:#fff; border:1px solid #555;">
+                <option value="daily_pnl">Daily PnL</option>
+                <option value="risk">Risk Report</option>
+            </select>
+        </div>
+        <div style="text-align:right;">
+            <button class="tool-btn" onclick="generateReport()">Generate</button>
+        </div>
+    </div>
+</div>
 
-        // --- Dock Initialization ---
-        window.onload = () => {
-            if(window.DockManager) {
-                new DockManager('filters', 'filter-dock'); // If elements exist
-            }
-            initResizers();
+<!-- SCRIPTS -->
+<script src="/static/js/dock.js"></script>
+<script src="/static/js/spread_builder.js"></script>
+<script src="/static/js/strategy_composer.js"></script>
+<script src="/static/js/trade_book.js"></script>
+<script src="/static/js/workbench_manager.js"></script>
+
+<script>
+    // --- Initialization ---
+    window.onload = () => {
+        console.log("Initializing Workbench...");
+
+        // 1. Chart (Wrapped to prevent blocking)
+        try {
             initChart();
-            loadLayout(true); // Auto-load if exists
+        } catch (e) {
+            console.error("Chart Init Failed:", e);
+        }
 
-            // Initialize Trade Book (Task 2)
+        // 2. Trade Book
+        try {
             window.tradeBook = new TradeBook('panel-bottom');
-        };
-
-        // --- Layout Manager (Task 9 & Multi-Workbench) ---
-        function saveLayout() {
-            const layout = {
-                leftWidth: document.getElementById('panel-left').style.width,
-                rightWidth: document.getElementById('panel-right').style.width,
-                bottomHeight: document.getElementById('panel-bottom').style.height
-            };
-            window.wbManager.updateLayout(layout);
-            alert("Layout Saved to Workbench!");
+        } catch (e) {
+            console.error("Trade Book Init Failed:", e);
         }
 
-        function loadLayout(silent=false) {
-            const wb = window.wbManager.getActiveWorkbench();
-            if (wb && wb.layout) {
-                const layout = wb.layout;
-                if(layout.leftWidth) document.getElementById('panel-left').style.width = layout.leftWidth;
-                if(layout.rightWidth) document.getElementById('panel-right').style.width = layout.rightWidth;
-                if(layout.bottomHeight) document.getElementById('panel-bottom').style.height = layout.bottomHeight;
-                if(!silent) alert(`Loaded Workbench: ${wb.name}`);
-            }
-        }
+        // 3. Layout Manager (Restore)
+        // Note: With Grid, pixel-based resizing from prev script might clash.
+        // We'll trust CSS Grid for structure now.
+        // window.wbManager.getActiveWorkbench();
+    };
 
-        function resetLayout() {
-            // Reset to defaults defined in CSS
-            document.getElementById('panel-left').style.width = '';
-            document.getElementById('panel-right').style.width = '';
-            document.getElementById('panel-bottom').style.height = '';
-            alert("Layout Reset!");
-        }
+    // --- Tab Switching ---
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId + 'Tab').classList.add('active');
+        // Simple active state toggle for buttons
+        event.target.classList.add('active');
+    }
 
-        function toggleRiskDetails() {
-            const el = document.getElementById('risk-details');
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        }
+    // --- Chart Logic ---
+    function initChart() {
+        const container = document.getElementById('chart-container');
+        if(!container) return;
 
-        // --- Report Generator Logic (Task 7) ---
-        function openReportModal() {
-            document.getElementById('report-modal').style.display = 'flex';
-        }
-        function closeReportModal() {
-            document.getElementById('report-modal').style.display = 'none';
-        }
-        function generateReport() {
-            const type = document.getElementById('report-type').value;
-            const fmt = document.getElementById('report-format').value;
-            alert(`Generating ${type} report in ${fmt} format...\n(This would trigger backend task)`);
-            closeReportModal();
-        }
+        const chart = LightweightCharts.createChart(container, {
+            layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
+            grid: { vertLines: { color: '#333' }, horzLines: { color: '#333' } },
+            timeScale: { borderColor: '#444' },
+            rightPriceScale: { borderColor: '#444' },
+        });
+        const candleSeries = chart.addCandlestickSeries({
+            upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
+        });
+        candleSeries.setData([
+            { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
+            { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
+            { time: '2023-01-03', open: 102, high: 104, low: 99, close: 100 },
+        ]);
+        new ResizeObserver(entries => {
+            if (entries.length === 0 || entries[0].target !== container) return;
+            const { width, height } = entries[0].contentRect;
+            chart.applyOptions({ width, height });
+        }).observe(container);
+    }
 
-        // --- Jules Chat Logic (Task 8) ---
-        function handleChatInput(e) {
-            if (e.key === 'Enter') sendChat();
-        }
+    // --- Chat Logic ---
+    function handleChatInput(e) { if(e.key === 'Enter') sendChat(); }
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const text = input.value;
+        if(!text) return;
 
-        function sendChat() {
-            const input = document.getElementById('chat-input');
-            const msg = input.value.trim();
-            if (!msg) return;
+        appendChat(text, 'user');
+        input.value = '';
 
-            // User Message
-            appendChat(msg, 'user');
-            input.value = '';
+        setTimeout(() => {
+            appendChat("I am processing your request: " + text, 'jules');
+        }, 500);
+    }
+    function appendChat(text, type) {
+        const div = document.createElement('div');
+        div.className = `chat-bubble ${type}`;
+        div.innerText = text;
+        document.getElementById('chat-history').appendChild(div);
+    }
 
-            // Simulated Jules Response (Stub)
-            setTimeout(() => {
-                let response = "I'm processing your request...";
-                let code = null;
+    // --- Report Modal ---
+    function openReportModal() { document.getElementById('report-modal').style.display = 'flex'; }
+    function closeReportModal() { document.getElementById('report-modal').style.display = 'none'; }
+    function generateReport() { alert('Generating Report...'); closeReportModal(); }
 
-                if (msg.toLowerCase().includes("z-score")) {
-                    response = "Here is a Z-Score calculation function based on a rolling window.";
-                    code = `def calculate_zscore(series, window=20):\n    mean = series.rolling(window).mean()\n    std = series.rolling(window).std()\n    return (series - mean) / std`;
-                } else if (msg.toLowerCase().includes("rsi")) {
-                    response = "Standard RSI implementation (14-period).";
-                    code = `def calculate_rsi(prices, period=14):\n    delta = prices.diff()\n    gain = (delta.where(delta > 0, 0)).rolling(period).mean()\n    loss = (-delta.where(delta < 0, 0)).rolling(period).mean()\n    rs = gain / loss\n    return 100 - (100 / (1 + rs))`;
-                }
+    // --- Layout Actions ---
+    function saveLayout() { alert('Layout Saved (Grid)'); }
+    function loadLayout() { alert('Layout Loaded'); }
+    function resetLayout() { alert('Layout Reset'); }
 
-                appendChat(response, 'jules', code);
-            }, 600);
-        }
-
-        function appendChat(text, sender, code=null) {
-            const container = document.getElementById('chat-history');
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${sender}`;
-            bubble.innerText = text;
-
-            if (code) {
-                const codeBlock = document.createElement('div');
-                codeBlock.className = 'code-block';
-                codeBlock.innerText = code;
-
-                const addBtn = document.createElement('button');
-                addBtn.className = 'add-filter-btn';
-                addBtn.innerText = "+ Add to Palette";
-                addBtn.onclick = () => addToPalette(code); // Stub integration
-
-                codeBlock.appendChild(addBtn);
-                bubble.appendChild(codeBlock);
-            }
-
-            container.appendChild(bubble);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function addToPalette(code) {
-            alert("Code snippet added to Strategy Composer Palette!");
-            // In real impl, this would register the new tool in backend/UI
-        }
-
-        // --- Trade Book Logic is now handled by trade_book.js ---
-
-        // --- Resizing Logic (Copied from previous workbench) ---
-        function initResizers() {
-            // ... (Same resizer logic as before) ...
-            const leftResizer = document.getElementById('resizer-left');
-            const leftPanel = document.getElementById('panel-left');
-            leftResizer.addEventListener('mousedown', initDrag(leftPanel, 'horizontal-right'));
-
-            const rightResizer = document.getElementById('resizer-right');
-            const rightPanel = document.getElementById('panel-right');
-            rightResizer.addEventListener('mousedown', initDrag(rightPanel, 'horizontal-left'));
-
-            const bottomResizer = document.getElementById('resizer-bottom');
-            const bottomPanel = document.getElementById('panel-bottom');
-            bottomResizer.addEventListener('mousedown', initDrag(bottomPanel, 'vertical-top'));
-
-            function initDrag(panel, mode) {
-                return (e) => {
-                    e.preventDefault();
-                    const startX = e.clientX;
-                    const startY = e.clientY;
-                    const startWidth = parseInt(document.defaultView.getComputedStyle(panel).width, 10);
-                    const startHeight = parseInt(document.defaultView.getComputedStyle(panel).height, 10);
-
-                    function doDrag(e) {
-                        if(mode === 'horizontal-right') {
-                            panel.style.width = (startWidth + e.clientX - startX) + 'px';
-                        } else if(mode === 'horizontal-left') {
-                            // Right panel resizing logic (width decreases as mouse moves right, increases as left)
-                            // Actually it's simpler: newWidth = startWidth - (e.clientX - startX)
-                            panel.style.width = (startWidth - (e.clientX - startX)) + 'px';
-                        } else if(mode === 'vertical-top') {
-                             panel.style.height = (startHeight - (e.clientY - startY)) + 'px';
-                        }
-                    }
-
-                    function stopDrag() {
-                        document.documentElement.removeEventListener('mousemove', doDrag, false);
-                        document.documentElement.removeEventListener('mouseup', stopDrag, false);
-                    }
-
-                    document.documentElement.addEventListener('mousemove', doDrag, false);
-                    document.documentElement.addEventListener('mouseup', stopDrag, false);
-                }
-            }
-        }
-
-        // --- Chart Initialization ---
-        function initChart() {
-            const chartContainer = document.getElementById('chart-container');
-            if(!chartContainer) return;
-
-            const chart = LightweightCharts.createChart(chartContainer, {
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight,
-                layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
-                grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-                timeScale: { borderColor: '#444' },
-                rightPriceScale: { borderColor: '#444' },
-            });
-
-            const candleSeries = chart.addCandlestickSeries({
-                upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
-            });
-
-            candleSeries.setData([
-                { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
-                { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
-                { time: '2023-01-03', open: 102, high: 104, low: 99, close: 100 },
-            ]);
-
-            new ResizeObserver(entries => {
-                if (entries.length === 0 || entries[0].target !== chartContainer) { return; }
-                const newRect = entries[0].contentRect;
-                chart.applyOptions({ width: newRect.width, height: newRect.height });
-            }).observe(chartContainer);
-        }
-    </script>
+</script>
 </body>
 </html>

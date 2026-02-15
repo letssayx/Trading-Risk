@@ -32,10 +32,13 @@ class TradeBook {
         const winRate = filteredTrades.length > 0 ? ((wins / filteredTrades.length) * 100).toFixed(1) : 0;
         const openPos = this.trades.filter(t => t.status === 'OPEN').length;
 
+        // Check if we are inside the new grid layout which has its own headers/toolbars
+        // If so, we might want to skip the internal panel-header or style it differently.
+        // For now, keeping it but ensuring it fits the container.
         container.innerHTML = `
-            <div class="panel-header">
+            <div class="panel-header" style="background:#252525; padding:5px 10px; border-bottom:1px solid #333;">
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <span>📊 Trade Book</span>
+                    <span style="font-weight:bold; color:#ccc;">📊 TRADE BOOK</span>
                     <div class="trade-filters">
                         <button class="filter-btn ${this.filter === 'today' ? 'active' : ''}" data-filter="today">Today</button>
                         <button class="filter-btn ${this.filter === 'week' ? 'active' : ''}" data-filter="week">Week</button>

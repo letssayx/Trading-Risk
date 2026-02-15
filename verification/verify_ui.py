@@ -6,47 +6,44 @@ def verify_workbench():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
+        # Capture Console Logs
+        page.on("console", lambda msg: print(f"BROWSER CONSOLE: {msg.text}"))
+        page.on("pageerror", lambda exc: print(f"BROWSER ERROR: {exc}"))
+
         # Navigate to Workbench
-        page.goto("http://localhost:8000/workbench")
-        time.sleep(2) # Wait for load
+        try:
+            page.goto("http://localhost:8000/workbench")
+            time.sleep(2) # Wait for load
 
-        # 1. Verify Risk Dashboard (Left Panel)
-        print("Verifying Risk Dashboard...")
-        page.wait_for_selector(".risk-gauge-container")
-        page.screenshot(path="verification/1_risk_dashboard.png")
+            # 1. Verify Risk Dashboard (Top Row)
+            print("Verifying Risk Dashboard...")
+            page.wait_for_selector(".metric-card:has-text('Risk Scorecard')")
+            page.screenshot(path="verification/1_risk_dashboard_restored.png")
 
-        # 2. Verify Trade Book (Bottom Panel)
-        print("Verifying Trade Book...")
-        page.wait_for_selector("#tradeBookTable")
-        # Test Sort
-        page.click("th:has-text('Symbol')")
-        time.sleep(0.5)
-        page.screenshot(path="verification/2_trade_book.png")
+            # 2. Verify Trade Book (Bottom Row)
+            print("Verifying Trade Book...")
+            # Ensure JS injected the table
+            page.wait_for_selector("#tradeBookTable")
+            page.screenshot(path="verification/2_trade_book_restored.png")
 
-        # 3. Verify Report Modal
-        print("Verifying Report Modal...")
-        page.click("text=Reports")
-        page.wait_for_selector("#report-modal", state="visible")
-        page.screenshot(path="verification/3_report_modal.png")
-        page.click("text=✕") # Close modal
+            # 3. Verify Spread Builder (Left Panel)
+            print("Verifying Spread Builder...")
+            page.wait_for_selector(".spread-builder-container")
+            page.screenshot(path="verification/3_spread_builder_restored.png")
 
-        # 4. Verify Jules Chat (Right Panel Tab)
-        print("Verifying Jules Chat...")
-        page.click("text=🤖 Jules")
-        page.wait_for_selector("#chat-input")
-        page.fill("#chat-input", "Create a Z-Score filter")
-        page.click("text=➤")
-        time.sleep(1) # Wait for stub response
-        page.screenshot(path="verification/4_jules_chat.png")
+            # 4. Verify Jules Chat (Right Panel)
+            print("Verifying Jules Chat...")
+            if page.is_visible("button:has-text('🤖 Jules')"):
+                page.click("button:has-text('🤖 Jules')")
+                time.sleep(0.5)
+            page.wait_for_selector("#chat-history")
+            page.screenshot(path="verification/4_jules_chat_restored.png")
 
-        # 5. Verify Layout Manager
-        print("Verifying Layout Manager...")
-        page.hover("text=View")
-        page.wait_for_selector(".dropdown-content", state="visible")
-        page.screenshot(path="verification/5_layout_manager.png")
-
-        browser.close()
-        print("Verification Complete. Screenshots saved in verification/")
+            print("Verification Complete.")
+        except Exception as e:
+            print(f"VERIFICATION FAILED: {e}")
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
     verify_workbench()

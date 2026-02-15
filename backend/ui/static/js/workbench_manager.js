@@ -35,7 +35,9 @@ class WorkbenchManager {
             name: name,
             isDefault: isDefault,
             layout: {
-                leftWidth: '300px',
+                // Adapting to Grid Layout if needed, currently these might be ignored by CSS Grid
+                // unless we implement dynamic grid-template-columns injection
+                leftWidth: '320px',
                 rightWidth: '400px',
                 bottomHeight: '250px'
             },
