@@ -633,53 +633,17 @@
     <!-- Bottom Panel: Trade Book -->
     <div class="panel bottom" id="panel-bottom">
         <div class="resizer horizontal top-handle" id="resizer-bottom"></div>
-        <div class="panel-header">
-            <div style="display:flex; gap:10px; align-items:center;">
-                <span>Trade Book</span>
-                <span style="font-size:0.8em; font-weight:normal; color:#888;">(24 Active Positions)</span>
-            </div>
-            <div>
-                <button class="key-btn" style="padding:2px 8px; font-size:0.75em;" onclick="exportTradeBook()">Export Excel</button>
-            </div>
-        </div>
-        <div class="panel-content">
-            <table class="trade-book-table" id="tradeBookTable">
-                <thead>
-                    <tr>
-                        <th onclick="sortTable(0)">ID<div class="column-resizer"></div></th>
-                        <th onclick="sortTable(1)">Time<div class="column-resizer"></div></th>
-                        <th onclick="sortTable(2)">Symbol<div class="column-resizer"></div></th>
-                        <th onclick="sortTable(3)">Side<div class="column-resizer"></div></th>
-                        <th onclick="sortTable(4)">Qty<div class="column-resizer"></div></th>
-                        <th onclick="sortTable(5)">PnL<div class="column-resizer"></div></th>
-                        <th onclick="sortTable(6)">Strategy<div class="column-resizer"></div></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>#1024</td><td>10:45</td><td>NIFTY 24000 CE</td>
-                        <td class="val-green" ondblclick="editCell(this)">BUY</td>
-                        <td ondblclick="editCell(this)">500</td>
-                        <td class="val-green">+3,250</td>
-                        <td>Turtle</td>
-                    </tr>
-                    <tr>
-                        <td>#1023</td><td>10:42</td><td>BANKNIFTY</td>
-                        <td class="val-red" ondblclick="editCell(this)">SELL</td>
-                        <td ondblclick="editCell(this)">30</td>
-                        <td class="val-green">+600</td>
-                        <td>StatArb</td>
-                    </tr>
-                     <!-- Demo Rows -->
-                    <tr><td>#1022</td><td>09:15</td><td>RELIANCE</td><td class="val-green">BUY</td><td>100</td><td class="val-red">-1,200</td><td>Momentum</td></tr>
-                </tbody>
-            </table>
+        <div class="panel-content" style="display:flex; flex-direction:column; height:100%;">
+             <!-- Fallback content to ensure container exists -->
+             <div id="trade-book-placeholder" style="padding:20px; text-align:center;">Loading Trade Book...</div>
         </div>
     </div>
 
     <script src="/static/js/dock.js"></script>
     <script src="/static/js/spread_builder.js"></script>
     <script src="/static/js/strategy_composer.js"></script>
+    <script src="/static/js/trade_book.js"></script>
+    <script src="/static/js/workbench_manager.js"></script>
     <script>
         // --- Tab Logic ---
         function switchTab(tabId) {
@@ -709,34 +673,34 @@
             initResizers();
             initChart();
             loadLayout(true); // Auto-load if exists
+
+            // Initialize Trade Book (Task 2)
+            window.tradeBook = new TradeBook('panel-bottom');
         };
 
-        // --- Layout Manager (Task 9) ---
+        // --- Layout Manager (Task 9 & Multi-Workbench) ---
         function saveLayout() {
             const layout = {
                 leftWidth: document.getElementById('panel-left').style.width,
                 rightWidth: document.getElementById('panel-right').style.width,
                 bottomHeight: document.getElementById('panel-bottom').style.height
             };
-            localStorage.setItem('turtle_layout', JSON.stringify(layout));
-            alert("Layout Saved!");
+            window.wbManager.updateLayout(layout);
+            alert("Layout Saved to Workbench!");
         }
 
         function loadLayout(silent=false) {
-            const saved = localStorage.getItem('turtle_layout');
-            if (saved) {
-                const layout = JSON.parse(saved);
+            const wb = window.wbManager.getActiveWorkbench();
+            if (wb && wb.layout) {
+                const layout = wb.layout;
                 if(layout.leftWidth) document.getElementById('panel-left').style.width = layout.leftWidth;
                 if(layout.rightWidth) document.getElementById('panel-right').style.width = layout.rightWidth;
                 if(layout.bottomHeight) document.getElementById('panel-bottom').style.height = layout.bottomHeight;
-                if(!silent) alert("Layout Loaded!");
-            } else if (!silent) {
-                alert("No saved layout found.");
+                if(!silent) alert(`Loaded Workbench: ${wb.name}`);
             }
         }
 
         function resetLayout() {
-            localStorage.removeItem('turtle_layout');
             // Reset to defaults defined in CSS
             document.getElementById('panel-left').style.width = '';
             document.getElementById('panel-right').style.width = '';
@@ -823,111 +787,7 @@
             // In real impl, this would register the new tool in backend/UI
         }
 
-        // --- Trade Book Logic (Task 6) ---
-        function editCell(cell) {
-            cell.contentEditable = true;
-            cell.focus();
-            // Listen for Enter or Blur to stop editing
-            cell.onkeydown = (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    cell.blur();
-                }
-            };
-            cell.onblur = () => {
-                cell.contentEditable = false;
-                // Here we would sync with backend
-                console.log("Cell Updated:", cell.innerText);
-            };
-        }
-
-        function sortTable(n) {
-            const table = document.getElementById("tradeBookTable");
-            let rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-            switching = true;
-            dir = "asc";
-            while (switching) {
-                switching = false;
-                rows = table.rows;
-                for (i = 1; i < (rows.length - 1); i++) {
-                    shouldSwitch = false;
-                    x = rows[i].getElementsByTagName("TD")[n];
-                    y = rows[i + 1].getElementsByTagName("TD")[n];
-                    let xVal = x.innerText.toLowerCase();
-                    let yVal = y.innerText.toLowerCase();
-                    // Simple number check
-                    if (!isNaN(parseFloat(xVal)) && !isNaN(parseFloat(yVal))) {
-                         xVal = parseFloat(xVal);
-                         yVal = parseFloat(yVal);
-                    }
-
-                    if (dir == "asc") {
-                        if (xVal > yVal) { shouldSwitch = true; break; }
-                    } else if (dir == "desc") {
-                        if (xVal < yVal) { shouldSwitch = true; break; }
-                    }
-                }
-                if (shouldSwitch) {
-                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-                    switching = true;
-                    switchcount ++;
-                } else {
-                    if (switchcount == 0 && dir == "asc") {
-                        dir = "desc";
-                        switching = true;
-                    }
-                }
-            }
-        }
-
-        function exportTradeBook() {
-            let table = document.getElementById("tradeBookTable");
-            let rows = Array.from(table.rows);
-            let csvContent = "data:text/csv;charset=utf-8,";
-
-            rows.forEach(row => {
-                let rowData = Array.from(row.cells).map(cell => {
-                    // Clean text (remove newlines, commas)
-                    return cell.innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/,/g, "");
-                });
-                csvContent += rowData.join(",") + "\r\n";
-            });
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "trade_book_export.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // Column Resizing Logic
-        document.querySelectorAll('.column-resizer').forEach(resizer => {
-            resizer.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                e.stopPropagation(); // Don't trigger sort
-                const th = resizer.parentElement;
-                const startX = e.pageX;
-                const startWidth = th.offsetWidth;
-
-                function onMouseMove(e) {
-                    const newWidth = startWidth + (e.pageX - startX);
-                    th.style.width = newWidth + 'px';
-                }
-
-                function onMouseUp() {
-                    document.removeEventListener('mousemove', onMouseMove);
-                    document.removeEventListener('mouseup', onMouseUp);
-                }
-
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
-            });
-
-            // Prevent sort when clicking resizer
-            resizer.addEventListener('click', (e) => e.stopPropagation());
-        });
+        // --- Trade Book Logic is now handled by trade_book.js ---
 
         // --- Resizing Logic (Copied from previous workbench) ---
         function initResizers() {
