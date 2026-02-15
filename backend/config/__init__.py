@@ -35,6 +35,8 @@ class Settings:
     # AI / LLM
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
     # Market Data
     MARKET_DATA_PROVIDER: str = os.getenv("MARKET_DATA_PROVIDER", "mock")  # mock, upstox, nse
