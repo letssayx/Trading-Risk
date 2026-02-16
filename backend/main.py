@@ -2,10 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+import asyncio
+
+# Existing routes
 from backend.web import routes
 from backend.web.portfolio import routes as portfolio_routes
 from backend.web.live import logs
 from backend.web.widgets import routes as widget_routes
+
+# New routes
+from backend.web.data import routes as data_routes
+from backend.web.live import routes as live_routes
+from backend.web.strategies import adapters_routes
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
 
@@ -20,15 +28,21 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory="backend/ui/static"), name="static")
 
+# Include Routers
 app.include_router(routes.router)
 app.include_router(portfolio_routes.router)
 app.include_router(logs.router)
 app.include_router(widget_routes.router)
+app.include_router(data_routes.router)
+app.include_router(live_routes.router)
+app.include_router(adapters_routes.router)
 
 @app.on_event("startup")
 async def startup_event():
-    import asyncio
+    # Start log generator
     asyncio.create_task(logs.log_generator())
+    # Start simulated market data
+    asyncio.create_task(live_routes.simulate_market_data())
 
 @app.get("/")
 def read_root():
