@@ -59,18 +59,20 @@ class WorkbookManager {
         const type = this.activeWorkbook;
 
         if (type === 'TURTLE') {
-            const sym = prompt("Enter Symbol (e.g. NIFTY):", "NIFTY");
-            if (!sym) return;
-
-            const newTab = { id: Date.now(), symbol: sym.toUpperCase(), type: 'TURTLE', active: true };
-            this.workbooks.TURTLE.tabs.forEach(t => t.active = false);
-            this.workbooks.TURTLE.tabs.push(newTab);
-            this.switchWorkbook('TURTLE');
+            window.symbolSearch.open((sym) => {
+                const newTab = { id: Date.now(), symbol: sym.toUpperCase(), type: 'TURTLE', active: true };
+                this.workbooks.TURTLE.tabs.forEach(t => t.active = false);
+                this.workbooks.TURTLE.tabs.push(newTab);
+                this.switchWorkbook('TURTLE');
+            });
 
         } else if (type === 'STATARB') {
+            // For StatArb, we need 2 symbols. For MVP, just prompt twice or custom modal later.
+            // Using prompts as placeholder for multi-select modal
             const sym1 = prompt("Enter Symbol 1:", "NIFTY");
+            if(!sym1) return;
             const sym2 = prompt("Enter Symbol 2:", "BANKNIFTY");
-            if (!sym1 || !sym2) return;
+            if (!sym2) return;
 
             const newTab = { id: Date.now(), sym1: sym1.toUpperCase(), sym2: sym2.toUpperCase(), type: 'STATARB', active: true };
             this.workbooks.STATARB.tabs.forEach(t => t.active = false);
@@ -119,12 +121,38 @@ class WorkbookManager {
     }
 
     openChart(title) {
-        // Simple bridge to global Chart object for MVP
-        // In full impl, this would manage multiple chart tabs in the top center panel
-        if(window.chart) {
-            console.log("Opening chart for:", title);
-            // Just a visual cue for now, data loading would happen here
-            alert(`Opening Chart for ${title}`);
+        if(window.chartTabs) {
+            window.chartTabs.addTab(title);
+        }
+    }
+
+    async startStrategy(symbol, type) {
+        // Send request to backend to initialize adapter
+        try {
+            const url = type === 'TURTLE' ? '/api/strategies/turtle/start' : '/api/strategies/statarb/start';
+            const body = type === 'TURTLE'
+                ? { symbol: symbol, windowSize: 20 }
+                : { symbol1: symbol.split('/')[0], symbol2: symbol.split('/')[1] || 'BANKNIFTY' }; // Simplistic parsing
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            alert(`Strategy Started: ${data.instanceId}`);
+
+            // Mark tab as active/engine on (logic to update tab state)
+            const wb = this.workbooks[type];
+            const tab = wb.tabs.find(t => t.symbol === symbol || (t.sym1 + '/' + t.sym2) === symbol);
+            if(tab) {
+                tab.engineActive = true;
+                this.renderTabContent(tab); // Re-render to show status
+            }
+
+        } catch(e) {
+            console.error("Start Strategy Error", e);
+            alert("Failed to start strategy engine.");
         }
     }
 }

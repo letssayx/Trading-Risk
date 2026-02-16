@@ -11,6 +11,10 @@ class TurtleTab {
         const signalColor = this.data.signal === 'BUY' ? '#4caf50' : (this.data.signal === 'SELL' ? '#f44336' : '#ccc');
 
         this.container.innerHTML = `
+            <div style="padding:10px; background:#2A2B33; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:bold; color:#fff;">${this.symbol} Strategy</span>
+                <button class="wb-btn" onclick="window.wbManager.startStrategy('${this.symbol}', 'TURTLE')">▶ Start Engine</button>
+            </div>
             <table class="trade-table">
                 <thead>
                     <tr><th>Symbol</th><th>Last Price</th><th>N (Vol)</th><th>Signal</th><th>Stop Level</th><th>Unit Size</th><th>Action</th></tr>
@@ -28,7 +32,7 @@ class TurtleTab {
                 </tbody>
             </table>
             <div style="padding:10px; font-size:0.8em; color:#666;">
-                Status: Monitoring live ticks...
+                Status: Monitoring live ticks... Engine Active: ${this.engineActive || 'False'}
             </div>
         `;
     }

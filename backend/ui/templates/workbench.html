@@ -279,37 +279,10 @@
     <script src="/static/js/edge.js"></script>
     <script src="/static/js/tabs/turtle_tab.js"></script>
     <script src="/static/js/tabs/statarb_tab.js"></script>
+    <script src="/static/js/symbol_search.js"></script>
+    <script src="/static/js/chart_manager.js"></script>
     <script src="/static/js/workbook_manager.js"></script>
     <script src="/static/js/jules_chat.js"></script>
     <script src="/static/js/layout.js"></script> <!-- New layout manager -->
-
-    <script>
-        // Inline init for Chart (TradingView)
-        window.onload = function() {
-            const container = document.getElementById('chartContainer');
-            if(window.LightweightCharts && container) {
-                window.chart = LightweightCharts.createChart(container, {
-                    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
-                    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-                    timeScale: { borderColor: '#444' },
-                    rightPriceScale: { borderColor: '#444' },
-                });
-                const series = window.chart.addCandlestickSeries({
-                    upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
-                });
-                series.setData([
-                    { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
-                    { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
-                ]);
-
-                // Resize observer
-                new ResizeObserver(entries => {
-                    if (entries.length === 0 || entries[0].target !== container) return;
-                    const { width, height } = entries[0].contentRect;
-                    window.chart.applyOptions({ width, height });
-                }).observe(container);
-            }
-        };
-    </script>
 </body>
 </html>

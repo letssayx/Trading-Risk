@@ -35,6 +35,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.dataTransfer.effectAllowed = 'copy';
             });
         });
+
+        // Setup Drop Zone on Workbook
+        const wbPanel = document.getElementById('workbook-panel');
+        if(wbPanel) {
+            wbPanel.addEventListener('dragover', (e) => e.preventDefault());
+            wbPanel.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const type = e.dataTransfer.getData('type');
+                const name = e.dataTransfer.getData('name');
+
+                if (type === 'Strategies') {
+                    // Switch to relevant workbook and open add tab
+                    if (name === 'Turtle') {
+                        window.wbManager.switchWorkbook('TURTLE');
+                        window.wbManager.addTab();
+                    } else if (name === 'StatArb') {
+                        window.wbManager.switchWorkbook('STATARB');
+                        window.wbManager.addTab();
+                    }
+                }
+            });
+        }
     }
 
     renderToolbox();
