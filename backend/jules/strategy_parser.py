@@ -63,7 +63,8 @@ class StrategyParser:
         # Filters
         filters = config.get("filters", [])
         if filters:
-            imports.append("from backend.strategies.toolbox.filters import ZScoreFilter, ATRFilter, RSIFilter") # Mock path
+            imports.append("from backend.strategies.filters.zscore import ZScoreFilter")
+            imports.append("# ATRFilter, RSIFilter would be imported from their respective modules")
             setup.append(",\n    filters=[")
             for f in filters:
                 if f["type"] == "zscore":

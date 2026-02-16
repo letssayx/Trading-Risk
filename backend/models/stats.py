@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 from backend.domain.toolbox.base import BaseSovereignTool
 
 # StatArbAlphaEngine moved to backend.strategies.stat_arb.alpha_engine
-# ZScoreFilter moved to backend.strategies.toolbox.filters
+# ZScoreFilter moved to backend.strategies.filters.zscore
 
 class CointegrationAuditor(BaseSovereignTool):
     """

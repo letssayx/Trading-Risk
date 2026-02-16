@@ -61,7 +61,7 @@ class ToolboxRegistry:
         except Exception as e: print(f"[REGISTRY] Error loading Strategy Components: {e}")
 
         try:
-            from backend.strategies.toolbox.filters import ZScoreFilter
+            from backend.strategies.filters.zscore import ZScoreFilter
             cls.register(ZScoreFilter)
         except Exception as e: print(f"[REGISTRY] Error loading Filters: {e}")
 
