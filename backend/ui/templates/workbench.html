@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Turtle Terminal</title>
+    <title>Turtle Terminal - Trader Workbench</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <link rel="stylesheet" href="/static/css/trade_book.css">
+    <!-- <link rel="stylesheet" href="/static/css/trade_book.css"> (Removed) -->
     <style>
         :root {
             --bg-color: #1A1B20;
@@ -12,6 +12,7 @@
             --border-color: #3A3B45;
             --accent-color: #00bcd4;
             --text-primary: #E0E2E8;
+            --splitter-width: 4px;
         }
 
         body {
@@ -34,6 +35,7 @@
             align-items: center;
             padding: 0 10px;
             font-size: 0.8em;
+            flex-shrink: 0;
         }
         .menu-item { margin-right: 15px; cursor: pointer; color: #888; }
         .menu-item:hover { color: #fff; }
@@ -42,59 +44,125 @@
         #workspace-row {
             flex: 1;
             display: flex;
-            min-height: 0; /* Important for scroll */
+            min-height: 0;
         }
 
-        /* 1. RISK PANEL (Left) */
-        .risk-panel {
-            width: 250px;
-            background: var(--panel-bg);
+        /* --- LEFT GROUP (Toolbox + Edge) --- */
+        #left-group {
+            display: flex;
+            width: 300px; /* Initial Width */
+            min-width: 50px;
             border-right: 1px solid var(--border-color);
-            padding: 16px;
+        }
+
+        /* Toolbox Panel */
+        #toolbox-panel {
+            width: 0px; /* Default collapsed */
+            background: #151518;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: width 0.2s ease; /* Smooth toggle */
+        }
+        .toolbox-header {
+            padding: 8px; background: #222; font-weight: bold; font-size: 0.8em;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .toolbox-content { flex: 1; overflow-y: auto; padding: 10px; }
+        .toolbox-item {
+            padding: 6px; margin-bottom: 4px; background: #2A2B33; cursor: grab; font-size: 0.85em; border-radius: 3px;
+        }
+        .toolbox-item:active { cursor: grabbing; }
+
+        /* Trading Edge Panel */
+        #edge-panel {
+            flex: 1; /* Takes remaining space in left group */
+            background: var(--panel-bg);
             display: flex;
             flex-direction: column;
             overflow-y: auto;
+            min-width: 150px;
         }
-        .risk-header {
-            font-size: 0.9em; font-weight: bold; color: #888; margin-bottom: 15px; text-transform: uppercase;
+        .edge-header {
+            padding: 8px; background: #25262D; border-bottom: 1px solid var(--border-color);
+            font-weight: bold; font-size: 0.8em; display: flex; align-items: center;
         }
-        .risk-metric {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #2A2B33;
-            font-size: 0.9em;
+        #toolbox-toggle-btn {
+            background: transparent; border: none; color: #aaa; cursor: pointer; margin-right: 5px; font-weight: bold;
         }
-        .risk-label { color: #aaa; }
-        .risk-val { font-weight: bold; }
-        .risk-val.pos { color: #4caf50; }
-        .risk-val.neg { color: #f44336; }
+        #toolbox-toggle-btn:hover { color: #fff; }
 
-        /* 2. WORKBENCH (Center) */
-        .workbench-center {
+        .edge-metric {
+            padding: 10px; border-bottom: 1px solid #2A2B33; font-size: 0.85em;
+        }
+        .edge-label { color: #888; display: block; margin-bottom: 4px; }
+        .edge-val { font-size: 1.1em; font-weight: bold; }
+
+        /* Splitter (Left vs Center) */
+        .splitter-vertical {
+            width: var(--splitter-width);
+            background: #111;
+            cursor: col-resize;
+            flex-shrink: 0;
+        }
+        .splitter-vertical:hover { background: var(--accent-color); }
+
+        /* --- CENTER GROUP (Chart + Workbook) --- */
+        #center-group {
             flex: 1;
-            background: #1A1B20;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        #chart-panel {
+            flex: 1; /* Initial equal height logic handled by JS or flex */
+            height: 50%;
             position: relative;
+            background: #1A1B20;
+        }
+
+        .splitter-horizontal {
+            height: var(--splitter-width);
+            background: #111;
+            cursor: row-resize;
+            flex-shrink: 0;
+        }
+        .splitter-horizontal:hover { background: var(--accent-color); }
+
+        #workbook-panel {
+            height: 50%;
+            background: var(--panel-bg);
             display: flex;
             flex-direction: column;
         }
-        .graph-paper {
-            flex: 1;
-            width: 100%;
-            background-image:
-                linear-gradient(to right, #2A2B33 1px, transparent 1px),
-                linear-gradient(to bottom, #2A2B33 1px, transparent 1px);
-            background-size: 20px 20px;
-            position: relative;
+
+        /* Workbook Tabs */
+        .workbook-tabs {
+            display: flex; background: #25262D; border-bottom: 1px solid var(--border-color);
+        }
+        .wb-tab {
+            padding: 6px 12px; font-size: 0.8em; cursor: pointer; color: #aaa; border-right: 1px solid #333;
+        }
+        .wb-tab.active { background: var(--panel-bg); color: #fff; }
+        .wb-tab-add { padding: 6px 10px; cursor: pointer; font-weight: bold; }
+
+        .workbook-toolbar {
+            padding: 4px; background: #1E1F25; border-bottom: 1px solid #333; display: flex; justify-content: flex-end;
+        }
+        .wb-btn {
+            background: #2A2B33; border: 1px solid #444; color: #ccc; font-size: 0.75em; padding: 2px 8px; cursor: pointer;
         }
 
-        /* 3. RIGHT PANEL (Python/Jules) */
-        .right-panel {
+        /* --- RIGHT GROUP (Fixed) --- */
+        #right-group {
             width: 300px;
             background: var(--panel-bg);
             border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
+            flex-shrink: 0;
         }
         .right-header {
             padding: 10px; border-bottom: 1px solid var(--border-color);
@@ -104,44 +172,8 @@
             flex: 1; background: #111; color: #0f0; font-family: monospace; padding: 10px; overflow-y: auto; font-size: 0.85em;
         }
         .chat-area {
-            height: 200px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column;
+            height: 250px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column;
         }
-
-        /* 4. STRATEGY RIBBON */
-        .strategy-ribbon {
-            display: flex;
-            gap: 8px;
-            padding: 8px 16px;
-            background: #25262D;
-            border-top: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
-            align-items: center;
-        }
-        .ribbon-btn {
-            background: #333; border: 1px solid #444; color: #ccc;
-            padding: 4px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer;
-        }
-        .ribbon-btn:hover { background: #444; color: #fff; }
-
-        /* 5. TRADE BOOK */
-        .trade-book {
-            height: 250px;
-            background: var(--panel-bg);
-            resize: vertical;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            min-height: 100px;
-        }
-        .trade-header-bar {
-            padding: 8px 12px; background: #25262D; border-bottom: 1px solid var(--border-color);
-            font-size: 0.85em; font-weight: bold; display: flex; justify-content: space-between;
-        }
-
-        /* Table Styles from previous integration */
-        .trade-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-        .trade-table th { background: #252525; padding: 6px 10px; text-align: left; position: sticky; top: 0; }
-        .trade-table td { padding: 6px 10px; border-bottom: 1px solid #333; }
 
     </style>
 </head>
@@ -151,153 +183,131 @@
     <div id="menu-bar">
         <div style="font-weight:bold; color:#fff; margin-right:20px;">🐢 TURTLE TERMINAL</div>
         <div class="menu-item">File</div>
-        <div class="menu-item">Edit</div>
         <div class="menu-item">View</div>
         <div class="menu-item">Help</div>
     </div>
 
-    <!-- Main Workspace -->
+    <!-- Workspace -->
     <div id="workspace-row">
 
-        <!-- RISK PANEL -->
-        <div class="risk-panel">
-            <div class="risk-header">Risk Panel (Critical)</div>
+        <!-- LEFT GROUP -->
+        <div id="left-group">
+            <!-- Panel A: Toolbox (Hidden by default) -->
+            <div id="toolbox-panel">
+                <div class="toolbox-header">
+                    <span>TOOLBOX</span>
+                    <span style="cursor:pointer;" onclick="toggleToolbox()">✕</span>
+                </div>
+                <div class="toolbox-content" id="toolbox-content">
+                    <!-- Populated by toolbox.js -->
+                </div>
+            </div>
 
-            <div class="risk-metric">
-                <span class="risk-label">VaR 95%</span>
-                <span class="risk-val neg">$12,450</span>
-            </div>
-            <div class="risk-metric">
-                <span class="risk-label">Exp. Shortfall</span>
-                <span class="risk-val neg">$18,200</span>
-            </div>
-            <div class="risk-metric">
-                <span class="risk-label">Delta</span>
-                <span class="risk-val pos">+245K</span>
-            </div>
-            <div class="risk-metric">
-                <span class="risk-label">Gamma</span>
-                <span class="risk-val neg">-1.2K</span>
-            </div>
-            <div class="risk-metric">
-                <span class="risk-label">Vega</span>
-                <span class="risk-val pos">450</span>
-            </div>
-            <div class="risk-metric" style="margin-top:20px; border-top:1px solid #444; padding-top:10px;">
-                <span class="risk-label">Stress Loss</span>
-                <span class="risk-val neg">-8.2%</span>
+            <!-- Splitter (internal to left group, optional if we want resize between toolbox/edge) -->
+            <!-- For MVP, let's keep toolbox fixed width when open or just toggle.
+                 Prompt says "width adjustable relative to toolbox (via splitter)".
+                 Adding internal splitter. -->
+            <div class="splitter-vertical" id="split-left-internal" style="display:none;"></div>
+
+            <!-- Panel B: Trading Edge -->
+            <div id="edge-panel">
+                <div class="edge-header">
+                    <button id="toolbox-toggle-btn" onclick="toggleToolbox()">»</button>
+                    <span>TRADING EDGE</span>
+                </div>
+                <div id="edge-content">
+                    <div class="edge-metric"><span class="edge-label">Sentiment</span><span class="edge-val" id="val-sentiment">--</span></div>
+                    <div class="edge-metric"><span class="edge-label">Regime</span><span class="edge-val" id="val-regime">--</span></div>
+                    <div class="edge-metric"><span class="edge-label">Index PE</span><span class="edge-val" id="val-pe">--</span></div>
+                    <div class="edge-metric"><span class="edge-label">ATM Straddle</span><span class="edge-val" id="val-straddle">--</span></div>
+                    <div class="edge-metric"><span class="edge-label">ATM IV</span><span class="edge-val" id="val-iv">--</span></div>
+                </div>
             </div>
         </div>
 
-        <!-- CENTER WORKBENCH -->
-        <div class="workbench-center">
-            <div style="display:flex; justify-content:flex-end; padding:5px; position:absolute; top:0; right:0; z-index:10;">
-                <button class="ribbon-btn" onclick="document.getElementById('chartContainer').style.display='block';document.getElementById('composer-canvas').style.display='none'">Chart</button>
-                <button class="ribbon-btn" onclick="document.getElementById('chartContainer').style.display='none';document.getElementById('composer-canvas').style.display='block'">Strategy Map</button>
+        <!-- Main Splitter -->
+        <div class="splitter-vertical" id="split-main"></div>
+
+        <!-- CENTER GROUP -->
+        <div id="center-group">
+            <!-- Chart Workbench -->
+            <div id="chart-panel">
+                <div id="chartContainer" style="width:100%; height:100%;"></div>
             </div>
-            <div class="graph-paper" id="chartContainer"></div>
-            <div class="graph-paper" id="composer-canvas" style="display:none; background-color:#222;">
-                <svg id="connections-layer" style="width:100%; height:100%;"></svg>
+
+            <!-- Splitter -->
+            <div class="splitter-horizontal" id="split-center"></div>
+
+            <!-- Excel Workbook -->
+            <div id="workbook-panel">
+                <div class="workbook-tabs">
+                    <div class="wb-tab active">Run 1</div>
+                    <div class="wb-tab">Run 2</div>
+                    <div class="wb-tab-add">+</div>
+                </div>
+                <div class="workbook-toolbar">
+                    <button class="wb-btn" onclick="wbShowOnChart()">Show on Chart</button>
+                    <button class="wb-btn" style="margin-left:5px;">Export CSV</button>
+                </div>
+                <div id="workbook-grid" style="flex:1; overflow:hidden;">
+                    <!-- Grid rendered by workbook.js -->
+                </div>
             </div>
         </div>
 
-        <!-- RIGHT PANEL -->
-        <div class="right-panel">
+        <!-- Right Group (Fixed) -->
+        <div id="right-group">
             <div class="right-header">PYTHON CONSOLE</div>
             <div class="console-area">
-                >>> import pandas as pd<br>
-                >>> df = pd.read_csv('market.csv')<br>
-                >>> # Calculating Alpha...<br>
+                >>> System Ready.<br>
+                >>> Edge Feed Connected.<br>
                 >>> _
             </div>
             <div class="right-header" style="border-top:1px solid #333;">JULES CHAT</div>
-            <div class="chat-area" style="flex:1; background:#202020; padding:10px; overflow-y:auto;" id="chat-history">
-                <div style="background:#333; padding:8px; border-radius:4px; font-size:0.9em; margin-bottom:10px;">
-                    <strong>Jules:</strong> Vol spike detected in Bank Nifty.
-                </div>
+            <div class="chat-area" id="chat-history" style="flex:1; background:#202020; padding:10px; overflow-y:auto;">
+                <!-- Chat messages -->
             </div>
             <div style="padding:10px; background:#25262D;">
-                <input type="text" placeholder="Ask Jules..." style="width:100%; background:#111; border:1px solid #444; color:#fff; padding:6px; box-sizing: border-box;" id="chat-input" onkeypress="if(event.key==='Enter') sendChat()">
+                <input type="text" placeholder="Ask Jules..." style="width:100%; background:#111; border:1px solid #444; color:#fff; padding:6px; box-sizing: border-box;" id="chat-input">
             </div>
         </div>
 
     </div>
 
-    <!-- STRATEGY RIBBON -->
-    <div class="strategy-ribbon">
-        <span style="font-weight:bold; font-size:0.8em; color:#888; margin-right:10px;">STRATEGY RIBBON:</span>
-        <button class="ribbon-btn">Turtle</button>
-        <button class="ribbon-btn">StatArb</button>
-        <button class="ribbon-btn">VolArb</button>
-        <button class="ribbon-btn">Sentiment</button>
-        <button class="ribbon-btn" style="margin-left:auto;">+ Custom</button>
-    </div>
-
-    <!-- TRADE BOOK -->
-    <div class="trade-book" id="tradeBookContainer">
-        <div class="trade-header-bar">
-            <span>📊 TRADE BOOK (Today)</span>
-            <button class="ribbon-btn" style="padding:2px 8px;" onclick="exportTrades()">EXPORT</button>
-        </div>
-        <div style="flex:1; overflow:auto;">
-            <table class="trade-table" id="tradeBookTable">
-                <thead>
-                    <tr>
-                        <th>ID</th><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>PnL</th><th>Strategy</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Populated by JS -->
-                </tbody>
-            </table>
-        </div>
-        <div style="padding:5px 10px; font-size:0.8em; color:#888; border-top:1px solid #333;">
-            24 ACTIVE POSITIONS
-        </div>
-    </div>
-
-    <script src="/static/js/trade_book.js"></script>
-    <script src="/static/js/strategy_composer.js"></script>
-    <script src="/static/js/workbench_manager.js"></script>
+    <!-- Scripts -->
+    <script src="/static/js/toolbox.js"></script>
+    <script src="/static/js/edge.js"></script>
+    <script src="/static/js/workbook.js"></script>
     <script src="/static/js/jules_chat.js"></script>
+    <script src="/static/js/layout.js"></script> <!-- New layout manager -->
+
     <script>
-        // Init Chart
-        window.onload = (function(oldLoad) {
-            return function() {
-                if(oldLoad) oldLoad();
-                const container = document.getElementById('chartContainer');
+        // Inline init for Chart (TradingView)
+        window.onload = function() {
+            const container = document.getElementById('chartContainer');
             if(window.LightweightCharts && container) {
-                const chart = LightweightCharts.createChart(container, {
+                window.chart = LightweightCharts.createChart(container, {
                     layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#ccc' },
                     grid: { vertLines: { visible: false }, horzLines: { visible: false } },
                     timeScale: { borderColor: '#444' },
                     rightPriceScale: { borderColor: '#444' },
                 });
-                const series = chart.addCandlestickSeries({
+                const series = window.chart.addCandlestickSeries({
                     upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
                 });
                 series.setData([
                     { time: '2023-01-01', open: 100, high: 105, low: 98, close: 103 },
                     { time: '2023-01-02', open: 103, high: 106, low: 101, close: 102 },
-                    { time: '2023-01-03', open: 102, high: 104, low: 99, close: 100 },
                 ]);
+
+                // Resize observer
                 new ResizeObserver(entries => {
                     if (entries.length === 0 || entries[0].target !== container) return;
                     const { width, height } = entries[0].contentRect;
-                    chart.applyOptions({ width, height });
+                    window.chart.applyOptions({ width, height });
                 }).observe(container);
             }
-
-            // Init Trade Book
-            if(window.TradeBook) {
-                window.tradeBook = new TradeBook('tradeBookContainer');
-            }
         };
-        })(window.onload);
-
-        // Chat logic handled by jules_chat.js
-
-        function exportTrades() { alert("Exporting trades..."); }
     </script>
 </body>
 </html>

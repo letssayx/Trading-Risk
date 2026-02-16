@@ -208,6 +208,21 @@ class WidgetRequest(BaseModel):
     )
 
 # ==========================================
+# MARKET EDGE SCHEMAS
+# ==========================================
+
+class MarketEdgeResponse(BaseModel):
+    """
+    Response schema for Trading Edge Panel data.
+    """
+    sentiment: str = Field(..., example="Bullish")
+    regime: str = Field(..., example="Trending")
+    index_pe: float = Field(..., example=22.5)
+    atm_straddle: float = Field(..., example=450.0)
+    atm_iv: float = Field(..., example=12.5)
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+# ==========================================
 # GENERIC RESPONSE SCHEMAS
 # ==========================================
 
