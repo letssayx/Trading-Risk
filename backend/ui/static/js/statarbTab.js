@@ -10,7 +10,7 @@ const StatArbTab = {
         this.container = container;
         container.innerHTML = `
             <div class="inner-tabs-bar">
-                <div class="inner-tab active" onclick="StatArbTab.openAddModal()">+ Add Pair</div>
+                <input type="text" id="statarb-add-input" class="inline-input" placeholder="+ Pair (Format S1,S2,Ratio or S1,S2) Enter" style="width:250px;">
             </div>
             <table class="strategy-table">
                 <thead>
@@ -26,19 +26,29 @@ const StatArbTab = {
                 </tbody>
             </table>
         `;
+
+        // Bind Input
+        const input = document.getElementById('statarb-add-input');
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const val = e.target.value.trim().toUpperCase();
+                if (val) {
+                    // Simple parser: S1,S2,Ratio
+                    const parts = val.split(',');
+                    if (parts.length >= 2) {
+                        const s1 = parts[0].trim();
+                        const s2 = parts[1].trim();
+                        const ratio = parts.length > 2 ? parseFloat(parts[2]) : 1.0;
+                        this.startStrategy(s1, s2, ratio);
+                        e.target.value = '';
+                    } else {
+                        alert("Format: Symbol1, Symbol2, Ratio (optional)");
+                    }
+                }
+            }
+        });
+
         this.renderRows();
-    },
-
-    openAddModal: function() {
-        // Needs 2 symbols. Simple prompt for MVP or create a custom modal.
-        // Let's use prompts for simplicity as creating a multi-step modal is complex in one shot.
-        const s1 = prompt("Enter Symbol 1 (Long Leg):", "NIFTY");
-        if (!s1) return;
-        const s2 = prompt("Enter Symbol 2 (Short Leg):", "BANKNIFTY");
-        if (!s2) return;
-        const ratio = prompt("Enter Ratio:", "1.0");
-
-        this.startStrategy(s1, s2, parseFloat(ratio) || 1.0);
     },
 
     startStrategy: async function(s1, s2, ratio) {

@@ -4,14 +4,22 @@ const ChartTabs = {
     nextId: 1,
 
     init: function() {
+        // Init Input
+        const input = document.getElementById('chart-add-input');
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const val = e.target.value.trim().toUpperCase();
+                    if (val) {
+                        this.addTab(val);
+                        e.target.value = '';
+                    }
+                }
+            });
+        }
+
         // Add a default tab
         this.addTab('NIFTY');
-    },
-
-    openSearchModal: function() {
-        SymbolSearch.open((symbol) => {
-            this.addTab(symbol);
-        });
     },
 
     addTab: async function(symbol, type='stock', params={}) {
@@ -25,9 +33,10 @@ const ChartTabs = {
         tabEl.innerHTML = `<span>${symbol}</span> <span class="chart-tab-close" onclick="ChartTabs.closeTab(${id}, event)">×</span>`;
         tabEl.onclick = () => this.switchTab(id);
 
-        // Insert before the "+" button
+        // Insert before the input container (last element)
         const tabsBar = document.getElementById('chart-tabs-bar');
-        tabsBar.insertBefore(tabEl, tabsBar.lastElementChild);
+        const inputContainer = document.querySelector('.inline-add-container');
+        tabsBar.insertBefore(tabEl, inputContainer);
 
         // 2. Create Chart Container
         const chartsContainer = document.getElementById('charts-container');

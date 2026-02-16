@@ -191,13 +191,25 @@ body {
 .chart-tab-close { font-size: 1.1em; opacity: 0.6; }
 .chart-tab-close:hover { opacity: 1; color: #f44336; }
 
-.add-chart-btn {
-    padding: 2px 8px;
-    font-size: 1.2em;
-    cursor: pointer;
-    color: #888;
+.inline-add-container {
+    padding: 2px 4px;
 }
-.add-chart-btn:hover { color: #fff; }
+.inline-input {
+    background: #000;
+    border: 1px solid #444;
+    color: #ccc;
+    font-size: 0.85em;
+    padding: 3px 6px;
+    width: 80px;
+    border-radius: 3px;
+    transition: width 0.2s;
+}
+.inline-input:focus {
+    width: 120px;
+    border-color: var(--accent-color);
+    outline: none;
+    color: #fff;
+}
 
 .charts-container {
     flex: 1;
@@ -245,6 +257,7 @@ body {
 /* Inner Tabs for Symbols */
 .inner-tabs-bar {
     display: flex;
+    align-items: center;
     gap: 5px;
     margin-bottom: 10px;
     border-bottom: 1px solid #333;
@@ -295,40 +308,4 @@ body {
 }
 .resizer-h:hover { background: var(--accent-color); opacity: 0.3; }
 
-
-/* --- Modal --- */
-.modal {
-    display: none;
-    position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
-    background-color: rgba(0,0,0,0.6);
-    align-items: center; justify-content: center;
-}
-.modal-content {
-    background-color: #2d2d2d;
-    padding: 20px;
-    border: 1px solid #444;
-    width: 400px;
-    border-radius: 6px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-}
-.modal-input {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    color: #fff;
-    font-size: 1em;
-}
-.search-results {
-    max-height: 200px;
-    overflow-y: auto;
-    background: #1a1a1a;
-    border: 1px solid #333;
-}
-.search-item {
-    padding: 8px;
-    cursor: pointer;
-    border-bottom: 1px solid #222;
-}
-.search-item:hover { background: #00bcd4; color: #000; }
+/* No more Modal styles needed */

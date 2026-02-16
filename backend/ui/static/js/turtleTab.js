@@ -11,7 +11,7 @@ const TurtleTab = {
         this.container = container;
         container.innerHTML = `
             <div class="inner-tabs-bar">
-                <div class="inner-tab active" onclick="TurtleTab.openAddModal()">+ Add Symbol</div>
+                <input type="text" id="turtle-add-input" class="inline-input" placeholder="+ Symbol (Enter)">
             </div>
             <table class="strategy-table">
                 <thead>
@@ -29,13 +29,20 @@ const TurtleTab = {
                 </tbody>
             </table>
         `;
-        this.renderRows();
-    },
 
-    openAddModal: function() {
-        SymbolSearch.open((symbol) => {
-            this.startStrategy(symbol);
+        // Bind Input
+        const input = document.getElementById('turtle-add-input');
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const val = e.target.value.trim().toUpperCase();
+                if (val) {
+                    this.startStrategy(val);
+                    e.target.value = '';
+                }
+            }
         });
+
+        this.renderRows();
     },
 
     startStrategy: async function(symbol) {

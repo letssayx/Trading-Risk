@@ -5,7 +5,6 @@
     <title>Turtle Terminal - Trader Workbench</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="stylesheet" href="/static/css/workbench.css">
-    <!-- Font Awesome for Icons (Optional, using emoji for now to keep it dependency free or simple) -->
 </head>
 <body>
 
@@ -62,7 +61,9 @@
             <div id="chart-workbench">
                 <div class="chart-tabs-bar" id="chart-tabs-bar">
                     <!-- Tabs go here -->
-                    <div class="add-chart-btn" onclick="ChartTabs.openSearchModal()">+</div>
+                    <div class="inline-add-container">
+                        <input type="text" id="chart-add-input" class="inline-input" placeholder="+ Symbol">
+                    </div>
                 </div>
                 <div class="charts-container" id="charts-container">
                     <!-- Chart instances go here -->
@@ -75,7 +76,6 @@
                 <div class="wb-tabs-header">
                     <div class="wb-tab active" data-type="turtle">Turtle Legacy</div>
                     <div class="wb-tab" data-type="statarb">Stat Arb</div>
-                    <div class="wb-tab" onclick="alert('Coming soon')">+</div>
                 </div>
 
                 <div class="wb-content" id="wb-content-area">
@@ -87,21 +87,9 @@
 
     </div>
 
-    <!-- Modals -->
-    <div id="symbol-search-modal" class="modal">
-        <div class="modal-content">
-            <h3 style="margin-top:0;">Search Symbol</h3>
-            <input type="text" id="symbol-search-input" class="modal-input" placeholder="Type symbol (e.g. NIFTY)..." autofocus>
-            <div id="search-results" class="search-results"></div>
-            <div style="margin-top:10px; text-align:right;">
-                <button onclick="SymbolSearch.close()" style="background:#444; color:#fff; border:none; padding:6px 12px; cursor:pointer;">Cancel</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Scripts -->
     <script src="/static/js/layout.js"></script>
-    <script src="/static/js/symbolSearch.js"></script>
+    <!-- Removed symbolSearch.js -->
     <script src="/static/js/chartTabs.js"></script>
     <script src="/static/js/turtleTab.js"></script>
     <script src="/static/js/statarbTab.js"></script>
