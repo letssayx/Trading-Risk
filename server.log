@@ -1,22 +1,22 @@
 /home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pydantic/_internal/_config.py:383: UserWarning: Valid config keys have changed in V2:
 * 'orm_mode' has been renamed to 'from_attributes'
   warnings.warn(message, UserWarning)
-INFO:     Started server process [7353]
+INFO:     Started server process [13554]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:39166 - "GET /workbench HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39166 - "GET /static/css/workbench.css HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39172 - "GET /static/js/layout.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39182 - "GET /static/js/chartTabs.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39196 - "GET /static/js/turtleTab.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39210 - "GET /static/js/statarbTab.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39218 - "GET /static/js/workbookManager.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39166 - "GET /static/js/toolbox.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39196 - "GET /static/js/edge.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39196 - "GET /api/edge HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39222 - "WebSocket /ws/live" [accepted]
+INFO:     127.0.0.1:52066 - "GET /workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52066 - "GET /static/css/workbench.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52082 - "GET /static/css/modal.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52096 - "GET /static/js/layout.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52104 - "GET /static/js/chartTabs.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52114 - "GET /static/js/turtleTab.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52066 - "GET /static/js/workbookManager.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52122 - "GET /static/js/statarbTab.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52082 - "GET /static/js/toolbox.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52096 - "GET /static/js/edge.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52104 - "GET /static/js/uploadModal.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52096 - "GET /api/edge HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52124 - "WebSocket /ws/live" [accepted]
 INFO:     connection open
-INFO:     127.0.0.1:39196 - "POST /api/strategies/turtle/start HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39196 - "GET /api/strategies/turtle/state/a53b4932-3afc-4dd7-af01-06d4b2664e58 HTTP/1.1" 200 OK
 INFO:     connection closed

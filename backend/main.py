@@ -14,6 +14,14 @@ from backend.web.widgets import routes as widget_routes
 from backend.web.data import routes as data_routes
 from backend.web.live import routes as live_routes
 from backend.web.strategies import adapters_routes
+from backend.web.api.data import upload_routes # New
+
+# Import DB and Models for Initialization
+from backend.infrastructure.db import engine, Base
+from backend.domain.market.models import Bhavcopy
+
+# Create tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
 
@@ -36,6 +44,7 @@ app.include_router(widget_routes.router)
 app.include_router(data_routes.router)
 app.include_router(live_routes.router)
 app.include_router(adapters_routes.router)
+app.include_router(upload_routes.router) # Register Upload Router
 
 @app.on_event("startup")
 async def startup_event():

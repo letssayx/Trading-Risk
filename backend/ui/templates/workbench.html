@@ -5,10 +5,18 @@
     <title>Turtle Terminal - Trader Workbench</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="stylesheet" href="/static/css/workbench.css">
+    <link rel="stylesheet" href="/static/css/modal.css">
 </head>
 <body>
 
-    <div id="app-container">
+    <!-- Top Bar -->
+    <div style="height:30px; background:#111; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #333; font-size:0.85em; color:#ccc;">
+        <div style="font-weight:bold; margin-right:20px;">TURTLE TERMINAL</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()">Import Data</div>
+        <div style="cursor:pointer; margin-right:15px;">Tools</div>
+    </div>
+
+    <div id="app-container" style="height:calc(100vh - 30px);">
 
         <!-- 1. Far Left Toolbox -->
         <div id="toolbox">
@@ -87,15 +95,32 @@
 
     </div>
 
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0;">Import Bhavcopy</h3>
+                <span class="close-modal" onclick="uploader.close()">×</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:20px;">
+                    <input type="file" id="bhavcopy-file-input" accept=".zip">
+                    <div style="font-size:0.8em; color:#888; margin-top:5px;">Upload NSE UDIFF ZIP (e.g., BhavCopy_NSE_CM_... .csv.zip)</div>
+                </div>
+                <div id="upload-preview-area"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="/static/js/layout.js"></script>
-    <!-- Removed symbolSearch.js -->
     <script src="/static/js/chartTabs.js"></script>
     <script src="/static/js/turtleTab.js"></script>
     <script src="/static/js/statarbTab.js"></script>
     <script src="/static/js/workbookManager.js"></script>
     <script src="/static/js/toolbox.js"></script>
     <script src="/static/js/edge.js"></script>
+    <script src="/static/js/uploadModal.js"></script>
 
     <script>
         // Init
