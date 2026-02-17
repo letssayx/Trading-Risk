@@ -2,11 +2,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 import os
+from dotenv import load_dotenv
 
-DATABASE_URL = "sqlite:///./turtle_terminal.db"
+load_dotenv()
+
+# Get database URL from environment variable
+# Default to sqlite if not set (for local dev without env), but prefer env var
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./turtle_terminal.db")
+
+# Handle arguments based on DB type
+connect_args = {}
+if "sqlite" in DATABASE_URL:
+    connect_args = {"check_same_thread": False}
 
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL, connect_args=connect_args
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

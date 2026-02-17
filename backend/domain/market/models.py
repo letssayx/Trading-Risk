@@ -46,8 +46,8 @@ class Bhavcopy(Base):
     change_in_oi = Column(Integer)   # ChngInOpnIntrst
 
     # Metadata
-    created_at = Column(Date, nullable=False, default=datetime.now().date)
-    updated_at = Column(Date, default=datetime.now().date)
+    created_at = Column(Date, nullable=False, default=datetime.now)
+    updated_at = Column(Date, default=datetime.now, onupdate=datetime.now)
 
     # Ensure uniqueness: symbol + date + segment + (expiry for FO) + series (for CM)
     # Adding series to unique constraint to handle CM properly

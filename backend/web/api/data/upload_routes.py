@@ -6,7 +6,7 @@ import zipfile
 import tempfile
 import pandas as pd
 import hashlib
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
 from sqlalchemy.orm import Session
@@ -46,12 +46,14 @@ def calculate_file_checksum(file_path: str) -> str:
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-def parse_udiff_date(date_str) -> Optional[datetime.date]:
+def parse_udiff_date(date_str) -> Optional[date]:
     """Parse UDIFF date format (DD-MMM-YYYY)"""
     if pd.isna(date_str):
         return None
     if isinstance(date_str, datetime):
         return date_str.date()
+    if isinstance(date_str, date):
+        return date_str
     try:
         return datetime.strptime(str(date_str).strip(), "%d-%b-%Y").date()
     except:
@@ -94,7 +96,7 @@ def get_existing_dates(db: Session, segments: List[str]) -> List[datetime.date]:
     ).distinct().all()
     return [r[0] for r in result]
 
-def check_existing_import(db: Session, file_name: str, file_date: datetime.date) -> Optional[ImportHistory]:
+def check_existing_import(db: Session, file_name: str, file_date: date) -> Optional[ImportHistory]:
     """Check if this file has been imported before"""
     return db.query(ImportHistory).filter(
         ImportHistory.file_name == file_name,
