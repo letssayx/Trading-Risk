@@ -56,25 +56,50 @@ async def websocket_endpoint(websocket: WebSocket):
         pass
 
 # Background task to simulate market data
+# Global state for simulation prices to persist across loops
+sim_prices: Dict[str, float] = {}
+
 async def simulate_market_data():
-    symbols = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "INFY", "HDFC", "SBIN"]
-    prices = {s: 1000.0 + random.random() * 1000 for s in symbols}
+    from backend.infrastructure.db import SessionLocal
+    from backend.domain.market.models import Bhavcopy
 
     while True:
-        for symbol in symbols:
-            # Random walk
-            change = (random.random() - 0.5) * 2 # -1 to +1
-            prices[symbol] += change
+        # Get all active symbols from connection manager
+        active_symbols = set(manager.active_connections.keys())
+        # Always include default majors
+        default_symbols = {"NIFTY", "BANKNIFTY"}
+        target_symbols = active_symbols.union(default_symbols)
+
+        # Initialize prices for new symbols from DB
+        new_symbols = target_symbols - set(sim_prices.keys())
+        if new_symbols:
+            db = SessionLocal()
+            try:
+                for sym in new_symbols:
+                    # Get last close
+                    last_row = db.query(Bhavcopy).filter(Bhavcopy.symbol == sym).order_by(Bhavcopy.trade_date.desc()).first()
+                    if last_row:
+                        sim_prices[sym] = last_row.close
+                    else:
+                        # Fallback if not in DB
+                        sim_prices[sym] = 1000.0
+            finally:
+                db.close()
+
+        for symbol in target_symbols:
+            if symbol not in sim_prices: continue
+
+            # Random walk (small drift)
+            change = (random.random() - 0.5) * (sim_prices[symbol] * 0.001) # 0.1% max move
+            sim_prices[symbol] += change
 
             tick = {
                 "symbol": symbol,
-                "price": round(prices[symbol], 2),
+                "price": round(sim_prices[symbol], 2),
                 "volume": random.randint(100, 5000),
                 "oi": random.randint(10000, 50000),
                 "timestamp": datetime.now().isoformat()
             }
-            # We need to broadcast this.
-            # Since manager.broadcast is async, we can await it.
             await manager.broadcast(tick)
 
         await asyncio.sleep(1) # 1 second update interval

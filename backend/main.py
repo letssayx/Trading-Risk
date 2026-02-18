@@ -16,6 +16,7 @@ from backend.web.live import routes as live_routes
 from backend.web.strategies import adapters_routes
 from backend.web.api.data import upload_routes, view_routes
 from backend.web.api import config_routes
+from backend.web.api.jules import routes as jules_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
@@ -45,6 +46,7 @@ app.include_router(adapters_routes.router)
 app.include_router(upload_routes.router)
 app.include_router(config_routes.router)
 app.include_router(view_routes.router)
+app.include_router(jules_routes.router)
 
 @app.on_event("startup")
 async def startup_event():

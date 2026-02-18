@@ -1,4 +1,4 @@
-const ChartTabs = {
+window.ChartTabs = {
     tabs: [], // { id, symbol, container, chart, series, type, lastCandle }
     activeTabId: null,
     nextId: 1,
@@ -75,7 +75,13 @@ const ChartTabs = {
                 data = await res.json();
             } else {
                 const res = await fetch(`/api/historical/${symbol}`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 data = await res.json();
+            }
+
+            if (!Array.isArray(data)) {
+                 console.error("Chart data is not an array:", data);
+                 return;
             }
 
             // Format data for lightweight-charts
@@ -88,6 +94,12 @@ const ChartTabs = {
 
         } catch (e) {
             console.error("Failed to load chart data", e);
+            // Show error in chart container
+            const errDiv = document.createElement('div');
+            errDiv.style.color = 'red';
+            errDiv.style.padding = '20px';
+            errDiv.innerText = "Error loading data: " + e.message;
+            chartDiv.appendChild(errDiv);
         }
 
         // Store state

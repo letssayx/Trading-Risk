@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Optional
 from backend.strategies.adapters.turtle_adapter import TurtleAdapter
 from backend.strategies.adapters.statarb_adapter import StatArbAdapter
-from backend.web.data.routes import generate_ohlc, get_spread_historical
+from backend.web.data.routes import generate_ohlc, fetch_historical_data, get_spread_historical
+from backend.infrastructure.db import get_db
 
 router = APIRouter(prefix="/api/strategies", tags=["Strategy Adapters"])
 
@@ -25,11 +27,14 @@ class StatArbStartRequest(BaseModel):
 # --- Endpoints ---
 
 @router.post("/turtle/start")
-async def start_turtle(req: TurtleStartRequest):
+async def start_turtle(req: TurtleStartRequest, db: Session = Depends(get_db)):
     adapter = TurtleAdapter(req.symbol, req.risk_per_trade)
 
-    # Fetch mock historical data to initialize
-    history = generate_ohlc(req.symbol, days=100)
+    # Fetch historical data to initialize (Try DB first, else mock)
+    history = fetch_historical_data(req.symbol, 100, db)
+    if not history:
+        history = generate_ohlc(req.symbol, days=100)
+
     adapter.start(history)
 
     turtle_instances[adapter.id] = adapter
@@ -41,20 +46,37 @@ async def get_turtle_state(instance_id: str):
     if not adapter:
         raise HTTPException(status_code=404, detail="Instance not found")
 
-    # Simulate a tick update on poll (since we don't have a real event loop pushing ticks here yet)
-    # In a real system, the websocket loop would push to the adapter.
-    # Here we just fetch a 'random walk' price based on last price to simulate live movement.
-    import random
-    current_price = adapter.last_price * (1 + (random.random() - 0.5) * 0.001)
-    adapter.update(current_price)
+    # Simulate a tick update on poll if active
+    if adapter.is_active:
+        import random
+        # Small drift simulation
+        current_price = adapter.last_price * (1 + (random.random() - 0.5) * 0.001)
+        adapter.update(current_price)
 
     return adapter.get_state()
 
-@router.post("/turtle/stop/{instance_id}")
-async def stop_turtle(instance_id: str):
+@router.post("/turtle/pause/{instance_id}")
+async def pause_turtle(instance_id: str):
+    adapter = turtle_instances.get(instance_id)
+    if adapter:
+        adapter.is_active = False
+        return {"status": "paused"}
+    raise HTTPException(status_code=404, detail="Instance not found")
+
+@router.post("/turtle/resume/{instance_id}")
+async def resume_turtle(instance_id: str):
+    adapter = turtle_instances.get(instance_id)
+    if adapter:
+        adapter.is_active = True
+        return {"status": "resumed"}
+    raise HTTPException(status_code=404, detail="Instance not found")
+
+@router.post("/turtle/remove/{instance_id}")
+async def remove_turtle(instance_id: str):
     if instance_id in turtle_instances:
         del turtle_instances[instance_id]
-    return {"status": "stopped"}
+        return {"status": "removed"}
+    raise HTTPException(status_code=404, detail="Instance not found")
 
 
 @router.post("/statarb/start")
