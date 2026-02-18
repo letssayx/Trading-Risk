@@ -1,7 +1,7 @@
 from typing import Dict, Any
 from backend.domain.toolbox.base import BaseSovereignTool
 from backend.analysis.greeks import interpret_iv_skew
-from backend.strategies.vol_arb import calculate_vol_spread
+from backend.strategies.vol_arb import VolArbitrageStrategy
 
 class VolatilitySurfaceTool(BaseSovereignTool):
     """
@@ -26,10 +26,10 @@ class VolatilitySurfaceTool(BaseSovereignTool):
         )
 
         # Term Structure
-        term_res = calculate_vol_spread(
-            data.get("iv_near", 0),
-            data.get("iv_far", 0)
-        )
+        term_res = VolArbitrageStrategy().calculate({
+            "iv_near": data.get("iv_near", 0),
+            "iv_far": data.get("iv_far", 0)
+        })
 
         return {
             "skew_analysis": skew_res,

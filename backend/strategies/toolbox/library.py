@@ -1,6 +1,6 @@
 from typing import Any, Dict
 from backend.strategies.turtle import TurtleLegacyStrategy
-from backend.strategies.vol_arb import calculate_vol_spread
+from backend.strategies.vol_arb import VolArbitrageStrategy
 from backend.domain.portfolio.manager import PortfolioManager # Mock dependency for instantiation
 
 class StrategyLibrary:
@@ -16,7 +16,7 @@ class StrategyLibrary:
 
     @staticmethod
     def run_vol_arb_check(iv_near: float, iv_far: float) -> Dict[str, Any]:
-        return calculate_vol_spread(iv_near, iv_far)
+        return VolArbitrageStrategy().calculate({"iv_near": iv_near, "iv_far": iv_far})
 
 # Expose instances? Usually classes or factories.
 # Toolbox logic suggests "Tools".

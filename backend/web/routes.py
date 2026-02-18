@@ -7,8 +7,8 @@ import numpy as np
 from backend.strategies.turtle import TurtleLegacyStrategy
 from backend.strategies.convergence import check_convergence
 from backend.strategies.risk import get_risk_dashboard_data
-from backend.strategies.macro_stat_arb import calculate_pca_factors
-from backend.strategies.vol_arb import calculate_vol_spread
+from backend.strategies.macro import MacroStatArbStrategy
+from backend.strategies.vol_arb import VolArbitrageStrategy
 
 # Analysis & Intelligence
 from backend.intelligence.sentiment_flow import analyze_sentiment_flow
@@ -16,7 +16,7 @@ from backend.analysis.beta import calculate_beta
 from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedge
 
 # Schemas (Refactored Location)
-from backend.api.schemas import (
+from backend.domain.web.schemas import (
     StrategyRequest, SentimentRequest, ConvergenceRequest,
     VolArbRequest, PCARequest
 )
@@ -37,14 +37,15 @@ def convergence_check(req: ConvergenceRequest):
 
 @router.post("/vol-arb/calendar")
 def vol_arb_check(req: VolArbRequest):
-    res = calculate_vol_spread(req.iv_near, req.iv_far)
+    strat = VolArbitrageStrategy()
+    res = strat.calculate({"iv_near": req.iv_near, "iv_far": req.iv_far})
     return res
 
 @router.post("/macro/pca")
 def run_pca(req: PCARequest):
-    # Convert list to DataFrame
-    df = pd.DataFrame(req.returns_matrix)
-    res = calculate_pca_factors(df)
+    strat = MacroStatArbStrategy()
+    # Pass raw list, strategy handles it or we ensure format
+    res = strat.calculate({"returns_matrix": req.returns_matrix})
     # Simplify for JSON (factors might be large)
     return {
         "eigenvalues": res["eigenvalues"],
