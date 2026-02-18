@@ -9,9 +9,31 @@ const Toolbox = {
                 e.dataTransfer.setData('text/plain', this.draggedType);
                 e.dataTransfer.effectAllowed = 'copy';
             });
+
+            // Add click handler for convenience
+            item.addEventListener('click', (e) => {
+                const type = e.target.dataset.type;
+                this.handleClick(type);
+            });
         });
 
         this.setupDropZones();
+    },
+
+    handleClick: function(type) {
+        // Show available tools or quick add
+        if (type === 'strategy') {
+             const strategyType = prompt("Quick Add Strategy (turtle/statarb):", "turtle");
+             if (strategyType) {
+                if (strategyType === 'turtle') {
+                    WorkbookManager.switchTab('turtle');
+                } else if (strategyType === 'statarb') {
+                    WorkbookManager.switchTab('statarb');
+                }
+             }
+        } else {
+             alert(`Drag ${type} to the chart or workbook to use it.`);
+        }
     },
 
     setupDropZones: function() {

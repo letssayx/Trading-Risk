@@ -107,7 +107,8 @@
     <div style="height:30px; background:#111; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #333; font-size:0.85em; color:#ccc;">
         <div style="font-weight:bold; margin-right:20px;">TURTLE TERMINAL</div>
         <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()">Import Data</div>
-        <div style="cursor:pointer; margin-right:15px;">Tools</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="openDataViewer()">Data Viewer</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="openConfigModal()">Config</div>
     </div>
 
     <div id="app-container" style="height:calc(100vh - 30px);">
@@ -189,6 +190,56 @@
 
     </div>
 
+    <!-- Config Modal -->
+    <div id="config-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Configuration</h2>
+                <span class="close" onclick="closeConfigModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="option-row">
+                    <label>Provider:</label>
+                    <select id="api-provider">
+                        <option value="google">Google Gemini</option>
+                        <option value="groq">Groq</option>
+                    </select>
+                </div>
+                <div class="option-row">
+                    <label>API Key:</label>
+                    <input type="password" id="api-key-input" style="width:100%; padding:5px; background:#333; border:1px solid #555; color:white;">
+                </div>
+                <div id="config-status" class="status-message"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfigModal()">Close</button>
+                <button class="btn btn-primary" onclick="saveApiKey()">Save Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Viewer Modal -->
+    <div id="data-viewer-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Market Data Viewer</h2>
+                <span class="close" onclick="closeDataViewer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <select id="view-segment">
+                        <option value="CM">Capital Market (CM)</option>
+                        <option value="FO">Futures & Options (FO)</option>
+                    </select>
+                    <input type="date" id="view-date">
+                    <input type="text" id="view-symbol" placeholder="Symbol (optional)">
+                    <button class="btn btn-secondary" onclick="fetchDataView()">Load Data</button>
+                </div>
+                <div id="data-view-results" style="max-height:400px; overflow:auto;"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bhavcopy Upload Modal -->
     <div id="bhavcopy-upload-modal" class="modal">
         <div class="modal-content modal-large">
@@ -248,8 +299,97 @@
     <script src="/static/js/toolbox.js"></script>
     <script src="/static/js/edge.js"></script>
     <script src="/static/js/uploadModal.js"></script>
+    <script src="/static/js/jules_chat.js"></script>
 
     <script>
+        // Config Modal Logic
+        function openConfigModal() {
+            document.getElementById('config-modal').style.display = 'flex';
+        }
+        function closeConfigModal() {
+            document.getElementById('config-modal').style.display = 'none';
+        }
+        async function saveApiKey() {
+            const provider = document.getElementById('api-provider').value;
+            const key = document.getElementById('api-key-input').value;
+            const status = document.getElementById('config-status');
+
+            try {
+                const res = await fetch('/api/config/update-key', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({provider, key})
+                });
+                const data = await res.json();
+                if(data.success) {
+                    status.innerHTML = "Key updated successfully!";
+                    status.className = "status-message success";
+                } else {
+                    status.innerHTML = "Error: " + data.detail;
+                    status.className = "status-message error";
+                }
+            } catch(e) {
+                status.innerHTML = "Error: " + e.message;
+                status.className = "status-message error";
+            }
+        }
+
+        // Data Viewer Logic
+        function openDataViewer() {
+            document.getElementById('data-viewer-modal').style.display = 'flex';
+            document.getElementById('view-date').valueAsDate = new Date();
+        }
+        function closeDataViewer() {
+            document.getElementById('data-viewer-modal').style.display = 'none';
+        }
+        async function fetchDataView() {
+            const segment = document.getElementById('view-segment').value;
+            const date = document.getElementById('view-date').value;
+            const symbol = document.getElementById('view-symbol').value;
+            const container = document.getElementById('data-view-results');
+
+            container.innerHTML = "Loading...";
+
+            try {
+                let url = `/api/data/view?segment=${segment}&date=${date}`;
+                if(symbol) url += `&symbol=${symbol}`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if(data.total === 0) {
+                    container.innerHTML = "<p class='no-data'>No data found for this date/segment.</p>";
+                    return;
+                }
+
+                let html = `<p>Found ${data.total} records (Showing first ${data.data.length})</p>`;
+                html += `<table class="preview-table" style="width:100%"><thead><tr>`;
+
+                if(segment === 'CM') {
+                    html += `<th>Symbol</th><th>Series</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th>`;
+                } else {
+                    html += `<th>Symbol</th><th>Type</th><th>Expiry</th><th>Strike</th><th>Opt</th><th>Close</th><th>OI</th>`;
+                }
+                html += `</tr></thead><tbody>`;
+
+                data.data.forEach(row => {
+                    html += `<tr>`;
+                    if(segment === 'CM') {
+                        html += `<td>${row.symbol}</td><td>${row.series}</td><td>${row.open}</td><td>${row.high}</td><td>${row.low}</td><td>${row.close}</td><td>${row.total_traded_qty}</td>`;
+                    } else {
+                        html += `<td>${row.symbol}</td><td>${row.instrument_type}</td><td>${row.expiry_date}</td><td>${row.strike_price}</td><td>${row.option_type}</td><td>${row.close}</td><td>${row.open_interest}</td>`;
+                    }
+                    html += `</tr>`;
+                });
+
+                html += `</tbody></table>`;
+                container.innerHTML = html;
+
+            } catch(e) {
+                container.innerHTML = "Error loading data: " + e.message;
+            }
+        }
+
         // Init
         window.onload = () => {
             Layout.init();

@@ -48,15 +48,29 @@ def calculate_file_checksum(file_path: str) -> str:
 
 def parse_udiff_date(date_str) -> Optional[date]:
     """Parse UDIFF date format (DD-MMM-YYYY)"""
+    # Check for string "null" (case-insensitive) or empty
     if pd.isna(date_str):
         return None
+
+    s = str(date_str).strip()
+    if not s or s.lower() == 'null':
+        return None
+
     if isinstance(date_str, datetime):
         return date_str.date()
     if isinstance(date_str, date):
         return date_str
+
     try:
-        return datetime.strptime(str(date_str).strip(), "%d-%b-%Y").date()
-    except:
+        # Standard UDIFF format
+        return datetime.strptime(s, "%d-%b-%Y").date()
+    except ValueError:
+        # Fallback formats just in case
+        try:
+            return datetime.strptime(s, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+    except Exception:
         return None
 
 def validate_headers(headers: List[str]) -> bool:
@@ -406,7 +420,7 @@ async def import_bhavcopy(
 @router.get("/api/data/upload/bhavcopy/check-date/{date}")
 async def check_date_exists(
     date: str,
-    segment: str = Query("CM", regex="^(CM|FO|BOTH)$"),
+    segment: str = Query("CM", pattern="^(CM|FO|BOTH)$"),
     db: Session = Depends(get_db)
 ):
     """
