@@ -6,6 +6,7 @@ import zipfile
 import tempfile
 import pandas as pd
 import hashlib
+import re
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
@@ -46,6 +47,27 @@ def calculate_file_checksum(file_path: str) -> str:
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+def parse_date_from_filename(filename: str) -> Optional[date]:
+    """Try to extract date from filename (e.g. sec_bhavdata_full_14022024.csv)"""
+    # Matches: DD-Mmm-YYYY, DD-MM-YYYY, YYYYMMDD, DDMMYYYY, DDMmmYYYY
+    patterns = [
+        (r'(\d{2})-([A-Za-z]{3})-(\d{4})', "%d-%b-%Y"), # DD-Mmm-YYYY
+        (r'(\d{2})-(\d{2})-(\d{4})', "%d-%m-%Y"), # DD-MM-YYYY
+        (r'(\d{4})(\d{2})(\d{2})', "%Y%m%d"), # YYYYMMDD
+        (r'(\d{2})(\d{2})(\d{4})', "%d%m%Y"), # DDMMYYYY
+        (r'(\d{2})([A-Za-z]{3})(\d{4})', "%d%b%Y"), # DDMmmYYYY (e.g., 14Feb2024)
+    ]
+
+    basename = os.path.basename(filename)
+    for pattern, fmt in patterns:
+        match = re.search(pattern, basename)
+        if match:
+            try:
+                return datetime.strptime(match.group(0), fmt).date()
+            except ValueError:
+                continue
+    return None
+
 def parse_udiff_date(date_str) -> Optional[date]:
     """Parse UDIFF date format (DD-MMM-YYYY)"""
     # Check for string "null" (case-insensitive) or empty
@@ -69,8 +91,10 @@ def parse_udiff_date(date_str) -> Optional[date]:
         try:
             return datetime.strptime(s, "%Y-%m-%d").date()
         except ValueError:
+            print(f"Date parse error for value: '{s}'")
             return None
-    except Exception:
+    except Exception as e:
+        print(f"Unexpected date parse error for value '{s}': {e}")
         return None
 
 def validate_headers(headers: List[str]) -> bool:
@@ -159,8 +183,20 @@ async def preview_bhavcopy(
 
         # Get file date from filename or data
         file_date = None
+
+        # Try to get from data first
         if len(df) > 0:
-            file_date = df['parsed_trade_date'].iloc[0]
+            # Check if all dates are null
+            valid_dates = df['parsed_trade_date'].dropna()
+            if not valid_dates.empty:
+                file_date = valid_dates.iloc[0]
+
+        # Fallback to filename if data date is missing
+        if not file_date:
+            file_date = parse_date_from_filename(file.filename)
+            # Also try the inner CSV filename if available
+            if not file_date and csv_path:
+                file_date = parse_date_from_filename(csv_path)
 
         # Check if this date already exists in DB
         existing_dates = []

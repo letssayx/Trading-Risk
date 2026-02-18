@@ -123,7 +123,10 @@ class BhavcopyUploader {
         let html = `
             <div class="preview-stats">
                 <p><strong>File:</strong> ${data.filename}</p>
-                <p><strong>Date:</strong> ${data.file_date}</p>
+                <div class="date-input-group" style="margin-bottom: 10px;">
+                    <label for="import-file-date"><strong>Date:</strong></label>
+                    <input type="date" id="import-file-date" value="${data.file_date || ''}" required style="padding: 5px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
+                </div>
                 <p><strong>Total rows:</strong> ${data.total_rows}</p>
             </div>
 
@@ -230,6 +233,15 @@ class BhavcopyUploader {
     async confirmImport() {
         if (!this.selectedFile || !this.previewData) return;
 
+        // Get date
+        const dateInput = document.getElementById('import-file-date');
+        if (!dateInput || !dateInput.value) {
+            this.showStatus('Please select a valid date for the import', 'error');
+            if (dateInput) dateInput.focus();
+            return;
+        }
+        const fileDate = dateInput.value;
+
         // Get selected segments
         const segments = [];
         if (this.segmentCheckboxes.cm.checked) segments.push('CM');
@@ -245,7 +257,7 @@ class BhavcopyUploader {
 
         const formData = new FormData();
         formData.append('file', this.selectedFile);
-        formData.append('file_date', this.previewData.file_date);
+        formData.append('file_date', fileDate);
         formData.append('overwrite_existing', this.overwriteCheckbox.checked);
         formData.append('segments', JSON.stringify(segments));
 
