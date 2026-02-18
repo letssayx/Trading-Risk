@@ -18,7 +18,7 @@ from backend.web.api.data import upload_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
-from backend.domain.market.models import Bhavcopy
+from backend.domain.market import models
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
 
@@ -46,9 +46,9 @@ app.include_router(upload_routes.router)
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB
-    print("Initializing Database...")
+    # Create tables
     Base.metadata.create_all(bind=engine)
-    print("✅ Database initialized")
+    print("✅ PostgreSQL database initialized")
 
     # Start log generator
     asyncio.create_task(logs.log_generator())
