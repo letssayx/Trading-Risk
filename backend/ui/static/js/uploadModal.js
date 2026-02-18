@@ -40,7 +40,7 @@ class BhavcopyUploader {
         });
 
         // Close on X
-        const closeSpan = document.querySelector('.close');
+        const closeSpan = this.modal.querySelector('.close');
         if (closeSpan) {
             closeSpan.addEventListener('click', () => this.close());
         }

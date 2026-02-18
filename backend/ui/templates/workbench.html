@@ -165,7 +165,7 @@
                 <div class="chart-tabs-bar" id="chart-tabs-bar">
                     <!-- Tabs go here -->
                     <div class="inline-add-container">
-                        <input type="text" id="chart-add-input" class="inline-input" placeholder="+ Symbol">
+                        <input type="text" id="chart-add-input" class="inline-input" autocomplete="off" placeholder="+ Symbol">
                     </div>
                 </div>
                 <div class="charts-container" id="charts-container">
@@ -207,7 +207,7 @@
                 </div>
                 <div class="option-row">
                     <label>API Key:</label>
-                    <input type="password" id="api-key-input" style="width:100%; padding:5px; background:#333; border:1px solid #555; color:white;">
+                    <input type="password" id="api-key-input" autocomplete="off" style="width:100%; padding:5px; background:#333; border:1px solid #555; color:white;">
                 </div>
                 <div id="config-status" class="status-message"></div>
             </div>
@@ -232,7 +232,7 @@
                         <option value="FO">Futures & Options (FO)</option>
                     </select>
                     <input type="date" id="view-date">
-                    <input type="text" id="view-symbol" placeholder="Symbol (optional)">
+                    <input type="text" id="view-symbol" autocomplete="off" placeholder="Symbol (optional)">
                     <button class="btn btn-secondary" onclick="fetchDataView()">Load Data</button>
                 </div>
                 <div id="data-view-results" style="max-height:400px; overflow:auto;"></div>
