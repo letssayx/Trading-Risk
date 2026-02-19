@@ -18,10 +18,10 @@ const TurtleTab = {
 
                 <div class="segment-selector" style="font-size:0.85em; color:#ccc;">
                     <label style="margin-right:8px; cursor:pointer;">
-                        <input type="radio" name="turtle-seg" value="CM" checked> EQ
+                        <input type="radio" name="turtle-seg" value="CM"> EQ
                     </label>
                     <label style="cursor:pointer;">
-                        <input type="radio" name="turtle-seg" value="FO"> FO
+                        <input type="radio" name="turtle-seg" value="FO" checked> Futures
                     </label>
                 </div>
             </div>
