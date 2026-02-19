@@ -80,9 +80,20 @@ window.ChartTabs = {
             }
 
             data.sort((a,b) => new Date(a.time) - new Date(b.time));
-            series.setData(data);
 
-            if (data.length > 0) {
+            if (data.length === 0) {
+                // Show No Data Message
+                const noDataDiv = document.createElement('div');
+                noDataDiv.style.position = 'absolute';
+                noDataDiv.style.top = '50%';
+                noDataDiv.style.left = '50%';
+                noDataDiv.style.transform = 'translate(-50%, -50%)';
+                noDataDiv.style.color = '#666';
+                noDataDiv.style.fontSize = '1.2em';
+                noDataDiv.innerText = "No Data Available";
+                chartDiv.appendChild(noDataDiv);
+            } else {
+                series.setData(data);
                 lastCandle = data[data.length - 1];
             }
 

@@ -14,8 +14,17 @@ class JulesAssistant:
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if self.api_key:
             genai.configure(api_key=self.api_key)
-            # Use newer model
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            # Log available models for debugging
+            try:
+                print("Jules: Available Models:")
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        print(f" - {m.name}")
+            except Exception as e:
+                print(f"Jules: Error listing models: {e}")
+
+            # Use most compatible model based on list or fallback
+            self.model = genai.GenerativeModel('gemini-pro')
         else:
             self.model = None
 
