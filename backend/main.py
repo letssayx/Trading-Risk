@@ -19,8 +19,9 @@ from backend.web.api import config_routes
 from backend.web.api.jules import routes as jules_routes
 
 # Import DB and Models for Initialization
-from backend.infrastructure.db import engine, Base
+from backend.infrastructure.db import engine, Base, SessionLocal
 from backend.domain.market import models
+from backend.infrastructure.timescale_migration import enable_timescaledb
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
 
@@ -54,6 +55,14 @@ async def startup_event():
     # Create tables
     Base.metadata.create_all(bind=engine)
     print("✅ PostgreSQL database initialized")
+
+    # Attempt TimescaleDB Migration
+    try:
+        db = SessionLocal()
+        enable_timescaledb(db)
+        db.close()
+    except Exception as e:
+        print(f"⚠️ TimescaleDB Init Error: {e}")
 
     # Start log generator
     asyncio.create_task(logs.log_generator())
