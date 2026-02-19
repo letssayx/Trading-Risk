@@ -58,8 +58,11 @@ const TurtleTab = {
         input.addEventListener('input', this.debounce(async (e) => {
             const q = e.target.value;
             if (q.length < 2) return;
+
+            const seg = document.querySelector('input[name="turtle-seg"]:checked').value;
+
             try {
-                const res = await fetch(`/api/symbols/search?q=${q}`);
+                const res = await fetch(`/api/symbols/search?q=${q}&segment=${seg}`);
                 const symbols = await res.json();
                 const dl = document.getElementById('turtle-symbol-list');
                 dl.innerHTML = symbols.map(s => `<option value="${s}">`).join('');

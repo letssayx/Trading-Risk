@@ -61,6 +61,43 @@ class BhavcopyUploader {
         if(this.modal) this.modal.style.display = 'none';
     }
 
+    async triggerBulkImport() {
+        const pathInput = document.getElementById('bulk-folder-path');
+        const status = document.getElementById('bulk-status');
+        const path = pathInput ? pathInput.value : '';
+
+        if (!path) {
+            alert("Please enter a folder path.");
+            return;
+        }
+
+        status.style.display = 'block';
+        status.innerHTML = "Starting Bulk Import... (Check Server Logs)";
+        status.className = "status-message info";
+
+        try {
+            // We need a backend endpoint for this.
+            // Assuming we added /api/data/upload/bulk in routes.
+            const res = await fetch('/api/data/upload/bulk', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ folder_path: path })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                status.innerHTML = `Import Complete. Processed: ${data.processed}, Errors: ${data.errors}`;
+                status.className = "status-message success";
+            } else {
+                status.innerHTML = "Error: " + data.message;
+                status.className = "status-message error";
+            }
+        } catch (e) {
+            status.innerHTML = "Error: " + e.message;
+            status.className = "status-message error";
+        }
+    }
+
     reset() {
         if(this.fileInputCM) this.fileInputCM.value = '';
         if(this.fileInputFO) this.fileInputFO.value = '';

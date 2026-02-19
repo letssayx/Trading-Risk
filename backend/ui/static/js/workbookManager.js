@@ -5,7 +5,8 @@ const WorkbookManager = {
     init: function() {
         this.modules = {
             turtle: TurtleTab,
-            statarb: StatArbTab
+            statarb: StatArbTab,
+            'price-oi': PriceOITab
         };
 
         // Bind Tab Clicks

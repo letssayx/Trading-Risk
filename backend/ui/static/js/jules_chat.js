@@ -27,15 +27,22 @@ const JulesChat = {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ message: message })
             });
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
             const data = await res.json();
 
-            // Parse response for code blocks
-            const parsed = this.parseResponse(data.reply);
+            if (data && data.reply) {
+                // Parse response for code blocks
+                const parsed = this.parseResponse(data.reply);
 
-            this.appendMessage('Jules', parsed.text);
+                this.appendMessage('Jules', parsed.text);
 
-            if (parsed.code) {
-                this.updatePythonTab(parsed.code);
+                if (parsed.code) {
+                    this.updatePythonTab(parsed.code);
+                }
+            } else {
+                this.appendMessage('System', 'Error: Invalid response format');
             }
 
         } catch (e) {

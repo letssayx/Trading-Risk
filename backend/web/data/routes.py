@@ -154,18 +154,40 @@ async def get_spread_historical(symbol1: str, symbol2: str, ratio: float = 1.0, 
     return spread_data
 
 @router.get("/api/symbols/search")
-async def search_symbols(q: str, db: Session = Depends(get_db)):
+async def search_symbols(q: str, segment: str = "CM", db: Session = Depends(get_db)):
     if not q:
         return []
 
-    # Search in DB
-    results = db.query(Bhavcopy.symbol).filter(
-        Bhavcopy.symbol.ilike(f"{q}%")
-    ).distinct().limit(10).all()
+    # Search in DB with Segment priority
+    # If FO, we prioritize fetching the base symbol, but we could also return full contracts if q matches?
+    # User requirement: "Bhavcopy is showing BDL26FEBFUT".
+    # If user types "BDL" in FO mode, we should suggest "BDL".
+    # If they type "BDL26", we should suggest "BDL26FEBFUT".
 
-    symbols = [r[0] for r in results]
+    query = db.query(Bhavcopy.symbol).filter(
+        Bhavcopy.symbol.ilike(f"{q}%"),
+        Bhavcopy.segment == segment
+    )
 
-    # Fallback/Add standard indices if missing/empty DB
+    # For CM, just distinct symbols
+    if segment == "CM":
+        results = query.distinct().limit(10).all()
+        symbols = [r[0] for r in results]
+    else:
+        # For FO, we might have many contracts per base symbol.
+        # Ideally we return distinct base symbols if q is short, or specific contracts if q is long.
+        # But 'symbol' column in Bhavcopy for FO is typically the base symbol (e.g. 'RELIANCE') in UDIFF?
+        # WAIT. In UDIFF, 'TckrSymb' (symbol) is 'RELIANCE'. The contract descriptor is built from expiry.
+        # UNLESS the user data has 'RELIANCE26FEBFUT' in the symbol column?
+        # The user said: "Bhavcopy is showing BDL26FEBFUT". This implies for some data sources, symbol IS the contract.
+        # Our loader maps 'TckrSymb' -> 'symbol'.
+        # If the user's import has full names, then distinct search works.
+        # If it has base names, then we just return base names.
+        # We will return whatever is in the 'symbol' column.
+        results = query.distinct().limit(10).all()
+        symbols = [r[0] for r in results]
+
+    # Fallback/Add standard indices
     defaults = ["NIFTY", "BANKNIFTY", "RELIANCE"]
     for d in defaults:
         if q.upper() in d and d not in symbols:

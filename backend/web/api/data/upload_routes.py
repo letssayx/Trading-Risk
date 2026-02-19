@@ -39,6 +39,9 @@ class ImportConfirmRequest(BaseModel):
     overwrite_existing: bool = False
     segments: List[str] = ['CM', 'FO']  # Which segments to import
 
+class BulkImportRequest(BaseModel):
+    folder_path: str
+
 def calculate_file_checksum(file_path: str) -> str:
     """Calculate MD5 checksum of file"""
     hash_md5 = hashlib.md5()
@@ -501,3 +504,43 @@ async def check_date_exists(
 
     except ValueError:
         raise HTTPException(400, "Invalid date format. Use YYYY-MM-DD")
+
+@router.post("/api/data/upload/bulk")
+async def bulk_import_endpoint(
+    req: BulkImportRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger backend bulk import script
+    """
+    if not os.path.exists(req.folder_path) or not os.path.isdir(req.folder_path):
+        raise HTTPException(400, "Invalid directory path.")
+
+    # We reuse the logic from the script by importing it or running it via subprocess
+    # Importing is cleaner but the script logic is currently in scripts/bulk_import_bhavcopy.py
+    # Ideally, refactor logic to domain service.
+    # For now, call the script via subprocess to isolate execution and capture output
+
+    import subprocess
+    try:
+        # Run script
+        cmd = ["python3", "scripts/bulk_import_bhavcopy.py", req.folder_path]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "message": "Script failed",
+                "errors": result.stderr
+            }
+
+        # Parse output for simple stats if possible, or just return logs
+        return {
+            "success": True,
+            "message": "Bulk import completed.",
+            "processed": "Check logs",
+            "logs": result.stdout
+        }
+
+    except Exception as e:
+        raise HTTPException(500, f"Bulk import failed: {str(e)}")

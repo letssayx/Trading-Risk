@@ -30,18 +30,21 @@ class StatArbStartRequest(BaseModel):
 
 @router.post("/turtle/start")
 async def start_turtle(req: TurtleStartRequest, db: Session = Depends(get_db)):
-    adapter = TurtleAdapter(req.symbol, req.risk_per_trade)
-    adapter.set_config(req.segment, req.expiry_pos)
+    try:
+        adapter = TurtleAdapter(req.symbol, req.risk_per_trade)
+        adapter.set_config(req.segment, req.expiry_pos)
 
-    # Fetch historical data to initialize
-    history = fetch_historical_data(req.symbol, req.segment, 100, db, expiry_pos=req.expiry_pos)
-    if not history:
-        history = []
+        # Fetch historical data to initialize
+        history = fetch_historical_data(req.symbol, req.segment, 100, db, expiry_pos=req.expiry_pos)
+        if not history:
+            history = []
 
-    adapter.start(history)
+        adapter.start(history)
 
-    turtle_instances[adapter.id] = adapter
-    return {"instanceId": adapter.id, "initialState": adapter.get_state()}
+        turtle_instances[adapter.id] = adapter
+        return {"instanceId": adapter.id, "initialState": adapter.get_state()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/turtle/state/{instance_id}")
 async def get_turtle_state(instance_id: str):
