@@ -43,45 +43,78 @@ class TurtleAdapter:
             self.closes = df['close'].tolist()
             self.last_price = self.closes[-1]
 
-            # Initialize N
-            # We need Series for the strategy method
+            # Initialize N with provided data
+            # Calculate ATR (N)
+            # Turtle uses 20-day N
+            # We need to compute it properly here because calculate_N might need more context or specific Series structure
+            # Let's ensure we pass Series with matching index if needed, but list conversion above drops index.
+            # Re-creating Series.
             self.strategy.calculate_N(
                 pd.Series(self.highs),
                 pd.Series(self.lows),
                 pd.Series(self.closes)
             )
 
-            # Check for initial signal (Mock: Breakout of 20-day high)
-            if len(self.highs) > 20:
+            # --- LOGIC UPDATE: Use Real Data for Signal ---
+            # Donchian Breakout Logic:
+            # Buy if Close > Max(High of last 20 days)
+            # Sell if Close < Min(Low of last 20 days)
+
+            if len(self.closes) >= 21:
+                # Look at previous 20 days (excluding today/current candle)
+                # If historical data includes today, use -21:-1.
+                # If only closed candles, use -20:.
+                # Assuming historical_data is closed candles.
+
                 high_20 = max(self.highs[-21:-1])
-                if self.closes[-1] > high_20:
+                low_20 = min(self.lows[-21:-1])
+                current = self.closes[-1]
+
+                if current > high_20:
                     self.signal = "BUY"
-                    self.position = self.strategy.calculate_unit_size(1.0) # Tick value 1
-                    self.strategy.add_unit(self.closes[-1], "LONG")
+                    # Add unit for risk calc
+                    self.strategy.add_unit(current, "LONG")
+                    # Calculate position size based on 1% risk and N
+                    # Unit = (1% of Account) / (N * DollarVolAdjust)
+                    # DollarVolAdjust approx 1 for stocks if price is raw
+                    self.position = self.strategy.calculate_unit_size(1.0)
+
+                elif current < low_20:
+                    self.signal = "SELL"
+                    self.strategy.add_unit(current, "SHORT")
+                    self.position = self.strategy.calculate_unit_size(1.0)
+                else:
+                    self.signal = "WAIT"
+                    self.position = 0
+            else:
+                self.signal = "WAIT - INSUFFICIENT DATA"
+
 
     def update(self, price: float):
         if not self.is_active: return
 
         self.last_price = price
-        # Update N (Mock update: assume price is close of a new candle for simplicity,
-        # or just decay/drift N slightly to show life)
-        # Real turtle updates N daily. Intraday we watch price vs levels.
 
-        # Check stops
+        # Real-time Stop Check only
+        # No random signals!
+
         if self.position > 0:
             risk_status = self.strategy.get_risk_status()
             stop = risk_status.get("Current_Stop", 0)
-            if price < stop:
+
+            # Simple Long Stop Check
+            if self.signal == "BUY" and price < stop and stop > 0:
                 self.signal = "STOP LOSS"
                 self.position = 0
                 self.strategy.units = 0
                 self.strategy.stops = []
 
-        # Simple random signal flip for demo if idle
-        if self.signal == "WAIT" and random.random() > 0.95:
-             self.signal = "BUY" if random.random() > 0.5 else "SELL"
-             self.position = self.strategy.calculate_unit_size(1.0)
-             self.strategy.add_unit(price, "LONG" if self.signal == "BUY" else "SHORT")
+            # Simple Short Stop Check
+            if self.signal == "SELL" and price > stop and stop > 0:
+                 self.signal = "STOP LOSS"
+                 self.position = 0
+                 self.strategy.units = 0
+                 self.strategy.stops = []
 
     def get_state(self):
         risk = self.strategy.get_risk_status()
