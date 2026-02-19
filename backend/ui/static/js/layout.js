@@ -1,22 +1,6 @@
 const Layout = {
     init: function() {
         this.initResizers();
-        this.initGlobalKeys();
-    },
-
-    initGlobalKeys: function() {
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                // Close any open modal
-                document.querySelectorAll('.modal').forEach(m => {
-                    if (m.style.display === 'flex' || m.style.display === 'block') {
-                        m.style.display = 'none';
-                    }
-                });
-                // Close toolbox drawer
-                if (typeof Toolbox !== 'undefined') Toolbox.closeDrawer();
-            }
-        });
     },
 
     initResizers: function() {

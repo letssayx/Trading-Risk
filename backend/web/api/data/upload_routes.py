@@ -6,7 +6,6 @@ import zipfile
 import tempfile
 import pandas as pd
 import hashlib
-import re
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
@@ -39,9 +38,6 @@ class ImportConfirmRequest(BaseModel):
     overwrite_existing: bool = False
     segments: List[str] = ['CM', 'FO']  # Which segments to import
 
-class BulkImportRequest(BaseModel):
-    folder_path: str
-
 def calculate_file_checksum(file_path: str) -> str:
     """Calculate MD5 checksum of file"""
     hash_md5 = hashlib.md5()
@@ -50,54 +46,17 @@ def calculate_file_checksum(file_path: str) -> str:
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-def parse_date_from_filename(filename: str) -> Optional[date]:
-    """Try to extract date from filename (e.g. sec_bhavdata_full_14022024.csv)"""
-    # Matches: DD-Mmm-YYYY, DD-MM-YYYY, YYYYMMDD, DDMMYYYY, DDMmmYYYY
-    patterns = [
-        (r'(\d{2})-([A-Za-z]{3})-(\d{4})', "%d-%b-%Y"), # DD-Mmm-YYYY
-        (r'(\d{2})-(\d{2})-(\d{4})', "%d-%m-%Y"), # DD-MM-YYYY
-        (r'(\d{4})(\d{2})(\d{2})', "%Y%m%d"), # YYYYMMDD
-        (r'(\d{2})(\d{2})(\d{4})', "%d%m%Y"), # DDMMYYYY
-        (r'(\d{2})([A-Za-z]{3})(\d{4})', "%d%b%Y"), # DDMmmYYYY (e.g., 14Feb2024)
-    ]
-
-    basename = os.path.basename(filename)
-    for pattern, fmt in patterns:
-        match = re.search(pattern, basename)
-        if match:
-            try:
-                return datetime.strptime(match.group(0), fmt).date()
-            except ValueError:
-                continue
-    return None
-
 def parse_udiff_date(date_str) -> Optional[date]:
     """Parse UDIFF date format (DD-MMM-YYYY)"""
-    # Check for string "null" (case-insensitive) or empty
     if pd.isna(date_str):
         return None
-
-    s = str(date_str).strip()
-    if not s or s.lower() == 'null':
-        return None
-
     if isinstance(date_str, datetime):
         return date_str.date()
     if isinstance(date_str, date):
         return date_str
-
     try:
-        # Standard UDIFF format
-        return datetime.strptime(s, "%d-%b-%Y").date()
-    except ValueError:
-        # Fallback formats just in case
-        try:
-            return datetime.strptime(s, "%Y-%m-%d").date()
-        except ValueError:
-            print(f"Date parse error for value: '{s}'")
-            return None
-    except Exception as e:
-        print(f"Unexpected date parse error for value '{s}': {e}")
+        return datetime.strptime(str(date_str).strip(), "%d-%b-%Y").date()
+    except:
         return None
 
 def validate_headers(headers: List[str]) -> bool:
@@ -186,20 +145,8 @@ async def preview_bhavcopy(
 
         # Get file date from filename or data
         file_date = None
-
-        # Try to get from data first
         if len(df) > 0:
-            # Check if all dates are null
-            valid_dates = df['parsed_trade_date'].dropna()
-            if not valid_dates.empty:
-                file_date = valid_dates.iloc[0]
-
-        # Fallback to filename if data date is missing
-        if not file_date:
-            file_date = parse_date_from_filename(file.filename)
-            # Also try the inner CSV filename if available
-            if not file_date and csv_path:
-                file_date = parse_date_from_filename(csv_path)
+            file_date = df['parsed_trade_date'].iloc[0]
 
         # Check if this date already exists in DB
         existing_dates = []
@@ -459,7 +406,7 @@ async def import_bhavcopy(
 @router.get("/api/data/upload/bhavcopy/check-date/{date}")
 async def check_date_exists(
     date: str,
-    segment: str = Query("CM", pattern="^(CM|FO|BOTH)$"),
+    segment: str = Query("CM", regex="^(CM|FO|BOTH)$"),
     db: Session = Depends(get_db)
 ):
     """
@@ -504,43 +451,3 @@ async def check_date_exists(
 
     except ValueError:
         raise HTTPException(400, "Invalid date format. Use YYYY-MM-DD")
-
-@router.post("/api/data/upload/bulk")
-async def bulk_import_endpoint(
-    req: BulkImportRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Trigger backend bulk import script
-    """
-    if not os.path.exists(req.folder_path) or not os.path.isdir(req.folder_path):
-        raise HTTPException(400, "Invalid directory path.")
-
-    # We reuse the logic from the script by importing it or running it via subprocess
-    # Importing is cleaner but the script logic is currently in scripts/bulk_import_bhavcopy.py
-    # Ideally, refactor logic to domain service.
-    # For now, call the script via subprocess to isolate execution and capture output
-
-    import subprocess
-    try:
-        # Run script
-        cmd = ["python3", "scripts/bulk_import_bhavcopy.py", req.folder_path]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode != 0:
-            return {
-                "success": False,
-                "message": "Script failed",
-                "errors": result.stderr
-            }
-
-        # Parse output for simple stats if possible, or just return logs
-        return {
-            "success": True,
-            "message": "Bulk import completed.",
-            "processed": "Check logs",
-            "logs": result.stdout
-        }
-
-    except Exception as e:
-        raise HTTPException(500, f"Bulk import failed: {str(e)}")

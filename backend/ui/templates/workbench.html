@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Turtle Terminal - Trader Workbench</title>
-    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
@@ -107,27 +107,18 @@
     <div style="height:30px; background:#111; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #333; font-size:0.85em; color:#ccc;">
         <div style="font-weight:bold; margin-right:20px;">TURTLE TERMINAL</div>
         <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()">Import Data</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="openDataViewer()">Data Viewer</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="openConfigModal()">Config</div>
+        <div style="cursor:pointer; margin-right:15px;">Tools</div>
     </div>
 
     <div id="app-container" style="height:calc(100vh - 30px);">
 
         <!-- 1. Far Left Toolbox -->
         <div id="toolbox">
-            <div class="toolbox-item" title="Strategies" data-category="Strategy">♟️</div>
-            <div class="toolbox-item" title="Filters" data-category="Filter">🔍</div>
-            <div class="toolbox-item" title="Indicators" data-category="Indicator">📊</div>
-            <div class="toolbox-item" title="Risk Models" data-category="Risk">🛡️</div>
-        </div>
-
-        <!-- Toolbox Drawer (Flyout) -->
-        <div id="toolbox-drawer" class="toolbox-drawer">
-            <div class="drawer-header">
-                <span id="drawer-title">Tools</span>
-                <span style="cursor:pointer;" onclick="Toolbox.closeDrawer()">×</span>
-            </div>
-            <div id="drawer-content"></div>
+            <div class="toolbox-item" title="Strategies" draggable="true" data-type="strategy">♟️</div>
+            <div class="toolbox-item" title="Filters" draggable="true" data-type="filter">🔍</div>
+            <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
+            <div class="toolbox-item" title="Risk Models" draggable="true" data-type="risk">🛡️</div>
+            <div class="toolbox-item" title="Price-OI Analysis" onclick="PriceOiTool.open()" style="cursor: pointer;">📈</div>
         </div>
 
         <!-- 2. Left Panel -->
@@ -140,11 +131,8 @@
                 </div>
             </div>
 
-            <!-- Middle: Python Output -->
-            <div class="lp-section" id="lp-middle">
-                >>> System Ready.<br>
-                >>> Connected to Live Data Feed.<br>
-            </div>
+            <!-- Middle: Python Output (Hidden) -->
+            <div class="lp-section" id="lp-middle" style="display:none;"></div>
 
             <!-- Bottom: Jules/Input -->
             <div class="lp-section" id="lp-bottom">
@@ -159,9 +147,39 @@
                     <pre style="margin:0; color:#aaa;"># Select a strategy tab to see code</pre>
                 </div>
                 <div class="chat-input-area">
-                    <input type="text" class="chat-input" placeholder="Ask Jules or run command...">
+                    <input type="text" class="chat-input" id="jules-input" placeholder="Ask Jules or run command...">
                 </div>
             </div>
+
+            <script>
+                // Simple Chat Handler
+                const chatInput = document.getElementById('jules-input');
+                const chatContent = document.getElementById('jules-content');
+
+                chatInput.addEventListener('keypress', async (e) => {
+                    if (e.key === 'Enter') {
+                        const msg = chatInput.value.trim();
+                        if (!msg) return;
+
+                        // Append User Message
+                        chatContent.innerHTML += `<div class="msg user" style="color:#00bcd4; margin-top:5px;"><strong>You:</strong> ${msg}</div>`;
+                        chatInput.value = '';
+                        chatContent.scrollTop = chatContent.scrollHeight;
+
+                        // Mock Response or Call API
+                        try {
+                            // Using a mock response for now as API endpoint might need verification
+                            // But usually it would be /api/jules/chat
+                            setTimeout(() => {
+                                chatContent.innerHTML += `<div class="msg jules" style="margin-top:5px;"><strong>Jules:</strong> Analyzing '${msg}'... (Mock Response)</div>`;
+                                chatContent.scrollTop = chatContent.scrollHeight;
+                            }, 500);
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }
+                });
+            </script>
 
             <div class="resizer-v" id="resizer-left"></div>
         </div>
@@ -174,7 +192,7 @@
                 <div class="chart-tabs-bar" id="chart-tabs-bar">
                     <!-- Tabs go here -->
                     <div class="inline-add-container">
-                        <input type="text" id="chart-add-input" class="inline-input" autocomplete="off" placeholder="+ Symbol">
+                        <input type="text" id="chart-add-input" class="inline-input" placeholder="+ Symbol">
                     </div>
                 </div>
                 <div class="charts-container" id="charts-container">
@@ -188,8 +206,6 @@
                 <div class="wb-tabs-header">
                     <div class="wb-tab active" data-type="turtle">Turtle Legacy</div>
                     <div class="wb-tab" data-type="statarb">Stat Arb</div>
-                    <div class="wb-tab" data-type="price-oi">Price-OI</div>
-                    <div class="wb-tab" data-type="rollover">Rollover</div>
                 </div>
 
                 <div class="wb-content" id="wb-content-area">
@@ -201,63 +217,6 @@
 
     </div>
 
-    <!-- Config Modal -->
-    <div id="config-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Configuration</h2>
-                <span class="close" onclick="closeConfigModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="option-row">
-                    <label>Provider:</label>
-                    <select id="api-provider">
-                        <option value="google">Google Gemini</option>
-                        <option value="groq">Groq</option>
-                        <option value="upstox">Upstox API</option>
-                    </select>
-                </div>
-                <div class="option-row">
-                    <label>API Key / Access Token:</label>
-                    <input type="password" id="api-key-input" autocomplete="off" style="width:100%; padding:5px; background:#333; border:1px solid #555; color:white;">
-                </div>
-                <div id="upstox-extra" style="display:none;">
-                     <div class="option-row">
-                        <label>Upstox API Secret (Optional):</label>
-                        <input type="password" id="upstox-secret" autocomplete="off" style="width:100%; padding:5px; background:#333; border:1px solid #555; color:white;">
-                    </div>
-                </div>
-                <div id="config-status" class="status-message"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeConfigModal()">Close</button>
-                <button class="btn btn-primary" onclick="saveApiKey()">Save Key</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Data Viewer Modal -->
-    <div id="data-viewer-modal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h2>Market Data Viewer</h2>
-                <span class="close" onclick="closeDataViewer()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div style="display:flex; gap:10px; margin-bottom:15px;">
-                    <select id="view-segment">
-                        <option value="CM">Capital Market (CM)</option>
-                        <option value="FO">Futures & Options (FO)</option>
-                    </select>
-                    <input type="date" id="view-date">
-                    <input type="text" id="view-symbol" autocomplete="off" placeholder="Symbol (optional)">
-                    <button class="btn btn-secondary" onclick="fetchDataView()">Load Data</button>
-                </div>
-                <div id="data-view-results" style="max-height:400px; overflow:auto;"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- Bhavcopy Upload Modal -->
     <div id="bhavcopy-upload-modal" class="modal">
         <div class="modal-content modal-large">
@@ -267,60 +226,43 @@
             </div>
 
             <div class="modal-body">
-                <div class="import-container" style="display:flex; gap:20px;">
-                    <!-- CM Section -->
-                    <div class="import-box" style="flex:1; background:#222; padding:15px; border-radius:4px;">
-                        <h3>Capital Market (CM)</h3>
-                        <div class="upload-section">
-                            <label for="bhavcopy-file-cm">Select CM ZIP:</label>
-                            <input type="file" id="bhavcopy-file-cm" accept=".zip" />
-                        </div>
-                        <div id="status-cm" class="status-message"></div>
-                        <button id="btn-preview-cm" class="btn btn-secondary" style="width:100%; margin-top:10px;">Preview CM</button>
-                    </div>
-
-                    <!-- FO Section -->
-                    <div class="import-box" style="flex:1; background:#222; padding:15px; border-radius:4px;">
-                        <h3>Futures & Options (FO)</h3>
-                        <div class="upload-section">
-                            <label for="bhavcopy-file-fo">Select FO ZIP:</label>
-                            <input type="file" id="bhavcopy-file-fo" accept=".zip" />
-                        </div>
-                        <div id="status-fo" class="status-message"></div>
-                        <button id="btn-preview-fo" class="btn btn-secondary" style="width:100%; margin-top:10px;">Preview FO</button>
-                    </div>
+                <div class="upload-section">
+                    <label for="bhavcopy-file">Select ZIP file:</label>
+                    <input type="file" id="bhavcopy-file" accept=".zip" />
+                    <p class="hint" style="color:#888; font-size:0.8em;">Expected format: BhavCopy_NSE_CM_0_0_0_YYYYMMDD_F_0000.csv.zip</p>
                 </div>
 
-                <!-- Bulk Import Option -->
-                <div class="import-options" style="margin-top:20px; background:#333;">
-                    <div style="font-weight:bold; margin-bottom:10px;">Bulk Import History</div>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="text" id="bulk-folder-path" placeholder="/path/to/folder/containing/zips" style="flex:1; padding:8px; background:#222; border:1px solid #444; color:#fff;">
-                        <button id="btn-bulk-import" class="btn btn-secondary" onclick="uploader.triggerBulkImport()">Run Bulk Import</button>
-                    </div>
-                    <div id="bulk-status" class="status-message" style="display:none;"></div>
-                </div>
-
-                <!-- Common Options -->
-                <div class="import-options" style="margin-top:20px;">
+                <!-- Import Options -->
+                <div class="import-options">
+                    <h4>Import Options:</h4>
                     <div class="option-row">
+                        <label>Segments to import:</label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="import-segment-cm" checked /> CM (Stocks)
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="import-segment-fo" checked /> FO (F&O)
+                        </label>
+                    </div>
+
+                    <div class="option-row" style="display: none;">
                         <label class="checkbox-label">
                             <input type="checkbox" id="overwrite-existing" /> Overwrite existing data for this date
                         </label>
+                        <p class="hint" style="color:#ff9800; font-size:0.8em;">Warning: This will delete all existing data for the selected date/segments</p>
                     </div>
                 </div>
 
-                <!-- Unified Preview Area -->
-                <div id="upload-preview" class="preview-section" style="margin-top:20px; border-top:1px solid #333; padding-top:10px;">
-                    <p class="placeholder" style="color:#888;">Select a file and click Preview to verify data.</p>
+                <div id="upload-preview" class="preview-section">
+                    <p class="placeholder" style="color:#888;">Select a file to see preview</p>
                 </div>
 
-                <div id="global-status" class="status-message"></div>
+                <div id="upload-status" class="status-message"></div>
             </div>
 
             <div class="modal-footer" style="padding-top:20px; border-top:1px solid #444; text-align:right;">
-                <button id="cancel-import-btn" class="btn btn-secondary">Close</button>
-                <button id="confirm-import-btn" class="btn btn-primary" disabled>Import Selected</button>
+                <button id="cancel-import-btn" class="btn btn-secondary">Cancel</button>
+                <button id="confirm-import-btn" class="btn btn-primary" disabled>Import to Database</button>
             </div>
         </div>
     </div>
@@ -330,111 +272,13 @@
     <script src="/static/js/chartTabs.js"></script>
     <script src="/static/js/turtleTab.js"></script>
     <script src="/static/js/statarbTab.js"></script>
-    <script src="/static/js/priceOITab.js"></script>
-    <script src="/static/js/rolloverTab.js"></script>
+    <script src="/static/js/priceOiTool.js"></script>
     <script src="/static/js/workbookManager.js"></script>
     <script src="/static/js/toolbox.js"></script>
     <script src="/static/js/edge.js"></script>
     <script src="/static/js/uploadModal.js"></script>
-    <script src="/static/js/jules_chat.js"></script>
 
     <script>
-        // Config Modal Logic
-        function openConfigModal() {
-            document.getElementById('config-modal').style.display = 'flex';
-            document.getElementById('api-provider').addEventListener('change', (e) => {
-                const isUpstox = e.target.value === 'upstox';
-                document.getElementById('upstox-extra').style.display = isUpstox ? 'block' : 'none';
-            });
-        }
-        function closeConfigModal() {
-            document.getElementById('config-modal').style.display = 'none';
-        }
-        async function saveApiKey() {
-            const provider = document.getElementById('api-provider').value;
-            const key = document.getElementById('api-key-input').value;
-            const secret = document.getElementById('upstox-secret').value;
-            const status = document.getElementById('config-status');
-
-            const payload = {provider, key};
-            if(provider === 'upstox') payload.secret = secret;
-
-            try {
-                const res = await fetch('/api/config/update-key', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if(data.success) {
-                    status.innerHTML = "Key updated successfully!";
-                    status.className = "status-message success";
-                } else {
-                    status.innerHTML = "Error: " + data.detail;
-                    status.className = "status-message error";
-                }
-            } catch(e) {
-                status.innerHTML = "Error: " + e.message;
-                status.className = "status-message error";
-            }
-        }
-
-        // Data Viewer Logic
-        function openDataViewer() {
-            document.getElementById('data-viewer-modal').style.display = 'flex';
-            document.getElementById('view-date').valueAsDate = new Date();
-        }
-        function closeDataViewer() {
-            document.getElementById('data-viewer-modal').style.display = 'none';
-        }
-        async function fetchDataView() {
-            const segment = document.getElementById('view-segment').value;
-            const date = document.getElementById('view-date').value;
-            const symbol = document.getElementById('view-symbol').value;
-            const container = document.getElementById('data-view-results');
-
-            container.innerHTML = "Loading...";
-
-            try {
-                let url = `/api/data/view?segment=${segment}&date=${date}`;
-                if(symbol) url += `&symbol=${symbol}`;
-
-                const res = await fetch(url);
-                const data = await res.json();
-
-                if(data.total === 0) {
-                    container.innerHTML = "<p class='no-data'>No data found for this date/segment.</p>";
-                    return;
-                }
-
-                let html = `<p>Found ${data.total} records (Showing first ${data.data.length})</p>`;
-                html += `<table class="preview-table" style="width:100%"><thead><tr>`;
-
-                if(segment === 'CM') {
-                    html += `<th>Symbol</th><th>Series</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th>`;
-                } else {
-                    html += `<th>Symbol</th><th>Type</th><th>Expiry</th><th>Strike</th><th>Opt</th><th>Close</th><th>OI</th>`;
-                }
-                html += `</tr></thead><tbody>`;
-
-                data.data.forEach(row => {
-                    html += `<tr>`;
-                    if(segment === 'CM') {
-                        html += `<td>${row.symbol}</td><td>${row.series}</td><td>${row.open}</td><td>${row.high}</td><td>${row.low}</td><td>${row.close}</td><td>${row.total_traded_qty}</td>`;
-                    } else {
-                        html += `<td>${row.symbol}</td><td>${row.instrument_type}</td><td>${row.expiry_date}</td><td>${row.strike_price}</td><td>${row.option_type}</td><td>${row.close}</td><td>${row.open_interest}</td>`;
-                    }
-                    html += `</tr>`;
-                });
-
-                html += `</tbody></table>`;
-                container.innerHTML = html;
-
-            } catch(e) {
-                container.innerHTML = "Error loading data: " + e.message;
-            }
-        }
-
         // Init
         window.onload = () => {
             Layout.init();

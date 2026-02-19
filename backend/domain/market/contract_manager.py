@@ -1,79 +1,72 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
-from typing import List, Optional, Tuple
 from datetime import date, timedelta
-from backend.domain.market.models import Bhavcopy
+import calendar
 
 class ContractManager:
     """
-    Manages logic for Futures Expiry Rolling (FUT1/2/3) and Options Chain Selection.
+    Manages generation of derivative contract symbols (Futures & Options).
     """
 
+    MONTH_CODES = {
+        1: "JAN", 2: "FEB", 3: "MAR", 4: "APR", 5: "MAY", 6: "JUN",
+        7: "JUL", 8: "AUG", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"
+    }
+
     @staticmethod
-    def get_futures_chain(db: Session, symbol: str, trade_date: date) -> List[Bhavcopy]:
+    def get_expiry_dates(limit=3):
         """
-        Returns Futures contracts for a symbol on a given date, sorted by expiry.
-        Limit to 3 (Near, Next, Far).
+        Get the next `limit` expiry dates (Last Thursday of the month).
+        If last Thursday is a holiday, it should ideally be the previous trading day,
+        but for symbol generation, standard practice is often just the month/year code
+        or the specific date depending on the exchange format.
+        NSE format: SYMBOL + YY + MMM + FUT
         """
-        # Fetch futures for this symbol and date
-        # Instrument type: FUTSTK or FUTIDX
-        futures = db.query(Bhavcopy).filter(
-            Bhavcopy.symbol == symbol,
-            Bhavcopy.trade_date == trade_date,
-            Bhavcopy.instrument_type.in_(['FUTSTK', 'FUTIDX'])
-        ).order_by(Bhavcopy.expiry_date.asc()).limit(3).all()
+        expiries = []
+        today = date.today()
+        current_date = today
+
+        # Simple logic: Find last Thursday of current month, if passed, move to next.
+        # However, for symbol generation, we often just need the Month and Year.
+        # NSE Symbol: RELIANCE24FEBFUT
+
+        for _ in range(limit):
+            # Find last day of current_date's month
+            last_day = calendar.monthrange(current_date.year, current_date.month)[1]
+            last_date_of_month = date(current_date.year, current_date.month, last_day)
+
+            # Find last Thursday
+            offset = (last_date_of_month.weekday() - 3) % 7
+            expiry_date = last_date_of_month - timedelta(days=offset)
+
+            if expiry_date < today and len(expiries) == 0:
+                # If this month's expiry is already passed, skip to next month
+                pass
+            else:
+                expiries.append(expiry_date)
+
+            # Move to next month
+            if current_date.month == 12:
+                current_date = date(current_date.year + 1, 1, 1)
+            else:
+                current_date = date(current_date.year, current_date.month + 1, 1)
+
+            if len(expiries) >= limit:
+                break
+
+        return expiries
+
+    @staticmethod
+    def get_futures_symbols(symbol: str):
+        """
+        Generate Futures symbols for the given underlying symbol.
+        Format: SYMBOL + YY + MMM + FUT (e.g. RELIANCE24FEBFUT)
+        """
+        expiries = ContractManager.get_expiry_dates(3)
+        futures = []
+
+        for expiry in expiries:
+            yy = str(expiry.year)[-2:]
+            mmm = ContractManager.MONTH_CODES[expiry.month]
+            fut_symbol = f"{symbol}{yy}{mmm}FUT"
+            futures.append(fut_symbol)
 
         return futures
-
-    @staticmethod
-    def get_specific_future(db: Session, symbol: str, trade_date: date, position: int = 1) -> Optional[Bhavcopy]:
-        """
-        Get specific future contract (1=Near, 2=Next, 3=Far)
-        """
-        chain = ContractManager.get_futures_chain(db, symbol, trade_date)
-        if len(chain) >= position:
-            return chain[position - 1]
-        return None
-
-    @staticmethod
-    def get_continuous_future(db: Session, symbol: str, position: int = 1, start_date: date = None, end_date: date = None) -> List[dict]:
-        """
-        Constructs a continuous price series by stitching contracts.
-        Simplistic approach: For each day in range, pick the 'position-th' nearest expiry.
-        """
-        if not start_date: start_date = date.today() - timedelta(days=365)
-        if not end_date: end_date = date.today()
-
-        # Get all distinct trade dates
-        dates = db.query(Bhavcopy.trade_date).filter(
-            Bhavcopy.symbol == symbol,
-            Bhavcopy.trade_date >= start_date,
-            Bhavcopy.trade_date <= end_date
-        ).distinct().order_by(Bhavcopy.trade_date.asc()).all()
-
-        result = []
-        for (d,) in dates:
-            contract = ContractManager.get_specific_future(db, symbol, d, position)
-            if contract:
-                # Construct display symbol if simpler "Symbol" is stored
-                display_sym = contract.symbol
-                if contract.expiry_date and contract.instrument_type.startswith('FUT'):
-                    # BDL26FEBFUT format logic
-                    # DD MMM (UPPER)
-                    # ex: 26 FEB
-                    day = contract.expiry_date.strftime("%d")
-                    mon = contract.expiry_date.strftime("%b").upper()
-                    display_sym = f"{contract.symbol}{day}{mon}FUT"
-
-                result.append({
-                    "date": d,
-                    "contract_symbol": display_sym,
-                    "expiry": contract.expiry_date,
-                    "open": contract.open,
-                    "high": contract.high,
-                    "low": contract.low,
-                    "close": contract.close,
-                    "volume": contract.total_traded_qty,
-                    "oi": contract.open_interest
-                })
-        return result

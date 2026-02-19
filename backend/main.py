@@ -14,14 +14,11 @@ from backend.web.widgets import routes as widget_routes
 from backend.web.data import routes as data_routes
 from backend.web.live import routes as live_routes
 from backend.web.strategies import adapters_routes
-from backend.web.api.data import upload_routes, view_routes
-from backend.web.api import config_routes
-from backend.web.api.jules import routes as jules_routes
+from backend.web.api.data import upload_routes
 
 # Import DB and Models for Initialization
-from backend.infrastructure.db import engine, Base, SessionLocal
-from backend.domain.market import models
-from backend.infrastructure.timescale_migration import enable_timescaledb
+from backend.infrastructure.db import engine, Base
+from backend.domain.market.models import Bhavcopy
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
 
@@ -45,24 +42,13 @@ app.include_router(data_routes.router)
 app.include_router(live_routes.router)
 app.include_router(adapters_routes.router)
 app.include_router(upload_routes.router)
-app.include_router(config_routes.router)
-app.include_router(view_routes.router)
-app.include_router(jules_routes.router)
 
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB
-    # Create tables
+    print("Initializing Database...")
     Base.metadata.create_all(bind=engine)
-    print("✅ PostgreSQL database initialized")
-
-    # Attempt TimescaleDB Migration
-    try:
-        db = SessionLocal()
-        enable_timescaledb(db)
-        db.close()
-    except Exception as e:
-        print(f"⚠️ TimescaleDB Init Error: {e}")
+    print("✅ Database initialized")
 
     # Start log generator
     asyncio.create_task(logs.log_generator())

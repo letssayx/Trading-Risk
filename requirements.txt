@@ -5,10 +5,10 @@ tenacity
 fastapi
 uvicorn
 pydantic
-python-dotenv>=1.0.0
+python-dotenv
 requests
 sqlalchemy
-psycopg2-binary>=2.9.0
+psycopg2-binary
 pytest
 pandas
 numpy

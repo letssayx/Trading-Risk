@@ -7,18 +7,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get database URL from environment variable
-# Default to PostgreSQL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost/turtle_terminal")
+# Default to postgresql local dev if not set
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://jules@localhost/turtle_terminal")
 
-# Create engine based on dialect
-if "sqlite" in DATABASE_URL:
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False}
-    )
-else:
-    engine = create_engine(DATABASE_URL)
-
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

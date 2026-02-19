@@ -16,7 +16,7 @@ def run_verification():
     # 1. File Existence Check
     files_to_check = [
         ("backend/intelligence/sentiment_flow.py", "Sentiment Flow Engine"),
-        ("backend/strategies/macro.py", "Macro StatArb (PCA)"),
+        ("backend/strategies/macro_stat_arb.py", "Macro StatArb (PCA)"),
         ("backend/infrastructure/security.py", "Security Infrastructure"),
         ("backend/analysis/market_state/regime.py", "Regime Detection"),
         ("backend/risk/measures/basel.py", "Basel VaR & Stress"),
@@ -44,11 +44,11 @@ def run_verification():
         print(f"[FAIL] Sentiment Flow: {e}")
 
     try:
-        from backend.strategies.macro import MacroStatArbStrategy
+        from backend.strategies.macro_stat_arb import calculate_pca_factors
         import pandas as pd
         import numpy as np
         df = pd.DataFrame(np.random.randn(50, 3))
-        pca = MacroStatArbStrategy().calculate({"returns_matrix": df.values.tolist()})
+        pca = calculate_pca_factors(df, n_components=2)
         print(f"[OK] PCA Logic Import & Exec: Explained Var {pca['explained_variance']}")
     except Exception as e:
         print(f"[FAIL] PCA Logic: {e}")

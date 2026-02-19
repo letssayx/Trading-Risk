@@ -8,7 +8,7 @@ This document maps all quantitative strategies to their logical implementation (
 | :--- | :--- | :--- | :--- |
 | **Turtle Legacy** | `backend/strategies/turtle.py` | `backend/web/routes.py` (API) | 1983 Trend Following Rules (N, 2N Stops, Pyramiding). |
 | **Sentiment Flow** | `backend/intelligence/sentiment_flow.py` | `backend/strategies/convergence.py` | Smart Money Sync (FII, PCR, TRIN, OI Structure). |
-| **Macro StatArb** | `backend/strategies/macro.py` | `backend/web/routes.py` (API) | PCA/Eigen-Beta extraction for Systematic Risk isolation. |
+| **Macro StatArb** | `backend/strategies/macro_stat_arb.py` | `backend/web/routes.py` (API) | PCA/Eigen-Beta extraction for Systematic Risk isolation. |
 | **Vol Arbitrage** | `backend/strategies/vol_arb.py` | `backend/web/routes.py` (API) | Volatility Term Structure (Calendar King) & Theta/Vega Efficiency. |
 | **Convergence** | `backend/strategies/convergence.py` | `backend/web/routes.py` (API) | High-Conviction Alerts (Turtle + Sentiment alignment). |
 | **Hedging** | `backend/risk/hedging.py` | `backend/web/routes.py` (API) | Beta-Neutralization & Sentiment-Adjusted Index Shorting. |

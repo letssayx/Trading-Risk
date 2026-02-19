@@ -1,42 +1,36 @@
 /**
- * Enhanced Bhavcopy Uploader with Split CM/FO support
+ * Enhanced Bhavcopy Uploader with F&O support
  */
 class BhavcopyUploader {
     constructor() {
         this.modal = document.getElementById('bhavcopy-upload-modal');
-
-        // Inputs
-        this.fileInputCM = document.getElementById('bhavcopy-file-cm');
-        this.fileInputFO = document.getElementById('bhavcopy-file-fo');
-
-        // Buttons
-        this.btnPreviewCM = document.getElementById('btn-preview-cm');
-        this.btnPreviewFO = document.getElementById('btn-preview-fo');
+        this.fileInput = document.getElementById('bhavcopy-file');
+        this.previewDiv = document.getElementById('upload-preview');
+        this.statusDiv = document.getElementById('upload-status');
         this.confirmBtn = document.getElementById('confirm-import-btn');
         this.cancelBtn = document.getElementById('cancel-import-btn');
-
-        // Status & Preview
-        this.statusCM = document.getElementById('status-cm');
-        this.statusFO = document.getElementById('status-fo');
-        this.statusGlobal = document.getElementById('global-status');
-        this.previewDiv = document.getElementById('upload-preview');
         this.overwriteCheckbox = document.getElementById('overwrite-existing');
-
-        // State
-        this.preparedImports = {
-            CM: null, // { file, date, count }
-            FO: null
+        this.segmentCheckboxes = {
+            cm: document.getElementById('import-segment-cm'),
+            fo: document.getElementById('import-segment-fo')
         };
+
+        this.selectedFile = null;
+        this.previewData = null;
 
         this.initEventListeners();
     }
 
     initEventListeners() {
-        if (this.btnPreviewCM) this.btnPreviewCM.addEventListener('click', () => this.handlePreview('CM'));
-        if (this.btnPreviewFO) this.btnPreviewFO.addEventListener('click', () => this.handlePreview('FO'));
-
-        if (this.confirmBtn) this.confirmBtn.addEventListener('click', () => this.confirmImport());
-        if (this.cancelBtn) this.cancelBtn.addEventListener('click', () => this.close());
+        if (this.fileInput) {
+            this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        }
+        if (this.confirmBtn) {
+            this.confirmBtn.addEventListener('click', () => this.confirmImport());
+        }
+        if (this.cancelBtn) {
+            this.cancelBtn.addEventListener('click', () => this.close());
+        }
 
         // Close on outside click
         window.addEventListener('click', (e) => {
@@ -46,7 +40,7 @@ class BhavcopyUploader {
         });
 
         // Close on X
-        const closeSpan = this.modal ? this.modal.querySelector('.close') : null;
+        const closeSpan = document.querySelector('.close');
         if (closeSpan) {
             closeSpan.addEventListener('click', () => this.close());
         }
@@ -54,79 +48,30 @@ class BhavcopyUploader {
 
     open() {
         if(this.modal) this.modal.style.display = 'flex';
-        this.reset();
+        if(this.previewDiv) this.previewDiv.innerHTML = '<p class="placeholder">Select a file to see preview</p>';
+        if(this.fileInput) this.fileInput.value = '';
+        if(this.statusDiv) this.statusDiv.innerHTML = '';
+        this.previewData = null;
+        this.selectedFile = null;
+        if(this.confirmBtn) this.confirmBtn.disabled = true;
     }
 
     close() {
         if(this.modal) this.modal.style.display = 'none';
     }
 
-    async triggerBulkImport() {
-        const pathInput = document.getElementById('bulk-folder-path');
-        const status = document.getElementById('bulk-status');
-        const path = pathInput ? pathInput.value : '';
-
-        if (!path) {
-            alert("Please enter a folder path.");
-            return;
-        }
-
-        status.style.display = 'block';
-        status.innerHTML = "Starting Bulk Import... (Check Server Logs)";
-        status.className = "status-message info";
-
-        try {
-            // We need a backend endpoint for this.
-            // Assuming we added /api/data/upload/bulk in routes.
-            const res = await fetch('/api/data/upload/bulk', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ folder_path: path })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                status.innerHTML = `Import Complete. Processed: ${data.processed}, Errors: ${data.errors}`;
-                status.className = "status-message success";
-            } else {
-                status.innerHTML = "Error: " + data.message;
-                status.className = "status-message error";
-            }
-        } catch (e) {
-            status.innerHTML = "Error: " + e.message;
-            status.className = "status-message error";
-        }
+    showStatus(msg, type) {
+        if (!this.statusDiv) return;
+        this.statusDiv.innerHTML = msg;
+        this.statusDiv.className = 'status-message ' + type;
     }
 
-    reset() {
-        if(this.fileInputCM) this.fileInputCM.value = '';
-        if(this.fileInputFO) this.fileInputFO.value = '';
-        if(this.statusCM) this.statusCM.innerHTML = '';
-        if(this.statusFO) this.statusFO.innerHTML = '';
-        if(this.statusGlobal) this.statusGlobal.innerHTML = '';
-        if(this.previewDiv) this.previewDiv.innerHTML = '<p class="placeholder">Select a file and click Preview to verify data.</p>';
-        this.preparedImports = { CM: null, FO: null };
-        this.updateConfirmButton();
-    }
+    async handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-    showStatus(msg, type, targetId) {
-        const el = document.getElementById(targetId);
-        if (!el) return;
-        el.innerHTML = msg;
-        el.className = 'status-message ' + type;
-    }
-
-    async handlePreview(segment) {
-        const fileInput = segment === 'CM' ? this.fileInputCM : this.fileInputFO;
-        const statusId = segment === 'CM' ? 'status-cm' : 'status-fo';
-
-        const file = fileInput.files[0];
-        if (!file) {
-            this.showStatus('Please select a file first.', 'error', statusId);
-            return;
-        }
-
-        this.showStatus('Analyzing...', 'info', statusId);
+        this.selectedFile = file;
+        this.showStatus('Processing file...', 'info');
 
         const formData = new FormData();
         formData.append('file', file);
@@ -140,126 +85,208 @@ class BhavcopyUploader {
             const data = await response.json();
 
             if (data.success) {
-                // Check if the requested segment exists in the file
-                const segStats = data.stats[segment];
-                if (!segStats || segStats.total_rows === 0) {
-                     this.showStatus(`⚠️ No ${segment} data found in this file.`, 'warning', statusId);
-                     return;
+                this.previewData = data;
+                this.showPreview(data);
+
+                // Enable confirm button only after preview
+                this.confirmBtn.disabled = false;
+
+                // Show warning if data exists
+                if (data.warnings.date_exists) {
+                    this.showStatus(
+                        `⚠️ Data for ${data.file_date} already exists in database. ` +
+                        'Check "Overwrite" to replace it.',
+                        'warning'
+                    );
+                    this.overwriteCheckbox.parentElement.parentElement.style.display = 'block';
+                } else {
+                    this.overwriteCheckbox.parentElement.parentElement.style.display = 'none';
                 }
 
-                this.preparedImports[segment] = {
-                    file: file,
-                    date: data.file_date,
-                    count: segStats.total_rows,
-                    preview: data.preview[segment]
-                };
-
-                this.showStatus(`✅ Ready: ${segStats.total_rows} rows (${data.file_date})`, 'success', statusId);
-
-                // Show unified preview
-                this.renderPreview();
-                this.updateConfirmButton();
+                // Show if file was imported before
+                if (data.warnings.already_imported) {
+                    this.showStatus(
+                        `ℹ️ This file was previously imported on ${data.warnings.previous_import_date}`,
+                        'info'
+                    );
+                }
 
             } else {
-                this.showStatus('Error: ' + data.detail, 'error', statusId);
+                this.showStatus('Error: ' + data.detail, 'error');
             }
         } catch (error) {
-            this.showStatus('Error: ' + error.message, 'error', statusId);
+            this.showStatus('Error uploading file: ' + error.message, 'error');
         }
     }
 
-    renderPreview() {
-        let html = '';
+    showPreview(data) {
+        let html = `
+            <div class="preview-stats">
+                <p><strong>File:</strong> ${data.filename}</p>
+                <p><strong>Date:</strong> ${data.file_date}</p>
+                <p><strong>Total rows:</strong> ${data.total_rows}</p>
+            </div>
 
-        if (this.preparedImports.CM) {
-            html += this.renderSegmentTable('CM', this.preparedImports.CM);
-        }
+            <div class="segment-tabs">
+                <button class="tab-btn active" data-segment="CM">CM (Stocks)</button>
+                <button class="tab-btn" data-segment="FO">FO (F&O)</button>
+            </div>
+        `;
 
-        if (this.preparedImports.FO) {
-            html += this.renderSegmentTable('FO', this.preparedImports.FO);
-        }
+        // CM Preview
+        html += `<div id="preview-CM" class="segment-preview active">`;
+        html += this.renderSegmentPreview('CM', data.stats.CM, data.preview.CM);
+        html += `</div>`;
 
-        if (!html) html = '<p class="placeholder">Select a file and click Preview to verify data.</p>';
+        // FO Preview
+        html += `<div id="preview-FO" class="segment-preview">`;
+        html += this.renderSegmentPreview('FO', data.stats.FO, data.preview.FO);
+        html += `</div>`;
 
         this.previewDiv.innerHTML = html;
+
+        // Add tab switching
+        const self = this; // Capture this
+        this.previewDiv.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                self.previewDiv.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                self.previewDiv.querySelectorAll('.segment-preview').forEach(p => p.classList.remove('active'));
+
+                e.target.classList.add('active');
+                const targetId = `preview-${e.target.dataset.segment}`;
+                const targetEl = document.getElementById(targetId);
+                if(targetEl) targetEl.classList.add('active');
+            });
+        });
     }
 
-    renderSegmentTable(segment, data) {
-        let html = `<h4>${segment} Preview (${data.date})</h4>`;
-        html += `<div style="overflow-x:auto; margin-bottom:20px;"><table class="preview-table" style="width:100%;">`;
-        html += `<thead><tr>`;
+    renderSegmentPreview(segment, stats, preview) {
+        let html = `
+            <div class="segment-stats">
+                <h4>${segment} Segment Stats</h4>
+                <p><strong>Total rows:</strong> ${stats.total_rows}</p>
+                <p><strong>Unique symbols:</strong> ${stats.unique_symbols}</p>
+        `;
 
-        if (segment === 'CM') {
-            html += `<th>Symbol</th><th>Series</th><th>Close</th><th>Volume</th>`;
-        } else {
-            html += `<th>Symbol</th><th>Type</th><th>Expiry</th><th>Strike</th><th>Opt</th><th>Close</th><th>OI</th>`;
-        }
-        html += `</tr></thead><tbody>`;
-
-        data.preview.forEach(row => {
-            html += `<tr>`;
-            if (segment === 'CM') {
-                html += `<td>${row.symbol}</td><td>${row.series}</td><td>${row.close}</td><td>${row.volume}</td>`;
-            } else {
-                html += `<td>${row.symbol}</td><td>${row.instrument_type}</td><td>${row.expiry}</td><td>${row.strike}</td><td>${row.option_type}</td><td>${row.close}</td><td>${row.open_interest}</td>`;
+        // Show instrument breakdown for FO
+        if (segment === 'FO' && Object.keys(stats.instrument_types).length > 0) {
+            html += `<p><strong>Instruments:</strong> `;
+            for (const [type, count] of Object.entries(stats.instrument_types)) {
+                html += `${type}: ${count}, `;
             }
-            html += `</tr>`;
-        });
+            html = html.slice(0, -2) + `</p>`;
+        }
 
-        html += `</tbody></table></div>`;
+        html += `</div>`;
+
+        if (preview.length > 0) {
+            html += `<h4>Sample Data:</h4>`;
+            html += `<div style="overflow-x:auto;"><table class="preview-table" style="width:100%; border-collapse:collapse;">`;
+            html += `<thead><tr>`;
+
+            // Headers based on segment
+            if (segment === 'CM') {
+                html += `<th>Symbol</th><th>Series</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th>`;
+            } else {
+                html += `<th>Symbol</th><th>Type</th><th>Expiry</th><th>Strike</th><th>Option</th><th>Open</th><th>Close</th><th>OI</th>`;
+            }
+            html += `</tr></thead><tbody>`;
+
+            preview.forEach(row => {
+                html += `<tr>`;
+                if (segment === 'CM') {
+                    html += `
+                        <td>${row.symbol}</td>
+                        <td>${row.series}</td>
+                        <td>${row.open.toFixed(2)}</td>
+                        <td>${row.high.toFixed(2)}</td>
+                        <td>${row.low.toFixed(2)}</td>
+                        <td>${row.close.toFixed(2)}</td>
+                        <td>${row.volume.toLocaleString()}</td>
+                    `;
+                } else {
+                    html += `
+                        <td>${row.symbol}</td>
+                        <td>${row.instrument_type}</td>
+                        <td>${row.expiry || '-'}</td>
+                        <td>${row.strike ? row.strike.toFixed(2) : '-'}</td>
+                        <td>${row.option_type || '-'}</td>
+                        <td>${row.open.toFixed(2)}</td>
+                        <td>${row.close.toFixed(2)}</td>
+                        <td>${row.open_interest ? row.open_interest.toLocaleString() : '-'}</td>
+                    `;
+                }
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+        } else {
+            html += `<p class="no-data">No ${segment} data found in file</p>`;
+        }
+
         return html;
     }
 
-    updateConfirmButton() {
-        const hasData = this.preparedImports.CM || this.preparedImports.FO;
-        this.confirmBtn.disabled = !hasData;
-        this.confirmBtn.innerHTML = hasData ? 'Import Selected' : 'Import Selected';
-    }
-
     async confirmImport() {
-        const tasks = [];
-        const overwrite = this.overwriteCheckbox.checked;
-        this.confirmBtn.disabled = true;
-        this.showStatus('Starting import...', 'info', 'global-status');
+        if (!this.selectedFile || !this.previewData) return;
 
-        if (this.preparedImports.CM) {
-            tasks.push(this.uploadSegment('CM', this.preparedImports.CM, overwrite));
+        // Get selected segments
+        const segments = [];
+        if (this.segmentCheckboxes.cm.checked) segments.push('CM');
+        if (this.segmentCheckboxes.fo.checked) segments.push('FO');
+
+        if (segments.length === 0) {
+            this.showStatus('Please select at least one segment to import', 'error');
+            return;
         }
-        if (this.preparedImports.FO) {
-            tasks.push(this.uploadSegment('FO', this.preparedImports.FO, overwrite));
-        }
+
+        this.confirmBtn.disabled = true;
+        this.showStatus('Importing data...', 'info');
+
+        const formData = new FormData();
+        formData.append('file', this.selectedFile);
+        formData.append('file_date', this.previewData.file_date);
+        formData.append('overwrite_existing', this.overwriteCheckbox.checked);
+        formData.append('segments', JSON.stringify(segments));
 
         try {
-            const results = await Promise.all(tasks);
-            const success = results.every(r => r.success);
+            const response = await fetch('/api/data/upload/bhavcopy/import', {
+                method: 'POST',
+                body: formData
+            });
 
-            if (success) {
-                const total = results.reduce((sum, r) => sum + r.inserted, 0);
-                this.showStatus(`✅ Import Complete! Total ${total} rows inserted.`, 'success', 'global-status');
-                // Optional: Clear inputs?
-                // this.reset();
+            const data = await response.json();
+
+            if (data.success) {
+                let message = `✅ Import complete: ${data.inserted} rows inserted`;
+                if (data.skipped > 0) {
+                    message += `, ${data.skipped} duplicates skipped`;
+                }
+                this.showStatus(message, 'success');
+
+                // Clear for next import
+                this.fileInput.value = '';
+                this.selectedFile = null;
+                this.previewData = null;
+                // Keep modal open to show success? Or close?
+                // Let's enable cancel to close
+                this.confirmBtn.disabled = true;
+
             } else {
-                this.showStatus('⚠️ Some imports failed. Check console.', 'warning', 'global-status');
+                this.showStatus('Error: ' + data.detail, 'error');
+                this.confirmBtn.disabled = false;
             }
-        } catch (e) {
-            this.showStatus('Error: ' + e.message, 'error', 'global-status');
-        } finally {
+        } catch (error) {
+            this.showStatus('Error importing: ' + error.message, 'error');
             this.confirmBtn.disabled = false;
         }
     }
 
-    async uploadSegment(segment, importData, overwrite) {
-        const formData = new FormData();
-        formData.append('file', importData.file);
-        formData.append('file_date', importData.date);
-        formData.append('overwrite_existing', overwrite);
-        formData.append('segments', JSON.stringify([segment]));
-
-        const res = await fetch('/api/data/upload/bhavcopy/import', {
-            method: 'POST',
-            body: formData
-        });
-        return await res.json();
+    refreshTradingEdge() {
+        // Placeholder if we need to refresh other UI components
+        if (typeof Edge !== 'undefined' && Edge.fetchContext) {
+            Edge.fetchContext();
+        }
     }
 }
 

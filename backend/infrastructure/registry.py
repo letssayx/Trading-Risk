@@ -108,23 +108,4 @@ class ToolboxRegistry:
             cls.register(DataGateway)
         except Exception as e: print(f"[REGISTRY] Error loading Data Gateway: {e}")
 
-        # 6. Standard Tools (New Batch - Missing 20+)
-        try:
-            import backend.analysis.toolbox.std_tools as std
-            for name, obj in inspect.getmembers(std):
-                if inspect.isclass(obj) and issubclass(obj, BaseSovereignTool) and obj is not BaseSovereignTool:
-                    cls.register(obj)
-        except Exception as e: print(f"[REGISTRY] Error loading Std Tools: {e}")
-
-        try:
-            from backend.analysis.toolbox.price_oi import PriceOIQuadrantTool
-            cls.register(PriceOIQuadrantTool)
-        except Exception as e: print(f"[REGISTRY] Error loading Price-OI Tool: {e}")
-
-        # 7. Plugins (Strategies)
-        try:
-            from backend.plugins.strategies.rollover import RolloverAnalysis
-            cls.register(RolloverAnalysis)
-        except Exception as e: print(f"[REGISTRY] Error loading Rollover Plugin: {e}")
-
         print(f"[REGISTRY] Discovery Complete. Total Tools: {len(cls._registry)}")
