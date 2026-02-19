@@ -16,7 +16,8 @@ statarb_instances: Dict[str, StatArbAdapter] = {}
 # --- Schemas ---
 class TurtleStartRequest(BaseModel):
     symbol: str
-    segment: str = "CM"
+    segment: str = "CM" # "CM" or "FO"
+    expiry_pos: int = 1 # 1=Near, 2=Next, 3=Far
     risk_per_trade: float = 0.01
 
 class StatArbStartRequest(BaseModel):
@@ -30,9 +31,10 @@ class StatArbStartRequest(BaseModel):
 @router.post("/turtle/start")
 async def start_turtle(req: TurtleStartRequest, db: Session = Depends(get_db)):
     adapter = TurtleAdapter(req.symbol, req.risk_per_trade)
+    adapter.set_config(req.segment, req.expiry_pos)
 
-    # Fetch historical data to initialize (Try DB first, else mock)
-    history = fetch_historical_data(req.symbol, req.segment, 100, db)
+    # Fetch historical data to initialize
+    history = fetch_historical_data(req.symbol, req.segment, 100, db, expiry_pos=req.expiry_pos)
     if not history:
         history = []
 

@@ -9,6 +9,7 @@ from sqlalchemy import func, desc
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy
+from backend.domain.market.contract_manager import ContractManager
 from backend.infrastructure.upstox_client import upstox_client
 
 router = APIRouter()
@@ -41,10 +42,35 @@ def generate_ohlc(symbol: str, days: int = 365):
         current_price = close_p
     return data
 
-def fetch_historical_data(symbol: str, segment: str, days: int, db: Session):
+def fetch_historical_data(symbol: str, segment: str, days: int, db: Session, expiry_pos: int = 1):
+    """
+    Fetches historical data.
+    If segment is FO, constructs a rolling futures series based on `expiry_pos` (1=Near, 2=Next, 3=Far).
+    """
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=days)
 
+    if segment == 'FO':
+        # Use ContractManager to stitch rolling futures
+        # expiry_pos defaults to 1 (Near Month)
+        continuous_data = ContractManager.get_continuous_future(db, symbol, expiry_pos, start_date, end_date)
+        if continuous_data:
+            data = []
+            for item in continuous_data:
+                data.append({
+                    "time": item["date"].strftime("%Y-%m-%d"),
+                    "open": item["open"],
+                    "high": item["high"],
+                    "low": item["low"],
+                    "close": item["close"],
+                    "volume": item["volume"],
+                    "oi": item.get("oi", 0),
+                    "expiry": item["expiry"].strftime("%Y-%m-%d") if item.get("expiry") else None
+                })
+            return data
+        return None
+
+    # Standard CM Logic
     query = db.query(Bhavcopy).filter(
         Bhavcopy.symbol == symbol,
         Bhavcopy.trade_date >= start_date,
@@ -52,42 +78,28 @@ def fetch_historical_data(symbol: str, segment: str, days: int, db: Session):
     )
 
     if segment == 'CM':
-        # For Equity, prefer EQ series
         query = query.filter(Bhavcopy.series == 'EQ')
-    elif segment == 'FO':
-        # For FO, prefer Futures (ignore Options for basic chart)
-        # FUTIDX or FUTSTK
-        query = query.filter(Bhavcopy.instrument_type.like('FUT%'))
-        # We need to handle multiple expiries. We'll sort by date and expiry, then dedupe in python.
-        query = query.order_by(Bhavcopy.trade_date.asc(), Bhavcopy.expiry_date.asc())
-    else:
-        query = query.order_by(Bhavcopy.trade_date.asc())
 
+    query = query.order_by(Bhavcopy.trade_date.asc())
     rows = query.all()
 
     if rows:
         data = []
-        seen_dates = set()
         for r in rows:
-            d_str = r.trade_date.strftime("%Y-%m-%d")
-            if d_str in seen_dates:
-                continue # Skip further expiries for same date (taking nearest)
-            seen_dates.add(d_str)
-
             data.append({
-                "time": d_str,
+                "time": r.trade_date.strftime("%Y-%m-%d"),
                 "open": r.open,
                 "high": r.high,
                 "low": r.low,
                 "close": r.close,
-                "volume": r.total_traded_qty or r.open_interest # Use OI for volume in FO if needed? No, vol is fine.
+                "volume": r.total_traded_qty
             })
         return data
     return None
 
 @router.get("/api/historical/{symbol}")
-async def get_historical_data(symbol: str, segment: str = "CM", days: int = 365, db: Session = Depends(get_db)):
-    data = fetch_historical_data(symbol, segment, days, db)
+async def get_historical_data(symbol: str, segment: str = "CM", expiry: int = 1, days: int = 365, db: Session = Depends(get_db)):
+    data = fetch_historical_data(symbol, segment, days, db, expiry_pos=expiry)
     if data:
         return data
     # Fallback to Upstox

@@ -19,14 +19,21 @@ window.ChartTabs = {
         this.addTab('NIFTY');
     },
 
-    addTab: async function(symbol, type='stock', segment='CM') {
+    addTab: async function(symbol, type='stock', segment='CM', expiryPos=1) {
         const id = this.nextId++;
         const containerId = `chart-instance-${id}`;
+
+        let displaySymbol = symbol;
+        if (segment === 'FO') {
+            displaySymbol += ` (FUT${expiryPos})`;
+        } else {
+            displaySymbol += ` (${segment})`;
+        }
 
         const tabEl = document.createElement('div');
         tabEl.className = 'chart-tab';
         tabEl.id = `tab-${id}`;
-        tabEl.innerHTML = `<span>${symbol} <small>(${segment})</small></span> <span class="chart-tab-close" onclick="ChartTabs.closeTab(${id}, event)">×</span>`;
+        tabEl.innerHTML = `<span>${displaySymbol}</span> <span class="chart-tab-close" onclick="ChartTabs.closeTab(${id}, event)">×</span>`;
         tabEl.onclick = () => this.switchTab(id);
 
         const tabsBar = document.getElementById('chart-tabs-bar');
@@ -69,7 +76,7 @@ window.ChartTabs = {
                 const res = await fetch(`/api/spread/historical?symbol1=${symbol.split('-')[0]}&symbol2=${symbol.split('-')[1]}`);
                 data = await res.json();
             } else {
-                const res = await fetch(`/api/historical/${symbol}?segment=${segment}`);
+                const res = await fetch(`/api/historical/${symbol}?segment=${segment}&expiry=${expiryPos}`);
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 data = await res.json();
             }

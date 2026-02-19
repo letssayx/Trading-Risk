@@ -18,11 +18,16 @@ const TurtleTab = {
 
                 <div class="segment-selector" style="font-size:0.85em; color:#ccc;">
                     <label style="margin-right:8px; cursor:pointer;">
-                        <input type="radio" name="turtle-seg" value="CM"> EQ
+                        <input type="radio" name="turtle-seg" value="CM" onclick="TurtleTab.toggleExpiry(false)"> EQ
                     </label>
-                    <label style="cursor:pointer;">
-                        <input type="radio" name="turtle-seg" value="FO" checked> Futures
+                    <label style="cursor:pointer; margin-right:10px;">
+                        <input type="radio" name="turtle-seg" value="FO" checked onclick="TurtleTab.toggleExpiry(true)"> Futures
                     </label>
+                    <select id="turtle-expiry-pos" style="background:#222; color:#ccc; border:1px solid #444; border-radius:3px;">
+                        <option value="1">Near (FUT1)</option>
+                        <option value="2">Next (FUT2)</option>
+                        <option value="3">Far (FUT3)</option>
+                    </select>
                 </div>
             </div>
             <table class="strategy-table">
@@ -30,11 +35,14 @@ const TurtleTab = {
                     <tr>
                         <th>Symbol</th>
                         <th>Seg</th>
+                        <th>Expiry</th>
                         <th>Price</th>
                         <th>N (ATR)</th>
                         <th>Signal</th>
                         <th>Stop</th>
                         <th>Pos Size</th>
+                        <th>OI</th>
+                        <th>Vol</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -72,14 +80,20 @@ const TurtleTab = {
     },
 
     startStrategy: async function(symbol) {
-        // Get Segment
+        // Get Segment & Expiry
         const seg = document.querySelector('input[name="turtle-seg"]:checked').value;
+        const expiryPos = document.getElementById('turtle-expiry-pos').value;
 
         try {
             const res = await fetch('/api/strategies/turtle/start', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ symbol: symbol, risk_per_trade: 0.01, segment: seg })
+                body: JSON.stringify({
+                    symbol: symbol,
+                    risk_per_trade: 0.01,
+                    segment: seg,
+                    expiry_pos: parseInt(expiryPos)
+                })
             });
             const data = await res.json();
 
@@ -87,6 +101,7 @@ const TurtleTab = {
                 id: data.instanceId,
                 symbol: symbol,
                 segment: seg,
+                expiry_pos: parseInt(expiryPos),
                 state: data.initialState,
                 rowElement: null
             });
@@ -117,6 +132,11 @@ const TurtleTab = {
         });
     },
 
+    toggleExpiry: function(show) {
+        const el = document.getElementById('turtle-expiry-pos');
+        if(el) el.style.display = show ? 'inline-block' : 'none';
+    },
+
     updateRowDOM: function(inst) {
         if (!inst.rowElement) return;
         const s = inst.state;
@@ -127,16 +147,19 @@ const TurtleTab = {
             ? `<button onclick="TurtleTab.pause('${inst.id}')" style="color:orange;">Pause</button>`
             : `<button onclick="TurtleTab.resume('${inst.id}')" style="color:green;">Resume</button>`;
 
+        const expiryLabel = inst.segment === 'FO' ? `FUT${inst.expiry_pos || 1}` : '--';
+
         inst.rowElement.innerHTML = `
             <td>${inst.symbol}</td>
             <td><span class="badge ${inst.segment}">${inst.segment}</span></td>
+            <td>${expiryLabel}</td>
             <td>${s.price ? s.price.toFixed(2) : '--'}</td>
             <td>${s.n}</td>
             <td style="color:${this.getColor(s.signal)}">${s.signal}</td>
             <td>${s.stop}</td>
             <td>${s.position_size}</td>
             <td class="actions-cell">
-                <button onclick="ChartTabs.addTab('${inst.symbol}', 'stock', '${inst.segment}')" title="Show Chart">📈</button>
+                <button onclick="ChartTabs.addTab('${inst.symbol}', 'stock', '${inst.segment}', ${inst.expiry_pos || 1})" title="Show Chart">📈</button>
                 ${toggleBtn}
                 <button onclick="TurtleTab.remove('${inst.id}')" title="Remove">❌</button>
             </td>
