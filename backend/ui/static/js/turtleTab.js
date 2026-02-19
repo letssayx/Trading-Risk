@@ -79,7 +79,7 @@ const TurtleTab = {
             const res = await fetch('/api/strategies/turtle/start', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ symbol: symbol, risk_per_trade: 0.01 })
+                body: JSON.stringify({ symbol: symbol, risk_per_trade: 0.01, segment: seg })
             });
             const data = await res.json();
 
@@ -136,7 +136,7 @@ const TurtleTab = {
             <td>${s.stop}</td>
             <td>${s.position_size}</td>
             <td class="actions-cell">
-                <button onclick="ChartTabs.addTab('${inst.symbol}')" title="Show Chart">📈</button>
+                <button onclick="ChartTabs.addTab('${inst.symbol}', 'stock', '${inst.segment}')" title="Show Chart">📈</button>
                 ${toggleBtn}
                 <button onclick="TurtleTab.remove('${inst.id}')" title="Remove">❌</button>
             </td>

@@ -334,3 +334,45 @@ body {
 .actions-cell button:hover {
     transform: scale(1.1);
 }
+
+/* --- Toolbox Drawer --- */
+.toolbox-drawer {
+    position: absolute;
+    left: 50px; /* Width of toolbox */
+    top: 30px; /* Top bar height */
+    bottom: 0;
+    width: 250px;
+    background: #1a1a1a;
+    border-right: 1px solid #333;
+    z-index: 95; /* Below tooltip but above content? */
+    display: none;
+    flex-direction: column;
+    padding: 10px;
+    overflow-y: auto;
+}
+.toolbox-drawer.open { display: flex; }
+
+.drawer-header {
+    font-weight: bold;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tool-card {
+    background: #252525;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    cursor: grab;
+    border: 1px solid #333;
+}
+.tool-card:hover {
+    background: #333;
+    border-color: #00bcd4;
+}
+.tool-title { font-weight: 600; color: #eee; }
+.tool-desc { font-size: 0.85em; color: #888; margin-top: 4px; }

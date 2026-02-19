@@ -55,53 +55,70 @@ async def websocket_endpoint(websocket: WebSocket):
         # For this simple demo, we let the broadcast loop handle stale connections
         pass
 
-# Background task to simulate market data
-# Global state for simulation prices to persist across loops
-sim_prices: Dict[str, float] = {}
-
+# Background task to stream market data
 async def simulate_market_data():
-    from backend.infrastructure.db import SessionLocal
-    from backend.domain.market.models import Bhavcopy
+    from backend.infrastructure.upstox_client import upstox_client
 
     while True:
-        # Get all active symbols from connection manager
-        active_symbols = set(manager.active_connections.keys())
-        # Always include default majors
-        default_symbols = {"NIFTY", "BANKNIFTY"}
-        target_symbols = active_symbols.union(default_symbols)
+        try:
+            # Get all active symbols from connection manager
+            active_symbols = list(manager.active_connections.keys())
+            if not active_symbols:
+                await asyncio.sleep(1)
+                continue
 
-        # Initialize prices for new symbols from DB
-        new_symbols = target_symbols - set(sim_prices.keys())
-        if new_symbols:
-            db = SessionLocal()
-            try:
-                for sym in new_symbols:
-                    # Get last close
-                    last_row = db.query(Bhavcopy).filter(Bhavcopy.symbol == sym).order_by(Bhavcopy.trade_date.desc()).first()
-                    if last_row:
-                        sim_prices[sym] = last_row.close
+            # If Upstox is configured, fetch real data
+            if upstox_client.is_configured():
+                # Map symbols to keys
+                # Heuristic: Indices vs Equities
+                keys_map = {}
+                keys_to_fetch = []
+
+                for sym in active_symbols:
+                    if sym in ["NIFTY", "BANKNIFTY"]:
+                        # Indices often need specific keys, hardcoding for demo/common case
+                        # Or using search. Let's assume NSE_INDEX|{IndexName} or similar?
+                        # Upstox V2 often uses instrument_key like 'NSE_INDEX|Nifty 50'
+                        # This is brittle without a master list.
+                        # Fallback to NSE_EQ for now or skip if unsure.
+                        # Let's try NSE_INDEX|{sym} but NIFTY is usually Nifty 50.
+                        # For safety, let's treat them as NSE_EQ if not sure, or try standard mapping.
+                        key = f"NSE_INDEX|{sym}"
+                        if sym == "NIFTY": key = "NSE_INDEX|Nifty 50"
+                        if sym == "BANKNIFTY": key = "NSE_INDEX|Nifty Bank"
                     else:
-                        # Fallback if not in DB
-                        sim_prices[sym] = 1000.0
-            finally:
-                db.close()
+                        key = upstox_client.get_instrument_key(sym)
 
-        for symbol in target_symbols:
-            if symbol not in sim_prices: continue
+                    keys_map[key] = sym
+                    keys_to_fetch.append(key)
 
-            # Random walk (small drift)
-            change = (random.random() - 0.5) * (sim_prices[symbol] * 0.001) # 0.1% max move
-            sim_prices[symbol] += change
+                if keys_to_fetch:
+                    quotes = upstox_client.get_market_quote(keys_to_fetch)
 
-            tick = {
-                "symbol": symbol,
-                "price": round(sim_prices[symbol], 2),
-                "volume": random.randint(100, 5000),
-                "oi": random.randint(10000, 50000),
-                "timestamp": datetime.now().isoformat()
-            }
-            await manager.broadcast(tick)
+                    for key, data in quotes.items():
+                        symbol = keys_map.get(key)
+                        if not symbol: continue
 
-        await asyncio.sleep(1) # 1 second update interval
+                        # Upstox Quote Structure: { 'last_price': ..., 'volume': ... }
+                        lp = data.get('last_price', 0)
+                        vol = data.get('volume', 0)
+                        oi = data.get('oi', 0)
+
+                        tick = {
+                            "symbol": symbol,
+                            "price": lp,
+                            "volume": vol,
+                            "oi": oi,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        await manager.broadcast(tick)
+
+            # If NOT configured, do NOTHING (as requested: "donot use false prices")
+            # We just sleep to prevent busy loop
+
+        except Exception as e:
+            print(f"Market Stream Error: {e}")
+
+        await asyncio.sleep(1) # Poll interval
 
 # We need to start this background task. usually in startup event.

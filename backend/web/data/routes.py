@@ -9,6 +9,7 @@ from sqlalchemy import func, desc
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy
+from backend.infrastructure.upstox_client import upstox_client
 
 router = APIRouter()
 
@@ -40,36 +41,78 @@ def generate_ohlc(symbol: str, days: int = 365):
         current_price = close_p
     return data
 
-def fetch_historical_data(symbol: str, days: int, db: Session):
+def fetch_historical_data(symbol: str, segment: str, days: int, db: Session):
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=days)
 
-    rows = db.query(Bhavcopy).filter(
+    query = db.query(Bhavcopy).filter(
         Bhavcopy.symbol == symbol,
-        Bhavcopy.trade_date >= start_date
-    ).order_by(Bhavcopy.trade_date.asc()).all()
+        Bhavcopy.trade_date >= start_date,
+        Bhavcopy.segment == segment
+    )
+
+    if segment == 'CM':
+        # For Equity, prefer EQ series
+        query = query.filter(Bhavcopy.series == 'EQ')
+    elif segment == 'FO':
+        # For FO, prefer Futures (ignore Options for basic chart)
+        # FUTIDX or FUTSTK
+        query = query.filter(Bhavcopy.instrument_type.like('FUT%'))
+        # We need to handle multiple expiries. We'll sort by date and expiry, then dedupe in python.
+        query = query.order_by(Bhavcopy.trade_date.asc(), Bhavcopy.expiry_date.asc())
+    else:
+        query = query.order_by(Bhavcopy.trade_date.asc())
+
+    rows = query.all()
 
     if rows:
         data = []
+        seen_dates = set()
         for r in rows:
+            d_str = r.trade_date.strftime("%Y-%m-%d")
+            if d_str in seen_dates:
+                continue # Skip further expiries for same date (taking nearest)
+            seen_dates.add(d_str)
+
             data.append({
-                "time": r.trade_date.strftime("%Y-%m-%d"),
+                "time": d_str,
                 "open": r.open,
                 "high": r.high,
                 "low": r.low,
                 "close": r.close,
-                "volume": r.total_traded_qty
+                "volume": r.total_traded_qty or r.open_interest # Use OI for volume in FO if needed? No, vol is fine.
             })
         return data
     return None
 
 @router.get("/api/historical/{symbol}")
-async def get_historical_data(symbol: str, days: int = 365, db: Session = Depends(get_db)):
-    data = fetch_historical_data(symbol, days, db)
+async def get_historical_data(symbol: str, segment: str = "CM", days: int = 365, db: Session = Depends(get_db)):
+    data = fetch_historical_data(symbol, segment, days, db)
     if data:
         return data
+    # Fallback to Upstox
+    if upstox_client.is_configured():
+        # Map symbol to instrument key?
+        # Assuming user enters instrument key or standard symbol
+        # Upstox needs format like 'NSE_EQ|INE002A01018' or similar.
+        # For simple demo, try 'NSE_EQ|{symbol}'
+        key = upstox_client.get_instrument_key(symbol)
+        interval = 'day'
+        to_date = datetime.now().strftime("%Y-%m-%d")
+        from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        upstox_data = upstox_client.get_historical_candles(key, interval, to_date, from_date)
+        if upstox_data:
+            return upstox_data
+
     # Fallback to mock if no data
-    return generate_ohlc(symbol, days)
+    # Ideally should return empty if "no fake data" requested, but let's keep mock as last resort
+    # to prevent broken UI if no DB and no Upstox.
+    # The user said "if data not available then dont show".
+    # So if upstox fails and DB empty, return []?
+    # Or mock only if absolutely necessary?
+    # Let's return [] to respect "donot use false prices".
+    return []
 
 @router.get("/api/spread/historical")
 async def get_spread_historical(symbol1: str, symbol2: str, ratio: float = 1.0, days: int = 365):
@@ -143,10 +186,23 @@ async def get_trading_edge(db: Session = Depends(get_db)):
             "fii_flow": f"{turnover_cr} Cr (Turnover)" # Proxy
         }
 
-    # Mock Fallback
+    # Upstox Fallback?
+    # Edge needs market breadth which is hard from single quotes.
+    # But if Upstox connected, we could return "Realtime" status?
+
+    if upstox_client.is_configured():
+        return {
+            "sentiment": "Unknown (Live)",
+            "regime": "Live Feed Active",
+            "pe_ratio": "--",
+            "iv_percentile": "--",
+            "fii_flow": "Realtime"
+        }
+
+    # No Data
     return {
-        "sentiment": "Neutral",
-        "regime": "No Data",
+        "sentiment": "No Data",
+        "regime": "Disconnected",
         "pe_ratio": 0,
         "iv_percentile": 0,
         "fii_flow": "0 Cr"

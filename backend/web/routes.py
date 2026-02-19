@@ -56,4 +56,4 @@ def run_pca(req: PCARequest):
 def get_toolbox_registry():
     from backend.infrastructure.registry import ToolboxRegistry
     ToolboxRegistry.auto_discover()
-    return {"tools": ToolboxRegistry.get_widgets()}
+    return {"tools": ToolboxRegistry.get_all_tools()}

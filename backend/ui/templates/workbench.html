@@ -115,10 +115,19 @@
 
         <!-- 1. Far Left Toolbox -->
         <div id="toolbox">
-            <div class="toolbox-item" title="Strategies" draggable="true" data-type="strategy">♟️</div>
-            <div class="toolbox-item" title="Filters" draggable="true" data-type="filter">🔍</div>
-            <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
-            <div class="toolbox-item" title="Risk Models" draggable="true" data-type="risk">🛡️</div>
+            <div class="toolbox-item" title="Strategies" data-category="Strategy">♟️</div>
+            <div class="toolbox-item" title="Filters" data-category="Filter">🔍</div>
+            <div class="toolbox-item" title="Indicators" data-category="Indicator">📊</div>
+            <div class="toolbox-item" title="Risk Models" data-category="Risk">🛡️</div>
+        </div>
+
+        <!-- Toolbox Drawer (Flyout) -->
+        <div id="toolbox-drawer" class="toolbox-drawer">
+            <div class="drawer-header">
+                <span id="drawer-title">Tools</span>
+                <span style="cursor:pointer;" onclick="Toolbox.closeDrawer()">×</span>
+            </div>
+            <div id="drawer-content"></div>
         </div>
 
         <!-- 2. Left Panel -->
@@ -203,11 +212,18 @@
                     <select id="api-provider">
                         <option value="google">Google Gemini</option>
                         <option value="groq">Groq</option>
+                        <option value="upstox">Upstox API</option>
                     </select>
                 </div>
                 <div class="option-row">
-                    <label>API Key:</label>
+                    <label>API Key / Access Token:</label>
                     <input type="password" id="api-key-input" autocomplete="off" style="width:100%; padding:5px; background:#333; border:1px solid #555; color:white;">
+                </div>
+                <div id="upstox-extra" style="display:none;">
+                     <div class="option-row">
+                        <label>Upstox API Secret (Optional):</label>
+                        <input type="password" id="upstox-secret" autocomplete="off" style="width:100%; padding:5px; background:#333; border:1px solid #555; color:white;">
+                    </div>
                 </div>
                 <div id="config-status" class="status-message"></div>
             </div>
@@ -249,43 +265,50 @@
             </div>
 
             <div class="modal-body">
-                <div class="upload-section">
-                    <label for="bhavcopy-file">Select ZIP file:</label>
-                    <input type="file" id="bhavcopy-file" accept=".zip" />
-                    <p class="hint" style="color:#888; font-size:0.8em;">Expected format: BhavCopy_NSE_CM_0_0_0_YYYYMMDD_F_0000.csv.zip</p>
-                </div>
-
-                <!-- Import Options -->
-                <div class="import-options">
-                    <h4>Import Options:</h4>
-                    <div class="option-row">
-                        <label>Segments to import:</label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="import-segment-cm" checked /> CM (Stocks)
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="import-segment-fo" checked /> FO (F&O)
-                        </label>
+                <div class="import-container" style="display:flex; gap:20px;">
+                    <!-- CM Section -->
+                    <div class="import-box" style="flex:1; background:#222; padding:15px; border-radius:4px;">
+                        <h3>Capital Market (CM)</h3>
+                        <div class="upload-section">
+                            <label for="bhavcopy-file-cm">Select CM ZIP:</label>
+                            <input type="file" id="bhavcopy-file-cm" accept=".zip" />
+                        </div>
+                        <div id="status-cm" class="status-message"></div>
+                        <button id="btn-preview-cm" class="btn btn-secondary" style="width:100%; margin-top:10px;">Preview CM</button>
                     </div>
 
-                    <div class="option-row" style="display: none;">
+                    <!-- FO Section -->
+                    <div class="import-box" style="flex:1; background:#222; padding:15px; border-radius:4px;">
+                        <h3>Futures & Options (FO)</h3>
+                        <div class="upload-section">
+                            <label for="bhavcopy-file-fo">Select FO ZIP:</label>
+                            <input type="file" id="bhavcopy-file-fo" accept=".zip" />
+                        </div>
+                        <div id="status-fo" class="status-message"></div>
+                        <button id="btn-preview-fo" class="btn btn-secondary" style="width:100%; margin-top:10px;">Preview FO</button>
+                    </div>
+                </div>
+
+                <!-- Common Options -->
+                <div class="import-options" style="margin-top:20px;">
+                    <div class="option-row">
                         <label class="checkbox-label">
                             <input type="checkbox" id="overwrite-existing" /> Overwrite existing data for this date
                         </label>
-                        <p class="hint" style="color:#ff9800; font-size:0.8em;">Warning: This will delete all existing data for the selected date/segments</p>
                     </div>
                 </div>
 
-                <div id="upload-preview" class="preview-section">
-                    <p class="placeholder" style="color:#888;">Select a file to see preview</p>
+                <!-- Unified Preview Area -->
+                <div id="upload-preview" class="preview-section" style="margin-top:20px; border-top:1px solid #333; padding-top:10px;">
+                    <p class="placeholder" style="color:#888;">Select a file and click Preview to verify data.</p>
                 </div>
 
-                <div id="upload-status" class="status-message"></div>
+                <div id="global-status" class="status-message"></div>
             </div>
 
             <div class="modal-footer" style="padding-top:20px; border-top:1px solid #444; text-align:right;">
-                <button id="cancel-import-btn" class="btn btn-secondary">Cancel</button>
-                <button id="confirm-import-btn" class="btn btn-primary" disabled>Import to Database</button>
+                <button id="cancel-import-btn" class="btn btn-secondary">Close</button>
+                <button id="confirm-import-btn" class="btn btn-primary" disabled>Import Selected</button>
             </div>
         </div>
     </div>
@@ -305,6 +328,10 @@
         // Config Modal Logic
         function openConfigModal() {
             document.getElementById('config-modal').style.display = 'flex';
+            document.getElementById('api-provider').addEventListener('change', (e) => {
+                const isUpstox = e.target.value === 'upstox';
+                document.getElementById('upstox-extra').style.display = isUpstox ? 'block' : 'none';
+            });
         }
         function closeConfigModal() {
             document.getElementById('config-modal').style.display = 'none';
@@ -312,13 +339,17 @@
         async function saveApiKey() {
             const provider = document.getElementById('api-provider').value;
             const key = document.getElementById('api-key-input').value;
+            const secret = document.getElementById('upstox-secret').value;
             const status = document.getElementById('config-status');
+
+            const payload = {provider, key};
+            if(provider === 'upstox') payload.secret = secret;
 
             try {
                 const res = await fetch('/api/config/update-key', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({provider, key})
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
                 if(data.success) {

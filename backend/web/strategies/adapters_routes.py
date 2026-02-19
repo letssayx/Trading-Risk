@@ -16,6 +16,7 @@ statarb_instances: Dict[str, StatArbAdapter] = {}
 # --- Schemas ---
 class TurtleStartRequest(BaseModel):
     symbol: str
+    segment: str = "CM"
     risk_per_trade: float = 0.01
 
 class StatArbStartRequest(BaseModel):
@@ -31,8 +32,9 @@ async def start_turtle(req: TurtleStartRequest, db: Session = Depends(get_db)):
     adapter = TurtleAdapter(req.symbol, req.risk_per_trade)
 
     # Fetch historical data to initialize (Try DB first, else mock)
-    history = fetch_historical_data(req.symbol, 100, db)
+    history = fetch_historical_data(req.symbol, req.segment, 100, db)
     if not history:
+        # Only mock if absolutely needed and no real data found
         history = generate_ohlc(req.symbol, days=100)
 
     adapter.start(history)

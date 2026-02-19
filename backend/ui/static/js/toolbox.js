@@ -1,95 +1,96 @@
 const Toolbox = {
-    draggedType: null,
+    tools: [],
+    drawer: null,
+    drawerContent: null,
+    drawerTitle: null,
 
-    init: function() {
-        const items = document.querySelectorAll('.toolbox-item');
-        items.forEach(item => {
-            item.addEventListener('dragstart', (e) => {
-                this.draggedType = e.target.dataset.type;
-                e.dataTransfer.setData('text/plain', this.draggedType);
-                e.dataTransfer.effectAllowed = 'copy';
-            });
-
-            // Add click handler for convenience
-            item.addEventListener('click', (e) => {
-                const type = e.target.dataset.type;
-                this.handleClick(type);
-            });
-        });
-
-        this.setupDropZones();
+    // Category Mappings (UI -> Backend Categories)
+    categoryMap: {
+        'Strategy': ['Strategy', 'Strategies'],
+        'Filter': ['Filter', 'Filters', 'Stats'],
+        'Indicator': ['Analysis', 'Math', 'Ingest'],
+        'Risk': ['Risk', 'Governance']
     },
 
-    handleClick: function(type) {
-        // Show available tools or quick add
-        if (type === 'strategy') {
-             const strategyType = prompt("Quick Add Strategy (turtle/statarb):", "turtle");
-             if (strategyType) {
-                if (strategyType === 'turtle') {
-                    WorkbookManager.switchTab('turtle');
-                } else if (strategyType === 'statarb') {
-                    WorkbookManager.switchTab('statarb');
-                }
-             }
-        } else {
-             alert(`Drag ${type} to the chart or workbook to use it.`);
+    init: async function() {
+        this.drawer = document.getElementById('toolbox-drawer');
+        this.drawerContent = document.getElementById('drawer-content');
+        this.drawerTitle = document.getElementById('drawer-title');
+
+        // Fetch tools
+        try {
+            const res = await fetch('/strategies/toolbox/registry');
+            const data = await res.json();
+            this.tools = data.tools || [];
+        } catch(e) {
+            console.error("Failed to fetch tools", e);
         }
-    },
 
-    setupDropZones: function() {
-        // Drop on Chart
-        const chartArea = document.getElementById('chart-workbench');
-        chartArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-            chartArea.style.border = '2px dashed #00bcd4';
-        });
-        chartArea.addEventListener('dragleave', () => chartArea.style.border = 'none');
-        chartArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            chartArea.style.border = 'none';
-            const type = e.dataTransfer.getData('text/plain');
-            this.handleDropOnChart(type);
+        // Bind clicks
+        document.querySelectorAll('.toolbox-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const cat = item.dataset.category;
+                this.openDrawer(cat);
+            });
+            // Disable native drag on the category icon itself if we want them to click first
+            // Or allow dragging generic type? User asked to "click ... show available".
+            // So click behavior is prioritized.
+            item.draggable = false;
         });
 
-        // Drop on Workbook
-        const workbookArea = document.getElementById('strategy-workbench');
-        workbookArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            workbookArea.style.border = '2px dashed #00bcd4';
-        });
-        workbookArea.addEventListener('dragleave', () => workbookArea.style.border = 'none');
-        workbookArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            workbookArea.style.border = 'none';
-            const type = e.dataTransfer.getData('text/plain');
-            this.handleDropOnWorkbook(type);
-        });
-    },
-
-    handleDropOnChart: function(type) {
-        if (type === 'indicator') {
-            // Mock adding indicator
-            alert('Indicator added to active chart (Mock)');
-            // In real app, call ChartTabs.addIndicator()
-        } else {
-            console.log(`Dropped ${type} on chart - no action`);
-        }
-    },
-
-    handleDropOnWorkbook: function(type) {
-        if (type === 'strategy') {
-            // Prompt to add new strategy instance
-            // Determine which strategy? For now default to Turtle or open selector
-            const strategyType = prompt("Select Strategy (turtle/statarb):", "turtle");
-            if (strategyType === 'turtle') {
-                WorkbookManager.switchTab('turtle');
-                TurtleTab.openAddModal();
-            } else if (strategyType === 'statarb') {
-                WorkbookManager.switchTab('statarb');
-                StatArbTab.openAddModal();
+        // Close drawer on outside click (if not on toolbox)
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#toolbox') && !e.target.closest('#toolbox-drawer')) {
+                this.closeDrawer();
             }
+        });
+    },
+
+    openDrawer: function(uiCategory) {
+        if (!this.drawer) return;
+
+        // Filter tools
+        const validCats = this.categoryMap[uiCategory] || [uiCategory];
+        const filteredTools = this.tools.filter(t =>
+            validCats.some(c => t.category.includes(c))
+        );
+
+        this.drawerTitle.innerText = uiCategory;
+        this.drawerContent.innerHTML = '';
+
+        if (filteredTools.length === 0) {
+            this.drawerContent.innerHTML = '<div style="color:#888; padding:10px;">No tools found.</div>';
+        } else {
+            filteredTools.forEach(tool => {
+                const el = document.createElement('div');
+                el.className = 'tool-card';
+                el.draggable = true;
+                el.innerHTML = `
+                    <div class="tool-title">${tool.name}</div>
+                    <div class="tool-desc">${tool.description}</div>
+                `;
+
+                el.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('application/json', JSON.stringify(tool));
+                    e.dataTransfer.effectAllowed = 'copy';
+                });
+
+                this.drawerContent.appendChild(el);
+            });
         }
+
+        this.drawer.style.display = 'flex';
+        // Position it: handled by CSS (absolute to left panel container?)
+        // Actually CSS sets it relative to #app-container? No, it's inside #app-container?
+        // Wait, #toolbox-drawer is after #toolbox. #app-container is flex.
+        // #toolbox is position relative? No.
+        // I put #toolbox-drawer as a sibling of #toolbox.
+        // To make it appear *over* the left panel, I need absolute positioning relative to #app-container or body.
+        // CSS: left: 50px (toolbox width). top: 30px.
+    },
+
+    closeDrawer: function() {
+        if (this.drawer) this.drawer.style.display = 'none';
     }
 };
 
