@@ -57,17 +57,18 @@ const Toolbox = {
 
     handleDropOnWorkbook: function(type) {
         if (type === 'strategy') {
-            // Prompt to add new strategy instance
+            // Provide specific options instead of generic prompt if possible
             const strategyType = prompt("Select Strategy (turtle/statarb/oi/rollover):", "turtle");
-            if (strategyType === 'turtle') {
-                WorkbookManager.switchTab('turtle');
-            } else if (strategyType === 'statarb') {
-                WorkbookManager.switchTab('statarb');
-            } else if (strategyType === 'oi') {
-                WorkbookManager.switchTab('oi');
-            } else if (strategyType === 'rollover') {
-                WorkbookManager.switchTab('rollover');
-            }
+            if (strategyType) WorkbookManager.switchTab(strategyType.toLowerCase());
+        } else if (type === 'indicator') {
+            const indicatorType = prompt("Select Indicator (SMA/RSI/MACD):", "SMA");
+            if (indicatorType) alert(`Indicator ${indicatorType} added (Mock)`);
+        } else if (type === 'filter') {
+            const filterType = prompt("Select Filter (ZScore/ADX/Regime):", "ZScore");
+            if (filterType) alert(`Filter ${filterType} applied (Mock)`);
+        } else if (type === 'risk') {
+             const riskType = prompt("Select Risk Model (VaR/Euler/Kelly):", "VaR");
+             if (riskType) alert(`Risk Model ${riskType} activated (Mock)`);
         }
     }
 };

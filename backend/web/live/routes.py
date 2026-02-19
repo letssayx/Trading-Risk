@@ -62,9 +62,12 @@ async def simulate_market_data():
 
     while True:
         for symbol in symbols:
-            # Random walk
-            change = (random.random() - 0.5) * 2 # -1 to +1
-            prices[symbol] += change
+            # Stop Random walk for now - keep price stable or gentle noise
+            # change = (random.random() - 0.5) * 0.1
+            # prices[symbol] += change
+
+            # Just emit the current price (maybe slight jitter to show it's alive)
+            prices[symbol] += (random.random() - 0.5) * 0.05
 
             tick = {
                 "symbol": symbol,
