@@ -6,7 +6,8 @@ const WorkbookManager = {
         this.modules = {
             turtle: TurtleTab,
             statarb: StatArbTab,
-            'price-oi': PriceOiTool
+            oi: OiTool,
+            rollover: RolloverTool
         };
 
         // Bind Tab Clicks

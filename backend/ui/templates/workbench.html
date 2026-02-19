@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Turtle Terminal - Trader Workbench</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
@@ -118,7 +119,6 @@
             <div class="toolbox-item" title="Filters" draggable="true" data-type="filter">🔍</div>
             <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
             <div class="toolbox-item" title="Risk Models" draggable="true" data-type="risk">🛡️</div>
-            <div class="toolbox-item" title="Price-OI Analysis" onclick="PriceOiTool.open()" style="cursor: pointer;">📈</div>
         </div>
 
         <!-- 2. Left Panel -->
@@ -206,6 +206,8 @@
                 <div class="wb-tabs-header">
                     <div class="wb-tab active" data-type="turtle">Turtle Legacy</div>
                     <div class="wb-tab" data-type="statarb">Stat Arb</div>
+                    <div class="wb-tab" data-type="oi">OI Analysis</div>
+                    <div class="wb-tab" data-type="rollover">Rollover</div>
                 </div>
 
                 <div class="wb-content" id="wb-content-area">
@@ -272,7 +274,8 @@
     <script src="/static/js/chartTabs.js"></script>
     <script src="/static/js/turtleTab.js"></script>
     <script src="/static/js/statarbTab.js"></script>
-    <script src="/static/js/priceOiTool.js"></script>
+    <script src="/static/js/oiTool.js"></script>
+    <script src="/static/js/rolloverTool.js"></script>
     <script src="/static/js/workbookManager.js"></script>
     <script src="/static/js/toolbox.js"></script>
     <script src="/static/js/edge.js"></script>

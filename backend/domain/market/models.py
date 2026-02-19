@@ -49,14 +49,19 @@ class Bhavcopy(Base):
     created_at = Column(Date, nullable=False, default=datetime.now)
     updated_at = Column(Date, default=datetime.now, onupdate=datetime.now)
 
-    # Ensure uniqueness: symbol + date + segment + (expiry for FO) + series (for CM)
-    # Adding series to unique constraint to handle CM properly
+    # Ensure uniqueness using Partial Indexes to handle NULLs correctly
     __table_args__ = (
-        UniqueConstraint(
-            'symbol', 'trade_date', 'segment',
-            'series', 'expiry_date', 'strike_price', 'option_type',
-            name='unique_contract_date'
-        ),
+        # CM Unique Index
+        Index('ix_bhavcopy_cm_unique',
+            'symbol', 'trade_date', 'series',
+            unique=True,
+            postgresql_where=(segment == 'CM')),
+
+        # FO Unique Index
+        Index('ix_bhavcopy_fo_unique',
+            'symbol', 'trade_date', 'expiry_date', 'strike_price', 'option_type',
+            unique=True,
+            postgresql_where=(segment == 'FO')),
     )
 
 

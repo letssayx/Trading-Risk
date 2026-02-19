@@ -58,14 +58,15 @@ const Toolbox = {
     handleDropOnWorkbook: function(type) {
         if (type === 'strategy') {
             // Prompt to add new strategy instance
-            // Determine which strategy? For now default to Turtle or open selector
-            const strategyType = prompt("Select Strategy (turtle/statarb):", "turtle");
+            const strategyType = prompt("Select Strategy (turtle/statarb/oi/rollover):", "turtle");
             if (strategyType === 'turtle') {
                 WorkbookManager.switchTab('turtle');
-                TurtleTab.openAddModal();
             } else if (strategyType === 'statarb') {
                 WorkbookManager.switchTab('statarb');
-                StatArbTab.openAddModal();
+            } else if (strategyType === 'oi') {
+                WorkbookManager.switchTab('oi');
+            } else if (strategyType === 'rollover') {
+                WorkbookManager.switchTab('rollover');
             }
         }
     }

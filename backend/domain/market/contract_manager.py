@@ -33,8 +33,9 @@ class ContractManager:
             last_day = calendar.monthrange(current_date.year, current_date.month)[1]
             last_date_of_month = date(current_date.year, current_date.month, last_day)
 
-            # Find last Thursday
-            offset = (last_date_of_month.weekday() - 3) % 7
+            # Find last Tuesday (weekday 1)
+            # 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+            offset = (last_date_of_month.weekday() - 1) % 7
             expiry_date = last_date_of_month - timedelta(days=offset)
 
             if expiry_date < today and len(expiries) == 0:
