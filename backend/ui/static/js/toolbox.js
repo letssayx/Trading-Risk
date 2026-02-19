@@ -13,6 +13,7 @@ const Toolbox = {
     },
 
     init: async function() {
+        console.log("Toolbox Initializing...");
         this.drawer = document.getElementById('toolbox-drawer');
         this.drawerContent = document.getElementById('drawer-content');
         this.drawerTitle = document.getElementById('drawer-title');
@@ -20,10 +21,12 @@ const Toolbox = {
         // Fetch tools
         try {
             const res = await fetch('/strategies/toolbox/registry');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             this.tools = data.tools || [];
+            console.log(`Toolbox: Loaded ${this.tools.length} tools.`);
         } catch(e) {
-            console.error("Failed to fetch tools", e);
+            console.error("Toolbox: Failed to fetch tools", e);
         }
 
         // Bind clicks

@@ -344,11 +344,12 @@ body {
     width: 250px;
     background: #1a1a1a;
     border-right: 1px solid #333;
-    z-index: 95; /* Below tooltip but above content? */
+    z-index: 1000; /* Ensure on top */
     display: none;
     flex-direction: column;
     padding: 10px;
     overflow-y: auto;
+    box-shadow: 4px 0 10px rgba(0,0,0,0.5);
 }
 .toolbox-drawer.open { display: flex; }
 

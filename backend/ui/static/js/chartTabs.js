@@ -37,6 +37,8 @@ window.ChartTabs = {
         const chartDiv = document.createElement('div');
         chartDiv.id = containerId;
         chartDiv.className = 'chart-instance';
+        // Ensure visible for dimension calculation
+        chartDiv.style.display = 'block';
         chartsContainer.appendChild(chartDiv);
 
         const chart = LightweightCharts.createChart(chartDiv, {

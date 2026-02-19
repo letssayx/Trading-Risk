@@ -115,23 +115,26 @@ async def get_historical_data(symbol: str, segment: str = "CM", days: int = 365,
     return []
 
 @router.get("/api/spread/historical")
-async def get_spread_historical(symbol1: str, symbol2: str, ratio: float = 1.0, days: int = 365):
-    # Note: Implementing full DB spread logic is complex due to date alignment.
-    # For now, sticking to mock for spread unless we want to fetch both and align.
-    # Let's keep mock for speed as per user request scope, but noted for future.
+async def get_spread_historical(symbol1: str, symbol2: str, ratio: float = 1.0, days: int = 365, db: Session = Depends(get_db)):
+    # Try fetching real data for both legs
+    # Defaulting to CM segment for spread tools usually
+    data1 = fetch_historical_data(symbol1, "CM", days, db)
+    data2 = fetch_historical_data(symbol2, "CM", days, db)
 
-    data1 = generate_ohlc(symbol1, days)
-    data2 = generate_ohlc(symbol2, days)
+    if not data1 or not data2:
+        return []
+
+    # Convert to dict for alignment
+    d1_map = {d["time"]: d["close"] for d in data1}
+    d2_map = {d["time"]: d["close"] for d in data2}
+
+    common_dates = sorted(list(set(d1_map.keys()) & set(d2_map.keys())))
 
     spread_data = []
-    min_len = min(len(data1), len(data2))
-
-    for i in range(min_len):
-        d1 = data1[i]
-        d2 = data2[i]
-        val = d1["close"] - (ratio * d2["close"])
+    for date in common_dates:
+        val = d1_map[date] - (ratio * d2_map[date])
         spread_data.append({
-            "time": d1["time"],
+            "time": date,
             "value": round(val, 2)
         })
 
@@ -181,9 +184,9 @@ async def get_trading_edge(db: Session = Depends(get_db)):
         return {
             "sentiment": sentiment,
             "regime": "Trending" if abs(advances - (total/2)) > (total * 0.1) else "Sideways",
-            "pe_ratio": 24.5, # Placeholder
-            "iv_percentile": 45, # Placeholder
-            "fii_flow": f"{turnover_cr} Cr (Turnover)" # Proxy
+            "pe_ratio": "--",
+            "iv_percentile": "--",
+            "fii_flow": f"{turnover_cr} Cr (Turnover)"
         }
 
     # Upstox Fallback?
