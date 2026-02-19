@@ -57,6 +57,7 @@ class ContractManager:
             if contract:
                 result.append({
                     "date": d,
+                    "contract_symbol": contract.symbol, # Include mapped symbol (e.g., RELIANCE26FEB...)
                     "expiry": contract.expiry_date,
                     "open": contract.open,
                     "high": contract.high,

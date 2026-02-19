@@ -148,9 +148,11 @@ const TurtleTab = {
             : `<button onclick="TurtleTab.resume('${inst.id}')" style="color:green;">Resume</button>`;
 
         const expiryLabel = inst.segment === 'FO' ? `FUT${inst.expiry_pos || 1}` : '--';
+        const oi = s.oi ? s.oi.toLocaleString() : '--';
+        const vol = s.volume ? s.volume.toLocaleString() : '--';
 
         inst.rowElement.innerHTML = `
-            <td>${inst.symbol}</td>
+            <td>${s.symbol || inst.symbol}</td>
             <td><span class="badge ${inst.segment}">${inst.segment}</span></td>
             <td>${expiryLabel}</td>
             <td>${s.price ? s.price.toFixed(2) : '--'}</td>
@@ -158,6 +160,8 @@ const TurtleTab = {
             <td style="color:${this.getColor(s.signal)}">${s.signal}</td>
             <td>${s.stop}</td>
             <td>${s.position_size}</td>
+            <td>${oi}</td>
+            <td>${vol}</td>
             <td class="actions-cell">
                 <button onclick="ChartTabs.addTab('${inst.symbol}', 'stock', '${inst.segment}', ${inst.expiry_pos || 1})" title="Show Chart">📈</button>
                 ${toggleBtn}

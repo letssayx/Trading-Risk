@@ -113,6 +113,11 @@ body {
 }
 
 /* Jules/Python Tabs */
+#jules-content {
+    overflow-y: auto;
+    scroll-behavior: smooth;
+}
+
 .tab-header {
     display: flex;
     background: #1a1a1a;

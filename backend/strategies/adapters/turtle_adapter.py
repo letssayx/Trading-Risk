@@ -28,7 +28,9 @@ class TurtleAdapter:
         self.position = 0
         self.segment = "CM" # Default
         self.expiry_position = 1 # Default Near Month (FUT1)
-        self.current_contract: Optional[Bhavcopy] = None
+        self.current_contract_symbol = None
+        self.last_oi = 0
+        self.last_volume = 0
 
         # Simulation state
         self.highs = []
@@ -51,6 +53,12 @@ class TurtleAdapter:
             self.lows = df['low'].tolist()
             self.closes = df['close'].tolist()
             self.last_price = self.closes[-1]
+
+            # Capture metadata from last candle
+            last_candle = df.iloc[-1]
+            self.current_contract_symbol = last_candle.get('symbol', self.symbol)
+            self.last_oi = last_candle.get('oi', 0)
+            self.last_volume = last_candle.get('volume', 0)
 
             # Initialize N
             self.strategy.calculate_N(
@@ -102,9 +110,23 @@ class TurtleAdapter:
 
     def get_state(self):
         risk = self.strategy.get_risk_status()
+        # Retrieve mapped symbol, OI, Volume from current data if available
+        # This requires tracking the last fetched 'contract' or data point details
+        # Since 'update' only receives price, we might need to store more metadata
+        # For now, we'll try to infer or pass it.
+        # Ideally, start() or update() sets these.
+        # But start() parses a list. Let's assume start() sets metadata from the last candle.
+
+        # If we want the mapped symbol (e.g. RELIANCE26FEBFUT), we need to have stored it.
+        # But fetch_historical_data returns dicts.
+        # We need to enhance fetch_historical_data or pass it here.
+
+        # Use captured metadata
+        display_sym = self.current_contract_symbol if self.current_contract_symbol else self.symbol
+
         return {
             "id": self.id,
-            "symbol": self.symbol,
+            "symbol": display_sym, # Shows mapped symbol (e.g. RELIANCE26FEBFUT)
             "segment": self.segment,
             "expiry_pos": self.expiry_position,
             "active": self.is_active,
@@ -113,5 +135,7 @@ class TurtleAdapter:
             "signal": self.signal,
             "stop": round(risk.get("Current_Stop", 0), 2),
             "position_size": self.position,
-            "units": risk.get("Units", 0)
+            "units": risk.get("Units", 0),
+            "oi": self.last_oi,
+            "volume": self.last_volume
         }

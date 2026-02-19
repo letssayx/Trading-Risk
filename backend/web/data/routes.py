@@ -59,6 +59,7 @@ def fetch_historical_data(symbol: str, segment: str, days: int, db: Session, exp
             for item in continuous_data:
                 data.append({
                     "time": item["date"].strftime("%Y-%m-%d"),
+                    "symbol": item.get("contract_symbol"), # Forward mapped symbol
                     "open": item["open"],
                     "high": item["high"],
                     "low": item["low"],

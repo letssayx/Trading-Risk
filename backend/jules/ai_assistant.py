@@ -79,8 +79,6 @@ class JulesAssistant:
 
     async def get_response(self, message: str) -> str:
         # Always reload key before request to catch config changes
-        # Optimized: Only reload if key changed or model not set?
-        # For now, simplistic check
         if not self.model:
              self._load_key()
 
@@ -88,9 +86,23 @@ class JulesAssistant:
             return "Please configure your Google API Key in Settings to use Jules."
 
         try:
-            # Create a new chat session for each request (stateless for now, or could maintain history)
-            # The prompt implies a single response.
-            chat = self.model.start_chat(history=[])
+            # System Prompt to enforce context and format
+            system_instruction = (
+                "You are Jules, an AI Assistant for the Turtle Terminal trading platform. "
+                "Your role is to assist with quantitative finance, python coding for strategies, and market analysis. "
+                "Do NOT answer questions unrelated to finance, coding, or the platform. "
+                "If you write Python code, enclose it strictly within ```python ... ``` blocks. "
+                "Do not simulate data exchange. Assume the user has the data locally or will load it."
+            )
+
+            # Since Gemini Pro stateless chat might not support system instructions directly in start_chat in all versions,
+            # we prepend it to the first message or use history.
+            history = [
+                {"role": "user", "parts": [system_instruction]},
+                {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal."]}
+            ]
+
+            chat = self.model.start_chat(history=history)
             response = await chat.send_message_async(message)
             return response.text
         except Exception as e:
