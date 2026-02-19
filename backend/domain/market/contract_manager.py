@@ -55,9 +55,19 @@ class ContractManager:
         for (d,) in dates:
             contract = ContractManager.get_specific_future(db, symbol, d, position)
             if contract:
+                # Construct display symbol if simpler "Symbol" is stored
+                display_sym = contract.symbol
+                if contract.expiry_date and contract.instrument_type.startswith('FUT'):
+                    # BDL26FEBFUT format logic
+                    # DD MMM (UPPER)
+                    # ex: 26 FEB
+                    day = contract.expiry_date.strftime("%d")
+                    mon = contract.expiry_date.strftime("%b").upper()
+                    display_sym = f"{contract.symbol}{day}{mon}FUT"
+
                 result.append({
                     "date": d,
-                    "contract_symbol": contract.symbol, # Include mapped symbol (e.g., RELIANCE26FEB...)
+                    "contract_symbol": display_sym,
                     "expiry": contract.expiry_date,
                     "open": contract.open,
                     "high": contract.high,

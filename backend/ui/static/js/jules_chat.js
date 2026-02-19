@@ -22,7 +22,7 @@ const JulesChat = {
         this.scrollToBottom();
 
         try {
-            const res = await fetch('/api/jules/ask', {
+            const res = await fetch('/api/jules/chat', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ message: message })

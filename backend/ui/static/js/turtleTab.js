@@ -202,18 +202,19 @@ const TurtleTab = {
     },
 
     pollAll: async function() {
-        for (let inst of this.instances) {
-            // Only poll if active? Or always poll state?
-            // Better to always poll to see server state changes, but maybe less frequent if paused.
+        for (let i = this.instances.length - 1; i >= 0; i--) {
+            const inst = this.instances[i];
             try {
                 const res = await fetch(`/api/strategies/turtle/state/${inst.id}`);
                 if(res.ok) {
                     const state = await res.json();
                     inst.state = state;
                     this.updateRowDOM(inst);
-                } else {
-                    // Instance maybe gone
-                    console.warn("Instance not found", inst.id);
+                } else if (res.status === 404) {
+                    // Instance gone (server restart?), remove it
+                    console.warn("Instance lost", inst.id);
+                    if (inst.rowElement) inst.rowElement.remove();
+                    this.instances.splice(i, 1);
                 }
             } catch (e) { console.error(e); }
         }

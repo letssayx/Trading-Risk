@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Optional
@@ -48,7 +49,9 @@ async def start_turtle(req: TurtleStartRequest, db: Session = Depends(get_db)):
         turtle_instances[adapter.id] = adapter
         return {"instanceId": adapter.id, "initialState": adapter.get_state()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"detail": f"Internal Error: {str(e)}"})
 
 @router.get("/turtle/state/{instance_id}")
 async def get_turtle_state(instance_id: str):
