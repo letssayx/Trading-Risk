@@ -116,4 +116,9 @@ class ToolboxRegistry:
                     cls.register(obj)
         except Exception as e: print(f"[REGISTRY] Error loading Std Tools: {e}")
 
+        try:
+            from backend.analysis.toolbox.price_oi import PriceOIQuadrantTool
+            cls.register(PriceOIQuadrantTool)
+        except Exception as e: print(f"[REGISTRY] Error loading Price-OI Tool: {e}")
+
         print(f"[REGISTRY] Discovery Complete. Total Tools: {len(cls._registry)}")
