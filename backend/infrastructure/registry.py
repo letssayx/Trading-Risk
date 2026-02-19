@@ -121,4 +121,10 @@ class ToolboxRegistry:
             cls.register(PriceOIQuadrantTool)
         except Exception as e: print(f"[REGISTRY] Error loading Price-OI Tool: {e}")
 
+        # 7. Plugins (Strategies)
+        try:
+            from backend.plugins.strategies.rollover import RolloverAnalysis
+            cls.register(RolloverAnalysis)
+        except Exception as e: print(f"[REGISTRY] Error loading Rollover Plugin: {e}")
+
         print(f"[REGISTRY] Discovery Complete. Total Tools: {len(cls._registry)}")

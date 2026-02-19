@@ -26,6 +26,10 @@ class StatArbStartRequest(BaseModel):
     ratio: float = 1.0
     z_threshold: float = 2.0
 
+class RolloverRequest(BaseModel):
+    symbol: str
+    lookback: int = 24
+
 # --- Endpoints ---
 
 @router.post("/turtle/start")
@@ -103,3 +107,36 @@ async def stop_statarb(instance_id: str):
     if instance_id in statarb_instances:
         del statarb_instances[instance_id]
     return {"status": "stopped"}
+
+@router.post("/rollover/analyze")
+async def analyze_rollover(req: RolloverRequest, db: Session = Depends(get_db)):
+    try:
+        from backend.plugins.strategies.rollover import RolloverAnalysis
+
+        # 1. Fetch FUT1 (Near)
+        near_data = fetch_historical_data(req.symbol, "FO", days=365*2, db=db, expiry_pos=1)
+        # 2. Fetch FUT2 (Next)
+        next_data = fetch_historical_data(req.symbol, "FO", days=365*2, db=db, expiry_pos=2)
+        # 3. Fetch FUT3 (Far)
+        far_data = fetch_historical_data(req.symbol, "FO", days=365*2, db=db, expiry_pos=3)
+
+        if not near_data or not next_data:
+            raise HTTPException(400, "Insufficient Futures Data (Need at least Near/Next).")
+
+        # Helper to extract 'close' series
+        def extract_closes(data):
+            return [d['close'] for d in data] if data else []
+
+        tool = RolloverAnalysis()
+        result = tool.calculate({
+            "near_series": extract_closes(near_data),
+            "next_series": extract_closes(next_data),
+            "far_series": extract_closes(far_data),
+            "lookback": req.lookback
+        })
+
+        return result
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(500, f"Rollover Analysis Failed: {str(e)}")
