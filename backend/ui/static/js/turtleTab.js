@@ -34,6 +34,8 @@ const TurtleTab = {
                         <th>Signal</th>
                         <th>Stop</th>
                         <th>Pos Size</th>
+                        <th>OI</th>
+                        <th>Volume</th>
                         <th>Action</th>
                     </tr>
                 </thead>

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import asyncio
+import traceback
 
 # Existing routes
 from backend.web.data import routes as data_routes
@@ -55,8 +56,12 @@ app.include_router(view_routes.router)
 async def startup_event():
     # Initialize DB
     print("Initializing Database...")
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database initialized")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database initialized")
+    except Exception:
+        print("❌ Database initialization failed")
+        traceback.print_exc()
 
     # Start log generator
     # asyncio.create_task(logs.log_generator())
