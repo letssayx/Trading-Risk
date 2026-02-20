@@ -22,6 +22,7 @@ from backend.web.api import config_routes
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
 from backend.domain.market.models import Bhavcopy
+from backend.ingest.tick_vault import TickVault
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
 
@@ -54,6 +55,11 @@ async def startup_event():
     # Initialize DB
     print("Initializing Database...")
     Base.metadata.create_all(bind=engine)
+    try:
+        TickVault().init_db()
+        print("✅ TickVault initialized")
+    except Exception as e:
+        print(f"⚠️ TickVault Init Warning: {e}")
     print("✅ Database initialized")
 
     # Start log generator

@@ -66,6 +66,9 @@ const TurtleTab = {
             const segment = document.querySelector('input[name="turtle-segment"]:checked').value;
             const apiSegment = segment === 'FUT' ? 'FO' : 'EQ';
 
+            // If Futures, we want to auto-suggest the Near Month Contract
+            // But search API returns list of futures if we ask for FO.
+
             try {
                 const res = await fetch(`/api/symbols/search?q=${query}&segment=${apiSegment}`);
                 const results = await res.json();
@@ -76,6 +79,16 @@ const TurtleTab = {
                     opt.value = sym;
                     datalist.appendChild(opt);
                 });
+
+                // If the user typed an exact underlying (e.g. BDL) and we are in FUT mode,
+                // and the results contain BDL26FEBFUT (or similar), we want to help them select it.
+                if (segment === 'FUT' && results.length > 0) {
+                     // Find the first result that starts with the query and has FUT suffix
+                     // ContractManager returns standardized suffix like 26FEBFUT
+                     const nearMatch = results.find(s => s.startsWith(query.toUpperCase()));
+                     // We don't force replace value yet, just show options.
+                     // But if they hit enter on "BDL", we resolve it in keydown handler.
+                }
             } catch (err) {
                 console.error("Search failed", err);
             }

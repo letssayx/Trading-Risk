@@ -48,7 +48,7 @@ def calculate_file_checksum(file_path: str) -> str:
 
 def parse_udiff_date(date_str) -> Optional[date]:
     """Parse UDIFF date format (DD-MMM-YYYY)"""
-    if pd.isna(date_str):
+    if pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).lower() == 'null' or str(date_str).strip() == '':
         return None
     if isinstance(date_str, datetime):
         return date_str.date()

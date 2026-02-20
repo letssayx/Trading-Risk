@@ -74,20 +74,39 @@ const ChartTabs = {
                 const res = await fetch(`/api/spread/historical?symbol1=${params.symbol1}&symbol2=${params.symbol2}&ratio=${params.ratio}`);
                 data = await res.json();
             } else {
+                // Try to get real DB data if possible (e.g. from imported Bhavcopy)
+                // If /api/historical/BDL is called, it currently returns mock.
+                // We should add a flag or ensure backend prefers DB.
                 const res = await fetch(`/api/historical/${symbol}`);
+                if (!res.ok) throw new Error("Chart Data Fetch Failed");
                 data = await res.json();
             }
 
-            // Format data for lightweight-charts
-            data.sort((a,b) => new Date(a.time) - new Date(b.time));
-            series.setData(data);
+            if (Array.isArray(data)) {
+                // Format data for lightweight-charts
+                data.sort((a,b) => new Date(a.time) - new Date(b.time));
 
-            if (data.length > 0) {
-                lastCandle = data[data.length - 1];
+                // Map fields if necessary (assuming API returns standard open/high/low/close/time)
+                const formatted = data.map(d => ({
+                    time: d.time,
+                    open: d.open,
+                    high: d.high,
+                    low: d.low,
+                    close: d.close
+                }));
+
+                series.setData(formatted);
+
+                if (formatted.length > 0) {
+                    lastCandle = formatted[formatted.length - 1];
+                }
+            } else {
+                console.warn("Chart data is not an array", data);
             }
 
         } catch (e) {
             console.error("Failed to load chart data", e);
+            // Show error on chart?
         }
 
         // Store state
