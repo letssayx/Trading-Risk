@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Turtle Terminal - Data Viewer</title>
+    <link rel="stylesheet" href="/static/css/workbench.css">
+    <style>
+        body { font-family: 'Roboto', sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 0; }
+        .header { background: #1e1e1e; padding: 10px 20px; display: flex; align-items: center; border-bottom: 1px solid #333; }
+        .header h1 { margin: 0; font-size: 1.2em; color: #00bcd4; }
+        .back-btn { text-decoration: none; color: #aaa; margin-right: 20px; font-size: 0.9em; }
+        .back-btn:hover { color: #fff; }
+
+        .container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+
+        .search-box { margin-bottom: 20px; display: flex; gap: 10px; }
+        .search-input {
+            background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 10px;
+            flex-grow: 1; border-radius: 4px; font-size: 1em;
+        }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; background: #00bcd4; color: #000; }
+        .btn-export { background: #4caf50; color: #fff; }
+        .btn:hover { opacity: 0.9; }
+
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #1e1e1e; border-radius: 4px; overflow: hidden; }
+        .data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+        .data-table th { background: #252525; color: #aaa; font-weight: normal; }
+        .data-table tr:hover { background: #2a2a2a; }
+
+        .loading { text-align: center; color: #888; padding: 20px; display: none; }
+        .no-data { text-align: center; color: #888; padding: 20px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a href="/workbench" class="back-btn">← Back to Workbench</a>
+        <h1>Historical Data Viewer</h1>
+    </div>
+
+    <div class="container">
+        <div class="search-box">
+            <input type="text" id="symbol-input" class="search-input" placeholder="Enter Symbol (e.g. RELIANCE, NIFTY24FEBFUT)..." list="symbol-list">
+            <datalist id="symbol-list"></datalist>
+            <button class="btn" onclick="loadData()">Load Data</button>
+            <button class="btn btn-export" onclick="exportExcel()">Download Excel</button>
+        </div>
+
+        <div id="loading" class="loading">Fetching data...</div>
+        <div id="no-data" class="no-data">No data found for this symbol.</div>
+
+        <table class="data-table" id="data-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Open</th>
+                    <th>High</th>
+                    <th>Low</th>
+                    <th>Close</th>
+                    <th>Volume</th>
+                    <th>OI</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                <!-- Rows here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const symbolInput = document.getElementById('symbol-input');
+        const datalist = document.getElementById('symbol-list');
+
+        // Autocomplete
+        symbolInput.addEventListener('input', async (e) => {
+            const val = e.target.value;
+            if(val.length < 2) return;
+
+            try {
+                // Search both CM and FO
+                const res = await fetch(`/api/symbols/search?q=${val}&segment=BOTH`);
+                // Note: using backend/web/data/routes.py search which supports segment
+                // Wait, need to check if that endpoint supports 'BOTH' or need custom logic?
+                // The current search endpoint takes 'segment=EQ' or 'FO'.
+                // Let's just default to 'EQ' for basic autocomplete, or try to merge.
+                // Or better, let's use the new view_routes if possible, or stick to existing.
+                // Existing: /api/symbols/search?q=...&segment=...
+
+                // Let's try searching both in parallel
+                const [cm, fo] = await Promise.all([
+                    fetch(`/api/symbols/search?q=${val}&segment=EQ`).then(r => r.json()),
+                    fetch(`/api/symbols/search?q=${val}&segment=FO`).then(r => r.json())
+                ]);
+
+                const combined = [...new Set([...cm, ...fo])].slice(0, 10);
+
+                datalist.innerHTML = '';
+                combined.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    datalist.appendChild(opt);
+                });
+            } catch(e) { console.error(e); }
+        });
+
+        async function loadData() {
+            const symbol = symbolInput.value.trim().toUpperCase();
+            if(!symbol) return;
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('data-table').style.display = 'none';
+            document.getElementById('no-data').style.display = 'none';
+            document.getElementById('table-body').innerHTML = '';
+
+            try {
+                const res = await fetch(`/api/data/view/history/${symbol}`);
+                const data = await res.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if(!data || data.length === 0 || data.error) {
+                    document.getElementById('no-data').style.display = 'block';
+                    return;
+                }
+
+                document.getElementById('data-table').style.display = 'table';
+                const tbody = document.getElementById('table-body');
+
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.time}</td>
+                        <td>${row.open}</td>
+                        <td>${row.high}</td>
+                        <td>${row.low}</td>
+                        <td>${row.close}</td>
+                        <td>${row.volume}</td>
+                        <td>${row.oi}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } catch(e) {
+                console.error(e);
+                document.getElementById('loading').style.display = 'none';
+                alert("Error loading data");
+            }
+        }
+
+        function exportExcel() {
+            const symbol = symbolInput.value.trim().toUpperCase();
+            if(!symbol) return alert("Select a symbol first");
+            window.location.href = `/api/data/view/export/${symbol}`;
+        }
+    </script>
+</body>
+</html>

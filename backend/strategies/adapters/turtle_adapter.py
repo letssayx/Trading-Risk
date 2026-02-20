@@ -26,6 +26,10 @@ class TurtleAdapter:
         self.position = 0
         self.last_processed_date = None
 
+        # New tracked fields
+        self.last_oi = 0
+        self.last_vol = 0
+
         # Simulation state
         self.highs = []
         self.lows = []
@@ -42,6 +46,12 @@ class TurtleAdapter:
             self.lows = df['low'].tolist()
             self.closes = df['close'].tolist()
             self.last_price = self.closes[-1]
+
+            # Capture last OI and Volume
+            if 'oi' in df.columns:
+                self.last_oi = df['oi'].iloc[-1]
+            if 'volume' in df.columns:
+                self.last_vol = df['volume'].iloc[-1]
 
             # Capture the last date if available
             if 'time' in df.columns:
@@ -104,6 +114,8 @@ class TurtleAdapter:
             "signal": self.signal,
             "stop": round(risk.get("Current_Stop", 0), 2),
             "position_size": self.position,
+            "oi": self.last_oi,
+            "volume": self.last_vol,
             "units": risk.get("Units", 0),
             "last_date": str(self.last_processed_date) if self.last_processed_date else ""
         }

@@ -18,6 +18,7 @@ from backend.web.api.data.upload_routes import router as upload_router
 from backend.web.api import analysis_routes
 from backend.web.api import jules_routes
 from backend.web.api import config_routes
+from backend.web.api.data import view_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
@@ -48,6 +49,7 @@ app.include_router(upload_router)
 app.include_router(analysis_routes.router)
 app.include_router(jules_routes.router)
 app.include_router(config_routes.router)
+app.include_router(view_routes.router)
 
 @app.on_event("startup")
 async def startup_event():

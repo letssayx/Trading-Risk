@@ -185,6 +185,8 @@ const TurtleTab = {
             <td style="color:${this.getColor(s.signal)}">${s.signal}</td>
             <td>${s.stop}</td>
             <td>${s.position_size}</td>
+            <td>${s.oi || '--'}</td>
+            <td>${s.volume || '--'}</td>
             <td>
                 <button onclick="ChartManager.loadData('${inst.symbol}')">Show Chart</button>
                 <button onclick="TurtleTab.stop('${inst.id}')">Stop</button>

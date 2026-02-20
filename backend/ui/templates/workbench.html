@@ -108,6 +108,7 @@
     <div style="height:30px; background:#111; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #333; font-size:0.85em; color:#ccc;">
         <div style="font-weight:bold; margin-right:20px;">TURTLE TERMINAL</div>
         <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()">Import Data</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="window.location.href='/data-viewer'">Data Viewer</div>
         <div style="cursor:pointer; margin-right:15px;" onclick="openConfig()">Config</div>
     </div>
 
@@ -283,7 +284,7 @@
             </div>
 
             <div class="modal-footer" style="padding-top:20px; border-top:1px solid #444; text-align:right;">
-                <button id="cancel-import-btn" class="btn btn-secondary">Cancel</button>
+                <button id="close-import-btn" class="btn btn-secondary">Close</button>
                 <button id="confirm-import-btn" class="btn btn-primary" disabled>Import to Database</button>
             </div>
         </div>

@@ -27,7 +27,19 @@ class BhavcopyUploader {
             closeBtn.onclick = () => this.close();
         }
 
-        // Import Button (dynamic)
+        // "Close" button (formerly Cancel)
+        const closeFooterBtn = document.getElementById('close-import-btn');
+        if(closeFooterBtn) {
+            closeFooterBtn.onclick = () => this.close();
+        }
+
+        // Confirm Import Button
+        const confirmBtn = document.getElementById('confirm-import-btn');
+        if(confirmBtn) {
+            confirmBtn.onclick = () => this.handleImport();
+        }
+
+        // Import Button (dynamic - from preview)
         document.addEventListener('click', (e) => {
             if(e.target && e.target.id === 'btn-confirm-import') {
                 this.handleImport();
