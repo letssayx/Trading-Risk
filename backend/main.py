@@ -13,6 +13,7 @@ from backend.web.widgets import routes as widget_routes
 # New routes
 from backend.web.live import routes as live_routes
 from backend.web.strategies import adapters_routes
+# Explicitly import router to avoid namespace conflict with backend.web.data
 from backend.web.api.data.upload_routes import router as upload_router
 from backend.web.api import analysis_routes
 from backend.web.api import jules_routes
