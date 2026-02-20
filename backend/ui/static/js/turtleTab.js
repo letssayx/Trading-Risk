@@ -73,6 +73,8 @@ const TurtleTab = {
                 datalist.innerHTML = '';
                 results.forEach(sym => {
                     const opt = document.createElement('option');
+                    // For Futures, 'sym' is already the full contract (e.g., RELIANCE24FEBFUT)
+                    // The backend `search_symbols` for 'FO' returns synthesized contracts.
                     opt.value = sym;
                     datalist.appendChild(opt);
                 });
@@ -87,19 +89,21 @@ const TurtleTab = {
                 if (!val) return;
 
                 const segment = document.querySelector('input[name="turtle-segment"]:checked').value;
+
+                // If user selected from datalist or typed full contract, 'val' is correct.
+                // If user typed 'RELIANCE' and hit enter while on FUT mode:
                 if (segment === 'FUT') {
-                    // If user typed underlying (e.g. NIFTY) but not full contract, try to synthesize
-                    // However, our search autocomplete should have provided the full contract.
-                    // If the user just pressed enter on "NIFTY", we default to Near Month based on dropdown?
                     const expiry = document.getElementById('turtle-expiry-select').value; // NEAR, NEXT, FAR
 
                     // Basic heuristic: if it doesn't end in FUT/CE/PE, assume it's underlying and we need to find contract
                     if (!val.endsWith('FUT') && !val.endsWith('CE') && !val.endsWith('PE')) {
-                        // We need to ask backend for the specific contract
-                        // For now, let's assume the user picks from the list.
-                        // But if they didn't, we can try to fetch the list and pick the one matching expiry
+                        // User typed underlying (e.g. BDL), resolve to contract
                         this.resolveContract(val, expiry).then(contract => {
-                            if(contract) this.startStrategy(contract);
+                            if(contract) {
+                                // Update input to show resolved contract
+                                input.value = contract;
+                                this.startStrategy(contract);
+                            }
                             else alert("Could not resolve futures contract for " + val);
                         });
                         e.target.value = '';
@@ -115,9 +119,13 @@ const TurtleTab = {
 
     resolveContract: async function(underlying, expiryType) {
         try {
+            // Search for FO contracts for this underlying
             const res = await fetch(`/api/symbols/search?q=${underlying}&segment=FO`);
             const contracts = await res.json();
-            // contracts is likely [NEAR, NEXT, FAR] sorted
+
+            // contracts should be list of full symbols like ['BDL24FEBFUT', 'BDL24MARFUT', ...]
+            // Assuming sorted by date (MarketDataService sorts by expiry)
+
             if (contracts.length > 0) {
                 if (expiryType === 'NEAR') return contracts[0];
                 if (expiryType === 'NEXT') return contracts[1] || contracts[0];
@@ -148,13 +156,9 @@ const TurtleTab = {
 
             this.renderRows();
 
-            // Subscribe to live feed
-            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-                window.ws.send(JSON.stringify({ subscribe: [symbol] }));
-            }
-
         } catch (e) {
             console.error("Failed to start Turtle", e);
+            alert("Failed to start strategy. Check console.");
         }
     },
 
@@ -182,7 +186,7 @@ const TurtleTab = {
             <td>${s.stop}</td>
             <td>${s.position_size}</td>
             <td>
-                <button onclick="ChartTabs.addTab('${inst.symbol}')">Show Chart</button>
+                <button onclick="ChartManager.loadData('${inst.symbol}')">Show Chart</button>
                 <button onclick="TurtleTab.stop('${inst.id}')">Stop</button>
             </td>
         `;
@@ -208,15 +212,6 @@ const TurtleTab = {
                 inst.state = state;
                 this.updateRowDOM(inst);
             } catch (e) { console.error(e); }
-        }
-    },
-
-    handleTick: function(tick) {
-        // Update price immediately if matching
-        const inst = this.instances.find(i => i.symbol === tick.symbol);
-        if (inst) {
-            inst.state.price = tick.price;
-            this.updateRowDOM(inst);
         }
     }
 };

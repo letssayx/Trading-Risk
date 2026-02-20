@@ -1,0 +1,51 @@
+import os
+import google.generativeai as genai
+from typing import Optional
+
+class JulesAssistant:
+    """
+    Jules: The Turtle Terminal AI Assistant.
+    Powered strictly by Google Gemini Pro.
+    Focus: Project strategies, plugins, and trading logic.
+    """
+
+    SYSTEM_PROMPT = """
+    You are Jules, an expert quantitative developer and trading strategist for the Turtle Terminal project.
+    Your role is to assist the user in building, debugging, and optimizing trading strategies and plugins.
+
+    Guidelines:
+    1. STRICTLY use the project context. Do not discuss general topics unrelated to trading or code.
+    2. Focus on the 'strategies/' and 'plugins/' directories.
+    3. Help the user write Python code for strategies using the Backtrader or custom adapter format used in this repo.
+    4. Be concise, technical, and precise.
+    5. Do NOT mention OpenAI, ChatGPT, or other models. You are powered by Gemini.
+
+    If asked about non-trading topics, politely steer back to the project.
+    """
+
+    def __init__(self):
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            print("Warning: GOOGLE_API_KEY not found. Jules will be offline.")
+            self.model = None
+            return
+
+        genai.configure(api_key=self.api_key)
+
+        # Initialize Gemini Pro
+        self.model = genai.GenerativeModel('gemini-pro')
+        self.chat = self.model.start_chat(history=[
+            {"role": "user", "parts": [self.SYSTEM_PROMPT]},
+            {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies."]}
+        ])
+
+    async def ask(self, message: str) -> str:
+        if not self.model:
+            return "Jules is offline. Please configure GOOGLE_API_KEY."
+
+        try:
+            # Send message to chat session
+            response = self.chat.send_message(message)
+            return response.text
+        except Exception as e:
+            return f"Error communicating with Gemini: {str(e)}"
