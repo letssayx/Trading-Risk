@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import pandas as pd
 import io
 import datetime
+import os
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.service import MarketDataService
@@ -12,11 +13,27 @@ router = APIRouter()
 
 @router.get("/data-viewer", response_class=HTMLResponse)
 async def data_viewer_page():
+    # Try multiple paths to find the template
+    possible_paths = [
+        "backend/ui/templates/data_viewer.html",  # From root
+        "ui/templates/data_viewer.html",          # If in backend
+        os.path.join(os.path.dirname(__file__), "../../../ui/templates/data_viewer.html") # Relative
+    ]
+
+    template_path = None
+    for p in possible_paths:
+        if os.path.exists(p):
+            template_path = p
+            break
+
+    if not template_path:
+        return "<h1>Template not found (Checked multiple paths)</h1>"
+
     try:
-        with open("backend/ui/templates/data_viewer.html", "r") as f:
+        with open(template_path, "r") as f:
             return f.read()
-    except FileNotFoundError:
-        return "<h1>Template not found</h1>"
+    except Exception as e:
+        return f"<h1>Error reading template: {str(e)}</h1>"
 
 @router.get("/api/data/view/history/{symbol}")
 async def get_history_view(

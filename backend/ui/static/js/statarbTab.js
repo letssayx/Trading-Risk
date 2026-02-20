@@ -64,6 +64,7 @@ const StatArbTab = {
                 id: data.instanceId,
                 s1, s2, ratio,
                 state: data.initialState,
+                paused: false,
                 rowElement: null
             });
 
@@ -91,15 +92,17 @@ const StatArbTab = {
         if (!inst.rowElement) return;
         const s = inst.state;
         const pairName = `${inst.s1} - ${inst.ratio}*${inst.s2}`;
+        const pauseColor = inst.paused ? '#ff9800' : '#ccc';
 
         inst.rowElement.innerHTML = `
             <td>${pairName}</td>
             <td>${s.spread}</td>
             <td>${s.z_score}</td>
             <td style="color:${this.getColor(s.signal)}">${s.signal}</td>
-            <td>
-                <button onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">Show Chart</button>
-                <button onclick="StatArbTab.stop('${inst.id}')">Stop</button>
+            <td style="display:flex; gap:5px;">
+                <button title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">📈</button>
+                <button title="Pause" style="color:${pauseColor}" onclick="StatArbTab.togglePause('${inst.id}')">⏸️</button>
+                <button title="Remove" style="color:#f44336" onclick="StatArbTab.stop('${inst.id}')">❌</button>
             </td>
         `;
     },
@@ -110,6 +113,16 @@ const StatArbTab = {
         return '#ccc';
     },
 
+    togglePause: function(id) {
+        const inst = this.instances.find(i => i.id === id);
+        if(inst) {
+            inst.paused = !inst.paused;
+            // TODO: Notify backend if backend supports pause
+            console.log(`Instance ${id} paused: ${inst.paused}`);
+            this.updateRowDOM(inst);
+        }
+    },
+
     stop: async function(id) {
         await fetch(`/api/strategies/statarb/stop/${id}`, { method: 'POST' });
         this.instances = this.instances.filter(i => i.id !== id);
@@ -118,6 +131,7 @@ const StatArbTab = {
 
     pollAll: async function() {
         for (let inst of this.instances) {
+            if(inst.paused) continue;
             try {
                 const res = await fetch(`/api/strategies/statarb/state/${inst.id}`);
                 const state = await res.json();

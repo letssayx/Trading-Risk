@@ -153,6 +153,7 @@ const TurtleTab = {
                 id: data.instanceId,
                 symbol: symbol,
                 state: data.initialState,
+                paused: false,
                 rowElement: null
             });
 
@@ -180,6 +181,8 @@ const TurtleTab = {
     updateRowDOM: function(inst) {
         if (!inst.rowElement) return;
         const s = inst.state;
+        const pauseColor = inst.paused ? '#ff9800' : '#ccc';
+
         inst.rowElement.innerHTML = `
             <td>${inst.symbol}</td>
             <td>${s.price ? s.price.toFixed(2) : '--'}</td>
@@ -189,9 +192,10 @@ const TurtleTab = {
             <td>${s.position_size}</td>
             <td>${s.oi || '--'}</td>
             <td>${s.volume || '--'}</td>
-            <td>
-                <button onclick="ChartManager.loadData('${inst.symbol}')">Show Chart</button>
-                <button onclick="TurtleTab.stop('${inst.id}')">Stop</button>
+            <td style="display:flex; gap:5px;">
+                <button title="Show Chart" onclick="ChartManager.loadData('${inst.symbol}')">📈</button>
+                <button title="Pause" style="color:${pauseColor}" onclick="TurtleTab.togglePause('${inst.id}')">⏸️</button>
+                <button title="Remove" style="color:#f44336" onclick="TurtleTab.stop('${inst.id}')">❌</button>
             </td>
         `;
     },
@@ -202,6 +206,15 @@ const TurtleTab = {
         return '#ccc';
     },
 
+    togglePause: function(id) {
+        const inst = this.instances.find(i => i.id === id);
+        if(inst) {
+            inst.paused = !inst.paused;
+            console.log(`Turtle instance ${id} paused: ${inst.paused}`);
+            this.updateRowDOM(inst);
+        }
+    },
+
     stop: async function(id) {
         await fetch(`/api/strategies/turtle/stop/${id}`, { method: 'POST' });
         this.instances = this.instances.filter(i => i.id !== id);
@@ -210,6 +223,7 @@ const TurtleTab = {
 
     pollAll: async function() {
         for (let inst of this.instances) {
+            if (inst.paused) continue;
             try {
                 const res = await fetch(`/api/strategies/turtle/state/${inst.id}`);
                 const state = await res.json();

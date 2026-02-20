@@ -4,49 +4,61 @@ class BhavcopyUploader {
         this.previewArea = document.getElementById('upload-preview');
         this.statusArea = document.getElementById('upload-status');
         this.fileInput = document.getElementById('bhavcopy-file');
-        this.form = document.getElementById('bhavcopy-upload-form');
 
-        this.currentFileDate = null;
-        this.segments = ['CM', 'FO'];
-
+        // No form element in updated HTML structure, relying on inputs
         this.init();
     }
 
     init() {
-        // Event Listeners
-        if(this.form) {
-            this.form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handlePreview();
-            });
-        }
-
-        // Close button scoping
+        // Close buttons
         const closeBtn = this.modal.querySelector('.close');
-        if(closeBtn) {
-            closeBtn.onclick = () => this.close();
-        }
+        if(closeBtn) closeBtn.onclick = () => this.close();
 
-        // "Close" button (formerly Cancel)
         const closeFooterBtn = document.getElementById('close-import-btn');
-        if(closeFooterBtn) {
-            closeFooterBtn.onclick = () => this.close();
-        }
+        if(closeFooterBtn) closeFooterBtn.onclick = () => this.close();
 
-        // Confirm Import Button
+        // Confirm Import Button (Static in footer)
         const confirmBtn = document.getElementById('confirm-import-btn');
-        if(confirmBtn) {
-            confirmBtn.onclick = () => this.handleImport();
-        }
+        if(confirmBtn) confirmBtn.onclick = () => this.handleImport();
 
-        // Import Button (dynamic - from preview)
-        document.addEventListener('click', (e) => {
-            if(e.target && e.target.id === 'btn-confirm-import') {
-                this.handleImport();
+        // File Input Change -> Auto Preview
+        this.fileInput.addEventListener('change', () => {
+            if(this.fileInput.files.length > 0) {
+                this.handlePreview();
             }
         });
 
-        // Add ESC key listener
+        // Mode Switch
+        const modeRadios = document.querySelectorAll('input[name="import-mode"]');
+        const hint = document.getElementById('file-hint');
+        modeRadios.forEach(r => r.addEventListener('change', (e) => {
+            if(e.target.value === 'historical') {
+                hint.innerText = "Expected format: Any valid UDIFF ZIP/CSV for past years.";
+            } else {
+                hint.innerText = "Expected format: BhavCopy_NSE_CM_0_0_0_YYYYMMDD_F_0000.csv.zip";
+            }
+        }));
+
+        // Segment Type Switch (Auto-select checkboxes)
+        const segTypeRadios = document.querySelectorAll('input[name="file-segment-type"]');
+        const cmCheck = document.getElementById('import-segment-cm');
+        const foCheck = document.getElementById('import-segment-fo');
+
+        segTypeRadios.forEach(r => r.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if(val === 'CM') {
+                cmCheck.checked = true;
+                foCheck.checked = false;
+            } else if (val === 'FO') {
+                cmCheck.checked = false;
+                foCheck.checked = true;
+            } else {
+                cmCheck.checked = true;
+                foCheck.checked = true;
+            }
+        }));
+
+        // ESC Key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.modal.style.display === 'block') {
                 this.close();
@@ -71,9 +83,10 @@ class BhavcopyUploader {
     }
 
     reset() {
-        this.form.reset();
-        this.previewArea.innerHTML = '';
+        this.fileInput.value = '';
+        this.previewArea.innerHTML = '<p class="placeholder" style="color:#888;">Select a file to see preview</p>';
         this.statusArea.innerHTML = '';
+        document.getElementById('confirm-import-btn').disabled = true;
         this.currentFileDate = null;
     }
 
@@ -85,6 +98,7 @@ class BhavcopyUploader {
         formData.append('file', file);
 
         this.statusArea.innerHTML = 'Analyzing file...';
+        this.previewArea.innerHTML = '<div class="loader">Loading preview...</div>';
 
         try {
             const res = await fetch('/api/data/upload/bhavcopy/preview', {
@@ -98,29 +112,42 @@ class BhavcopyUploader {
             this.renderPreview(data);
             this.statusArea.innerHTML = '';
 
+            // Enable Import Button
+            document.getElementById('confirm-import-btn').disabled = false;
+
         } catch(e) {
             this.statusArea.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            this.previewArea.innerHTML = '';
+            document.getElementById('confirm-import-btn').disabled = true;
         }
     }
 
     renderPreview(data) {
         this.currentFileDate = data.file_date;
+        const overwriteCheck = document.getElementById('overwrite-existing');
+
+        // Auto-check overwrite if data exists
+        if(data.warnings.date_exists) {
+            overwriteCheck.checked = true;
+        }
 
         let html = `
             <div class="preview-summary">
                 <h4>File Analysis: ${data.filename}</h4>
                 <p>Date Detected: <strong>${data.file_date || 'Unknown'}</strong></p>
-                <div class="stats-grid">
+                <div class="stats-grid" style="display:flex; gap:20px; margin-top:10px;">
         `;
 
         for(let seg of ['CM', 'FO']) {
             const s = data.stats[seg];
             if(s) {
                 html += `
-                    <div class="stat-box">
-                        <h5>${seg} Segment</h5>
-                        <p>Rows: ${s.total_rows}</p>
-                        <p>Symbols: ${s.unique_symbols}</p>
+                    <div class="stat-box" style="background:#333; padding:10px; border-radius:4px; flex:1;">
+                        <h5 style="margin:0 0 5px 0; border-bottom:1px solid #555;">${seg} Segment</h5>
+                        <div style="font-size:0.9em;">
+                            Rows: ${s.total_rows}<br>
+                            Symbols: ${s.unique_symbols}
+                        </div>
                     </div>
                 `;
             }
@@ -129,34 +156,38 @@ class BhavcopyUploader {
         html += `</div>`;
 
         if(data.warnings.date_exists) {
-            html += `<div class="warning-box">Warning: Data for ${data.file_date} already exists!</div>`;
+            html += `<div class="warning-box" style="margin-top:10px; color:#ff9800; border:1px solid #ff9800; padding:5px;">Warning: Data for ${data.file_date} already exists! Overwrite is checked.</div>`;
+        } else if (data.warnings.already_imported) {
+             html += `<div class="warning-box" style="margin-top:10px; color:#2196f3; border:1px solid #2196f3; padding:5px;">Note: This file name was imported on ${data.warnings.previous_import_date}.</div>`;
         }
 
-        html += `
-            <div class="import-controls">
-                <label>
-                    <input type="checkbox" id="overwrite-check" ${data.warnings.date_exists ? 'checked' : ''}>
-                    Overwrite existing data
-                </label>
-                <button id="btn-confirm-import" class="btn-primary">Confirm Import</button>
-            </div>
-        `;
-
+        html += `</div>`;
         this.previewArea.innerHTML = html;
     }
 
     async handleImport() {
         const file = this.fileInput.files[0];
-        const overwrite = document.getElementById('overwrite-check').checked;
+        if(!file) return;
+
+        // Gather options
+        const overwrite = document.getElementById('overwrite-existing').checked;
+        const segments = [];
+        if(document.getElementById('import-segment-cm').checked) segments.push('CM');
+        if(document.getElementById('import-segment-fo').checked) segments.push('FO');
+
+        if(segments.length === 0) {
+            alert("Please select at least one segment to import.");
+            return;
+        }
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('file_date', this.currentFileDate);
+        formData.append('file_date', this.currentFileDate || ''); // If null, backend tries to derive
         formData.append('overwrite_existing', overwrite);
-        formData.append('segments', JSON.stringify(['CM', 'FO']));
+        formData.append('segments', JSON.stringify(segments));
 
         this.statusArea.innerHTML = 'Importing... This may take a moment.';
-        document.getElementById('btn-confirm-import').disabled = true;
+        document.getElementById('confirm-import-btn').disabled = true;
 
         try {
             const res = await fetch('/api/data/upload/bhavcopy/import', {
@@ -167,12 +198,19 @@ class BhavcopyUploader {
 
             if(!res.ok) throw new Error(result.detail || 'Import failed');
 
-            this.statusArea.innerHTML = `<div class="success">Successfully imported ${result.inserted} records!</div>`;
-            setTimeout(() => this.close(), 2000);
+            this.statusArea.innerHTML = `<div class="success" style="color:#4caf50; font-weight:bold; margin-top:10px;">Successfully imported ${result.inserted} records!</div>`;
+
+            // Disable button to prevent double submit
+            document.getElementById('confirm-import-btn').disabled = true;
+
+            // Refresh logic if needed
+            setTimeout(() => {
+                // optional: this.close();
+            }, 3000);
 
         } catch(e) {
-            this.statusArea.innerHTML = `<div class="error">Import Error: ${e.message}</div>`;
-            document.getElementById('btn-confirm-import').disabled = false;
+            this.statusArea.innerHTML = `<div class="error" style="color:#f44336; margin-top:10px;">Import Error: ${e.message}</div>`;
+            document.getElementById('confirm-import-btn').disabled = false;
         }
     }
 }

@@ -5,7 +5,7 @@ from typing import Optional
 class JulesAssistant:
     """
     Jules: The Turtle Terminal AI Assistant.
-    Powered strictly by Google Gemini Pro.
+    Powered strictly by Google Gemini Pro (1.5).
     Focus: Project strategies, plugins, and trading logic.
     """
 
@@ -20,8 +20,9 @@ class JulesAssistant:
     4. Be concise, technical, and precise.
     5. ABSOLUTELY FORBIDDEN: Do not mention, acknowledge, or use OpenAI, ChatGPT, or any other LLM provider.
     6. You are powered exclusively by Google Gemini Pro. If asked, confirm this.
+    7. If asked about non-trading topics or non-project related questions, strictly refuse to answer and steer back to the project.
 
-    If asked about non-trading topics, politely steer back to the project.
+    If the user asks about the weather, politics, or general chit-chat, respond with: "My focus is strictly on the Turtle Terminal project."
     """
 
     def __init__(self):
@@ -33,11 +34,11 @@ class JulesAssistant:
 
         genai.configure(api_key=self.api_key)
 
-        # Initialize Gemini Pro
-        self.model = genai.GenerativeModel('gemini-pro')
+        # Initialize Gemini 1.5 Pro (current Pro model)
+        self.model = genai.GenerativeModel('gemini-1.5-pro')
         self.chat = self.model.start_chat(history=[
             {"role": "user", "parts": [self.SYSTEM_PROMPT]},
-            {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies."]}
+            {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}
         ])
 
     async def ask(self, message: str) -> str:
