@@ -5,7 +5,7 @@ from typing import Optional
 class JulesAssistant:
     """
     Jules: The Turtle Terminal AI Assistant.
-    Powered strictly by Google Gemini (1.5 Flash).
+    Powered strictly by Google Gemini Pro (gemini-pro).
     Focus: Project strategies, plugins, and trading logic.
     """
 
@@ -19,7 +19,7 @@ class JulesAssistant:
     3. Help the user write Python code for strategies using the Backtrader or custom adapter format used in this repo.
     4. Be concise, technical, and precise.
     5. ABSOLUTELY FORBIDDEN: Do not mention, acknowledge, or use OpenAI, ChatGPT, or any other LLM provider.
-    6. You are powered exclusively by Google Gemini. If asked, confirm this.
+    6. You are powered exclusively by Google Gemini Pro. If asked, confirm this.
     7. If asked about non-trading topics or non-project related questions, strictly refuse to answer and steer back to the project.
 
     If the user asks about the weather, politics, or general chit-chat, respond with: "My focus is strictly on the Turtle Terminal project."
@@ -34,20 +34,20 @@ class JulesAssistant:
 
         genai.configure(api_key=self.api_key)
 
-        # Initialize Gemini 1.5 Flash (Updated from gemini-pro)
+        # Initialize Gemini Pro (User Requested)
         try:
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-pro')
             self.chat = self.model.start_chat(history=[
                 {"role": "user", "parts": [self.SYSTEM_PROMPT]},
                 {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}
             ])
         except Exception as e:
-            print(f"Error initializing Gemini: {e}")
+            print(f"Error initializing Gemini Pro: {e}")
             self.model = None
 
     async def ask(self, message: str) -> str:
         if not self.model:
-            return "Jules is offline. Please configure GOOGLE_API_KEY or check network/model availability."
+            return "Jules is offline. Please configure GOOGLE_API_KEY or check model availability."
 
         try:
             # Send message to chat session
