@@ -39,8 +39,13 @@ class BhavcopyUploader {
             }
         }));
 
-        // Segment Type Switch
+        // Segment Type Switch - Trigger re-preview
         const segTypeRadios = document.querySelectorAll('input[name="file-segment-type"]');
+        segTypeRadios.forEach(r => r.addEventListener('change', () => {
+             if(this.fileInput.files.length > 0) {
+                this.handlePreview();
+            }
+        }));
 
         // ESC Key
         document.addEventListener('keydown', (e) => {
@@ -78,11 +83,18 @@ class BhavcopyUploader {
         const file = this.fileInput.files[0];
         if(!file) return;
 
+        // Get selected segment type
+        const segVal = document.querySelector('input[name="file-segment-type"]:checked').value;
+
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('file_segment_type', segVal);
 
         this.statusArea.innerHTML = 'Analyzing file...';
         this.previewArea.innerHTML = '<div class="loader">Loading preview...</div>';
+
+        // Disable import until preview success
+        document.getElementById('confirm-import-btn').disabled = true;
 
         try {
             const res = await fetch('/api/data/upload/bhavcopy/preview', {
@@ -100,7 +112,7 @@ class BhavcopyUploader {
             document.getElementById('confirm-import-btn').disabled = false;
 
         } catch(e) {
-            this.statusArea.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            this.statusArea.innerHTML = `<div class="error" style="color:#f44336; padding:10px; border:1px solid red;">Error: ${e.message}</div>`;
             this.previewArea.innerHTML = '';
             document.getElementById('confirm-import-btn').disabled = true;
         }
@@ -122,7 +134,10 @@ class BhavcopyUploader {
                 <div class="stats-grid" style="display:flex; gap:20px; margin-top:10px;">
         `;
 
-        for(let seg of ['CM', 'FO']) {
+        const segVal = document.querySelector('input[name="file-segment-type"]:checked').value;
+        const segmentsToShow = (segVal === 'BOTH') ? ['CM', 'FO'] : [segVal];
+
+        for(let seg of segmentsToShow) {
             const s = data.stats[seg];
             if(s) {
                 html += `
@@ -132,6 +147,13 @@ class BhavcopyUploader {
                             Rows: ${s.total_rows}<br>
                             Symbols: ${s.unique_symbols}
                         </div>
+                    </div>
+                `;
+            } else {
+                 html += `
+                    <div class="stat-box" style="background:#333; padding:10px; border-radius:4px; flex:1; opacity: 0.5;">
+                        <h5 style="margin:0 0 5px 0; border-bottom:1px solid #555;">${seg} Segment</h5>
+                        <div style="font-size:0.9em;">Not found in file</div>
                     </div>
                 `;
             }

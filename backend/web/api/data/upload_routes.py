@@ -10,9 +10,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 import json
+import logging
+import traceback
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy, ImportHistory
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -73,16 +77,25 @@ def parse_udiff_date(date_str) -> Optional[date]:
 
     return None
 
-def validate_headers(headers: List[str]) -> bool:
-    """Check if CSV has required UDIFF headers"""
-    required = ['TradDt', 'Sgmt', 'FinInstrmTp', 'TckrSymb']
+def validate_headers(headers: List[str], expected_segment: str = 'BOTH') -> bool:
+    """Check if CSV has required UDIFF headers based on segment"""
+    # Common headers
+    required = ['TradDt', 'TckrSymb'] # Minimal set
+
+    # If Sgmt column exists, it's better, but some files might not have it if they are purely one type?
+    # Actually UDIFF spec usually has Sgmt.
+    if 'Sgmt' not in headers:
+         # If strict UDIFF, this is fail. But maybe we can relax.
+         pass
+
     return all(req in headers for req in required)
 
 def parse_bhavcopy_df(df: pd.DataFrame) -> pd.DataFrame:
     """Parse and clean dataframe with proper types"""
     # Parse dates
-    df['parsed_trade_date'] = df['TradDt'].apply(parse_udiff_date)
-    # BizDt is not always present or same as TradDt
+    if 'TradDt' in df.columns:
+        df['parsed_trade_date'] = df['TradDt'].apply(parse_udiff_date)
+
     if 'BizDt' in df.columns:
         df['parsed_business_date'] = df['BizDt'].apply(parse_udiff_date)
 
@@ -120,10 +133,11 @@ def check_existing_import(db: Session, file_name: str, file_date: date) -> Optio
 @router.post("/api/data/upload/bhavcopy/preview")
 async def preview_bhavcopy(
     file: UploadFile = File(...),
+    file_segment_type: str = Form("BOTH"), # CM, FO, or BOTH
     db: Session = Depends(get_db)
 ):
     """
-    Upload and preview bhavcopy ZIP file - shows both CM and FO data
+    Upload and preview bhavcopy ZIP file
     """
     if not file.filename.endswith('.zip'):
         raise HTTPException(400, "Please upload a ZIP file")
@@ -151,18 +165,18 @@ async def preview_bhavcopy(
         df = pd.read_csv(csv_path)
 
         # Validate headers
-        if not validate_headers(df.columns.tolist()):
-            raise HTTPException(400, f"Invalid CSV format. Expected UDIFF headers.")
+        if not validate_headers(df.columns.tolist(), file_segment_type):
+            raise HTTPException(400, f"Invalid CSV format. Missing required columns.")
 
         # Parse data
         df = parse_bhavcopy_df(df)
 
-        # Get file date from filename or data
+        # Get file date
         file_date = None
-        if len(df) > 0:
+        if len(df) > 0 and 'parsed_trade_date' in df.columns:
             file_date = df['parsed_trade_date'].iloc[0]
 
-        # Check if this date already exists in DB
+        # Check existing date
         existing_dates = []
         if file_date:
             existing = db.query(Bhavcopy).filter(
@@ -171,61 +185,67 @@ async def preview_bhavcopy(
             if existing:
                 existing_dates = [file_date]
 
-        # Check if this file was imported before
         existing_import = None
         if file_date:
             existing_import = check_existing_import(db, file.filename, file_date)
 
-        # Prepare stats by segment
+        # Prepare stats
         stats = {}
         preview_by_segment = {}
 
-        for segment in ALLOWED_SEGMENTS:
-            segment_df = df[df['Sgmt'] == segment]
+        segments_to_process = []
+        if file_segment_type == 'BOTH':
+            segments_to_process = ['CM', 'FO']
+        else:
+            segments_to_process = [file_segment_type]
+
+        for segment in segments_to_process:
+            # Filter by segment if column exists
+            if 'Sgmt' in df.columns:
+                segment_df = df[df['Sgmt'] == segment]
+            else:
+                # If no Sgmt column, assume the whole file is the requested segment
+                segment_df = df
 
             if segment == 'CM':
-                # For CM: filter instrument type STK and series EQ/BE
-                segment_df = segment_df[
-                    (segment_df['FinInstrmTp'] == 'STK') &
-                    (segment_df['SctySrs'].isin(ALLOWED_SERIES))
-                ]
-            else:  # FO
-                # For FO: include all instrument types
-                segment_df = segment_df[
-                    segment_df['FinInstrmTp'].isin(INSTRUMENT_TYPES['FO'])
-                ]
+                if 'FinInstrmTp' in segment_df.columns:
+                    segment_df = segment_df[segment_df['FinInstrmTp'] == 'STK']
+                if 'SctySrs' in segment_df.columns:
+                    segment_df = segment_df[segment_df['SctySrs'].isin(ALLOWED_SERIES)]
+            elif segment == 'FO':
+                if 'FinInstrmTp' in segment_df.columns:
+                    segment_df = segment_df[segment_df['FinInstrmTp'].isin(INSTRUMENT_TYPES['FO'])]
 
             stats[segment] = {
                 'total_rows': len(segment_df),
-                'unique_symbols': segment_df['TckrSymb'].nunique() if len(segment_df) > 0 else 0,
-                'instrument_types': segment_df['FinInstrmTp'].value_counts().to_dict() if len(segment_df) > 0 else {}
+                'unique_symbols': segment_df['TckrSymb'].nunique() if len(segment_df) > 0 and 'TckrSymb' in segment_df.columns else 0,
+                'instrument_types': segment_df['FinInstrmTp'].value_counts().to_dict() if len(segment_df) > 0 and 'FinInstrmTp' in segment_df.columns else {}
             }
 
-            # Get preview (first 5 rows)
+            # Get preview
             preview = []
             for _, row in segment_df.head(5).iterrows():
                 preview_row = {
-                    'symbol': row['TckrSymb'],
-                    'instrument_type': row['FinInstrmTp'],
-                    'open': float(row['OpnPric']) if pd.notna(row['OpnPric']) else 0,
-                    'high': float(row['HghPric']) if pd.notna(row['HghPric']) else 0,
-                    'low': float(row['LwPric']) if pd.notna(row['LwPric']) else 0,
-                    'close': float(row['ClsPric']) if pd.notna(row['ClsPric']) else 0,
+                    'symbol': row.get('TckrSymb', ''),
+                    'instrument_type': row.get('FinInstrmTp', ''),
+                    'open': float(row['OpnPric']) if 'OpnPric' in row and pd.notna(row['OpnPric']) else 0,
+                    'high': float(row['HghPric']) if 'HghPric' in row and pd.notna(row['HghPric']) else 0,
+                    'low': float(row['LwPric']) if 'LwPric' in row and pd.notna(row['LwPric']) else 0,
+                    'close': float(row['ClsPric']) if 'ClsPric' in row and pd.notna(row['ClsPric']) else 0,
                 }
 
-                # Add FO specific fields
                 if segment == 'FO':
                     expiry = row.get('parsed_expiry_date')
                     preview_row.update({
                         'expiry': expiry.strftime("%Y-%m-%d") if pd.notna(expiry) else None,
-                        'strike': float(row['StrkPric']) if pd.notna(row.get('StrkPric')) else None,
+                        'strike': float(row['StrkPric']) if 'StrkPric' in row and pd.notna(row['StrkPric']) else None,
                         'option_type': row.get('OptnTp') if pd.notna(row.get('OptnTp')) else 'XX',
-                        'open_interest': int(row['OpnIntrst']) if pd.notna(row.get('OpnIntrst')) else 0
+                        'open_interest': int(row['OpnIntrst']) if 'OpnIntrst' in row and pd.notna(row['OpnIntrst']) else 0
                     })
                 else:
                     preview_row.update({
-                        'series': row['SctySrs'],
-                        'volume': int(row['TtlTradgVol']) if pd.notna(row.get('TtlTradgVol')) else 0
+                        'series': row.get('SctySrs', ''),
+                        'volume': int(row['TtlTradgVol']) if 'TtlTradgVol' in row and pd.notna(row['TtlTradgVol']) else 0
                     })
 
                 preview.append(preview_row)
@@ -248,12 +268,13 @@ async def preview_bhavcopy(
             }
         }
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        import traceback
+        logger.error(f"Preview Error: {e}")
         traceback.print_exc()
         raise HTTPException(500, f"Error processing file: {str(e)}")
     finally:
-        # Cleanup
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
         if csv_path and os.path.exists(csv_path):
@@ -287,7 +308,8 @@ async def import_bhavcopy(
     def log_skip(reason):
         nonlocal total_skipped
         total_skipped += 1
-        skipped_reasons[reason] = skipped_reasons.get(reason, 0) + 1
+        key = reason[:50] # truncated key
+        skipped_reasons[key] = skipped_reasons.get(key, 0) + 1
 
     try:
         # Extract all CSVs if historical, or just the first if daily
@@ -316,12 +338,12 @@ async def import_bhavcopy(
                 total_errors.append(f"Failed to read CSV {os.path.basename(csv_path)}: {str(e)}")
                 continue
 
-            # Check if required columns exist before parsing
-            required_cols = ['TradDt', 'Sgmt', 'FinInstrmTp']
-            missing_cols = [c for c in required_cols if c not in df.columns]
-            if missing_cols:
-                total_errors.append(f"Skipped {os.path.basename(csv_path)}: Missing columns {missing_cols}")
-                continue
+            # Relaxed column check
+            # required_cols = ['TradDt', 'Sgmt', 'FinInstrmTp']
+            # missing_cols = [c for c in required_cols if c not in df.columns]
+            # if missing_cols:
+            #     total_errors.append(f"Skipped {os.path.basename(csv_path)}: Missing columns {missing_cols}")
+            #     continue
 
             df = parse_bhavcopy_df(df)
 
@@ -338,17 +360,14 @@ async def import_bhavcopy(
             # 2. Try from content (Most reliable for historical bulk)
             if not parsed_file_date:
                 if len(df) > 0 and 'parsed_trade_date' in df.columns:
-                    # Drop NaT
                     valid_dates = df['parsed_trade_date'].dropna()
                     if not valid_dates.empty:
                         parsed_file_date = valid_dates.iloc[0]
 
             # 3. Try from filename
             if not parsed_file_date:
-                # Basic filename parsing logic
                 import re
                 filename = os.path.basename(csv_path)
-                # Matches YYYYMMDD or DD-MMM-YYYY
                 match = re.search(r'(\d{8})|(\d{2}-[A-Za-z]{3}-\d{4})', filename)
                 if match:
                     d_str = match.group(0)
@@ -369,35 +388,44 @@ async def import_bhavcopy(
             # Insert objects
             objects = []
             for _, row in df.iterrows():
-                segment = row['Sgmt']
+                # Determine segment if Sgmt column missing
+                segment = row.get('Sgmt')
+
+                # If segment missing, try to infer or assume based on user selection
+                if not segment:
+                    # Heuristic: if has option fields, FO, else CM?
+                    # Or rely on what user said passed in 'segments_list' if it's single choice
+                    if len(segments_list) == 1:
+                        segment = segments_list[0]
+                    else:
+                        # Ambiguous
+                        log_skip("Missing Sgmt column")
+                        continue
 
                 # Skip if segment not requested
                 if segment not in segments_list:
-                    log_skip(f"Segment {segment} excluded")
+                    # log_skip(f"Segment {segment} excluded")
                     continue
 
                 # Apply filtering based on segment
                 if segment == 'CM':
-                    if row['FinInstrmTp'] != 'STK':
+                    if 'FinInstrmTp' in row and row['FinInstrmTp'] != 'STK':
                         log_skip(f"CM Filter: {row['FinInstrmTp']}")
                         continue
                     if 'SctySrs' in row and row['SctySrs'] not in ALLOWED_SERIES:
                         log_skip(f"CM Series: {row['SctySrs']}")
                         continue
                 elif segment == 'FO':
-                    if row['FinInstrmTp'] not in INSTRUMENT_TYPES['FO']:
+                    if 'FinInstrmTp' in row and row['FinInstrmTp'] not in INSTRUMENT_TYPES['FO']:
                         log_skip(f"FO Filter: {row['FinInstrmTp']}")
                         continue
-                else:
-                    log_skip(f"Unknown Segment: {segment}")
-                    continue
 
                 try:
                     bhavcopy = Bhavcopy(
-                        trade_date=row['parsed_trade_date'],
+                        trade_date=row.get('parsed_trade_date') or parsed_file_date,
                         segment=segment,
-                        instrument_type=row['FinInstrmTp'],
-                        symbol=row['TckrSymb'],
+                        instrument_type=row.get('FinInstrmTp'),
+                        symbol=row.get('TckrSymb'),
 
                         # Common fields
                         series=row.get('SctySrs'),
@@ -405,25 +433,25 @@ async def import_bhavcopy(
 
                         # FO specific
                         expiry_date=row.get('parsed_expiry_date'),
-                        strike_price=float(row['StrkPric']) if pd.notna(row.get('StrkPric')) else None,
-                        option_type=row.get('OptnTp') if pd.notna(row.get('OptnTp')) else None,
-                        underlying=row.get('UndrlygPric'),
+                        strike_price=float(row['StrkPric']) if 'StrkPric' in row and pd.notna(row['StrkPric']) else None,
+                        option_type=row.get('OptnTp') if 'OptnTp' in row and pd.notna(row['OptnTp']) else None,
+                        underlying=row.get('UndrlygPric') if 'UndrlygPric' in row else None,
 
                         # Prices
-                        open=float(row['OpnPric']) if pd.notna(row.get('OpnPric')) else None,
-                        high=float(row['HghPric']) if pd.notna(row.get('HghPric')) else None,
-                        low=float(row['LwPric']) if pd.notna(row.get('LwPric')) else None,
-                        close=float(row['ClsPric']) if pd.notna(row.get('ClsPric')) else None,
-                        last=float(row['LastPric']) if pd.notna(row.get('LastPric')) else None,
-                        prev_close=float(row['PrvsClsgPric']) if pd.notna(row.get('PrvsClsgPric')) else None,
-                        settlement_price=float(row['SttlmPric']) if pd.notna(row.get('SttlmPric')) else None,
+                        open=float(row['OpnPric']) if 'OpnPric' in row and pd.notna(row['OpnPric']) else None,
+                        high=float(row['HghPric']) if 'HghPric' in row and pd.notna(row['HghPric']) else None,
+                        low=float(row['LwPric']) if 'LwPric' in row and pd.notna(row['LwPric']) else None,
+                        close=float(row['ClsPric']) if 'ClsPric' in row and pd.notna(row['ClsPric']) else None,
+                        last=float(row['LastPric']) if 'LastPric' in row and pd.notna(row['LastPric']) else None,
+                        prev_close=float(row['PrvsClsgPric']) if 'PrvsClsgPric' in row and pd.notna(row['PrvsClsgPric']) else None,
+                        settlement_price=float(row['SttlmPric']) if 'SttlmPric' in row and pd.notna(row['SttlmPric']) else None,
 
                         # Volume & OI
-                        total_traded_qty=int(row['TtlTradgVol']) if pd.notna(row.get('TtlTradgVol')) else None,
-                        total_traded_val=float(row['TtlTrfVal']) if pd.notna(row.get('TtlTrfVal')) else None,
-                        total_trades=int(row['TtlNbOfTxsExctd']) if pd.notna(row.get('TtlNbOfTxsExctd')) else None,
-                        open_interest=int(row['OpnIntrst']) if pd.notna(row.get('OpnIntrst')) else None,
-                        change_in_oi=int(row['ChngInOpnIntrst']) if pd.notna(row.get('ChngInOpnIntrst')) else None
+                        total_traded_qty=int(row['TtlTradgVol']) if 'TtlTradgVol' in row and pd.notna(row['TtlTradgVol']) else None,
+                        total_traded_val=float(row['TtlTrfVal']) if 'TtlTrfVal' in row and pd.notna(row['TtlTrfVal']) else None,
+                        total_trades=int(row['TtlNbOfTxsExctd']) if 'TtlNbOfTxsExctd' in row and pd.notna(row['TtlNbOfTxsExctd']) else None,
+                        open_interest=int(row['OpnIntrst']) if 'OpnIntrst' in row and pd.notna(row['OpnIntrst']) else None,
+                        change_in_oi=int(row['ChngInOpnIntrst']) if 'ChngInOpnIntrst' in row and pd.notna(row['ChngInOpnIntrst']) else None
                     )
 
                     objects.append(bhavcopy)
@@ -447,7 +475,7 @@ async def import_bhavcopy(
             # Record history
             try:
                 import_record = ImportHistory(
-                    file_name=os.path.basename(csv_path), # Use actual CSV name
+                    file_name=os.path.basename(csv_path),
                     file_date=parsed_file_date,
                     segment=','.join(segments_list),
                     rows_imported=len(objects),
@@ -471,7 +499,7 @@ async def import_bhavcopy(
         raise he
     except Exception as e:
         db.rollback()
-        import traceback
+        logger.error(f"Import Error: {e}")
         traceback.print_exc()
         raise HTTPException(500, f"Error importing data: {str(e)}")
     finally:
@@ -486,9 +514,7 @@ async def check_date_exists(
     segment: str = Query("CM", regex="^(CM|FO|BOTH)$"),
     db: Session = Depends(get_db)
 ):
-    """
-    Check if data for a specific date already exists
-    """
+    # Same as before
     try:
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
 

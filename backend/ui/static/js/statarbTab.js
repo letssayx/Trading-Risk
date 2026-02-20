@@ -29,24 +29,26 @@ const StatArbTab = {
 
         // Bind Input
         const input = document.getElementById('statarb-add-input');
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const val = e.target.value.trim().toUpperCase();
-                if (val) {
-                    // Simple parser: S1,S2,Ratio
-                    const parts = val.split(',');
-                    if (parts.length >= 2) {
-                        const s1 = parts[0].trim();
-                        const s2 = parts[1].trim();
-                        const ratio = parts.length > 2 ? parseFloat(parts[2]) : 1.0;
-                        this.startStrategy(s1, s2, ratio);
-                        e.target.value = '';
-                    } else {
-                        alert("Format: Symbol1, Symbol2, Ratio (optional)");
+        if(input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const val = e.target.value.trim().toUpperCase();
+                    if (val) {
+                        // Simple parser: S1,S2,Ratio
+                        const parts = val.split(',');
+                        if (parts.length >= 2) {
+                            const s1 = parts[0].trim();
+                            const s2 = parts[1].trim();
+                            const ratio = parts.length > 2 ? parseFloat(parts[2]) : 1.0;
+                            this.startStrategy(s1, s2, ratio);
+                            e.target.value = '';
+                        } else {
+                            alert("Format: Symbol1, Symbol2, Ratio (optional)");
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         this.renderRows();
     },
@@ -63,7 +65,7 @@ const StatArbTab = {
             this.instances.push({
                 id: data.instanceId,
                 s1, s2, ratio,
-                state: data.initialState,
+                state: data.initialState || { spread:0, z_score:0, signal:'NEUTRAL' },
                 paused: false,
                 rowElement: null
             });
@@ -72,6 +74,7 @@ const StatArbTab = {
 
         } catch (e) {
             console.error("Failed to start StatArb", e);
+            alert("Error starting strategy");
         }
     },
 
@@ -90,15 +93,20 @@ const StatArbTab = {
 
     updateRowDOM: function(inst) {
         if (!inst.rowElement) return;
-        const s = inst.state;
+        const s = inst.state || {};
         const pairName = `${inst.s1} - ${inst.ratio}*${inst.s2}`;
         const pauseColor = inst.paused ? '#ff9800' : '#ccc';
 
+        // Safety checks for values
+        const spread = typeof s.spread === 'number' ? s.spread.toFixed(2) : '--';
+        const z = typeof s.z_score === 'number' ? s.z_score.toFixed(2) : '--';
+        const signal = s.signal || '--';
+
         inst.rowElement.innerHTML = `
             <td>${pairName}</td>
-            <td>${s.spread}</td>
-            <td>${s.z_score}</td>
-            <td style="color:${this.getColor(s.signal)}">${s.signal}</td>
+            <td>${spread}</td>
+            <td>${z}</td>
+            <td style="color:${this.getColor(signal)}">${signal}</td>
             <td style="display:flex; gap:5px; border:none;">
                 <button class="action-btn" title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">📈</button>
                 <button class="action-btn" title="Pause" style="color:${pauseColor}" onclick="StatArbTab.togglePause('${inst.id}')">⏸️</button>
@@ -108,6 +116,7 @@ const StatArbTab = {
     },
 
     getColor: function(sig) {
+        if (!sig) return '#ccc';
         if (sig.includes('LONG')) return '#4caf50';
         if (sig.includes('SHORT')) return '#f44336';
         return '#ccc';
@@ -117,14 +126,17 @@ const StatArbTab = {
         const inst = this.instances.find(i => i.id === id);
         if(inst) {
             inst.paused = !inst.paused;
-            // TODO: Notify backend if backend supports pause
+            // Notify backend if needed, but for now purely frontend state for polling control
             console.log(`Instance ${id} paused: ${inst.paused}`);
             this.updateRowDOM(inst);
         }
     },
 
     stop: async function(id) {
-        await fetch(`/api/strategies/statarb/stop/${id}`, { method: 'POST' });
+        try {
+            await fetch(`/api/strategies/statarb/stop/${id}`, { method: 'POST' });
+        } catch(e) { console.error(e); }
+
         this.instances = this.instances.filter(i => i.id !== id);
         this.renderRows();
     },
@@ -134,16 +146,16 @@ const StatArbTab = {
             if(inst.paused) continue;
             try {
                 const res = await fetch(`/api/strategies/statarb/state/${inst.id}`);
-                const state = await res.json();
-                inst.state = state;
-                this.updateRowDOM(inst);
+                if(res.ok) {
+                    const state = await res.json();
+                    inst.state = state;
+                    this.updateRowDOM(inst);
+                }
             } catch (e) { console.error(e); }
         }
     },
 
     handleTick: function(tick) {
-        // StatArb handle tick? Usually updates spread.
-        // Since backend adapter simulates spread updates, we rely on poll.
-        // Frontend calculation is possible but let's stick to polling for consistency with backend state.
+        // Optional real-time update logic
     }
 };
