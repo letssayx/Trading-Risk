@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
 # ... imports ...
 from datetime import datetime, date
+from typing import Optional, List
 # ... rest of imports ...
 
 def parse_udiff_date(date_str) -> Optional[date]:
