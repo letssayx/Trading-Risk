@@ -270,7 +270,21 @@ async def import_bhavcopy(
         df = pd.read_csv(csv_path)
         df = parse_bhavcopy_df(df)
 
-        parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
+        # Handle file_date being 'null' or invalid by deriving from content
+        parsed_file_date = None
+        if file_date and file_date.lower() != 'null' and file_date.strip() != '':
+            try:
+                parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
+            except ValueError:
+                print(f"Invalid file_date format: {file_date}")
+
+        if not parsed_file_date:
+            if len(df) > 0 and 'parsed_trade_date' in df.columns:
+                parsed_file_date = df['parsed_trade_date'].iloc[0]
+                print(f"Derived date from file content: {parsed_file_date}")
+
+        if not parsed_file_date:
+            raise HTTPException(400, "Could not determine trade date from file or input.")
 
         # If overwrite is enabled, delete existing data for this date and segments
         if overwrite_existing:

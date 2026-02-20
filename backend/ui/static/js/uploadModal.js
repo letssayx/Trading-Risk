@@ -1,6 +1,6 @@
 class BhavcopyUploader {
     constructor() {
-        this.modal = document.getElementById('upload-bhavcopy-modal');
+        this.modal = document.getElementById('bhavcopy-upload-modal');
         this.previewArea = document.getElementById('upload-preview');
         this.statusArea = document.getElementById('upload-status');
         this.fileInput = document.getElementById('bhavcopy-file');

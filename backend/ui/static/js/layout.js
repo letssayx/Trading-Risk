@@ -1,6 +1,17 @@
 const Layout = {
     init: function() {
         this.initResizers();
+        this.initGlobalKeys();
+    },
+
+    initGlobalKeys: function() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // Close all known modals
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(m => m.style.display = 'none');
+            }
+        });
     },
 
     initResizers: function() {
