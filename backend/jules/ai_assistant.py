@@ -34,8 +34,8 @@ class JulesAssistant:
 
         genai.configure(api_key=self.api_key)
 
-        # Initialize Gemini 1.5 Flash (faster, more stable availability)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        # Initialize Gemini Pro (User requested)
+        self.model = genai.GenerativeModel('gemini-pro')
         self.chat = self.model.start_chat(history=[
             {"role": "user", "parts": [self.SYSTEM_PROMPT]},
             {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}

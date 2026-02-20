@@ -192,10 +192,10 @@ const TurtleTab = {
             <td>${s.position_size}</td>
             <td>${s.oi || '--'}</td>
             <td>${s.volume || '--'}</td>
-            <td style="display:flex; gap:5px;">
-                <button title="Show Chart" onclick="ChartManager.loadData('${inst.symbol}')">📈</button>
-                <button title="Pause" style="color:${pauseColor}" onclick="TurtleTab.togglePause('${inst.id}')">⏸️</button>
-                <button title="Remove" style="color:#f44336" onclick="TurtleTab.stop('${inst.id}')">❌</button>
+            <td style="display:flex; gap:5px; border:none;">
+                <button class="action-btn" title="Add to Chart" onclick="ChartTabs.addTab('${inst.symbol}', 'stock')">📈</button>
+                <button class="action-btn" title="Pause" style="color:${pauseColor}" onclick="TurtleTab.togglePause('${inst.id}')">⏸️</button>
+                <button class="action-btn" title="Remove" style="color:#f44336" onclick="TurtleTab.stop('${inst.id}')">❌</button>
             </td>
         `;
     },

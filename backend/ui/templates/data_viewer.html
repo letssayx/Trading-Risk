@@ -1,1 +1,194 @@
-<html><body>Data Viewer content with special chars: ☠️</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Turtle Terminal - Data Viewer</title>
+    <link rel="stylesheet" href="/static/css/workbench.css">
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify_content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        input, button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #2d2d2d;
+            color: white;
+        }
+
+        button {
+            cursor: pointer;
+            background: #00bcd4;
+            color: black;
+            font-weight: bold;
+            border: none;
+        }
+        button:hover {
+            background: #00acc1;
+        }
+
+        .data-table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            background: #1e1e1e;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        th {
+            background-color: #2d2d2d;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background-color: #252525;
+        }
+
+        .export-btn {
+            background: #4caf50;
+            color: white;
+        }
+        .export-btn:hover {
+            background: #43a047;
+        }
+
+        .back-btn {
+            background: #555;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Data Viewer</h1>
+        <button class="back-btn" onclick="window.location.href='/workbench'">Back to Workbench</button>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="symbol-input" placeholder="Enter Symbol (e.g. RELIANCE)" />
+        <button onclick="loadData()">Load Data</button>
+        <button class="export-btn" onclick="exportData()">Export to Excel</button>
+        <span id="status-msg" style="margin-left: 10px; color: #888;"></span>
+    </div>
+
+    <div class="data-table-container">
+        <table id="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Open</th>
+                    <th>High</th>
+                    <th>Low</th>
+                    <th>Close</th>
+                    <th>Volume</th>
+                    <th>OI</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                <tr><td colspan="7" style="text-align:center; color:#888;">Enter symbol to view data</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadData() {
+            const symbol = document.getElementById('symbol-input').value.toUpperCase();
+            if(!symbol) return;
+
+            const status = document.getElementById('status-msg');
+            const tbody = document.getElementById('table-body');
+
+            status.innerText = "Loading...";
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/data/view/history/${symbol}`);
+                if(!res.ok) throw new Error("Failed to fetch data");
+
+                const data = await res.json();
+
+                if(data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No data found for this symbol.</td></tr>';
+                    status.innerText = "";
+                    return;
+                }
+
+                // Sort descending by date
+                data.sort((a,b) => new Date(b.time) - new Date(a.time));
+
+                let html = '';
+                data.forEach(row => {
+                    html += `
+                        <tr>
+                            <td>${row.time}</td>
+                            <td>${row.open.toFixed(2)}</td>
+                            <td>${row.high.toFixed(2)}</td>
+                            <td>${row.low.toFixed(2)}</td>
+                            <td>${row.close.toFixed(2)}</td>
+                            <td>${row.volume}</td>
+                            <td>${row.oi || '-'}</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+                status.innerText = `Loaded ${data.length} rows.`;
+
+            } catch(e) {
+                console.error(e);
+                status.innerText = "Error loading data.";
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">${e.message}</td></tr>`;
+            }
+        }
+
+        function exportData() {
+            const symbol = document.getElementById('symbol-input').value.toUpperCase();
+            if(!symbol) {
+                alert("Please enter a symbol first");
+                return;
+            }
+            window.location.href = `/api/data/view/export/${symbol}`;
+        }
+
+        // Allow Enter key
+        document.getElementById('symbol-input').addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') loadData();
+        });
+    </script>
+</body>
+</html>

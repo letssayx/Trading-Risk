@@ -281,6 +281,13 @@ async def import_bhavcopy(
     extracted_files = []
     total_inserted = 0
     total_errors = []
+    total_skipped = 0
+    skipped_reasons = {}
+
+    def log_skip(reason):
+        nonlocal total_skipped
+        total_skipped += 1
+        skipped_reasons[reason] = skipped_reasons.get(reason, 0) + 1
 
     try:
         # Extract all CSVs if historical, or just the first if daily
@@ -303,7 +310,19 @@ async def import_bhavcopy(
 
         # Process each file
         for csv_path in extracted_files:
-            df = pd.read_csv(csv_path)
+            try:
+                df = pd.read_csv(csv_path)
+            except Exception as e:
+                total_errors.append(f"Failed to read CSV {os.path.basename(csv_path)}: {str(e)}")
+                continue
+
+            # Check if required columns exist before parsing
+            required_cols = ['TradDt', 'Sgmt', 'FinInstrmTp']
+            missing_cols = [c for c in required_cols if c not in df.columns]
+            if missing_cols:
+                total_errors.append(f"Skipped {os.path.basename(csv_path)}: Missing columns {missing_cols}")
+                continue
+
             df = parse_bhavcopy_df(df)
 
             # Determine date for THIS file
@@ -354,16 +373,23 @@ async def import_bhavcopy(
 
                 # Skip if segment not requested
                 if segment not in segments_list:
+                    log_skip(f"Segment {segment} excluded")
                     continue
 
                 # Apply filtering based on segment
                 if segment == 'CM':
-                    if row['FinInstrmTp'] != 'STK' or row['SctySrs'] not in ALLOWED_SERIES:
+                    if row['FinInstrmTp'] != 'STK':
+                        log_skip(f"CM Filter: {row['FinInstrmTp']}")
+                        continue
+                    if 'SctySrs' in row and row['SctySrs'] not in ALLOWED_SERIES:
+                        log_skip(f"CM Series: {row['SctySrs']}")
                         continue
                 elif segment == 'FO':
                     if row['FinInstrmTp'] not in INSTRUMENT_TYPES['FO']:
+                        log_skip(f"FO Filter: {row['FinInstrmTp']}")
                         continue
                 else:
+                    log_skip(f"Unknown Segment: {segment}")
                     continue
 
                 try:
@@ -435,6 +461,8 @@ async def import_bhavcopy(
         return {
             'success': True,
             'inserted': total_inserted,
+            'skipped': total_skipped,
+            'skipped_reasons': skipped_reasons,
             'errors': total_errors[:20],
             'mode': mode
         }

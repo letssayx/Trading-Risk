@@ -99,10 +99,10 @@ const StatArbTab = {
             <td>${s.spread}</td>
             <td>${s.z_score}</td>
             <td style="color:${this.getColor(s.signal)}">${s.signal}</td>
-            <td style="display:flex; gap:5px;">
-                <button title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">📈</button>
-                <button title="Pause" style="color:${pauseColor}" onclick="StatArbTab.togglePause('${inst.id}')">⏸️</button>
-                <button title="Remove" style="color:#f44336" onclick="StatArbTab.stop('${inst.id}')">❌</button>
+            <td style="display:flex; gap:5px; border:none;">
+                <button class="action-btn" title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">📈</button>
+                <button class="action-btn" title="Pause" style="color:${pauseColor}" onclick="StatArbTab.togglePause('${inst.id}')">⏸️</button>
+                <button class="action-btn" title="Remove" style="color:#f44336" onclick="StatArbTab.stop('${inst.id}')">❌</button>
             </td>
         `;
     },

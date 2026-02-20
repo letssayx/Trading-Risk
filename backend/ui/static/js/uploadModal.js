@@ -192,8 +192,19 @@ class BhavcopyUploader {
             }
 
             let successMsg = `Successfully imported ${result.inserted} records!`;
+
+            if(result.skipped > 0) {
+                 successMsg += `<br><small style="color:#ff9800">Skipped ${result.skipped} rows.</small>`;
+                 if(result.skipped_reasons) {
+                    successMsg += `<div style="font-size:0.8em; color:#ccc; margin-top:5px; max-height:100px; overflow-y:auto;">
+                        <strong>Skip Reasons:</strong><br>
+                        ${Object.entries(result.skipped_reasons).map(([k,v]) => `${k}: ${v}`).join('<br>')}
+                    </div>`;
+                 }
+            }
+
             if(result.errors && result.errors.length > 0) {
-                successMsg += `<br><small style="color:#ff9800">${result.errors.length} errors/skipped (check console)</small>`;
+                successMsg += `<br><small style="color:#f44336">${result.errors.length} file errors (check console)</small>`;
                 console.warn("Import Errors:", result.errors);
             }
 
