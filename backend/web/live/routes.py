@@ -2,7 +2,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List, Dict, Set
 import asyncio
 import json
-import random
 from datetime import datetime
 
 router = APIRouter()
@@ -51,35 +50,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if "subscribe" in message:
                 await manager.subscribe(websocket, message["subscribe"])
     except WebSocketDisconnect:
-        # Handle disconnect properly - tricky without tracking which symbols this socket subscribed to
-        # For this simple demo, we let the broadcast loop handle stale connections
         pass
 
-# Background task to simulate market data
-async def simulate_market_data():
-    symbols = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "INFY", "HDFC", "SBIN"]
-    prices = {s: 1000.0 + random.random() * 1000 for s in symbols}
-
-    while True:
-        for symbol in symbols:
-            # Stop Random walk for now - keep price stable or gentle noise
-            # change = (random.random() - 0.5) * 0.1
-            # prices[symbol] += change
-
-            # Just emit the current price (maybe slight jitter to show it's alive)
-            prices[symbol] += (random.random() - 0.5) * 0.05
-
-            tick = {
-                "symbol": symbol,
-                "price": round(prices[symbol], 2),
-                "volume": random.randint(100, 5000),
-                "oi": random.randint(10000, 50000),
-                "timestamp": datetime.now().isoformat()
-            }
-            # We need to broadcast this.
-            # Since manager.broadcast is async, we can await it.
-            await manager.broadcast(tick)
-
-        await asyncio.sleep(1) # 1 second update interval
-
-# We need to start this background task. usually in startup event.
+# Simulation removed.
+# This module now only serves as a passive WebSocket relay if needed.

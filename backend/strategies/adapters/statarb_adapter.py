@@ -1,7 +1,6 @@
 import uuid
 import pandas as pd
 import numpy as np
-import random
 
 class StatArbAdapter:
     def __init__(self, symbol1: str, symbol2: str, ratio: float = 1.0, z_threshold: float = 2.0):
@@ -17,6 +16,7 @@ class StatArbAdapter:
         self.mean = 0.0
         self.std = 0.0
         self.signal = "WAIT"
+        self.last_processed_date = None
 
     def start(self, historical_spread: list):
         self.is_active = True
@@ -29,15 +29,22 @@ class StatArbAdapter:
             self.last_spread = values[-1]
             self.update_z_score()
 
-    def update(self, price1: float, price2: float):
+            if historical_spread and 'time' in historical_spread[-1]:
+                self.last_processed_date = historical_spread[-1]['time']
+
+    def update(self, price1: float, price2: float, current_date=None):
         if not self.is_active: return
+
+        if current_date and self.last_processed_date == current_date:
+            return
+
+        if current_date:
+            self.last_processed_date = current_date
 
         # Calculate new spread
         self.last_spread = price1 - (self.ratio * price2)
 
-        # Update rolling stats (Simplified: just using historical mean/std, maybe slight drift)
-        # In real StatArb, we'd update rolling window.
-
+        # Update rolling stats (Simplified: just using historical mean/std)
         self.update_z_score()
 
         # Generate Signal
@@ -64,5 +71,6 @@ class StatArbAdapter:
             "spread": round(self.last_spread, 2),
             "z_score": round(self.z_score, 2),
             "signal": self.signal,
-            "active": self.is_active
+            "active": self.is_active,
+            "last_date": str(self.last_processed_date) if self.last_processed_date else ""
         }

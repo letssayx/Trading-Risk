@@ -5,13 +5,12 @@ from fastapi.responses import FileResponse
 import asyncio
 
 # Existing routes
-from backend.web import routes
+from backend.web.data import routes as data_routes
 from backend.web.portfolio import routes as portfolio_routes
 from backend.web.live import logs
 from backend.web.widgets import routes as widget_routes
 
 # New routes
-from backend.web.data import routes as data_routes
 from backend.web.live import routes as live_routes
 from backend.web.strategies import adapters_routes
 from backend.web.api.data import upload_routes
@@ -37,7 +36,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="backend/ui/static"), name="static")
 
 # Include Routers
-app.include_router(routes.router)
+# Note: Some routes might be duplicated or reorganized in future.
 app.include_router(portfolio_routes.router)
 app.include_router(logs.router)
 app.include_router(widget_routes.router)
@@ -57,9 +56,10 @@ async def startup_event():
     print("✅ Database initialized")
 
     # Start log generator
-    asyncio.create_task(logs.log_generator())
+    # asyncio.create_task(logs.log_generator())
     # Start simulated market data
-    asyncio.create_task(live_routes.simulate_market_data())
+    # asyncio.create_task(live_routes.simulate_market_data())
+    pass
 
 @app.get("/")
 def read_root():
