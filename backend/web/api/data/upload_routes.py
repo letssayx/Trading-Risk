@@ -27,7 +27,7 @@ ALLOWED_SEGMENTS = ['CM', 'FO']  # Both segments
 # Instrument type mappings
 INSTRUMENT_TYPES = {
     'CM': ['STK'],  # Only stocks in CM
-    'FO': ['FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX']  # All FO instruments
+    'FO': ['FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX', 'STO', 'STF', 'IDO', 'IDF']  # All FO instruments
 }
 
 class ImportPreviewRequest(BaseModel):
