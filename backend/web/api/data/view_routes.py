@@ -30,7 +30,7 @@ async def data_viewer_page():
         return "<h1>Template not found (Checked multiple paths)</h1>"
 
     try:
-        with open(template_path, "r") as f:
+        with open(template_path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         return f"<h1>Error reading template: {str(e)}</h1>"

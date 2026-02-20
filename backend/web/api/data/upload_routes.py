@@ -44,17 +44,34 @@ def calculate_file_checksum(file_path: str) -> str:
     return hash_md5.hexdigest()
 
 def parse_udiff_date(date_str) -> Optional[date]:
-    """Parse UDIFF date format (DD-MMM-YYYY)"""
+    """Parse UDIFF date format (DD-MMM-YYYY) or YYYYMMDD"""
     if pd.isna(date_str) or str(date_str).lower() == 'null' or str(date_str).strip() == '':
         return None
     if isinstance(date_str, datetime):
         return date_str.date()
     if isinstance(date_str, date):
         return date_str
+
+    s = str(date_str).strip()
+    # Try DD-MMM-YYYY
     try:
-        return datetime.strptime(str(date_str).strip(), "%d-%b-%Y").date()
+        return datetime.strptime(s, "%d-%b-%Y").date()
     except:
-        return None
+        pass
+
+    # Try YYYYMMDD
+    try:
+        return datetime.strptime(s, "%Y%m%d").date()
+    except:
+        pass
+
+    # Try YYYY-MM-DD
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except:
+        pass
+
+    return None
 
 def validate_headers(headers: List[str]) -> bool:
     """Check if CSV has required UDIFF headers"""
@@ -245,13 +262,14 @@ async def preview_bhavcopy(
 @router.post("/api/data/upload/bhavcopy/import")
 async def import_bhavcopy(
     file: UploadFile = File(...),
-    file_date: str = Form(...),
-    overwrite_existing: bool = Form(...),
+    file_date: Optional[str] = Form(None),
+    overwrite_existing: bool = Form(False),
     segments: str = Form(...), # JSON string
+    mode: str = Form("daily"), # daily or historical
     db: Session = Depends(get_db)
 ):
     """
-    Import bhavcopy data with overwrite option
+    Import bhavcopy data with overwrite option. Supports Historical Backfill (multiple files).
     """
     segments_list = json.loads(segments)
 
@@ -260,145 +278,165 @@ async def import_bhavcopy(
         tmp_file.write(content)
         tmp_path = tmp_file.name
 
-    csv_path = None
+    extracted_files = []
+    total_inserted = 0
+    total_errors = []
+
     try:
-        # Extract and parse
+        # Extract all CSVs if historical, or just the first if daily
         with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
-            csv_files = [f for f in zip_ref.namelist() if f.endswith('.csv')]
-            csv_path = zip_ref.extract(csv_files[0], tempfile.gettempdir())
+            all_csvs = [f for f in zip_ref.namelist() if f.endswith('.csv')]
 
-        df = pd.read_csv(csv_path)
-        df = parse_bhavcopy_df(df)
-
-        # Handle file_date being 'null' or invalid by deriving from content
-        parsed_file_date = None
-        if file_date and file_date.lower() != 'null' and file_date.strip() != '':
-            try:
-                parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
-            except ValueError:
-                print(f"Invalid file_date format: {file_date}")
-
-        if not parsed_file_date:
-            if len(df) > 0 and 'parsed_trade_date' in df.columns:
-                parsed_file_date = df['parsed_trade_date'].iloc[0]
-                print(f"Derived date from file content: {parsed_file_date}")
-
-        if not parsed_file_date:
-            raise HTTPException(400, "Could not determine trade date from file or input.")
-
-        # If overwrite is enabled, delete existing data for this date and segments
-        if overwrite_existing:
-            deleted = db.query(Bhavcopy).filter(
-                Bhavcopy.trade_date == parsed_file_date,
-                Bhavcopy.segment.in_(segments_list)
-            ).delete(synchronize_session=False)
-            db.commit()
-            print(f"Deleted {deleted} existing rows for {parsed_file_date}")
-
-        # Insert data
-        inserted = 0
-        skipped = 0
-        errors = []
-
-        objects = []
-
-        for _, row in df.iterrows():
-            segment = row['Sgmt']
-
-            # Skip if segment not requested
-            if segment not in segments_list:
-                continue
-
-            # Apply filtering based on segment
-            if segment == 'CM':
-                if row['FinInstrmTp'] != 'STK' or row['SctySrs'] not in ALLOWED_SERIES:
-                    continue
-            elif segment == 'FO':
-                if row['FinInstrmTp'] not in INSTRUMENT_TYPES['FO']:
-                    continue
+            if mode == 'historical':
+                # Process all files
+                for f in all_csvs:
+                    extracted_path = zip_ref.extract(f, tempfile.gettempdir())
+                    extracted_files.append(extracted_path)
             else:
+                # Process first file
+                if all_csvs:
+                    extracted_path = zip_ref.extract(all_csvs[0], tempfile.gettempdir())
+                    extracted_files.append(extracted_path)
+
+        if not extracted_files:
+            raise HTTPException(400, "No CSV files found in ZIP")
+
+        # Process each file
+        for csv_path in extracted_files:
+            df = pd.read_csv(csv_path)
+            df = parse_bhavcopy_df(df)
+
+            # Determine date for THIS file
+            parsed_file_date = None
+
+            # 1. Try from input if single file
+            if len(extracted_files) == 1 and file_date and file_date.lower() != 'null' and file_date.strip() != '':
+                try:
+                    parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+
+            # 2. Try from content (Most reliable for historical bulk)
+            if not parsed_file_date:
+                if len(df) > 0 and 'parsed_trade_date' in df.columns:
+                    # Drop NaT
+                    valid_dates = df['parsed_trade_date'].dropna()
+                    if not valid_dates.empty:
+                        parsed_file_date = valid_dates.iloc[0]
+
+            # 3. Try from filename
+            if not parsed_file_date:
+                # Basic filename parsing logic
+                import re
+                filename = os.path.basename(csv_path)
+                # Matches YYYYMMDD or DD-MMM-YYYY
+                match = re.search(r'(\d{8})|(\d{2}-[A-Za-z]{3}-\d{4})', filename)
+                if match:
+                    d_str = match.group(0)
+                    parsed_file_date = parse_udiff_date(d_str)
+
+            if not parsed_file_date:
+                total_errors.append(f"Skipped {os.path.basename(csv_path)}: Could not determine date.")
                 continue
 
-            try:
-                bhavcopy = Bhavcopy(
-                    trade_date=row['parsed_trade_date'],
-                    segment=segment,
-                    instrument_type=row['FinInstrmTp'],
-                    symbol=row['TckrSymb'],
-
-                    # Common fields
-                    series=row.get('SctySrs'),
-                    isin=row.get('ISIN'),
-
-                    # FO specific
-                    expiry_date=row.get('parsed_expiry_date'),
-                    strike_price=float(row['StrkPric']) if pd.notna(row.get('StrkPric')) else None,
-                    option_type=row.get('OptnTp') if pd.notna(row.get('OptnTp')) else None,
-                    underlying=row.get('UndrlygPric'),
-
-                    # Prices
-                    open=float(row['OpnPric']) if pd.notna(row.get('OpnPric')) else None,
-                    high=float(row['HghPric']) if pd.notna(row.get('HghPric')) else None,
-                    low=float(row['LwPric']) if pd.notna(row.get('LwPric')) else None,
-                    close=float(row['ClsPric']) if pd.notna(row.get('ClsPric')) else None,
-                    last=float(row['LastPric']) if pd.notna(row.get('LastPric')) else None,
-                    prev_close=float(row['PrvsClsgPric']) if pd.notna(row.get('PrvsClsgPric')) else None,
-                    settlement_price=float(row['SttlmPric']) if pd.notna(row.get('SttlmPric')) else None,
-
-                    # Volume & OI
-                    total_traded_qty=int(row['TtlTradgVol']) if pd.notna(row.get('TtlTradgVol')) else None,
-                    total_traded_val=float(row['TtlTrfVal']) if pd.notna(row.get('TtlTrfVal')) else None,
-                    total_trades=int(row['TtlNbOfTxsExctd']) if pd.notna(row.get('TtlNbOfTxsExctd')) else None,
-                    open_interest=int(row['OpnIntrst']) if pd.notna(row.get('OpnIntrst')) else None,
-                    change_in_oi=int(row['ChngInOpnIntrst']) if pd.notna(row.get('ChngInOpnIntrst')) else None
-                )
-
-                objects.append(bhavcopy)
-
-            except Exception as e:
-                errors.append(f"Row error: {str(e)}")
-
-        # Bulk Save
-        # Note: bulk_save_objects is faster but doesn't return inserted IDs.
-        try:
-            if objects:
-                db.bulk_save_objects(objects)
+            # Overwrite logic
+            if overwrite_existing:
+                db.query(Bhavcopy).filter(
+                    Bhavcopy.trade_date == parsed_file_date,
+                    Bhavcopy.segment.in_(segments_list)
+                ).delete(synchronize_session=False)
                 db.commit()
-                inserted = len(objects)
-        except IntegrityError as e:
-            db.rollback()
-            # If overwrite was false, this means we hit duplicates.
-            # Without overwrite, we can't easily skip individual rows in bulk without raw SQL 'INSERT OR IGNORE'
-            # For now, fail the batch or try row-by-row if critical.
-            # Assuming overwrite handles the mass update case.
-            raise HTTPException(400, "Integrity Error: Data likely exists. Use Overwrite option.")
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(500, f"Database commit error: {str(e)}")
 
-        # Record this import
-        import_record = ImportHistory(
-            file_name=file.filename,
-            file_date=parsed_file_date,
-            segment=','.join(segments_list),
-            rows_imported=inserted,
-            import_date=datetime.now().date()
-        )
-        try:
-            db.add(import_record)
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            # History already exists, ignore or update?
-            pass
+            # Insert objects
+            objects = []
+            for _, row in df.iterrows():
+                segment = row['Sgmt']
+
+                # Skip if segment not requested
+                if segment not in segments_list:
+                    continue
+
+                # Apply filtering based on segment
+                if segment == 'CM':
+                    if row['FinInstrmTp'] != 'STK' or row['SctySrs'] not in ALLOWED_SERIES:
+                        continue
+                elif segment == 'FO':
+                    if row['FinInstrmTp'] not in INSTRUMENT_TYPES['FO']:
+                        continue
+                else:
+                    continue
+
+                try:
+                    bhavcopy = Bhavcopy(
+                        trade_date=row['parsed_trade_date'],
+                        segment=segment,
+                        instrument_type=row['FinInstrmTp'],
+                        symbol=row['TckrSymb'],
+
+                        # Common fields
+                        series=row.get('SctySrs'),
+                        isin=row.get('ISIN'),
+
+                        # FO specific
+                        expiry_date=row.get('parsed_expiry_date'),
+                        strike_price=float(row['StrkPric']) if pd.notna(row.get('StrkPric')) else None,
+                        option_type=row.get('OptnTp') if pd.notna(row.get('OptnTp')) else None,
+                        underlying=row.get('UndrlygPric'),
+
+                        # Prices
+                        open=float(row['OpnPric']) if pd.notna(row.get('OpnPric')) else None,
+                        high=float(row['HghPric']) if pd.notna(row.get('HghPric')) else None,
+                        low=float(row['LwPric']) if pd.notna(row.get('LwPric')) else None,
+                        close=float(row['ClsPric']) if pd.notna(row.get('ClsPric')) else None,
+                        last=float(row['LastPric']) if pd.notna(row.get('LastPric')) else None,
+                        prev_close=float(row['PrvsClsgPric']) if pd.notna(row.get('PrvsClsgPric')) else None,
+                        settlement_price=float(row['SttlmPric']) if pd.notna(row.get('SttlmPric')) else None,
+
+                        # Volume & OI
+                        total_traded_qty=int(row['TtlTradgVol']) if pd.notna(row.get('TtlTradgVol')) else None,
+                        total_traded_val=float(row['TtlTrfVal']) if pd.notna(row.get('TtlTrfVal')) else None,
+                        total_trades=int(row['TtlNbOfTxsExctd']) if pd.notna(row.get('TtlNbOfTxsExctd')) else None,
+                        open_interest=int(row['OpnIntrst']) if pd.notna(row.get('OpnIntrst')) else None,
+                        change_in_oi=int(row['ChngInOpnIntrst']) if pd.notna(row.get('ChngInOpnIntrst')) else None
+                    )
+
+                    objects.append(bhavcopy)
+
+                except Exception as e:
+                    total_errors.append(f"Row error: {str(e)}")
+
+            # Bulk Save per file
+            try:
+                if objects:
+                    db.bulk_save_objects(objects)
+                    db.commit()
+                    total_inserted += len(objects)
+            except IntegrityError:
+                db.rollback()
+                total_errors.append(f"Integrity Error in {os.path.basename(csv_path)}")
+            except Exception as e:
+                db.rollback()
+                total_errors.append(f"Error in {os.path.basename(csv_path)}: {str(e)}")
+
+            # Record history
+            try:
+                import_record = ImportHistory(
+                    file_name=os.path.basename(csv_path), # Use actual CSV name
+                    file_date=parsed_file_date,
+                    segment=','.join(segments_list),
+                    rows_imported=len(objects),
+                    import_date=datetime.now().date()
+                )
+                db.add(import_record)
+                db.commit()
+            except:
+                db.rollback()
 
         return {
             'success': True,
-            'inserted': inserted,
-            'skipped': skipped,
-            'errors': errors[:10],  # First 10 errors
-            'date': file_date,
-            'segments': segments_list
+            'inserted': total_inserted,
+            'errors': total_errors[:20],
+            'mode': mode
         }
 
     except HTTPException as he:

@@ -39,24 +39,8 @@ class BhavcopyUploader {
             }
         }));
 
-        // Segment Type Switch (Auto-select checkboxes)
+        // Segment Type Switch
         const segTypeRadios = document.querySelectorAll('input[name="file-segment-type"]');
-        const cmCheck = document.getElementById('import-segment-cm');
-        const foCheck = document.getElementById('import-segment-fo');
-
-        segTypeRadios.forEach(r => r.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if(val === 'CM') {
-                cmCheck.checked = true;
-                foCheck.checked = false;
-            } else if (val === 'FO') {
-                cmCheck.checked = false;
-                foCheck.checked = true;
-            } else {
-                cmCheck.checked = true;
-                foCheck.checked = true;
-            }
-        }));
 
         // ESC Key
         document.addEventListener('keydown', (e) => {
@@ -171,9 +155,12 @@ class BhavcopyUploader {
 
         // Gather options
         const overwrite = document.getElementById('overwrite-existing').checked;
+        const mode = document.querySelector('input[name="import-mode"]:checked').value;
+        const segVal = document.querySelector('input[name="file-segment-type"]:checked').value;
+
         const segments = [];
-        if(document.getElementById('import-segment-cm').checked) segments.push('CM');
-        if(document.getElementById('import-segment-fo').checked) segments.push('FO');
+        if(segVal === 'CM' || segVal === 'BOTH') segments.push('CM');
+        if(segVal === 'FO' || segVal === 'BOTH') segments.push('FO');
 
         if(segments.length === 0) {
             alert("Please select at least one segment to import.");
@@ -185,6 +172,7 @@ class BhavcopyUploader {
         formData.append('file_date', this.currentFileDate || ''); // If null, backend tries to derive
         formData.append('overwrite_existing', overwrite);
         formData.append('segments', JSON.stringify(segments));
+        formData.append('mode', mode);
 
         this.statusArea.innerHTML = 'Importing... This may take a moment.';
         document.getElementById('confirm-import-btn').disabled = true;
@@ -196,17 +184,23 @@ class BhavcopyUploader {
             });
             const result = await res.json();
 
-            if(!res.ok) throw new Error(result.detail || 'Import failed');
+            if(!res.ok) {
+                // Handle object error messages
+                let msg = result.detail || 'Import failed';
+                if(typeof msg === 'object') msg = JSON.stringify(msg);
+                throw new Error(msg);
+            }
 
-            this.statusArea.innerHTML = `<div class="success" style="color:#4caf50; font-weight:bold; margin-top:10px;">Successfully imported ${result.inserted} records!</div>`;
+            let successMsg = `Successfully imported ${result.inserted} records!`;
+            if(result.errors && result.errors.length > 0) {
+                successMsg += `<br><small style="color:#ff9800">${result.errors.length} errors/skipped (check console)</small>`;
+                console.warn("Import Errors:", result.errors);
+            }
+
+            this.statusArea.innerHTML = `<div class="success" style="color:#4caf50; font-weight:bold; margin-top:10px;">${successMsg}</div>`;
 
             // Disable button to prevent double submit
             document.getElementById('confirm-import-btn').disabled = true;
-
-            // Refresh logic if needed
-            setTimeout(() => {
-                // optional: this.close();
-            }, 3000);
 
         } catch(e) {
             this.statusArea.innerHTML = `<div class="error" style="color:#f44336; margin-top:10px;">Import Error: ${e.message}</div>`;
