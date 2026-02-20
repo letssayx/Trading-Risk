@@ -109,9 +109,9 @@ const StatArbTab = {
             <td style="color:${this.getColor(signal)}">${signal}</td>
             <td>
                 <div style="display:flex; gap:5px;">
-                    <button class="action-btn" title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">📈</button>
-                    <button class="action-btn" title="Pause" style="color:${pauseColor}" onclick="StatArbTab.togglePause('${inst.id}')">⏸️</button>
-                    <button class="action-btn" title="Remove" style="color:#f44336" onclick="StatArbTab.stop('${inst.id}')">❌</button>
+                    <button class="action-btn" title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">Chart</button>
+                    <button class="action-btn" title="Pause" style="color:${pauseColor}" onclick="StatArbTab.togglePause('${inst.id}')">Pause</button>
+                    <button class="action-btn" title="Remove" style="color:#f44336" onclick="StatArbTab.stop('${inst.id}')">Remove</button>
                 </div>
             </td>
         `;

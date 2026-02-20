@@ -75,6 +75,12 @@ def parse_udiff_date(date_str) -> Optional[date]:
     except:
         pass
 
+    # Try DD-MM-YYYY (e.g., 18-02-2026)
+    try:
+        return datetime.strptime(s, "%d-%m-%Y").date()
+    except:
+        pass
+
     return None
 
 def validate_headers(headers: List[str], expected_segment: str = 'BOTH') -> bool:
