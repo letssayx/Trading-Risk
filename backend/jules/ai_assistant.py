@@ -34,22 +34,31 @@ class JulesAssistant:
 
         genai.configure(api_key=self.api_key)
 
-        # Initialize Gemini 1.5 Pro (Standard Model)
-        try:
-            # Enforce gemini-1.5-pro
-            model_name = 'gemini-1.5-pro'
-            self.model = genai.GenerativeModel(model_name)
+        # Try to initialize with preferred models in order
+        models_to_try = ['gemini-1.5-pro', 'gemini-pro']
+        self.model = None
 
-            # Verify initialization (dry run if possible, but start_chat is good enough)
-            print(f"Jules initialized with model: {model_name}")
-            print(f"API Key present: {'Yes' if self.api_key else 'No'}")
+        for model_name in models_to_try:
+            try:
+                print(f"Attempting to initialize Jules with model: {model_name}...")
+                model = genai.GenerativeModel(model_name)
 
-            self.chat = self.model.start_chat(history=[
-                {"role": "user", "parts": [self.SYSTEM_PROMPT]},
-                {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}
-            ])
-        except Exception as e:
-            print(f"Error initializing Gemini ({e}). Attempting to list available models...")
+                # Test chat to ensure it works
+                chat = model.start_chat(history=[
+                    {"role": "user", "parts": [self.SYSTEM_PROMPT]},
+                    {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}
+                ])
+
+                # If we get here, it worked
+                self.model = model
+                self.chat = chat
+                print(f"Jules successfully initialized with {model_name}")
+                break
+            except Exception as e:
+                print(f"Failed to initialize {model_name}: {e}")
+
+        if not self.model:
+            print("Jules initialization failed for all attempted models.")
             # Try to list models if possible to aid debugging
             try:
                 found_models = []
@@ -59,7 +68,6 @@ class JulesAssistant:
                 print(f"Available models: {found_models}")
             except Exception as le:
                 print(f"Failed to list models: {le}")
-            self.model = None
 
     async def ask(self, message: str) -> str:
         if not self.model:

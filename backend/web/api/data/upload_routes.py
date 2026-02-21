@@ -186,9 +186,11 @@ async def preview_bhavcopy(
         # Check existing date
         existing_dates = []
         if file_date:
-            existing = db.query(Bhavcopy).filter(
-                Bhavcopy.trade_date == file_date
-            ).first()
+            query = db.query(Bhavcopy).filter(Bhavcopy.trade_date == file_date)
+            if file_segment_type != 'BOTH':
+                query = query.filter(Bhavcopy.segment == file_segment_type)
+
+            existing = query.first()
             if existing:
                 existing_dates = [file_date]
 
@@ -424,7 +426,7 @@ async def import_bhavcopy(
                         continue
                 elif segment == 'FO':
                     # robust check with strip
-                    inst_type = str(row.get('FinInstrmTp', '')).strip()
+                    inst_type = str(row.get('FinInstrmTp', '')).strip().upper()
                     if inst_type not in INSTRUMENT_TYPES['FO']:
                         # Log the exact repr to debug invisible chars
                         log_skip(f"FO Filter: {inst_type!r}")

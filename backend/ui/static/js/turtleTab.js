@@ -24,10 +24,13 @@ const TurtleTab = {
                     <option value="NEXT">Next (FUT2)</option>
                     <option value="FAR">Far (FUT3)</option>
                 </select>
+
+                <button id="turtle-remove-selected-btn" class="action-btn" style="color:#f44336; border: 1px solid #f44336; margin-left: auto; padding: 4px 8px;">Remove Selected</button>
             </div>
             <table class="strategy-table">
                 <thead>
                     <tr>
+                        <th style="width: 30px;"><input type="checkbox" id="turtle-select-all"></th>
                         <th>Symbol</th>
                         <th>Price</th>
                         <th>N (ATR)</th>
@@ -43,6 +46,15 @@ const TurtleTab = {
                 </tbody>
             </table>
         `;
+
+        // Bind Remove Selected
+        document.getElementById('turtle-remove-selected-btn').addEventListener('click', () => this.removeSelected());
+
+        // Bind Select All
+        document.getElementById('turtle-select-all').addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            document.querySelectorAll('.turtle-row-checkbox').forEach(cb => cb.checked = checked);
+        });
 
         // Bind Input
         const input = document.getElementById('turtle-add-input');
@@ -181,9 +193,12 @@ const TurtleTab = {
     updateRowDOM: function(inst) {
         if (!inst.rowElement) return;
         const s = inst.state;
-        const pauseColor = inst.paused ? '#ff9800' : '#ccc';
+
+        const pauseText = inst.paused ? 'Resume' : 'Pause';
+        const pauseColor = inst.paused ? '#4caf50' : '#ff9800'; // Green for Resume, Orange for Pause
 
         inst.rowElement.innerHTML = `
+            <td><input type="checkbox" class="turtle-row-checkbox" value="${inst.id}"></td>
             <td>${inst.symbol}</td>
             <td>${s.price ? s.price.toFixed(2) : '--'}</td>
             <td>${s.n}</td>
@@ -194,9 +209,7 @@ const TurtleTab = {
             <td>${s.volume || '--'}</td>
             <td>
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <button class="action-btn" style="color:#00bcd4; font-size:0.9em; border: 1px solid #00bcd4; padding: 2px 5px; border-radius: 4px;" title="Add to Chart" onclick="ChartTabs.addTab('${inst.symbol}', 'stock')">Chart</button>
-                    <button class="action-btn" style="color:${pauseColor}; font-size:0.9em; border: 1px solid ${pauseColor}; padding: 2px 5px; border-radius: 4px;" title="Pause" onclick="TurtleTab.togglePause('${inst.id}')">Pause</button>
-                    <button class="action-btn" style="color:#f44336; font-size:0.9em; border: 1px solid #f44336; padding: 2px 5px; border-radius: 4px;" title="Remove" onclick="TurtleTab.stop('${inst.id}')">Remove</button>
+                    <button class="action-btn" style="color:${pauseColor}; font-size:0.9em; border: 1px solid ${pauseColor}; padding: 2px 5px; border-radius: 4px;" title="${pauseText}" onclick="TurtleTab.togglePause('${inst.id}')">${pauseText}</button>
                 </div>
             </td>
         `;
@@ -221,6 +234,26 @@ const TurtleTab = {
         await fetch(`/api/strategies/turtle/stop/${id}`, { method: 'POST' });
         this.instances = this.instances.filter(i => i.id !== id);
         this.renderRows();
+    },
+
+    removeSelected: async function() {
+        const checkboxes = document.querySelectorAll('.turtle-row-checkbox:checked');
+        if(checkboxes.length === 0) return;
+
+        if(!confirm(`Remove ${checkboxes.length} strategies?`)) return;
+
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+
+        // Send all stop requests
+        await Promise.all(ids.map(id => fetch(`/api/strategies/turtle/stop/${id}`, { method: 'POST' })));
+
+        // Update local state locally
+        this.instances = this.instances.filter(i => !ids.includes(i.id));
+        this.renderRows();
+
+        // Uncheck select all
+        const selectAll = document.getElementById('turtle-select-all');
+        if(selectAll) selectAll.checked = false;
     },
 
     pollAll: async function() {

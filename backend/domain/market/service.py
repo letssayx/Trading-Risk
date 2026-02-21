@@ -3,8 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, distinct
 from datetime import date, datetime
 import pandas as pd
+import logging
 from backend.domain.market.models import Bhavcopy
 from backend.domain.market.contract_manager import ContractManager
+
+logger = logging.getLogger(__name__)
 
 class MarketDataService:
 
@@ -45,7 +48,7 @@ class MarketDataService:
 
             for exp in expiries:
                 d = exp[0]
-                if d.year == target_year and ContractManager.MONTH_CODES.get(d.month) == target_month_code:
+                if d and d.year == target_year and ContractManager.MONTH_CODES.get(d.month) == target_month_code:
                     matched_date = d
                     break
 
@@ -56,17 +59,23 @@ class MarketDataService:
                     Bhavcopy.instrument_type.like('FUT%')
                 )
             else:
+                logger.warning(f"No matching expiry found for contract {symbol}")
                 return []
         else:
             # Normal CM or Underlying
             if target_segment == 'CM':
                 query = query.filter(Bhavcopy.segment == 'CM')
-                query = query.filter(Bhavcopy.series.in_(['EQ', 'BE']))
+                # Relax series check slightly or log if empty
+                # Also allow NULL series for robustness with custom data
+                query = query.filter((Bhavcopy.series.in_(['EQ', 'BE'])) | (Bhavcopy.series == None))
 
         # Sort and limit
         query = query.order_by(Bhavcopy.trade_date.desc()).limit(days)
 
         results = query.all()
+        if not results:
+            logger.warning(f"get_daily_ohlc returned 0 results for {symbol} (segment={target_segment})")
+
         results.reverse()
 
         data = []
