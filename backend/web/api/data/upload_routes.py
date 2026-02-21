@@ -27,7 +27,8 @@ ALLOWED_SEGMENTS = ['CM', 'FO']  # Both segments
 # Instrument type mappings
 INSTRUMENT_TYPES = {
     'CM': ['STK'],  # Only stocks in CM
-    'FO': ['FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX', 'STO', 'STF', 'IDO', 'IDF']  # All FO instruments
+    # Expanded FO list to cover NSE UDIFF formats
+    'FO': ['FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX', 'STO', 'STF', 'IDO', 'IDF']
 }
 
 class ImportPreviewRequest(BaseModel):
@@ -425,7 +426,8 @@ async def import_bhavcopy(
                     # robust check with strip
                     inst_type = str(row.get('FinInstrmTp', '')).strip()
                     if inst_type not in INSTRUMENT_TYPES['FO']:
-                        log_skip(f"FO Filter: {inst_type}")
+                        # Log the exact repr to debug invisible chars
+                        log_skip(f"FO Filter: {inst_type!r}")
                         continue
 
                 try:

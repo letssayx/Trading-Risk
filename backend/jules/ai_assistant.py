@@ -37,20 +37,28 @@ class JulesAssistant:
         # Initialize Gemini 1.5 Pro (Standard Model)
         try:
             # Enforce gemini-1.5-pro
-            self.model = genai.GenerativeModel('gemini-1.5-pro')
+            model_name = 'gemini-1.5-pro'
+            self.model = genai.GenerativeModel(model_name)
+
+            # Verify initialization (dry run if possible, but start_chat is good enough)
+            print(f"Jules initialized with model: {model_name}")
+            print(f"API Key present: {'Yes' if self.api_key else 'No'}")
+
             self.chat = self.model.start_chat(history=[
                 {"role": "user", "parts": [self.SYSTEM_PROMPT]},
                 {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}
             ])
         except Exception as e:
-            print(f"Error initializing Gemini: {e}")
+            print(f"Error initializing Gemini ({e}). Attempting to list available models...")
             # Try to list models if possible to aid debugging
             try:
+                found_models = []
                 for m in genai.list_models():
                     if 'generateContent' in m.supported_generation_methods:
-                        print(f"Available model: {m.name}")
-            except:
-                pass
+                        found_models.append(m.name)
+                print(f"Available models: {found_models}")
+            except Exception as le:
+                print(f"Failed to list models: {le}")
             self.model = None
 
     async def ask(self, message: str) -> str:
