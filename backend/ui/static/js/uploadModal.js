@@ -22,6 +22,19 @@ class BhavcopyUploader {
     }
 
     initEventListeners() {
+        // Import Type Switch
+        const radios = document.querySelectorAll('input[name="import-type"]');
+        radios.forEach(r => {
+            r.addEventListener('change', (e) => {
+                const hint = document.getElementById('file-hint');
+                if (e.target.value === 'historical') {
+                    hint.textContent = 'Upload Annual/Monthly ZIP (Any UDIFF compatible)';
+                } else {
+                    hint.textContent = 'Expected format: BhavCopy_NSE_CM_0_0_0_YYYYMMDD_F_0000.csv.zip';
+                }
+            });
+        });
+
         if (this.fileInput) {
             this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         }

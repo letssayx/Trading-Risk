@@ -2,8 +2,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List, Dict, Set
 import asyncio
 import json
-import random
 from datetime import datetime
+
+# Import TickVault to read real ticks if available
+from backend.ingest.tick_vault import TickVault
 
 router = APIRouter()
 
@@ -28,11 +30,8 @@ class ConnectionManager:
             self.active_connections[symbol].add(websocket)
 
     async def broadcast(self, message: dict):
-        # In a real app, we'd broadcast to specific symbol subscribers.
-        # Here, for simplicity, we iterate over symbols in the message if present, or all.
         symbol = message.get("symbol")
         if symbol and symbol in self.active_connections:
-            # Create a copy of the set for safe iteration
             for connection in list(self.active_connections[symbol]):
                 try:
                     await connection.send_json(message)
@@ -51,35 +50,13 @@ async def websocket_endpoint(websocket: WebSocket):
             if "subscribe" in message:
                 await manager.subscribe(websocket, message["subscribe"])
     except WebSocketDisconnect:
-        # Handle disconnect properly - tricky without tracking which symbols this socket subscribed to
-        # For this simple demo, we let the broadcast loop handle stale connections
         pass
 
-# Background task to simulate market data
+# No random walk simulation.
+# In a real environment, this function would poll Redis or receive ZMQ messages
+# from the feed handler and broadcast them.
 async def simulate_market_data():
-    symbols = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "INFY", "HDFC", "SBIN"]
-    prices = {s: 1000.0 + random.random() * 1000 for s in symbols}
-
+    # Placeholder: If we had a real feed, we would loop here.
+    # For now, stay silent rather than emitting fake random numbers.
     while True:
-        for symbol in symbols:
-            # Stop Random walk for now - keep price stable or gentle noise
-            # change = (random.random() - 0.5) * 0.1
-            # prices[symbol] += change
-
-            # Just emit the current price (maybe slight jitter to show it's alive)
-            prices[symbol] += (random.random() - 0.5) * 0.05
-
-            tick = {
-                "symbol": symbol,
-                "price": round(prices[symbol], 2),
-                "volume": random.randint(100, 5000),
-                "oi": random.randint(10000, 50000),
-                "timestamp": datetime.now().isoformat()
-            }
-            # We need to broadcast this.
-            # Since manager.broadcast is async, we can await it.
-            await manager.broadcast(tick)
-
-        await asyncio.sleep(1) # 1 second update interval
-
-# We need to start this background task. usually in startup event.
+        await asyncio.sleep(60)

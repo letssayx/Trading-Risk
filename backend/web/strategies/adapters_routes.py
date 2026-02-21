@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict, Optional, List
+from sqlalchemy.orm import Session
+from backend.infrastructure.db import get_db
+from backend.domain.market.models import Bhavcopy
 from backend.strategies.adapters.turtle_adapter import TurtleAdapter
 from backend.strategies.adapters.statarb_adapter import StatArbAdapter
-from backend.web.data.routes import generate_ohlc, get_spread_historical
+# Removed generate_ohlc import
 
 router = APIRouter(prefix="/api/strategies", tags=["Strategy Adapters"])
 
@@ -22,14 +25,45 @@ class StatArbStartRequest(BaseModel):
     ratio: float = 1.0
     z_threshold: float = 2.0
 
+# --- Helper ---
+def fetch_history_from_db(db: Session, symbol: str, limit: int = 100):
+    """
+    Fetch last N days history for strategy initialization
+    """
+    results = db.query(Bhavcopy).filter(
+        Bhavcopy.symbol == symbol.upper()
+    ).order_by(Bhavcopy.trade_date.desc()).limit(limit).all()
+
+    # Reverse to be chronological
+    results.reverse()
+
+    data = []
+    for row in results:
+        data.append({
+            "time": row.trade_date.strftime("%Y-%m-%d"),
+            "open": row.open,
+            "high": row.high,
+            "low": row.low,
+            "close": row.close,
+            "volume": row.total_traded_qty
+        })
+    return data
+
 # --- Endpoints ---
 
 @router.post("/turtle/start")
-async def start_turtle(req: TurtleStartRequest):
+async def start_turtle(req: TurtleStartRequest, db: Session = Depends(get_db)):
     adapter = TurtleAdapter(req.symbol, req.risk_per_trade)
 
-    # Fetch mock historical data to initialize
-    history = generate_ohlc(req.symbol, days=100)
+    # Fetch real historical data
+    history = fetch_history_from_db(db, req.symbol, limit=100)
+
+    if not history:
+        # If no data, we can't really start properly, but let's allow it with empty state
+        # or raise error? User might be testing with empty DB.
+        # Let's initialize empty.
+        pass
+
     adapter.start(history)
 
     turtle_instances[adapter.id] = adapter
@@ -41,13 +75,9 @@ async def get_turtle_state(instance_id: str):
     if not adapter:
         raise HTTPException(status_code=404, detail="Instance not found")
 
-    # Simulate a tick update on poll (since we don't have a real event loop pushing ticks here yet)
-    # In a real system, the websocket loop would push to the adapter.
-    # Here we just fetch a 'random walk' price based on last price to simulate live movement.
-    import random
-    current_price = adapter.last_price * (1 + (random.random() - 0.5) * 0.001)
-    adapter.update(current_price)
-
+    # No random updates.
+    # The state remains what it was after start() or last real update.
+    # In a real system, a background worker would call adapter.update(tick)
     return adapter.get_state()
 
 @router.post("/turtle/stop/{instance_id}")
@@ -58,11 +88,29 @@ async def stop_turtle(instance_id: str):
 
 
 @router.post("/statarb/start")
-async def start_statarb(req: StatArbStartRequest):
+async def start_statarb(req: StatArbStartRequest, db: Session = Depends(get_db)):
     adapter = StatArbAdapter(req.symbol1, req.symbol2, req.ratio, req.z_threshold)
 
-    # Fetch historical spread
-    spread_data = await get_spread_historical(req.symbol1, req.symbol2, req.ratio, days=100)
+    # Fetch historical data for both
+    h1 = fetch_history_from_db(db, req.symbol1, limit=100)
+    h2 = fetch_history_from_db(db, req.symbol2, limit=100)
+
+    # Align and Calculate Spread (Naive alignment for MVP)
+    # We should use pandas merge on time, but assume aligned for now if imported from same source
+    # Or strict intersection.
+    spread_data = []
+    min_len = min(len(h1), len(h2))
+    for i in range(min_len):
+        # Taking from end (latest)
+        d1 = h1[-(min_len-i)]
+        d2 = h2[-(min_len-i)]
+        if d1['time'] == d2['time']:
+            val = d1['close'] - (req.ratio * d2['close'])
+            spread_data.append({
+                "time": d1['time'],
+                "value": val
+            })
+
     adapter.start(spread_data)
 
     statarb_instances[adapter.id] = adapter
@@ -74,26 +122,7 @@ async def get_statarb_state(instance_id: str):
     if not adapter:
         raise HTTPException(status_code=404, detail="Instance not found")
 
-    # Simulate update
-    # Need last prices for both. We don't track them in adapter perfectly in this mock.
-    # We'll just jitter the spread directly or something?
-    # Better: Update the spread based on last spread.
-    import random
-    jitter = (random.random() - 0.5) * 1.0
-    # We need inputs for update(p1, p2).
-    # Let's just cheat for the demo and update spread directly or imply prices.
-    # To keep it cleaner, let's just not call update() here and assume it's static
-    # OR mock p1/p2.
-
-    # Mocking p1, p2 from thin air is messy.
-    # Let's just return state. The UI will see static data unless I implement the full TickVault loop.
-    # User Requirement: "The tab then periodically... receives updated strategy state"
-    # So I should change something.
-
-    # Let's manually drift the z-score slightly
-    adapter.z_score += (random.random() - 0.5) * 0.1
-    adapter.last_spread += (random.random() - 0.5) * 0.5
-
+    # No random updates.
     return adapter.get_state()
 
 @router.post("/statarb/stop/{instance_id}")
