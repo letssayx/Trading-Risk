@@ -26,6 +26,11 @@ class JulesAssistant:
     """
 
     def __init__(self):
+        self.model = None
+        self.chat = None
+        self.initialize()
+
+    def initialize(self):
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
             print("Warning: GOOGLE_API_KEY not found. Jules will be offline.")
@@ -71,7 +76,10 @@ class JulesAssistant:
 
     async def ask(self, message: str) -> str:
         if not self.model:
-            return "Jules is offline. Please configure GOOGLE_API_KEY or check model availability."
+            # Try re-initializing in case API key was added at runtime
+            self.initialize()
+            if not self.model:
+                return "Jules is offline. Please configure GOOGLE_API_KEY or check model availability."
 
         try:
             # Send message to chat session

@@ -28,7 +28,12 @@ ALLOWED_SEGMENTS = ['CM', 'FO']  # Both segments
 INSTRUMENT_TYPES = {
     'CM': ['STK'],  # Only stocks in CM
     # Expanded FO list to cover NSE UDIFF formats
-    'FO': ['FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX', 'STO', 'STF', 'IDO', 'IDF']
+    # Note: Some older files or custom files might have spaces or variations
+    'FO': [
+        'FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX',
+        'STO', 'STF', 'IDO', 'IDF',
+        'FUTIVX' # Adding FUTIVX just in case
+    ]
 }
 
 class ImportPreviewRequest(BaseModel):
@@ -407,9 +412,17 @@ async def import_bhavcopy(
                     if len(segments_list) == 1:
                         segment = segments_list[0]
                     else:
-                        # Ambiguous
-                        log_skip("Missing Sgmt column")
-                        continue
+                        # Improved Heuristic
+                        # If FinInstrmTp is in FO types, it's FO
+                        raw_inst = str(row.get('FinInstrmTp', '')).strip().upper()
+                        if raw_inst in INSTRUMENT_TYPES['FO']:
+                            segment = 'FO'
+                        elif raw_inst in INSTRUMENT_TYPES['CM']:
+                            segment = 'CM'
+                        else:
+                            # Ambiguous
+                            log_skip(f"Missing Sgmt column & Unknown Inst: {raw_inst}")
+                            continue
 
                 # Skip if segment not requested
                 if segment not in segments_list:

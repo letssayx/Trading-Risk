@@ -11,21 +11,15 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
-# Try to init Jules
-try:
-    jules = JulesAssistant()
-except Exception as e:
-    print(f"Jules init failed: {e}")
-    jules = None
+# Global instance
+jules_instance = JulesAssistant()
 
 @router.post("/api/jules/chat", response_model=ChatResponse)
 async def chat_with_jules(req: ChatRequest):
-    if not jules:
-        return ChatResponse(response="Jules is offline (API Key missing).")
-
+    # Try using the global instance directly
+    # The instance's ask method now handles re-initialization checks
     try:
-        # Use simple ask for now
-        resp = await jules.ask(req.message)
+        resp = await jules_instance.ask(req.message)
         return ChatResponse(response=resp)
     except Exception as e:
         return ChatResponse(response=f"Error: {str(e)}")

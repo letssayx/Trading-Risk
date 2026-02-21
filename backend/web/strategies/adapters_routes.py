@@ -36,10 +36,18 @@ async def start_turtle(
     adapter = TurtleAdapter(req.symbol, req.risk_per_trade)
 
     # Fetch real historical data from DB
+    # Note: For Turtle, we might need more history for ATR calculation, but 100 is okay for start
+    # Try fetching as EQ first, then FO if implicit
     history = MarketDataService.get_daily_ohlc(db, req.symbol, days=100)
 
     if not history:
-        raise HTTPException(status_code=404, detail="No historical data found for symbol")
+        # Fallback: Try with 'FO' segment if implicit (e.g. user typed NIFTY but meant NIFTY Futures?)
+        # Or maybe it's just missing data.
+        # Let's try explicitly as 'CM' again with relaxed constraints if needed, but get_daily_ohlc handles that.
+
+        # Log specific error
+        print(f"Start Turtle Failed: No history for {req.symbol}")
+        raise HTTPException(status_code=404, detail=f"No historical data found for {req.symbol}")
 
     adapter.start(history)
 

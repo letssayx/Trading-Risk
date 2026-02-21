@@ -123,6 +123,7 @@ const StatArbTab = {
             <td style="color:${this.getColor(signal)}">${signal}</td>
             <td>
                 <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="action-btn" style="color:#00bcd4; font-size:0.9em; border: 1px solid #00bcd4; padding: 2px 5px; border-radius: 4px;" title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">Chart</button>
                     <button class="action-btn" style="color:${pauseColor}; font-size:0.9em; border: 1px solid ${pauseColor}; padding: 2px 5px; border-radius: 4px;" title="${pauseText}" onclick="StatArbTab.togglePause('${inst.id}')">${pauseText}</button>
                 </div>
             </td>

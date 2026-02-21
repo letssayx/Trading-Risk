@@ -30,7 +30,7 @@ const ChartTabs = {
         const tabEl = document.createElement('div');
         tabEl.className = 'chart-tab';
         tabEl.id = `tab-${id}`;
-        tabEl.innerHTML = `<span>${symbol}</span> <span class="chart-tab-close" onclick="ChartTabs.closeTab(${id}, event)">×</span>`;
+        tabEl.innerHTML = `<span>${symbol}</span> <span class="chart-tab-close" onclick="ChartTabs.closeTab(${id}, event)">X</span>`;
         tabEl.onclick = () => this.switchTab(id);
 
         // Insert before the input container (last element)

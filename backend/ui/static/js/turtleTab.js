@@ -209,6 +209,7 @@ const TurtleTab = {
             <td>${s.volume || '--'}</td>
             <td>
                 <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="action-btn" style="color:#00bcd4; font-size:0.9em; border: 1px solid #00bcd4; padding: 2px 5px; border-radius: 4px;" title="Add to Chart" onclick="ChartTabs.addTab('${inst.symbol}', 'stock')">Chart</button>
                     <button class="action-btn" style="color:${pauseColor}; font-size:0.9em; border: 1px solid ${pauseColor}; padding: 2px 5px; border-radius: 4px;" title="${pauseText}" onclick="TurtleTab.togglePause('${inst.id}')">${pauseText}</button>
                 </div>
             </td>
