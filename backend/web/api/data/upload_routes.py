@@ -422,8 +422,10 @@ async def import_bhavcopy(
                         log_skip(f"CM Series: {row['SctySrs']}")
                         continue
                 elif segment == 'FO':
-                    if 'FinInstrmTp' in row and row['FinInstrmTp'] not in INSTRUMENT_TYPES['FO']:
-                        log_skip(f"FO Filter: {row['FinInstrmTp']}")
+                    # robust check with strip
+                    inst_type = str(row.get('FinInstrmTp', '')).strip()
+                    if inst_type not in INSTRUMENT_TYPES['FO']:
+                        log_skip(f"FO Filter: {inst_type}")
                         continue
 
                 try:

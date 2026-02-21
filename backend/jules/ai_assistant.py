@@ -36,7 +36,7 @@ class JulesAssistant:
 
         # Initialize Gemini 1.5 Pro (Standard Model)
         try:
-            # Fallback logic could be added here, but 1.5-pro is the current standard.
+            # Enforce gemini-1.5-pro
             self.model = genai.GenerativeModel('gemini-1.5-pro')
             self.chat = self.model.start_chat(history=[
                 {"role": "user", "parts": [self.SYSTEM_PROMPT]},
@@ -44,6 +44,13 @@ class JulesAssistant:
             ])
         except Exception as e:
             print(f"Error initializing Gemini: {e}")
+            # Try to list models if possible to aid debugging
+            try:
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        print(f"Available model: {m.name}")
+            except:
+                pass
             self.model = None
 
     async def ask(self, message: str) -> str:

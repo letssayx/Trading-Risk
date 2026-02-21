@@ -108,10 +108,10 @@ const StatArbTab = {
             <td>${z}</td>
             <td style="color:${this.getColor(signal)}">${signal}</td>
             <td>
-                <div style="display:flex; gap:5px;">
-                    <button class="action-btn" style="color:#00bcd4; font-size:0.9em;" title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">Chart</button>
-                    <button class="action-btn" style="color:${pauseColor}; font-size:0.9em;" title="Pause" onclick="StatArbTab.togglePause('${inst.id}')">Pause</button>
-                    <button class="action-btn" style="color:#f44336; font-size:0.9em;" title="Remove" onclick="StatArbTab.stop('${inst.id}')">Remove</button>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="action-btn" style="color:#00bcd4; font-size:0.9em; border: 1px solid #00bcd4; padding: 2px 5px; border-radius: 4px;" title="Add to Chart" onclick="ChartTabs.addTab('${pairName}', 'spread', {symbol1:'${inst.s1}', symbol2:'${inst.s2}', ratio:${inst.ratio}})">Chart</button>
+                    <button class="action-btn" style="color:${pauseColor}; font-size:0.9em; border: 1px solid ${pauseColor}; padding: 2px 5px; border-radius: 4px;" title="Pause" onclick="StatArbTab.togglePause('${inst.id}')">Pause</button>
+                    <button class="action-btn" style="color:#f44336; font-size:0.9em; border: 1px solid #f44336; padding: 2px 5px; border-radius: 4px;" title="Remove" onclick="StatArbTab.stop('${inst.id}')">Remove</button>
                 </div>
             </td>
         `;
