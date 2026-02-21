@@ -285,28 +285,6 @@ body {
 }
 .strategy-table th { background: #252525; }
 
-/* Strategy Action Buttons - Enhanced Visibility */
-.action-btn {
-    background: #333; /* Dark background to ensure visibility */
-    border: 1px solid #555;
-    border-radius: 4px;
-    color: #e0e0e0;
-    cursor: pointer;
-    font-size: 0.9em;
-    padding: 4px 8px;
-    margin: 0 2px;
-    transition: all 0.2s ease;
-    min-width: 50px;
-    text-align: center;
-    display: inline-block;
-}
-.action-btn:hover {
-    background: #444;
-    border-color: #777;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-}
-
 /* --- Resizers --- */
 .resizer-v {
     width: 5px;

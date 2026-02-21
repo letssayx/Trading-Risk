@@ -1,8 +1,9 @@
 import uuid
 import pandas as pd
 import numpy as np
+from datetime import datetime
+import random
 from typing import List, Dict, Optional
-from datetime import date
 from backend.strategies.turtle import TurtleLegacyStrategy
 from backend.domain.portfolio.manager import PortfolioManager
 
@@ -24,11 +25,6 @@ class TurtleAdapter:
         self.is_active = False
         self.last_price = 0.0
         self.position = 0
-        self.last_processed_date = None
-
-        # New tracked fields
-        self.last_oi = 0
-        self.last_vol = 0
 
         # Simulation state
         self.highs = []
@@ -47,24 +43,15 @@ class TurtleAdapter:
             self.closes = df['close'].tolist()
             self.last_price = self.closes[-1]
 
-            # Capture last OI and Volume
-            if 'oi' in df.columns:
-                self.last_oi = df['oi'].iloc[-1]
-            if 'volume' in df.columns:
-                self.last_vol = df['volume'].iloc[-1]
-
-            # Capture the last date if available
-            if 'time' in df.columns:
-                self.last_processed_date = df['time'].iloc[-1]
-
             # Initialize N
+            # We need Series for the strategy method
             self.strategy.calculate_N(
                 pd.Series(self.highs),
                 pd.Series(self.lows),
                 pd.Series(self.closes)
             )
 
-            # Check for initial signal (Breakout of 20-day high)
+            # Check for initial signal (Mock: Breakout of 20-day high)
             if len(self.highs) > 20:
                 high_20 = max(self.highs[-21:-1])
                 if self.closes[-1] > high_20:
@@ -72,21 +59,13 @@ class TurtleAdapter:
                     self.position = self.strategy.calculate_unit_size(1.0) # Tick value 1
                     self.strategy.add_unit(self.closes[-1], "LONG")
 
-    def update(self, price: float, current_date=None):
+    def update(self, price: float):
         if not self.is_active: return
 
-        # If date is provided, ensure we haven't processed it
-        if current_date and self.last_processed_date == current_date:
-            return
-
-        if current_date:
-            self.last_processed_date = current_date
-
         self.last_price = price
-        # Update N
-        # In a real daily system, we'd update N with the new daily candle.
-        # Since 'update' here might be called with just a price (e.g. live tick or end of day close),
-        # we strictly check risk limits.
+        # Update N (Mock update: assume price is close of a new candle for simplicity,
+        # or just decay/drift N slightly to show life)
+        # Real turtle updates N daily. Intraday we watch price vs levels.
 
         # Check stops
         if self.position > 0:
@@ -98,10 +77,11 @@ class TurtleAdapter:
                 self.strategy.units = 0
                 self.strategy.stops = []
 
-        # Note: We removed random signal generation.
-        # Signals now only occur on Breakouts (handled in start/daily close) or Stops.
-        # If we wanted new Entry signals on daily update, we'd need to track Highs/Lows window here.
-        # For this refactor, we stick to "No Randomness".
+        # Simple random signal flip for demo if idle
+        if self.signal == "WAIT" and random.random() > 0.95:
+             self.signal = "BUY" if random.random() > 0.5 else "SELL"
+             self.position = self.strategy.calculate_unit_size(1.0)
+             self.strategy.add_unit(price, "LONG" if self.signal == "BUY" else "SHORT")
 
     def get_state(self):
         risk = self.strategy.get_risk_status()
@@ -114,8 +94,5 @@ class TurtleAdapter:
             "signal": self.signal,
             "stop": round(risk.get("Current_Stop", 0), 2),
             "position_size": self.position,
-            "oi": self.last_oi,
-            "volume": self.last_vol,
-            "units": risk.get("Units", 0),
-            "last_date": str(self.last_processed_date) if self.last_processed_date else ""
+            "units": risk.get("Units", 0)
         }

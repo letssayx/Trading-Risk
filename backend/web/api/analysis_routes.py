@@ -1,106 +1,85 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query
 from typing import Dict, Any, List
-from sqlalchemy.orm import Session
-from datetime import datetime
-
-from backend.infrastructure.db import get_db
-from backend.domain.market.service import MarketDataService
 from backend.domain.market.contract_manager import ContractManager
 from backend.analysis.toolbox.price_oi import PriceOiAnalyzer
 from backend.plugins.strategies.rollover import RolloverAnalyzer
+import random
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
-@router.get("/api/analysis/oi/{symbol}")
-async def analyze_oi(
-    symbol: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Get Price vs OI Analysis for a symbol.
-    If 'symbol' is underlying (e.g. NIFTY), finds Near Month Future.
-    """
-    contract_symbol = symbol.upper()
+# Mock Helper since we don't have real data source connected yet
+def get_mock_contract_data(symbol: str, expiry_date=None):
+    base_price = 1000 + random.random() * 500
+    price = base_price * (1 + random.random() * 0.05)
+    oi = int(100000 + random.random() * 500000)
 
-    # Check if it's a contract or underlying
-    parsed = ContractManager.parse_contract_symbol(contract_symbol)
+    return {
+        "symbol": symbol,
+        "expiry": str(expiry_date) if expiry_date else "N/A",
+        "close": round(price, 2),
+        "open_interest": oi,
+        "time": datetime.now().strftime("%Y-%m-%d")
+    }
 
-    if not parsed:
-        # It's an underlying. Find Near Month Future.
-        contracts = MarketDataService.get_contracts_for_underlying(db, contract_symbol)
-        if not contracts:
-            raise HTTPException(status_code=404, detail="No futures contracts found for symbol")
-        contract_symbol = contracts[0] # Assume sorted by expiry, so first is Near
+def get_mock_history(symbol: str, days=20):
+    data = []
+    base_price = 1000
+    oi = 500000
+    today = datetime.now()
 
-    # Get Historical Data
-    history = MarketDataService.get_daily_ohlc(db, contract_symbol, days=50, segment='FO')
+    for i in range(days):
+        date = today - timedelta(days=days-i)
+        if date.weekday() >= 5: continue
 
-    if not history:
-        raise HTTPException(status_code=404, detail="No historical data found")
+        price_change = (random.random() - 0.5) * 20
+        base_price += price_change
 
-    # Analyze
-    # PriceOiAnalyzer expects list of dicts with 'close', 'open_interest', 'time'
-    # Our service returns 'oi' instead of 'open_interest' in the dict key?
-    # Let's check service: "oi": row.open_interest or 0
-    # Let's check PriceOiAnalyzer.analyze_symbol (memory says it's in backend/analysis/toolbox/price_oi.py)
-    # I should map keys if needed.
+        oi_change = (random.random() - 0.5) * 10000
+        oi += int(oi_change)
 
-    mapped_history = []
-    for h in history:
-        mapped_history.append({
-            "time": h["time"],
-            "close": h["close"],
-            "open_interest": h["oi"]
+        data.append({
+            "time": date.strftime("%Y-%m-%d"),
+            "close": round(base_price, 2),
+            "open_interest": max(0, oi)
         })
+    return data
 
-    result = PriceOiAnalyzer.analyze_symbol(contract_symbol, mapped_history)
+@router.get("/api/analysis/oi/{symbol}")
+async def analyze_oi(symbol: str):
+    """
+    Get Price vs OI Analysis for a symbol (usually the near month future).
+    """
+    # 1. Get Near Month Future Symbol
+    futures = ContractManager.get_futures_symbols(symbol.upper())
+    if not futures:
+        raise HTTPException(status_code=404, detail="Symbol not found or no futures available")
+
+    near_month = futures[0]
+
+    # 2. Get Historical Data (Mock for now)
+    history = get_mock_history(near_month)
+
+    # 3. Analyze
+    result = PriceOiAnalyzer.analyze_symbol(near_month, history)
     return result
 
 @router.get("/api/analysis/rollover/{symbol}")
-async def analyze_rollover(
-    symbol: str,
-    db: Session = Depends(get_db)
-):
+async def analyze_rollover(symbol: str):
     """
     Get Rollover Analysis between Near and Next month futures.
-    Symbol should be the Underlying (e.g. NIFTY).
     """
-    contracts = MarketDataService.get_contracts_for_underlying(db, symbol.upper())
+    futures = ContractManager.get_futures_symbols(symbol.upper())
+    if len(futures) < 2:
+        raise HTTPException(status_code=404, detail="Not enough future contracts found")
 
-    if len(contracts) < 2:
-        raise HTTPException(status_code=404, detail="Not enough future contracts found for rollover analysis")
+    near_sym = futures[0]
+    next_sym = futures[1]
+    expiries = ContractManager.get_expiry_dates()
 
-    near_sym = contracts[0]
-    next_sym = contracts[1]
-
-    # Fetch latest data for both
-    # We need just the latest record. get_daily_ohlc(days=1)
-    near_data_list = MarketDataService.get_daily_ohlc(db, near_sym, days=1, segment='FO')
-    next_data_list = MarketDataService.get_daily_ohlc(db, next_sym, days=1, segment='FO')
-
-    if not near_data_list or not next_data_list:
-         raise HTTPException(status_code=404, detail="Data missing for contracts")
-
-    near_rec = near_data_list[0]
-    next_rec = next_data_list[0]
-
-    # Format for RolloverAnalyzer
-    # Needs: symbol, expiry, close, open_interest, time
-    near_data = {
-        "symbol": near_rec["symbol"],
-        "expiry": near_rec["expiry"],
-        "close": near_rec["close"],
-        "open_interest": near_rec["oi"],
-        "time": near_rec["time"]
-    }
-
-    next_data = {
-        "symbol": next_rec["symbol"],
-        "expiry": next_rec["expiry"],
-        "close": next_rec["close"],
-        "open_interest": next_rec["oi"],
-        "time": next_rec["time"]
-    }
+    # Mock Data Fetch
+    near_data = get_mock_contract_data(near_sym, expiries[0])
+    next_data = get_mock_contract_data(next_sym, expiries[1])
 
     # Analyze
     result = RolloverAnalyzer.analyze(symbol, near_data, next_data)

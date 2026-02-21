@@ -32,3 +32,9 @@ class MacroStatArbStrategy(BaseSovereignTool):
             "explained_variance": pca.explained_variance_ratio_.tolist(),
             "components": pca.components_.tolist()
         }
+
+def calculate_pca_factors(returns_matrix: pd.DataFrame, n_components: int = 3) -> Dict[str, Any]:
+    # Deprecated wrapper
+    strat = MacroStatArbStrategy()
+    # Adapt input
+    return strat.calculate({"returns_matrix": returns_matrix.values.tolist()})

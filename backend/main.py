@@ -3,27 +3,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import asyncio
-import traceback
 
 # Existing routes
-from backend.web.data import routes as data_routes
+from backend.web import routes
 from backend.web.portfolio import routes as portfolio_routes
 from backend.web.live import logs
 from backend.web.widgets import routes as widget_routes
 
 # New routes
+from backend.web.data import routes as data_routes
 from backend.web.live import routes as live_routes
 from backend.web.strategies import adapters_routes
-# Explicitly import router to avoid namespace conflict with backend.web.data
-from backend.web.api.data.upload_routes import router as upload_router
+from backend.web.api.data import upload_routes
 from backend.web.api import analysis_routes
 from backend.web.api import jules_routes
 from backend.web.api import config_routes
-from backend.web.api.data import view_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
 from backend.domain.market.models import Bhavcopy
+from backend.ingest.tick_vault import TickVault
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
 
@@ -39,35 +38,34 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="backend/ui/static"), name="static")
 
 # Include Routers
-# Note: Some routes might be duplicated or reorganized in future.
+app.include_router(routes.router)
 app.include_router(portfolio_routes.router)
 app.include_router(logs.router)
 app.include_router(widget_routes.router)
 app.include_router(data_routes.router)
 app.include_router(live_routes.router)
 app.include_router(adapters_routes.router)
-app.include_router(upload_router)
+app.include_router(upload_routes.router)
 app.include_router(analysis_routes.router)
 app.include_router(jules_routes.router)
 app.include_router(config_routes.router)
-app.include_router(view_routes.router)
 
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB
     print("Initializing Database...")
+    Base.metadata.create_all(bind=engine)
     try:
-        Base.metadata.create_all(bind=engine)
-        print("✅ Database initialized")
-    except Exception:
-        print("❌ Database initialization failed")
-        traceback.print_exc()
+        TickVault().init_db()
+        print("✅ TickVault initialized")
+    except Exception as e:
+        print(f"⚠️ TickVault Init Warning: {e}")
+    print("✅ Database initialized")
 
     # Start log generator
-    # asyncio.create_task(logs.log_generator())
+    asyncio.create_task(logs.log_generator())
     # Start simulated market data
-    # asyncio.create_task(live_routes.simulate_market_data())
-    pass
+    asyncio.create_task(live_routes.simulate_market_data())
 
 @app.get("/")
 def read_root():

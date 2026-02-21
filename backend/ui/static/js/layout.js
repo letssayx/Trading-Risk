@@ -1,16 +1,25 @@
 const Layout = {
     init: function() {
         this.initResizers();
-        this.initGlobalKeys();
+        this.setupGlobalEvents();
     },
 
-    initGlobalKeys: function() {
+    setupGlobalEvents: function() {
+        // Global Escape Handler to close Modals
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                // Close all known modals
                 const modals = document.querySelectorAll('.modal');
                 modals.forEach(m => m.style.display = 'none');
             }
+        });
+
+        // Fix Close buttons
+        const closeBtns = document.querySelectorAll('.close');
+        closeBtns.forEach(btn => {
+            btn.onclick = function() {
+                const modal = this.closest('.modal');
+                if (modal) modal.style.display = 'none';
+            };
         });
     },
 

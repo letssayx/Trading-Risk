@@ -30,7 +30,7 @@ const ChartTabs = {
         const tabEl = document.createElement('div');
         tabEl.className = 'chart-tab';
         tabEl.id = `tab-${id}`;
-        tabEl.innerHTML = `<span>${symbol}</span> <span class="chart-tab-close" onclick="ChartTabs.closeTab(${id}, event)">X</span>`;
+        tabEl.innerHTML = `<span>${symbol}</span> <span class="chart-tab-close" onclick="ChartTabs.closeTab(${id}, event)">×</span>`;
         tabEl.onclick = () => this.switchTab(id);
 
         // Insert before the input container (last element)
@@ -46,9 +46,10 @@ const ChartTabs = {
         chartsContainer.appendChild(chartDiv);
 
         // 3. Init Lightweight Chart
+        // Use parent dimensions because chartDiv is initially hidden (0x0)
         const chart = LightweightCharts.createChart(chartDiv, {
-            width: chartDiv.clientWidth,
-            height: chartDiv.clientHeight,
+            width: chartsContainer.clientWidth,
+            height: chartsContainer.clientHeight,
             layout: { background: { type: 'solid', color: '#131722' }, textColor: '#d1d4dc' },
             grid: { vertLines: { color: '#404040' }, horzLines: { color: '#404040' } },
             rightPriceScale: { borderColor: '#485c7b' },
@@ -72,18 +73,42 @@ const ChartTabs = {
             let data;
             if (type === 'spread') {
                 const res = await fetch(`/api/spread/historical?symbol1=${params.symbol1}&symbol2=${params.symbol2}&ratio=${params.ratio}`);
+                if (!res.ok) throw new Error(`Spread Data Fetch Failed: ${res.status}`);
                 data = await res.json();
             } else {
                 const res = await fetch(`/api/historical/${symbol}`);
+                if (!res.ok) throw new Error(`Chart Data Fetch Failed: ${res.status}`);
                 data = await res.json();
             }
 
-            // Format data for lightweight-charts
-            data.sort((a,b) => new Date(a.time) - new Date(b.time));
-            series.setData(data);
+            // Ensure data is array and not empty
+            if (Array.isArray(data) && data.length > 0) {
+                // Format data for lightweight-charts
+                data.sort((a,b) => new Date(a.time) - new Date(b.time));
 
-            if (data.length > 0) {
-                lastCandle = data[data.length - 1];
+                // Validate fields
+                const formatted = [];
+                data.forEach(d => {
+                    if (d.time && d.open != null && d.high != null && d.low != null && d.close != null) {
+                        formatted.push({
+                            time: d.time,
+                            open: Number(d.open),
+                            high: Number(d.high),
+                            low: Number(d.low),
+                            close: Number(d.close)
+                        });
+                    }
+                });
+
+                if (formatted.length > 0) {
+                    series.setData(formatted);
+                    lastCandle = formatted[formatted.length - 1];
+                } else {
+                    console.warn("Chart data empty after formatting", data);
+                }
+            } else {
+                console.warn("Chart data invalid or empty", data);
+                // Optional: Show "No Data" label on chart
             }
 
         } catch (e) {
@@ -137,6 +162,11 @@ const ChartTabs = {
         const activeTab = this.tabs.find(t => t.id === id);
         if (activeTab) {
             activeTab.container.style.display = 'block';
+            // Resize to ensure correct dimensions
+            activeTab.chart.applyOptions({
+                width: activeTab.container.clientWidth,
+                height: activeTab.container.clientHeight
+            });
             activeTab.chart.timeScale().fitContent();
         }
     },

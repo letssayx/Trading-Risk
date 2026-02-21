@@ -38,3 +38,8 @@ class VolArbitrageStrategy(BaseSovereignTool):
             "signal": signal,
             "strategy": "Calendar Spread"
         }
+
+def calculate_vol_spread(iv_near: float, iv_far: float) -> Dict[str, Any]:
+    # Deprecated function wrapper for backward compatibility if needed,
+    # but ideally we remove this. Keeping for safety in this refactor step.
+    return VolArbitrageStrategy().calculate({"iv_near": iv_near, "iv_far": iv_far})

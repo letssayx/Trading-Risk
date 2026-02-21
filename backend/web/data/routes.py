@@ -1,93 +1,93 @@
-from fastapi import APIRouter, Query, HTTPException, Depends
-from typing import List, Optional, Dict
+from fastapi import APIRouter, Query, HTTPException
+from typing import List, Optional
 from datetime import datetime, timedelta
+import random
 import pandas as pd
-from sqlalchemy.orm import Session
-
-from backend.infrastructure.db import get_db
-from backend.domain.market.service import MarketDataService
+import numpy as np
+from backend.domain.market.contract_manager import ContractManager
 
 router = APIRouter()
 
-@router.get("/api/historical/{symbol}")
-async def get_historical_data(
-    symbol: str,
-    days: int = 365,
-    db: Session = Depends(get_db)
-):
-    """
-    Get historical OHLC data from real Bhavcopy records.
-    Supports both Underlying (e.g. RELIANCE) and Contracts (e.g. RELIANCE24FEBFUT).
-    """
-    data = MarketDataService.get_daily_ohlc(db, symbol, days=days)
-    if not data:
-        # If no data found, return empty list rather than 404 to avoid breaking charts
-        return []
+# Mock Data Generation
+def generate_ohlc(symbol: str, days: int = 365):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    dates = pd.date_range(start=start_date, end=end_date, freq='D') # Daily for now
+
+    base_price = 1000.0 + random.random() * 1000
+    data = []
+
+    current_price = base_price
+    for date in dates:
+        if date.weekday() >= 5: continue # Skip weekends
+
+        open_p = current_price
+        high_p = open_p * (1 + random.random() * 0.02)
+        low_p = open_p * (1 - random.random() * 0.02)
+        close_p = low_p + (high_p - low_p) * random.random()
+        volume = int(random.random() * 1000000)
+
+        data.append({
+            "time": date.strftime("%Y-%m-%d"),
+            "open": round(open_p, 2),
+            "high": round(high_p, 2),
+            "low": round(low_p, 2),
+            "close": round(close_p, 2),
+            "volume": volume
+        })
+        current_price = close_p
+
     return data
 
+@router.get("/api/historical/{symbol}")
+async def get_historical_data(symbol: str, days: int = 365):
+    return generate_ohlc(symbol, days)
+
 @router.get("/api/spread/historical")
-async def get_spread_historical(
-    symbol1: str,
-    symbol2: str,
-    ratio: float = 1.0,
-    days: int = 365,
-    db: Session = Depends(get_db)
-):
-    """
-    Calculate spread history (Price1 - Ratio * Price2) from real data.
-    """
-    data1 = MarketDataService.get_daily_ohlc(db, symbol1, days=days)
-    data2 = MarketDataService.get_daily_ohlc(db, symbol2, days=days)
+async def get_spread_historical(symbol1: str, symbol2: str, ratio: float = 1.0, days: int = 365):
+    data1 = generate_ohlc(symbol1, days)
+    data2 = generate_ohlc(symbol2, days)
 
-    if not data1 or not data2:
-        return []
-
-    # Align dates
-    df1 = pd.DataFrame(data1).set_index('time')
-    df2 = pd.DataFrame(data2).set_index('time')
-
-    # Inner join on dates
-    aligned = df1.join(df2, lsuffix='_1', rsuffix='_2', how='inner')
-
+    # Align dates (simple assume same length for mock)
     spread_data = []
-    for date_str, row in aligned.iterrows():
+    min_len = min(len(data1), len(data2))
+
+    for i in range(min_len):
+        d1 = data1[i]
+        d2 = data2[i]
+
         # Calculate spread: P1 - Ratio * P2
-        # Use close price
-        val = row['close_1'] - (ratio * row['close_2'])
+        val = d1["close"] - (ratio * d2["close"])
 
         spread_data.append({
-            "time": date_str,
+            "time": d1["time"],
             "value": round(val, 2)
         })
 
     return spread_data
 
 @router.get("/api/symbols/search")
-async def search_symbols(
-    q: str,
-    segment: str = "EQ",
-    db: Session = Depends(get_db)
-):
-    """
-    Search for symbols or contracts in the database.
-    segment: 'EQ' (Equity/CM) or 'FO' (Futures/Derivatives)
-    """
-    return MarketDataService.search_symbols(db, q, segment)
+async def search_symbols(q: str, segment: str = "EQ"):
+    # Mock search
+    all_symbols = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "INFY", "HDFC", "SBIN", "TATAMOTORS", "WIPRO", "ADANIENT"]
+    base_results = [s for s in all_symbols if q.upper() in s]
+
+    if segment.upper() == "FO":
+        futures_results = []
+        for symbol in base_results:
+            futures = ContractManager.get_futures_symbols(symbol)
+            futures_results.extend(futures)
+        return futures_results
+
+    return base_results
 
 @router.get("/api/edge")
-async def get_trading_edge(db: Session = Depends(get_db)):
-    """
-    Get Market Context.
-    Currently returns basic availability info or 'N/A' as we don't have
-    calculated Greeks/Sentiment engines connected to real data yet.
-    """
-    latest_date = MarketDataService.get_latest_date(db)
-
+async def get_trading_edge():
+    # Mock Market Context
     return {
-        "sentiment": "Neutral", # Placeholder until calculated
-        "regime": "N/A",
-        "pe_ratio": 0.0,
-        "iv_percentile": 0,
-        "fii_flow": "N/A",
-        "latest_data_date": latest_date.strftime("%Y-%m-%d") if latest_date else "None"
+        "sentiment": "Bullish",
+        "regime": "Trending",
+        "pe_ratio": 24.5,
+        "iv_percentile": 45,
+        "fii_flow": "+1200 Cr"
     }

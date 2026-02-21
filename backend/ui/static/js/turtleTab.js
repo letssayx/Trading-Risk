@@ -24,21 +24,16 @@ const TurtleTab = {
                     <option value="NEXT">Next (FUT2)</option>
                     <option value="FAR">Far (FUT3)</option>
                 </select>
-
-                <button id="turtle-remove-selected-btn" class="action-btn" style="color:#f44336; border: 1px solid #f44336; margin-left: auto; padding: 4px 8px;">Remove Selected</button>
             </div>
             <table class="strategy-table">
                 <thead>
                     <tr>
-                        <th style="width: 30px;"><input type="checkbox" id="turtle-select-all"></th>
                         <th>Symbol</th>
                         <th>Price</th>
                         <th>N (ATR)</th>
                         <th>Signal</th>
                         <th>Stop</th>
                         <th>Pos Size</th>
-                        <th>OI</th>
-                        <th>Volume</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -46,15 +41,6 @@ const TurtleTab = {
                 </tbody>
             </table>
         `;
-
-        // Bind Remove Selected
-        document.getElementById('turtle-remove-selected-btn').addEventListener('click', () => this.removeSelected());
-
-        // Bind Select All
-        document.getElementById('turtle-select-all').addEventListener('change', (e) => {
-            const checked = e.target.checked;
-            document.querySelectorAll('.turtle-row-checkbox').forEach(cb => cb.checked = checked);
-        });
 
         // Bind Input
         const input = document.getElementById('turtle-add-input');
@@ -80,6 +66,9 @@ const TurtleTab = {
             const segment = document.querySelector('input[name="turtle-segment"]:checked').value;
             const apiSegment = segment === 'FUT' ? 'FO' : 'EQ';
 
+            // If Futures, we want to auto-suggest the Near Month Contract
+            // But search API returns list of futures if we ask for FO.
+
             try {
                 const res = await fetch(`/api/symbols/search?q=${query}&segment=${apiSegment}`);
                 const results = await res.json();
@@ -87,11 +76,19 @@ const TurtleTab = {
                 datalist.innerHTML = '';
                 results.forEach(sym => {
                     const opt = document.createElement('option');
-                    // For Futures, 'sym' is already the full contract (e.g., RELIANCE24FEBFUT)
-                    // The backend `search_symbols` for 'FO' returns synthesized contracts.
                     opt.value = sym;
                     datalist.appendChild(opt);
                 });
+
+                // If the user typed an exact underlying (e.g. BDL) and we are in FUT mode,
+                // and the results contain BDL26FEBFUT (or similar), we want to help them select it.
+                if (segment === 'FUT' && results.length > 0) {
+                     // Find the first result that starts with the query and has FUT suffix
+                     // ContractManager returns standardized suffix like 26FEBFUT
+                     const nearMatch = results.find(s => s.startsWith(query.toUpperCase()));
+                     // We don't force replace value yet, just show options.
+                     // But if they hit enter on "BDL", we resolve it in keydown handler.
+                }
             } catch (err) {
                 console.error("Search failed", err);
             }
@@ -103,21 +100,19 @@ const TurtleTab = {
                 if (!val) return;
 
                 const segment = document.querySelector('input[name="turtle-segment"]:checked').value;
-
-                // If user selected from datalist or typed full contract, 'val' is correct.
-                // If user typed 'RELIANCE' and hit enter while on FUT mode:
                 if (segment === 'FUT') {
+                    // If user typed underlying (e.g. NIFTY) but not full contract, try to synthesize
+                    // However, our search autocomplete should have provided the full contract.
+                    // If the user just pressed enter on "NIFTY", we default to Near Month based on dropdown?
                     const expiry = document.getElementById('turtle-expiry-select').value; // NEAR, NEXT, FAR
 
                     // Basic heuristic: if it doesn't end in FUT/CE/PE, assume it's underlying and we need to find contract
                     if (!val.endsWith('FUT') && !val.endsWith('CE') && !val.endsWith('PE')) {
-                        // User typed underlying (e.g. BDL), resolve to contract
+                        // We need to ask backend for the specific contract
+                        // For now, let's assume the user picks from the list.
+                        // But if they didn't, we can try to fetch the list and pick the one matching expiry
                         this.resolveContract(val, expiry).then(contract => {
-                            if(contract) {
-                                // Update input to show resolved contract
-                                input.value = contract;
-                                this.startStrategy(contract);
-                            }
+                            if(contract) this.startStrategy(contract);
                             else alert("Could not resolve futures contract for " + val);
                         });
                         e.target.value = '';
@@ -133,13 +128,9 @@ const TurtleTab = {
 
     resolveContract: async function(underlying, expiryType) {
         try {
-            // Search for FO contracts for this underlying
             const res = await fetch(`/api/symbols/search?q=${underlying}&segment=FO`);
             const contracts = await res.json();
-
-            // contracts should be list of full symbols like ['BDL24FEBFUT', 'BDL24MARFUT', ...]
-            // Assuming sorted by date (MarketDataService sorts by expiry)
-
+            // contracts is likely [NEAR, NEXT, FAR] sorted
             if (contracts.length > 0) {
                 if (expiryType === 'NEAR') return contracts[0];
                 if (expiryType === 'NEXT') return contracts[1] || contracts[0];
@@ -165,15 +156,18 @@ const TurtleTab = {
                 id: data.instanceId,
                 symbol: symbol,
                 state: data.initialState,
-                paused: false,
                 rowElement: null
             });
 
             this.renderRows();
 
+            // Subscribe to live feed
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({ subscribe: [symbol] }));
+            }
+
         } catch (e) {
             console.error("Failed to start Turtle", e);
-            alert("Failed to start strategy. Check console.");
         }
     },
 
@@ -193,25 +187,16 @@ const TurtleTab = {
     updateRowDOM: function(inst) {
         if (!inst.rowElement) return;
         const s = inst.state;
-
-        const pauseText = inst.paused ? 'Resume' : 'Pause';
-        const pauseColor = inst.paused ? '#4caf50' : '#ff9800'; // Green for Resume, Orange for Pause
-
         inst.rowElement.innerHTML = `
-            <td><input type="checkbox" class="turtle-row-checkbox" value="${inst.id}"></td>
             <td>${inst.symbol}</td>
             <td>${s.price ? s.price.toFixed(2) : '--'}</td>
             <td>${s.n}</td>
             <td style="color:${this.getColor(s.signal)}">${s.signal}</td>
             <td>${s.stop}</td>
             <td>${s.position_size}</td>
-            <td>${s.oi || '--'}</td>
-            <td>${s.volume || '--'}</td>
             <td>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <button class="action-btn" style="color:#00bcd4; font-size:0.9em; border: 1px solid #00bcd4; padding: 2px 5px; border-radius: 4px;" title="Add to Chart" onclick="ChartTabs.addTab('${inst.symbol}', 'stock')">Chart</button>
-                    <button class="action-btn" style="color:${pauseColor}; font-size:0.9em; border: 1px solid ${pauseColor}; padding: 2px 5px; border-radius: 4px;" title="${pauseText}" onclick="TurtleTab.togglePause('${inst.id}')">${pauseText}</button>
-                </div>
+                <button onclick="ChartTabs.addTab('${inst.symbol}')">Show Chart</button>
+                <button onclick="TurtleTab.stop('${inst.id}')">Stop</button>
             </td>
         `;
     },
@@ -222,50 +207,29 @@ const TurtleTab = {
         return '#ccc';
     },
 
-    togglePause: function(id) {
-        const inst = this.instances.find(i => i.id === id);
-        if(inst) {
-            inst.paused = !inst.paused;
-            console.log(`Turtle instance ${id} paused: ${inst.paused}`);
-            this.updateRowDOM(inst);
-        }
-    },
-
     stop: async function(id) {
         await fetch(`/api/strategies/turtle/stop/${id}`, { method: 'POST' });
         this.instances = this.instances.filter(i => i.id !== id);
         this.renderRows();
     },
 
-    removeSelected: async function() {
-        const checkboxes = document.querySelectorAll('.turtle-row-checkbox:checked');
-        if(checkboxes.length === 0) return;
-
-        if(!confirm(`Remove ${checkboxes.length} strategies?`)) return;
-
-        const ids = Array.from(checkboxes).map(cb => cb.value);
-
-        // Send all stop requests
-        await Promise.all(ids.map(id => fetch(`/api/strategies/turtle/stop/${id}`, { method: 'POST' })));
-
-        // Update local state locally
-        this.instances = this.instances.filter(i => !ids.includes(i.id));
-        this.renderRows();
-
-        // Uncheck select all
-        const selectAll = document.getElementById('turtle-select-all');
-        if(selectAll) selectAll.checked = false;
-    },
-
     pollAll: async function() {
         for (let inst of this.instances) {
-            if (inst.paused) continue;
             try {
                 const res = await fetch(`/api/strategies/turtle/state/${inst.id}`);
                 const state = await res.json();
                 inst.state = state;
                 this.updateRowDOM(inst);
             } catch (e) { console.error(e); }
+        }
+    },
+
+    handleTick: function(tick) {
+        // Update price immediately if matching
+        const inst = this.instances.find(i => i.symbol === tick.symbol);
+        if (inst) {
+            inst.state.price = tick.price;
+            this.updateRowDOM(inst);
         }
     }
 };
