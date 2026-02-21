@@ -274,7 +274,22 @@ async def import_bhavcopy(
         df = pd.read_csv(csv_path)
         df = parse_bhavcopy_df(df)
 
-        parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
+        # Validate or parse file_date if passed as "null" string
+        try:
+            if not file_date or file_date.lower() == 'null' or file_date.lower() == 'none':
+                # Try to get from dataframe
+                if 'parsed_trade_date' in df.columns and len(df) > 0 and df['parsed_trade_date'].iloc[0]:
+                    parsed_file_date = df['parsed_trade_date'].iloc[0]
+                else:
+                    raise ValueError("Date could not be determined from file or form input.")
+            else:
+                parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
+        except ValueError:
+             # Try fallback format if strict fails
+             try:
+                 parsed_file_date = datetime.strptime(file_date, "%d-%m-%Y").date()
+             except:
+                 raise HTTPException(400, "Invalid Date Format. Please ensure the file has a valid date.")
 
         # If overwrite is enabled, delete existing data for this date and segments
         if overwrite_existing:
