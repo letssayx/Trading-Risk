@@ -24,6 +24,11 @@ class TurtleAdapter:
         self.last_price = 0.0
         self.position = 0
 
+        # Meta info
+        self.last_expiry = ""
+        self.last_oi = 0
+        self.last_vol = 0
+
         self.highs = []
         self.lows = []
         self.closes = []
@@ -38,6 +43,9 @@ class TurtleAdapter:
             self.lows = df['low'].tolist()
             self.closes = df['close'].tolist()
             self.last_price = self.closes[-1]
+
+            if 'volume' in df.columns:
+                self.last_vol = int(df['volume'].iloc[-1])
 
             # Initialize N
             self.strategy.calculate_N(
@@ -65,9 +73,6 @@ class TurtleAdapter:
 
         self.last_price = price
 
-        # Here we would implement real intraday logic:
-        # Check if price crosses stop or breakout level.
-
         if self.position > 0:
             risk_status = self.strategy.get_risk_status()
             stop = risk_status.get("Current_Stop", 0)
@@ -88,5 +93,9 @@ class TurtleAdapter:
             "signal": self.signal,
             "stop": round(risk.get("Current_Stop", 0), 2),
             "position_size": self.position,
-            "units": risk.get("Units", 0)
+            "units": risk.get("Units", 0),
+            # New fields
+            "expiry": self.last_expiry,
+            "oi": self.last_oi,
+            "volume": self.last_vol
         }

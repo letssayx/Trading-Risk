@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="/static/css/workbench.css">
     <style>
         body { padding: 20px; overflow: auto; }
-        .controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
         .data-table th, .data-table td { border: 1px solid #444; padding: 8px; text-align: left; }
         .data-table th { background: #222; }
@@ -17,6 +17,11 @@
     <h2>Data Viewer</h2>
     <div class="controls">
         <input type="text" id="symbol-input" placeholder="Symbol (e.g. RELIANCE)" class="inline-input" style="width: 200px;">
+        <select id="segment-select" style="background: #333; color: white; border: 1px solid #555; padding: 5px;">
+            <option value="">All Segments</option>
+            <option value="CM">Cash</option>
+            <option value="FO">Futures & Options</option>
+        </select>
         <button onclick="loadData()" class="btn btn-primary">Search</button>
         <button onclick="exportExcel()" class="btn btn-secondary">Export Excel</button>
         <button onclick="window.location.href='/workbench'" class="btn btn-secondary">Back to Workbench</button>
@@ -34,8 +39,13 @@
                 <th>Expiry</th>
                 <th>Strike</th>
                 <th>Opt</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
                 <th>Close</th>
+                <th>Volume</th>
                 <th>OI</th>
+                <th>Corp Action</th>
             </tr>
         </thead>
         <tbody id="data-body">
@@ -45,12 +55,16 @@
     <script>
         async function loadData() {
             const symbol = document.getElementById('symbol-input').value.trim();
+            const segment = document.getElementById('segment-select').value;
             if (!symbol) return;
 
             document.getElementById('status').innerText = "Loading...";
 
             try {
-                const res = await fetch(`/api/data/view/search?symbol=${symbol}`);
+                let url = `/api/data/view/search?symbol=${symbol}`;
+                if (segment) url += `&segment=${segment}`;
+
+                const res = await fetch(url);
                 const data = await res.json();
 
                 const tbody = document.getElementById('data-body');
@@ -71,8 +85,13 @@
                         <td>${row.expiry}</td>
                         <td>${row.strike || '-'}</td>
                         <td>${row.option || '-'}</td>
+                        <td>${row.open}</td>
+                        <td>${row.high}</td>
+                        <td>${row.low}</td>
                         <td>${row.close}</td>
-                        <td>${row.oi || '-'}</td>
+                        <td>${row.volume ? row.volume.toLocaleString() : '-'}</td>
+                        <td>${row.oi ? row.oi.toLocaleString() : '-'}</td>
+                        <td>-</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -86,8 +105,11 @@
 
         function exportExcel() {
             const symbol = document.getElementById('symbol-input').value.trim();
+            const segment = document.getElementById('segment-select').value;
             if (!symbol) return;
-            window.location.href = `/api/data/view/export?symbol=${symbol}`;
+            let url = `/api/data/view/export?symbol=${symbol}`;
+            if (segment) url += `&segment=${segment}`;
+            window.location.href = url;
         }
 
         // Enter key
