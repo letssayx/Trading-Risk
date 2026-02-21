@@ -108,6 +108,7 @@
     <div style="height:30px; background:#111; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #333; font-size:0.85em; color:#ccc;">
         <div style="font-weight:bold; margin-right:20px;">TURTLE TERMINAL</div>
         <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()">Import Data</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="window.open('/data-viewer', '_blank')">Data Viewer</div>
         <div style="cursor:pointer; margin-right:15px;" onclick="openConfig()">Config</div>
     </div>
 
@@ -140,7 +141,7 @@
             <div class="lp-section" id="lp-top">
                 <div class="panel-header">Trading Edge</div>
                 <div class="panel-content" id="edge-content" style="padding:10px; font-size:0.9em; color:#ccc;">
-                    Loading Context...
+                    <!-- Context loaded dynamically -->
                 </div>
             </div>
 
@@ -153,7 +154,7 @@
                     <div class="tab-btn active" onclick="switchLeftTab('jules')">Jules Chat</div>
                     <div class="tab-btn" onclick="switchLeftTab('python')">Python Code</div>
                 </div>
-                <div class="panel-content" id="jules-content" style="padding:10px;">
+                <div class="panel-content" id="jules-content" style="padding:10px; flex: 1; overflow-y: auto;">
                     <div class="msg"><strong>Jules:</strong> Ready to analyze.</div>
                 </div>
                 <div class="panel-content" id="python-content" style="display:none; padding:10px;">
@@ -265,10 +266,10 @@
                     <div class="option-row">
                         <label>Segments to import:</label>
                         <label class="checkbox-label">
-                            <input type="checkbox" id="import-segment-cm" checked /> CM (Stocks)
+                            <input type="checkbox" id="import-segment-cm" checked /> Cash (CM)
                         </label>
                         <label class="checkbox-label">
-                            <input type="checkbox" id="import-segment-fo" checked /> FO (F&O)
+                            <input type="checkbox" id="import-segment-fo" checked /> F&O (Derivatives)
                         </label>
                     </div>
 

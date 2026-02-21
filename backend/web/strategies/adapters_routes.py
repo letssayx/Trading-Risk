@@ -39,13 +39,17 @@ def fetch_history_from_db(db: Session, symbol: str, limit: int = 100):
 
     data = []
     for row in results:
+        # Skip if any price data is missing
+        if row.close is None or row.high is None or row.low is None:
+            continue
+
         data.append({
             "time": row.trade_date.strftime("%Y-%m-%d"),
-            "open": row.open,
+            "open": row.open or row.close, # Fallback open
             "high": row.high,
             "low": row.low,
             "close": row.close,
-            "volume": row.total_traded_qty
+            "volume": row.total_traded_qty or 0
         })
     return data
 

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data Viewer - Turtle Terminal</title>
+    <link rel="stylesheet" href="/static/css/workbench.css">
+    <style>
+        body { padding: 20px; overflow: auto; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .data-table th, .data-table td { border: 1px solid #444; padding: 8px; text-align: left; }
+        .data-table th { background: #222; }
+        .data-table tr:nth-child(even) { background: #2a2a2a; }
+    </style>
+</head>
+<body>
+    <h2>Data Viewer</h2>
+    <div class="controls">
+        <input type="text" id="symbol-input" placeholder="Symbol (e.g. RELIANCE)" class="inline-input" style="width: 200px;">
+        <button onclick="loadData()" class="btn btn-primary">Search</button>
+        <button onclick="exportExcel()" class="btn btn-secondary">Export Excel</button>
+        <button onclick="window.location.href='/workbench'" class="btn btn-secondary">Back to Workbench</button>
+    </div>
+
+    <div id="status" style="margin-bottom: 10px; color: #aaa;"></div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Symbol</th>
+                <th>Segment</th>
+                <th>Instrument</th>
+                <th>Expiry</th>
+                <th>Strike</th>
+                <th>Opt</th>
+                <th>Close</th>
+                <th>OI</th>
+            </tr>
+        </thead>
+        <tbody id="data-body">
+        </tbody>
+    </table>
+
+    <script>
+        async function loadData() {
+            const symbol = document.getElementById('symbol-input').value.trim();
+            if (!symbol) return;
+
+            document.getElementById('status').innerText = "Loading...";
+
+            try {
+                const res = await fetch(`/api/data/view/search?symbol=${symbol}`);
+                const data = await res.json();
+
+                const tbody = document.getElementById('data-body');
+                tbody.innerHTML = '';
+
+                if (data.length === 0) {
+                    document.getElementById('status').innerText = "No data found.";
+                    return;
+                }
+
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.date}</td>
+                        <td>${row.symbol}</td>
+                        <td>${row.segment}</td>
+                        <td>${row.instrument}</td>
+                        <td>${row.expiry}</td>
+                        <td>${row.strike || '-'}</td>
+                        <td>${row.option || '-'}</td>
+                        <td>${row.close}</td>
+                        <td>${row.oi || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('status').innerText = `Loaded ${data.length} records.`;
+
+            } catch (e) {
+                document.getElementById('status').innerText = "Error: " + e.message;
+            }
+        }
+
+        function exportExcel() {
+            const symbol = document.getElementById('symbol-input').value.trim();
+            if (!symbol) return;
+            window.location.href = `/api/data/view/export?symbol=${symbol}`;
+        }
+
+        // Enter key
+        document.getElementById('symbol-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadData();
+        });
+    </script>
+</body>
+</html>

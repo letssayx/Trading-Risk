@@ -18,6 +18,7 @@ from backend.web.api.data import upload_routes
 from backend.web.api import analysis_routes
 from backend.web.api import jules_routes
 from backend.web.api import config_routes
+from backend.web.api.data import view_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
@@ -49,6 +50,7 @@ app.include_router(upload_routes.router)
 app.include_router(analysis_routes.router)
 app.include_router(jules_routes.router)
 app.include_router(config_routes.router)
+app.include_router(view_routes.router)
 
 @app.on_event("startup")
 async def startup_event():
@@ -62,10 +64,10 @@ async def startup_event():
         print(f"⚠️ TickVault Init Warning: {e}")
     print("✅ Database initialized")
 
-    # Start log generator
-    asyncio.create_task(logs.log_generator())
-    # Start simulated market data
-    asyncio.create_task(live_routes.simulate_market_data())
+    # Start log generator (Disabled per user request)
+    # asyncio.create_task(logs.log_generator())
+    # Start simulated market data (Disabled, now relying on TickVault/DB)
+    # asyncio.create_task(live_routes.simulate_market_data())
 
 @app.get("/")
 def read_root():
@@ -82,3 +84,7 @@ async def get_workbench():
 @app.get("/strategy-composer")
 async def get_strategy_composer():
     return FileResponse("backend/ui/templates/strategy_composer.html")
+
+@app.get("/data-viewer")
+async def get_data_viewer():
+    return FileResponse("backend/ui/templates/data_viewer.html")

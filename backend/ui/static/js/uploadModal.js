@@ -141,19 +141,19 @@ class BhavcopyUploader {
             </div>
 
             <div class="segment-tabs">
-                <button class="tab-btn active" data-segment="CM">CM (Stocks)</button>
-                <button class="tab-btn" data-segment="FO">FO (F&O)</button>
+                <button class="tab-btn active" data-segment="CM">Cash (CM)</button>
+                <button class="tab-btn" data-segment="FO">F&O (Derivatives)</button>
             </div>
         `;
 
         // CM Preview
         html += `<div id="preview-CM" class="segment-preview active">`;
-        html += this.renderSegmentPreview('CM', data.stats.CM, data.preview.CM);
+        html += this.renderSegmentPreview('Cash', data.stats.CM, data.preview.CM);
         html += `</div>`;
 
         // FO Preview
         html += `<div id="preview-FO" class="segment-preview">`;
-        html += this.renderSegmentPreview('FO', data.stats.FO, data.preview.FO);
+        html += this.renderSegmentPreview('F&O', data.stats.FO, data.preview.FO);
         html += `</div>`;
 
         this.previewDiv.innerHTML = html;
@@ -174,6 +174,8 @@ class BhavcopyUploader {
     }
 
     renderSegmentPreview(segment, stats, preview) {
+        if (!stats) return ''; // Handle missing stats
+
         let html = `
             <div class="segment-stats">
                 <h4>${segment} Segment Stats</h4>
@@ -182,7 +184,7 @@ class BhavcopyUploader {
         `;
 
         // Show instrument breakdown for FO
-        if (segment === 'FO' && Object.keys(stats.instrument_types).length > 0) {
+        if (segment === 'F&O' && Object.keys(stats.instrument_types).length > 0) {
             html += `<p><strong>Instruments:</strong> `;
             for (const [type, count] of Object.entries(stats.instrument_types)) {
                 html += `${type}: ${count}, `;
@@ -198,7 +200,7 @@ class BhavcopyUploader {
             html += `<thead><tr>`;
 
             // Headers based on segment
-            if (segment === 'CM') {
+            if (segment === 'Cash') {
                 html += `<th>Symbol</th><th>Series</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th>`;
             } else {
                 html += `<th>Symbol</th><th>Type</th><th>Expiry</th><th>Strike</th><th>Option</th><th>Open</th><th>Close</th><th>OI</th>`;
@@ -207,7 +209,7 @@ class BhavcopyUploader {
 
             preview.forEach(row => {
                 html += `<tr>`;
-                if (segment === 'CM') {
+                if (segment === 'Cash') {
                     html += `
                         <td>${row.symbol}</td>
                         <td>${row.series}</td>
