@@ -108,13 +108,18 @@ class BhavcopyUploader {
             this.renderPreview(data);
             this.statusArea.innerHTML = '';
 
-            // Enable Import Button
-            document.getElementById('confirm-import-btn').disabled = false;
+            // Enable Import Button explicitly
+            const btn = document.getElementById('confirm-import-btn');
+            if(btn) {
+                btn.disabled = false;
+                btn.style.cursor = 'pointer'; // Visual feedback
+            }
 
         } catch(e) {
             this.statusArea.innerHTML = `<div class="error" style="color:#f44336; padding:10px; border:1px solid red;">Error: ${e.message}</div>`;
             this.previewArea.innerHTML = '';
-            document.getElementById('confirm-import-btn').disabled = true;
+            const btn = document.getElementById('confirm-import-btn');
+            if(btn) btn.disabled = true;
         }
     }
 

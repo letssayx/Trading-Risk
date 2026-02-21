@@ -5,7 +5,7 @@ from typing import Optional
 class JulesAssistant:
     """
     Jules: The Turtle Terminal AI Assistant.
-    Powered strictly by Google Gemini Pro (gemini-1.5-pro).
+    Powered strictly by Google Gemini Pro (gemini-pro).
     Focus: Project strategies, plugins, and trading logic.
     """
 
@@ -39,51 +39,44 @@ class JulesAssistant:
 
         genai.configure(api_key=self.api_key)
 
-        # Try to initialize with preferred models in order
-        models_to_try = ['gemini-1.5-pro', 'gemini-pro']
-        self.model = None
+        try:
+            # Enforce gemini-pro
+            model_name = 'gemini-pro'
+            print(f"Initializing Jules with model: {model_name}...")
 
-        for model_name in models_to_try:
-            try:
-                print(f"Attempting to initialize Jules with model: {model_name}...")
-                model = genai.GenerativeModel(model_name)
+            self.model = genai.GenerativeModel(model_name)
 
-                # Test chat to ensure it works
-                chat = model.start_chat(history=[
-                    {"role": "user", "parts": [self.SYSTEM_PROMPT]},
-                    {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}
-                ])
+            # Start Chat Session
+            self.chat = self.model.start_chat(history=[
+                {"role": "user", "parts": [self.SYSTEM_PROMPT]},
+                {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal strategies within the strict project context."]}
+            ])
 
-                # If we get here, it worked
-                self.model = model
-                self.chat = chat
-                print(f"Jules successfully initialized with {model_name}")
-                break
-            except Exception as e:
-                print(f"Failed to initialize {model_name}: {e}")
+            print(f"Jules successfully initialized with {model_name}")
 
-        if not self.model:
-            print("Jules initialization failed for all attempted models.")
-            # Try to list models if possible to aid debugging
-            try:
-                found_models = []
-                for m in genai.list_models():
-                    if 'generateContent' in m.supported_generation_methods:
-                        found_models.append(m.name)
-                print(f"Available models: {found_models}")
-            except Exception as le:
-                print(f"Failed to list models: {le}")
+        except Exception as e:
+            print(f"Failed to initialize Jules ({model_name}): {e}")
+            self.model = None
 
     async def ask(self, message: str) -> str:
+        # Check if initialized, try re-init if not (runtime key update)
         if not self.model:
-            # Try re-initializing in case API key was added at runtime
             self.initialize()
-            if not self.model:
-                return "Jules is offline. Please configure GOOGLE_API_KEY or check model availability."
+
+        if not self.model:
+            return "Jules is offline. Please configure GOOGLE_API_KEY or check model availability."
 
         try:
             # Send message to chat session
             response = self.chat.send_message(message)
             return response.text
         except Exception as e:
-            return f"Error communicating with Gemini: {str(e)}"
+            # If error is about model not found, try to list models for debugging context in logs
+            error_msg = str(e)
+            if "404" in error_msg or "not found" in error_msg:
+                try:
+                    models = [m.name for m in genai.list_models()]
+                    print(f"Available models: {models}")
+                except:
+                    pass
+            return f"Error communicating with Gemini: {error_msg}"

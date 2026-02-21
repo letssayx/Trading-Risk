@@ -49,10 +49,14 @@ async def start_turtle(
         print(f"Start Turtle Failed: No history for {req.symbol}")
         raise HTTPException(status_code=404, detail=f"No historical data found for {req.symbol}")
 
-    adapter.start(history)
-
-    turtle_instances[adapter.id] = adapter
-    return {"instanceId": adapter.id, "initialState": adapter.get_state()}
+    try:
+        adapter.start(history)
+        turtle_instances[adapter.id] = adapter
+        return {"instanceId": adapter.id, "initialState": adapter.get_state()}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Strategy Start Error: {str(e)}")
 
 @router.get("/turtle/state/{instance_id}")
 async def get_turtle_state(
