@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from backend.jules.ai_assistant import JulesAssistant
+# Import the singleton instance directly
+from backend.jules.ai_assistant import jules
 import os
 
 router = APIRouter()
@@ -11,21 +12,14 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
-# Try to init Jules
-try:
-    jules = JulesAssistant()
-except Exception as e:
-    print(f"Jules init failed: {e}")
-    jules = None
-
 @router.post("/api/jules/chat", response_model=ChatResponse)
 async def chat_with_jules(req: ChatRequest):
     if not jules:
-        return ChatResponse(response="Jules is offline (API Key missing).")
+        return ChatResponse(response="Jules failed to initialize.")
 
     try:
-        # Use simple ask for now
-        resp = await jules.ask(req.message)
+        # Use get_response method from new class
+        resp = await jules.get_response(req.message)
         return ChatResponse(response=resp)
     except Exception as e:
         return ChatResponse(response=f"Error: {str(e)}")
