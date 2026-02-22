@@ -178,20 +178,20 @@ class NSEImporter {
     startProgress(msg) {
         this.progressArea.style.display = 'block';
         this.progressText.textContent = msg;
-        this.progressBar.style.width = '10%';
+        this.progressBar.style.width = '5%';
         this.progressBar.style.backgroundColor = '#00bcd4';
         this.importDetails.textContent = '';
     }
 
-    updateProgress(percent, msg) {
+    updateProgress(percent, msg, detailsHTML) {
         this.progressBar.style.width = `${percent}%`;
         if (msg) this.progressText.textContent = msg;
+        if (detailsHTML) this.importDetails.innerHTML = detailsHTML;
     }
 
     failProgress(error) {
         this.progressBar.style.backgroundColor = '#f44336';
         this.progressText.textContent = `Error: ${error}`;
-        // Keep error visible
     }
 
     successProgress(msg) {
@@ -207,18 +207,61 @@ class NSEImporter {
     }
 
     pollTask(taskId) {
-        // Placeholder for real polling
-        let progress = 10;
-        const interval = setInterval(() => {
-            progress += 5;
-            if (progress > 90) progress = 90;
-            this.updateProgress(progress, "Processing... (Check logs for details)");
-        }, 500);
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/v1/nse/ingest/import/status/${taskId}`);
+                const data = await res.json();
 
-        setTimeout(() => {
-            clearInterval(interval);
-            this.successProgress("Import task submitted (Background processing)");
-        }, 3000);
+                if (data.status === 'SUCCESS') {
+                    clearInterval(interval);
+                    this.successProgress("Import Completed!");
+                    this.renderDetails(data.files_completed, data.files_failed);
+                } else if (data.status === 'FAILURE') {
+                    clearInterval(interval);
+                    this.failProgress(data.error || "Import task failed");
+                } else {
+                    // PROGRESS
+                    let percent = data.progress || 10;
+                    if (percent < 5) percent = 5; // Min width
+
+                    let msg = `Processing: ${data.current_file || '...'}`;
+                    if (data.status === 'PENDING') msg = "Queued...";
+
+                    let details = '';
+                    if (data.files_completed && data.files_completed.length > 0) {
+                        details += `<div style="color:#4caf50">Completed: ${data.files_completed.join(', ')}</div>`;
+                    }
+                    if (data.files_failed && data.files_failed.length > 0) {
+                        details += `<div style="color:#f44336">Failed: ${data.files_failed.map(f => f.name).join(', ')}</div>`;
+                    }
+
+                    this.updateProgress(percent, msg, details);
+                }
+            } catch (e) {
+                console.error("Polling error", e);
+                // Don't stop polling immediately on network blip, but maybe after X tries
+            }
+        }, 1000);
+    }
+
+    renderDetails(completed, failed) {
+        let html = '';
+        if (completed && completed.length > 0) {
+            html += `<div style="color:#4caf50">✅ Imported: ${completed.length} files</div>`;
+            html += `<div style="font-size:0.9em; color:#888;">${completed.join(', ')}</div>`;
+        }
+        if (failed && failed.length > 0) {
+            html += `<div style="color:#f44336; margin-top:5px;">❌ Failed: ${failed.length} files</div>`;
+            html += `<div style="font-size:0.9em; color:#888;">`;
+            failed.forEach(f => {
+                // Handle string or object structure
+                const name = typeof f === 'string' ? f : f.name || f;
+                const err = typeof f === 'object' && f.error ? ` (${f.error})` : '';
+                html += `<div>• ${name}${err}</div>`;
+            });
+            html += `</div>`;
+        }
+        this.importDetails.innerHTML = html;
     }
 
     async fetchHistory() {

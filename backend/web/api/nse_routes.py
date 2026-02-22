@@ -42,6 +42,54 @@ async def check_database_health():
             "timestamp": datetime.now().isoformat()
         }
 
+@router.get("/ingest/import/status/{task_id}")
+async def get_import_status(task_id: str):
+    """
+    Get real-time import progress for a specific task.
+    """
+    try:
+        # Query Celery task status
+        task = import_nse_date.AsyncResult(task_id)
+
+        response = {
+            "task_id": task_id,
+            "status": task.status,  # PENDING, STARTED, SUCCESS, FAILURE, PROGRESS
+            "progress": 0,
+            "current_file": "",
+            "files_completed": [],
+            "files_failed": [],
+            "error": None
+        }
+
+        if task.state == 'PROGRESS':
+            response.update({
+                "progress": task.info.get("progress", 0),
+                "current_file": task.info.get("current_file", ""),
+                "files_completed": task.info.get("files_completed", []),
+                "files_failed": task.info.get("files_failed", [])
+            })
+        elif task.state == 'SUCCESS':
+            # task.result is the return value of the function
+            result = task.result
+            response.update({
+                "progress": 100,
+                "status": "SUCCESS",
+                "current_file": "Done",
+                # The result structure matches NSEImportResponse mostly
+                "files_completed": [k for k, v in result.get('details', {}).items() if v.get('status') == 'SUCCESS'],
+                "files_failed": [k for k, v in result.get('details', {}).items() if v.get('status') != 'SUCCESS']
+            })
+        elif task.state == 'FAILURE':
+            response.update({
+                "status": "FAILURE",
+                "error": str(task.result)
+            })
+
+        return response
+    except Exception as e:
+        logger.error(f"Failed to get task status: {e}")
+        raise HTTPException(status_code=500, detail={"message": "Failed to get status", "error": str(e)})
+
 @router.post("/ingest/import", response_model=dict[str, Any])
 async def trigger_import(
     request: NSEImportRequest,

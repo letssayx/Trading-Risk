@@ -1,7 +1,7 @@
 """NSE Data Importer - Direct-to-TimescaleDB"""
 import io, gzip, zipfile, logging, time
 from datetime import datetime, timedelta, date
-from typing import Any
+from typing import Any, Callable
 from contextlib import contextmanager
 
 import pandas as pd
@@ -418,7 +418,7 @@ class NSEDataImporter:
         return handlers.get(pattern_key, lambda df, dt, db: (0, 0))
 
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
-                   force: bool = False) -> dict[str, Any]:
+                   force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
         """Import all configured files for a given date."""
         if not self.holidays.is_trading_day(trade_date):
             return {
@@ -429,13 +429,29 @@ class NSEDataImporter:
 
         results = {}
         patterns_to_run = patterns or list(NSE_FILE_PATTERNS.keys())
+        total_patterns = len(patterns_to_run)
+        processed_count = 0
+        completed_files = []
+        failed_files = []
 
         with self.get_db() as db:
             for pattern_key in patterns_to_run:
+                processed_count += 1
+
+                # Notify progress start for this file
+                if progress_callback:
+                    progress_callback({
+                        "progress": int(((processed_count - 1) / total_patterns) * 100),
+                        "current_file": pattern_key,
+                        "files_completed": completed_files,
+                        "files_failed": failed_files
+                    })
+
                 try:
                     url = self._build_url(pattern_key, trade_date)
                     if not url:
                         results[pattern_key] = {'status': 'ERROR', 'error': 'Invalid pattern'}
+                        failed_files.append({"name": pattern_key, "error": "Invalid pattern"})
                         continue
 
                     logger.info(f"Fetching {pattern_key} for {trade_date}")
@@ -443,6 +459,7 @@ class NSEDataImporter:
 
                     if not resp:
                         results[pattern_key] = {'status': 'FAILED', 'error': 'Download failed'}
+                        failed_files.append({"name": pattern_key, "error": "Download failed"})
                         continue
 
                     # Parse based on file type
@@ -457,6 +474,9 @@ class NSEDataImporter:
 
                     if df is None or df.empty:
                         results[pattern_key] = {'status': 'EMPTY', 'rows': 0}
+                        # We consider empty as processed but with warning? or success?
+                        # Let's say completed but empty
+                        completed_files.append(pattern_key)
                         continue
 
                     handler = self._get_handler_for_pattern(pattern_key)
@@ -468,13 +488,25 @@ class NSEDataImporter:
                         'rows_updated': updated
                     }
                     self._log_import(db, trade_date, pattern_key, 'SUCCESS', inserted, updated)
+                    completed_files.append(pattern_key)
 
                 except Exception as e:
                     logger.exception(f"Error importing {pattern_key}: {e}")
                     results[pattern_key] = {'status': 'ERROR', 'error': str(e)}
                     self._log_import(db, trade_date, pattern_key, 'FAILED', 0, 0, str(e))
+                    failed_files.append({"name": pattern_key, "error": str(e)})
 
         success = sum(1 for r in results.values() if r.get('status') == 'SUCCESS')
+
+        # Final progress update
+        if progress_callback:
+            progress_callback({
+                "progress": 100,
+                "current_file": "Done",
+                "files_completed": completed_files,
+                "files_failed": failed_files
+            })
+
         return {
             'status': 'COMPLETED',
             'date': trade_date.isoformat(),
