@@ -20,13 +20,13 @@ from backend.domain.market.models import Bhavcopy, ImportHistory
 router = APIRouter()
 
 # Allowed series and segments
-ALLOWED_SERIES = ['EQ', 'BE']  # For CM segment
-ALLOWED_SEGMENTS = ['CM', 'FO']  # Both segments
+ALLOWED_SERIES = ['EQ', 'BE', 'GB', 'IV', 'SM']  # Expanded for CM
+ALLOWED_SEGMENTS = ['CM', 'FO']
 
 # Instrument type mappings
 INSTRUMENT_TYPES = {
-    'CM': ['STK'],  # Only stocks in CM
-    'FO': ['FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX']  # All FO instruments
+    'CM': ['STK', 'ETF', 'IDX'],
+    'FO': ['FUTSTK', 'OPTSTK', 'FUTIDX', 'OPTIDX', 'STO', 'STF', 'IDO', 'IDF']
 }
 
 class ImportPreviewRequest(BaseModel):
@@ -36,7 +36,7 @@ class ImportPreviewRequest(BaseModel):
 class ImportConfirmRequest(BaseModel):
     file_date: str
     overwrite_existing: bool = False
-    segments: List[str] = ['CM', 'FO']  # Which segments to import
+    segments: List[str] = ['CM', 'FO']
 
 def calculate_file_checksum(file_path: str) -> str:
     """Calculate MD5 checksum of file"""
@@ -47,18 +47,28 @@ def calculate_file_checksum(file_path: str) -> str:
     return hash_md5.hexdigest()
 
 def parse_udiff_date(date_str) -> Optional[date]:
-    """Parse UDIFF date format (DD-MMM-YYYY)"""
-    s = str(date_str).strip().lower()
-    if pd.isna(date_str) or s in ['nan', 'null', 'none', '']:
+    """Parse UDIFF date. Prioritize DD-MM-YYYY then DD-MMM-YYYY"""
+    if pd.isna(date_str) or str(date_str).strip().lower() in ['nan', 'null', 'none', '']:
         return None
-    if isinstance(date_str, datetime):
-        return date_str.date()
-    if isinstance(date_str, date):
-        return date_str
+
+    if isinstance(date_str, (datetime, date)):
+        return date_str if isinstance(date_str, date) else date_str.date()
+
+    s = str(date_str).strip()
+
+    # Try DD-MM-YYYY (User requested)
     try:
-        return datetime.strptime(str(date_str).strip(), "%d-%b-%Y").date()
-    except:
-        return None
+        return datetime.strptime(s, "%d-%m-%Y").date()
+    except ValueError:
+        pass
+
+    # Try DD-MMM-YYYY (Standard UDIFF)
+    try:
+        return datetime.strptime(s, "%d-%b-%Y").date()
+    except ValueError:
+        pass
+
+    return None
 
 def validate_headers(headers: List[str]) -> bool:
     """Check if CSV has required UDIFF headers"""
@@ -69,20 +79,21 @@ def parse_bhavcopy_df(df: pd.DataFrame) -> pd.DataFrame:
     """Parse and clean dataframe with proper types"""
     # Parse dates
     df['parsed_trade_date'] = df['TradDt'].apply(parse_udiff_date)
-    # BizDt is not always present or same as TradDt
+
     if 'BizDt' in df.columns:
-        df['parsed_business_date'] = df['BizDt'].apply(parse_udiff_date)
+        df['parsed_biz_date'] = df['BizDt'].apply(parse_udiff_date)
 
     if 'XpryDt' in df.columns:
         df['parsed_expiry_date'] = df['XpryDt'].apply(parse_udiff_date)
-    else:
-        df['parsed_expiry_date'] = None
+
+    if 'FininstrmActlXpryDt' in df.columns:
+        df['parsed_actl_expiry_date'] = df['FininstrmActlXpryDt'].apply(parse_udiff_date)
 
     # Convert numeric fields
     numeric_fields = ['OpnPric', 'HghPric', 'LwPric', 'ClsPric', 'LastPric',
                       'PrvsClsgPric', 'SttlmPric', 'StrkPric', 'UndrlygPric',
                       'TtlTradgVol', 'TtlTrfVal', 'TtlNbOfTxsExctd',
-                      'OpnIntrst', 'ChngInOpnIntrst']
+                      'OpnIntrst', 'ChngInOpnIntrst', 'NewBrdLotQty']
 
     for field in numeric_fields:
         if field in df.columns:
@@ -90,15 +101,7 @@ def parse_bhavcopy_df(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-def get_existing_dates(db: Session, segments: List[str]) -> List[datetime.date]:
-    """Get all dates that already have data for given segments"""
-    result = db.query(Bhavcopy.trade_date).filter(
-        Bhavcopy.segment.in_(segments)
-    ).distinct().all()
-    return [r[0] for r in result]
-
 def check_existing_import(db: Session, file_name: str, file_date: date) -> Optional[ImportHistory]:
-    """Check if this file has been imported before"""
     return db.query(ImportHistory).filter(
         ImportHistory.file_name == file_name,
         ImportHistory.file_date == file_date
@@ -109,13 +112,9 @@ async def preview_bhavcopy(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Upload and preview bhavcopy ZIP file - shows both CM and FO data
-    """
     if not file.filename.endswith('.zip'):
         raise HTTPException(400, "Please upload a ZIP file")
 
-    # Save temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
         content = await file.read()
         tmp_file.write(content)
@@ -123,64 +122,37 @@ async def preview_bhavcopy(
 
     csv_path = None
     try:
-        # Calculate checksum
         checksum = calculate_file_checksum(tmp_path)
-
-        # Extract ZIP
         with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
             csv_files = [f for f in zip_ref.namelist() if f.endswith('.csv')]
             if not csv_files:
                 raise HTTPException(400, "No CSV found in ZIP")
-
             csv_path = zip_ref.extract(csv_files[0], tempfile.gettempdir())
 
-        # Read CSV
         df = pd.read_csv(csv_path)
-
-        # Validate headers
         if not validate_headers(df.columns.tolist()):
             raise HTTPException(400, f"Invalid CSV format. Expected UDIFF headers.")
 
-        # Parse data
         df = parse_bhavcopy_df(df)
 
-        # Get file date from filename or data
         file_date = None
         if len(df) > 0:
             file_date = df['parsed_trade_date'].iloc[0]
 
-        # Check if this date already exists in DB
         existing_dates = []
         if file_date:
-            existing = db.query(Bhavcopy).filter(
-                Bhavcopy.trade_date == file_date
-            ).first()
-            if existing:
-                existing_dates = [file_date]
+            existing = db.query(Bhavcopy).filter(Bhavcopy.trade_date == file_date).first()
+            if existing: existing_dates = [file_date]
 
-        # Check if this file was imported before
-        existing_import = None
-        if file_date:
-            existing_import = check_existing_import(db, file.filename, file_date)
+        existing_import = check_existing_import(db, file.filename, file_date) if file_date else None
 
-        # Prepare stats by segment
         stats = {}
         preview_by_segment = {}
 
         for segment in ALLOWED_SEGMENTS:
             segment_df = df[df['Sgmt'] == segment]
 
-            if segment == 'CM':
-                # For CM: filter instrument type STK and series EQ/BE
-                segment_df = segment_df[
-                    (segment_df['FinInstrmTp'] == 'STK') &
-                    (segment_df['SctySrs'].isin(ALLOWED_SERIES))
-                ]
-            else:  # FO
-                # For FO: include all instrument types
-                segment_df = segment_df[
-                    segment_df['FinInstrmTp'].isin(INSTRUMENT_TYPES['FO'])
-                ]
+            # Simple Filter: Just use segment. UDIFF is standard.
 
             stats[segment] = {
                 'total_rows': len(segment_df),
@@ -188,7 +160,6 @@ async def preview_bhavcopy(
                 'instrument_types': segment_df['FinInstrmTp'].value_counts().to_dict() if len(segment_df) > 0 else {}
             }
 
-            # Get preview (first 5 rows)
             preview = []
             for _, row in segment_df.head(5).iterrows():
                 preview_row = {
@@ -199,30 +170,26 @@ async def preview_bhavcopy(
                     'low': float(row['LwPric']) if pd.notna(row['LwPric']) else 0,
                     'close': float(row['ClsPric']) if pd.notna(row['ClsPric']) else 0,
                 }
-
-                # Add FO specific fields
                 if segment == 'FO':
                     expiry = row.get('parsed_expiry_date')
                     preview_row.update({
                         'expiry': expiry.strftime("%Y-%m-%d") if pd.notna(expiry) else None,
                         'strike': float(row['StrkPric']) if pd.notna(row.get('StrkPric')) else None,
-                        'option_type': row.get('OptnTp') if pd.notna(row.get('OptnTp')) else 'XX',
+                        'option_type': row.get('OptnTp'),
                         'open_interest': int(row['OpnIntrst']) if pd.notna(row.get('OpnIntrst')) else 0
                     })
                 else:
                     preview_row.update({
-                        'series': row['SctySrs'],
+                        'series': row.get('SctySrs'),
                         'volume': int(row['TtlTradgVol']) if pd.notna(row.get('TtlTradgVol')) else 0
                     })
-
                 preview.append(preview_row)
-
             preview_by_segment[segment] = preview
 
         return {
             'success': True,
             'filename': file.filename,
-            'file_date': file_date.strftime("%Y-%m-%d") if file_date else None,
+            'file_date': file_date.strftime("%d-%m-%Y") if file_date else None,
             'checksum': checksum,
             'total_rows': len(df),
             'stats': stats,
@@ -240,25 +207,18 @@ async def preview_bhavcopy(
         traceback.print_exc()
         raise HTTPException(500, f"Error processing file: {str(e)}")
     finally:
-        # Cleanup
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        if csv_path and os.path.exists(csv_path):
-            os.unlink(csv_path)
+        if os.path.exists(tmp_path): os.unlink(tmp_path)
+        if csv_path and os.path.exists(csv_path): os.unlink(csv_path)
 
 @router.post("/api/data/upload/bhavcopy/import")
 async def import_bhavcopy(
     file: UploadFile = File(...),
     file_date: str = Form(...),
     overwrite_existing: bool = Form(...),
-    segments: str = Form(...), # JSON string
+    segments: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Import bhavcopy data with overwrite option
-    """
     segments_list = json.loads(segments)
-
     with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
         content = await file.read()
         tmp_file.write(content)
@@ -266,7 +226,6 @@ async def import_bhavcopy(
 
     csv_path = None
     try:
-        # Extract and parse
         with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
             csv_files = [f for f in zip_ref.namelist() if f.endswith('.csv')]
             csv_path = zip_ref.extract(csv_files[0], tempfile.gettempdir())
@@ -274,72 +233,64 @@ async def import_bhavcopy(
         df = pd.read_csv(csv_path)
         df = parse_bhavcopy_df(df)
 
-        # Validate or parse file_date if passed as "null" string
-        try:
-            if not file_date or file_date.lower() == 'null' or file_date.lower() == 'none':
-                # Try to get from dataframe
-                if 'parsed_trade_date' in df.columns and len(df) > 0 and df['parsed_trade_date'].iloc[0]:
-                    parsed_file_date = df['parsed_trade_date'].iloc[0]
-                else:
-                    raise ValueError("Date could not be determined from file or form input.")
-            else:
-                parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
-        except ValueError:
-             # Try fallback format if strict fails
-             try:
-                 parsed_file_date = datetime.strptime(file_date, "%d-%m-%Y").date()
-             except:
-                 raise HTTPException(400, "Invalid Date Format. Please ensure the file has a valid date.")
+        # Robust Date Parsing for Form Input
+        parsed_file_date = None
+        if file_date and file_date.lower() not in ['null', 'none', '']:
+            try:
+                parsed_file_date = datetime.strptime(file_date, "%d-%m-%Y").date()
+            except ValueError:
+                try:
+                    parsed_file_date = datetime.strptime(file_date, "%Y-%m-%d").date()
+                except:
+                    pass
 
-        # If overwrite is enabled, delete existing data for this date and segments
+        if not parsed_file_date:
+             if 'parsed_trade_date' in df.columns and len(df) > 0 and pd.notna(df['parsed_trade_date'].iloc[0]):
+                 parsed_file_date = df['parsed_trade_date'].iloc[0]
+             else:
+                 raise HTTPException(400, "Could not determine date from file or input.")
+
         if overwrite_existing:
-            deleted = db.query(Bhavcopy).filter(
+            db.query(Bhavcopy).filter(
                 Bhavcopy.trade_date == parsed_file_date,
                 Bhavcopy.segment.in_(segments_list)
             ).delete(synchronize_session=False)
             db.commit()
-            print(f"Deleted {deleted} existing rows for {parsed_file_date}")
-
-        # Insert data
-        inserted = 0
-        skipped = 0
-        errors = []
 
         objects = []
+        errors = []
 
         for _, row in df.iterrows():
-            segment = row['Sgmt']
-
-            # Skip if segment not requested
-            if segment not in segments_list:
-                continue
-
-            # Apply filtering based on segment
-            if segment == 'CM':
-                if row['FinInstrmTp'] != 'STK' or row['SctySrs'] not in ALLOWED_SERIES:
-                    continue
-            elif segment == 'FO':
-                if row['FinInstrmTp'] not in INSTRUMENT_TYPES['FO']:
-                    continue
-            else:
+            if row['Sgmt'] not in segments_list:
                 continue
 
             try:
                 bhavcopy = Bhavcopy(
+                    # Core
                     trade_date=row['parsed_trade_date'],
-                    segment=segment,
+                    segment=row['Sgmt'],
                     instrument_type=row['FinInstrmTp'],
                     symbol=row['TckrSymb'],
 
-                    # Common fields
-                    series=row.get('SctySrs'),
+                    # Additional
+                    biz_date=row.get('parsed_biz_date'),
+                    source=row.get('Src'),
+                    fin_instrm_id=str(row.get('FinInstrmId', '')),
                     isin=row.get('ISIN'),
+                    instrument_name=row.get('FinInstrmNm'),
+                    session_id=row.get('SsnId'),
+                    remarks=row.get('Rmks'),
+                    lot_size=int(row['NewBrdLotQty']) if pd.notna(row.get('NewBrdLotQty')) else None,
 
-                    # FO specific
+                    # CM
+                    series=row.get('SctySrs'),
+
+                    # FO
                     expiry_date=row.get('parsed_expiry_date'),
+                    actual_expiry_date=row.get('parsed_actl_expiry_date'),
                     strike_price=float(row['StrkPric']) if pd.notna(row.get('StrkPric')) else None,
-                    option_type=row.get('OptnTp') if pd.notna(row.get('OptnTp')) else None,
-                    underlying=row.get('UndrlygPric'),
+                    option_type=row.get('OptnTp'),
+                    underlying_price=float(row['UndrlygPric']) if pd.notna(row.get('UndrlygPric')) else None,
 
                     # Prices
                     open=float(row['OpnPric']) if pd.notna(row.get('OpnPric')) else None,
@@ -350,120 +301,53 @@ async def import_bhavcopy(
                     prev_close=float(row['PrvsClsgPric']) if pd.notna(row.get('PrvsClsgPric')) else None,
                     settlement_price=float(row['SttlmPric']) if pd.notna(row.get('SttlmPric')) else None,
 
-                    # Volume & OI
+                    # Volume
                     total_traded_qty=int(row['TtlTradgVol']) if pd.notna(row.get('TtlTradgVol')) else None,
                     total_traded_val=float(row['TtlTrfVal']) if pd.notna(row.get('TtlTrfVal')) else None,
                     total_trades=int(row['TtlNbOfTxsExctd']) if pd.notna(row.get('TtlNbOfTxsExctd')) else None,
                     open_interest=int(row['OpnIntrst']) if pd.notna(row.get('OpnIntrst')) else None,
                     change_in_oi=int(row['ChngInOpnIntrst']) if pd.notna(row.get('ChngInOpnIntrst')) else None
                 )
-
                 objects.append(bhavcopy)
-
             except Exception as e:
                 errors.append(f"Row error: {str(e)}")
 
-        # Bulk Save
-        # Note: bulk_save_objects is faster but doesn't return inserted IDs.
-        try:
-            if objects:
+        if objects:
+            try:
                 db.bulk_save_objects(objects)
                 db.commit()
-                inserted = len(objects)
-        except IntegrityError as e:
-            db.rollback()
-            # If overwrite was false, this means we hit duplicates.
-            # Without overwrite, we can't easily skip individual rows in bulk without raw SQL 'INSERT OR IGNORE'
-            # For now, fail the batch or try row-by-row if critical.
-            # Assuming overwrite handles the mass update case.
-            raise HTTPException(400, "Integrity Error: Data likely exists. Use Overwrite option.")
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(500, f"Database commit error: {str(e)}")
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(500, f"DB Error: {str(e)}")
 
-        # Record this import
-        import_record = ImportHistory(
-            file_name=file.filename,
-            file_date=parsed_file_date,
-            segment=','.join(segments_list),
-            rows_imported=inserted,
-            import_date=datetime.now().date()
-        )
+        # History
         try:
-            db.add(import_record)
+            hist = ImportHistory(
+                file_name=file.filename,
+                file_date=parsed_file_date,
+                segment=','.join(segments_list),
+                rows_imported=len(objects),
+                import_date=datetime.now().date()
+            )
+            db.add(hist)
             db.commit()
-        except IntegrityError:
+        except:
             db.rollback()
-            # History already exists, ignore or update?
-            pass
 
         return {
             'success': True,
-            'inserted': inserted,
-            'skipped': skipped,
-            'errors': errors[:10],  # First 10 errors
-            'date': file_date,
-            'segments': segments_list
+            'inserted': len(objects),
+            'skipped': 0,
+            'errors': errors[:10],
+            'date': parsed_file_date.strftime("%d-%m-%Y")
         }
 
     except HTTPException as he:
         raise he
     except Exception as e:
-        db.rollback()
         import traceback
         traceback.print_exc()
-        raise HTTPException(500, f"Error importing data: {str(e)}")
+        raise HTTPException(500, f"Import failed: {str(e)}")
     finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        if csv_path and os.path.exists(csv_path):
-            os.unlink(csv_path)
-
-@router.get("/api/data/upload/bhavcopy/check-date/{date}")
-async def check_date_exists(
-    date: str,
-    segment: str = Query("CM", regex="^(CM|FO|BOTH)$"),
-    db: Session = Depends(get_db)
-):
-    """
-    Check if data for a specific date already exists
-    """
-    try:
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()
-
-        segments = ['CM', 'FO'] if segment == 'BOTH' else [segment]
-
-        # Get count by segment
-        result = {}
-        for seg in segments:
-            count = db.query(Bhavcopy).filter(
-                Bhavcopy.trade_date == target_date,
-                Bhavcopy.segment == seg
-            ).count()
-
-            if count > 0:
-                # Get sample symbols
-                samples = db.query(Bhavcopy.symbol).filter(
-                    Bhavcopy.trade_date == target_date,
-                    Bhavcopy.segment == seg
-                ).limit(5).all()
-
-                result[seg] = {
-                    'exists': True,
-                    'count': count,
-                    'samples': [s[0] for s in samples]
-                }
-            else:
-                result[seg] = {
-                    'exists': False,
-                    'count': 0
-                }
-
-        return {
-            'date': date,
-            'exists': any(r['exists'] for r in result.values()),
-            'segments': result
-        }
-
-    except ValueError:
-        raise HTTPException(400, "Invalid date format. Use YYYY-MM-DD")
+        if os.path.exists(tmp_path): os.unlink(tmp_path)
+        if csv_path and os.path.exists(csv_path): os.unlink(csv_path)

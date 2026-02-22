@@ -13,37 +13,52 @@ class Bhavcopy(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Core identifiers
-    trade_date = Column(Date, nullable=False, index=True)
-    segment = Column(String(2), nullable=False, index=True)  # CM or FO
-    instrument_type = Column(String(10), nullable=False)  # STK, FUTSTK, OPTSTK, FUTIDX, OPTIDX
-    symbol = Column(String(20), nullable=False, index=True)
+    # Core identifiers (TradDt, Sgmt, FinInstrmTp, TckrSymb)
+    trade_date = Column(Date, nullable=False, index=True) # TradDt
+    segment = Column(String(2), nullable=False, index=True)  # Sgmt: CM or FO
+    instrument_type = Column(String(10), nullable=False)  # FinInstrmTp
+    symbol = Column(String(20), nullable=False, index=True) # TckrSymb
+
+    # Additional Identification
+    biz_date = Column(Date) # BizDt
+    source = Column(String(10)) # Src
+    fin_instrm_id = Column(String(20)) # FinInstrmId
+    isin = Column(String(12)) # ISIN
+    instrument_name = Column(String(50)) # FinInstrmNm
+    session_id = Column(String(10)) # SsnId
+    remarks = Column(String(50)) # Rmks
 
     # CM specific fields
-    series = Column(String(10))  # EQ, BE for CM; NULL for FO
-    isin = Column(String(12))
+    series = Column(String(10))  # SctySrs (EQ, BE, etc.)
 
     # FO specific fields
     expiry_date = Column(Date, index=True)  # XpryDt
+    actual_expiry_date = Column(Date) # FininstrmActlXpryDt
     strike_price = Column(Float)  # StrkPric
-    option_type = Column(String(3))  # OptnTp: CE, PE, XX for futures
-    underlying = Column(String(20))  # Underlying asset for derivatives
+    option_type = Column(String(3))  # OptnTp: CE, PE, XX
+    underlying = Column(String(20))  # UndrlygPric is price, not symbol? Wait.
+    # UDIFF 'UndrlygPric' is Underlying Price. 'Underlying' symbol is usually implied or separate.
+    # In UDIFF, the underlying symbol isn't always explicit row-by-row if it's TckrSymb.
+    # We will store 'underlying_price' instead if mapped.
+    underlying_price = Column(Float) # UndrlygPric
 
-    # Price fields
-    open = Column(Float)
-    high = Column(Float)
-    low = Column(Float)
-    close = Column(Float)
-    last = Column(Float)
-    prev_close = Column(Float)
-    settlement_price = Column(Float)  # SttlmPric for FO
+    # Market Data
+    open = Column(Float) # OpnPric
+    high = Column(Float) # HghPric
+    low = Column(Float) # LwPric
+    close = Column(Float) # ClsPric
+    last = Column(Float) # LastPric
+    prev_close = Column(Float) # PrvsClsgPric
+    settlement_price = Column(Float)  # SttlmPric
 
     # Volume & OI fields
-    total_traded_qty = Column(Integer)
-    total_traded_val = Column(Float)
-    total_trades = Column(Integer)
-    open_interest = Column(Integer)  # OpnIntrst for FO
+    total_traded_qty = Column(Integer) # TtlTradgVol
+    total_traded_val = Column(Float) # TtlTrfVal
+    total_trades = Column(Integer) # TtlNbOfTxsExctd
+    open_interest = Column(Integer)  # OpnIntrst
     change_in_oi = Column(Integer)   # ChngInOpnIntrst
+
+    lot_size = Column(Integer) # NewBrdLotQty
 
     # Metadata
     created_at = Column(Date, nullable=False, default=datetime.now)

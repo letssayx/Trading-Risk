@@ -4,37 +4,20 @@ import asyncio
 
 class JulesAssistant:
     def __init__(self, provider="gemini"):
-        # Enforce Gemini as primary per user request
         self.provider = "gemini"
-
-        # Try to load keys
         self.google_key = os.getenv("GOOGLE_API_KEY")
 
-        if not self.google_key:
-             print("Warning: Google API Key missing for Jules (Gemini). Chat may fail.")
-
-        # Initialize Clients
-        if self.provider == "gemini":
-            if self.google_key:
-                genai.configure(api_key=self.google_key)
-                self.gemini_model = genai.GenerativeModel('gemini-pro')
-            else:
-                self.gemini_model = None
+        if self.google_key:
+            genai.configure(api_key=self.google_key)
+            self.gemini_model = genai.GenerativeModel('gemini-pro')
+        else:
+            self.gemini_model = None
+            print("Warning: Google API Key missing for Jules (Gemini). Chat may fail.")
 
     async def ask(self, prompt: str) -> str:
         """
         Generic ask method restricted to Project and Strategies.
         """
-        if not self.gemini_model:
-            # Retry configuration if key was added runtime
-            self.google_key = os.getenv("GOOGLE_API_KEY")
-            if self.google_key:
-                try:
-                    genai.configure(api_key=self.google_key)
-                    self.gemini_model = genai.GenerativeModel('gemini-pro')
-                except:
-                    pass
-
         if not self.gemini_model:
             return "Error: Jules (Gemini) is not configured. Please add GOOGLE_API_KEY in Config."
 
