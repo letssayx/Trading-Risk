@@ -4,11 +4,19 @@ from typing import Dict, Optional, List
 from sqlalchemy.orm import Session
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy
+from backend.strategies.registry import StrategyRegistry
 from backend.strategies.adapters.turtle_adapter import TurtleAdapter
 from backend.strategies.adapters.statarb_adapter import StatArbAdapter
 # Removed generate_ohlc import
 
 router = APIRouter(prefix="/api/strategies", tags=["Strategy Adapters"])
+
+@router.get("/list")
+async def list_strategies():
+    """
+    Returns available OOTB and User strategies.
+    """
+    return StrategyRegistry.get_strategies()
 
 # In-memory storage for active strategy instances
 turtle_instances: Dict[str, TurtleAdapter] = {}

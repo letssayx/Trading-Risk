@@ -1,17 +1,81 @@
 const Toolbox = {
-    draggedType: null,
+    draggedData: null,
 
     init: function() {
-        const items = document.querySelectorAll('.toolbox-item');
+        // Load Strategies dynamically
+        this.loadStrategies();
+
+        // Attach listeners to existing static items
+        this.attachListeners();
+        this.setupDropZones();
+    },
+
+    loadStrategies: async function() {
+        try {
+            const res = await fetch('/api/strategies/list');
+            const data = await res.json();
+            const container = document.getElementById('strategies-container');
+            container.innerHTML = '';
+
+            // Helper to create item
+            const createItem = (strat, isUser) => {
+                const el = document.createElement('div');
+                el.className = 'toolbox-item strategy-item';
+                el.draggable = true;
+                el.dataset.type = 'strategy';
+                el.dataset.name = strat.name;
+                el.title = `${strat.name} (${isUser ? 'User' : 'Built-in'})\n${strat.description}`;
+                // Visual distinction
+                el.style.borderLeft = isUser ? '3px solid #ff9800' : '3px solid #00bcd4';
+                el.innerHTML = isUser ? '👤' : '♟️'; // Icon based on type
+
+                // Attach drag start directly
+                el.addEventListener('dragstart', (e) => {
+                    const payload = JSON.stringify({
+                        type: 'strategy',
+                        name: strat.name,
+                        isUser: isUser
+                    });
+                    e.dataTransfer.setData('application/json', payload);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    this.draggedData = payload; // Fallback
+                });
+
+                return el;
+            };
+
+            // OOTB
+            if (data.ootb && data.ootb.length > 0) {
+                // container.appendChild(document.createTextNode("Built-in"));
+                data.ootb.forEach(s => container.appendChild(createItem(s, false)));
+            }
+
+            // User
+            if (data.user && data.user.length > 0) {
+                // container.appendChild(document.createTextNode("User"));
+                data.user.forEach(s => container.appendChild(createItem(s, true)));
+            }
+
+        } catch (e) {
+            console.error("Failed to load strategies", e);
+            document.getElementById('strategies-container').innerHTML = '<div style="color:red; font-size:10px;">Err</div>';
+        }
+    },
+
+    attachListeners: function() {
+        // For static items (Filters, Indicators, etc.)
+        const items = document.querySelectorAll('.toolbox-item:not(.strategy-item)');
         items.forEach(item => {
             item.addEventListener('dragstart', (e) => {
-                this.draggedType = e.target.dataset.type;
-                e.dataTransfer.setData('text/plain', this.draggedType);
+                const payload = JSON.stringify({
+                    type: item.dataset.type,
+                    name: item.title // Fallback name
+                });
+                e.dataTransfer.setData('application/json', payload);
                 e.dataTransfer.effectAllowed = 'copy';
+                this.draggedData = payload;
             });
         });
-
-        this.setupDropZones();
     },
 
     setupDropZones: function() {
@@ -26,8 +90,7 @@ const Toolbox = {
         chartArea.addEventListener('drop', (e) => {
             e.preventDefault();
             chartArea.style.border = 'none';
-            const type = e.dataTransfer.getData('text/plain');
-            this.handleDropOnChart(type);
+            this.handleDrop(e, 'chart');
         });
 
         // Drop on Workbook
@@ -40,33 +103,68 @@ const Toolbox = {
         workbookArea.addEventListener('drop', (e) => {
             e.preventDefault();
             workbookArea.style.border = 'none';
-            const type = e.dataTransfer.getData('text/plain');
-            this.handleDropOnWorkbook(type);
+            this.handleDrop(e, 'workbook');
         });
     },
 
-    handleDropOnChart: function(type) {
-        if (type === 'indicator') {
-            // Mock adding indicator
-            alert('Indicator added to active chart (Mock)');
-            // In real app, call ChartTabs.addIndicator()
+    handleDrop: function(e, targetZone) {
+        let data = null;
+        try {
+            const json = e.dataTransfer.getData('application/json');
+            data = JSON.parse(json);
+        } catch (err) {
+            // Fallback for simple text/plain if any
+            const type = e.dataTransfer.getData('text/plain');
+            if (type) data = { type: type };
+        }
+
+        if (!data && this.draggedData) {
+             try { data = JSON.parse(this.draggedData); } catch(e){}
+        }
+
+        if (!data) return;
+
+        if (targetZone === 'chart') {
+            this.handleDropOnChart(data);
         } else {
-            console.log(`Dropped ${type} on chart - no action`);
+            this.handleDropOnWorkbook(data);
         }
     },
 
-    handleDropOnWorkbook: function(type) {
-        if (type === 'strategy') {
-            // Provide specific options instead of generic prompt if possible
-            const strategyType = prompt("Select Strategy (turtle/statarb/oi/rollover):", "turtle");
-            if (strategyType) WorkbookManager.switchTab(strategyType.toLowerCase());
-        } else if (type === 'indicator') {
+    handleDropOnChart: function(data) {
+        if (data.type === 'indicator') {
+            alert('Indicator added to active chart (Mock)');
+        } else {
+            console.log(`Dropped ${data.type} on chart - no action`);
+        }
+    },
+
+    handleDropOnWorkbook: function(data) {
+        if (data.type === 'strategy') {
+            const strategyName = data.name;
+            // Map known strategies to tabs, or default
+            // TurtleLegacyStrategy -> turtle
+            // StatArbAlphaEngine -> statarb
+            let tabType = 'turtle';
+            if (strategyName.toLowerCase().includes('turtle')) tabType = 'turtle';
+            else if (strategyName.toLowerCase().includes('stat')) tabType = 'statarb';
+            else if (strategyName.toLowerCase().includes('oi')) tabType = 'oi';
+            else if (strategyName.toLowerCase().includes('rollover')) tabType = 'rollover';
+            else {
+                 // For unknown/user strategies, maybe alert or open a generic tab
+                 alert(`Opening User Strategy: ${strategyName}`);
+                 return;
+            }
+
+            WorkbookManager.switchTab(tabType);
+
+        } else if (data.type === 'indicator') {
             const indicatorType = prompt("Select Indicator (SMA/RSI/MACD):", "SMA");
             if (indicatorType) alert(`Indicator ${indicatorType} added (Mock)`);
-        } else if (type === 'filter') {
+        } else if (data.type === 'filter') {
             const filterType = prompt("Select Filter (ZScore/ADX/Regime):", "ZScore");
             if (filterType) alert(`Filter ${filterType} applied (Mock)`);
-        } else if (type === 'risk') {
+        } else if (data.type === 'risk') {
              const riskType = prompt("Select Risk Model (VaR/Euler/Kelly):", "VaR");
              if (riskType) alert(`Risk Model ${riskType} activated (Mock)`);
         }
