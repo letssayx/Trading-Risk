@@ -19,10 +19,13 @@ from backend.web.api import analysis_routes
 from backend.web.api import jules_routes
 from backend.web.api import config_routes
 from backend.web.api.data import view_routes
+from backend.web.api import nse_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
 from backend.domain.market.models import Bhavcopy
+from backend.ingest import nse_models # Ensure tables are created
+from backend.ingest.tasks import setup_timescale_policies
 from backend.ingest.tick_vault import TickVault
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
@@ -51,6 +54,7 @@ app.include_router(analysis_routes.router)
 app.include_router(jules_routes.router)
 app.include_router(config_routes.router)
 app.include_router(view_routes.router)
+app.include_router(nse_routes.router, prefix="/api/v1/nse", tags=["nse"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -62,6 +66,14 @@ async def startup_event():
         print("✅ TickVault initialized")
     except Exception as e:
         print(f"⚠️ TickVault Init Warning: {e}")
+
+    # Trigger TimescaleDB setup (async)
+    try:
+        setup_timescale_policies.delay()
+        print("✅ TimescaleDB setup triggered")
+    except Exception as e:
+        print(f"⚠️ TimescaleDB Setup Warning: {e}")
+
     print("✅ Database initialized")
 
     # Start log generator (Disabled per user request)
