@@ -14,20 +14,25 @@ const Toolbox = {
         try {
             const res = await fetch('/api/strategies/list');
             const data = await res.json();
-            const container = document.getElementById('strategies-container');
+            const container = document.getElementById('strategies-flyout');
+            if (!container) return; // Guard
             container.innerHTML = '';
 
             // Helper to create item
             const createItem = (strat, isUser) => {
                 const el = document.createElement('div');
-                el.className = 'toolbox-item strategy-item';
+                el.className = 'flyout-item';
                 el.draggable = true;
                 el.dataset.type = 'strategy';
                 el.dataset.name = strat.name;
-                el.title = `${strat.name} (${isUser ? 'User' : 'Built-in'})\n${strat.description}`;
-                // Visual distinction
-                el.style.borderLeft = isUser ? '3px solid #ff9800' : '3px solid #00bcd4';
-                el.innerHTML = isUser ? '👤' : '♟️'; // Icon based on type
+                el.title = `${strat.description}`;
+
+                // Content
+                const icon = isUser ? '👤' : '♟️';
+                el.innerHTML = `
+                    <div class="flyout-item-icon" style="color:${isUser ? '#ff9800' : '#00bcd4'}">${icon}</div>
+                    <div class="flyout-item-name">${strat.name}</div>
+                `;
 
                 // Attach drag start directly
                 el.addEventListener('dragstart', (e) => {
@@ -38,7 +43,7 @@ const Toolbox = {
                     });
                     e.dataTransfer.setData('application/json', payload);
                     e.dataTransfer.effectAllowed = 'copy';
-                    this.draggedData = payload; // Fallback
+                    this.draggedData = payload;
                 });
 
                 return el;
@@ -46,19 +51,29 @@ const Toolbox = {
 
             // OOTB
             if (data.ootb && data.ootb.length > 0) {
-                // container.appendChild(document.createTextNode("Built-in"));
+                const header = document.createElement('div');
+                header.className = 'flyout-header';
+                header.innerText = 'BUILT-IN';
+                container.appendChild(header);
+
                 data.ootb.forEach(s => container.appendChild(createItem(s, false)));
             }
 
             // User
             if (data.user && data.user.length > 0) {
-                // container.appendChild(document.createTextNode("User"));
+                const header = document.createElement('div');
+                header.className = 'flyout-header';
+                header.style.marginTop = '10px';
+                header.innerText = 'USER';
+                container.appendChild(header);
+
                 data.user.forEach(s => container.appendChild(createItem(s, true)));
             }
 
         } catch (e) {
             console.error("Failed to load strategies", e);
-            document.getElementById('strategies-container').innerHTML = '<div style="color:red; font-size:10px;">Err</div>';
+            const container = document.getElementById('strategies-flyout');
+            if (container) container.innerHTML = '<div style="color:red; font-size:10px;">Err</div>';
         }
     },
 

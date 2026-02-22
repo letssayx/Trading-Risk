@@ -74,6 +74,76 @@ body {
 .toolbox-item:hover::after { display: block; }
 
 
+/* --- Toolbox Flyout --- */
+.toolbox-group {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    /* Ensure hover works properly */
+    padding-bottom: 10px;
+}
+
+.toolbox-flyout {
+    position: absolute;
+    left: 45px; /* Offset from toolbox */
+    top: 0;
+    width: 220px;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+    padding: 10px;
+    display: none;
+    z-index: 300;
+}
+
+.toolbox-group:hover .toolbox-flyout {
+    display: block;
+}
+
+.flyout-section {
+    margin-bottom: 10px;
+}
+
+.flyout-header {
+    font-size: 0.75em;
+    font-weight: bold;
+    color: #888;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 3px;
+    text-transform: uppercase;
+}
+
+.flyout-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    cursor: grab;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    background: transparent;
+    transition: background 0.2s;
+}
+.flyout-item:hover {
+    background: #333;
+}
+.flyout-item-icon {
+    margin-right: 10px;
+    font-size: 1.1em;
+    width: 20px;
+    text-align: center;
+}
+.flyout-item-name {
+    font-size: 0.9em;
+    color: #ddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
 /* --- Left Panel (Trading Edge + Python) --- */
 #left-panel {
     width: 300px; /* Default */

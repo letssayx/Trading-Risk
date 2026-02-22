@@ -129,9 +129,14 @@
 
         <!-- 1. Far Left Toolbox -->
         <div id="toolbox">
-            <div id="strategies-container">
-                <!-- Strategies loaded dynamically by JS -->
+            <!-- Strategy Group (Flyout) -->
+            <div class="toolbox-group" id="strategy-group">
+                <div class="toolbox-item" id="strategies-trigger" title="Strategies">♟️</div>
+                <div class="toolbox-flyout" id="strategies-flyout">
+                    <!-- Strategies loaded dynamically by JS -->
+                </div>
             </div>
+
             <!-- Other static tools for now -->
             <div class="toolbox-item" title="Filters" draggable="true" data-type="filter">🔍</div>
             <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
