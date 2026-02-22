@@ -1,5 +1,6 @@
 """TimescaleDB Utilities"""
 import logging
+from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from backend.config.defaults.nse import TIMESCALE_RETENTION, TIMESCALE_COMPRESSION_AFTER_DAYS
@@ -43,7 +44,7 @@ def ensure_hypertable(db: Session, table_name: str, time_column: str = "trade_da
         return False
 
 
-def set_compression_policy(db: Session, table_name: str, after_days: int = None) -> bool:
+def set_compression_policy(db: Session, table_name: str, after_days: int | None = None) -> bool:
     """Enable compression for hypertable."""
     after_days = after_days or TIMESCALE_COMPRESSION_AFTER_DAYS
     try:
@@ -66,7 +67,7 @@ def set_compression_policy(db: Session, table_name: str, after_days: int = None)
         return False
 
 
-def set_retention_policy(db: Session, table_name: str, keep_days: int = None) -> bool:
+def set_retention_policy(db: Session, table_name: str, keep_days: int | None = None) -> bool:
     """Set data retention policy."""
     keep_days = TIMESCALE_RETENTION.get(table_name, keep_days)
     if keep_days is None:
@@ -122,7 +123,7 @@ def create_continuous_aggregates(db: Session) -> bool:
         return False
 
 
-def setup_all_timescale_policies(db: Session) -> dict:
+def setup_all_timescale_policies(db: Session) -> dict[str, Any]:
     """Run all TimescaleDB setup operations."""
     results = {"hypertables": 0, "compression": 0, "retention": 0, "aggregates": False}
 

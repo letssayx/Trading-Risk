@@ -1,11 +1,11 @@
-from typing import List, Optional, Dict, Literal, Any
+from typing import Literal, Any
 from datetime import date
 from pydantic import BaseModel, Field
 
 class NSEImportRequest(BaseModel):
     """Request to trigger NSE data import for a specific date."""
     date: str = Field(..., description="Date in YYYY-MM-DD format", example="2026-02-18")
-    patterns: Optional[List[str]] = Field(None, description="List of specific file patterns to import (e.g., ['bhavcopy_fo'])")
+    patterns: list[str] | None = Field(None, description="List of specific file patterns to import (e.g., ['bhavcopy_fo'])")
     force: bool = Field(False, description="Force re-import even if data exists")
 
 class NSEImportResponse(BaseModel):
@@ -14,7 +14,7 @@ class NSEImportResponse(BaseModel):
     date: str = Field(..., description="Date processed in YYYY-MM-DD format")
     files_processed: int = Field(..., description="Total number of file patterns attempted")
     successful: int = Field(..., description="Number of successfully imported files")
-    details: Dict[str, Any] = Field(..., description="Per-file status details")
+    details: dict[str, Any] = Field(..., description="Per-file status details")
 
 class TimeseriesQuery(BaseModel):
     """Query parameters for timeseries data."""
@@ -26,17 +26,17 @@ class TimeseriesQuery(BaseModel):
 class OITrendResponse(BaseModel):
     """Open Interest Trend Data."""
     symbol: str
-    expiry: Optional[str] = None
+    expiry: str | None = None
     source: str = Field(..., description="Data source (continuous_aggregate or raw_table)")
-    data: List[Dict[str, Any]]
-    meta: Optional[Dict[str, Any]] = None
+    data: list[dict[str, Any]]
+    meta: dict[str, Any] | None = None
 
 class VolatilityCompareRequest(BaseModel):
     """Request to compare volatility across symbols."""
-    symbols: List[str] = Field(..., min_items=1, max_items=10, description="List of symbols to compare")
+    symbols: list[str] = Field(..., min_items=1, max_items=10, description="List of symbols to compare")
     days: int = Field(90, ge=1, le=365, description="Number of days to look back")
 
 class ImportStatsResponse(BaseModel):
     """Statistics about import jobs."""
-    summary: List[Dict[str, Any]]
-    period: Dict[str, Optional[str]]
+    summary: list[dict[str, Any]]
+    period: dict[str, str | None]

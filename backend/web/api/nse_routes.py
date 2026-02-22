@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List, Optional, Literal
+from typing import Literal, Any
 from datetime import date
 
 from backend.infrastructure.db import get_db
@@ -15,7 +15,7 @@ from backend.ingest.tasks import (
 
 router = APIRouter()
 
-@router.post("/ingest/import", response_model=Dict[str, Any])
+@router.post("/ingest/import", response_model=dict[str, Any])
 async def trigger_import(
     request: NSEImportRequest,
     background_tasks: BackgroundTasks
@@ -28,9 +28,9 @@ async def trigger_import(
 
 @router.post("/ingest/import/range")
 async def trigger_import_range(
-    start_date: str = Query(..., regex="^\d{4}-\d{2}-\d{2}$"),
-    end_date: str = Query(..., regex="^\d{4}-\d{2}-\d{2}$"),
-    patterns: Optional[List[str]] = Query(None)
+    start_date: str = Query(..., regex=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str = Query(..., regex=r"^\d{4}-\d{2}-\d{2}$"),
+    patterns: list[str] | None = Query(None)
 ):
     """
     Trigger an async import for a date range.
@@ -40,7 +40,7 @@ async def trigger_import_range(
 
 @router.post("/ingest/import/latest")
 async def trigger_import_latest(
-    patterns: Optional[List[str]] = Query(None)
+    patterns: list[str] | None = Query(None)
 ):
     """
     Trigger an async import for the latest trading day.
@@ -58,8 +58,8 @@ async def setup_timescale():
 
 @router.get("/ingest/stats", response_model=ImportStatsResponse)
 async def get_stats(
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -86,7 +86,7 @@ async def get_eq_timeseries(
 @router.get("/market/fno/oi/trend/{symbol}", response_model=OITrendResponse)
 async def get_oi_trend(
     symbol: str,
-    expiry: Optional[date] = None,
+    expiry: date | None = None,
     lookback_days: int = 30,
     db: Session = Depends(get_db)
 ):
@@ -123,7 +123,7 @@ async def compare_volatility(
 
 @router.get("/market/fno/oi/participant/heatmap")
 async def get_participant_heatmap(
-    date: Optional[date] = None,
+    date: date | None = None,
     db: Session = Depends(get_db)
 ):
     """

@@ -1,14 +1,14 @@
 """Celery Tasks for NSE Import"""
 from datetime import datetime, date, timedelta
-from typing import Optional, List
+from typing import Any
 from celery import shared_task
 
 from backend.ingest.nse_importer import NSEDataImporter
 
 
 @shared_task(bind=True, max_retries=3)
-def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None,
-                   force: bool = False) -> dict:
+def import_nse_date(self, date_str: str, patterns: list[str] | None = None,
+                   force: bool = False) -> dict[str, Any]:
     """Import NSE data for a specific date."""
     try:
         trade_date = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -22,7 +22,7 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None,
 
 @shared_task(bind=True, max_retries=3)
 def import_nse_range(self, start_date: str, end_date: str,
-                    patterns: Optional[List[str]] = None) -> dict:
+                    patterns: list[str] | None = None) -> dict[str, Any]:
     """Import NSE data for a date range."""
     try:
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -45,7 +45,7 @@ def import_nse_range(self, start_date: str, end_date: str,
 
 
 @shared_task
-def import_nse_latest(patterns: Optional[List[str]] = None) -> dict:
+def import_nse_latest(patterns: list[str] | None = None) -> dict[str, Any]:
     """Import data for the most recent trading day."""
     try:
         importer = NSEDataImporter()
@@ -57,7 +57,7 @@ def import_nse_latest(patterns: Optional[List[str]] = None) -> dict:
 
 
 @shared_task
-def setup_timescale_policies() -> dict:
+def setup_timescale_policies() -> dict[str, Any]:
     """Initialize TimescaleDB hypertables and policies."""
     try:
         importer = NSEDataImporter()

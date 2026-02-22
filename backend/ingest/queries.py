@@ -1,6 +1,6 @@
 """TimescaleDB-Optimized Query Helpers"""
 from datetime import date, timedelta
-from typing import List, Dict, Optional, Tuple
+from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import pandas as pd
@@ -12,7 +12,7 @@ def get_bhavcopy_eq_timeseries(
     start_date: date,
     end_date: date,
     resample: str = '1 day'
-) -> List[Dict]:
+) -> list[dict[str, Any]]:
     """Query equity bhavcopy with time_bucket resampling."""
     query = text("""
         SELECT
@@ -43,9 +43,9 @@ def get_bhavcopy_eq_timeseries(
 def get_fno_oi_trend(
     db: Session,
     symbol: str,
-    expiry_date: Optional[date] = None,
+    expiry_date: date | None = None,
     lookback_days: int = 30
-) -> Dict:
+) -> dict[str, Any]:
     """Get F&O OI trend using continuous aggregate (fallback to raw)."""
     # Try continuous aggregate first
     try:
@@ -109,7 +109,7 @@ def get_fno_oi_trend(
 
 def get_volatility_comparison(
     db: Session,
-    symbols: List[str],
+    symbols: list[str],
     days: int = 90
 ) -> pd.DataFrame:
     """Compare volatility across symbols."""
@@ -131,8 +131,8 @@ def get_volatility_comparison(
 
 def get_participant_oi_heatmap(
     db: Session,
-    trade_date: Optional[date] = None
-) -> Dict:
+    trade_date: date | None = None
+) -> dict[str, Any]:
     """Get participant-wise OI heatmap."""
     target_date = trade_date or (date.today() - timedelta(days=1))
 
@@ -169,9 +169,9 @@ def get_participant_oi_heatmap(
 
 def get_import_stats(
     db: Session,
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None
-) -> Dict:
+    start_date: date | None = None,
+    end_date: date | None = None
+) -> dict[str, Any]:
     """Get import job statistics."""
     query = text("""
         SELECT

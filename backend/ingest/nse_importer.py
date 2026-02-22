@@ -1,7 +1,7 @@
 """NSE Data Importer - Direct-to-TimescaleDB"""
 import io, gzip, zipfile, logging, time
 from datetime import datetime, timedelta, date
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any
 from contextlib import contextmanager
 
 import pandas as pd
@@ -48,7 +48,7 @@ class NSESessionManager:
         except Exception as e:
             logger.warning(f"Session init warning: {e}")
 
-    def get(self, url: str, **kwargs) -> Optional[requests.Response]:
+    def get(self, url: str, **kwargs) -> requests.Response | None:
         time.sleep(RATE_LIMIT_DELAY)
         try:
             resp = self.session.get(url, timeout=kwargs.pop('timeout', REQUEST_TIMEOUT), **kwargs)
@@ -65,7 +65,7 @@ class NSESessionManager:
 class HolidayManager:
     """NSE trading calendar."""
 
-    def __init__(self, custom_holidays: Optional[set] = None):
+    def __init__(self, custom_holidays: set[str] | None = None):
         from backend.config.defaults.nse import DEFAULT_NSE_HOLIDAYS
         self.holidays = custom_holidays or DEFAULT_NSE_HOLIDAYS.copy()
 
@@ -84,7 +84,7 @@ class HolidayManager:
 class NSEDataImporter:
     """Main importer: downloads → parses → inserts to TimescaleDB."""
 
-    def __init__(self, db_session: Optional[Session] = None):
+    def __init__(self, db_session: Session | None = None):
         self.http = NSESessionManager()
         self.holidays = HolidayManager()
         self._db_session = db_session
@@ -113,14 +113,14 @@ class NSEDataImporter:
         }
         return formats.get(pattern, dt.strftime(pattern))
 
-    def _build_url(self, pattern_key: str, dt: date) -> Optional[str]:
+    def _build_url(self, pattern_key: str, dt: date) -> str | None:
         if pattern_key not in NSE_FILE_PATTERNS:
             return None
         url_pattern, date_fmt, _ = NSE_FILE_PATTERNS[pattern_key]
         formatted = self._format_date(dt, date_fmt)
         return f"{NSE_ARCHIVES_BASE}{url_pattern.format(date=formatted)}"
 
-    def _parse_date_field(self, value: Any, fallback: date = None) -> Optional[date]:
+    def _parse_date_field(self, value: Any, fallback: date | None = None) -> date | None:
         if pd.isna(value) or not value:
             return fallback
         value = str(value).strip()
@@ -131,7 +131,7 @@ class NSEDataImporter:
                 continue
         return fallback
 
-    def _clean_numeric(self, value: Any) -> Optional[float]:
+    def _clean_numeric(self, value: Any) -> float | None:
         if pd.isna(value) or str(value).strip() == '':
             return None
         try:
@@ -139,7 +139,7 @@ class NSEDataImporter:
         except:
             return None
 
-    def _clean_integer(self, value: Any) -> Optional[int]:
+    def _clean_integer(self, value: Any) -> int | None:
         cleaned = self._clean_numeric(value)
         return int(cleaned) if cleaned is not None else None
 
@@ -161,7 +161,7 @@ class NSEDataImporter:
 
     def _log_import(self, db: Session, import_date: date, table_name: str,
                    status: str, rows_inserted: int, rows_updated: int = 0,
-                   error_msg: str = None):
+                   error_msg: str | None = None):
         log = models.ImportLog(
             import_date=import_date,
             table_name=table_name,
@@ -172,8 +172,8 @@ class NSEDataImporter:
         )
         db.add(log)
 
-    def _upsert_batch(self, db: Session, model_class, records: List[Dict],
-                     unique_fields: List[str]) -> Tuple[int, int]:
+    def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
+                     unique_fields: list[str]) -> tuple[int, int]:
         if not records:
             return 0, 0
         inserted, updated = 0, 0
@@ -191,7 +191,7 @@ class NSEDataImporter:
                 inserted += 1
         return inserted, updated
 
-    def _insert_bhavcopy_eq(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_bhavcopy_eq(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         if 'SERIES' in df.columns:
@@ -220,7 +220,7 @@ class NSEDataImporter:
             })
         return self._upsert_batch(db, models.BhavcopyEQ, records, ['symbol', 'series', 'trade_date'])
 
-    def _insert_bhavcopy_fo(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_bhavcopy_fo(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -245,7 +245,7 @@ class NSEDataImporter:
         return self._upsert_batch(db, models.BhavcopyFO, records,
                                  ['trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type'])
 
-    def _insert_fao_participant_oi(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_fao_participant_oi(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -270,7 +270,7 @@ class NSEDataImporter:
             })
         return self._upsert_batch(db, models.FAOParticipantOI, records, ['trade_date', 'client_type'])
 
-    def _insert_fo_volatility(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_fo_volatility(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -288,7 +288,7 @@ class NSEDataImporter:
         return self._upsert_batch(db, models.FOVolatility, records, ['trade_date', 'symbol'])
 
     def _insert_deals(self, df: pd.DataFrame, trade_date: date, db: Session,
-                     model_class, unique_fields: List[str]) -> Tuple[int, int]:
+                     model_class, unique_fields: list[str]) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -306,7 +306,7 @@ class NSEDataImporter:
             })
         return self._upsert_batch(db, model_class, records, unique_fields)
 
-    def _insert_fii_stats(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_fii_stats(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -326,7 +326,7 @@ class NSEDataImporter:
             })
         return self._upsert_batch(db, models.FIIDerivativesStat, records, ['date', 'instrument_type'])
 
-    def _insert_mto_delivery(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_mto_delivery(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -342,7 +342,7 @@ class NSEDataImporter:
             })
         return self._upsert_batch(db, models.MTODelivery, records, ['trade_date', 'security_name'])
 
-    def _insert_mwpl_position(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_mwpl_position(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -361,7 +361,7 @@ class NSEDataImporter:
                     })
         return self._upsert_batch(db, models.MWPLClientPosition, records, ['date', 'underlying_stock', 'client_position_num'])
 
-    def _insert_security_master(self, df: pd.DataFrame, db: Session) -> Tuple[int, int]:
+    def _insert_security_master(self, df: pd.DataFrame, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         if 'SctySrs' in df.columns:
@@ -386,7 +386,7 @@ class NSEDataImporter:
             })
         return self._upsert_batch(db, models.SecurityMaster, records, ['fin_instrm_id'])
 
-    def _insert_pe_ratio(self, df: pd.DataFrame, trade_date: date, db: Session) -> Tuple[int, int]:
+    def _insert_pe_ratio(self, df: pd.DataFrame, trade_date: date, db: Session) -> tuple[int, int]:
         if df.empty:
             return 0, 0
         records = []
@@ -417,8 +417,8 @@ class NSEDataImporter:
         }
         return handlers.get(pattern_key, lambda df, dt, db: (0, 0))
 
-    def import_date(self, trade_date: date, patterns: Optional[List[str]] = None,
-                   force: bool = False) -> Dict[str, Any]:
+    def import_date(self, trade_date: date, patterns: list[str] | None = None,
+                   force: bool = False) -> dict[str, Any]:
         """Import all configured files for a given date."""
         if not self.holidays.is_trading_day(trade_date):
             return {
@@ -483,12 +483,12 @@ class NSEDataImporter:
             'details': results
         }
 
-    def setup_timescale(self) -> Dict:
+    def setup_timescale(self) -> dict[str, Any]:
         """Initialize TimescaleDB hypertables and policies."""
         with self.get_db() as db:
             return setup_all_timescale_policies(db)
 
-    def get_import_stats(self, start_date: date = None, end_date: date = None) -> Dict:
+    def get_import_stats(self, start_date: date | None = None, end_date: date | None = None) -> dict[str, Any]:
         """Get import statistics."""
         from backend.ingest.queries import get_import_stats as query_stats
         with self.get_db() as db:
