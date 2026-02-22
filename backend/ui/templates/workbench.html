@@ -278,61 +278,90 @@
 
     </div>
 
-    <!-- Bhavcopy Upload Modal -->
+    <!-- NSE Import Modal -->
     <div id="bhavcopy-upload-modal" class="modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h2>Import Bhavcopy (UDIFF Format)</h2>
+                <h2>NSE Data Import</h2>
                 <span class="close">&times;</span>
             </div>
 
             <div class="modal-body">
-                <div class="import-type-selector" style="margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px;">
-                    <label class="radio-label" style="margin-right: 20px; cursor: pointer;">
-                        <input type="radio" name="import-type" value="daily" checked> Daily Bhavcopy
-                    </label>
-                    <label class="radio-label" style="cursor: pointer;">
-                        <input type="radio" name="import-type" value="historical"> Historical Data (Previous Years)
-                    </label>
+                <div class="import-tabs" style="display:flex; border-bottom:1px solid #444; margin-bottom:15px;">
+                    <div class="tab-btn active" data-tab="latest" onclick="openImportTab('latest')">Latest Data</div>
+                    <div class="tab-btn" data-tab="historical" onclick="openImportTab('historical')">Historical Range</div>
+                    <div class="tab-btn" data-tab="manual" onclick="openImportTab('manual')">Manual Upload</div>
                 </div>
 
-                <div class="upload-section">
-                    <label for="bhavcopy-file">Select ZIP file:</label>
-                    <input type="file" id="bhavcopy-file" accept=".zip" />
-                    <p class="hint" id="file-hint" style="color:#888; font-size:0.8em;">Expected format: BhavCopy_NSE_CM_0_0_0_YYYYMMDD_F_0000.csv.zip</p>
-                </div>
-
-                <!-- Import Options -->
-                <div class="import-options">
-                    <h4>Import Options:</h4>
-                    <div class="option-row">
-                        <label>Segments to import:</label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="import-segment-cm" checked /> Cash (CM)
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="import-segment-fo" checked /> F&O (Derivatives)
-                        </label>
-                    </div>
-
-                    <div class="option-row" style="display: none;">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="overwrite-existing" /> Overwrite existing data for this date
-                        </label>
-                        <p class="hint" style="color:#ff9800; font-size:0.8em;">Warning: This will delete all existing data for the selected date/segments</p>
+                <!-- Tab: Import Latest -->
+                <div id="tab-latest" class="import-tab-content active">
+                    <div class="import-options">
+                        <h4>Import Data for Latest Trading Day</h4>
+                        <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">
+                            Fetches the most recent available data directly from NSE servers.
+                        </p>
+                        <div class="option-row">
+                            <label>Data Types:</label><br>
+                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
+                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
+                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility" checked> F&O Volatility</label>
+                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats" checked> FII Stats</label>
+                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi" checked> Participant OI</label>
+                        </div>
+                        <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
                     </div>
                 </div>
 
-                <div id="upload-preview" class="preview-section">
-                    <p class="placeholder" style="color:#888;">Select a file to see preview</p>
+                <!-- Tab: Historical Range -->
+                <div id="tab-historical" class="import-tab-content" style="display:none;">
+                    <div class="import-options">
+                        <h4>Import Date Range</h4>
+                        <div class="option-row">
+                            <label>Start Date:</label>
+                            <input type="date" id="range-start" style="background:#333; color:white; border:1px solid #555;">
+                            <label style="margin-left:15px;">End Date:</label>
+                            <input type="date" id="range-end" style="background:#333; color:white; border:1px solid #555;">
+                        </div>
+                        <div class="option-row">
+                            <label>Data Types:</label><br>
+                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
+                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
+                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility" checked> F&O Volatility</label>
+                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats" checked> FII Stats</label>
+                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi" checked> Participant OI</label>
+                        </div>
+                        <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
+                    </div>
                 </div>
 
-                <div id="upload-status" class="status-message"></div>
-            </div>
+                <!-- Tab: Manual Upload (Legacy) -->
+                <div id="tab-manual" class="import-tab-content" style="display:none;">
+                    <div class="upload-section">
+                        <label for="bhavcopy-file">Select ZIP file:</label>
+                        <input type="file" id="bhavcopy-file" accept=".zip" />
+                        <p class="hint" id="file-hint" style="color:#888; font-size:0.8em;">Expected format: BhavCopy_NSE_CM_0_0_0_YYYYMMDD_F_0000.csv.zip</p>
+                    </div>
+                    <!-- (Kept minimal for legacy support) -->
+                    <button id="confirm-import-btn" class="btn btn-primary" disabled>Upload & Import</button>
+                </div>
 
-            <div class="modal-footer" style="padding-top:20px; border-top:1px solid #444; text-align:right;">
-                <button id="cancel-import-btn" class="btn btn-secondary">Cancel</button>
-                <button id="confirm-import-btn" class="btn btn-primary" disabled>Import to Database</button>
+                <!-- Status / Progress -->
+                <div id="import-progress-area" style="margin-top:20px; padding:15px; background:#222; border-radius:4px; display:none;">
+                    <h4 style="margin-top:0;">Import Progress</h4>
+                    <div id="progress-text" style="color:#ccc; font-size:0.9em; margin-bottom:5px;">Starting...</div>
+                    <div style="width:100%; background:#444; height:10px; border-radius:5px;">
+                        <div id="progress-bar" style="width:0%; background:#00bcd4; height:100%; border-radius:5px; transition:width 0.3s;"></div>
+                    </div>
+                    <div id="import-details" style="margin-top:10px; font-size:0.85em; color:#888; max-height:100px; overflow-y:auto;"></div>
+                </div>
+
+                <!-- Recent History -->
+                <div style="margin-top:20px;">
+                    <h4>Recent Imports</h4>
+                    <div id="import-history-list" style="font-size:0.85em; color:#aaa;">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
