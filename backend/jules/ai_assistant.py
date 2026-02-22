@@ -77,36 +77,101 @@ class JulesAssistant:
             # Fallback
             self.model = genai.GenerativeModel('gemini-1.5-flash')
 
+    def _scan_directory(self, root_path: str, max_depth: int = 2) -> dict:
+        """
+        Recursively scans directory for .py files and their content summary.
+        Returns a dict of {filepath: content}.
+        Limits content size to avoid context overflow.
+        """
+        file_map = {}
+        for root, dirs, files in os.walk(root_path):
+            # Calculate depth
+            depth = root[len(root_path):].count(os.sep)
+            if depth > max_depth:
+                continue
+
+            # Skip common junk
+            if '__pycache__' in root or 'tests' in root:
+                continue
+
+            for file in files:
+                if file.endswith('.py') or file.endswith('.md'):
+                    filepath = os.path.join(root, file)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            # If file is too large, just take header/imports/class defs (simplistic)
+                            if len(content) > 3000:
+                                # Truncate but keep head
+                                file_map[filepath] = content[:1500] + "\n... [Content Truncated] ...\n" + content[-500:]
+                            else:
+                                file_map[filepath] = content
+                    except Exception:
+                        pass
+        return file_map
+
     def _get_context(self) -> str:
         """
         Reads key codebase files to provide context to the AI.
+        Uses a recursive scan of critical directories.
         """
         context = "\n\n--- PROJECT CONTEXT ---\n"
 
-        # Files to include
-        files_to_read = [
-            "backend/strategies/turtle.py",
-            "backend/strategies/adapters/turtle_adapter.py",
-            "backend/domain/portfolio/models.py"
+        # Directories to include in scan
+        scan_dirs = [
+            "backend/domain",
+            "backend/analysis",
+            "backend/risk",
+            "backend/backtest",
+            "backend/strategies"
         ]
 
-        for filepath in files_to_read:
+        # Core Index (Structure)
+        context += "Directory Structure Summary:\n"
+        for d in scan_dirs:
+            if os.path.exists(d):
+                context += f"- {d}/\n"
+                for f in os.listdir(d):
+                    if not f.startswith("__"):
+                        context += f"  - {f}\n"
+
+        context += "\n--- CORE MODULES ---\n"
+
+        # 1. Map File if exists
+        if os.path.exists("backend/MAP.md"):
+            with open("backend/MAP.md", 'r') as f:
+                context += f"System Map:\n{f.read()}\n"
+
+        # 2. Critical Files (Full Read)
+        critical_files = [
+            "backend/strategies/turtle.py",
+            "backend/strategies/adapters/turtle_adapter.py",
+            "backend/domain/portfolio/models.py",
+            "backend/risk/greeks.py"
+        ]
+
+        for filepath in critical_files:
             if os.path.exists(filepath):
-                try:
-                    with open(filepath, 'r') as f:
-                        content = f.read()
-                        # Limit content size per file if needed, but for now just dump it
-                        context += f"\nFile: {filepath}\n```python\n{content}\n```\n"
-                except Exception as e:
-                    logger.error(f"Failed to read context file {filepath}: {e}")
+                with open(filepath, 'r') as f:
+                    context += f"\nFile: {filepath}\n```python\n{f.read()}\n```\n"
 
-        # List strategies
-        context += "\nAvailable Strategies in 'backend/strategies/':\n"
-        if os.path.exists("backend/strategies"):
-            context += str(os.listdir("backend/strategies")) + "\n"
+        # 3. Dynamic Scan (Truncated/Selective)
+        # Only scan 'domain' and 'strategies' deeply for now to save tokens
+        scanned_files = {}
+        for d in ["backend/domain", "backend/strategies"]:
+            if os.path.exists(d):
+                scanned_files.update(self._scan_directory(d))
 
-        context += "\nUse this context to answer specific questions about the codebase implementation.\n"
-        context += "When asked to generate new strategies, follow the pattern in 'turtle_adapter.py' and 'turtle.py'.\n"
+        for fp, content in scanned_files.items():
+            if fp not in critical_files: # Avoid dupes
+                context += f"\nFile (Ref): {fp}\n```python\n{content}\n```\n"
+
+        context += "\n--- INSTRUCTIONS ---\n"
+        context += "1. When asked to generate a Strategy, create a class inheriting from `BaseStrategy` or following the `TurtleLegacyStrategy` pattern.\n"
+        context += "2. Implement the `Adapter` pattern (like `TurtleAdapter`) to expose the strategy to the UI.\n"
+        context += "3. Use `PortfolioManager` for position sizing and capital tracking.\n"
+        context += "4. Check existing `backend/domain` models before creating new ones.\n"
+
         return context
 
     async def get_response(self, message: str) -> str:
@@ -125,9 +190,10 @@ class JulesAssistant:
             system_instruction = (
                 "You are Jules, an AI Assistant for the Turtle Terminal trading platform. "
                 "Your role is to assist with quantitative finance, python coding for strategies, and market analysis. "
-                "Do NOT answer questions unrelated to finance, coding, or the platform. "
+                "You have FULL visibility into the system's architecture via the Context provided below. "
+                "Use the existing modules (Risk, Domain, Analysis) whenever possible. "
                 "If you write Python code, enclose it strictly within ```python ... ``` blocks. "
-                "Do not simulate data exchange. Assume the user has the data locally or will load it.\n"
+                "Format output clearly. If a requested feature doesn't exist, propose a new Plugin class for it.\n"
                 f"{code_context}"
             )
 
@@ -135,7 +201,7 @@ class JulesAssistant:
             # we prepend it to the first message or use history.
             history = [
                 {"role": "user", "parts": [system_instruction]},
-                {"role": "model", "parts": ["Understood. I am Jules, ready to assist with Turtle Terminal."]}
+                {"role": "model", "parts": ["Understood. I am Jules, system-aware architect for Turtle Terminal. I see the modules and strategies."]}
             ]
 
             chat = self.model.start_chat(history=history)
