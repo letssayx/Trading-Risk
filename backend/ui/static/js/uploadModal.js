@@ -69,7 +69,27 @@ class NSEImporter {
         if(this.modal) this.modal.style.display = 'none';
     }
 
+    async checkHealth() {
+        try {
+            const res = await fetch('/api/v1/nse/health/db');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'unhealthy' || data.database === 'disconnected') {
+                    throw new Error(data.error || 'Database disconnected');
+                }
+                return true;
+            }
+            throw new Error(`Health Check Failed: ${res.status}`);
+        } catch (e) {
+            this.startProgress("Health Check Failed");
+            this.failProgress(`Backend unreachable: ${e.message}`);
+            return false;
+        }
+    }
+
     async importLatest() {
+        if (!(await this.checkHealth())) return;
+
         const patterns = Array.from(document.querySelectorAll('.latest-type:checked')).map(cb => cb.value);
         if (patterns.length === 0) {
             alert("Select at least one data type.");
@@ -79,15 +99,18 @@ class NSEImporter {
         this.startProgress("Starting latest data import...");
 
         try {
-            // Updated Endpoint: POST /api/v1/nse/ingest/import/latest?patterns=...
-            // Note: FastAPI query params for list usually repeat keys, e.g. patterns=A&patterns=B
-            // JS URLSearchParams handles this.
             const params = new URLSearchParams();
             patterns.forEach(p => params.append('patterns', p));
 
             const res = await fetch(`/api/v1/nse/ingest/import/latest?${params.toString()}`, {
                 method: 'POST'
             });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail?.message || errData.detail || `HTTP ${res.status}`);
+            }
+
             const data = await res.json();
 
             if (data.success) {
@@ -101,6 +124,8 @@ class NSEImporter {
     }
 
     async importRange() {
+        if (!(await this.checkHealth())) return;
+
         const start = document.getElementById('range-start').value;
         const end = document.getElementById('range-end').value;
         const patterns = Array.from(document.querySelectorAll('.range-type:checked')).map(cb => cb.value);
@@ -125,6 +150,12 @@ class NSEImporter {
             const res = await fetch(`/api/v1/nse/ingest/import/range?${params.toString()}`, {
                 method: 'POST'
             });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail?.message || errData.detail || `HTTP ${res.status}`);
+            }
+
             const data = await res.json();
 
             if (data.success) {
@@ -139,17 +170,7 @@ class NSEImporter {
 
     async importManual() {
         // Legacy Support for Manual Upload
-        // This functionality uses the older route /api/data/upload/bhavcopy/import
-        // or we can migrate it. For now, let's keep it simple or redirect.
-        // The user asked to use existing backend from `nse_importer.py`.
-        // The nse_importer is designed for web fetching.
-        // Manual upload logic is in `upload_routes.py` which handles ZIP parsing.
-
-        // Re-using the old logic for manual upload button simply calls the old route?
-        // Or better, let's just alert that this feature is legacy for now if we haven't ported it fully.
         alert("Manual upload is using legacy endpoint. Please use 'Latest' or 'Range' for best results.");
-
-        // ... (We could paste the old upload logic here if needed, but the prompt focused on new features)
     }
 
     // --- UI Helpers ---
@@ -170,6 +191,7 @@ class NSEImporter {
     failProgress(error) {
         this.progressBar.style.backgroundColor = '#f44336';
         this.progressText.textContent = `Error: ${error}`;
+        // Keep error visible
     }
 
     successProgress(msg) {
@@ -184,29 +206,13 @@ class NSEImporter {
         }
     }
 
-    // --- Task Polling (Mocked since we don't have a real Task Status API yet) ---
-    // In a real Celery setup, we'd have GET /tasks/{id}.
-    // Since we didn't explicitly build that, we'll simulate progress or just wait.
-    // However, the prompt implies "Progress bar showing download status".
-    // Without a task status endpoint, we can't show real progress.
-    // I'll implement a simple poller that checks import stats to see if count increases, or just a fake timer for now.
-
     pollTask(taskId) {
         // Placeholder for real polling
         let progress = 10;
         const interval = setInterval(() => {
             progress += 5;
             if (progress > 90) progress = 90;
-            this.updateProgress(progress, "Processing...");
-
-            // If we had a status API:
-            // fetch(`/api/tasks/${taskId}`)...
-
-            // For now, let's assume it finishes in a few seconds (fake)
-            // OR we can't really know when it's done without that API.
-            // Let's just finish it after 5 seconds for UI demo purposes
-            // as real implementation of Task Status API wasn't in the previous plan scope explicitly
-            // (we made ImportStatsResponse but that's aggregate).
+            this.updateProgress(progress, "Processing... (Check logs for details)");
         }, 500);
 
         setTimeout(() => {
@@ -221,25 +227,30 @@ class NSEImporter {
 
         try {
             const res = await fetch('/api/v1/nse/ingest/stats');
-            const data = await res.json(); // ImportStatsResponse
+            if (res.ok) {
+                const data = await res.json(); // ImportStatsResponse
 
-            if (data.summary && data.summary.length > 0) {
-                let html = '<ul style="list-style:none; padding:0;">';
-                data.summary.forEach(item => {
-                    html += `
-                        <li style="margin-bottom:5px; padding:5px; background:#333; border-radius:3px; display:flex; justify-content:space-between;">
-                            <span>${item.table_name}</span>
-                            <span>${item.status} (${item.job_count})</span>
-                        </li>
-                    `;
-                });
-                html += '</ul>';
-                list.innerHTML = html;
+                if (data.summary && data.summary.length > 0) {
+                    let html = '<ul style="list-style:none; padding:0;">';
+                    data.summary.forEach(item => {
+                        html += `
+                            <li style="margin-bottom:5px; padding:5px; background:#333; border-radius:3px; display:flex; justify-content:space-between;">
+                                <span>${item.table_name}</span>
+                                <span>${item.status} (${item.job_count})</span>
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
+                    list.innerHTML = html;
+                } else {
+                    list.innerHTML = '<p>No recent imports found.</p>';
+                }
             } else {
-                list.innerHTML = '<p>No recent imports found.</p>';
+                list.innerHTML = '<p style="color:#f44336">Failed to load history (DB offline?)</p>';
             }
         } catch (e) {
             console.error("Failed to fetch history", e);
+            list.innerHTML = '<p style="color:#f44336">History unavailable</p>';
         }
     }
 }
