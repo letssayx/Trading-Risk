@@ -180,6 +180,14 @@
                         chatInput.value = '';
                         chatContent.scrollTop = chatContent.scrollHeight;
 
+                        // Show Thinking Indicator
+                        const thinkingDiv = document.createElement('div');
+                        thinkingDiv.id = 'jules-thinking';
+                        thinkingDiv.style.marginTop = '5px';
+                        thinkingDiv.innerHTML = `<strong>Jules:</strong> <span style="color:#888;">Thinking...</span>`;
+                        chatContent.appendChild(thinkingDiv);
+                        chatContent.scrollTop = chatContent.scrollHeight;
+
                         // Real API Call
                         try {
                             const res = await fetch('/api/jules/chat', {
@@ -189,9 +197,33 @@
                             });
                             const data = await res.json();
 
-                            chatContent.innerHTML += `<div class="msg jules" style="margin-top:5px;"><strong>Jules:</strong> ${data.response}</div>`;
+                            // Remove Thinking
+                            if(thinkingDiv) thinkingDiv.remove();
+
+                            // Process response for code blocks
+                            let responseText = data.response;
+                            const codeBlockRegex = /```python([\s\S]*?)```/g;
+                            const codeMatches = [...responseText.matchAll(codeBlockRegex)];
+
+                            if (codeMatches.length > 0) {
+                                let pythonCode = '';
+                                codeMatches.forEach(match => {
+                                    pythonCode += match[1].trim() + '\n\n';
+                                    // Remove code block from chat text to avoid duplication, or keep it?
+                                    // User said "python code should appear in python space".
+                                    // Usually it's better to show "Code extracted to panel" in chat.
+                                    responseText = responseText.replace(match[0], '_(Python code moved to editor)_');
+                                });
+
+                                // Update Python Panel
+                                document.getElementById('python-content').innerHTML = `<pre style="color:#4caf50; white-space: pre-wrap;">${pythonCode}</pre>`;
+                                switchLeftTab('python'); // Auto-switch or notify? Let's just update.
+                            }
+
+                            chatContent.innerHTML += `<div class="msg jules" style="margin-top:5px;"><strong>Jules:</strong> ${responseText}</div>`;
                             chatContent.scrollTop = chatContent.scrollHeight;
                         } catch (err) {
+                            if(thinkingDiv) thinkingDiv.remove();
                             chatContent.innerHTML += `<div class="msg error" style="color:red;">Error: ${err.message}</div>`;
                         }
                     }

@@ -117,6 +117,7 @@ body {
     display: flex;
     background: #1a1a1a;
     border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 .tab-btn {
     padding: 6px 12px;
@@ -131,10 +132,18 @@ body {
     border-bottom: 2px solid var(--accent-color);
 }
 
+/* Chat Content Area specific fix */
+#jules-content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0; /* Important for flex child scrolling */
+}
+
 .chat-input-area {
     padding: 10px;
     border-top: 1px solid var(--border-color);
     background: #1e1e1e;
+    flex-shrink: 0;
 }
 .chat-input {
     width: 100%;
