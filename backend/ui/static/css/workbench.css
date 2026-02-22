@@ -93,7 +93,7 @@ body {
 
 #lp-top { height: 33%; overflow-y: auto; } /* Trading Edge */
 #lp-middle { display: none; } /* Hidden to maximize chat space */
-#lp-bottom { flex: 1; display: flex; flex-direction: column; } /* Chat/Input */
+#lp-bottom { flex: 1; display: flex; flex-direction: column; overflow: hidden; } /* Chat/Input */
 
 .panel-header {
     background: var(--bg-header);
