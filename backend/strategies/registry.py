@@ -40,6 +40,28 @@ class StrategyRegistry:
                         "type": "OOTB",
                         "description": (obj.__doc__ or "No description available.").strip().split('\n')[0]
                     })
+
+        # Manual additions for Analysis Tools (treated as OOTB strategies)
+        try:
+            from backend.analysis.toolbox.price_oi import PriceOiAnalyzer
+            strategies.append({
+                "name": "PriceOiAnalyzer",
+                "type": "OOTB",
+                "description": (PriceOiAnalyzer.__doc__ or "Price vs OI Analysis").strip().split('\n')[0]
+            })
+        except ImportError:
+            pass
+
+        try:
+            from backend.plugins.strategies.rollover import RolloverAnalyzer
+            strategies.append({
+                "name": "RolloverAnalyzer",
+                "type": "OOTB",
+                "description": (RolloverAnalyzer.__doc__ or "Rollover Analysis").strip().split('\n')[0]
+            })
+        except ImportError:
+            pass
+
         return strategies
 
     @classmethod
@@ -66,7 +88,11 @@ class StrategyRegistry:
                 module = importlib.import_module(module_name)
 
                 for member_name, obj in inspect.getmembers(module):
-                    if inspect.isclass(obj) and member_name.endswith("Strategy"):
+                    # Exclude RolloverAnalyzer if we manually added it to OOTB
+                    if member_name == "RolloverAnalyzer":
+                        continue
+
+                    if inspect.isclass(obj) and (member_name.endswith("Strategy") or member_name.endswith("Analyzer")):
                         # Ensure it's defined in this module (not imported)
                         if obj.__module__ == module_name:
                             strategies.append({

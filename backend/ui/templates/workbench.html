@@ -169,7 +169,7 @@
                     <pre style="margin:0; color:#aaa;"># Select a strategy tab to see code</pre>
                 </div>
                 <div class="chat-input-area">
-                    <input type="text" class="chat-input" id="jules-input" placeholder="Ask Jules or run command...">
+                    <textarea class="chat-input" id="jules-input" placeholder="Ask Jules or run command... (Shift+Enter for newline)"></textarea>
                 </div>
             </div>
 
@@ -179,12 +179,14 @@
                 const chatContent = document.getElementById('jules-content');
 
                 chatInput.addEventListener('keypress', async (e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault(); // Prevent default newline
+
                         const msg = chatInput.value.trim();
                         if (!msg) return;
 
                         // Append User Message
-                        chatContent.innerHTML += `<div class="msg user" style="color:#00bcd4; margin-top:5px;"><strong>You:</strong> ${msg}</div>`;
+                        chatContent.innerHTML += `<div class="msg user" style="color:#00bcd4; margin-top:5px; white-space: pre-wrap;"><strong>You:</strong> ${msg}</div>`;
                         chatInput.value = '';
                         chatContent.scrollTop = chatContent.scrollHeight;
 
@@ -228,7 +230,7 @@
                                 switchLeftTab('python'); // Auto-switch or notify? Let's just update.
                             }
 
-                            chatContent.innerHTML += `<div class="msg jules" style="margin-top:5px;"><strong>Jules:</strong> ${responseText}</div>`;
+                            chatContent.innerHTML += `<div class="msg jules" style="margin-top:5px; white-space: pre-wrap;"><strong>Jules:</strong> ${responseText}</div>`;
                             chatContent.scrollTop = chatContent.scrollHeight;
                         } catch (err) {
                             if(thinkingDiv) thinkingDiv.remove();

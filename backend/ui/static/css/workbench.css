@@ -120,7 +120,7 @@ body {
     display: flex;
     align-items: center;
     padding: 6px 8px;
-    cursor: grab;
+    cursor: pointer; /* Changed to pointer */
     border-radius: 4px;
     margin-bottom: 2px;
     background: transparent;
@@ -223,6 +223,9 @@ body {
     padding: 8px;
     box-sizing: border-box;
     border-radius: 4px;
+    resize: none; /* Prevent manual resize breaking layout */
+    height: 50px;
+    font-family: inherit;
 }
 
 

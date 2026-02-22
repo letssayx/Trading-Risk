@@ -27,11 +27,18 @@ const Toolbox = {
                 el.dataset.name = strat.name;
                 el.title = `${strat.description}`;
 
+                // Cleanup Name: Remove 'Strategy', 'Legacy', 'Analyzer' from display
+                let displayName = strat.name
+                    .replace('Legacy', '')
+                    .replace('Strategy', '')
+                    .replace('Analyzer', '')
+                    .replace(/([A-Z])/g, ' $1').trim(); // Add spaces
+
                 // Content
                 const icon = isUser ? '👤' : '♟️';
                 el.innerHTML = `
                     <div class="flyout-item-icon" style="color:${isUser ? '#ff9800' : '#00bcd4'}">${icon}</div>
-                    <div class="flyout-item-name">${strat.name}</div>
+                    <div class="flyout-item-name">${displayName}</div>
                 `;
 
                 // Attach drag start directly
@@ -44,6 +51,11 @@ const Toolbox = {
                     e.dataTransfer.setData('application/json', payload);
                     e.dataTransfer.effectAllowed = 'copy';
                     this.draggedData = payload;
+                });
+
+                // Attach Click to Open
+                el.addEventListener('click', () => {
+                     this.handleOpenStrategy(strat.name);
                 });
 
                 return el;
@@ -146,6 +158,26 @@ const Toolbox = {
         }
     },
 
+    handleOpenStrategy: function(strategyName) {
+        // Map known strategies to tabs, or default
+        // TurtleLegacyStrategy -> turtle
+        // StatArbAlphaEngine -> statarb
+        let tabType = 'turtle';
+        const lower = strategyName.toLowerCase();
+
+        if (lower.includes('turtle')) tabType = 'turtle';
+        else if (lower.includes('stat') && lower.includes('arb')) tabType = 'statarb';
+        else if (lower.includes('oi') && lower.includes('price')) tabType = 'oi'; // PriceOiAnalyzer
+        else if (lower.includes('rollover')) tabType = 'rollover'; // RolloverAnalyzer
+        else {
+             // For unknown/user strategies, maybe alert or open a generic tab
+             alert(`Opening User Strategy: ${strategyName}`);
+             return;
+        }
+
+        WorkbookManager.switchTab(tabType);
+    },
+
     handleDropOnChart: function(data) {
         if (data.type === 'indicator') {
             alert('Indicator added to active chart (Mock)');
@@ -156,22 +188,7 @@ const Toolbox = {
 
     handleDropOnWorkbook: function(data) {
         if (data.type === 'strategy') {
-            const strategyName = data.name;
-            // Map known strategies to tabs, or default
-            // TurtleLegacyStrategy -> turtle
-            // StatArbAlphaEngine -> statarb
-            let tabType = 'turtle';
-            if (strategyName.toLowerCase().includes('turtle')) tabType = 'turtle';
-            else if (strategyName.toLowerCase().includes('stat')) tabType = 'statarb';
-            else if (strategyName.toLowerCase().includes('oi')) tabType = 'oi';
-            else if (strategyName.toLowerCase().includes('rollover')) tabType = 'rollover';
-            else {
-                 // For unknown/user strategies, maybe alert or open a generic tab
-                 alert(`Opening User Strategy: ${strategyName}`);
-                 return;
-            }
-
-            WorkbookManager.switchTab(tabType);
+            this.handleOpenStrategy(data.name);
 
         } else if (data.type === 'indicator') {
             const indicatorType = prompt("Select Indicator (SMA/RSI/MACD):", "SMA");
