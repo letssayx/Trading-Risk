@@ -28,8 +28,8 @@ async def trigger_import(
 
 @router.post("/ingest/import/range")
 async def trigger_import_range(
-    start_date: str = Query(..., regex=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: str = Query(..., regex=r"^\d{4}-\d{2}-\d{2}$"),
+    start_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
     patterns: list[str] | None = Query(None)
 ):
     """

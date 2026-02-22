@@ -68,11 +68,13 @@ async def startup_event():
         print(f"⚠️ TickVault Init Warning: {e}")
 
     # Trigger TimescaleDB setup (async)
+    # Wrap in broad exception handler to prevent startup crash if Broker/DB is down
     try:
         setup_timescale_policies.delay()
         print("✅ TimescaleDB setup triggered")
     except Exception as e:
-        print(f"⚠️ TimescaleDB Setup Warning: {e}")
+        # Log error but don't stop startup
+        print(f"⚠️ TimescaleDB Setup Warning (Broker/DB may be offline): {e}")
 
     print("✅ Database initialized")
 
