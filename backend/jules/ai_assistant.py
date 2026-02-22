@@ -77,6 +77,38 @@ class JulesAssistant:
             # Fallback
             self.model = genai.GenerativeModel('gemini-1.5-flash')
 
+    def _get_context(self) -> str:
+        """
+        Reads key codebase files to provide context to the AI.
+        """
+        context = "\n\n--- PROJECT CONTEXT ---\n"
+
+        # Files to include
+        files_to_read = [
+            "backend/strategies/turtle.py",
+            "backend/strategies/adapters/turtle_adapter.py",
+            "backend/domain/portfolio/models.py"
+        ]
+
+        for filepath in files_to_read:
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, 'r') as f:
+                        content = f.read()
+                        # Limit content size per file if needed, but for now just dump it
+                        context += f"\nFile: {filepath}\n```python\n{content}\n```\n"
+                except Exception as e:
+                    logger.error(f"Failed to read context file {filepath}: {e}")
+
+        # List strategies
+        context += "\nAvailable Strategies in 'backend/strategies/':\n"
+        if os.path.exists("backend/strategies"):
+            context += str(os.listdir("backend/strategies")) + "\n"
+
+        context += "\nUse this context to answer specific questions about the codebase implementation.\n"
+        context += "When asked to generate new strategies, follow the pattern in 'turtle_adapter.py' and 'turtle.py'.\n"
+        return context
+
     async def get_response(self, message: str) -> str:
         # Always reload key before request to catch config changes
         if not self.model:
@@ -86,13 +118,17 @@ class JulesAssistant:
             return "Please configure your Google API Key in Settings to use Jules."
 
         try:
+            # Load dynamic context
+            code_context = self._get_context()
+
             # System Prompt to enforce context and format
             system_instruction = (
                 "You are Jules, an AI Assistant for the Turtle Terminal trading platform. "
                 "Your role is to assist with quantitative finance, python coding for strategies, and market analysis. "
                 "Do NOT answer questions unrelated to finance, coding, or the platform. "
                 "If you write Python code, enclose it strictly within ```python ... ``` blocks. "
-                "Do not simulate data exchange. Assume the user has the data locally or will load it."
+                "Do not simulate data exchange. Assume the user has the data locally or will load it.\n"
+                f"{code_context}"
             )
 
             # Since Gemini Pro stateless chat might not support system instructions directly in start_chat in all versions,
