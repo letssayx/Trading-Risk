@@ -113,23 +113,99 @@
         <div style="cursor:pointer; margin-right:15px;" onclick="document.getElementById('audit-modal').style.display='flex'">Audit Trail</div>
     </div>
 
-    <!-- Audit Trail Modal -->
-    <div id="audit-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 80%; max-width: 1200px; height: 80vh; display: flex; flex-direction: column;">
-            <div class="modal-header">
-                <h2>Audit Trail & System Logs</h2>
-                <span class="close" onclick="document.getElementById('audit-modal').style.display='none'">&times;</span>
+    <!-- Audit Trail Modal (Elegant Terminal Style) -->
+    <div id="audit-modal" class="modal" style="display: none; align-items: center; justify-content: center;">
+        <div class="modal-content" style="
+            width: 90%;
+            max-width: 1400px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 8px;
+            padding: 0;
+            overflow: hidden;
+        ">
+            <!-- Header -->
+            <div style="
+                padding: 15px 20px;
+                background: #252526;
+                border-bottom: 1px solid #333;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            ">
+                <div style="font-weight: 500; color: #ccc; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.2em;">📋 System Audit Trail</span>
+                    <span style="font-size: 0.8em; color: #666; background: #111; padding: 2px 6px; border-radius: 4px;">LIVE</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="downloadLogs()" style="font-size: 0.85em; display: flex; align-items: center; gap: 5px;">
+                        📥 Download Excel
+                    </button>
+                    <span class="close" onclick="document.getElementById('audit-modal').style.display='none'" style="margin-left: 10px; font-size: 24px;">&times;</span>
+                </div>
             </div>
-            <div style="flex: 1; background: #000; color: #0f0; font-family: monospace; padding: 10px; overflow-y: auto; margin-bottom: 10px; white-space: pre-wrap;" id="audit-log-container">
-                <!-- Logs will appear here -->
-                <div>Initializing Log Stream...</div>
+
+            <!-- Terminal Body -->
+            <div id="audit-log-container" style="
+                flex: 1;
+                background: #1e1e1e;
+                color: #d4d4d4;
+                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                font-size: 13px;
+                padding: 15px;
+                overflow-y: auto;
+                line-height: 1.5;
+                scroll-behavior: smooth;
+            ">
+                <div style="color: #6a9955;">// Initializing Secure Log Stream...</div>
             </div>
-            <div style="text-align: right;">
-                <button class="btn btn-secondary" onclick="document.getElementById('audit-log-container').innerHTML=''">Clear Logs</button>
-                <button class="btn btn-primary" onclick="document.getElementById('audit-modal').style.display='none'">Close</button>
+
+            <!-- Footer (Status Bar) -->
+            <div style="
+                padding: 5px 15px;
+                background: #007acc;
+                color: white;
+                font-size: 0.8em;
+                display: flex;
+                justify-content: space-between;
+            ">
+                <span>Status: Connected</span>
+                <span id="log-count">0 Events</span>
             </div>
         </div>
     </div>
+
+    <script>
+        function downloadLogs() {
+            const container = document.getElementById('audit-log-container');
+            const lines = Array.from(container.children).map(div => {
+                // Try to extract timestamp if present (assuming standard format)
+                const text = div.innerText;
+                // Simple CSV escaping
+                return `"${text.replace(/"/g, '""')}"`;
+            });
+
+            if (lines.length === 0) {
+                alert("No logs to download.");
+                return;
+            }
+
+            // CSV Header
+            const csvContent = "data:text/csv;charset=utf-8,Log Entry\n" + lines.join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `audit_trail_${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
 
     <!-- Config Modal -->
     <div id="config-modal" class="modal" style="display: none;">
@@ -459,18 +535,24 @@
                 if (auditContainer) {
                     const logLine = document.createElement('div');
                     logLine.textContent = msg;
-                    logLine.style.borderBottom = "1px solid #111";
+                    logLine.style.borderBottom = "1px solid #2d2d2d";
+                    logLine.style.padding = "2px 0";
 
-                    // Color coding
-                    if (msg.includes("ERROR")) logLine.style.color = "#ff5555";
-                    else if (msg.includes("WARNING")) logLine.style.color = "#ffb86c";
-                    else if (msg.includes("SQL")) logLine.style.color = "#8be9fd"; // DB Queries
-                    else logLine.style.color = "#50fa7b"; // Info/Success
+                    // VS Code / Terminal Theme Colors
+                    if (msg.includes("ERROR")) logLine.style.color = "#f48771"; // Reddish
+                    else if (msg.includes("WARNING")) logLine.style.color = "#cca700"; // Yellowish
+                    else if (msg.includes("SQL")) logLine.style.color = "#569cd6"; // Blueish
+                    else if (msg.includes("AUDIT")) logLine.style.color = "#b5cea8"; // Light Green
+                    else logLine.style.color = "#d4d4d4"; // Default Gray
 
                     auditContainer.appendChild(logLine);
 
+                    // Update count
+                    const countSpan = document.getElementById('log-count');
+                    if(countSpan) countSpan.innerText = `${auditContainer.children.length} Events`;
+
                     // Auto-scroll if near bottom
-                    if (auditContainer.scrollHeight - auditContainer.scrollTop - auditContainer.clientHeight < 100) {
+                    if (auditContainer.scrollHeight - auditContainer.scrollTop - auditContainer.clientHeight < 150) {
                         auditContainer.scrollTop = auditContainer.scrollHeight;
                     }
                 }
