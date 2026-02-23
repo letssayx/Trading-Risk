@@ -220,26 +220,30 @@ class NSEImporter {
                     clearInterval(interval);
                     this.failProgress(data.error || "Import task failed");
                 } else {
-                    // PROGRESS
-                    let percent = data.progress || 10;
-                    if (percent < 5) percent = 5; // Min width
+                    // PROGRESS or PENDING
+                    let percent = data.progress || 0;
+                    if (percent < 5 && data.status !== 'PENDING') percent = 5; // Min width visible
 
-                    let msg = `Processing: ${data.current_file || '...'}`;
+                    let msg = `Processing: ${data.current_file || 'Initializing...'}`;
                     if (data.status === 'PENDING') msg = "Queued...";
 
                     let details = '';
-                    if (data.files_completed && data.files_completed.length > 0) {
-                        details += `<div style="color:#4caf50">Completed: ${data.files_completed.join(', ')}</div>`;
+                    // File counts
+                    const completedCount = data.files_completed ? data.files_completed.length : 0;
+                    const failedCount = data.files_failed ? data.files_failed.length : 0;
+
+                    if (completedCount > 0) {
+                        details += `<div style="color:#4caf50">✓ Processed: ${completedCount} files</div>`;
                     }
-                    if (data.files_failed && data.files_failed.length > 0) {
-                        details += `<div style="color:#f44336">Failed: ${data.files_failed.map(f => f.name).join(', ')}</div>`;
+                    if (failedCount > 0) {
+                        details += `<div style="color:#f44336">✗ Failed: ${failedCount} files</div>`;
                     }
 
                     this.updateProgress(percent, msg, details);
                 }
             } catch (e) {
                 console.error("Polling error", e);
-                // Don't stop polling immediately on network blip, but maybe after X tries
+                // Don't stop polling immediately on network blip
             }
         }, 1000);
     }
@@ -247,14 +251,13 @@ class NSEImporter {
     renderDetails(completed, failed) {
         let html = '';
         if (completed && completed.length > 0) {
-            html += `<div style="color:#4caf50">✅ Imported: ${completed.length} files</div>`;
-            html += `<div style="font-size:0.9em; color:#888;">${completed.join(', ')}</div>`;
+            html += `<div style="color:#4caf50; font-weight:bold;">✅ Success (${completed.length})</div>`;
+            html += `<div style="font-size:0.9em; color:#aaa; margin-bottom:10px;">${completed.join(', ')}</div>`;
         }
         if (failed && failed.length > 0) {
-            html += `<div style="color:#f44336; margin-top:5px;">❌ Failed: ${failed.length} files</div>`;
-            html += `<div style="font-size:0.9em; color:#888;">`;
+            html += `<div style="color:#f44336; font-weight:bold;">❌ Failed (${failed.length})</div>`;
+            html += `<div style="font-size:0.9em; color:#aaa;">`;
             failed.forEach(f => {
-                // Handle string or object structure
                 const name = typeof f === 'string' ? f : f.name || f;
                 const err = typeof f === 'object' && f.error ? ` (${f.error})` : '';
                 html += `<div>• ${name}${err}</div>`;
