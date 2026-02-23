@@ -1,6 +1,6 @@
 """TimescaleDB-Optimized Query Helpers"""
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, List
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import pandas as pd
@@ -47,6 +47,9 @@ def get_fno_oi_trend(
     lookback_days: int = 30
 ) -> dict[str, Any]:
     """Get F&O OI trend using continuous aggregate (fallback to raw)."""
+
+    cutoff_date = date.today() - timedelta(days=lookback_days)
+
     # Try continuous aggregate first
     try:
         agg_query = text("""
@@ -58,14 +61,14 @@ def get_fno_oi_trend(
             FROM fno_daily_oi_summary
             WHERE ticker_symb = :symbol
               AND (:expiry IS NULL OR expiry_date = :expiry)
-              AND bucket >= CURRENT_DATE - INTERVAL ':lookback days'
+              AND bucket >= :cutoff_date
             ORDER BY bucket DESC
         """)
 
         result = db.execute(agg_query, {
             'symbol': symbol,
             'expiry': expiry_date,
-            'lookback': lookback_days
+            'cutoff_date': cutoff_date
         }).fetchall()
 
         if result:
@@ -75,7 +78,7 @@ def get_fno_oi_trend(
                 'symbol': symbol,
                 'expiry': expiry_date.isoformat() if expiry_date else None
             }
-    except:
+    except Exception:
         pass
 
     # Fallback to raw table
@@ -88,7 +91,7 @@ def get_fno_oi_trend(
         FROM bhavcopy_fo
         WHERE ticker_symb = :symbol
           AND (:expiry IS NULL OR expiry_date = :expiry)
-          AND trade_date >= CURRENT_DATE - INTERVAL ':lookback days'
+          AND trade_date >= :cutoff_date
         GROUP BY trade_date
         ORDER BY trade_date DESC
     """)
@@ -96,7 +99,7 @@ def get_fno_oi_trend(
     result = db.execute(raw_query, {
         'symbol': symbol,
         'expiry': expiry_date,
-        'lookback': lookback_days
+        'cutoff_date': cutoff_date
     }).fetchall()
 
     return {
@@ -109,10 +112,12 @@ def get_fno_oi_trend(
 
 def get_volatility_comparison(
     db: Session,
-    symbols: list[str],
+    symbols: List[str],
     days: int = 90
 ) -> pd.DataFrame:
     """Compare volatility across symbols."""
+    cutoff_date = date.today() - timedelta(days=days)
+
     query = text("""
         SELECT
             trade_date,
@@ -121,11 +126,11 @@ def get_volatility_comparison(
             underlying_close_price AS price
         FROM fo_volatility
         WHERE symbol = ANY(:symbols)
-          AND trade_date >= CURRENT_DATE - INTERVAL ':days days'
+          AND trade_date >= :cutoff_date
         ORDER BY trade_date DESC, symbol
     """)
 
-    result = db.execute(query, {'symbols': symbols, 'days': days})
+    result = db.execute(query, {'symbols': symbols, 'cutoff_date': cutoff_date})
     return pd.DataFrame(result.fetchall(), columns=result.keys())
 
 
