@@ -43,13 +43,15 @@ manager = ConnectionManager()
 # Attach handler to root logger or specific loggers
 ws_handler = WebSocketLogHandler(manager)
 ws_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ws_handler.setFormatter(formatter)
 
-# Add to specific loggers we care about
-logging.getLogger("backend.ingest").addHandler(ws_handler)
-logging.getLogger("backend.strategies").addHandler(ws_handler)
-logging.getLogger("sqlalchemy.engine").addHandler(ws_handler) # For DB queries if enabled
+# Capture all backend logs
+logging.getLogger("backend").addHandler(ws_handler)
+# Capture DB queries
+logging.getLogger("sqlalchemy.engine").addHandler(ws_handler)
+# Capture Celery if needed (though usually handled by worker stdout, we can try)
+logging.getLogger("celery").addHandler(ws_handler)
 
 @router.websocket("/ws/logs")
 async def websocket_endpoint(websocket: WebSocket):
@@ -59,5 +61,3 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-
-# Removed mock log_generator to rely on real logs
