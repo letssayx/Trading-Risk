@@ -141,7 +141,14 @@
                     <span style="font-size: 1.2em;">📋 System Audit Trail</span>
                     <span style="font-size: 0.8em; color: #666; background: #111; padding: 2px 6px; border-radius: 4px;">LIVE</span>
                 </div>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <!-- History Controls -->
+                    <div style="display: flex; gap: 5px; margin-right: 15px;">
+                        <input type="date" id="audit-start" style="background:#111; color:#ccc; border:1px solid #444; font-size:0.8em;">
+                        <input type="date" id="audit-end" style="background:#111; color:#ccc; border:1px solid #444; font-size:0.8em;">
+                        <button class="btn btn-secondary" onclick="loadAuditHistory()" style="font-size: 0.8em; padding: 4px 8px;">Load History</button>
+                    </div>
+
                     <button class="btn btn-secondary" onclick="downloadLogs()" style="font-size: 0.85em; display: flex; align-items: center; gap: 5px;">
                         📥 Download Excel
                     </button>
@@ -180,6 +187,60 @@
     </div>
 
     <script>
+        async function loadAuditHistory() {
+            const start = document.getElementById('audit-start').value;
+            const end = document.getElementById('audit-end').value;
+            const container = document.getElementById('audit-log-container');
+
+            container.innerHTML = '<div style="color: #6a9955;">// Loading History...</div>';
+
+            try {
+                let url = '/api/audit/history?limit=1000';
+                if (start) url += `&start_date=${start}`;
+                if (end) url += `&end_date=${end}`;
+
+                const res = await fetch(url);
+                const logs = await res.json();
+
+                container.innerHTML = ''; // Clear loading
+
+                if (logs.length === 0) {
+                    container.innerHTML = '<div style="color: #888;">No logs found for this period.</div>';
+                    return;
+                }
+
+                // Logs come newest first, reverse for terminal view (oldest at top)
+                logs.reverse().forEach(log => {
+                    const logLine = document.createElement('div');
+                    // Format: TIMESTAMP - SOURCE - MESSAGE
+                    logLine.textContent = `${log.timestamp} - [${log.source}] ${log.message}`;
+                    logLine.style.borderBottom = "1px solid #2d2d2d";
+                    logLine.style.padding = "2px 0";
+
+                    if (log.level === "ERROR") logLine.style.color = "#f48771";
+                    else if (log.level === "WARNING") logLine.style.color = "#cca700";
+                    else if (log.message.includes("SQL")) logLine.style.color = "#569cd6";
+                    else logLine.style.color = "#d4d4d4";
+
+                    container.appendChild(logLine);
+                });
+
+                // Add separator for live logs
+                const sep = document.createElement('div');
+                sep.style.borderTop = "1px dashed #666";
+                sep.style.margin = "10px 0";
+                sep.style.color = "#6a9955";
+                sep.textContent = "// End of History - Resuming Live Stream...";
+                container.appendChild(sep);
+
+                container.scrollTop = container.scrollHeight;
+                document.getElementById('log-count').innerText = `${logs.length} Historical Events`;
+
+            } catch (e) {
+                container.innerHTML += `<div style="color: red;">Error loading history: ${e.message}</div>`;
+            }
+        }
+
         function downloadLogs() {
             const container = document.getElementById('audit-log-container');
             const lines = Array.from(container.children).map(div => {

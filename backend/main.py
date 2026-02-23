@@ -32,6 +32,7 @@ from backend.web.api import jules_routes
 from backend.web.api import config_routes
 from backend.web.api.data import view_routes
 from backend.web.api import nse_routes
+from backend.web.api import audit_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
@@ -67,6 +68,7 @@ app.include_router(jules_routes.router)
 app.include_router(config_routes.router)
 app.include_router(view_routes.router)
 app.include_router(nse_routes.router, prefix="/api/v1/nse", tags=["nse"])
+app.include_router(audit_routes.router, prefix="/api/audit", tags=["audit"])
 
 @app.on_event("startup")
 async def startup_event():

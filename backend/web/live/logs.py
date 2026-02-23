@@ -1,9 +1,21 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
-from typing import List
+from typing import List, Dict, Any
 import logging
+import time
+from datetime import datetime
 
-# Set up logger that broadcasts to WebSocket
+# Import the persistence task
+# We import inside handler or ensure module loading to avoid circular deps
+from backend.ingest.audit_tasks import persist_log_batch
+
+router = APIRouter()
+
+# Buffer for logs to batch-insert
+LOG_BUFFER: List[Dict[str, Any]] = []
+BUFFER_SIZE = 100
+FLUSH_INTERVAL = 5 # seconds
+
 class WebSocketLogHandler(logging.Handler):
     def __init__(self, manager):
         super().__init__()
@@ -12,12 +24,24 @@ class WebSocketLogHandler(logging.Handler):
     def emit(self, record):
         try:
             msg = self.format(record)
-            # Create a fire-and-forget task to broadcast
+
+            # 1. Broadcast to UI
             asyncio.create_task(self.manager.broadcast(msg))
+
+            # 2. Queue for DB Persistence
+            # Parse simple message or keep raw
+            log_entry = {
+                "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+                "level": record.levelname,
+                "source": record.name,
+                "event_type": "System_Log",
+                "message": record.getMessage(),
+                "meta_data": {"filename": record.filename, "line": record.lineno}
+            }
+            LOG_BUFFER.append(log_entry)
+
         except Exception:
             self.handleError(record)
-
-router = APIRouter()
 
 class ConnectionManager:
     def __init__(self):
@@ -40,18 +64,35 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Attach handler to root logger or specific loggers
+# Background Log Flusher
+async def log_flusher():
+    """Periodically flushes log buffer to DB"""
+    while True:
+        await asyncio.sleep(FLUSH_INTERVAL)
+        if LOG_BUFFER:
+            # Create batch copy
+            batch = LOG_BUFFER[:]
+            LOG_BUFFER.clear()
+            # Send to Celery
+            try:
+                persist_log_batch.delay(batch)
+            except Exception as e:
+                print(f"Log flush failed: {e}")
+
+# Attach handler
 ws_handler = WebSocketLogHandler(manager)
 ws_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 ws_handler.setFormatter(formatter)
 
-# Capture all backend logs
+# Attach to loggers
 logging.getLogger("backend").addHandler(ws_handler)
-# Capture DB queries
 logging.getLogger("sqlalchemy.engine").addHandler(ws_handler)
-# Capture Celery if needed (though usually handled by worker stdout, we can try)
 logging.getLogger("celery").addHandler(ws_handler)
+
+@router.on_event("startup")
+async def start_flusher():
+    asyncio.create_task(log_flusher())
 
 @router.websocket("/ws/logs")
 async def websocket_endpoint(websocket: WebSocket):

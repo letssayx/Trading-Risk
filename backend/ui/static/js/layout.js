@@ -2,6 +2,36 @@ const Layout = {
     init: function() {
         this.initResizers();
         this.setupGlobalEvents();
+        this.setupAuditInterceptors();
+    },
+
+    setupAuditInterceptors: function() {
+        // Capture Clicks on Buttons/Tabs
+        document.addEventListener('click', (e) => {
+            const target = e.target.closest('button, .tab-btn, .toolbox-item');
+            if (target) {
+                const action = target.innerText || target.title || target.id;
+                this.logAction('Click', `User clicked ${action}`, { id: target.id, class: target.className });
+            }
+        });
+    },
+
+    logAction: async function(eventType, message, meta = {}) {
+        try {
+            await fetch('/api/audit/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    level: 'USER',
+                    source: 'Frontend',
+                    event_type: eventType,
+                    message: message,
+                    meta_data: meta
+                })
+            });
+        } catch (e) {
+            // console.warn("Failed to send audit log", e);
+        }
     },
 
     setupGlobalEvents: function() {
