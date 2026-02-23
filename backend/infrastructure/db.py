@@ -1,7 +1,8 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,6 +15,24 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+# Configure DB Logging
+db_logger = logging.getLogger("sqlalchemy.engine")
+db_logger.setLevel(logging.INFO)
+
+def log_query(conn, cursor, statement, parameters, context, executemany):
+    """Log executed queries to the audit trail."""
+    # Truncate long statements for readability
+    if len(statement) > 500:
+        stmt_preview = statement[:500] + "..."
+    else:
+        stmt_preview = statement
+
+    # We could log parameters too, but be careful with sensitive data
+    db_logger.info(f"SQL: {stmt_preview}")
+
+# Attach the event listener for Query Logging (Audit Trail)
+event.listen(engine, "before_cursor_execute", log_query)
 
 def get_db():
     db = SessionLocal()

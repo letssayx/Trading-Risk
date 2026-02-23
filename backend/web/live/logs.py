@@ -1,6 +1,21 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
 from typing import List
+import logging
+
+# Set up logger that broadcasts to WebSocket
+class WebSocketLogHandler(logging.Handler):
+    def __init__(self, manager):
+        super().__init__()
+        self.manager = manager
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            # Create a fire-and-forget task to broadcast
+            asyncio.create_task(self.manager.broadcast(msg))
+        except Exception:
+            self.handleError(record)
 
 router = APIRouter()
 
@@ -13,7 +28,8 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: str):
         for connection in self.active_connections:
@@ -24,30 +40,24 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Attach handler to root logger or specific loggers
+ws_handler = WebSocketLogHandler(manager)
+ws_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+ws_handler.setFormatter(formatter)
+
+# Add to specific loggers we care about
+logging.getLogger("backend.ingest").addHandler(ws_handler)
+logging.getLogger("backend.strategies").addHandler(ws_handler)
+logging.getLogger("sqlalchemy.engine").addHandler(ws_handler) # For DB queries if enabled
+
 @router.websocket("/ws/logs")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Keep alive or wait for client messages?
-            # Usually logs are push-only.
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# Mock log producer
-async def log_generator():
-    """Simulates backend activity logs."""
-    import random
-    logs = [
-        "Computing Z-Score for AAPL...",
-        "Market Data Heartbeat: 45ms latency",
-        "Risk Engine: VaR 95% = $12,450",
-        "Strategy: Turtle Breakout detected on NIFTY",
-        "Registry: New tool loaded.",
-        "System: Optimal."
-    ]
-    while True:
-        await asyncio.sleep(2)
-        msg = random.choice(logs)
-        await manager.broadcast(msg)
+# Removed mock log_generator to rely on real logs

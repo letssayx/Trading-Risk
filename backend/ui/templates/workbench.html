@@ -412,21 +412,50 @@
         }
 
         let ws;
+        let logsWs;
+
         function connectLiveFeed() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
 
+            // 1. Market Data Stream
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
             ws.onopen = () => {
                 console.log("WS Connected");
-                // Subscribe to default symbols if any
                 ws.send(JSON.stringify({subscribe: ["NIFTY", "BANKNIFTY"]}));
             };
-
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                // Dispatch to modules
                 ChartTabs.handleTick(data);
                 WorkbookManager.handleTick(data);
+            };
+
+            // 2. Audit Trail / System Logs Stream
+            logsWs = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+            logsWs.onopen = () => console.log("Logs Stream Connected");
+            logsWs.onmessage = (event) => {
+                // Determine where to show logs. For now, maybe just console or a toast?
+                // The prompt says "audit trail shows logs of imports... track activity".
+                // We'll append it to the Jules chat or a dedicated log panel if it existed.
+                // Since user asked for "Audit Trail", let's dump significant logs to the Jules console for visibility.
+                const msg = event.data;
+                console.log("AUDIT:", msg);
+
+                // If it's an import log, we might want to highlight it
+                if (msg.includes("backend.ingest") || msg.includes("Import")) {
+                    // Optional: Show in UI
+                    const julesContent = document.getElementById('jules-content');
+                    if (julesContent) {
+                        const logDiv = document.createElement('div');
+                        logDiv.style.fontSize = '0.8em';
+                        logDiv.style.color = '#888';
+                        logDiv.style.borderLeft = '2px solid #444';
+                        logDiv.style.paddingLeft = '5px';
+                        logDiv.style.marginTop = '2px';
+                        logDiv.textContent = `[SYSTEM] ${msg}`;
+                        julesContent.appendChild(logDiv);
+                        julesContent.scrollTop = julesContent.scrollHeight;
+                    }
+                }
             };
         }
     </script>
