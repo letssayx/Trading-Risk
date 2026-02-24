@@ -37,7 +37,8 @@ def get_bhavcopy_eq_timeseries(
         'start_date': start_date,
         'end_date': end_date
     })
-    return [dict(row) for row in result]
+    # Use _mapping for safer dict conversion in SQLAlchemy 1.4+
+    return [dict(row._mapping) for row in result]
 
 
 def get_fno_oi_trend(
@@ -74,7 +75,7 @@ def get_fno_oi_trend(
         if result:
             return {
                 'source': 'continuous_aggregate',
-                'data': [dict(row) for row in result],
+                'data': [dict(row._mapping) for row in result],
                 'symbol': symbol,
                 'expiry': expiry_date.isoformat() if expiry_date else None
             }
@@ -104,7 +105,7 @@ def get_fno_oi_trend(
 
     return {
         'source': 'raw_table',
-        'data': [dict(row) for row in result],
+        'data': [dict(row._mapping) for row in result],
         'symbol': symbol,
         'expiry': expiry_date.isoformat() if expiry_date else None
     }
@@ -168,7 +169,7 @@ def get_participant_oi_heatmap(
 
     return {
         'date': target_date.isoformat(),
-        'participants': [dict(row) for row in result]
+        'participants': [dict(row._mapping) for row in result]
     }
 
 
@@ -194,7 +195,7 @@ def get_import_stats(
     result = db.execute(query, {'start': start_date, 'end': end_date})
 
     return {
-        'summary': [dict(row) for row in result],
+        'summary': [dict(row._mapping) for row in result],
         'period': {'start': start_date.isoformat() if start_date else None,
                    'end': end_date.isoformat() if end_date else None}
     }
