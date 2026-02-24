@@ -13,6 +13,7 @@ from backend.config.defaults.nse import NSE_FILE_PATTERNS
 from backend.infrastructure.db import SessionLocal
 from backend.ingest import nse_models as models
 from backend.domain.market.models import Bhavcopy
+from backend.models.audit import SystemLog
 from backend.ingest.timescale import setup_all_timescale_policies
 from backend.ingest.nse_session import NSESessionManager
 from backend.ingest.date_utils import NSEHolidayCalendar, format_nse_date
@@ -52,42 +53,45 @@ class NSEDataImporter:
         return f"{NSE_ARCHIVES_BASE}{url_pattern.format(formatted)}"
 
     def _parse_response(self, resp: requests.Response, pattern_key: str) -> pd.DataFrame | None:
-        """Parse response based on file type in pattern key or content."""
+        """Parse response object (wrapper around _parse_content)."""
+        return self._parse_content(resp.content, pattern_key)
+
+    def _parse_content(self, content: bytes, pattern_key: str) -> pd.DataFrame | None:
+        """Parse raw content based on file type."""
         try:
             # Handle specific known zip/gz patterns first
-            if pattern_key == 'fno_bhav':
-                 with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            if pattern_key in ['fno_bhav', 'margin_trading']:
+                 with zipfile.ZipFile(io.BytesIO(content)) as zf:
                     # Usually just one CSV in there
                     csv_name = [n for n in zf.namelist() if n.lower().endswith('.csv')][0]
                     with zf.open(csv_name) as f:
                         return pd.read_csv(f, low_memory=False)
 
             elif pattern_key == 'nse_security':
-                with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as gz:
+                with gzip.GzipFile(fileobj=io.BytesIO(content)) as gz:
                     return pd.read_csv(gz, low_memory=False)
-
-            # Content-type based fallback or extension based
-            # But we know the patterns from config
 
             # Excel files
             if pattern_key in ['fii_stats', 'mwpl_cli']:
-                 # nselib uses read_excel
-                 return pd.read_excel(io.BytesIO(resp.content))
+                 return pd.read_excel(io.BytesIO(content))
 
             # Default CSV / DAT (often CSV-like)
-            # Some DAT files are fixed width? But user said MTO is DAT.
-            # Let's try read_csv first. MTO usually comma separated or pipe.
-            # If MTO fails with read_csv, we might need specific handling.
-            # nselib treats MTO as CSV (skiprows might be needed for headers)
-            return pd.read_csv(io.StringIO(resp.text), low_memory=False)
+            # Try to decode as text
+            try:
+                text_content = content.decode('utf-8')
+            except UnicodeDecodeError:
+                text_content = content.decode('latin-1')
+
+            return pd.read_csv(io.StringIO(text_content), low_memory=False)
 
         except Exception as e:
-            logger.error(f"Failed to parse response for {pattern_key}: {e}")
+            logger.error(f"Failed to parse content for {pattern_key}: {e}")
             return None
 
     def _log_import(self, db: Session, import_date: date, table_name: str,
                    status: str, rows_inserted: int, rows_updated: int = 0,
                    error_msg: str | None = None):
+        # 1. Log to ImportLog table (Structured Audit)
         log = models.ImportLog(
             import_date=import_date,
             table_name=table_name,
@@ -97,6 +101,25 @@ class NSEDataImporter:
             error_msg=error_msg
         )
         db.add(log)
+
+        # 2. Log to SystemLog (Visible in Audit Trail UI)
+        # Only log failures or significant completions to reduce noise
+        level = "ERROR" if status in ["FAILED", "ERROR"] else "INFO"
+        msg = f"NSE Import: {table_name} for {import_date} - {status}"
+        if error_msg:
+            msg += f" | Error: {error_msg}"
+        else:
+            msg += f" | Rows: {rows_inserted + rows_updated}"
+
+        sys_log = SystemLog(
+            timestamp=datetime.now(),
+            level=level,
+            source="NSE_Importer",
+            event_type="Data_Import",
+            message=msg,
+            meta_data={"rows": rows_inserted + rows_updated, "table": table_name}
+        )
+        db.add(sys_log)
 
     def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
                      unique_fields: list[str]) -> tuple[int, int]:
@@ -209,6 +232,10 @@ class NSEDataImporter:
             'mwpl_cli': models.MWPLClientPosition,
             'nse_security': models.SecurityMaster,
             'pe_ratio': models.PERatio,
+            'var_begin': models.VaRStat,
+            'var_end': models.VaRStat,
+            'contract_delta': models.ContractDelta,
+            'margin_trading': models.MarginTrading,
         }
         return mapping.get(pattern_key)
 
@@ -225,6 +252,10 @@ class NSEDataImporter:
             'mwpl_cli': ['date', 'underlying_stock', 'client_position_num'],
             'nse_security': ['fin_instrm_id'],
             'pe_ratio': ['date', 'symbol'],
+            'var_begin': ['date', 'symbol', 'series', 'file_type'],
+            'var_end': ['date', 'symbol', 'series', 'file_type'],
+            'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
+            'margin_trading': ['date', 'symbol'],
         }
         return mapping.get(pattern_key, [])
 

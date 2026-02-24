@@ -252,6 +252,81 @@ class PERatio(Base, TimescaleMixin):
     )
 
 
+class VaRStat(Base, TimescaleMixin):
+    """VaR Statistics (Begin/End of Day)"""
+    __tablename__ = "var_stats"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    series = Column(String(10))
+    security_var = Column(Float)
+    index_var = Column(Float)
+    var_margin = Column(Float)
+    extreme_loss_rate = Column(Float)
+    adho_margin = Column(Float)
+    applicable_margin_rate = Column(Float)
+    file_type = Column(String(10)) # BEGIN or END
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', 'symbol', 'series', 'file_type', name='uq_var_stats_unique'),
+    )
+
+
+class ContractDelta(Base, TimescaleMixin):
+    """NCL Contract Delta"""
+    __tablename__ = "contract_delta"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    expiry_date = Column(Date)
+    strike_price = Column(Float)
+    option_type = Column(String(5))
+    delta = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', 'symbol', 'expiry_date', 'strike_price', 'option_type', name='uq_contract_delta_unique'),
+    )
+
+
+class Auction(Base, TimescaleMixin):
+    """Securities for Auction"""
+    __tablename__ = "auctions"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    series = Column(String(10))
+    auction_qty = Column(Integer)
+    best_buy_price = Column(Float)
+    best_sell_price = Column(Float)
+    auction_price = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', 'symbol', 'series', name='uq_auctions_unique'),
+    )
+
+
+class MarginTrading(Base, TimescaleMixin):
+    """Margin Trading Disclosure"""
+    __tablename__ = "margin_trading"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    quantity_funded = Column(Integer)
+    amount_funded = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', 'symbol', name='uq_margin_trading_unique'),
+    )
+
+
 class ImportLog(Base):
     """Import Audit Log"""
     __tablename__ = "import_logs"

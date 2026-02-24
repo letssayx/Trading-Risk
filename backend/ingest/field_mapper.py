@@ -77,6 +77,18 @@ class FieldMapper:
         if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:
             return {'type': 'security_master', 'name': 'security_master'}
 
+        # VaR Stats
+        if 'Security VaR' in columns or 'Security Symbol' in columns and 'VaR Margin' in columns:
+            return {'type': 'var_stats', 'name': 'var_stats'}
+
+        # Contract Delta
+        if 'Delta' in columns and 'Strike Price' in columns:
+            return {'type': 'contract_delta', 'name': 'contract_delta'}
+
+        # Margin Trading
+        if 'Quantity Funded' in columns or 'Amount Funded' in columns:
+            return {'type': 'margin_trading', 'name': 'margin_trading'}
+
         return {'type': 'unknown', 'name': 'unknown'}
 
     @classmethod
@@ -91,8 +103,6 @@ class FieldMapper:
         elif format_type == 'eq_old':
             return cls._map_eq_old(df)
         elif format_type == 'deals':
-             # If invoked generically, caller should specify exact table if possible,
-             # otherwise we default to bulk deals if not specified
              target = format_info.get('target_table', 'bulk_deals')
              return cls._map_deals(df, target)
         elif format_type == 'participant_oi':
@@ -109,6 +119,12 @@ class FieldMapper:
             return cls._map_pe(df, trade_date)
         elif format_type == 'security_master':
             return cls._map_security_master(df)
+        elif format_type == 'var_stats':
+            return cls._map_var_stats(df, trade_date)
+        elif format_type == 'contract_delta':
+            return cls._map_contract_delta(df, trade_date)
+        elif format_type == 'margin_trading':
+            return cls._map_margin_trading(df, trade_date)
 
         return []
 
@@ -380,6 +396,64 @@ class FieldMapper:
                 'status': row.get('Sts', ''),
             }
             if record['fin_instrm_id']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_var_stats(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        # Determine if begin or end based on filename context (passed in trade_date? No)
+        # We might need to guess or pass 'file_type' in format_info?
+        # For now, we assume caller handles file_type logic or we default to unknown
+        # The prompt implies 2 files.
+        # Let's map columns first.
+
+        for _, row in df.iterrows():
+            record = {
+                'date': trade_date,
+                'symbol': str(row.get('Security Symbol', row.get('Symbol', ''))).strip(),
+                'series': str(row.get('Series', '')).strip(),
+                'security_var': cls._clean_numeric(row.get('Security VaR')),
+                'index_var': cls._clean_numeric(row.get('Index VaR')),
+                'var_margin': cls._clean_numeric(row.get('VaR Margin')),
+                'extreme_loss_rate': cls._clean_numeric(row.get('Extreme Loss Rate')),
+                'adho_margin': cls._clean_numeric(row.get('Adhoc Margin')),
+                'applicable_margin_rate': cls._clean_numeric(row.get('Applicable Margin Rate')),
+                # file_type needs to be set by importer logic, or we infer?
+                # We'll leave it None here, and let the upsert handle defaults or update if needed?
+                # Actually, importer should inject it.
+            }
+            if record['symbol']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_contract_delta(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'date': trade_date,
+                'symbol': str(row.get('Symbol', '')).strip(),
+                'expiry_date': parse_nse_date(row.get('Expiry Date')),
+                'strike_price': cls._clean_numeric(row.get('Strike Price')),
+                'option_type': str(row.get('Option Type', '')).strip(),
+                'delta': cls._clean_numeric(row.get('Delta')),
+            }
+            if record['symbol']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_margin_trading(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'date': trade_date,
+                'symbol': str(row.get('Symbol', '')).strip(),
+                'quantity_funded': cls._clean_integer(row.get('Quantity Funded')),
+                'amount_funded': cls._clean_numeric(row.get('Amount Funded')),
+            }
+            if record['symbol']:
                 records.append(record)
         return records
 

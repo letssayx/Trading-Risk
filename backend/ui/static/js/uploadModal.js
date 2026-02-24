@@ -40,6 +40,12 @@ class NSEImporter {
             btnRange.addEventListener('click', () => this.importRange());
         }
 
+        // Manual Upload
+        const btnManual = document.getElementById('btn-manual-upload');
+        if (btnManual) {
+            btnManual.addEventListener('click', () => this.importManual());
+        }
+
         // Close logic
         const closeSpan = document.querySelector('.close');
         if (closeSpan) {
@@ -175,6 +181,51 @@ class NSEImporter {
             } else {
                 this.failProgress(data.message || "Failed to start import: No Task ID");
             }
+        } catch (e) {
+            this.failProgress(e.message);
+        }
+    }
+
+    async importManual() {
+        if (!(await this.checkHealth())) return;
+
+        const fileInput = document.getElementById('manual-file');
+        const fileType = document.getElementById('manual-type').value;
+        const fileDate = document.getElementById('manual-date').value;
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert("Please select a file.");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("file_type", fileType);
+        if (fileDate) formData.append("file_date", fileDate);
+
+        this.startProgress(`Uploading ${file.name} as ${fileType}...`);
+
+        try {
+            const res = await fetch('/api/data/upload/generic', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || `HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+
+            if (data.success) {
+                this.successProgress(`Successfully imported ${data.rows_processed} rows for ${data.date}`);
+                this.renderDetails({[data.type]: {status: 'SUCCESS', rows_processed: data.rows_processed}});
+            } else {
+                this.failProgress("Import reported failure without error message");
+            }
+
         } catch (e) {
             this.failProgress(e.message);
         }

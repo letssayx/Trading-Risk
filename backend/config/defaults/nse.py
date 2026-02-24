@@ -18,6 +18,10 @@ NSE_FILE_PATTERNS: Dict[str, Tuple[str, str, str]] = {
     "mwpl_cli": ("/content/nsccl/mwpl_cli_{}.xls", "%d%m%Y", "mwpl_client_position"),
     "nse_security": ("/archives/common/NSE_CM_security_{}.csv.gz", "%d%m%Y", "security_master"),
     "pe_ratio": ("/products/content/PE_{}.csv", "%d%m%y", "pe_ratio"),
+    "var_begin": ("/archives/nsccl/var/C_VAR1_{}_1.DAT", "%d%m%Y", "var_stats"),
+    "var_end": ("/archives/nsccl/var/C_VAR1_{}_6.DAT", "%d%m%Y", "var_stats"),
+    "contract_delta": ("/archives/nsccl/content/Contract_Delta_{}.csv", "%d%m%Y", "contract_delta"),
+    "margin_trading": ("/archives/equities/mto/mrg_trading_{}.zip", "%d%m%y", "margin_trading"),
 }
 
 # HTTP Headers

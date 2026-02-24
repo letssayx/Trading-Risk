@@ -254,6 +254,89 @@ def upgrade() -> None:
     op.create_index('idx_import_logs_date', 'import_logs', ['import_date'], unique=False)
     op.create_index('idx_import_logs_table', 'import_logs', ['table_name'], unique=False)
 
+    # SystemLog
+    op.create_table(
+        'system_logs',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.Column('level', sa.String(length=20), nullable=True),
+        sa.Column('source', sa.String(length=50), nullable=True),
+        sa.Column('event_type', sa.String(length=50), nullable=True),
+        sa.Column('message', sa.Text(), nullable=True),
+        sa.Column('user_id', sa.String(length=50), nullable=True),
+        sa.Column('meta_data', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('idx_syslog_source', 'system_logs', ['source'], unique=False)
+    op.create_index('idx_syslog_ts_level', 'system_logs', ['timestamp', 'level'], unique=False)
+
+    # VaRStat
+    op.create_table(
+        'var_stats',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('date', sa.Date(), nullable=False),
+        sa.Column('symbol', sa.String(length=50), nullable=False),
+        sa.Column('series', sa.String(length=10), nullable=True),
+        sa.Column('security_var', sa.Float(), nullable=True),
+        sa.Column('index_var', sa.Float(), nullable=True),
+        sa.Column('var_margin', sa.Float(), nullable=True),
+        sa.Column('extreme_loss_rate', sa.Float(), nullable=True),
+        sa.Column('adho_margin', sa.Float(), nullable=True),
+        sa.Column('applicable_margin_rate', sa.Float(), nullable=True),
+        sa.Column('file_type', sa.String(length=10), nullable=True),
+        sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('date', 'id'),
+        sa.UniqueConstraint('date', 'symbol', 'series', 'file_type', name='uq_var_stats_unique')
+    )
+
+    # ContractDelta
+    op.create_table(
+        'contract_delta',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('date', sa.Date(), nullable=False),
+        sa.Column('symbol', sa.String(length=50), nullable=False),
+        sa.Column('expiry_date', sa.Date(), nullable=True),
+        sa.Column('strike_price', sa.Float(), nullable=True),
+        sa.Column('option_type', sa.String(length=5), nullable=True),
+        sa.Column('delta', sa.Float(), nullable=True),
+        sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('date', 'id'),
+        sa.UniqueConstraint('date', 'symbol', 'expiry_date', 'strike_price', 'option_type', name='uq_contract_delta_unique')
+    )
+
+    # Auction
+    op.create_table(
+        'auctions',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('date', sa.Date(), nullable=False),
+        sa.Column('symbol', sa.String(length=50), nullable=False),
+        sa.Column('series', sa.String(length=10), nullable=True),
+        sa.Column('auction_qty', sa.Integer(), nullable=True),
+        sa.Column('best_buy_price', sa.Float(), nullable=True),
+        sa.Column('best_sell_price', sa.Float(), nullable=True),
+        sa.Column('auction_price', sa.Float(), nullable=True),
+        sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('date', 'id'),
+        sa.UniqueConstraint('date', 'symbol', 'series', name='uq_auctions_unique')
+    )
+
+    # MarginTrading
+    op.create_table(
+        'margin_trading',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('date', sa.Date(), nullable=False),
+        sa.Column('symbol', sa.String(length=50), nullable=False),
+        sa.Column('quantity_funded', sa.Integer(), nullable=True),
+        sa.Column('amount_funded', sa.Float(), nullable=True),
+        sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('date', 'id'),
+        sa.UniqueConstraint('date', 'symbol', name='uq_margin_trading_unique')
+    )
+
     # Convert to TimescaleDB Hypertables (if extension exists)
     # Note: We wrap in try/except block via PL/SQL or just attempt if we know extension is there.
     # For Alembic, usually we execute raw SQL.
@@ -269,7 +352,12 @@ def upgrade() -> None:
         ('fii_derivatives_stats', 'date'),
         ('mto_delivery', 'trade_date'),
         ('mwpl_client_position', 'date'),
-        ('pe_ratio', 'date')
+        ('pe_ratio', 'date'),
+        ('var_stats', 'date'),
+        ('contract_delta', 'date'),
+        ('auctions', 'date'),
+        ('margin_trading', 'date'),
+        ('system_logs', 'timestamp')
     ]
 
     for table, time_col in tables_to_convert:

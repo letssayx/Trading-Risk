@@ -16,6 +16,9 @@ import json
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy, ImportHistory
+from backend.ingest.nse_importer import NSEDataImporter
+from backend.ingest.field_mapper import FieldMapper
+from backend.ingest import nse_models as models
 
 router = APIRouter()
 
@@ -209,6 +212,125 @@ async def preview_bhavcopy(
     finally:
         if os.path.exists(tmp_path): os.unlink(tmp_path)
         if csv_path and os.path.exists(csv_path): os.unlink(csv_path)
+
+@router.post("/api/data/upload/generic")
+async def upload_generic_file(
+    file: UploadFile = File(...),
+    file_type: str = Form(..., description="Type key from NSE_FILE_PATTERNS (e.g. fao_participant_oi)"),
+    file_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Generic upload handler for all NSE file types supported by the importer.
+    """
+    content = await file.read()
+
+    # Initialize Importer
+    importer = NSEDataImporter(db_session=db)
+
+    # 1. Parse Date from Input or Filename or Content?
+    # Importer usually expects date to be known from filename URL pattern in auto-mode.
+    # Here manual upload, we rely on user input OR filename parsing if possible.
+    # But for parsing content, we just need the content.
+
+    import_date = None
+    if file_date:
+        try:
+            import_date = datetime.strptime(file_date, "%Y-%m-%d").date()
+        except:
+            pass
+
+    if not import_date:
+        # Try to infer from filename if possible?
+        # e.g. fao_participant_oi_06022026.csv
+        # This is tricky without strict pattern matching.
+        # User MUST provide date if filename is random.
+        # For now, require date if not deducible.
+        pass
+
+    # 2. Parse Content
+    try:
+        df = importer._parse_content(content, file_type)
+        if df is None or df.empty:
+             raise HTTPException(400, "Parsed file is empty or invalid format.")
+
+        # 3. Detect Format (Optional double check)
+        format_info = FieldMapper.detect_format(df)
+        # If unknown, force it if we trust file_type?
+        if format_info['type'] == 'unknown':
+            # Map file_type to format_type manually if needed
+            # FieldMapper needs an update to support forced types?
+            # Actually map_to_records uses format_info['type'].
+            # We can construct a fake format_info based on file_type.
+            mapping = {
+                'fao_participant_oi': 'participant_oi',
+                'fii_stats': 'fii_stats',
+                'fo_volatility': 'volatility',
+                'mto': 'mto',
+                'mwpl_cli': 'mwpl',
+                'pe_ratio': 'pe_ratio',
+                'var_begin': 'var_stats',
+                'var_end': 'var_stats',
+                'contract_delta': 'contract_delta',
+                'margin_trading': 'margin_trading',
+                'bulk_deals': 'deals',
+                'block_deals': 'deals',
+            }
+            mapped_type = mapping.get(file_type)
+            if mapped_type:
+                format_info = {'type': mapped_type, 'name': file_type}
+                if file_type in ['bulk_deals', 'block_deals']:
+                    format_info['target_table'] = file_type
+            else:
+                 raise HTTPException(400, f"Could not auto-detect format for {file_type}")
+
+        # 4. Map Records
+        # We need a trade_date for mapping.
+        if not import_date:
+            # Try to get from DF if column exists
+            # Some mappers look for date column.
+            # But FieldMapper map_to_records takes trade_date as arg.
+            # If DF has date, it uses it. If not, it uses arg.
+            # If arg is None and DF has no date, it fails or sets None.
+            # We should require date from user.
+            if not import_date:
+                 # Last resort: today? No.
+                 raise HTTPException(400, "Date is required.")
+
+        records = FieldMapper.map_to_records(df, format_info, import_date)
+
+        if not records:
+             raise HTTPException(400, "No valid records found after mapping.")
+
+        # 5. Upsert
+        model_class = importer._get_model_class(file_type)
+        unique_fields = importer._get_unique_fields(file_type)
+
+        if not model_class:
+            raise HTTPException(400, f"No model configured for {file_type}")
+
+        inserted, updated = importer._upsert_batch(db, model_class, records, unique_fields)
+
+        # Dual write for legacy if needed
+        if file_type == 'sec_bhavdata':
+            importer._upsert_legacy_bhavcopy(db, records, 'CM')
+        elif file_type == 'fno_bhav':
+            importer._upsert_legacy_bhavcopy(db, records, 'FO')
+
+        # Log
+        importer._log_import(db, import_date, file_type, 'SUCCESS', inserted, updated, f"Manual Upload: {file.filename}")
+        db.commit()
+
+        return {
+            "success": True,
+            "rows_processed": inserted + updated,
+            "date": import_date.isoformat(),
+            "type": file_type
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Upload failed: {str(e)}")
 
 @router.post("/api/data/upload/bhavcopy/import")
 async def import_bhavcopy(

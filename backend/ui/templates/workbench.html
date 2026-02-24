@@ -502,15 +502,40 @@
                     </div>
                 </div>
 
-                <!-- Tab: Manual Upload (Legacy) -->
+                <!-- Tab: Manual Upload (Any Type) -->
                 <div id="tab-manual" class="import-tab-content" style="display:none;">
-                    <div class="upload-section">
-                        <label for="bhavcopy-file">Select ZIP file:</label>
-                        <input type="file" id="bhavcopy-file" accept=".zip" />
-                        <p class="hint" id="file-hint" style="color:#888; font-size:0.8em;">Expected format: BhavCopy_NSE_CM_0_0_0_YYYYMMDD_F_0000.csv.zip</p>
+                    <div class="import-options">
+                        <h4>Manual File Upload</h4>
+                        <div class="option-row">
+                            <label>File Type:</label>
+                            <select id="manual-type" style="background:#333; color:white; border:1px solid #555; padding:5px; width:100%; margin-top:5px;">
+                                <option value="bhavcopy_eq">Equity Bhavcopy (CSV/ZIP)</option>
+                                <option value="bhavcopy_fo">F&O Bhavcopy (ZIP)</option>
+                                <option value="fao_participant_oi">Participant OI (CSV)</option>
+                                <option value="fo_volatility">F&O Volatility (CSV)</option>
+                                <option value="fii_derivatives_stats">FII Stats (XLS)</option>
+                                <option value="var_begin">VaR Begin Day (DAT/CSV)</option>
+                                <option value="var_end">VaR End Day (DAT/CSV)</option>
+                                <option value="contract_delta">Contract Delta (CSV)</option>
+                                <option value="bulk_deals">Bulk Deals (CSV)</option>
+                                <option value="block_deals">Block Deals (CSV)</option>
+                                <option value="mto">MTO Delivery (DAT/CSV)</option>
+                                <option value="mwpl_cli">MWPL Position (XLS)</option>
+                                <option value="pe_ratio">P/E Ratio (CSV)</option>
+                                <option value="margin_trading">Margin Trading (ZIP/CSV)</option>
+                                <option value="nse_security">Security Master (GZ/CSV)</option>
+                            </select>
+                        </div>
+                        <div class="option-row">
+                            <label>File Date (Optional - for validation):</label>
+                            <input type="date" id="manual-date" style="background:#333; color:white; border:1px solid #555; width:100%; margin-top:5px;">
+                        </div>
+                        <div class="option-row">
+                            <label>Select File:</label>
+                            <input type="file" id="manual-file" style="margin-top:5px;" />
+                        </div>
+                        <button id="btn-manual-upload" class="btn btn-primary" style="margin-top:15px; width:100%;">Upload & Import</button>
                     </div>
-                    <!-- (Kept minimal for legacy support) -->
-                    <button id="confirm-import-btn" class="btn btn-primary" disabled>Upload & Import</button>
                 </div>
 
                 <!-- Status / Progress -->
