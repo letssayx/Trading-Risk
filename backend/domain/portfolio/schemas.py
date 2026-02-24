@@ -33,7 +33,7 @@ class TradeResponse(TradeBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class PortfolioBase(BaseModel):
     name: str
@@ -49,4 +49,4 @@ class PortfolioResponse(PortfolioBase):
     trades: List[TradeResponse] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True

@@ -12,8 +12,9 @@ from backend.schemas.nse import (
 )
 from backend.ingest import queries
 from backend.ingest.tasks import (
-    import_nse_date, import_nse_range, import_nse_latest, setup_timescale_policies
+    import_nse_date, import_nse_range, import_nse_latest
 )
+from backend.ingest.timescale import setup_all_timescale_policies as setup_timescale_policies
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -141,8 +142,8 @@ async def setup_timescale():
     Initialize TimescaleDB policies (One-time setup).
     """
     try:
-        task = setup_timescale_policies.delay()
-        return {"success": True, "task_id": str(task.id), "message": "TimescaleDB setup started"}
+        setup_timescale_policies()
+        return {"success": True, "message": "TimescaleDB setup completed"}
     except Exception as e:
         logger.error(f"Failed to trigger timescale setup: {e}")
         raise HTTPException(status_code=503, detail={"message": "Failed to queue setup task", "error": str(e)})

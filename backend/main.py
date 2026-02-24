@@ -38,7 +38,7 @@ from backend.web.api import audit_routes
 from backend.infrastructure.db import engine, Base
 from backend.domain.market.models import Bhavcopy
 from backend.ingest import nse_models # Ensure tables are created
-from backend.ingest.tasks import setup_timescale_policies
+from backend.ingest.timescale import setup_all_timescale_policies as setup_timescale_policies
 from backend.ingest.tick_vault import TickVault
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
@@ -84,7 +84,7 @@ async def startup_event():
     # Trigger TimescaleDB setup (async)
     # Wrap in broad exception handler to prevent startup crash if Broker/DB is down
     try:
-        setup_timescale_policies.delay()
+        setup_timescale_policies()
         print("✅ TimescaleDB setup triggered")
     except Exception as e:
         # Log error but don't stop startup
