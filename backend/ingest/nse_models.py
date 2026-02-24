@@ -1,5 +1,5 @@
 """NSE Database Models - TimescaleDB Optimized"""
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Text, Index, UniqueConstraint, func
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from backend.infrastructure.db import Base
 
@@ -14,7 +14,7 @@ class BhavcopyEQ(Base, TimescaleMixin):
     """Equity Bhavcopy - EQ series only"""
     __tablename__ = "bhavcopy_eq"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     symbol = Column(String(50), nullable=False, index=True)
     series = Column(String(10), nullable=False)
     trade_date = Column(Date, nullable=False, index=True)
@@ -33,6 +33,7 @@ class BhavcopyEQ(Base, TimescaleMixin):
     deliverable_pct = Column(Float)
 
     __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
         UniqueConstraint('symbol', 'series', 'trade_date', name='uq_bhavcopy_eq_unique'),
         Index('idx_bhavcopy_eq_symbol_date', 'symbol', 'trade_date'),
     )
@@ -42,7 +43,7 @@ class BhavcopyFO(Base, TimescaleMixin):
     """F&O Bhavcopy"""
     __tablename__ = "bhavcopy_fo"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     trade_date = Column(Date, nullable=False, index=True)
     ticker_symb = Column(String(50), nullable=False, index=True)
     expiry_date = Column(Date, index=True)
@@ -61,6 +62,7 @@ class BhavcopyFO(Base, TimescaleMixin):
     total_trf_val = Column(Float)
 
     __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
         UniqueConstraint('trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type',
                         name='uq_bhavcopy_fo_unique'),
         Index('idx_bhavcopy_fo_symbol_expiry', 'ticker_symb', 'expiry_date'),
@@ -71,7 +73,7 @@ class FAOParticipantOI(Base, TimescaleMixin):
     """F&O Participant-wise OI"""
     __tablename__ = "fao_participant_oi"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     trade_date = Column(Date, nullable=False, index=True)
     client_type = Column(String(20), nullable=False)
 
@@ -91,6 +93,7 @@ class FAOParticipantOI(Base, TimescaleMixin):
     total_short_contracts = Column(Integer, default=0)
 
     __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
         UniqueConstraint('trade_date', 'client_type', name='uq_fao_oi_unique'),
     )
 
@@ -99,7 +102,7 @@ class FOVolatility(Base, TimescaleMixin):
     """F&O Volatility"""
     __tablename__ = "fo_volatility"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     trade_date = Column(Date, nullable=False, index=True)
     symbol = Column(String(50), nullable=False, index=True)
 
@@ -111,6 +114,7 @@ class FOVolatility(Base, TimescaleMixin):
     applicable_annualised_vol = Column(Float)
 
     __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
         UniqueConstraint('trade_date', 'symbol', name='uq_fo_volatility_unique'),
     )
 
@@ -119,7 +123,7 @@ class BlockDeal(Base, TimescaleMixin):
     """Block Deals"""
     __tablename__ = "block_deals"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     date = Column(Date, nullable=False, index=True)
     symbol = Column(String(50), nullable=False, index=True)
     security_name = Column(String(200))
@@ -130,6 +134,7 @@ class BlockDeal(Base, TimescaleMixin):
     remarks = Column(Text)
 
     __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
         UniqueConstraint('date', 'symbol', 'client_name', 'buy_sell', name='uq_block_deals_unique'),
     )
 
@@ -138,7 +143,7 @@ class BulkDeal(Base, TimescaleMixin):
     """Bulk Deals"""
     __tablename__ = "bulk_deals"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     date = Column(Date, nullable=False, index=True)
     symbol = Column(String(50), nullable=False, index=True)
     security_name = Column(String(200))
@@ -149,6 +154,7 @@ class BulkDeal(Base, TimescaleMixin):
     remarks = Column(Text)
 
     __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
         UniqueConstraint('date', 'symbol', 'client_name', 'buy_sell', name='uq_bulk_deals_unique'),
     )
 
@@ -157,7 +163,7 @@ class FIIDerivativesStat(Base, TimescaleMixin):
     """FII Derivatives Statistics"""
     __tablename__ = "fii_derivatives_stats"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     date = Column(Date, nullable=False, index=True)
     instrument_type = Column(String(50), nullable=False)
 
@@ -169,6 +175,7 @@ class FIIDerivativesStat(Base, TimescaleMixin):
     oi_amt_crores = Column(Float)
 
     __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
         UniqueConstraint('date', 'instrument_type', name='uq_fii_stats_unique'),
     )
 
@@ -177,7 +184,7 @@ class MTODelivery(Base, TimescaleMixin):
     """MTO Delivery Position"""
     __tablename__ = "mto_delivery"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     trade_date = Column(Date, nullable=False, index=True)
     settlement_type = Column(String(10), default='N')
     sr_no = Column(Integer)
@@ -187,6 +194,7 @@ class MTODelivery(Base, TimescaleMixin):
     deliverable_pct = Column(Float)
 
     __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
         UniqueConstraint('trade_date', 'security_name', name='uq_mto_delivery_unique'),
     )
 
@@ -195,13 +203,14 @@ class MWPLClientPosition(Base, TimescaleMixin):
     """MWPL Client Position"""
     __tablename__ = "mwpl_client_position"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     date = Column(Date, nullable=False, index=True)
     underlying_stock = Column(String(50), nullable=False, index=True)
     client_position_num = Column(Integer, nullable=False)
     position_pct = Column(Float)
 
     __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
         UniqueConstraint('date', 'underlying_stock', 'client_position_num', name='uq_mwpl_unique'),
     )
 
@@ -231,13 +240,14 @@ class PERatio(Base, TimescaleMixin):
     """P/E Ratio"""
     __tablename__ = "pe_ratio"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, nullable=False)
     date = Column(Date, nullable=False, index=True)
     symbol = Column(String(50), nullable=False, index=True)
     symbol_pe = Column(Float)
     adjusted_pe = Column(Float)
 
     __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
         UniqueConstraint('date', 'symbol', name='uq_pe_ratio_unique'),
     )
 

@@ -23,7 +23,7 @@ def upgrade() -> None:
     # BhavcopyEQ
     op.create_table(
         'bhavcopy_eq',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('symbol', sa.String(length=50), nullable=False),
         sa.Column('series', sa.String(length=10), nullable=False),
         sa.Column('trade_date', sa.Date(), nullable=False),
@@ -41,7 +41,7 @@ def upgrade() -> None:
         sa.Column('deliverable_pct', sa.Float(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('trade_date', 'id'),
         sa.UniqueConstraint('symbol', 'series', 'trade_date', name='uq_bhavcopy_eq_unique')
     )
     op.create_index('idx_bhavcopy_eq_symbol_date', 'bhavcopy_eq', ['symbol', 'trade_date'], unique=False)
@@ -49,7 +49,7 @@ def upgrade() -> None:
     # BhavcopyFO
     op.create_table(
         'bhavcopy_fo',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('trade_date', sa.Date(), nullable=False),
         sa.Column('ticker_symb', sa.String(length=50), nullable=False),
         sa.Column('expiry_date', sa.Date(), nullable=True),
@@ -67,7 +67,7 @@ def upgrade() -> None:
         sa.Column('total_trf_val', sa.Float(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('trade_date', 'id'),
         sa.UniqueConstraint('trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type', name='uq_bhavcopy_fo_unique')
     )
     op.create_index('idx_bhavcopy_fo_symbol_expiry', 'bhavcopy_fo', ['ticker_symb', 'expiry_date'], unique=False)
@@ -75,7 +75,7 @@ def upgrade() -> None:
     # FAOParticipantOI
     op.create_table(
         'fao_participant_oi',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('trade_date', sa.Date(), nullable=False),
         sa.Column('client_type', sa.String(length=20), nullable=False),
         sa.Column('future_index_long', sa.Integer(), nullable=True),
@@ -94,14 +94,14 @@ def upgrade() -> None:
         sa.Column('total_short_contracts', sa.Integer(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('trade_date', 'id'),
         sa.UniqueConstraint('trade_date', 'client_type', name='uq_fao_oi_unique')
     )
 
     # FOVolatility
     op.create_table(
         'fo_volatility',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('trade_date', sa.Date(), nullable=False),
         sa.Column('symbol', sa.String(length=50), nullable=False),
         sa.Column('underlying_close_price', sa.Float(), nullable=True),
@@ -112,14 +112,14 @@ def upgrade() -> None:
         sa.Column('applicable_annualised_vol', sa.Float(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('trade_date', 'id'),
         sa.UniqueConstraint('trade_date', 'symbol', name='uq_fo_volatility_unique')
     )
 
     # BlockDeal
     op.create_table(
         'block_deals',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('date', sa.Date(), nullable=False),
         sa.Column('symbol', sa.String(length=50), nullable=False),
         sa.Column('security_name', sa.String(length=200), nullable=True),
@@ -130,14 +130,14 @@ def upgrade() -> None:
         sa.Column('remarks', sa.Text(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('date', 'id'),
         sa.UniqueConstraint('date', 'symbol', 'client_name', 'buy_sell', name='uq_block_deals_unique')
     )
 
     # BulkDeal
     op.create_table(
         'bulk_deals',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('date', sa.Date(), nullable=False),
         sa.Column('symbol', sa.String(length=50), nullable=False),
         sa.Column('security_name', sa.String(length=200), nullable=True),
@@ -148,14 +148,14 @@ def upgrade() -> None:
         sa.Column('remarks', sa.Text(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('date', 'id'),
         sa.UniqueConstraint('date', 'symbol', 'client_name', 'buy_sell', name='uq_bulk_deals_unique')
     )
 
     # FIIDerivativesStat
     op.create_table(
         'fii_derivatives_stats',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('date', sa.Date(), nullable=False),
         sa.Column('instrument_type', sa.String(length=50), nullable=False),
         sa.Column('buy_contracts', sa.Integer(), nullable=True),
@@ -166,14 +166,14 @@ def upgrade() -> None:
         sa.Column('oi_amt_crores', sa.Float(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('date', 'id'),
         sa.UniqueConstraint('date', 'instrument_type', name='uq_fii_stats_unique')
     )
 
     # MTODelivery
     op.create_table(
         'mto_delivery',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('trade_date', sa.Date(), nullable=False),
         sa.Column('settlement_type', sa.String(length=10), nullable=True),
         sa.Column('sr_no', sa.Integer(), nullable=True),
@@ -183,21 +183,21 @@ def upgrade() -> None:
         sa.Column('deliverable_pct', sa.Float(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('trade_date', 'id'),
         sa.UniqueConstraint('trade_date', 'security_name', name='uq_mto_delivery_unique')
     )
 
     # MWPLClientPosition
     op.create_table(
         'mwpl_client_position',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('date', sa.Date(), nullable=False),
         sa.Column('underlying_stock', sa.String(length=50), nullable=False),
         sa.Column('client_position_num', sa.Integer(), nullable=False),
         sa.Column('position_pct', sa.Float(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('date', 'id'),
         sa.UniqueConstraint('date', 'underlying_stock', 'client_position_num', name='uq_mwpl_unique')
     )
 
@@ -226,14 +226,14 @@ def upgrade() -> None:
     # PERatio
     op.create_table(
         'pe_ratio',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('date', sa.Date(), nullable=False),
         sa.Column('symbol', sa.String(length=50), nullable=False),
         sa.Column('symbol_pe', sa.Float(), nullable=True),
         sa.Column('adjusted_pe', sa.Float(), nullable=True),
         sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
+        sa.PrimaryKeyConstraint('date', 'id'),
         sa.UniqueConstraint('date', 'symbol', name='uq_pe_ratio_unique')
     )
 
