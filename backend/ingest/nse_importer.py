@@ -82,7 +82,15 @@ class NSEDataImporter:
             except UnicodeDecodeError:
                 text_content = content.decode('latin-1')
 
-            return pd.read_csv(io.StringIO(text_content), low_memory=False)
+            # Special handling for fao_participant_oi (skip metadata header)
+            skiprows = 0
+            if pattern_key == 'fao_participant_oi':
+                # Check if first line is metadata
+                first_line = text_content.split('\n')[0]
+                if 'Participant wise Open Interest' in first_line:
+                    skiprows = 1
+
+            return pd.read_csv(io.StringIO(text_content), skiprows=skiprows, low_memory=False)
 
         except Exception as e:
             logger.error(f"Failed to parse content for {pattern_key}: {e}")
