@@ -137,12 +137,12 @@ async def trigger_import_latest(
         raise HTTPException(status_code=503, detail={"message": "Failed to queue import task", "error": str(e)})
 
 @router.post("/ingest/timescale/setup")
-async def setup_timescale():
+async def setup_timescale(db: Session = Depends(get_db)):
     """
     Initialize TimescaleDB policies (One-time setup).
     """
     try:
-        setup_timescale_policies()
+        setup_timescale_policies(db)
         return {"success": True, "message": "TimescaleDB setup completed"}
     except Exception as e:
         logger.error(f"Failed to trigger timescale setup: {e}")

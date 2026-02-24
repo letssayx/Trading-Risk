@@ -35,7 +35,7 @@ from backend.web.api import nse_routes
 from backend.web.api import audit_routes
 
 # Import DB and Models for Initialization
-from backend.infrastructure.db import engine, Base
+from backend.infrastructure.db import engine, Base, SessionLocal
 from backend.domain.market.models import Bhavcopy
 from backend.ingest import nse_models # Ensure tables are created
 from backend.ingest.timescale import setup_all_timescale_policies as setup_timescale_policies
@@ -84,7 +84,7 @@ async def startup_event():
     # Trigger TimescaleDB setup (async)
     # Wrap in broad exception handler to prevent startup crash if Broker/DB is down
     try:
-        setup_timescale_policies()
+        setup_timescale_policies(db=SessionLocal())
         print("✅ TimescaleDB setup triggered")
     except Exception as e:
         # Log error but don't stop startup
