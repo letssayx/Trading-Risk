@@ -1,8 +1,8 @@
 class NSEImporter {
     constructor() {
         this.modal = document.getElementById('bhavcopy-upload-modal');
-        this.progressBar = document.getElementById('import-progress-bar');
-        this.progressText = document.getElementById('import-progress-text');
+        this.progressBar = document.getElementById('progress-bar');
+        this.progressText = document.getElementById('progress-text');
         this.progressArea = document.getElementById('import-progress-area');
         this.importDetails = document.getElementById('import-details');
         this.historyList = document.getElementById('import-history-list');
@@ -20,10 +20,10 @@ class NSEImporter {
             document.querySelectorAll('.import-tab-content').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
 
-            const target = document.getElementById(tabName);
+            const target = document.getElementById(`tab-${tabName}`);
             if (target) {
                 target.style.display = 'block';
-                const btn = document.querySelector(`.tab-btn[onclick="openImportTab('${tabName}')"]`);
+                const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
                 if (btn) btn.classList.add('active');
             }
         };
@@ -41,7 +41,7 @@ class NSEImporter {
         }
 
         // Close logic
-        const closeSpan = document.querySelector('.close-modal');
+        const closeSpan = document.querySelector('.close');
         if (closeSpan) {
             closeSpan.addEventListener('click', () => this.close());
         }
@@ -57,6 +57,8 @@ class NSEImporter {
         if(this.modal) {
             this.modal.style.display = 'flex';
             this.fetchHistory();
+        } else {
+            console.error("NSE Import Modal not found in DOM");
         }
     }
 
@@ -100,13 +102,10 @@ class NSEImporter {
         this.startProgress("Starting latest data import...");
 
         try {
-            // Send as JSON body or query params?
-            // Existing backend expects list of strings in body or query?
-            // Let's use query params for simplicity as per previous code
             const params = new URLSearchParams();
             patterns.forEach(p => params.append('patterns', p));
 
-            const res = await fetch(`/api/v1/nse/import/latest?${params.toString()}`, {
+            const res = await fetch(`/api/v1/nse/ingest/import/latest?${params.toString()}`, {
                 method: 'POST'
             });
 
@@ -117,10 +116,13 @@ class NSEImporter {
 
             const data = await res.json();
 
-            if (data.task_id) {
-                this.pollTask(data.task_id);
+            // Check for task_id (new response format) or success flag (old format)
+            const taskId = data.task_id || (data.success ? data.task_id : null);
+
+            if (taskId) {
+                this.pollTask(taskId);
             } else {
-                this.failProgress("Failed to start import: No Task ID returned");
+                this.failProgress(data.message || "Failed to start import: No Task ID");
             }
         } catch (e) {
             this.failProgress(e.message);
@@ -155,7 +157,7 @@ class NSEImporter {
             params.append('end_date', end);
             patterns.forEach(p => params.append('patterns', p));
 
-            const res = await fetch(`/api/v1/nse/import/range?${params.toString()}`, {
+            const res = await fetch(`/api/v1/nse/ingest/import/range?${params.toString()}`, {
                 method: 'POST'
             });
 
@@ -166,10 +168,12 @@ class NSEImporter {
 
             const data = await res.json();
 
-            if (data.task_id) {
-                this.pollTask(data.task_id);
+            const taskId = data.task_id || (data.success ? data.task_id : null);
+
+            if (taskId) {
+                this.pollTask(taskId);
             } else {
-                this.failProgress("Failed to start import: No Task ID returned");
+                this.failProgress(data.message || "Failed to start import: No Task ID");
             }
         } catch (e) {
             this.failProgress(e.message);
@@ -183,7 +187,7 @@ class NSEImporter {
         if (this.progressText) this.progressText.textContent = msg;
         if (this.progressBar) {
             this.progressBar.style.width = '5%';
-            this.progressBar.style.backgroundColor = '#2196F3'; // Blue
+            this.progressBar.style.backgroundColor = '#00bcd4'; // Cyan
             this.progressBar.parentElement.style.display = 'block';
         }
         if (this.importDetails) this.importDetails.innerHTML = '';
@@ -225,32 +229,33 @@ class NSEImporter {
 
         this.pollInterval = setInterval(async () => {
             try {
-                const res = await fetch(`/api/v1/nse/import/status/${taskId}`);
+                const res = await fetch(`/api/v1/nse/ingest/import/status/${taskId}`);
                 if (!res.ok) throw new Error("Status check failed");
 
                 const data = await res.json();
 
-                if (data.state === 'SUCCESS') {
+                // Handle Celery State or Custom Status
+                const state = data.state || data.status;
+
+                if (state === 'SUCCESS') {
                     this.successProgress("Import Completed!");
-                    // If result details available in result
-                    if (data.result && data.result.details) {
-                        this.renderDetails(data.result.details);
+                    // If result details available in result (Celery) or direct response
+                    const result = data.result || data;
+                    if (result && result.details) {
+                        this.renderDetails(result.details);
                     }
-                } else if (data.state === 'FAILURE') {
+                } else if (state === 'FAILURE') {
                     this.failProgress(data.error || "Import task failed");
                 } else {
                     // PROGRESS or PENDING
                     let percent = 5;
                     let msg = "Queued...";
 
-                    if (data.state === 'PROGRESS' && data.meta) {
+                    if (state === 'PROGRESS' && data.meta) {
                         percent = data.meta.percent || data.meta.progress || 5;
                         msg = `Processing: ${data.meta.current_file || data.meta.current_date || '...'}`;
 
-                        // Render interim details if available
-                        // Only for range import maybe? Or if we have completed files list
                         if (data.meta.files_completed) {
-                             // Simplified status update
                              msg += ` (${data.meta.files_completed.length} files done)`;
                         }
                     }
@@ -275,7 +280,7 @@ class NSEImporter {
             const icon = res.status === 'SUCCESS' ? '✓' : '✗';
             const info = res.status === 'SUCCESS' ? `${res.rows_processed} rows` : res.error;
 
-            html += `<div style="color:${color}; margin-bottom:4px;">
+            html += `<div style="color:${color}; margin-bottom:4px; font-size:0.9em;">
                 ${icon} <strong>${key}</strong>: ${info}
             </div>`;
         });
@@ -288,25 +293,40 @@ class NSEImporter {
         if (!this.historyList) return;
 
         try {
-            // Endpoint to get recent import logs
-            // We might need to add this endpoint or query stats
-            // Let's assume /stats endpoint returns summary
-            // But wait, get_import_stats returns dict not list of logs?
-            // It returns { "summary": [ {table, status, count} ] }
+            const res = await fetch('/api/v1/nse/ingest/stats');
+            if (res.ok) {
+                const data = await res.json(); // { summary: [...], period: {...} }
 
-            // Just clearing for now as we don't have a dedicated history endpoint returning list of jobs
-            // We can implement one if needed, but 'stats' gives aggregated view.
-
-            // Placeholder
-            this.historyList.innerHTML = '<p style="color:#888; font-style:italic;">History updated on refresh</p>';
-
+                if (data.summary && data.summary.length > 0) {
+                    let html = '<ul style="list-style:none; padding:0;">';
+                    data.summary.forEach(item => {
+                        const color = item.status === 'SUCCESS' ? '#4caf50' : (item.status === 'FAILED' ? '#f44336' : '#aaa');
+                        html += `
+                            <li style="margin-bottom:5px; padding:5px; background:#333; border-radius:3px; display:flex; justify-content:space-between; align-items:center;">
+                                <span>${item.table_name}</span>
+                                <span style="font-size:0.8em; color:${color}; border:1px solid ${color}; padding:2px 6px; border-radius:3px;">
+                                    ${item.status} (${item.job_count})
+                                </span>
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
+                    this.historyList.innerHTML = html;
+                } else {
+                    this.historyList.innerHTML = '<p style="color:#888;">No recent imports found.</p>';
+                }
+            } else {
+                this.historyList.innerHTML = '<p style="color:#f44336">Failed to load history</p>';
+            }
         } catch (e) {
             console.error("Failed to fetch history", e);
+            this.historyList.innerHTML = '<p style="color:#f44336">History unavailable</p>';
         }
     }
 }
 
-// Initialize on load
+// Global instance for HTML onclick bindings
+// Using window.uploader to match workbench.html expectations
 document.addEventListener('DOMContentLoaded', () => {
-    window.nseImporter = new NSEImporter();
+    window.uploader = new NSEImporter();
 });
