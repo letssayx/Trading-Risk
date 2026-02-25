@@ -1,4 +1,4 @@
-"""NSE Data Importer - Direct-to-TimescaleDB (Refactored using NSELib)"""
+"""NSE Data Importer - Direct-to-TimescaleDB (Refactored using backend.nselib)"""
 import logging
 from datetime import datetime, date
 from typing import Any, Callable, Dict, List
@@ -7,6 +7,7 @@ from contextlib import contextmanager
 import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import text, delete
 
 from backend.infrastructure.db import SessionLocal
 from backend.ingest import nse_models as models
@@ -15,7 +16,7 @@ from backend.models.audit import SystemLog
 from backend.ingest.timescale import setup_all_timescale_policies
 from backend.ingest.date_utils import NSEHolidayCalendar
 from backend.ingest.field_mapper import FieldMapper
-from backend.ingest.nse_lib import NSELib
+from backend.nselib import NSELibClient # NEW CLIENT
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class NSEDataImporter:
     """Main importer: downloads → parses → inserts to TimescaleDB."""
 
     def __init__(self, db_session: Session | None = None):
-        self.lib = NSELib()
+        self.lib = NSELibClient()
         self.holidays = NSEHolidayCalendar()
         self._db_session = db_session
 
@@ -35,10 +36,6 @@ class NSEDataImporter:
             db = SessionLocal()
             try:
                 yield db
-                db.commit()
-            except:
-                db.rollback()
-                raise
             finally:
                 db.close()
 
@@ -64,8 +61,9 @@ class NSEDataImporter:
             'bhavcopy_fo': ['trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type'],
             'fao_participant_oi': ['trade_date', 'client_type'],
             'fo_volatility': ['trade_date', 'symbol'],
-            'block_deals': ['date', 'symbol', 'client_name', 'buy_sell'],
-            'bulk_deals': ['date', 'symbol', 'client_name', 'buy_sell'],
+            # Bulk/Block deals: No unique fields for upsert anymore (we do delete-insert)
+            'block_deals': [],
+            'bulk_deals': [],
             'fii_derivatives_stats': ['date', 'instrument_type'],
             'mto': ['trade_date', 'security_name'],
             'mwpl_cli': ['date', 'underlying_stock', 'client_position_num'],
@@ -75,7 +73,7 @@ class NSEDataImporter:
         return mapping.get(key, [])
 
     def _fetch_data(self, key: str, trade_date: date) -> pd.DataFrame:
-        """Route to appropriate NSELib method."""
+        """Route to appropriate NSELibClient method."""
         if key == 'bhavcopy_eq':
             return self.lib.get_bhavcopy_eq(trade_date)
         elif key == 'bhavcopy_fo':
@@ -94,34 +92,23 @@ class NSEDataImporter:
             return self.lib.get_mto_delivery(trade_date)
         elif key == 'mwpl_cli':
             return self.lib.get_mwpl(trade_date)
-        # Add others if implemented in NSELib
+
         return pd.DataFrame()
 
     def _deduplicate_mto(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Deduplicate MTO data.
-        If multiple rows exist for same Security Name, aggregate them.
-        Usually MTO shouldn't have dups, but if 'EQ' series appears multiple times, we sum.
         """
         if df.empty:
             return df
 
-        # Standardize column names first via FieldMapper logic or simple map
-        # FieldMapper expects 'Name of Security', 'Quantity Traded', 'Deliverable Quantity...'
-
-        # Check actual columns
         cols = df.columns.tolist()
-
-        # Identify key columns
         sec_col = next((c for c in cols if 'Name of Security' in c), None)
         qty_col = next((c for c in cols if 'Quantity Traded' in c), None)
         deliv_col = next((c for c in cols if 'Deliverable Quantity' in c and '%' not in c), None)
 
         if not sec_col:
             return df
-
-        # Group by Security Name and Sum numeric columns
-        # First, ensure we don't lose other metadata like 'Record Type', 'Sr No' (take first)
 
         agg_dict = {}
         for c in df.columns:
@@ -130,7 +117,7 @@ class NSEDataImporter:
             if c in [qty_col, deliv_col]:
                 agg_dict[c] = 'sum'
             else:
-                agg_dict[c] = 'first' # Keep metadata
+                agg_dict[c] = 'first'
 
         df_dedup = df.groupby(sec_col, as_index=False).agg(agg_dict)
         return df_dedup
@@ -145,14 +132,12 @@ class NSEDataImporter:
                 'previous_trading_day': self.holidays.get_previous_trading_day(trade_date).isoformat()
             }
 
-        # Available keys in this implementation
         available_keys = [
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli'
         ]
 
         patterns_to_run = patterns or available_keys
-        # Filter to only known keys
         patterns_to_run = [p for p in patterns_to_run if p in available_keys]
 
         total_files = len(patterns_to_run)
@@ -160,7 +145,11 @@ class NSEDataImporter:
         completed_files = []
         failed_files = []
 
-        with self.get_db() as db:
+        # We manage the session manually here to allow per-file transaction handling
+        db = SessionLocal() if not self._db_session else self._db_session
+        should_close = not self._db_session
+
+        try:
             for idx, key in enumerate(patterns_to_run):
                 progress = {
                     'current_file': key,
@@ -174,68 +163,31 @@ class NSEDataImporter:
 
                 logger.info(f"[{idx+1}/{total_files}] Processing {key}...")
 
+                # ISOLATION: Start a nested transaction block (savepoint) for each file
+                # If using pure SQLAlchemy session, we can rely on begin_nested()
                 try:
-                    df = self._fetch_data(key, trade_date)
+                    with db.begin_nested():
+                        self._process_file(db, key, trade_date, results, completed_files)
 
-                    if df.empty:
-                        results[key] = {'status': 'EMPTY', 'rows': 0}
-                        completed_files.append(key)
-                        continue
-
-                    # Specific Pre-processing
-                    if key == 'mto':
-                        df = self._deduplicate_mto(df)
-
-                    # Map to DB Records
-                    # We reuse FieldMapper logic, assuming column names match expectations
-                    # NSELib returns standard NSE headers
-
-                    # Hint for format detection
-                    format_hint = {'type': 'unknown'}
-                    if key == 'bhavcopy_eq': format_hint = {'type': 'cm_udiff'} # Or check actual cols
-                    # Actually FieldMapper.detect_format works on columns
-
-                    format_info = FieldMapper.detect_format(df)
-                    if format_info['type'] == 'unknown':
-                        # Fallback hints based on key
-                        if key == 'mto': format_info = {'type': 'mto'}
-                        elif key == 'bulk_deals' or key == 'block_deals': format_info = {'type': 'deals', 'target_table': key}
-                        elif key == 'fao_participant_oi': format_info = {'type': 'participant_oi'}
-
-                    if format_info.get('target_table') is None and key in ['bulk_deals', 'block_deals']:
-                         format_info['target_table'] = key
-
-                    records = FieldMapper.map_to_records(df, format_info, trade_date)
-
-                    if not records:
-                        results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}
-                        continue
-
-                    model_class = self._get_model_class(key)
-                    unique_fields = self._get_unique_fields(key)
-
-                    if not model_class or not unique_fields:
-                        results[key] = {'status': 'CONFIG_ERROR'}
-                        continue
-
-                    # UPSERT
-                    inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
-
-                    # Legacy Sync
-                    if key == 'bhavcopy_eq':
-                        self._upsert_legacy_bhavcopy(db, records, 'CM')
-                    elif key == 'bhavcopy_fo':
-                        self._upsert_legacy_bhavcopy(db, records, 'FO')
-
-                    results[key] = {'status': 'SUCCESS', 'rows_processed': inserted + updated}
-                    self._log_import(db, trade_date, key, 'SUCCESS', inserted, updated)
-                    completed_files.append(key)
+                    # If we reach here, the nested transaction committed successfully.
+                    # We commit the outer transaction periodically or at the end to persist logs.
+                    db.commit()
 
                 except Exception as e:
                     logger.exception(f"Error importing {key}: {e}")
                     results[key] = {'status': 'ERROR', 'error': str(e)}
-                    self._log_import(db, trade_date, key, 'FAILED', 0, 0, str(e))
+                    # Log failure (needs its own transaction to persist even if file failed)
+                    try:
+                         # We need a new transaction for logging since the previous one rolled back
+                        with db.begin():
+                            self._log_import(db, trade_date, key, 'FAILED', 0, 0, str(e))
+                    except:
+                        pass
                     failed_files.append(key)
+
+        finally:
+            if should_close:
+                db.close()
 
         return {
             'status': 'COMPLETED',
@@ -244,6 +196,82 @@ class NSEDataImporter:
             'successful': len(completed_files),
             'details': results
         }
+
+    def _process_file(self, db: Session, key: str, trade_date: date, results: dict, completed_files: list):
+        df = self._fetch_data(key, trade_date)
+
+        if df.empty:
+            results[key] = {'status': 'EMPTY', 'rows': 0}
+            completed_files.append(key)
+            return
+
+        if key == 'mto':
+            df = self._deduplicate_mto(df)
+
+        format_info = FieldMapper.detect_format(df)
+        if format_info['type'] == 'unknown':
+            if key == 'mto': format_info = {'type': 'mto'}
+            elif key == 'bulk_deals' or key == 'block_deals': format_info = {'type': 'deals', 'target_table': key}
+            elif key == 'fao_participant_oi': format_info = {'type': 'participant_oi'}
+
+        if format_info.get('target_table') is None and key in ['bulk_deals', 'block_deals']:
+                format_info['target_table'] = key
+
+        records = FieldMapper.map_to_records(df, format_info, trade_date)
+
+        if not records:
+            results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}
+            return
+
+        model_class = self._get_model_class(key)
+        unique_fields = self._get_unique_fields(key)
+
+        if not model_class:
+            results[key] = {'status': 'CONFIG_ERROR'}
+            return
+
+        # Special handling for Deals: Delete & Insert
+        if key in ['bulk_deals', 'block_deals']:
+            deleted = self._delete_for_date(db, model_class, trade_date)
+            inserted = self._insert_batch(db, model_class, records)
+            updated = 0
+            logger.info(f"{key}: Deleted {deleted} old records, Inserted {inserted} new records.")
+        else:
+            inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
+
+        # Legacy Sync
+        if key == 'bhavcopy_eq':
+            self._upsert_legacy_bhavcopy(db, records, 'CM')
+        elif key == 'bhavcopy_fo':
+            self._upsert_legacy_bhavcopy(db, records, 'FO')
+
+        results[key] = {'status': 'SUCCESS', 'rows_processed': inserted + updated}
+        self._log_import(db, trade_date, key, 'SUCCESS', inserted, updated)
+        completed_files.append(key)
+
+    def _insert_batch(self, db: Session, model_class, records: list[dict[str, Any]]) -> int:
+        if not records: return 0
+        try:
+            table = model_class.__table__
+            valid_cols = set(c.name for c in table.columns)
+            cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
+
+            # Simple Insert
+            stmt = pg_insert(table).values(cleaned)
+            result = db.execute(stmt)
+            return result.rowcount
+        except Exception as e:
+            logger.error(f"Insert failed: {e}")
+            raise
+
+    def _delete_for_date(self, db: Session, model_class, trade_date: date) -> int:
+        try:
+            stmt = delete(model_class).where(model_class.date == trade_date)
+            result = db.execute(stmt)
+            return result.rowcount
+        except Exception as e:
+            logger.error(f"Delete failed: {e}")
+            raise
 
     def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
                      unique_fields: list[str]) -> tuple[int, int]:
@@ -257,10 +285,14 @@ class NSEDataImporter:
             update_cols = {c.name: c for c in table.columns
                           if c.name not in unique_fields and c.name not in ['id', 'created_at']}
 
-            if update_cols:
-                stmt = stmt.on_conflict_do_update(index_elements=unique_fields, set_=update_cols)
+            if unique_fields:
+                if update_cols:
+                    stmt = stmt.on_conflict_do_update(index_elements=unique_fields, set_=update_cols)
+                else:
+                    stmt = stmt.on_conflict_do_nothing(index_elements=unique_fields)
             else:
-                stmt = stmt.on_conflict_do_nothing(index_elements=unique_fields)
+                # Fallback to simple insert if no unique fields (shouldn't happen for upsert path)
+                pass
 
             result = db.execute(stmt)
             return result.rowcount, 0
@@ -289,8 +321,6 @@ class NSEDataImporter:
         db.add(sys_log)
 
     def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str):
-        # ... (Identical to previous logic, omitted for brevity but required in real file)
-        # I will include it to ensure completeness
         if not records: return
         try:
             legacy_records = []

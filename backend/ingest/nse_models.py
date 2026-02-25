@@ -135,7 +135,7 @@ class BlockDeal(Base, TimescaleMixin):
 
     __table_args__ = (
         PrimaryKeyConstraint('date', 'id'),
-        UniqueConstraint('date', 'symbol', 'client_name', 'buy_sell', name='uq_block_deals_unique'),
+        # Unique constraint removed to allow multiple trades per client/day
     )
 
 
@@ -155,7 +155,7 @@ class BulkDeal(Base, TimescaleMixin):
 
     __table_args__ = (
         PrimaryKeyConstraint('date', 'id'),
-        UniqueConstraint('date', 'symbol', 'client_name', 'buy_sell', name='uq_bulk_deals_unique'),
+        # Unique constraint removed to allow multiple trades per client/day
     )
 
 
