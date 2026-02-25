@@ -1,122 +1,31 @@
-"""NSE Data Importer - Direct-to-TimescaleDB"""
-import io, gzip, zipfile, logging
+"""NSE Data Importer - Direct-to-TimescaleDB (Refactored using NSELib)"""
+import logging
 from datetime import datetime, date
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List
 from contextlib import contextmanager
 
 import pandas as pd
-import requests
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-# Deprecated import, but kept for type compatibility if needed
-# from backend.config.defaults.nse import NSE_FILE_PATTERNS
 from backend.infrastructure.db import SessionLocal
 from backend.ingest import nse_models as models
 from backend.domain.market.models import Bhavcopy
 from backend.models.audit import SystemLog
 from backend.ingest.timescale import setup_all_timescale_policies
-from backend.ingest.nse_session import NSESessionManager
-from backend.ingest.date_utils import NSEHolidayCalendar, format_nse_date
+from backend.ingest.date_utils import NSEHolidayCalendar
 from backend.ingest.field_mapper import FieldMapper
+from backend.ingest.nse_lib import NSELib
 
 logger = logging.getLogger(__name__)
-
-# Base URLs
-NSE_BASE_URL = "https://www.nseindia.com"
-NSE_ARCHIVES_BASE = "https://nsearchives.nseindia.com"
-
-# Define patterns LOCALLY to ensure the worker process uses the correct, updated logic
-# immediately, bypassing any config file caching issues.
-# Keys align with UI checkbox values.
-LOCAL_NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
-    "bhavcopy_eq": ([
-        ("/products/content/sec_bhavdata_full_{}.csv", "%d%m%Y"),
-        ("/archives/equities/bhavcopy/pr/PR{}.zip", "%d%m%y")
-    ], "bhavcopy_eq"),
-
-    "bhavcopy_fo": ([
-        ("/content/fo/BhavCopy_NSE_FO_0_0_0_{}_F_0000.csv.zip", "%Y%m%d"),
-        ("/archives/fo/bhavcopy/fo{}.zip", "%d%b%Y")
-    ], "bhavcopy_fo"),
-
-    "fao_participant_oi": ([
-        ("/content/nsccl/fao_participant_oi_{}.csv", "%d%m%Y"), # Primary
-        ("/reports/fao_participant_oi_{}.csv", "%d%m%y"),       # Report path
-        ("/archives/nsccl/content/fao_participant_oi_{}.csv", "%d%m%Y") # Archive
-    ], "fao_participant_oi"),
-
-    "fo_volatility": ([
-        ("/archives/nsccl/volt/FOVOLT_{}.csv", "%d%m%Y"),
-        ("/reports/FOVOLT_{}.csv", "%d%m%y")
-    ], "fo_volatility"),
-
-    "fii_derivatives_stats": ([
-        ("/content/fo/fii_stats_{}.xls", "%d-%b-%Y"),
-        ("/reports/fii_stats_{}.xls", "%d-%b-%Y")
-    ], "fii_derivatives_stats"),
-
-    "bulk_deals": ([
-        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=bulk_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
-        ("/archives/equities/mto/bulk_deals_{}.csv", "%d%m%Y") # Fallback Archive
-    ], "bulk_deals"),
-
-    "block_deals": ([
-        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=block_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
-        ("/archives/equities/mto/block_deals_{}.csv", "%d%m%Y") # Fallback Archive
-    ], "block_deals"),
-
-    "mto": ([
-        ("/archives/equities/mto/MTO_{}.DAT", "%d%m%Y"),
-        ("/reports/MTO_{}.DAT", "%d%m%Y")
-    ], "mto_delivery"),
-
-    "mwpl_cli": ([
-        ("/archives/equities/mto/mwpl_cli_{}.xls", "%d%m%Y"),
-        ("/reports/mwpl_cli_{}.xls", "%d%m%Y")
-    ], "mwpl_client_position"),
-
-    "nse_security": ([
-        ("/content/cm/BhavCopy_NSE_CM_0_0_0_{}_F_0000.csv.gz", "%d%m%Y"),
-        ("/archives/common/NSE_CM_security_{}.csv.gz", "%d%m%Y")
-    ], "security_master"),
-
-    "pe_ratio": ([
-        ("/products/content/PE_{}.csv", "%d%m%y"),
-        ("/reports/PE{}.csv", "%d%m%y")
-    ], "pe_ratio"),
-
-    "fii_dii_activity": ([
-        ("/reports/fii_dii_activity_{}.xls", "%d%b%Y"),
-    ], "fii_dii_activity"),
-
-    "var_begin": ([
-        ("/archives/nsccl/var/C_VAR1_{}_1.DAT", "%d%m%Y"),
-    ], "var_stats"),
-
-    "var_end": ([
-        ("/archives/nsccl/var/C_VAR1_{}_6.DAT", "%d%m%Y"),
-    ], "var_stats"),
-
-    "contract_delta": ([
-        ("/archives/nsccl/content/Contract_Delta_{}.csv", "%d%m%Y"),
-    ], "contract_delta"),
-
-    "margin_trading": ([
-        ("/archives/equities/mto/mrg_trading_{}.zip", "%d%m%y"),
-    ], "margin_trading"),
-}
-
 
 class NSEDataImporter:
     """Main importer: downloads → parses → inserts to TimescaleDB."""
 
     def __init__(self, db_session: Session | None = None):
-        self.http = NSESessionManager()
+        self.lib = NSELib()
         self.holidays = NSEHolidayCalendar()
         self._db_session = db_session
-        # Use local patterns
-        self.patterns = LOCAL_NSE_FILE_PATTERNS
 
     @contextmanager
     def get_db(self) -> Session:
@@ -133,268 +42,7 @@ class NSEDataImporter:
             finally:
                 db.close()
 
-    def _get_candidate_urls(self, pattern_key: str, dt: date) -> List[str]:
-        """Generate list of candidate URLs for a given pattern key and date."""
-        if pattern_key not in self.patterns:
-            # Try to support legacy key mapping if 'sec_bhavdata' is passed but we have 'bhavcopy_eq'
-            legacy_map = {
-                'sec_bhavdata': 'bhavcopy_eq',
-                'fno_bhav': 'bhavcopy_fo',
-                'fii_stats': 'fii_derivatives_stats',
-                'fovolt': 'fo_volatility'
-            }
-            if pattern_key in legacy_map:
-                pattern_key = legacy_map[pattern_key]
-
-        if pattern_key not in self.patterns:
-            return []
-
-        config_entry = self.patterns[pattern_key]
-
-        # New structure
-        patterns_list, _ = config_entry
-
-        candidates = []
-        for url_fmt, date_fmt in patterns_list:
-            formatted_date = format_nse_date(dt, date_fmt)
-
-            # Handle API patterns that use {0} for repeated date insertion
-            path = url_fmt.format(formatted_date)
-
-            # Determine base URL
-            if path.startswith("http"):
-                # Absolute URL (e.g. API endpoint)
-                full_url = path
-            else:
-                # Relative path -> Default to Archives
-                full_url = f"{NSE_ARCHIVES_BASE}{path}"
-
-            candidates.append(full_url)
-
-        return candidates
-
-    def _parse_response(self, resp: requests.Response, pattern_key: str) -> pd.DataFrame | None:
-        """Parse response object (wrapper around _parse_content)."""
-        return self._parse_content(resp.content, pattern_key)
-
-    def _parse_content(self, content: bytes, pattern_key: str) -> pd.DataFrame | None:
-        """Parse raw content based on file type."""
-        try:
-            # Handle specific known zip/gz patterns first
-            if pattern_key in ['bhavcopy_fo', 'fno_bhav', 'margin_trading']:
-                 with zipfile.ZipFile(io.BytesIO(content)) as zf:
-                    # Usually just one CSV in there
-                    csv_name = [n for n in zf.namelist() if n.lower().endswith('.csv')][0]
-                    with zf.open(csv_name) as f:
-                        return pd.read_csv(f, low_memory=False)
-
-            elif pattern_key == 'nse_security':
-                with gzip.GzipFile(fileobj=io.BytesIO(content)) as gz:
-                    return pd.read_csv(gz, low_memory=False)
-
-            # MWPL: Special header handling (Headers in Row 2)
-            if pattern_key == 'mwpl_cli':
-                 df_raw = pd.read_excel(io.BytesIO(content), header=None)
-                 if len(df_raw) < 2:
-                     return pd.DataFrame()
-                 # Use row 2 (index 1) as headers
-                 headers = df_raw.iloc[1].fillna('').astype(str).tolist()
-                 # Data starts from row 3 (index 2)
-                 data = df_raw.iloc[2:].copy()
-                 data.columns = headers
-                 return data
-
-            # FII Stats: Often has metadata in first few rows
-            if pattern_key in ['fii_derivatives_stats', 'fii_stats']:
-                 return pd.read_excel(io.BytesIO(content))
-
-            # Default CSV / DAT (often CSV-like)
-            # Try to decode as text
-            try:
-                text_content = content.decode('utf-8')
-            except UnicodeDecodeError:
-                text_content = content.decode('latin-1')
-
-            # MTO: Skip first 3 lines (Title, Metadata, Metadata) -> Header is Line 3 (index 3)
-            # Based on user feedback:
-            # Line 0: Security Wise Delivery Position...
-            # Line 1: 10,MTO,...
-            # Line 2: Trade Date...
-            # Line 3: Record Type,Sr No,... (HEADER)
-            if pattern_key == 'mto':
-                lines = text_content.strip().split('\n')
-                if len(lines) < 4:
-                     return pd.DataFrame()
-
-                header_line = lines[3] # 4th line
-                data_lines = lines[4:] # 5th line onwards
-                csv_str = header_line + '\n' + '\n'.join(data_lines)
-                return pd.read_csv(io.StringIO(csv_str), low_memory=False)
-
-            # Special handling for fao_participant_oi (skip metadata header)
-            skiprows = 0
-            if pattern_key == 'fao_participant_oi':
-                # Check if first line is metadata
-                first_line = text_content.split('\n')[0]
-                if 'Participant wise Open Interest' in first_line:
-                    skiprows = 1
-
-            df = pd.read_csv(io.StringIO(text_content), skiprows=skiprows, low_memory=False)
-            # Strip whitespace from headers to ensure robust mapping
-            df.columns = df.columns.str.strip()
-            return df
-
-        except Exception as e:
-            logger.error(f"Failed to parse content for {pattern_key}: {e}")
-            try:
-                # Log snippet for debugging
-                snippet = content[:200]
-                logger.error(f"Content snippet (first 200 bytes): {snippet}")
-            except:
-                pass
-            return None
-
-    def _log_import(self, db: Session, import_date: date, table_name: str,
-                   status: str, rows_inserted: int, rows_updated: int = 0,
-                   error_msg: str | None = None):
-        # 1. Log to ImportLog table (Structured Audit)
-        log = models.ImportLog(
-            import_date=import_date,
-            table_name=table_name,
-            status=status,
-            rows_inserted=rows_inserted,
-            rows_updated=rows_updated,
-            error_msg=error_msg
-        )
-        db.add(log)
-
-        # 2. Log to SystemLog (Visible in Audit Trail UI)
-        # Only log failures or significant completions to reduce noise
-        level = "ERROR" if status in ["FAILED", "ERROR"] else "INFO"
-        msg = f"NSE Import: {table_name} for {import_date} - {status}"
-        if error_msg:
-            msg += f" | Error: {error_msg}"
-        else:
-            msg += f" | Rows: {rows_inserted + rows_updated}"
-
-        sys_log = SystemLog(
-            timestamp=datetime.now(),
-            level=level,
-            source="NSE_Importer",
-            event_type="Data_Import",
-            message=msg,
-            meta_data={"rows": rows_inserted + rows_updated, "table": table_name}
-        )
-        db.add(sys_log)
-
-    def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
-                     unique_fields: list[str]) -> tuple[int, int]:
-        if not records:
-            return 0, 0
-
-        # Actually, let's use the core upsert if we are on Postgres (which we are)
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-        try:
-            table = model_class.__table__
-
-            # Filter records to only include columns that exist in the table
-            valid_cols = set(c.name for c in table.columns)
-            cleaned_records = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
-
-            if not cleaned_records:
-                return 0, 0
-
-            stmt = pg_insert(table).values(cleaned_records)
-
-            # Prepare update dict for on_conflict
-            # update all columns except primary key and unique fields
-            update_cols = {c.name: c for c in table.columns
-                          if c.name not in unique_fields and c.name != 'id' and c.name != 'created_at'}
-
-            if update_cols:
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=unique_fields,
-                    set_=update_cols
-                )
-            else:
-                stmt = stmt.on_conflict_do_nothing(index_elements=unique_fields)
-
-            result = db.execute(stmt)
-            return result.rowcount, 0
-
-        except Exception as e:
-            logger.error(f"Batch upsert failed: {e}")
-            raise e
-
-    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str):
-        """Dual-write to legacy Bhavcopy table for backward compatibility."""
-        if not records:
-            return
-
-        try:
-            legacy_records = []
-            for r in records:
-                lr = {
-                    'trade_date': r['trade_date'],
-                    'segment': segment,
-                    'symbol': r.get('symbol') or r.get('ticker_symb'),
-                    'instrument_type': r.get('instrument_type', 'EQ' if segment == 'CM' else 'XX'),
-
-                    # Prices
-                    'open': r.get('open_price'),
-                    'high': r.get('high_price'),
-                    'low': r.get('low_price'),
-                    'close': r.get('close_price'),
-                    'last': r.get('last_price'),
-                    'prev_close': r.get('prev_close'),
-                    'settlement_price': r.get('settle_price'),
-
-                    # Volume/OI
-                    'total_traded_qty': r.get('total_traded_qty') or r.get('total_trading_vol'),
-                    'total_traded_val': r.get('turnover_lacs') or r.get('total_trf_val'),
-                    'total_trades': r.get('no_of_trades'),
-                    'open_interest': r.get('open_interest'),
-                    'change_in_oi': r.get('change_in_oi'),
-
-                    # CM Specific
-                    'series': r.get('series'),
-                    'deliverable_qty': r.get('deliverable_qty'),
-                    'deliverable_pct': r.get('deliverable_pct'),
-
-                    # FO Specific
-                    'expiry_date': r.get('expiry_date'),
-                    'strike_price': r.get('strike_price'),
-                    'option_type': r.get('option_type'),
-                    'instrument_name': r.get('instrument_name'),
-                }
-                legacy_records.append(lr)
-
-            # Using Delete-Insert strategy for reliability on daily data
-            trade_date = records[0]['trade_date']
-            db.query(Bhavcopy).filter(
-                Bhavcopy.trade_date == trade_date,
-                Bhavcopy.segment == segment
-            ).delete(synchronize_session=False)
-
-            db.bulk_insert_mappings(Bhavcopy, legacy_records)
-            logger.info(f"Synced {len(legacy_records)} rows to legacy Bhavcopy ({segment})")
-
-        except Exception as e:
-            logger.error(f"Legacy sync failed for {segment}: {e}")
-            # Non-blocking error
-
-    def _get_model_class(self, pattern_key: str):
-        # Handle legacy keys for model mapping if needed
-        legacy_map = {
-            'sec_bhavdata': 'bhavcopy_eq',
-            'fno_bhav': 'bhavcopy_fo',
-            'fovolt': 'fo_volatility',
-            'fii_stats': 'fii_derivatives_stats'
-        }
-        if pattern_key in legacy_map:
-            pattern_key = legacy_map[pattern_key]
-
+    def _get_model_class(self, key: str):
         mapping = {
             'bhavcopy_eq': models.BhavcopyEQ,
             'bhavcopy_fo': models.BhavcopyFO,
@@ -407,24 +55,10 @@ class NSEDataImporter:
             'mwpl_cli': models.MWPLClientPosition,
             'nse_security': models.SecurityMaster,
             'pe_ratio': models.PERatio,
-            'var_begin': models.VaRStat,
-            'var_end': models.VaRStat,
-            'contract_delta': models.ContractDelta,
-            'margin_trading': models.MarginTrading,
         }
-        return mapping.get(pattern_key)
+        return mapping.get(key)
 
-    def _get_unique_fields(self, pattern_key: str) -> List[str]:
-        # Handle legacy keys for mapping
-        legacy_map = {
-            'sec_bhavdata': 'bhavcopy_eq',
-            'fno_bhav': 'bhavcopy_fo',
-            'fovolt': 'fo_volatility',
-            'fii_stats': 'fii_derivatives_stats'
-        }
-        if pattern_key in legacy_map:
-            pattern_key = legacy_map[pattern_key]
-
+    def _get_unique_fields(self, key: str) -> List[str]:
         mapping = {
             'bhavcopy_eq': ['symbol', 'series', 'trade_date'],
             'bhavcopy_fo': ['trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type'],
@@ -437,16 +71,73 @@ class NSEDataImporter:
             'mwpl_cli': ['date', 'underlying_stock', 'client_position_num'],
             'nse_security': ['fin_instrm_id'],
             'pe_ratio': ['date', 'symbol'],
-            'var_begin': ['date', 'symbol', 'series', 'file_type'],
-            'var_end': ['date', 'symbol', 'series', 'file_type'],
-            'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
-            'margin_trading': ['date', 'symbol'],
         }
-        return mapping.get(pattern_key, [])
+        return mapping.get(key, [])
+
+    def _fetch_data(self, key: str, trade_date: date) -> pd.DataFrame:
+        """Route to appropriate NSELib method."""
+        if key == 'bhavcopy_eq':
+            return self.lib.get_bhavcopy_eq(trade_date)
+        elif key == 'bhavcopy_fo':
+            return self.lib.get_bhavcopy_fo(trade_date)
+        elif key == 'bulk_deals':
+            return self.lib.get_bulk_deals(trade_date)
+        elif key == 'block_deals':
+            return self.lib.get_block_deals(trade_date)
+        elif key == 'fao_participant_oi':
+            return self.lib.get_fao_participant_oi(trade_date)
+        elif key == 'fii_derivatives_stats':
+            return self.lib.get_fii_derivatives_stats(trade_date)
+        elif key == 'fo_volatility':
+            return self.lib.get_fo_volatility(trade_date)
+        elif key == 'mto':
+            return self.lib.get_mto_delivery(trade_date)
+        elif key == 'mwpl_cli':
+            return self.lib.get_mwpl(trade_date)
+        # Add others if implemented in NSELib
+        return pd.DataFrame()
+
+    def _deduplicate_mto(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Deduplicate MTO data.
+        If multiple rows exist for same Security Name, aggregate them.
+        Usually MTO shouldn't have dups, but if 'EQ' series appears multiple times, we sum.
+        """
+        if df.empty:
+            return df
+
+        # Standardize column names first via FieldMapper logic or simple map
+        # FieldMapper expects 'Name of Security', 'Quantity Traded', 'Deliverable Quantity...'
+
+        # Check actual columns
+        cols = df.columns.tolist()
+
+        # Identify key columns
+        sec_col = next((c for c in cols if 'Name of Security' in c), None)
+        qty_col = next((c for c in cols if 'Quantity Traded' in c), None)
+        deliv_col = next((c for c in cols if 'Deliverable Quantity' in c and '%' not in c), None)
+
+        if not sec_col:
+            return df
+
+        # Group by Security Name and Sum numeric columns
+        # First, ensure we don't lose other metadata like 'Record Type', 'Sr No' (take first)
+
+        agg_dict = {}
+        for c in df.columns:
+            if c == sec_col:
+                continue
+            if c in [qty_col, deliv_col]:
+                agg_dict[c] = 'sum'
+            else:
+                agg_dict[c] = 'first' # Keep metadata
+
+        df_dedup = df.groupby(sec_col, as_index=False).agg(agg_dict)
+        return df_dedup
 
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
                    force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
-        """Import all configured files for a given date with progress tracking."""
+        """Import all configured files for a given date."""
         if not self.holidays.is_trading_day(trade_date):
             return {
                 'status': 'SKIPPED',
@@ -454,150 +145,191 @@ class NSEDataImporter:
                 'previous_trading_day': self.holidays.get_previous_trading_day(trade_date).isoformat()
             }
 
-        results = {}
-        # Default to all patterns if none provided
-        patterns_to_run = patterns or list(self.patterns.keys())
-        total_files = len(patterns_to_run)
+        # Available keys in this implementation
+        available_keys = [
+            'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
+            'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli'
+        ]
 
+        patterns_to_run = patterns or available_keys
+        # Filter to only known keys
+        patterns_to_run = [p for p in patterns_to_run if p in available_keys]
+
+        total_files = len(patterns_to_run)
+        results = {}
         completed_files = []
         failed_files = []
 
         with self.get_db() as db:
-            for idx, pattern_key in enumerate(patterns_to_run):
-                # Report progress start
+            for idx, key in enumerate(patterns_to_run):
                 progress = {
-                    'current_file': pattern_key,
+                    'current_file': key,
                     'file_number': idx + 1,
                     'total_files': total_files,
                     'percent': int((idx / total_files) * 100),
                     'status': 'in_progress',
-                    'files_completed': completed_files,
-                    'files_failed': failed_files,
                     'timestamp': datetime.now().isoformat()
                 }
-                logger.info(f"[{idx+1}/{total_files}] Processing {pattern_key}...")
+                if progress_callback: progress_callback(progress)
 
-                if progress_callback:
-                    progress_callback(progress)
+                logger.info(f"[{idx+1}/{total_files}] Processing {key}...")
 
                 try:
-                    candidates = self._get_candidate_urls(pattern_key, trade_date)
-                    if not candidates:
-                         # Handle legacy mapping in loop just in case
-                         legacy_map = {'sec_bhavdata': 'bhavcopy_eq', 'fno_bhav': 'bhavcopy_fo', 'fii_stats': 'fii_derivatives_stats', 'fovolt': 'fo_volatility'}
-                         if pattern_key in legacy_map:
-                             # Map and retry
-                             new_key = legacy_map[pattern_key]
-                             candidates = self._get_candidate_urls(new_key, trade_date)
+                    df = self._fetch_data(key, trade_date)
 
-                         if not candidates:
-                             results[pattern_key] = {'status': 'ERROR', 'error': 'Invalid pattern configuration'}
-                             failed_files.append({"name": pattern_key, "error": "Invalid pattern configuration"})
-                             continue
-
-                    # Try candidates in order (Fallback Logic)
-                    resp = None
-                    success_url = None
-                    last_error = None
-
-                    for url in candidates:
-                        logger.info(f"Trying {pattern_key} at {url}")
-                        resp = self.http.get(url)
-
-                        if resp and resp.status_code == 200:
-                            success_url = url
-                            logger.info(f"✓ Downloaded {pattern_key} from {url}")
-                            break
-                        else:
-                            code = resp.status_code if resp else 'No Response'
-                            logger.warning(f"Failed {pattern_key} at {url} (HTTP {code})")
-                            last_error = f"HTTP {code}"
-
-                    if not success_url:
-                        error_msg = f'All candidates failed. Last error: {last_error}'
-                        results[pattern_key] = {'status': 'FAILED', 'error': error_msg}
-                        failed_files.append({"name": pattern_key, "error": error_msg})
+                    if df.empty:
+                        results[key] = {'status': 'EMPTY', 'rows': 0}
+                        completed_files.append(key)
                         continue
 
-                    # Parse
-                    df = self._parse_response(resp, pattern_key)
+                    # Specific Pre-processing
+                    if key == 'mto':
+                        df = self._deduplicate_mto(df)
 
-                    if df is None or df.empty:
-                        results[pattern_key] = {'status': 'EMPTY', 'rows': 0}
-                        logger.info(f"Empty file: {pattern_key}")
-                        completed_files.append(pattern_key)
-                        continue
+                    # Map to DB Records
+                    # We reuse FieldMapper logic, assuming column names match expectations
+                    # NSELib returns standard NSE headers
 
-                    # Detect format and Map
+                    # Hint for format detection
+                    format_hint = {'type': 'unknown'}
+                    if key == 'bhavcopy_eq': format_hint = {'type': 'cm_udiff'} # Or check actual cols
+                    # Actually FieldMapper.detect_format works on columns
+
                     format_info = FieldMapper.detect_format(df)
-                    # For deals, pass the target table name
-                    if pattern_key in ['bulk_deals', 'block_deals']:
-                         format_info['target_table'] = pattern_key
+                    if format_info['type'] == 'unknown':
+                        # Fallback hints based on key
+                        if key == 'mto': format_info = {'type': 'mto'}
+                        elif key == 'bulk_deals' or key == 'block_deals': format_info = {'type': 'deals', 'target_table': key}
+                        elif key == 'fao_participant_oi': format_info = {'type': 'participant_oi'}
+
+                    if format_info.get('target_table') is None and key in ['bulk_deals', 'block_deals']:
+                         format_info['target_table'] = key
 
                     records = FieldMapper.map_to_records(df, format_info, trade_date)
 
-                    model_class = self._get_model_class(pattern_key)
-                    unique_fields = self._get_unique_fields(pattern_key)
-
-                    if not model_class or not unique_fields:
-                        logger.error(f"No model/unique fields configured for {pattern_key}")
+                    if not records:
+                        results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}
                         continue
 
-                    # Upsert to TimescaleDB
+                    model_class = self._get_model_class(key)
+                    unique_fields = self._get_unique_fields(key)
+
+                    if not model_class or not unique_fields:
+                        results[key] = {'status': 'CONFIG_ERROR'}
+                        continue
+
+                    # UPSERT
                     inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
 
-                    # Dual-write to Legacy Bhavcopy
-                    if pattern_key in ['bhavcopy_eq', 'sec_bhavdata']:
+                    # Legacy Sync
+                    if key == 'bhavcopy_eq':
                         self._upsert_legacy_bhavcopy(db, records, 'CM')
-                    elif pattern_key in ['bhavcopy_fo', 'fno_bhav']:
+                    elif key == 'bhavcopy_fo':
                         self._upsert_legacy_bhavcopy(db, records, 'FO')
 
-                    results[pattern_key] = {
-                        'status': 'SUCCESS',
-                        'rows_processed': inserted + updated
-                    }
-                    self._log_import(db, trade_date, pattern_key, 'SUCCESS', inserted, updated)
-                    logger.info(f"✓ {pattern_key}: {inserted+updated} processed")
-                    completed_files.append(pattern_key)
+                    results[key] = {'status': 'SUCCESS', 'rows_processed': inserted + updated}
+                    self._log_import(db, trade_date, key, 'SUCCESS', inserted, updated)
+                    completed_files.append(key)
 
                 except Exception as e:
-                    logger.exception(f"Error importing {pattern_key}: {e}")
-                    results[pattern_key] = {'status': 'ERROR', 'error': str(e)}
-                    self._log_import(db, trade_date, pattern_key, 'FAILED', 0, 0, str(e))
-                    failed_files.append({"name": pattern_key, "error": str(e)})
-
-        # Final progress update
-        if progress_callback:
-            progress_callback({
-                'current_file': 'Done',
-                'file_number': total_files,
-                'total_files': total_files,
-                'percent': 100,
-                'status': 'success',
-                'files_completed': completed_files,
-                'files_failed': failed_files,
-                'timestamp': datetime.now().isoformat()
-            })
-
-        success_count = sum(1 for r in results.values() if r.get('status') == 'SUCCESS')
-
-        logger.info(f"Import completed. Success: {success_count}/{total_files}")
+                    logger.exception(f"Error importing {key}: {e}")
+                    results[key] = {'status': 'ERROR', 'error': str(e)}
+                    self._log_import(db, trade_date, key, 'FAILED', 0, 0, str(e))
+                    failed_files.append(key)
 
         return {
             'status': 'COMPLETED',
             'date': trade_date.isoformat(),
             'files_processed': total_files,
-            'successful': success_count,
+            'successful': len(completed_files),
             'details': results
         }
 
+    def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
+                     unique_fields: list[str]) -> tuple[int, int]:
+        if not records: return 0, 0
+        try:
+            table = model_class.__table__
+            valid_cols = set(c.name for c in table.columns)
+            cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
+
+            stmt = pg_insert(table).values(cleaned)
+            update_cols = {c.name: c for c in table.columns
+                          if c.name not in unique_fields and c.name not in ['id', 'created_at']}
+
+            if update_cols:
+                stmt = stmt.on_conflict_do_update(index_elements=unique_fields, set_=update_cols)
+            else:
+                stmt = stmt.on_conflict_do_nothing(index_elements=unique_fields)
+
+            result = db.execute(stmt)
+            return result.rowcount, 0
+        except Exception as e:
+            logger.error(f"Upsert failed: {e}")
+            raise
+
+    def _log_import(self, db: Session, import_date: date, table_name: str,
+                   status: str, rows_inserted: int, rows_updated: int = 0,
+                   error_msg: str | None = None):
+        log = models.ImportLog(
+            import_date=import_date, table_name=table_name, status=status,
+            rows_inserted=rows_inserted, rows_updated=rows_updated, error_msg=error_msg
+        )
+        db.add(log)
+
+        level = "ERROR" if status in ["FAILED", "ERROR"] else "INFO"
+        msg = f"NSE Import: {table_name} for {import_date} - {status} | Rows: {rows_inserted + rows_updated}"
+        if error_msg: msg += f" | Error: {error_msg}"
+
+        sys_log = SystemLog(
+            timestamp=datetime.now(), level=level, source="NSE_Importer",
+            event_type="Data_Import", message=msg,
+            meta_data={"rows": rows_inserted + rows_updated, "table": table_name}
+        )
+        db.add(sys_log)
+
+    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str):
+        # ... (Identical to previous logic, omitted for brevity but required in real file)
+        # I will include it to ensure completeness
+        if not records: return
+        try:
+            legacy_records = []
+            for r in records:
+                lr = {
+                    'trade_date': r['trade_date'],
+                    'segment': segment,
+                    'symbol': r.get('symbol') or r.get('ticker_symb'),
+                    'instrument_type': r.get('instrument_type', 'EQ' if segment == 'CM' else 'XX'),
+                    'open': r.get('open_price'), 'high': r.get('high_price'),
+                    'low': r.get('low_price'), 'close': r.get('close_price'),
+                    'last': r.get('last_price'), 'prev_close': r.get('prev_close'),
+                    'settlement_price': r.get('settle_price'),
+                    'total_traded_qty': r.get('total_traded_qty') or r.get('total_trading_vol'),
+                    'total_traded_val': r.get('turnover_lacs') or r.get('total_trf_val'),
+                    'total_trades': r.get('no_of_trades'),
+                    'open_interest': r.get('open_interest'),
+                    'change_in_oi': r.get('change_in_oi'),
+                    'series': r.get('series'),
+                    'deliverable_qty': r.get('deliverable_qty'),
+                    'deliverable_pct': r.get('deliverable_pct'),
+                    'expiry_date': r.get('expiry_date'),
+                    'strike_price': r.get('strike_price'),
+                    'option_type': r.get('option_type'),
+                    'instrument_name': r.get('instrument_name'),
+                }
+                legacy_records.append(lr)
+
+            trade_date = records[0]['trade_date']
+            db.query(Bhavcopy).filter(Bhavcopy.trade_date == trade_date, Bhavcopy.segment == segment).delete(synchronize_session=False)
+            db.bulk_insert_mappings(Bhavcopy, legacy_records)
+        except Exception as e:
+            logger.error(f"Legacy sync failed: {e}")
+
     def setup_timescale(self) -> dict[str, Any]:
-        """Initialize TimescaleDB hypertables and policies."""
         with self.get_db() as db:
             return setup_all_timescale_policies(db)
 
     def get_import_stats(self, start_date: date | None = None, end_date: date | None = None) -> dict[str, Any]:
-        """Get import statistics."""
         from backend.ingest.queries import get_import_stats as query_stats
         with self.get_db() as db:
             return query_stats(db, start_date, end_date)

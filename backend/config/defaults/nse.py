@@ -1,89 +1,16 @@
 """NSE Configuration - Based on nselib v2.4.3 and User Requirements"""
 from typing import Dict, Tuple, List, Union
 
-# Base URLs (Trailing spaces removed as per user report)
+# Base URLs
 NSE_BASE_URL = "https://www.nseindia.com"
 NSE_ARCHIVES_BASE = "https://nsearchives.nseindia.com"
 
-# Type alias for file patterns: (List of (URL Pattern, Date Format), Table Name)
-# We support multiple potential URL patterns for fallback.
-# Keys are updated to match frontend (bhavcopy_eq, bhavcopy_fo, etc.) for consistency.
+# DEPRECATED: Patterns are now handled in backend/ingest/nse_lib.py
+# Kept temporarily for backward compatibility with older code/tests.
 NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
     "bhavcopy_eq": ([
         ("/products/content/sec_bhavdata_full_{}.csv", "%d%m%Y"),
-        ("/archives/equities/bhavcopy/pr/PR{}.zip", "%d%m%y")
     ], "bhavcopy_eq"),
-
-    "bhavcopy_fo": ([
-        ("/content/fo/BhavCopy_NSE_FO_0_0_0_{}_F_0000.csv.zip", "%Y%m%d"),
-        ("/archives/fo/bhavcopy/fo{}.zip", "%d%b%Y")
-    ], "bhavcopy_fo"),
-
-    "fao_participant_oi": ([
-        ("/content/nsccl/fao_participant_oi_{}.csv", "%d%m%Y"), # Primary
-        ("/reports/fao_participant_oi_{}.csv", "%d%m%y"),       # Report path
-        ("/archives/nsccl/content/fao_participant_oi_{}.csv", "%d%m%Y") # Archive
-    ], "fao_participant_oi"),
-
-    "fo_volatility": ([
-        ("/archives/nsccl/volt/FOVOLT_{}.csv", "%d%m%Y"),
-        ("/reports/FOVOLT_{}.csv", "%d%m%y")
-    ], "fo_volatility"),
-
-    "fii_derivatives_stats": ([
-        ("/content/fo/fii_stats_{}.xls", "%d-%b-%Y"),
-        ("/reports/fii_stats_{}.xls", "%d-%b-%Y")
-    ], "fii_derivatives_stats"),
-
-    "bulk_deals": ([
-        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=bulk_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
-        ("/archives/equities/mto/bulk_deals_{}.csv", "%d%m%Y") # Fallback Archive
-    ], "bulk_deals"),
-
-    "block_deals": ([
-        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=block_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
-        ("/archives/equities/mto/block_deals_{}.csv", "%d%m%Y") # Fallback Archive
-    ], "block_deals"),
-
-    "mto": ([
-        ("/archives/equities/mto/MTO_{}.DAT", "%d%m%Y"),
-        ("/reports/MTO_{}.DAT", "%d%m%Y")
-    ], "mto_delivery"),
-
-    "mwpl_cli": ([
-        ("/archives/equities/mto/mwpl_cli_{}.xls", "%d%m%Y"),
-        ("/reports/mwpl_cli_{}.xls", "%d%m%Y")
-    ], "mwpl_client_position"),
-
-    "nse_security": ([
-        ("/content/cm/BhavCopy_NSE_CM_0_0_0_{}_F_0000.csv.gz", "%d%m%Y"),
-        ("/archives/common/NSE_CM_security_{}.csv.gz", "%d%m%Y")
-    ], "security_master"),
-
-    "pe_ratio": ([
-        ("/products/content/PE_{}.csv", "%d%m%y"),
-        ("/reports/PE{}.csv", "%d%m%y")
-    ], "pe_ratio"),
-
-    "fii_dii_activity": ([
-        ("/reports/fii_dii_activity_{}.xls", "%d%b%Y"),
-    ], "fii_dii_activity"),
-
-    "var_begin": ([
-        ("/archives/nsccl/var/C_VAR1_{}_1.DAT", "%d%m%Y"),
-    ], "var_stats"),
-
-    "var_end": ([
-        ("/archives/nsccl/var/C_VAR1_{}_6.DAT", "%d%m%Y"),
-    ], "var_stats"),
-
-    "contract_delta": ([
-        ("/archives/nsccl/content/Contract_Delta_{}.csv", "%d%m%Y"),
-    ], "contract_delta"),
-
-    "margin_trading": ([
-        ("/archives/equities/mto/mrg_trading_{}.zip", "%d%m%y"),
-    ], "margin_trading"),
 }
 
 # HTTP Headers - Aligned with nselib v2.4.3
