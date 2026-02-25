@@ -1,34 +1,40 @@
 """TimescaleDB Utilities"""
 import logging
-from typing import Any
+from typing import Any, Dict
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from backend.config.defaults.nse import TIMESCALE_RETENTION, TIMESCALE_COMPRESSION_AFTER_DAYS
 
 logger = logging.getLogger(__name__)
 
-HYPERTABLES = [
-    "bhavcopy_eq",
-    "bhavcopy_fo",
-    "fao_participant_oi",
-    "fo_volatility",
-    "block_deals",
-    "bulk_deals",
-    "fii_derivatives_stats",
-    "mto_delivery",
-    "mwpl_client_position",
-    "pe_ratio",
-]
+# Configuration for TimescaleDB tables
+# Format: table_name: (time_column, segment_column)
+# segment_column is used for compression segmentation. If None, compression might skip segmentby.
+TABLE_CONFIG: Dict[str, tuple[str, str]] = {
+    "bhavcopy_eq": ("trade_date", "symbol"),
+    "bhavcopy_fo": ("trade_date", "ticker_symb"), # ticker_symb is the symbol col in FO
+    "fao_participant_oi": ("trade_date", "client_type"),
+    "fo_volatility": ("trade_date", "symbol"),
+    "block_deals": ("date", "symbol"),
+    "bulk_deals": ("date", "symbol"),
+    "fii_derivatives_stats": ("date", "instrument_type"),
+    "mto_delivery": ("trade_date", "security_name"),
+    "mwpl_client_position": ("date", "underlying_stock"),
+    "pe_ratio": ("date", "symbol"),
+}
+
+HYPERTABLES = list(TABLE_CONFIG.keys())
 
 
-def ensure_hypertable(db: Session, table_name: str, time_column: str = "trade_date") -> bool:
+def ensure_hypertable(db: Session, table_name: str) -> bool:
     """Create hypertable if not exists (idempotent)."""
     try:
-        # Handle tables with 'date' instead of 'trade_date'
-        if table_name in ["block_deals", "bulk_deals", "fii_derivatives_stats", "mwpl_client_position", "pe_ratio"]:
-            time_column = "date"
-        elif table_name == "mto_delivery":
-            time_column = "trade_date"
+        config = TABLE_CONFIG.get(table_name)
+        if not config:
+            logger.error(f"No config for table {table_name}")
+            return False
+
+        time_column, _ = config
 
         db.execute(text(f"""
             SELECT create_hypertable('{table_name}', '{time_column}',
@@ -48,13 +54,28 @@ def set_compression_policy(db: Session, table_name: str, after_days: int | None 
     """Enable compression for hypertable."""
     after_days = after_days or TIMESCALE_COMPRESSION_AFTER_DAYS
     try:
+        config = TABLE_CONFIG.get(table_name)
+        if not config:
+            return False
+
+        time_column, segment_column = config
+
+        # Build compression settings
+        segment_by_clause = f", timescaledb.compress_segmentby = '{segment_column}'" if segment_column else ""
+
+        # Order by time desc, then segment (common pattern)
+        order_by_clause = f"timescaledb.compress_orderby = '{time_column} DESC'"
+        if segment_column:
+             order_by_clause = f"timescaledb.compress_orderby = '{time_column} DESC, {segment_column}'"
+
         db.execute(text(f"""
             ALTER TABLE {table_name} SET (
                 timescaledb.compress,
-                timescaledb.compress_orderby = '{table_name.replace("bhavcopy_", "")}_date DESC, symbol',
-                timescaledb.compress_segmentby = 'symbol'
+                {order_by_clause}
+                {segment_by_clause}
             )
         """))
+
         db.execute(text(f"""
             SELECT add_compression_policy('{table_name}', INTERVAL '{after_days} days', if_not_exists => TRUE)
         """))
