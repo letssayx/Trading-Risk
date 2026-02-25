@@ -1,7 +1,7 @@
 """NSE Data Importer - Direct-to-TimescaleDB"""
 import io, gzip, zipfile, logging
 from datetime import datetime, date
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 from contextlib import contextmanager
 
 import pandas as pd
@@ -9,7 +9,8 @@ import requests
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from backend.config.defaults.nse import NSE_FILE_PATTERNS
+# Deprecated import, but kept for type compatibility if needed
+# from backend.config.defaults.nse import NSE_FILE_PATTERNS
 from backend.infrastructure.db import SessionLocal
 from backend.ingest import nse_models as models
 from backend.domain.market.models import Bhavcopy
@@ -21,6 +22,92 @@ from backend.ingest.field_mapper import FieldMapper
 
 logger = logging.getLogger(__name__)
 
+# Base URLs
+NSE_BASE_URL = "https://www.nseindia.com"
+NSE_ARCHIVES_BASE = "https://nsearchives.nseindia.com"
+
+# Define patterns LOCALLY to ensure the worker process uses the correct, updated logic
+# immediately, bypassing any config file caching issues.
+# Keys align with UI checkbox values.
+LOCAL_NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
+    "bhavcopy_eq": ([
+        ("/products/content/sec_bhavdata_full_{}.csv", "%d%m%Y"),
+        ("/archives/equities/bhavcopy/pr/PR{}.zip", "%d%m%y")
+    ], "bhavcopy_eq"),
+
+    "bhavcopy_fo": ([
+        ("/content/fo/BhavCopy_NSE_FO_0_0_0_{}_F_0000.csv.zip", "%Y%m%d"),
+        ("/archives/fo/bhavcopy/fo{}.zip", "%d%b%Y")
+    ], "bhavcopy_fo"),
+
+    "fao_participant_oi": ([
+        ("/content/nsccl/fao_participant_oi_{}.csv", "%d%m%Y"), # Primary
+        ("/reports/fao_participant_oi_{}.csv", "%d%m%y"),       # Report path
+        ("/archives/nsccl/content/fao_participant_oi_{}.csv", "%d%m%Y") # Archive
+    ], "fao_participant_oi"),
+
+    "fo_volatility": ([
+        ("/archives/nsccl/volt/FOVOLT_{}.csv", "%d%m%Y"),
+        ("/reports/FOVOLT_{}.csv", "%d%m%y")
+    ], "fo_volatility"),
+
+    "fii_derivatives_stats": ([
+        ("/content/fo/fii_stats_{}.xls", "%d-%b-%Y"),
+        ("/reports/fii_stats_{}.xls", "%d-%b-%Y")
+    ], "fii_derivatives_stats"),
+
+    "bulk_deals": ([
+        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=bulk_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
+        ("/archives/equities/mto/bulk_deals_{}.csv", "%d%m%Y") # Fallback Archive
+    ], "bulk_deals"),
+
+    "block_deals": ([
+        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=block_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
+        ("/archives/equities/mto/block_deals_{}.csv", "%d%m%Y") # Fallback Archive
+    ], "block_deals"),
+
+    "mto": ([
+        ("/archives/equities/mto/MTO_{}.DAT", "%d%m%Y"),
+        ("/reports/MTO_{}.DAT", "%d%m%Y")
+    ], "mto_delivery"),
+
+    "mwpl_cli": ([
+        ("/archives/equities/mto/mwpl_cli_{}.xls", "%d%m%Y"),
+        ("/reports/mwpl_cli_{}.xls", "%d%m%Y")
+    ], "mwpl_client_position"),
+
+    "nse_security": ([
+        ("/content/cm/BhavCopy_NSE_CM_0_0_0_{}_F_0000.csv.gz", "%d%m%Y"),
+        ("/archives/common/NSE_CM_security_{}.csv.gz", "%d%m%Y")
+    ], "security_master"),
+
+    "pe_ratio": ([
+        ("/products/content/PE_{}.csv", "%d%m%y"),
+        ("/reports/PE{}.csv", "%d%m%y")
+    ], "pe_ratio"),
+
+    "fii_dii_activity": ([
+        ("/reports/fii_dii_activity_{}.xls", "%d%b%Y"),
+    ], "fii_dii_activity"),
+
+    "var_begin": ([
+        ("/archives/nsccl/var/C_VAR1_{}_1.DAT", "%d%m%Y"),
+    ], "var_stats"),
+
+    "var_end": ([
+        ("/archives/nsccl/var/C_VAR1_{}_6.DAT", "%d%m%Y"),
+    ], "var_stats"),
+
+    "contract_delta": ([
+        ("/archives/nsccl/content/Contract_Delta_{}.csv", "%d%m%Y"),
+    ], "contract_delta"),
+
+    "margin_trading": ([
+        ("/archives/equities/mto/mrg_trading_{}.zip", "%d%m%y"),
+    ], "margin_trading"),
+}
+
+
 class NSEDataImporter:
     """Main importer: downloads → parses → inserts to TimescaleDB."""
 
@@ -28,6 +115,8 @@ class NSEDataImporter:
         self.http = NSESessionManager()
         self.holidays = NSEHolidayCalendar()
         self._db_session = db_session
+        # Use local patterns
+        self.patterns = LOCAL_NSE_FILE_PATTERNS
 
     @contextmanager
     def get_db(self) -> Session:
@@ -46,23 +135,24 @@ class NSEDataImporter:
 
     def _get_candidate_urls(self, pattern_key: str, dt: date) -> List[str]:
         """Generate list of candidate URLs for a given pattern key and date."""
-        if pattern_key not in NSE_FILE_PATTERNS:
+        if pattern_key not in self.patterns:
+            # Try to support legacy key mapping if 'sec_bhavdata' is passed but we have 'bhavcopy_eq'
+            legacy_map = {
+                'sec_bhavdata': 'bhavcopy_eq',
+                'fno_bhav': 'bhavcopy_fo',
+                'fii_stats': 'fii_derivatives_stats',
+                'fovolt': 'fo_volatility'
+            }
+            if pattern_key in legacy_map:
+                pattern_key = legacy_map[pattern_key]
+
+        if pattern_key not in self.patterns:
             return []
 
-        # New structure: (List[(url_fmt, date_fmt)], table_name)
-        config_entry = NSE_FILE_PATTERNS[pattern_key]
+        config_entry = self.patterns[pattern_key]
 
-        # Handle legacy structure if config hasn't been fully migrated (safety check)
-        if isinstance(config_entry[0], str):
-            # Legacy: (url_pattern, date_fmt, table_name)
-            # Adapt to new structure temporarily
-            url_pattern, date_fmt, _ = config_entry
-            patterns_list = [(url_pattern, date_fmt)]
-        else:
-            # New structure
-            patterns_list, _ = config_entry
-
-        from backend.config.defaults.nse import NSE_ARCHIVES_BASE, NSE_BASE_URL
+        # New structure
+        patterns_list, _ = config_entry
 
         candidates = []
         for url_fmt, date_fmt in patterns_list:
@@ -91,7 +181,7 @@ class NSEDataImporter:
         """Parse raw content based on file type."""
         try:
             # Handle specific known zip/gz patterns first
-            if pattern_key in ['fno_bhav', 'margin_trading']:
+            if pattern_key in ['bhavcopy_fo', 'fno_bhav', 'margin_trading']:
                  with zipfile.ZipFile(io.BytesIO(content)) as zf:
                     # Usually just one CSV in there
                     csv_name = [n for n in zf.namelist() if n.lower().endswith('.csv')][0]
@@ -115,7 +205,7 @@ class NSEDataImporter:
                  return data
 
             # FII Stats: Often has metadata in first few rows
-            if pattern_key == 'fii_stats':
+            if pattern_key in ['fii_derivatives_stats', 'fii_stats']:
                  return pd.read_excel(io.BytesIO(content))
 
             # Default CSV / DAT (often CSV-like)
@@ -125,14 +215,19 @@ class NSEDataImporter:
             except UnicodeDecodeError:
                 text_content = content.decode('latin-1')
 
-            # MTO: Skip first 2 lines
+            # MTO: Skip first 3 lines (Title, Metadata, Metadata) -> Header is Line 3 (index 3)
+            # Based on user feedback:
+            # Line 0: Security Wise Delivery Position...
+            # Line 1: 10,MTO,...
+            # Line 2: Trade Date...
+            # Line 3: Record Type,Sr No,... (HEADER)
             if pattern_key == 'mto':
                 lines = text_content.strip().split('\n')
-                if len(lines) < 3:
+                if len(lines) < 4:
                      return pd.DataFrame()
-                # Skip first 2 header rows, use 3rd row as headers (lines[2])
-                header_line = lines[2]
-                data_lines = lines[3:]
+
+                header_line = lines[3] # 4th line
+                data_lines = lines[4:] # 5th line onwards
                 csv_str = header_line + '\n' + '\n'.join(data_lines)
                 return pd.read_csv(io.StringIO(csv_str), low_memory=False)
 
@@ -290,15 +385,24 @@ class NSEDataImporter:
             # Non-blocking error
 
     def _get_model_class(self, pattern_key: str):
-        # Map pattern key to DB model
+        # Handle legacy keys for model mapping if needed
+        legacy_map = {
+            'sec_bhavdata': 'bhavcopy_eq',
+            'fno_bhav': 'bhavcopy_fo',
+            'fovolt': 'fo_volatility',
+            'fii_stats': 'fii_derivatives_stats'
+        }
+        if pattern_key in legacy_map:
+            pattern_key = legacy_map[pattern_key]
+
         mapping = {
-            'sec_bhavdata': models.BhavcopyEQ,
-            'fno_bhav': models.BhavcopyFO,
+            'bhavcopy_eq': models.BhavcopyEQ,
+            'bhavcopy_fo': models.BhavcopyFO,
             'fao_participant_oi': models.FAOParticipantOI,
-            'fovolt': models.FOVolatility,
+            'fo_volatility': models.FOVolatility,
             'block_deals': models.BlockDeal,
             'bulk_deals': models.BulkDeal,
-            'fii_stats': models.FIIDerivativesStat,
+            'fii_derivatives_stats': models.FIIDerivativesStat,
             'mto': models.MTODelivery,
             'mwpl_cli': models.MWPLClientPosition,
             'nse_security': models.SecurityMaster,
@@ -311,14 +415,24 @@ class NSEDataImporter:
         return mapping.get(pattern_key)
 
     def _get_unique_fields(self, pattern_key: str) -> List[str]:
+        # Handle legacy keys for mapping
+        legacy_map = {
+            'sec_bhavdata': 'bhavcopy_eq',
+            'fno_bhav': 'bhavcopy_fo',
+            'fovolt': 'fo_volatility',
+            'fii_stats': 'fii_derivatives_stats'
+        }
+        if pattern_key in legacy_map:
+            pattern_key = legacy_map[pattern_key]
+
         mapping = {
-            'sec_bhavdata': ['symbol', 'series', 'trade_date'],
-            'fno_bhav': ['trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type'],
+            'bhavcopy_eq': ['symbol', 'series', 'trade_date'],
+            'bhavcopy_fo': ['trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type'],
             'fao_participant_oi': ['trade_date', 'client_type'],
-            'fovolt': ['trade_date', 'symbol'],
+            'fo_volatility': ['trade_date', 'symbol'],
             'block_deals': ['date', 'symbol', 'client_name', 'buy_sell'],
             'bulk_deals': ['date', 'symbol', 'client_name', 'buy_sell'],
-            'fii_stats': ['date', 'instrument_type'],
+            'fii_derivatives_stats': ['date', 'instrument_type'],
             'mto': ['trade_date', 'security_name'],
             'mwpl_cli': ['date', 'underlying_stock', 'client_position_num'],
             'nse_security': ['fin_instrm_id'],
@@ -341,7 +455,8 @@ class NSEDataImporter:
             }
 
         results = {}
-        patterns_to_run = patterns or list(NSE_FILE_PATTERNS.keys())
+        # Default to all patterns if none provided
+        patterns_to_run = patterns or list(self.patterns.keys())
         total_files = len(patterns_to_run)
 
         completed_files = []
@@ -368,9 +483,17 @@ class NSEDataImporter:
                 try:
                     candidates = self._get_candidate_urls(pattern_key, trade_date)
                     if not candidates:
-                         results[pattern_key] = {'status': 'ERROR', 'error': 'Invalid pattern configuration'}
-                         failed_files.append({"name": pattern_key, "error": "Invalid pattern configuration"})
-                         continue
+                         # Handle legacy mapping in loop just in case
+                         legacy_map = {'sec_bhavdata': 'bhavcopy_eq', 'fno_bhav': 'bhavcopy_fo', 'fii_stats': 'fii_derivatives_stats', 'fovolt': 'fo_volatility'}
+                         if pattern_key in legacy_map:
+                             # Map and retry
+                             new_key = legacy_map[pattern_key]
+                             candidates = self._get_candidate_urls(new_key, trade_date)
+
+                         if not candidates:
+                             results[pattern_key] = {'status': 'ERROR', 'error': 'Invalid pattern configuration'}
+                             failed_files.append({"name": pattern_key, "error": "Invalid pattern configuration"})
+                             continue
 
                     # Try candidates in order (Fallback Logic)
                     resp = None
@@ -411,14 +534,6 @@ class NSEDataImporter:
                     if pattern_key in ['bulk_deals', 'block_deals']:
                          format_info['target_table'] = pattern_key
 
-                    # Override format detection if we know the file source strongly?
-                    # Ideally detection is robust enough.
-                    # Fallback if detection fails but we know the pattern?
-                    if format_info['type'] == 'unknown':
-                        logger.warning(f"Could not auto-detect format for {pattern_key}. File headers: {df.columns.tolist()}")
-                        # Maybe try to force based on pattern_key?
-                        # This would be a future improvement.
-
                     records = FieldMapper.map_to_records(df, format_info, trade_date)
 
                     model_class = self._get_model_class(pattern_key)
@@ -432,9 +547,9 @@ class NSEDataImporter:
                     inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
 
                     # Dual-write to Legacy Bhavcopy
-                    if pattern_key == 'sec_bhavdata':
+                    if pattern_key in ['bhavcopy_eq', 'sec_bhavdata']:
                         self._upsert_legacy_bhavcopy(db, records, 'CM')
-                    elif pattern_key == 'fno_bhav':
+                    elif pattern_key in ['bhavcopy_fo', 'fno_bhav']:
                         self._upsert_legacy_bhavcopy(db, records, 'FO')
 
                     results[pattern_key] = {

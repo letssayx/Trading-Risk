@@ -7,13 +7,14 @@ NSE_ARCHIVES_BASE = "https://nsearchives.nseindia.com"
 
 # Type alias for file patterns: (List of (URL Pattern, Date Format), Table Name)
 # We support multiple potential URL patterns for fallback.
+# Keys are updated to match frontend (bhavcopy_eq, bhavcopy_fo, etc.) for consistency.
 NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
-    "sec_bhavdata": ([
+    "bhavcopy_eq": ([
         ("/products/content/sec_bhavdata_full_{}.csv", "%d%m%Y"),
         ("/archives/equities/bhavcopy/pr/PR{}.zip", "%d%m%y")
     ], "bhavcopy_eq"),
 
-    "fno_bhav": ([
+    "bhavcopy_fo": ([
         ("/content/fo/BhavCopy_NSE_FO_0_0_0_{}_F_0000.csv.zip", "%Y%m%d"),
         ("/archives/fo/bhavcopy/fo{}.zip", "%d%b%Y")
     ], "bhavcopy_fo"),
@@ -24,12 +25,12 @@ NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
         ("/archives/nsccl/content/fao_participant_oi_{}.csv", "%d%m%Y") # Archive
     ], "fao_participant_oi"),
 
-    "fovolt": ([
+    "fo_volatility": ([
         ("/archives/nsccl/volt/FOVOLT_{}.csv", "%d%m%Y"),
         ("/reports/FOVOLT_{}.csv", "%d%m%y")
     ], "fo_volatility"),
 
-    "fii_stats": ([
+    "fii_derivatives_stats": ([
         ("/content/fo/fii_stats_{}.xls", "%d-%b-%Y"),
         ("/reports/fii_stats_{}.xls", "%d-%b-%Y")
     ], "fii_derivatives_stats"),
