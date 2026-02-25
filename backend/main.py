@@ -11,7 +11,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        RotatingFileHandler('nse_import.log', maxBytes=10*1024*1024, backupCount=5),
+        # Reduced maxBytes to 5MB and backupCount to 3 to save space
+        RotatingFileHandler('nse_import.log', maxBytes=5*1024*1024, backupCount=3),
         logging.StreamHandler()
     ]
 )

@@ -137,10 +137,17 @@
             const end = document.getElementById('end-date').value;
 
             // Validations
+            // Legacy Bhavcopy requires symbol, but new types don't.
             if (type === 'bhavcopy' && !symbol) {
                 alert("Symbol is required for Legacy Bhavcopy search.");
                 return;
             }
+
+            const btn = document.querySelector('.btn-primary');
+            const originalText = btn.innerText;
+            btn.innerText = "Loading...";
+            btn.disabled = true;
+            btn.style.opacity = "0.7";
 
             document.getElementById('status-msg').innerText = "Loading...";
             const tbody = document.getElementById('table-body');
@@ -166,6 +173,10 @@
                 if (data.length === 0) {
                     document.getElementById('status-msg').innerText = "No data found.";
                     document.getElementById('row-count').innerText = "0 Rows";
+                    const tbody = document.getElementById('table-body');
+                    const thead = document.getElementById('table-head');
+                    tbody.innerHTML = '';
+                    thead.innerHTML = '';
                     return;
                 }
 
@@ -208,6 +219,10 @@
             } catch (e) {
                 document.getElementById('status-msg').innerText = "Error: " + e.message;
                 console.error(e);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                btn.style.opacity = "1";
             }
         }
 
