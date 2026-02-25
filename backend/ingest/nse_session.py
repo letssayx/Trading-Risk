@@ -44,17 +44,9 @@ class NSESessionManager:
             )
             self.last_request_time = time.time()
 
-            if resp.status_code == 200:
-                return resp
-            elif resp.status_code == 404:
-                logger.debug(f"File not found: {url}")
-                return None
-            elif resp.status_code == 403:
-                logger.error(f"Access forbidden (403). Headers may need update.")
-                return None
-            else:
+            if resp.status_code != 200:
                 logger.warning(f"HTTP {resp.status_code}: {url}")
-                return None
+            return resp
 
         except requests.exceptions.Timeout:
             logger.error(f"Timeout: {url}")

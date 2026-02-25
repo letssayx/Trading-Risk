@@ -69,6 +69,10 @@ class FieldMapper:
         if 'Underlying Stock' in columns and 'Client 1' in columns:
             return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
+        # MWPL Raw check (if headers are in row 2)
+        if len(df.columns) > 0 and "MWPL" in str(df.columns[0]):
+             return {'type': 'mwpl', 'name': 'mwpl_client_position'}
+
         # P/E Ratio
         if 'SYMBOL' in columns and 'SYMBOL P/E' in columns:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
@@ -344,9 +348,23 @@ class FieldMapper:
     @classmethod
     def _map_mwpl(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
+
+        # Handle raw DF where headers are not yet set
+        if 'Client 1' not in df.columns:
+             # Try to find header row
+             for i, row in df.iterrows():
+                 # Check if this row looks like a header
+                 row_vals = [str(x) for x in row.values if pd.notna(x)]
+                 if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
+                     # Found headers at index i
+                     headers = row
+                     df = df.iloc[i+1:].copy()
+                     df.columns = headers
+                     break
+
         for _, row in df.iterrows():
             underlying = str(row.get('Underlying Stock', '')).strip()
-            if not underlying:
+            if not underlying or underlying == 'nan':
                 continue
 
             for i in range(1, 16):

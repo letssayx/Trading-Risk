@@ -71,8 +71,20 @@ class NSEDataImporter:
                 with gzip.GzipFile(fileobj=io.BytesIO(content)) as gz:
                     return pd.read_csv(gz, low_memory=False)
 
-            # Excel files
-            if pattern_key in ['fii_stats', 'mwpl_cli']:
+            # MWPL: Special header handling (Headers in Row 2)
+            if pattern_key == 'mwpl_cli':
+                 df_raw = pd.read_excel(io.BytesIO(content), header=None)
+                 if len(df_raw) < 2:
+                     return pd.DataFrame()
+                 # Use row 2 (index 1) as headers
+                 headers = df_raw.iloc[1].fillna('').astype(str).tolist()
+                 # Data starts from row 3 (index 2)
+                 data = df_raw.iloc[2:].copy()
+                 data.columns = headers
+                 return data
+
+            # Excel files (Generic)
+            if pattern_key in ['fii_stats']:
                  return pd.read_excel(io.BytesIO(content))
 
             # Default CSV / DAT (often CSV-like)
@@ -81,6 +93,17 @@ class NSEDataImporter:
                 text_content = content.decode('utf-8')
             except UnicodeDecodeError:
                 text_content = content.decode('latin-1')
+
+            # MTO: Skip first 2 lines
+            if pattern_key == 'mto':
+                lines = text_content.strip().split('\n')
+                if len(lines) < 3:
+                     return pd.DataFrame()
+                # Skip first 2 header rows, use 3rd row as headers (lines[2])
+                header_line = lines[2]
+                data_lines = lines[3:]
+                csv_str = header_line + '\n' + '\n'.join(data_lines)
+                return pd.read_csv(io.StringIO(csv_str), low_memory=False)
 
             # Special handling for fao_participant_oi (skip metadata header)
             skiprows = 0
@@ -94,6 +117,12 @@ class NSEDataImporter:
 
         except Exception as e:
             logger.error(f"Failed to parse content for {pattern_key}: {e}")
+            try:
+                # Log snippet for debugging
+                snippet = content[:200]
+                logger.error(f"Content snippet (first 200 bytes): {snippet}")
+            except:
+                pass
             return None
 
     def _log_import(self, db: Session, import_date: date, table_name: str,
@@ -309,13 +338,17 @@ class NSEDataImporter:
                         failed_files.append({"name": pattern_key, "error": "Invalid pattern"})
                         continue
 
-                    logger.debug(f"Downloading {pattern_key} from {url}")
+                    logger.info(f"Downloading {pattern_key} from {url}")
                     resp = self.http.get(url)
 
-                    if not resp:
-                        results[pattern_key] = {'status': 'FAILED', 'error': 'Download failed'}
-                        logger.error(f"Download failed: {pattern_key}")
-                        failed_files.append({"name": pattern_key, "error": "Download failed"})
+                    status_code = resp.status_code if resp else 'No Response'
+                    logger.info(f"Response for {pattern_key}: {status_code}")
+
+                    if not resp or resp.status_code != 200:
+                        error_msg = f'Download failed: {status_code}'
+                        results[pattern_key] = {'status': 'FAILED', 'error': error_msg}
+                        logger.error(f"{error_msg} for {url}")
+                        failed_files.append({"name": pattern_key, "error": error_msg})
                         continue
 
                     # Parse
