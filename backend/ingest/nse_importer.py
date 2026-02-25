@@ -67,20 +67,19 @@ class NSEDataImporter:
         candidates = []
         for url_fmt, date_fmt in patterns_list:
             formatted_date = format_nse_date(dt, date_fmt)
+
+            # Handle API patterns that use {0} for repeated date insertion
             path = url_fmt.format(formatted_date)
 
             # Determine base URL
-            # If path starts with /archives, usually use ARCHIVES_BASE
-            # If path starts with /content or /products, usually use MAIN_URL or ARCHIVES_BASE?
-            # User instructions implied most failures were 404 on archives.
-            # nselib uses NSE_ARCHIVES_URL for most historical data.
-            # We will try ARCHIVES_BASE for all standard downloads as per config.
+            if path.startswith("http"):
+                # Absolute URL (e.g. API endpoint)
+                full_url = path
+            else:
+                # Relative path -> Default to Archives
+                full_url = f"{NSE_ARCHIVES_BASE}{path}"
 
-            full_url = f"{NSE_ARCHIVES_BASE}{path}"
             candidates.append(full_url)
-
-            # If it's a "product" or "report", maybe try main URL too?
-            # For now, let's stick to the explicit paths in config.
 
         return candidates
 
@@ -145,7 +144,10 @@ class NSEDataImporter:
                 if 'Participant wise Open Interest' in first_line:
                     skiprows = 1
 
-            return pd.read_csv(io.StringIO(text_content), skiprows=skiprows, low_memory=False)
+            df = pd.read_csv(io.StringIO(text_content), skiprows=skiprows, low_memory=False)
+            # Strip whitespace from headers to ensure robust mapping
+            df.columns = df.columns.str.strip()
+            return df
 
         except Exception as e:
             logger.error(f"Failed to parse content for {pattern_key}: {e}")

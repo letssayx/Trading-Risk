@@ -10,7 +10,7 @@ NSE_ARCHIVES_BASE = "https://nsearchives.nseindia.com"
 NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
     "sec_bhavdata": ([
         ("/products/content/sec_bhavdata_full_{}.csv", "%d%m%Y"),
-        ("/archives/equities/bhavcopy/pr/PR{}.zip", "%d%m%y") # Old PR zip fallback
+        ("/archives/equities/bhavcopy/pr/PR{}.zip", "%d%m%y")
     ], "bhavcopy_eq"),
 
     "fno_bhav": ([
@@ -35,22 +35,22 @@ NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
     ], "fii_derivatives_stats"),
 
     "bulk_deals": ([
-        ("/archives/equities/mto/bulk_deals_{}.csv", "%d%m%Y"), # Correct archive path
-        ("/reports/bulk_deals_{}.csv", "%d%m%Y")                # Report path
+        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=bulk_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
+        ("/archives/equities/mto/bulk_deals_{}.csv", "%d%m%Y") # Fallback Archive
     ], "bulk_deals"),
 
     "block_deals": ([
-        ("/archives/equities/mto/block_deals_{}.csv", "%d%m%Y"), # Correct archive path
-        ("/reports/block_deals_{}.csv", "%d%m%Y")                # Report path
+        ("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals?optionType=block_deals&from={0}&to={0}&csv=true", "%d-%b-%Y"), # API
+        ("/archives/equities/mto/block_deals_{}.csv", "%d%m%Y") # Fallback Archive
     ], "block_deals"),
 
     "mto": ([
-        ("/archives/equities/mto/MTO_{}.DAT", "%d%m%Y"), # Correct archive path
+        ("/archives/equities/mto/MTO_{}.DAT", "%d%m%Y"),
         ("/reports/MTO_{}.DAT", "%d%m%Y")
     ], "mto_delivery"),
 
     "mwpl_cli": ([
-        ("/archives/equities/mto/mwpl_cli_{}.xls", "%d%m%Y"), # Correct archive path
+        ("/archives/equities/mto/mwpl_cli_{}.xls", "%d%m%Y"),
         ("/reports/mwpl_cli_{}.xls", "%d%m%Y")
     ], "mwpl_client_position"),
 
@@ -85,14 +85,18 @@ NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
     ], "margin_trading"),
 }
 
-# HTTP Headers
+# HTTP Headers - Aligned with nselib v2.4.3
 REQUEST_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
+    "Connection": "keep-alive",
+    "Cache-Control": "max-age=0",
+    "DNT": "1",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Sec-Fetch-User": "?1",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-Mode": "navigate",
+    "Accept-Language": "en-US,en;q=0.9,hi;q=0.8"
 }
 
 # Settings
