@@ -22,3 +22,4 @@ pyotp
 hmmlearn
 plotly
 python-multipart
+xlrd>=2.0.1

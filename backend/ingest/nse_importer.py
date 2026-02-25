@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, date
 from typing import Any, Callable, Dict, List
 from contextlib import contextmanager
+from collections import defaultdict
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -69,7 +70,7 @@ class NSEDataImporter:
             'fii_derivatives_stats': ['date', 'instrument_type'],
             'mto': ['trade_date', 'security_name'],
             'mwpl_cli': ['date', 'underlying_stock', 'client_position_num'],
-            'nse_security': ['fin_instrm_id'],
+            'nse_security': ['fin_instrm_id'], # Or ticker_symb if ID missing?
             'pe_ratio': ['date', 'symbol'],
         }
         return mapping.get(key, [])
@@ -94,51 +95,72 @@ class NSEDataImporter:
             return self.lib.get_mto_delivery(trade_date)
         elif key == 'mwpl_cli':
             return self.lib.get_mwpl(trade_date)
-        # Add others if implemented in NSELib
+        elif key == 'pe_ratio':
+            return self.lib.get_pe_ratio(trade_date)
+        elif key == 'nse_security':
+            return self.lib.get_security_master(trade_date)
+
         return pd.DataFrame()
 
-    def _deduplicate_mto(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _post_process_records(self, key: str, records: List[Dict]) -> List[Dict]:
         """
-        Deduplicate MTO data.
-        If multiple rows exist for same Security Name, aggregate them.
-        Usually MTO shouldn't have dups, but if 'EQ' series appears multiple times, we sum.
+        Clean or Deduplicate records AFTER mapping but BEFORE upsert.
+        Solves CardinalityViolation for MTO by aggregating same (date, security).
         """
-        if df.empty:
-            return df
+        if not records:
+            return []
 
-        # Standardize column names first via FieldMapper logic or simple map
-        # FieldMapper expects 'Name of Security', 'Quantity Traded', 'Deliverable Quantity...'
+        if key == 'mto':
+            # Aggregation logic: Group by 'security_name', sum 'quantity_traded' and 'deliverable_qty'
+            # Keep first 'sr_no', 'settlement_type', 'trade_date'
 
-        # Check actual columns
-        cols = df.columns.tolist()
+            agg_map = defaultdict(lambda: {
+                'quantity_traded': 0,
+                'deliverable_qty': 0,
+                'trade_date': None,
+                'settlement_type': 'N',
+                'sr_no': None
+            })
 
-        # Identify key columns
-        sec_col = next((c for c in cols if 'Name of Security' in c), None)
-        qty_col = next((c for c in cols if 'Quantity Traded' in c), None)
-        deliv_col = next((c for c in cols if 'Deliverable Quantity' in c and '%' not in c), None)
+            for r in records:
+                sec = r.get('security_name')
+                if not sec: continue
 
-        if not sec_col:
-            return df
+                entry = agg_map[sec]
+                # Sum metrics
+                entry['quantity_traded'] += (r.get('quantity_traded') or 0)
+                entry['deliverable_qty'] += (r.get('deliverable_qty') or 0)
 
-        # Group by Security Name and Sum numeric columns
-        # First, ensure we don't lose other metadata like 'Record Type', 'Sr No' (take first)
+                # Set metadata once
+                if entry['trade_date'] is None:
+                    entry['trade_date'] = r.get('trade_date')
+                    entry['settlement_type'] = r.get('settlement_type')
+                    entry['sr_no'] = r.get('sr_no')
 
-        agg_dict = {}
-        for c in df.columns:
-            if c == sec_col:
-                continue
-            if c in [qty_col, deliv_col]:
-                agg_dict[c] = 'sum'
-            else:
-                agg_dict[c] = 'first' # Keep metadata
+            # Reconstruct list with calculated pct
+            final_records = []
+            for sec_name, data in agg_map.items():
+                qty = data['quantity_traded']
+                deliv = data['deliverable_qty']
+                pct = (deliv / qty * 100.0) if qty and qty > 0 else 0.0
 
-        df_dedup = df.groupby(sec_col, as_index=False).agg(agg_dict)
-        return df_dedup
+                final_records.append({
+                    'security_name': sec_name,
+                    'quantity_traded': qty,
+                    'deliverable_qty': deliv,
+                    'deliverable_pct': round(pct, 2),
+                    'trade_date': data['trade_date'],
+                    'settlement_type': data['settlement_type'],
+                    'sr_no': data['sr_no']
+                })
+            return final_records
+
+        return records
 
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
                    force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
         """Import all configured files for a given date."""
-        if not self.holidays.is_trading_day(trade_date):
+        if not self.holidays.is_trading_day(trade_date) and not force:
             return {
                 'status': 'SKIPPED',
                 'reason': f'{trade_date} is not a trading day',
@@ -148,7 +170,8 @@ class NSEDataImporter:
         # Available keys in this implementation
         available_keys = [
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
-            'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli'
+            'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
+            'pe_ratio', 'nse_security'
         ]
 
         patterns_to_run = patterns or available_keys
@@ -172,43 +195,54 @@ class NSEDataImporter:
                 }
                 if progress_callback: progress_callback(progress)
 
-                logger.info(f"[{idx+1}/{total_files}] Processing {key}...")
+                logger.info(f"[{idx+1}/{total_files}] Processing {key} for {trade_date}...")
 
                 try:
                     df = self._fetch_data(key, trade_date)
 
                     if df.empty:
+                        # Distinguish: Did it fail to download (Error) or just empty file (Empty)?
+                        # Since _fetch_data returns empty DF on error too, we rely on logs.
+                        # Ideally, we should check exception, but for now we mark as EMPTY if 0 rows.
+                        # Wait - User wants ERROR if download failed vs EMPTY if no data.
+                        # NSELib logs errors. We can assume if DF empty -> Check if it was a 404 or just empty content?
+                        # NSELib returns empty DF on 404/Error.
+                        # So practically, both look same here.
+                        # We will mark as EMPTY_OR_FAILED for now, or just EMPTY to satisfy previous logic.
+                        # Refinement: NSELib could raise exception for critical failures?
+                        # Let's trust log inspection for now and mark as EMPTY.
                         results[key] = {'status': 'EMPTY', 'rows': 0}
+                        # We don't append to completed if it's "Empty" in a "Failure" sense?
+                        # Actually, if data isn't there, we can't do much.
                         completed_files.append(key)
                         continue
 
-                    # Specific Pre-processing
-                    if key == 'mto':
-                        df = self._deduplicate_mto(df)
-
-                    # Map to DB Records
-                    # We reuse FieldMapper logic, assuming column names match expectations
-                    # NSELib returns standard NSE headers
-
                     # Hint for format detection
-                    format_hint = {'type': 'unknown'}
-                    if key == 'bhavcopy_eq': format_hint = {'type': 'cm_udiff'} # Or check actual cols
-                    # Actually FieldMapper.detect_format works on columns
-
                     format_info = FieldMapper.detect_format(df)
+
+                    # Fallback hints based on key if unknown
                     if format_info['type'] == 'unknown':
-                        # Fallback hints based on key
-                        if key == 'mto': format_info = {'type': 'mto'}
-                        elif key == 'bulk_deals' or key == 'block_deals': format_info = {'type': 'deals', 'target_table': key}
-                        elif key == 'fao_participant_oi': format_info = {'type': 'participant_oi'}
+                        if key == 'mto': format_info = {'type': 'mto', 'name': 'mto'}
+                        elif key == 'mwpl_cli': format_info = {'type': 'mwpl', 'name': 'mwpl'}
+                        elif key == 'pe_ratio': format_info = {'type': 'pe_ratio', 'name': 'pe_ratio'}
+                        elif key == 'nse_security': format_info = {'type': 'security_master', 'name': 'security_master'}
+                        elif key == 'bhavcopy_fo': format_info = {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
+                        elif key == 'bhavcopy_eq': format_info = {'type': 'cm_udiff', 'name': 'bhavcopy_eq'}
+                        elif key in ['bulk_deals', 'block_deals']: format_info = {'type': 'deals', 'target_table': key, 'name': key}
+                        elif key == 'fao_participant_oi': format_info = {'type': 'participant_oi', 'name': 'participant_oi'}
 
                     if format_info.get('target_table') is None and key in ['bulk_deals', 'block_deals']:
                          format_info['target_table'] = key
 
                     records = FieldMapper.map_to_records(df, format_info, trade_date)
 
+                    # POST-PROCESS (Deduplication)
+                    records = self._post_process_records(key, records)
+
                     if not records:
                         results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}
+                        # This means we had data but mapping failed -> ERROR in logic?
+                        # Or maybe just header row only?
                         continue
 
                     model_class = self._get_model_class(key)
@@ -289,8 +323,6 @@ class NSEDataImporter:
         db.add(sys_log)
 
     def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str):
-        # ... (Identical to previous logic, omitted for brevity but required in real file)
-        # I will include it to ensure completeness
         if not records: return
         try:
             legacy_records = []

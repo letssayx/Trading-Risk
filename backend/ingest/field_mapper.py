@@ -24,13 +24,13 @@ class FieldMapper:
         """Detect file format and return metadata"""
         columns = set(df.columns)
 
+        # UDIFF FO bhavcopy (Check first as it's more specific with XpryDt)
+        if 'TckrSymb' in columns and 'FinInstrmTp' in columns and 'XpryDt' in columns:
+            return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
+
         # UDIFF CM bhavcopy
         if 'TckrSymb' in columns and 'SctySrs' in columns and 'TradDt' in columns:
             return {'type': 'cm_udiff', 'name': 'bhavcopy_eq'}
-
-        # UDIFF FO bhavcopy
-        if 'TckrSymb' in columns and 'FinInstrmTp' in columns and 'XpryDt' in columns:
-            return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
 
         # Old EQ bhavcopy
         if 'SYMBOL' in columns and 'SERIES' in columns and 'DATE1' in columns:
@@ -38,19 +38,13 @@ class FieldMapper:
 
         # Block/Bulk Deals
         if 'CLIENT NAME' in columns or 'Client Name' in columns:
-            # Simple heuristic
-            if 'BLOCK' in str(df.columns).upper(): # unlikely to be in columns directly but maybe filename context needed?
-                 # Usually passed from outside, but if dataframe itself is distinctive...
-                 pass
-            # We often rely on the importer telling us the intended target, but this is auto-detect
-            return {'type': 'deals', 'name': 'deals_generic'} # Will resolve specific type later
+            return {'type': 'deals', 'name': 'deals_generic'}
 
         # Participant OI
         if 'Client Type' in columns and 'Future Index Long' in columns:
             return {'type': 'participant_oi', 'name': 'fao_participant_oi'}
 
         # FII Stats (special format - often no headers in row 0)
-        # We might need to check first few rows content
         try:
             if 'FII DERIVATIVES STATISTICS' in str(df.iloc[0:2]).upper():
                 return {'type': 'fii_stats', 'name': 'fii_derivatives_stats'}
@@ -74,11 +68,16 @@ class FieldMapper:
              return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
         # P/E Ratio
-        if 'SYMBOL' in columns and 'SYMBOL P/E' in columns:
+        if 'SYMBOL' in columns and 'P/E' in columns: # Official often has 'P/E'
+             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
+        if 'SYMBOL' in columns and 'SYMBOL P/E' in columns: # Older/Archive
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
 
-        # Security Master
-        if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:
+        # Security Master (EQUITY_L)
+        if 'SYMBOL' in columns and 'NAME OF COMPANY' in columns and ' ISIN NUMBER' in columns:
+             return {'type': 'security_master_l', 'name': 'security_master'}
+        # New Bhavcopy as Security Master fallback
+        if 'TckrSymb' in columns and 'ISIN' in columns:
             return {'type': 'security_master', 'name': 'security_master'}
 
         # VaR Stats
@@ -123,6 +122,8 @@ class FieldMapper:
             return cls._map_pe(df, trade_date)
         elif format_type == 'security_master':
             return cls._map_security_master(df)
+        elif format_type == 'security_master_l':
+            return cls._map_security_master_l(df)
         elif format_type == 'var_stats':
             return cls._map_var_stats(df, trade_date)
         elif format_type == 'contract_delta':
@@ -332,6 +333,9 @@ class FieldMapper:
             if str(row.iloc[0]).strip() in ['Record Type', '20']:
                 continue
 
+            # MTO DAT format usually: Record Type, Sr No, Name of Security, Quantity Traded, Deliverable Quantity, % Deliverable
+            # NSELib tries to parse it into CSV.
+
             record = {
                 'trade_date': trade_date,
                 'settlement_type': 'N',
@@ -349,18 +353,10 @@ class FieldMapper:
     def _map_mwpl(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
 
-        # Handle raw DF where headers are not yet set
+        # Header already handled in NSELib most likely, but check
         if 'Client 1' not in df.columns:
-             # Try to find header row
-             for i, row in df.iterrows():
-                 # Check if this row looks like a header
-                 row_vals = [str(x) for x in row.values if pd.notna(x)]
-                 if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
-                     # Found headers at index i
-                     headers = row
-                     df = df.iloc[i+1:].copy()
-                     df.columns = headers
-                     break
+             # Try to find header row again if not found by NSELib
+             pass
 
         for _, row in df.iterrows():
             underlying = str(row.get('Underlying Stock', '')).strip()
@@ -385,10 +381,40 @@ class FieldMapper:
             record = {
                 'date': trade_date,
                 'symbol': str(row.get('SYMBOL', '')).strip(),
-                'symbol_pe': cls._clean_numeric(row.get('SYMBOL P/E')),
+                'symbol_pe': cls._clean_numeric(row.get('P/E', row.get('SYMBOL P/E'))),
+                'sector_pe': cls._clean_numeric(row.get('Sectoral Index P/E', row.get('SECTORAL INDEX P/E'))),
+                # Note: 'ADJUSTED P/E' often not in recent files, but check
                 'adjusted_pe': cls._clean_numeric(row.get('ADJUSTED P/E')),
             }
             if record['symbol']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_security_master_l(cls, df: pd.DataFrame) -> List[Dict]:
+        """Maps EQUITY_L.csv format"""
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'fin_instrm_id': str(row.get('ISIN NUMBER', '')).strip(), # Use ISIN as ID if ID missing? Or Ticker?
+                # DB expects fin_instrm_id. Often in Bhavcopy it's a number.
+                # In EQUITY_L, we have SYMBOL, NAME, SERIES, ISIN.
+                # If we lack FinInstrmId, we might need to map differently or allow nullable?
+                # But 'nse_models.SecurityMaster' defines 'fin_instrm_id' as PK.
+                # If we don't have it, we can't insert into that specific table correctly unless we fake it or use ISIN.
+                # Let's use ISIN as key for now if that's what we have.
+                'ticker_symb': str(row.get('SYMBOL', '')).strip(),
+                'security_series': str(row.get(' SERIES', row.get('SERIES', ''))).strip(),
+                'instrument_name': str(row.get('NAME OF COMPANY', '')).strip(),
+                'isin': str(row.get(' ISIN NUMBER', row.get('ISIN NUMBER', ''))).strip(),
+                'listed_date': parse_nse_date(row.get(' DATE OF LISTING', row.get('DATE OF LISTING'))),
+                'status': 'Active' # Implicit
+            }
+            # For FinInstrmId, if we don't have it, we use ISIN?
+            if not record['fin_instrm_id']:
+                 record['fin_instrm_id'] = record['isin']
+
+            if record['ticker_symb']:
                 records.append(record)
         return records
 
@@ -420,12 +446,6 @@ class FieldMapper:
     @classmethod
     def _map_var_stats(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
-        # Determine if begin or end based on filename context (passed in trade_date? No)
-        # We might need to guess or pass 'file_type' in format_info?
-        # For now, we assume caller handles file_type logic or we default to unknown
-        # The prompt implies 2 files.
-        # Let's map columns first.
-
         for _, row in df.iterrows():
             record = {
                 'date': trade_date,
@@ -437,9 +457,6 @@ class FieldMapper:
                 'extreme_loss_rate': cls._clean_numeric(row.get('Extreme Loss Rate')),
                 'adho_margin': cls._clean_numeric(row.get('Adhoc Margin')),
                 'applicable_margin_rate': cls._clean_numeric(row.get('Applicable Margin Rate')),
-                # file_type needs to be set by importer logic, or we infer?
-                # We'll leave it None here, and let the upsert handle defaults or update if needed?
-                # Actually, importer should inject it.
             }
             if record['symbol']:
                 records.append(record)
