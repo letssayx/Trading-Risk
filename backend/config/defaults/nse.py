@@ -1,28 +1,88 @@
 """NSE Configuration - Based on nselib v2.4.3 and User Requirements"""
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Union
 
-# Base URLs
+# Base URLs (Trailing spaces removed as per user report)
 NSE_BASE_URL = "https://www.nseindia.com"
 NSE_ARCHIVES_BASE = "https://nsearchives.nseindia.com"
 
-# File Patterns: (URL Pattern, Date Format, Table Name)
-NSE_FILE_PATTERNS: Dict[str, Tuple[str, str, str]] = {
-    "sec_bhavdata": ("/products/content/sec_bhavdata_full_{}.csv", "%d%m%Y", "bhavcopy_eq"),
-    "fno_bhav": ("/content/fo/BhavCopy_NSE_FO_0_0_0_{}_F_0000.csv.zip", "%Y%m%d", "bhavcopy_fo"),
-    "fao_participant_oi": ("/reports/fao_participant_oi_{}.csv", "%d%m%y", "fao_participant_oi"),
-    "fovolt": ("/reports/FOVOLT_{}.csv", "%d%m%y", "fo_volatility"),
-    "fii_stats": ("/reports/fii_stats_{}.xls", "%d-%b-%Y", "fii_derivatives_stats"),
-    "bulk_deals": ("/reports/bulk_deals_{}.csv", "%d%m%Y", "bulk_deals"),
-    "block_deals": ("/reports/block_deals_{}.csv", "%d%m%Y", "block_deals"),
-    "mto": ("/reports/MTO_{}.DAT", "%d%m%Y", "mto_delivery"),
-    "mwpl_cli": ("/reports/mwpl_cli_{}.xls", "%d%m%Y", "mwpl_client_position"),
-    "nse_security": ("/content/cm/BhavCopy_NSE_CM_0_0_0_{}_F_0000.csv.gz", "%d%m%Y", "security_master"),
-    "pe_ratio": ("/reports/PE{}.csv", "%d%m%y", "pe_ratio"),
-    "fii_dii_activity": ("/reports/fii_dii_activity_{}.xls", "%d%b%Y", "fii_dii_activity"),
-    "var_begin": ("/archives/nsccl/var/C_VAR1_{}_1.DAT", "%d%m%Y", "var_stats"),
-    "var_end": ("/archives/nsccl/var/C_VAR1_{}_6.DAT", "%d%m%Y", "var_stats"),
-    "contract_delta": ("/archives/nsccl/content/Contract_Delta_{}.csv", "%d%m%Y", "contract_delta"),
-    "margin_trading": ("/archives/equities/mto/mrg_trading_{}.zip", "%d%m%y", "margin_trading"),
+# Type alias for file patterns: (List of (URL Pattern, Date Format), Table Name)
+# We support multiple potential URL patterns for fallback.
+NSE_FILE_PATTERNS: Dict[str, Tuple[List[Tuple[str, str]], str]] = {
+    "sec_bhavdata": ([
+        ("/products/content/sec_bhavdata_full_{}.csv", "%d%m%Y"),
+        ("/archives/equities/bhavcopy/pr/PR{}.zip", "%d%m%y") # Old PR zip fallback
+    ], "bhavcopy_eq"),
+
+    "fno_bhav": ([
+        ("/content/fo/BhavCopy_NSE_FO_0_0_0_{}_F_0000.csv.zip", "%Y%m%d"),
+        ("/archives/fo/bhavcopy/fo{}.zip", "%d%b%Y")
+    ], "bhavcopy_fo"),
+
+    "fao_participant_oi": ([
+        ("/content/nsccl/fao_participant_oi_{}.csv", "%d%m%Y"), # Primary
+        ("/reports/fao_participant_oi_{}.csv", "%d%m%y"),       # Report path
+        ("/archives/nsccl/content/fao_participant_oi_{}.csv", "%d%m%Y") # Archive
+    ], "fao_participant_oi"),
+
+    "fovolt": ([
+        ("/archives/nsccl/volt/FOVOLT_{}.csv", "%d%m%Y"),
+        ("/reports/FOVOLT_{}.csv", "%d%m%y")
+    ], "fo_volatility"),
+
+    "fii_stats": ([
+        ("/content/fo/fii_stats_{}.xls", "%d-%b-%Y"),
+        ("/reports/fii_stats_{}.xls", "%d-%b-%Y")
+    ], "fii_derivatives_stats"),
+
+    "bulk_deals": ([
+        ("/archives/equities/mto/bulk_deals_{}.csv", "%d%m%Y"), # Correct archive path
+        ("/reports/bulk_deals_{}.csv", "%d%m%Y")                # Report path
+    ], "bulk_deals"),
+
+    "block_deals": ([
+        ("/archives/equities/mto/block_deals_{}.csv", "%d%m%Y"), # Correct archive path
+        ("/reports/block_deals_{}.csv", "%d%m%Y")                # Report path
+    ], "block_deals"),
+
+    "mto": ([
+        ("/archives/equities/mto/MTO_{}.DAT", "%d%m%Y"), # Correct archive path
+        ("/reports/MTO_{}.DAT", "%d%m%Y")
+    ], "mto_delivery"),
+
+    "mwpl_cli": ([
+        ("/archives/equities/mto/mwpl_cli_{}.xls", "%d%m%Y"), # Correct archive path
+        ("/reports/mwpl_cli_{}.xls", "%d%m%Y")
+    ], "mwpl_client_position"),
+
+    "nse_security": ([
+        ("/content/cm/BhavCopy_NSE_CM_0_0_0_{}_F_0000.csv.gz", "%d%m%Y"),
+        ("/archives/common/NSE_CM_security_{}.csv.gz", "%d%m%Y")
+    ], "security_master"),
+
+    "pe_ratio": ([
+        ("/products/content/PE_{}.csv", "%d%m%y"),
+        ("/reports/PE{}.csv", "%d%m%y")
+    ], "pe_ratio"),
+
+    "fii_dii_activity": ([
+        ("/reports/fii_dii_activity_{}.xls", "%d%b%Y"),
+    ], "fii_dii_activity"),
+
+    "var_begin": ([
+        ("/archives/nsccl/var/C_VAR1_{}_1.DAT", "%d%m%Y"),
+    ], "var_stats"),
+
+    "var_end": ([
+        ("/archives/nsccl/var/C_VAR1_{}_6.DAT", "%d%m%Y"),
+    ], "var_stats"),
+
+    "contract_delta": ([
+        ("/archives/nsccl/content/Contract_Delta_{}.csv", "%d%m%Y"),
+    ], "contract_delta"),
+
+    "margin_trading": ([
+        ("/archives/equities/mto/mrg_trading_{}.zip", "%d%m%y"),
+    ], "margin_trading"),
 }
 
 # HTTP Headers

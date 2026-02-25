@@ -44,13 +44,45 @@ class NSEDataImporter:
             finally:
                 db.close()
 
-    def _build_url(self, pattern_key: str, dt: date) -> str | None:
+    def _get_candidate_urls(self, pattern_key: str, dt: date) -> List[str]:
+        """Generate list of candidate URLs for a given pattern key and date."""
         if pattern_key not in NSE_FILE_PATTERNS:
-            return None
-        url_pattern, date_fmt, _ = NSE_FILE_PATTERNS[pattern_key]
-        formatted = format_nse_date(dt, date_fmt)
-        from backend.config.defaults.nse import NSE_ARCHIVES_BASE
-        return f"{NSE_ARCHIVES_BASE}{url_pattern.format(formatted)}"
+            return []
+
+        # New structure: (List[(url_fmt, date_fmt)], table_name)
+        config_entry = NSE_FILE_PATTERNS[pattern_key]
+
+        # Handle legacy structure if config hasn't been fully migrated (safety check)
+        if isinstance(config_entry[0], str):
+            # Legacy: (url_pattern, date_fmt, table_name)
+            # Adapt to new structure temporarily
+            url_pattern, date_fmt, _ = config_entry
+            patterns_list = [(url_pattern, date_fmt)]
+        else:
+            # New structure
+            patterns_list, _ = config_entry
+
+        from backend.config.defaults.nse import NSE_ARCHIVES_BASE, NSE_BASE_URL
+
+        candidates = []
+        for url_fmt, date_fmt in patterns_list:
+            formatted_date = format_nse_date(dt, date_fmt)
+            path = url_fmt.format(formatted_date)
+
+            # Determine base URL
+            # If path starts with /archives, usually use ARCHIVES_BASE
+            # If path starts with /content or /products, usually use MAIN_URL or ARCHIVES_BASE?
+            # User instructions implied most failures were 404 on archives.
+            # nselib uses NSE_ARCHIVES_URL for most historical data.
+            # We will try ARCHIVES_BASE for all standard downloads as per config.
+
+            full_url = f"{NSE_ARCHIVES_BASE}{path}"
+            candidates.append(full_url)
+
+            # If it's a "product" or "report", maybe try main URL too?
+            # For now, let's stick to the explicit paths in config.
+
+        return candidates
 
     def _parse_response(self, resp: requests.Response, pattern_key: str) -> pd.DataFrame | None:
         """Parse response object (wrapper around _parse_content)."""
@@ -83,8 +115,8 @@ class NSEDataImporter:
                  data.columns = headers
                  return data
 
-            # Excel files (Generic)
-            if pattern_key in ['fii_stats']:
+            # FII Stats: Often has metadata in first few rows
+            if pattern_key == 'fii_stats':
                  return pd.read_excel(io.BytesIO(content))
 
             # Default CSV / DAT (often CSV-like)
@@ -332,22 +364,33 @@ class NSEDataImporter:
                     progress_callback(progress)
 
                 try:
-                    url = self._build_url(pattern_key, trade_date)
-                    if not url:
-                        results[pattern_key] = {'status': 'ERROR', 'error': 'Invalid pattern'}
-                        failed_files.append({"name": pattern_key, "error": "Invalid pattern"})
-                        continue
+                    candidates = self._get_candidate_urls(pattern_key, trade_date)
+                    if not candidates:
+                         results[pattern_key] = {'status': 'ERROR', 'error': 'Invalid pattern configuration'}
+                         failed_files.append({"name": pattern_key, "error": "Invalid pattern configuration"})
+                         continue
 
-                    logger.info(f"Downloading {pattern_key} from {url}")
-                    resp = self.http.get(url)
+                    # Try candidates in order (Fallback Logic)
+                    resp = None
+                    success_url = None
+                    last_error = None
 
-                    status_code = resp.status_code if resp else 'No Response'
-                    logger.info(f"Response for {pattern_key}: {status_code}")
+                    for url in candidates:
+                        logger.info(f"Trying {pattern_key} at {url}")
+                        resp = self.http.get(url)
 
-                    if not resp or resp.status_code != 200:
-                        error_msg = f'Download failed: {status_code}'
+                        if resp and resp.status_code == 200:
+                            success_url = url
+                            logger.info(f"✓ Downloaded {pattern_key} from {url}")
+                            break
+                        else:
+                            code = resp.status_code if resp else 'No Response'
+                            logger.warning(f"Failed {pattern_key} at {url} (HTTP {code})")
+                            last_error = f"HTTP {code}"
+
+                    if not success_url:
+                        error_msg = f'All candidates failed. Last error: {last_error}'
                         results[pattern_key] = {'status': 'FAILED', 'error': error_msg}
-                        logger.error(f"{error_msg} for {url}")
                         failed_files.append({"name": pattern_key, "error": error_msg})
                         continue
 

@@ -20,9 +20,12 @@ class NSESessionManager:
         """Initialize session - nselib style"""
         try:
             # Just visit main page to get cookies
+            logger.info(f"Initializing NSE session via {NSE_MAIN_URL}")
             resp = self.session.get(NSE_MAIN_URL, timeout=10)
             if resp.status_code == 200:
                 logger.debug("NSE session initialized")
+            else:
+                 logger.warning(f"NSE session init returned {resp.status_code}")
         except Exception as e:
             logger.warning(f"Session init warning: {e}")
 
