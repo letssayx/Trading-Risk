@@ -84,19 +84,24 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None):
 
     try:
         importer = NSEDataImporter()
-        # Find last trading day
-        today = date.today()
-        # If running before market close (e.g. morning), maybe check yesterday?
-        # Usually data is available evening of same day.
-        # Safest is to try today if it's evening, else yesterday.
-        # But let's just try finding previous trading day from now.
-        # If today is trading day and time > 18:00, use today?
-        # Simple logic: Try yesterday first as it's guaranteed complete usually.
-        # Or let user specify date. This task implies "latest available".
+        # Find last trading day using IST
+        utc_now = datetime.utcnow()
+        ist_now = utc_now + timedelta(hours=5, minutes=30)
+        today = ist_now.date()
 
-        # Let's use yesterday for safety in automation, or today if specified?
-        # The logic in previous code used yesterday - 1 day lag.
-        target_date = NSEHolidayCalendar.get_previous_trading_day(today)
+        # If after 18:00 IST, consider today as potential trading day (data usually available)
+        # Else consider previous day
+        cutoff_time = 18  # 6 PM IST
+
+        if ist_now.hour >= cutoff_time:
+            # Check if today is trading day
+            if NSEHolidayCalendar.is_trading_day(today):
+                target_date = today
+            else:
+                target_date = NSEHolidayCalendar.get_previous_trading_day(today)
+        else:
+            # Before 6 PM, today's data not ready, so look for previous trading day
+            target_date = NSEHolidayCalendar.get_previous_trading_day(today)
 
         logger.info(f"Auto-importing for latest trading day: {target_date}")
         return importer.import_date(target_date, patterns=patterns, progress_callback=progress_callback)

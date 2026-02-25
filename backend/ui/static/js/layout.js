@@ -41,6 +41,45 @@ const Layout = {
                 const modals = document.querySelectorAll('.modal');
                 modals.forEach(m => m.style.display = 'none');
             }
+
+            // Global Shortcuts
+            if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+                switch(e.code) {
+                    case 'KeyH': // Alt+H: Historical Data
+                        e.preventDefault();
+                        window.location.href = '/data-viewer';
+                        break;
+                    case 'KeyI': // Alt+I: Import Data
+                        e.preventDefault();
+                        if (window.uploader) window.uploader.open();
+                        break;
+                    case 'KeyA': // Alt+A: Audit Trail
+                        e.preventDefault();
+                        const auditModal = document.getElementById('audit-modal');
+                        if (auditModal) auditModal.style.display = 'flex';
+                        break;
+                    case 'KeyC': // Alt+C: Config
+                        e.preventDefault();
+                        if (typeof openConfig === 'function') openConfig();
+                        else {
+                            const configModal = document.getElementById('config-modal');
+                            if (configModal) configModal.style.display = 'block';
+                        }
+                        break;
+                    case 'KeyJ': // Alt+J: Jules Chat
+                        e.preventDefault();
+                        const julesInput = document.getElementById('jules-input');
+                        if (julesInput) {
+                            if (typeof switchLeftTab === 'function') switchLeftTab('jules');
+                            julesInput.focus();
+                        }
+                        break;
+                    case 'KeyP': // Alt+P: Python Code
+                        e.preventDefault();
+                        if (typeof switchLeftTab === 'function') switchLeftTab('python');
+                        break;
+                }
+            }
         });
 
         // Fix Close buttons

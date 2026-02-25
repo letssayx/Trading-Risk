@@ -261,7 +261,12 @@
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `audit_trail_${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.csv`);
+
+            // Name: Audit_Trail_Date.csv
+            // Prefer End Date from filter, else Today
+            const dateStr = document.getElementById('audit-end').value || new Date().toISOString().slice(0,10);
+
+            link.setAttribute("download", `Audit_Trail_${dateStr}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

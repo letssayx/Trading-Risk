@@ -247,9 +247,31 @@
             const blob = new Blob([csv.join("\n")], { type: "text/csv" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `data_export_${new Date().toISOString().slice(0,10)}.csv`;
+
+            // Generate filename based on type and date
+            const type = document.getElementById('data-type').value;
+            const endDate = document.getElementById('end-date').value || new Date().toISOString().slice(0,10);
+
+            // Format: Type_Date.csv
+            link.download = `${type}_${endDate}.csv`;
             link.click();
         }
+
+        // Add Keydown Listeners
+        document.addEventListener('keydown', (e) => {
+            // Esc -> Back to Workbench
+            if (e.key === 'Escape') {
+                window.location.href = '/workbench';
+            }
+
+            // Enter -> Load Data (unless in a textarea or button)
+            if (e.key === 'Enter') {
+                const activeTag = document.activeElement.tagName.toLowerCase();
+                if (activeTag !== 'textarea' && activeTag !== 'button') {
+                    loadData();
+                }
+            }
+        });
 
         // Init
         updateControls();
