@@ -309,16 +309,29 @@ class FieldMapper:
     @classmethod
     def _map_volatility(cls, df: pd.DataFrame) -> List[Dict]:
         records = []
+        # Create column mapping for verbose headers
+        col_map = {}
+        for c in df.columns:
+            c_str = str(c).strip()
+            if c_str.startswith('Underlying Annualised Volatility (F)'):
+                col_map['underlying_annualised_vol'] = c
+            elif c_str.startswith('Futures Annualised Volatility (L)'):
+                col_map['futures_annualised_vol'] = c
+            elif c_str.startswith('Applicable Daily Volatility (M)'):
+                col_map['applicable_daily_vol'] = c
+            elif c_str.startswith('Applicable Annualised Volatility (N)'):
+                col_map['applicable_annualised_vol'] = c
+
         for _, row in df.iterrows():
             record = {
                 'trade_date': parse_nse_date(row.get('Date')),
                 'symbol': str(row.get('Symbol', '')).strip(),
                 'underlying_close_price': cls._clean_numeric(row.get('Underlying Close Price (A)')),
-                'underlying_annualised_vol': cls._clean_numeric(row.get('Underlying Annualised Volatility (F)')),
+                'underlying_annualised_vol': cls._clean_numeric(row.get(col_map.get('underlying_annualised_vol', 'Underlying Annualised Volatility (F)'))),
                 'futures_close_price': cls._clean_numeric(row.get('Futures Close Price (G)')),
-                'futures_annualised_vol': cls._clean_numeric(row.get('Futures Annualised Volatility (L)')),
-                'applicable_daily_vol': cls._clean_numeric(row.get('Applicable Daily Volatility (M)')),
-                'applicable_annualised_vol': cls._clean_numeric(row.get('Applicable Annualised Volatility (N)')),
+                'futures_annualised_vol': cls._clean_numeric(row.get(col_map.get('futures_annualised_vol', 'Futures Annualised Volatility (L)'))),
+                'applicable_daily_vol': cls._clean_numeric(row.get(col_map.get('applicable_daily_vol', 'Applicable Daily Volatility (M)'))),
+                'applicable_annualised_vol': cls._clean_numeric(row.get(col_map.get('applicable_annualised_vol', 'Applicable Annualised Volatility (N)'))),
             }
             if record['symbol']:
                 records.append(record)
@@ -329,7 +342,8 @@ class FieldMapper:
         records = []
         for _, row in df.iterrows():
             # Skip header rows often found in DAT files
-            if str(row.iloc[0]).strip() in ['Record Type', '20']:
+            # NOTE: '20' is a valid Record Type for data, DO NOT skip it.
+            if str(row.iloc[0]).strip() in ['Record Type']:
                 continue
 
             record = {

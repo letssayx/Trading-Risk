@@ -102,25 +102,33 @@ class NSEDataImporter:
         if df.empty:
             return df
 
+        # Normalize columns just in case
+        df.columns = [str(c).strip() for c in df.columns]
         cols = df.columns.tolist()
+
         sec_col = next((c for c in cols if 'Name of Security' in c), None)
         qty_col = next((c for c in cols if 'Quantity Traded' in c), None)
         deliv_col = next((c for c in cols if 'Deliverable Quantity' in c and '%' not in c), None)
 
         if not sec_col:
+            logger.warning("MTO Deduplication: 'Name of Security' column not found. Skipping deduplication.")
             return df
 
         agg_dict = {}
         for c in df.columns:
             if c == sec_col:
                 continue
-            if c in [qty_col, deliv_col]:
+            if c in [qty_col, deliv_col] and c is not None:
                 agg_dict[c] = 'sum'
             else:
                 agg_dict[c] = 'first'
 
-        df_dedup = df.groupby(sec_col, as_index=False).agg(agg_dict)
-        return df_dedup
+        try:
+            df_dedup = df.groupby(sec_col, as_index=False).agg(agg_dict)
+            return df_dedup
+        except Exception as e:
+            logger.error(f"MTO Deduplication failed: {e}")
+            return df
 
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
                    force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:

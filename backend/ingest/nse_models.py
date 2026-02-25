@@ -1,5 +1,5 @@
 """NSE Database Models - TimescaleDB Optimized"""
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func
+from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from backend.infrastructure.db import Base
 
@@ -26,10 +26,10 @@ class BhavcopyEQ(Base, TimescaleMixin):
     last_price = Column(Float)
     close_price = Column(Float)
     avg_price = Column(Float)
-    total_traded_qty = Column(Integer)
+    total_traded_qty = Column(BigInteger)
     turnover_lacs = Column(Float)
     no_of_trades = Column(Integer)
-    deliverable_qty = Column(Integer)
+    deliverable_qty = Column(BigInteger)
     deliverable_pct = Column(Float)
 
     __table_args__ = (
@@ -56,9 +56,9 @@ class BhavcopyFO(Base, TimescaleMixin):
     low_price = Column(Float)
     close_price = Column(Float)
     settle_price = Column(Float)
-    open_interest = Column(Integer)
+    open_interest = Column(BigInteger)
     change_in_oi = Column(Integer)
-    total_trading_vol = Column(Integer)
+    total_trading_vol = Column(BigInteger)
     total_trf_val = Column(Float)
 
     __table_args__ = (
@@ -129,7 +129,7 @@ class BlockDeal(Base, TimescaleMixin):
     security_name = Column(String(200))
     client_name = Column(String(200))
     buy_sell = Column(String(10))
-    quantity_traded = Column(Integer)
+    quantity_traded = Column(BigInteger)
     trade_price = Column(Float)
     remarks = Column(Text)
 
@@ -149,7 +149,7 @@ class BulkDeal(Base, TimescaleMixin):
     security_name = Column(String(200))
     client_name = Column(String(200))
     buy_sell = Column(String(10))
-    quantity_traded = Column(Integer)
+    quantity_traded = Column(BigInteger)
     trade_price = Column(Float)
     remarks = Column(Text)
 
@@ -189,8 +189,8 @@ class MTODelivery(Base, TimescaleMixin):
     settlement_type = Column(String(10), default='N')
     sr_no = Column(Integer)
     security_name = Column(String(200), nullable=False)
-    quantity_traded = Column(Integer)
-    deliverable_qty = Column(Integer)
+    quantity_traded = Column(BigInteger)
+    deliverable_qty = Column(BigInteger)
     deliverable_pct = Column(Float)
 
     __table_args__ = (
