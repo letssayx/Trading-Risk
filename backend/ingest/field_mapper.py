@@ -24,21 +24,30 @@ class FieldMapper:
         """Detect file format and return metadata"""
         columns = set(df.columns)
 
-        # UDIFF CM bhavcopy
-        if 'TckrSymb' in columns and 'SctySrs' in columns and 'TradDt' in columns:
+        # Normalize columns for case-insensitive and whitespace-insensitive matching
+        columns_map = {c.strip().upper(): c for c in columns}
+        upper_cols = set(columns_map.keys())
+
+        # UDIFF CM bhavcopy (New Format)
+        if 'TCKRSYMB' in upper_cols and 'SCTYSRS' in upper_cols and 'TRADDT' in upper_cols:
             return {'type': 'cm_udiff', 'name': 'bhavcopy_eq'}
 
-        # UDIFF FO bhavcopy
-        if 'TckrSymb' in columns and 'FinInstrmTp' in columns and 'XpryDt' in columns:
+        # UDIFF FO bhavcopy (New Format)
+        if 'TCKRSYMB' in upper_cols and 'FININSTRMTP' in upper_cols and 'XPRYDT' in upper_cols:
             return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
 
-        # Old EQ bhavcopy
-        if 'SYMBOL' in columns and 'SERIES' in columns and 'DATE1' in columns:
-            return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
+        # Old EQ bhavcopy / Variations
+        if 'SYMBOL' in upper_cols and 'SERIES' in upper_cols:
+            if 'DATE1' in upper_cols or 'PREV_CLOSE' in upper_cols or 'OPEN' in upper_cols:
+                return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
 
-        # New format check - sometimes headers are slightly different
-        if 'SYMBOL' in columns and 'SERIES' in columns and 'PREV_CLOSE' in columns:
-             return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
+        # Old FO Bhavcopy / Variations (often just called FO Bhavcopy)
+        if ('SYMBOL' in upper_cols or 'TICKER' in upper_cols) and ('EXPIRY_DT' in upper_cols or 'EXPIRY DATE' in upper_cols):
+             return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'} # Fallback to fo_udiff mapper but might need new mapper if structure is vastly different.
+             # Actually, if it's the old 'SYMBOL', 'EXPIRY_DT' format, _map_fo_udiff won't work because it expects 'TckrSymb'.
+             # We should map it to a legacy FO mapper or normalize headers.
+             # For now, let's assume if it has TckrSymb it's UDIFF. If it has SYMBOL, it might be legacy.
+             # Let's add a legacy FO mapper if needed, or rely on normalization in mapper.
 
         # Block/Bulk Deals
         if 'CLIENT NAME' in columns or 'Client Name' in columns:
@@ -139,25 +148,39 @@ class FieldMapper:
     # --- Mapping Implementations ---
 
     @classmethod
+    def _get_val(cls, row: pd.Series, keys: List[str]) -> Any:
+        """Helper to get value from row using multiple possible keys (case-insensitive)"""
+        # Create a mapping of upper-case keys to actual keys in row
+        row_keys_map = {str(k).strip().upper(): k for k in row.index}
+
+        for k in keys:
+            upper_k = k.strip().upper()
+            if upper_k in row_keys_map:
+                return row[row_keys_map[upper_k]]
+        return None
+
+    @classmethod
     def _map_cm_udiff(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
-        if 'SctySrs' in df.columns:
-            df = df[df['SctySrs'] == 'EQ'].copy()
+        # Filter EQ series if column exists
+        series_col = cls._find_col(df, ['SctySrs', 'SERIES'])
+        if series_col:
+            df = df[df[series_col] == 'EQ'].copy()
 
         for _, row in df.iterrows():
             record = {
-                'symbol': str(row.get('TckrSymb', '')).strip(),
+                'symbol': str(cls._get_val(row, ['TckrSymb', 'SYMBOL']) or '').strip(),
                 'series': 'EQ',
-                'trade_date': trade_date or parse_nse_date(row.get('TradDt')),
-                'prev_close': cls._clean_numeric(row.get('PrvsClsgPric')),
-                'open_price': cls._clean_numeric(row.get('OpnPric')),
-                'high_price': cls._clean_numeric(row.get('HghPric')),
-                'low_price': cls._clean_numeric(row.get('LwPric')),
-                'last_price': cls._clean_numeric(row.get('LastPric')),
-                'close_price': cls._clean_numeric(row.get('ClsPric')),
-                'total_traded_qty': cls._clean_integer(row.get('TtlTradgVol')),
-                'turnover_lacs': cls._clean_numeric(row.get('TtlTrfVal')),
-                'no_of_trades': cls._clean_integer(row.get('TtlNbOfTxsExctd')),
+                'trade_date': trade_date or parse_nse_date(cls._get_val(row, ['TradDt', 'DATE1'])),
+                'prev_close': cls._clean_numeric(cls._get_val(row, ['PrvsClsgPric', 'PREV_CLOSE'])),
+                'open_price': cls._clean_numeric(cls._get_val(row, ['OpnPric', 'OPEN_PRICE', 'OPEN'])),
+                'high_price': cls._clean_numeric(cls._get_val(row, ['HghPric', 'HIGH_PRICE', 'HIGH'])),
+                'low_price': cls._clean_numeric(cls._get_val(row, ['LwPric', 'LOW_PRICE', 'LOW'])),
+                'last_price': cls._clean_numeric(cls._get_val(row, ['LastPric', 'LAST_PRICE', 'LAST'])),
+                'close_price': cls._clean_numeric(cls._get_val(row, ['ClsPric', 'CLOSE_PRICE', 'CLOSE'])),
+                'total_traded_qty': cls._clean_integer(cls._get_val(row, ['TtlTradgVol', 'TTL_TRD_QNTY', 'Total Traded Quantity'])),
+                'turnover_lacs': cls._clean_numeric(cls._get_val(row, ['TtlTrfVal', 'TURNOVER_LACS', 'Turnover'])),
+                'no_of_trades': cls._clean_integer(cls._get_val(row, ['TtlNbOfTxsExctd', 'NO_OF_TRADES'])),
             }
             if record['symbol']:
                 records.append(record)
@@ -168,26 +191,34 @@ class FieldMapper:
         records = []
         for _, row in df.iterrows():
             record = {
-                'ticker_symb': str(row.get('TckrSymb', '')).strip(),
-                'instrument_type': str(row.get('FinInstrmTp', '')).strip(),
-                'trade_date': parse_nse_date(row.get('TradDt')),
-                'expiry_date': parse_nse_date(row.get('XpryDt')),
-                'strike_price': cls._clean_numeric(row.get('StrkPric')),
-                'option_type': str(row.get('OptnTp', '')).strip(),
-                'instrument_name': str(row.get('FinInstrmNm', '')).strip(),
-                'open_price': cls._clean_numeric(row.get('OpnPric')),
-                'high_price': cls._clean_numeric(row.get('HghPric')),
-                'low_price': cls._clean_numeric(row.get('LwPric')),
-                'close_price': cls._clean_numeric(row.get('ClsPric')),
-                'settle_price': cls._clean_numeric(row.get('SttlmPric')),
-                'open_interest': cls._clean_integer(row.get('OpnIntrst')),
-                'change_in_oi': cls._clean_integer(row.get('ChngInOpnIntrst')),
-                'total_trading_vol': cls._clean_integer(row.get('TtlTradgVol')),
-                'total_trf_val': cls._clean_numeric(row.get('TtlTrfVal')),
+                'ticker_symb': str(cls._get_val(row, ['TckrSymb', 'SYMBOL', 'TICKER']) or '').strip(),
+                'instrument_type': str(cls._get_val(row, ['FinInstrmTp', 'INSTRUMENT']) or '').strip(),
+                'trade_date': parse_nse_date(cls._get_val(row, ['TradDt', 'TIMESTAMP'])),
+                'expiry_date': parse_nse_date(cls._get_val(row, ['XpryDt', 'EXPIRY_DT', 'EXPIRY DATE'])),
+                'strike_price': cls._clean_numeric(cls._get_val(row, ['StrkPric', 'STRIKE_PR', 'STRIKE PRICE'])),
+                'option_type': str(cls._get_val(row, ['OptnTp', 'OPTION_TYP', 'OPTION TYPE']) or '').strip(),
+                'instrument_name': str(cls._get_val(row, ['FinInstrmNm']) or '').strip(),
+                'open_price': cls._clean_numeric(cls._get_val(row, ['OpnPric', 'OPEN'])),
+                'high_price': cls._clean_numeric(cls._get_val(row, ['HghPric', 'HIGH'])),
+                'low_price': cls._clean_numeric(cls._get_val(row, ['LwPric', 'LOW'])),
+                'close_price': cls._clean_numeric(cls._get_val(row, ['ClsPric', 'CLOSE'])),
+                'settle_price': cls._clean_numeric(cls._get_val(row, ['SttlmPric', 'SETTLE_PR'])),
+                'open_interest': cls._clean_integer(cls._get_val(row, ['OpnIntrst', 'OPEN_INT'])),
+                'change_in_oi': cls._clean_integer(cls._get_val(row, ['ChngInOpnIntrst', 'CHG_IN_OI'])),
+                'total_trading_vol': cls._clean_integer(cls._get_val(row, ['TtlTradgVol', 'CONTRACTS'])),
+                'total_trf_val': cls._clean_numeric(cls._get_val(row, ['TtlTrfVal', 'VAL_IN_LAKH'])),
             }
             if record['ticker_symb']:
                 records.append(record)
         return records
+
+    @classmethod
+    def _find_col(cls, df: pd.DataFrame, candidates: List[str]) -> Optional[str]:
+        row_keys_map = {str(k).strip().upper(): k for k in df.columns}
+        for k in candidates:
+            if k.upper() in row_keys_map:
+                return row_keys_map[k.upper()]
+        return None
 
     @classmethod
     def _map_eq_old(cls, df: pd.DataFrame) -> List[Dict]:
