@@ -15,6 +15,7 @@ def fix_schema():
 
     1. Alters mto_delivery columns to BIGINT (quantity_traded, deliverable_qty, sr_no).
     2. Drops UNIQUE constraints on bulk_deals and block_deals to allow duplicate entries.
+    3. Verifies the changes.
     """
     logger.info("Starting schema fix migration...")
 
@@ -43,14 +44,16 @@ def fix_schema():
 
             for table in tables_to_fix:
                 # Find unique constraints (contype='u') on the table
-                query = text("""
+                # Fixed parameter binding syntax: Use standard string formatting for table names
+                # as they are trusted internal strings and :table::regclass caused issues
+                query = text(f"""
                     SELECT conname
                     FROM pg_constraint
-                    WHERE conrelid = :table::regclass AND contype = 'u';
+                    WHERE conrelid = '{table}'::regclass AND contype = 'u';
                 """)
 
                 try:
-                    constraints = conn.execute(query, {"table": table}).fetchall()
+                    constraints = conn.execute(query).fetchall()
 
                     if not constraints:
                         logger.info(f"No unique constraints found on {table}.")
@@ -68,6 +71,24 @@ def fix_schema():
 
                 except Exception as e:
                     logger.error(f"Error checking constraints for {table}: {e}")
+
+            # --- 3. Verify Changes ---
+            logger.info("--- Verifying Schema Changes ---")
+            verification_query = text("""
+                SELECT column_name, data_type
+                FROM information_schema.columns
+                WHERE table_name = 'mto_delivery'
+                  AND column_name IN ('quantity_traded', 'deliverable_qty', 'sr_no');
+            """)
+            try:
+                columns = conn.execute(verification_query).fetchall()
+                for col_name, dtype in columns:
+                    if dtype != 'bigint':
+                        logger.error(f"VERIFICATION FAILED: {col_name} is {dtype}, expected bigint")
+                    else:
+                        logger.info(f"VERIFIED: {col_name} is correctly set to {dtype}")
+            except Exception as e:
+                logger.error(f"Verification query failed: {e}")
 
     logger.info("Schema fix migration completed.")
 
