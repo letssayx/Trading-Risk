@@ -55,12 +55,17 @@ async def list_data(
     query = db.query(model)
 
     # Apply Symbol Filter (if applicable)
-    if symbol and hasattr(model, 'symbol'):
-        query = query.filter(model.symbol == symbol.upper())
-    elif symbol and hasattr(model, 'ticker_symb'):
-        query = query.filter(model.ticker_symb == symbol.upper())
-    elif symbol and hasattr(model, 'underlying_stock'):
-        query = query.filter(model.underlying_stock == symbol.upper())
+    if symbol:
+        symbol = symbol.upper()
+        if hasattr(model, 'symbol'):
+            query = query.filter(model.symbol == symbol)
+        elif hasattr(model, 'ticker_symb'):
+            query = query.filter(model.ticker_symb == symbol)
+        elif hasattr(model, 'underlying_stock'):
+            query = query.filter(model.underlying_stock == symbol)
+        elif hasattr(model, 'security_name'):
+             # For MTO and similar, use partial match as security_name is often descriptive
+            query = query.filter(model.security_name.ilike(f"%{symbol}%"))
 
     # Apply Date Filter
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
