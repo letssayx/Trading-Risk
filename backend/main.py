@@ -113,7 +113,3 @@ async def get_workbench():
 @app.get("/strategy-composer")
 async def get_strategy_composer():
     return FileResponse("backend/ui/templates/strategy_composer.html")
-
-@app.get("/data-viewer")
-async def get_data_viewer():
-    return FileResponse("backend/ui/templates/data_viewer.html")

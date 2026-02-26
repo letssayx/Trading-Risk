@@ -205,68 +205,79 @@ async def search_data(
 
 @router.get("/api/data/view/export")
 async def export_data(
-    symbol: str = Query(..., min_length=2),
-    segment: Optional[str] = None,
+    type: str = Query(..., description="Data type (bhavcopy_eq, bhavcopy_fo, etc.)"),
+    symbol: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
-    Export all data for a symbol to Excel.
+    Export filtered data to CSV (Server-side streaming).
     """
-    query = db.query(Bhavcopy).filter(Bhavcopy.symbol == symbol.upper())
+    logger.info(f"Export Request: type={type}, symbol={symbol}, date={start_date} to {end_date}")
 
-    if segment:
-        query = query.filter(Bhavcopy.segment == segment)
+    model = get_model_for_type(type)
+    if not model:
+        raise HTTPException(status_code=400, detail=f"Invalid data type: {type}")
 
-    # Fetch data
-    results = query.order_by(Bhavcopy.trade_date.desc()).limit(5000).all()
+    query = db.query(model)
+
+    # Re-use filtering logic (copied from list_data for now to keep independent)
+    if symbol:
+        symbol = symbol.upper().strip()
+        filters = []
+        if hasattr(model, 'symbol'): filters.append(model.symbol == symbol)
+        if hasattr(model, 'ticker_symb'): filters.append(model.ticker_symb == symbol)
+        if hasattr(model, 'underlying_stock'): filters.append(model.underlying_stock == symbol)
+        if hasattr(model, 'security_name'): filters.append(model.security_name.ilike(f"%{symbol}%"))
+        if hasattr(model, 'client_type'): filters.append(model.client_type.ilike(f"%{symbol}%"))
+        if hasattr(model, 'instrument_type'): filters.append(model.instrument_type.ilike(f"%{symbol}%"))
+        if hasattr(model, 'isin'): filters.append(model.isin == symbol)
+        if hasattr(model, 'fin_instrm_id'): filters.append(model.fin_instrm_id == symbol)
+
+        if filters:
+            if len(filters) > 1: query = query.filter(or_(*filters))
+            else: query = query.filter(filters[0])
+
+    date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
+    if date_col:
+        if start_date: query = query.filter(date_col >= start_date)
+        if end_date: query = query.filter(date_col <= end_date)
+        query = query.order_by(desc(date_col))
+    elif hasattr(model, 'updated_at'):
+        query = query.order_by(desc(model.updated_at))
+
+    # Fetch all matching records (or limit to reasonable export size e.g. 50k)
+    results = query.limit(50000).all()
 
     if not results:
-        raise HTTPException(status_code=404, detail="No data found")
+        raise HTTPException(status_code=404, detail="No data found for export")
 
-    # Convert to DataFrame
+    # Convert to list of dicts for DataFrame
     data = []
     for row in results:
-        data.append({
-            "Trade Date": row.trade_date,
-            "Biz Date": row.biz_date,
-            "Symbol": row.symbol,
-            "Segment": row.segment,
-            "Instrument Type": row.instrument_type,
-            "Instrument Name": row.instrument_name,
-            "Expiry": row.expiry_date,
-            "Actual Expiry": row.actual_expiry_date,
-            "Strike": row.strike_price,
-            "Option Type": row.option_type,
-            "Open": row.open,
-            "High": row.high,
-            "Low": row.low,
-            "Close": row.close,
-            "Last": row.last,
-            "Volume": row.total_traded_qty,
-            "OI": row.open_interest,
-            "Change in OI": row.change_in_oi,
-            "Lot Size": row.lot_size,
-            "ISIN": row.isin,
-            "Remarks": row.remarks
-        })
+        row_dict = {}
+        for col in row.__table__.columns:
+            val = getattr(row, col.name)
+            # Format dates for CSV
+            if isinstance(val, (datetime, pd.Timestamp)):
+                val = val.isoformat()
+            elif hasattr(val, 'isoformat'):
+                val = val.isoformat()
+            row_dict[col.name] = val
+        data.append(row_dict)
 
     df = pd.DataFrame(data)
 
-    # Create Excel in memory
-    output = io.BytesIO()
-    try:
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name=symbol.upper()[:30])
-    except Exception as e:
-        print(f"Excel Export Error: {e}")
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
-
+    # CSV Export
+    output = io.StringIO()
+    df.to_csv(output, index=False)
     output.seek(0)
 
-    filename = f"{symbol.upper()}_Data_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"{type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
     return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )

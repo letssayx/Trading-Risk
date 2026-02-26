@@ -47,20 +47,26 @@ const Layout = {
                 switch(e.code) {
                     case 'KeyH': // Alt+H: Historical Data
                         e.preventDefault();
-                        window.location.href = '/data-viewer';
+                        if (typeof switchMainTab === 'function') switchMainTab('history');
+                        else window.location.href = '/data-viewer';
                         break;
                     case 'KeyI': // Alt+I: Import Data
                         e.preventDefault();
-                        if (window.uploader) window.uploader.open();
+                        if (typeof switchMainTab === 'function') switchMainTab('import');
+                        else if (window.uploader) window.uploader.open();
                         break;
                     case 'KeyA': // Alt+A: Audit Trail
                         e.preventDefault();
-                        const auditModal = document.getElementById('audit-modal');
-                        if (auditModal) auditModal.style.display = 'flex';
+                        if (typeof switchMainTab === 'function') switchMainTab('audit');
+                        else {
+                            const auditModal = document.getElementById('audit-modal');
+                            if (auditModal) auditModal.style.display = 'flex';
+                        }
                         break;
                     case 'KeyC': // Alt+C: Config
                         e.preventDefault();
-                        if (typeof openConfig === 'function') openConfig();
+                        if (typeof switchMainTab === 'function') switchMainTab('config');
+                        else if (typeof openConfig === 'function') openConfig();
                         else {
                             const configModal = document.getElementById('config-modal');
                             if (configModal) configModal.style.display = 'block';

@@ -8,560 +8,386 @@
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
-        /* Enhanced Modal Styles */
-        .modal-large {
-            max-width: 1000px !important;
-            width: 90% !important;
-        }
-
-        .import-options {
-            background: #2d2d2d;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 15px 0;
-        }
-
-        .option-row {
-            margin: 10px 0;
-        }
-
-        .checkbox-label {
-            margin-right: 20px;
-            cursor: pointer;
-        }
-
-        .checkbox-label input {
-            margin-right: 5px;
-        }
-
-        .segment-tabs {
+        /* Main Tab Navigation */
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1e1e1e;
+            color: #ccc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
             display: flex;
-            gap: 10px;
-            margin: 15px 0;
-            border-bottom: 1px solid #444;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        .tab-btn {
-            background: #2d2d2d;
-            color: #e0e0e0;
-            border: 1px solid #444;
-            padding: 8px 16px;
+        .main-tabs-bar {
+            height: 35px;
+            background: #252526;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            border-bottom: 1px solid #333;
+            user-select: none;
+        }
+
+        .main-tab {
+            padding: 8px 15px;
             cursor: pointer;
-            border-radius: 4px 4px 0 0;
-            margin-bottom: -1px;
+            font-size: 0.9em;
+            color: #999;
+            border-right: 1px solid #333;
+            background: #2d2d2d;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
         }
 
-        .tab-btn.active {
-            background: #444;
-            border-bottom-color: #444;
+        .main-tab:hover {
+            background: #3e3e42;
+            color: #fff;
         }
 
-        .segment-preview {
+        .main-tab.active {
+            background: #1e1e1e;
+            color: #fff;
+            border-bottom: 2px solid #007acc;
+            font-weight: 500;
+        }
+
+        .tab-content-area {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: #1e1e1e;
+        }
+
+        .main-tab-content {
+            height: 100%;
+            width: 100%;
             display: none;
+            overflow: hidden; /* Individual tabs manage scrolling */
         }
 
-        .segment-preview.active {
+        .main-tab-content.active {
             display: block;
         }
 
-        .segment-stats {
-            background: #333;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
+        /* Historical Data Styles (Merged from data_viewer.html) */
+        .history-controls {
+            padding: 10px 15px;
+            background: #252526;
+            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group { display: flex; align-items: center; gap: 5px; }
+        .control-group label { font-size: 0.85em; color: #aaa; }
+        .history-input, .history-select {
+            background: #3c3c3c;
+            color: #ccc;
+            border: 1px solid #555;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+        .table-wrapper {
+            height: calc(100% - 45px); /* Adjust based on controls height */
+            overflow: auto;
+            position: relative;
+        }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85em; white-space: nowrap; }
+        .data-table th, .data-table td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+        .data-table th {
+            background: #2d2d2d;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: 600;
+            color: #ddd;
+            cursor: pointer; /* Sortable */
+        }
+        .data-table th:hover { background: #3e3e42; }
+        .data-table tr:nth-child(even) { background: #252526; }
+        .data-table tr:hover { background: #37373d; }
+        .history-status-bar {
+            padding: 5px 15px;
+            background: #007acc;
+            color: white;
+            font-size: 0.8em;
+            display: flex;
+            justify-content: space-between;
+            height: 25px;
+            align-items: center;
         }
 
-        .no-data {
-            color: #888;
-            font-style: italic;
-            text-align: center;
+        /* Import Tab Styles */
+        .import-container {
             padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            height: 100%;
+            overflow-y: auto;
         }
 
-        .preview-table th, .preview-table td {
-            padding: 6px;
-            border: 1px solid #444;
-            text-align: left;
-            font-size: 0.9em;
-        }
-        .preview-table th { background: #222; }
+        /* Common Utils */
+        .btn { padding: 6px 12px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.9em; }
+        .btn-primary { background: #007acc; color: white; }
+        .btn-primary:hover { background: #0062a3; }
+        .btn-secondary { background: #3c3c3c; color: #ccc; }
+        .btn-secondary:hover { background: #4e4e50; }
 
-        .status-message {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .status-message.info { background: #1e88e5; color: white; }
-        .status-message.success { background: #4caf50; color: white; }
-        .status-message.error { background: #f44336; color: white; }
-        .status-message.warning { background: #ff9800; color: black; }
-
-        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-primary { background: #00bcd4; color: #000; }
-        .btn-primary:disabled { background: #555; cursor: not-allowed; }
-        .btn-secondary { background: #444; color: #fff; }
     </style>
 </head>
 <body>
 
-    <!-- Top Bar -->
-    <div style="height:30px; background:#111; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #333; font-size:0.85em; color:#ccc;">
-        <div style="font-weight:bold; margin-right:20px;">TURTLE TERMINAL</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()"><u>I</u>mport Data</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="window.location.href='/data-viewer'"><u>H</u>istorical Data</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="openConfig()"><u>C</u>onfig</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="document.getElementById('audit-modal').style.display='flex'"><u>A</u>udit Trail</div>
+    <!-- Main Tab Bar -->
+    <div class="main-tabs-bar">
+        <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')">Terminal</div>
+        <div class="main-tab" data-target="history" onclick="switchMainTab('history')">Historical Data</div>
+        <div class="main-tab" data-target="import" onclick="switchMainTab('import')">Import Data</div>
+        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')">Audit Trail</div>
+        <div class="main-tab" data-target="config" onclick="switchMainTab('config')">Config</div>
     </div>
 
-    <!-- Audit Trail Modal (Elegant Terminal Style) -->
-    <div id="audit-modal" class="modal" style="display: none; align-items: center; justify-content: center;">
-        <div class="modal-content" style="
-            width: 90%;
-            max-width: 1400px;
-            height: 85vh;
-            display: flex;
-            flex-direction: column;
-            background: #1e1e1e;
-            border: 1px solid #333;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border-radius: 8px;
-            padding: 0;
-            overflow: hidden;
-        ">
-            <!-- Header -->
-            <div style="
-                padding: 15px 20px;
-                background: #252526;
-                border-bottom: 1px solid #333;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            ">
-                <div style="font-weight: 500; color: #ccc; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2em;">📋 System Audit Trail</span>
-                    <span style="font-size: 0.8em; color: #666; background: #111; padding: 2px 6px; border-radius: 4px;">LIVE</span>
+    <!-- Tab Content Container -->
+    <div class="tab-content-area">
+
+        <!-- TAB 1: TERMINAL (Original Workbench) -->
+        <div id="tab-terminal" class="main-tab-content active">
+            <div id="app-container" style="height:100%;">
+                <!-- Left Panel -->
+                <div id="left-panel">
+                    <div class="lp-section" id="lp-top">
+                        <div class="panel-header">Trading Edge</div>
+                        <div class="panel-content" id="edge-content" style="padding:10px; font-size:0.9em; color:#ccc;"></div>
+                    </div>
+                    <div class="lp-section" id="lp-middle" style="display:none;"></div>
+                    <div class="lp-section" id="lp-bottom">
+                        <div class="tab-header">
+                            <div class="tab-btn active" onclick="switchLeftTab('jules')"><u>J</u>ules Chat</div>
+                            <div class="tab-btn" onclick="switchLeftTab('python')"><u>P</u>ython Code</div>
+                        </div>
+                        <div class="panel-content" id="jules-content" style="padding:10px; flex: 1; overflow-y: auto;">
+                            <div class="msg"><strong>Jules:</strong> Ready to analyze.</div>
+                        </div>
+                        <div class="panel-content" id="python-content" style="display:none; padding:10px;">
+                            <pre style="margin:0; color:#aaa;"># Select a strategy tab to see code</pre>
+                        </div>
+                        <div class="chat-input-area">
+                            <textarea class="chat-input" id="jules-input" placeholder="Ask Jules..."></textarea>
+                        </div>
+                    </div>
+                    <div class="resizer-v" id="resizer-left"></div>
                 </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <!-- History Controls -->
-                    <div style="display: flex; gap: 5px; margin-right: 15px;">
-                        <input type="date" id="audit-start" style="background:#111; color:#ccc; border:1px solid #444; font-size:0.8em;">
-                        <input type="date" id="audit-end" style="background:#111; color:#ccc; border:1px solid #444; font-size:0.8em;">
-                        <button class="btn btn-secondary" onclick="loadAuditHistory()" style="font-size: 0.8em; padding: 4px 8px;">Load History</button>
+
+                <!-- Main Panel -->
+                <div id="main-panel">
+                    <div id="chart-workbench">
+                        <div class="chart-tabs-bar" id="chart-tabs-bar">
+                            <!-- Tabs go here -->
+                            <div class="inline-add-container">
+                                <input type="text" id="chart-add-input" class="inline-input" placeholder="+ Symbol">
+                            </div>
+                        </div>
+                        <div class="charts-container" id="charts-container">
+                            <!-- Chart instances go here -->
+                        </div>
+                        <div class="resizer-h" id="resizer-charts"></div>
                     </div>
 
-                    <button class="btn btn-secondary" onclick="downloadLogs()" style="font-size: 0.85em; display: flex; align-items: center; gap: 5px;">
-                        📥 Download Excel
-                    </button>
-                    <span class="close" onclick="document.getElementById('audit-modal').style.display='none'" style="margin-left: 10px; font-size: 24px;">&times;</span>
+                    <div id="strategy-workbench">
+                        <div class="wb-tabs-header">
+                            <div class="wb-tab active" data-type="turtle">Turtle Legacy</div>
+                            <div class="wb-tab" data-type="statarb">Stat Arb</div>
+                            <div class="wb-tab" data-type="oi">OI Analysis</div>
+                            <div class="wb-tab" data-type="rollover">Rollover</div>
+                        </div>
+                        <div class="wb-content" id="wb-content-area">
+                            <!-- Dynamic Content Loaded by JS -->
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Terminal Body -->
-            <div id="audit-log-container" style="
-                flex: 1;
-                background: #1e1e1e;
-                color: #d4d4d4;
-                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-                font-size: 13px;
-                padding: 15px;
-                overflow-y: auto;
-                line-height: 1.5;
-                scroll-behavior: smooth;
-            ">
-                <div style="color: #6a9955;">// Initializing Secure Log Stream...</div>
-            </div>
-
-            <!-- Footer (Status Bar) -->
-            <div style="
-                padding: 5px 15px;
-                background: #007acc;
-                color: white;
-                font-size: 0.8em;
-                display: flex;
-                justify-content: space-between;
-            ">
-                <span>Status: Connected</span>
-                <span id="log-count">0 Events</span>
+                <!-- Toolbox -->
+                <div id="toolbox">
+                    <div class="toolbox-group" id="strategy-group">
+                        <div class="toolbox-item" id="strategies-trigger" title="Strategies">♟️</div>
+                        <div class="toolbox-flyout" id="strategies-flyout"></div>
+                    </div>
+                    <div class="toolbox-item" title="Filters" draggable="true" data-type="filter">🔍</div>
+                    <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
+                    <div class="toolbox-item" title="Risk Models" draggable="true" data-type="risk">🛡️</div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <script>
-        async function loadAuditHistory() {
-            const start = document.getElementById('audit-start').value;
-            const end = document.getElementById('audit-end').value;
-            const container = document.getElementById('audit-log-container');
-
-            container.innerHTML = '<div style="color: #6a9955;">// Loading History...</div>';
-
-            try {
-                let url = '/api/audit/history?limit=1000';
-                if (start) url += `&start_date=${start}`;
-                if (end) url += `&end_date=${end}`;
-
-                const res = await fetch(url);
-                const logs = await res.json();
-
-                container.innerHTML = ''; // Clear loading
-
-                if (logs.length === 0) {
-                    container.innerHTML = '<div style="color: #888;">No logs found for this period.</div>';
-                    return;
-                }
-
-                // Logs come newest first, reverse for terminal view (oldest at top)
-                logs.reverse().forEach(log => {
-                    const logLine = document.createElement('div');
-                    // Format: TIMESTAMP - SOURCE - MESSAGE
-                    logLine.textContent = `${log.timestamp} - [${log.source}] ${log.message}`;
-                    logLine.style.borderBottom = "1px solid #2d2d2d";
-                    logLine.style.padding = "2px 0";
-
-                    if (log.level === "ERROR") logLine.style.color = "#f48771";
-                    else if (log.level === "WARNING") logLine.style.color = "#cca700";
-                    else if (log.message.includes("SQL")) logLine.style.color = "#569cd6";
-                    else logLine.style.color = "#d4d4d4";
-
-                    container.appendChild(logLine);
-                });
-
-                // Add separator for live logs
-                const sep = document.createElement('div');
-                sep.style.borderTop = "1px dashed #666";
-                sep.style.margin = "10px 0";
-                sep.style.color = "#6a9955";
-                sep.textContent = "// End of History - Resuming Live Stream...";
-                container.appendChild(sep);
-
-                container.scrollTop = container.scrollHeight;
-                document.getElementById('log-count').innerText = `${logs.length} Historical Events`;
-
-            } catch (e) {
-                container.innerHTML += `<div style="color: red;">Error loading history: ${e.message}</div>`;
-            }
-        }
-
-        function downloadLogs() {
-            const container = document.getElementById('audit-log-container');
-            const lines = Array.from(container.children).map(div => {
-                // Try to extract timestamp if present (assuming standard format)
-                const text = div.innerText;
-                // Simple CSV escaping
-                return `"${text.replace(/"/g, '""')}"`;
-            });
-
-            if (lines.length === 0) {
-                alert("No logs to download.");
-                return;
-            }
-
-            // CSV Header
-            const csvContent = "data:text/csv;charset=utf-8,Log Entry\n" + lines.join("\n");
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-
-            // Name: Audit_Trail_Date.csv
-            // Prefer End Date from filter, else Today
-            const dateStr = document.getElementById('audit-end').value || new Date().toISOString().slice(0,10);
-
-            link.setAttribute("download", `Audit_Trail_${dateStr}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    </script>
-
-    <!-- Config Modal -->
-    <div id="config-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close" onclick="document.getElementById('config-modal').style.display='none'">&times;</span>
-            <h2>Configuration</h2>
-            <div style="margin-bottom: 10px;">
-                <label>Google API Key (Gemini):</label>
-                <input type="password" id="cfg-google" style="width: 100%; background: #333; color: white; border: 1px solid #555;">
-            </div>
-            <button onclick="saveConfig()" class="btn btn-primary">Save</button>
-        </div>
-    </div>
-
-    <div id="app-container" style="height:calc(100vh - 30px);">
-
-        <!-- 1. Far Left Toolbox -->
-        <div id="toolbox">
-            <!-- Strategy Group (Flyout) -->
-            <div class="toolbox-group" id="strategy-group">
-                <div class="toolbox-item" id="strategies-trigger" title="Strategies">♟️</div>
-                <div class="toolbox-flyout" id="strategies-flyout">
-                    <!-- Strategies loaded dynamically by JS -->
+        <!-- TAB 2: HISTORICAL DATA -->
+        <div id="tab-history" class="main-tab-content">
+            <div class="history-controls">
+                <div class="control-group">
+                    <label>Data Type:</label>
+                    <select id="data-type" class="history-select" onchange="updateHistoryControls()">
+                        <option value="bhavcopy_eq" selected>Equity Bhavcopy (New)</option>
+                        <option value="bhavcopy_fo">F&O Bhavcopy (New)</option>
+                        <!-- Legacy Removed -->
+                        <option value="fao_participant_oi">Participant OI</option>
+                        <option value="fo_volatility">F&O Volatility</option>
+                        <option value="fii_stats">FII Derivatives Stats</option>
+                        <option value="var_stats">VaR Stats</option>
+                        <option value="contract_delta">Contract Delta</option>
+                        <option value="bulk_deals">Bulk Deals</option>
+                        <option value="block_deals">Block Deals</option>
+                        <option value="mto">MTO Delivery</option>
+                        <option value="mwpl">MWPL Position</option>
+                        <option value="pe_ratio">P/E Ratio</option>
+                        <option value="margin_trading">Margin Trading</option>
+                        <option value="security_master">Security Master</option>
+                    </select>
                 </div>
+                <div class="control-group" id="symbol-group">
+                    <label>Symbol:</label>
+                    <input type="text" id="symbol-input" class="history-input" placeholder="e.g. RELIANCE">
+                </div>
+                <div class="control-group">
+                    <label>From:</label>
+                    <input type="date" id="start-date" class="history-input">
+                </div>
+                <div class="control-group">
+                    <label>To:</label>
+                    <input type="date" id="end-date" class="history-input">
+                </div>
+                <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
+                <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
             </div>
 
-            <!-- Other static tools for now -->
-            <div class="toolbox-item" title="Filters" draggable="true" data-type="filter">🔍</div>
-            <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
-            <div class="toolbox-item" title="Risk Models" draggable="true" data-type="risk">🛡️</div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead id="history-head"></thead>
+                    <tbody id="history-body"></tbody>
+                </table>
+            </div>
+
+            <div class="history-status-bar">
+                <span id="history-status-msg">Ready</span>
+                <span id="history-row-count">0 Rows</span>
+            </div>
         </div>
 
-        <!-- 2. Left Panel -->
-        <div id="left-panel">
-            <!-- Top: Trading Edge -->
-            <div class="lp-section" id="lp-top">
-                <div class="panel-header">Trading Edge</div>
-                <div class="panel-content" id="edge-content" style="padding:10px; font-size:0.9em; color:#ccc;">
-                    <!-- Context loaded dynamically -->
-                </div>
-            </div>
+        <!-- TAB 3: IMPORT DATA -->
+        <div id="tab-import" class="main-tab-content">
+            <div class="import-container">
+                <!-- Content from bhavcopy-upload-modal -->
+                <div id="bhavcopy-upload-modal"> <!-- Keep ID for JS compatibility -->
+                     <h2 style="margin-top:0;">NSE Data Import</h2>
 
-            <!-- Middle: Python Output (Hidden) -->
-            <div class="lp-section" id="lp-middle" style="display:none;"></div>
-
-            <!-- Bottom: Jules/Input -->
-            <div class="lp-section" id="lp-bottom">
-                <div class="tab-header">
-                    <div class="tab-btn active" onclick="switchLeftTab('jules')"><u>J</u>ules Chat</div>
-                    <div class="tab-btn" onclick="switchLeftTab('python')"><u>P</u>ython Code</div>
-                </div>
-                <div class="panel-content" id="jules-content" style="padding:10px; flex: 1; overflow-y: auto;">
-                    <div class="msg"><strong>Jules:</strong> Ready to analyze.</div>
-                </div>
-                <div class="panel-content" id="python-content" style="display:none; padding:10px;">
-                    <pre style="margin:0; color:#aaa;"># Select a strategy tab to see code</pre>
-                </div>
-                <div class="chat-input-area">
-                    <textarea class="chat-input" id="jules-input" placeholder="Ask Jules or run command... (Shift+Enter for newline)"></textarea>
-                </div>
-            </div>
-
-            <script>
-                // Simple Chat Handler
-                const chatInput = document.getElementById('jules-input');
-                const chatContent = document.getElementById('jules-content');
-
-                chatInput.addEventListener('keypress', async (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault(); // Prevent default newline
-
-                        const msg = chatInput.value.trim();
-                        if (!msg) return;
-
-                        // Append User Message
-                        chatContent.innerHTML += `<div class="msg user" style="color:#00bcd4; margin-top:5px; white-space: pre-wrap;"><strong>You:</strong> ${msg}</div>`;
-                        chatInput.value = '';
-                        chatContent.scrollTop = chatContent.scrollHeight;
-
-                        // Show Thinking Indicator
-                        const thinkingDiv = document.createElement('div');
-                        thinkingDiv.id = 'jules-thinking';
-                        thinkingDiv.style.marginTop = '5px';
-                        thinkingDiv.innerHTML = `<strong>Jules:</strong> <span style="color:#888;">Thinking...</span>`;
-                        chatContent.appendChild(thinkingDiv);
-                        chatContent.scrollTop = chatContent.scrollHeight;
-
-                        // Real API Call
-                        try {
-                            const res = await fetch('/api/jules/chat', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({message: msg})
-                            });
-                            const data = await res.json();
-
-                            // Remove Thinking
-                            if(thinkingDiv) thinkingDiv.remove();
-
-                            // Process response for code blocks
-                            let responseText = data.response;
-                            const codeBlockRegex = /```python([\s\S]*?)```/g;
-                            const codeMatches = [...responseText.matchAll(codeBlockRegex)];
-
-                            if (codeMatches.length > 0) {
-                                let pythonCode = '';
-                                codeMatches.forEach(match => {
-                                    pythonCode += match[1].trim() + '\n\n';
-                                    // Remove code block from chat text to avoid duplication, or keep it?
-                                    // User said "python code should appear in python space".
-                                    // Usually it's better to show "Code extracted to panel" in chat.
-                                    responseText = responseText.replace(match[0], '_(Python code moved to editor)_');
-                                });
-
-                                // Update Python Panel
-                                document.getElementById('python-content').innerHTML = `<pre style="color:#4caf50; white-space: pre-wrap;">${pythonCode}</pre>`;
-                                switchLeftTab('python'); // Auto-switch or notify? Let's just update.
-                            }
-
-                            chatContent.innerHTML += `<div class="msg jules" style="margin-top:5px; white-space: pre-wrap;"><strong>Jules:</strong> ${responseText}</div>`;
-                            chatContent.scrollTop = chatContent.scrollHeight;
-                        } catch (err) {
-                            if(thinkingDiv) thinkingDiv.remove();
-                            chatContent.innerHTML += `<div class="msg error" style="color:red;">Error: ${err.message}</div>`;
-                        }
-                    }
-                });
-            </script>
-
-            <div class="resizer-v" id="resizer-left"></div>
-        </div>
-
-        <!-- 3. Main Panel -->
-        <div id="main-panel">
-
-            <!-- Top: Chart Workbench -->
-            <div id="chart-workbench">
-                <div class="chart-tabs-bar" id="chart-tabs-bar">
-                    <!-- Tabs go here -->
-                    <div class="inline-add-container">
-                        <input type="text" id="chart-add-input" class="inline-input" placeholder="+ Symbol">
+                     <div class="import-tabs" style="display:flex; border-bottom:1px solid #444; margin-bottom:15px;">
+                        <div class="tab-btn active" data-tab="latest" onclick="openImportTab('latest')">Latest Data</div>
+                        <div class="tab-btn" data-tab="historical" onclick="openImportTab('historical')">Historical Range</div>
+                        <div class="tab-btn" data-tab="manual" onclick="openImportTab('manual')">Manual Upload</div>
                     </div>
-                </div>
-                <div class="charts-container" id="charts-container">
-                    <!-- Chart instances go here -->
-                </div>
-                <div class="resizer-h" id="resizer-charts"></div>
-            </div>
 
-            <!-- Bottom: Strategy Workbooks -->
-            <div id="strategy-workbench">
-                <div class="wb-tabs-header">
-                    <div class="wb-tab active" data-type="turtle">Turtle Legacy</div>
-                    <div class="wb-tab" data-type="statarb">Stat Arb</div>
-                    <div class="wb-tab" data-type="oi">OI Analysis</div>
-                    <div class="wb-tab" data-type="rollover">Rollover</div>
-                </div>
-
-                <div class="wb-content" id="wb-content-area">
-                    <!-- Dynamic Content Loaded by JS -->
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- NSE Import Modal -->
-    <div id="bhavcopy-upload-modal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h2>NSE Data Import</h2>
-                <span class="close">&times;</span>
-            </div>
-
-            <div class="modal-body">
-                <div class="import-tabs" style="display:flex; border-bottom:1px solid #444; margin-bottom:15px;">
-                    <div class="tab-btn active" data-tab="latest" onclick="openImportTab('latest')">Latest Data</div>
-                    <div class="tab-btn" data-tab="historical" onclick="openImportTab('historical')">Historical Range</div>
-                    <div class="tab-btn" data-tab="manual" onclick="openImportTab('manual')">Manual Upload</div>
-                </div>
-
-                <!-- Tab: Import Latest -->
-                <div id="tab-latest" class="import-tab-content active">
-                    <div class="import-options">
-                        <h4>Import Data for Latest Trading Day</h4>
-                        <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">
-                            Fetches the most recent available data directly from NSE servers.
-                        </p>
-                        <div class="option-row">
-                            <label>Data Types:</label><br>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility" checked> F&O Volatility</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats" checked> FII Stats</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi" checked> Participant OI</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="block_deals" checked> Block Deals</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bulk_deals" checked> Bulk Deals</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mto"> MTO Delivery</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mwpl_cli"> MWPL Position</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio"> P/E Ratio</label>
-                            <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
+                    <!-- Tab: Import Latest -->
+                    <div id="tab-latest" class="import-tab-content active">
+                        <div class="import-options">
+                            <h4>Import Data for Latest Trading Day</h4>
+                            <div class="option-row">
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility" checked> F&O Volatility</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats" checked> FII Stats</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi" checked> Participant OI</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="block_deals" checked> Block Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bulk_deals" checked> Bulk Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mto"> MTO Delivery</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mwpl_cli"> MWPL Position</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio"> P/E Ratio</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
+                            </div>
+                            <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
                         </div>
-                        <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
                     </div>
-                </div>
 
-                <!-- Tab: Historical Range -->
-                <div id="tab-historical" class="import-tab-content" style="display:none;">
-                    <div class="import-options">
-                        <h4>Import Date Range</h4>
-                        <div class="option-row">
-                            <label>Start Date:</label>
-                            <input type="date" id="range-start" style="background:#333; color:white; border:1px solid #555;">
-                            <label style="margin-left:15px;">End Date:</label>
-                            <input type="date" id="range-end" style="background:#333; color:white; border:1px solid #555;">
+                    <!-- Tab: Historical Range -->
+                    <div id="tab-historical" class="import-tab-content" style="display:none;">
+                        <div class="import-options">
+                            <h4>Import Date Range</h4>
+                            <div class="option-row">
+                                <label>Start:</label> <input type="date" id="range-start" class="history-input">
+                                <label style="margin-left:15px;">End:</label> <input type="date" id="range-end" class="history-input">
+                            </div>
+                            <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
                         </div>
-                        <div class="option-row">
-                            <label>Data Types:</label><br>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility" checked> F&O Volatility</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats" checked> FII Stats</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi" checked> Participant OI</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="block_deals" checked> Block Deals</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="bulk_deals" checked> Bulk Deals</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="mto"> MTO Delivery</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="mwpl_cli"> MWPL Position</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio"> P/E Ratio</label>
-                            <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
-                        </div>
-                        <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
                     </div>
-                </div>
 
-                <!-- Tab: Manual Upload (Any Type) -->
-                <div id="tab-manual" class="import-tab-content" style="display:none;">
-                    <div class="import-options">
-                        <h4>Manual File Upload</h4>
-                        <div class="option-row">
-                            <label>File Type:</label>
-                            <select id="manual-type" style="background:#333; color:white; border:1px solid #555; padding:5px; width:100%; margin-top:5px;">
-                                <option value="bhavcopy_eq">Equity Bhavcopy (CSV/ZIP)</option>
-                                <option value="bhavcopy_fo">F&O Bhavcopy (ZIP)</option>
-                                <option value="fao_participant_oi">Participant OI (CSV)</option>
-                                <option value="fo_volatility">F&O Volatility (CSV)</option>
-                                <option value="fii_derivatives_stats">FII Stats (XLS)</option>
-                                <option value="var_begin">VaR Begin Day (DAT/CSV)</option>
-                                <option value="var_end">VaR End Day (DAT/CSV)</option>
-                                <option value="contract_delta">Contract Delta (CSV)</option>
-                                <option value="bulk_deals">Bulk Deals (CSV)</option>
-                                <option value="block_deals">Block Deals (CSV)</option>
-                                <option value="mto">MTO Delivery (DAT/CSV)</option>
-                                <option value="mwpl_cli">MWPL Position (XLS)</option>
-                                <option value="pe_ratio">P/E Ratio (CSV)</option>
-                                <option value="margin_trading">Margin Trading (ZIP/CSV)</option>
-                                <option value="nse_security">Security Master (GZ/CSV)</option>
-                            </select>
+                    <!-- Tab: Manual Upload -->
+                    <div id="tab-manual" class="import-tab-content" style="display:none;">
+                        <div class="import-options">
+                            <h4>Manual File Upload</h4>
+                            <div class="option-row">
+                                <select id="manual-type" class="history-select" style="width:100%">
+                                    <option value="bhavcopy_eq">Equity Bhavcopy (CSV/ZIP)</option>
+                                    <option value="bhavcopy_fo">F&O Bhavcopy (ZIP)</option>
+                                    <!-- Add other options as needed -->
+                                </select>
+                            </div>
+                            <div class="option-row">
+                                <input type="file" id="manual-file" style="margin-top:5px;" />
+                            </div>
+                            <button id="btn-manual-upload" class="btn btn-primary" style="margin-top:15px; width:100%;">Upload & Import</button>
                         </div>
-                        <div class="option-row">
-                            <label>File Date (Optional - for validation):</label>
-                            <input type="date" id="manual-date" style="background:#333; color:white; border:1px solid #555; width:100%; margin-top:5px;">
-                        </div>
-                        <div class="option-row">
-                            <label>Select File:</label>
-                            <input type="file" id="manual-file" style="margin-top:5px;" />
-                        </div>
-                        <button id="btn-manual-upload" class="btn btn-primary" style="margin-top:15px; width:100%;">Upload & Import</button>
                     </div>
-                </div>
 
-                <!-- Status / Progress -->
-                <div id="import-progress-area" style="margin-top:20px; padding:15px; background:#222; border-radius:4px; display:none;">
-                    <h4 style="margin-top:0;">Import Progress</h4>
-                    <div id="progress-text" style="color:#ccc; font-size:0.9em; margin-bottom:5px;">Starting...</div>
-                    <div style="width:100%; background:#444; height:10px; border-radius:5px;">
-                        <div id="progress-bar" style="width:0%; background:#00bcd4; height:100%; border-radius:5px; transition:width 0.3s;"></div>
+                    <!-- Progress -->
+                    <div id="import-progress-area" style="margin-top:20px; padding:15px; background:#222; border-radius:4px; display:none;">
+                        <div id="progress-text" style="color:#ccc; font-size:0.9em;">Starting...</div>
+                        <div style="width:100%; background:#444; height:10px; border-radius:5px;">
+                            <div id="progress-bar" style="width:0%; background:#00bcd4; height:100%; border-radius:5px;"></div>
+                        </div>
+                        <div id="import-details" style="margin-top:10px; font-size:0.85em;"></div>
                     </div>
-                    <div id="import-details" style="margin-top:10px; font-size:0.85em; color:#888; max-height:100px; overflow-y:auto;"></div>
-                </div>
 
-                <!-- Recent History -->
-                <div style="margin-top:20px;">
-                    <h4>Recent Imports</h4>
-                    <div id="import-history-list" style="font-size:0.85em; color:#aaa;">
-                        <!-- Populated via JS -->
+                    <!-- Recent History -->
+                    <div style="margin-top:20px;">
+                        <h4>Recent Imports</h4>
+                        <div id="import-history-list"></div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- TAB 4: AUDIT TRAIL -->
+        <div id="tab-audit" class="main-tab-content">
+             <div class="import-container" style="max-width:100%; height:100%; display:flex; flex-direction:column; padding:0;">
+                <div style="padding:10px; background:#252526; border-bottom:1px solid #333; display:flex; gap:10px;">
+                    <input type="date" id="audit-start" class="history-input">
+                    <input type="date" id="audit-end" class="history-input">
+                    <button class="btn btn-secondary" onclick="loadAuditHistory()">Load History</button>
+                    <button class="btn btn-secondary" onclick="downloadLogs()">Download Logs</button>
+                </div>
+                <div id="audit-log-container" style="flex:1; padding:15px; overflow-y:auto; font-family:monospace; font-size:13px; color:#d4d4d4;">
+                    <div style="color: #6a9955;">// Live Log Stream...</div>
+                </div>
+                <div class="history-status-bar">
+                    <span id="log-count">0 Events</span>
+                </div>
+             </div>
+        </div>
+
+        <!-- TAB 5: CONFIG -->
+        <div id="tab-config" class="main-tab-content">
+            <div class="import-container">
+                <h2>Configuration</h2>
+                <div style="margin-bottom: 10px;">
+                    <label>Google API Key (Gemini):</label>
+                    <input type="password" id="cfg-google" class="history-input" style="width: 100%;">
+                </div>
+                <button onclick="saveConfig()" class="btn btn-primary">Save Config</button>
+            </div>
+        </div>
+
     </div>
 
     <!-- Scripts -->
@@ -578,92 +404,247 @@
     <script src="/static/js/config.js"></script>
 
     <script>
-        // Init
+        // --- Main Tab Logic ---
+        function switchMainTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
+
+            // Show target
+            const target = document.getElementById(`tab-${tabName}`);
+            if (target) target.classList.add('active');
+
+            const tabBtn = document.querySelector(`.main-tab[data-target="${tabName}"]`);
+            if (tabBtn) tabBtn.classList.add('active');
+
+            // Trigger specific refreshes if needed
+            if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
+        }
+
+        // --- History Logic (Ported from data_viewer.html) ---
+        let currentHistoryData = [];
+        let sortDirection = 1; // 1 asc, -1 desc
+
+        function updateHistoryControls() {
+            const type = document.getElementById('data-type').value;
+            const symbolGroup = document.getElementById('symbol-group');
+            if (['fao_participant_oi', 'fii_stats'].includes(type)) {
+                symbolGroup.style.display = 'none';
+                document.getElementById('symbol-input').value = '';
+            } else {
+                symbolGroup.style.display = 'flex';
+            }
+        }
+
+        async function loadHistoryData() {
+            const type = document.getElementById('data-type').value;
+            const symbol = document.getElementById('symbol-input').value.trim();
+            const start = document.getElementById('start-date').value;
+            const end = document.getElementById('end-date').value;
+
+            document.getElementById('history-status-msg').innerText = "Loading...";
+
+            try {
+                let url = `/api/data/view/list?type=${type}&limit=500`;
+                if (symbol) url += `&symbol=${symbol}`;
+                if (start) url += `&start_date=${start}`;
+                if (end) url += `&end_date=${end}`;
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                currentHistoryData = data; // Store for sorting
+
+                renderHistoryTable(data);
+                document.getElementById('history-status-msg').innerText = `Loaded ${data.length} rows`;
+                document.getElementById('history-row-count').innerText = `${data.length} Rows`;
+
+            } catch (e) {
+                document.getElementById('history-status-msg').innerText = "Error: " + e.message;
+            }
+        }
+
+        function renderHistoryTable(data) {
+            const tbody = document.getElementById('history-body');
+            const thead = document.getElementById('history-head');
+            tbody.innerHTML = '';
+            thead.innerHTML = '';
+
+            if (data.length === 0) return;
+
+            // Headers
+            const keys = Object.keys(data[0]);
+            const trHead = document.createElement('tr');
+            keys.forEach((key, index) => {
+                const th = document.createElement('th');
+                th.innerText = key.replace(/_/g, ' ').toUpperCase();
+                th.onclick = () => sortHistoryTable(key); // Sort on click
+                trHead.appendChild(th);
+            });
+            thead.appendChild(trHead);
+
+            // Rows
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                keys.forEach(key => {
+                    const td = document.createElement('td');
+                    let val = row[key];
+                    if (val === null || val === undefined) val = '-';
+                    if (typeof val === 'number') {
+                         td.innerText = Number.isInteger(val) ? val.toLocaleString() : val.toFixed(2);
+                         td.style.textAlign = 'right';
+                    } else {
+                        td.innerText = val;
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sortHistoryTable(key) {
+            sortDirection *= -1;
+            currentHistoryData.sort((a, b) => {
+                let valA = a[key] || '';
+                let valB = b[key] || '';
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return (valA - valB) * sortDirection;
+                }
+                return String(valA).localeCompare(String(valB)) * sortDirection;
+            });
+            renderHistoryTable(currentHistoryData);
+        }
+
+        function exportHistoryData() {
+            const type = document.getElementById('data-type').value;
+            const symbol = document.getElementById('symbol-input').value.trim();
+            const start = document.getElementById('start-date').value;
+            const end = document.getElementById('end-date').value;
+
+            let url = `/api/data/view/export?type=${type}`;
+            if (symbol) url += `&symbol=${symbol}`;
+            if (start) url += `&start_date=${start}`;
+            if (end) url += `&end_date=${end}`;
+
+            // Trigger download
+            window.location.href = url;
+        }
+
+        // --- Audit Logic ---
+        async function loadAuditHistory() {
+            const start = document.getElementById('audit-start').value;
+            const end = document.getElementById('audit-end').value;
+            const container = document.getElementById('audit-log-container');
+            container.innerHTML = 'Loading...';
+
+             try {
+                let url = '/api/audit/history?limit=1000';
+                if (start) url += `&start_date=${start}`;
+                if (end) url += `&end_date=${end}`;
+                const res = await fetch(url);
+                const logs = await res.json();
+                container.innerHTML = '';
+                logs.reverse().forEach(log => {
+                     const div = document.createElement('div');
+                     div.innerText = `${log.timestamp} - [${log.source}] ${log.message}`;
+                     div.style.borderBottom = '1px solid #333';
+                     container.appendChild(div);
+                });
+             } catch(e) { container.innerHTML = 'Error'; }
+        }
+
+        function downloadLogs() {
+             const container = document.getElementById('audit-log-container');
+             const lines = Array.from(container.children).map(div => `"${div.innerText.replace(/"/g, '""')}"`);
+             const blob = new Blob([lines.join("\\n")], {type: "text/csv"});
+             const link = document.createElement("a");
+             link.href = URL.createObjectURL(blob);
+             link.download = `Audit_Trail_${new Date().toISOString().slice(0,10)}.csv`;
+             link.click();
+        }
+
+        // --- Init ---
         window.onload = () => {
             Layout.init();
             ChartTabs.init();
             WorkbookManager.init();
-
-            // Connect WebSocket
             connectLiveFeed();
+
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            if(document.getElementById('end-date')) document.getElementById('end-date').value = today;
+            if(document.getElementById('audit-end')) document.getElementById('audit-end').value = today;
+
+            // Override Layout shortcuts or Uploader open
+            if(window.uploader) {
+                // We keep uploader logic for progress polling, but override open
+                window.uploader.open = () => switchMainTab('import');
+            }
+
+            // Initialize Chat Input Handler
+            const chatInput = document.getElementById('jules-input');
+            const chatContent = document.getElementById('jules-content');
+            if(chatInput) {
+                chatInput.addEventListener('keypress', async (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        const msg = chatInput.value.trim();
+                        if (!msg) return;
+                        chatContent.innerHTML += `<div class="msg user" style="color:#00bcd4; margin-top:5px;"><strong>You:</strong> ${msg}</div>`;
+                        chatInput.value = '';
+                        // Mock Response for now as actual backend call wasn't fully visible in my read but I recall the structure
+                        try {
+                            const res = await fetch('/api/jules/chat', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({message: msg})
+                            });
+                            const data = await res.json();
+                            chatContent.innerHTML += `<div class="msg jules" style="margin-top:5px;"><strong>Jules:</strong> ${data.response}</div>`;
+                        } catch(err) {
+                            chatContent.innerHTML += `<div class="msg error" style="color:red;">Error: ${err.message}</div>`;
+                        }
+                    }
+                });
+            }
         };
 
         function switchLeftTab(tab) {
-            document.getElementById('jules-content').style.display = tab === 'jules' ? 'block' : 'none';
-            document.getElementById('python-content').style.display = tab === 'python' ? 'block' : 'none';
-            document.querySelectorAll('.lp-bottom .tab-btn').forEach(b => b.classList.remove('active'));
-            // Toggle active class logic (simplified)
-            if(tab === 'jules') document.querySelector('.tab-btn:first-child').classList.add('active');
-            else document.querySelector('.tab-btn:last-child').classList.add('active');
+             document.getElementById('jules-content').style.display = tab === 'jules' ? 'block' : 'none';
+             document.getElementById('python-content').style.display = tab === 'python' ? 'block' : 'none';
+             document.querySelectorAll('#lp-bottom .tab-btn').forEach(b => b.classList.remove('active'));
+             if(tab === 'jules') document.querySelector('#lp-bottom .tab-btn:first-child').classList.add('active');
+             else document.querySelector('#lp-bottom .tab-btn:last-child').classList.add('active');
         }
 
-        let ws;
-        let logsWs;
-
+        let ws, logsWs;
         function connectLiveFeed() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+             ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
+             ws.onopen = () => { console.log("WS Connected"); ws.send(JSON.stringify({subscribe: ["NIFTY", "BANKNIFTY"]})); };
+             ws.onmessage = (event) => {
+                 const data = JSON.parse(event.data);
+                 if(window.ChartTabs) ChartTabs.handleTick(data);
+                 if(window.WorkbookManager) WorkbookManager.handleTick(data);
+             };
 
-            // 1. Market Data Stream
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
-            ws.onopen = () => {
-                console.log("WS Connected");
-                ws.send(JSON.stringify({subscribe: ["NIFTY", "BANKNIFTY"]}));
-            };
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                ChartTabs.handleTick(data);
-                WorkbookManager.handleTick(data);
-            };
+             logsWs = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+             logsWs.onmessage = (event) => {
+                 const msg = event.data;
+                 const auditContainer = document.getElementById('audit-log-container');
+                 if(auditContainer) {
+                     const div = document.createElement('div');
+                     div.innerText = msg;
+                     div.style.borderBottom = '1px solid #333';
+                     // Color coding
+                     if (msg.includes("ERROR")) div.style.color = "#f48771";
+                     else if (msg.includes("WARNING")) div.style.color = "#cca700";
+                     else div.style.color = "#d4d4d4";
 
-            // 2. Audit Trail / System Logs Stream
-            logsWs = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
-            logsWs.onopen = () => console.log("Logs Stream Connected");
-            logsWs.onmessage = (event) => {
-                const msg = event.data;
-
-                // Append to Audit Trail Modal
-                const auditContainer = document.getElementById('audit-log-container');
-                if (auditContainer) {
-                    const logLine = document.createElement('div');
-                    logLine.textContent = msg;
-                    logLine.style.borderBottom = "1px solid #2d2d2d";
-                    logLine.style.padding = "2px 0";
-
-                    // VS Code / Terminal Theme Colors
-                    if (msg.includes("ERROR")) logLine.style.color = "#f48771"; // Reddish
-                    else if (msg.includes("WARNING")) logLine.style.color = "#cca700"; // Yellowish
-                    else if (msg.includes("SQL")) logLine.style.color = "#569cd6"; // Blueish
-                    else if (msg.includes("AUDIT")) logLine.style.color = "#b5cea8"; // Light Green
-                    else logLine.style.color = "#d4d4d4"; // Default Gray
-
-                    auditContainer.appendChild(logLine);
-
-                    // Update count
-                    const countSpan = document.getElementById('log-count');
-                    if(countSpan) countSpan.innerText = `${auditContainer.children.length} Events`;
-
-                    // Auto-scroll if near bottom
-                    if (auditContainer.scrollHeight - auditContainer.scrollTop - auditContainer.clientHeight < 150) {
-                        auditContainer.scrollTop = auditContainer.scrollHeight;
-                    }
-                }
-
-                // Also keep the Jules chat integration for significant events (optional, but requested previously)
-                if (msg.includes("backend.ingest") || msg.includes("Import")) {
-                    const julesContent = document.getElementById('jules-content');
-                    if (julesContent) {
-                        const logDiv = document.createElement('div');
-                        logDiv.style.fontSize = '0.8em';
-                        logDiv.style.color = '#888';
-                        logDiv.style.borderLeft = '2px solid #444';
-                        logDiv.style.paddingLeft = '5px';
-                        logDiv.style.marginTop = '2px';
-                        logDiv.textContent = `[AUDIT] ${msg}`;
-                        julesContent.appendChild(logDiv);
-                        julesContent.scrollTop = julesContent.scrollHeight;
-                    }
-                }
-            };
+                     auditContainer.appendChild(div);
+                     if(auditContainer.scrollHeight - auditContainer.scrollTop < 200) auditContainer.scrollTop = auditContainer.scrollHeight;
+                 }
+             };
         }
     </script>
 </body>
