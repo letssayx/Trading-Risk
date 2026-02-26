@@ -112,6 +112,7 @@
         .data-table th:hover { background: #3e3e42; }
         .data-table tr:nth-child(even) { background: #252526; }
         .data-table tr:hover { background: #37373d; }
+        .data-table td { color: #ddd; } /* Force text color */
         .history-status-bar {
             padding: 5px 15px;
             background: #007acc;
@@ -445,7 +446,7 @@
             document.getElementById('history-status-msg').innerText = "Loading...";
 
             try {
-                let url = `/api/data/view/list?type=${type}&limit=500`;
+                let url = `/api/data/view/list?type=${type}&limit=500&_t=${Date.now()}`; // Add timestamp to bust cache
                 if (symbol) url += `&symbol=${symbol}`;
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
@@ -455,11 +456,16 @@
                 const data = await res.json();
                 currentHistoryData = data; // Store for sorting
 
+                if (data.length > 0 && Object.keys(data[0]).length === 0) {
+                    throw new Error("Received rows but with no columns. Data structure error.");
+                }
+
                 renderHistoryTable(data);
                 document.getElementById('history-status-msg').innerText = `Loaded ${data.length} rows`;
                 document.getElementById('history-row-count').innerText = `${data.length} Rows`;
 
             } catch (e) {
+                console.error("Load History Error:", e);
                 document.getElementById('history-status-msg').innerText = "Error: " + e.message;
             }
         }
@@ -470,7 +476,10 @@
             tbody.innerHTML = '';
             thead.innerHTML = '';
 
-            if (data.length === 0) return;
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="100" style="text-align:center; color:#888;">No Data Found</td></tr>';
+                return;
+            }
 
             // Headers
             const keys = Object.keys(data[0]);
