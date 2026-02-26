@@ -187,7 +187,7 @@ class MTODelivery(Base, TimescaleMixin):
     id = Column(Integer, autoincrement=True, nullable=False)
     trade_date = Column(Date, nullable=False, index=True)
     settlement_type = Column(String(10), default='N')
-    sr_no = Column(Integer)
+    sr_no = Column(BigInteger)
     security_name = Column(String(200), nullable=False)
     quantity_traded = Column(BigInteger)
     deliverable_qty = Column(BigInteger)
