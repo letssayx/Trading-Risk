@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, or_
+from sqlalchemy.orm import Session, defer
+from sqlalchemy import desc, asc, or_
+from sqlalchemy.exc import ProgrammingError, OperationalError
 import pandas as pd
 import io
 from datetime import datetime
@@ -46,13 +47,15 @@ async def list_data(
     symbol: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = Query('asc', pattern='^(asc|desc)$'),
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
     """
-    List data for a specific type with filters.
+    List data for a specific type with filters and optional sorting.
     """
-    logger.info(f"View Request: type={type}, symbol={symbol}, date={start_date} to {end_date}")
+    logger.info(f"View Request: type={type}, symbol={symbol}, date={start_date} to {end_date}, sort={sort_by} {sort_order}")
 
     model = get_model_for_type(type)
     if not model:
@@ -120,32 +123,71 @@ async def list_data(
         if end_date:
             query = query.filter(date_col <= end_date)
 
-        # Order by date desc, then symbol asc (if available)
-        order_clauses = [desc(date_col)]
-        if hasattr(model, 'symbol'):
-            order_clauses.append(model.symbol.asc())
-        elif hasattr(model, 'ticker_symb'):
-            order_clauses.append(model.ticker_symb.asc())
-        elif hasattr(model, 'underlying_stock'):
-            order_clauses.append(model.underlying_stock.asc())
-        elif hasattr(model, 'security_name'):
-            order_clauses.append(model.security_name.asc())
+    # Sorting Logic
+    order_clauses = []
 
+    if sort_by:
+        # Custom sort requested
+        if hasattr(model, sort_by):
+            col = getattr(model, sort_by)
+            order_clauses.append(desc(col) if sort_order == 'desc' else asc(col))
+    else:
+        # Default Sorting: Date DESC, then Symbol ASC
+        if date_col:
+            order_clauses.append(desc(date_col))
+
+        # Determine symbol column for secondary sort
+        sym_col = None
+        if hasattr(model, 'symbol'): sym_col = model.symbol
+        elif hasattr(model, 'ticker_symb'): sym_col = model.ticker_symb
+        elif hasattr(model, 'underlying_stock'): sym_col = model.underlying_stock
+        elif hasattr(model, 'security_name'): sym_col = model.security_name
+
+        if sym_col:
+            order_clauses.append(asc(sym_col))
+
+        if not date_col and hasattr(model, 'updated_at'):
+             order_clauses.append(desc(model.updated_at))
+
+    if order_clauses:
         query = query.order_by(*order_clauses)
-    elif hasattr(model, 'updated_at'):
-        # Fallback for non-timeseries (Security Master)
-        query = query.order_by(desc(model.updated_at))
 
-    results = query.limit(limit).all()
-    logger.info(f"Query returned {len(results)} rows for {type}")
+    try:
+        results = query.limit(limit).all()
+        logger.info(f"Query returned {len(results)} rows for {type}")
+        return process_results(results, model)
 
-    # Serialize results using Pydantic 'from_attributes' logic or simple dict
-    # Since we don't have Pydantic models for all yet, we'll use a generic serializer
+    except (ProgrammingError, OperationalError) as e:
+        # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
+        err_msg = str(e)
+        logger.error(f"Database Error for {type}: {err_msg}")
+
+        # Robust Fallback for known missing column issues
+        if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
+            logger.warning(f"Retrying query for {type} without 'instrument_type' column")
+            try:
+                # Retry query deferring the missing column
+                query = query.options(defer(model.instrument_type))
+                results = query.limit(limit).all()
+                return process_results(results, model, skip_instrument_type=True)
+            except Exception as retry_exc:
+                logger.error(f"Retry failed: {retry_exc}")
+                raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+def process_results(results, model, skip_instrument_type=False):
+    """Serialize and normalize results."""
     data = []
     for row in results:
         # Convert row to dict, handling dates and serialization
         row_dict = {}
         for col in row.__table__.columns:
+            # Skip deferred columns if they are not loaded (though accessing them usually triggers load,
+            # here we want to avoid accessing them if we know they are missing in DB)
+            if skip_instrument_type and col.name == 'instrument_type':
+                continue
+
             val = getattr(row, col.name)
             if isinstance(val, (datetime, pd.Timestamp)):
                 val = val.isoformat()
@@ -158,7 +200,8 @@ async def list_data(
             row_dict['symbol'] = row_dict['ticker_symb']
 
         # Ensure instrument_type is present and valid
-        if 'instrument_type' in row_dict and not row_dict['instrument_type']:
+        # If we skipped it (because DB lacks it) or it's None, fill it
+        if skip_instrument_type or ('instrument_type' in row_dict and not row_dict['instrument_type']):
              # Heuristic: Infer instrument_type if missing (e.g. legacy data or import issue)
              # This ensures frontend grid (which filters by Type) shows the data
              symbol = row_dict.get('ticker_symb', row_dict.get('symbol', ''))
@@ -174,11 +217,14 @@ async def list_data(
                  # Note: This is a fallback. Actual data usually has explicit type.
                  row_dict['instrument_type'] = 'OPTSTK' if is_opt else 'FUTSTK'
 
+        elif 'instrument_type' not in row_dict:
+             # If model doesn't have it at all (unlikely for FO), do nothing or add default?
+             pass
+
         if 'underlying_stock' in row_dict and 'symbol' not in row_dict:
             row_dict['symbol'] = row_dict['underlying_stock']
 
         data.append(row_dict)
-
     return data
 
 @router.get("/api/data/view/search")
