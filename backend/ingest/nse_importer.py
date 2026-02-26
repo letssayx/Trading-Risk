@@ -218,9 +218,28 @@ class NSEDataImporter:
 
         format_info = FieldMapper.detect_format(df)
         if format_info['type'] == 'unknown':
-            if key == 'mto': format_info = {'type': 'mto'}
-            elif key == 'bulk_deals' or key == 'block_deals': format_info = {'type': 'deals', 'target_table': key}
-            elif key == 'fao_participant_oi': format_info = {'type': 'participant_oi'}
+            # Fallback based on expected file type
+            if key == 'mto':
+                format_info = {'type': 'mto'}
+            elif key == 'bulk_deals' or key == 'block_deals':
+                format_info = {'type': 'deals', 'target_table': key}
+            elif key == 'fao_participant_oi':
+                format_info = {'type': 'participant_oi'}
+            elif key == 'bhavcopy_eq':
+                # Try to force check if columns seem reasonable even if exact match failed
+                if len(df.columns) > 5: # Minimal sanity check
+                    format_info = {'type': 'cm_udiff'} # Assume new format
+            elif key == 'bhavcopy_fo':
+                if len(df.columns) > 5:
+                    format_info = {'type': 'fo_udiff'}
+
+        if format_info['type'] == 'unknown':
+            cols = df.columns.tolist()[:10] # Log first 10 cols
+            error_msg = f"Unknown format for {key}. Columns found: {cols}"
+            logger.error(error_msg)
+            results[key] = {'status': 'UNKNOWN_FORMAT', 'error': error_msg}
+            self._log_import(db, trade_date, key, 'FAILED', 0, 0, error_msg)
+            return
 
         if format_info.get('target_table') is None and key in ['bulk_deals', 'block_deals']:
                 format_info['target_table'] = key

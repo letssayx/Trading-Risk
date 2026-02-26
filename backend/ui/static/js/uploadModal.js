@@ -349,15 +349,28 @@ class NSEImporter {
                 const data = await res.json(); // { summary: [...], period: {...} }
 
                 if (data.summary && data.summary.length > 0) {
-                    let html = '<ul style="list-style:none; padding:0;">';
+                    // Group by table_name to avoid duplicates
+                    const grouped = {};
                     data.summary.forEach(item => {
-                        const color = item.status === 'SUCCESS' ? '#4caf50' : (item.status === 'FAILED' ? '#f44336' : '#aaa');
+                        if (!grouped[item.table_name]) grouped[item.table_name] = [];
+                        grouped[item.table_name].push(item);
+                    });
+
+                    let html = '<ul style="list-style:none; padding:0;">';
+                    Object.keys(grouped).sort().forEach(table => {
+                        const items = grouped[table];
+                        // Create badges for each status
+                        const badges = items.map(item => {
+                            const color = item.status === 'SUCCESS' ? '#4caf50' : (item.status === 'FAILED' ? '#f44336' : '#aaa');
+                            return `<span style="font-size:0.8em; color:${color}; border:1px solid ${color}; padding:2px 6px; border-radius:3px; margin-left:5px;">
+                                    ${item.status} (${item.job_count})
+                                </span>`;
+                        }).join('');
+
                         html += `
                             <li style="margin-bottom:5px; padding:5px; background:#333; border-radius:3px; display:flex; justify-content:space-between; align-items:center;">
-                                <span>${item.table_name}</span>
-                                <span style="font-size:0.8em; color:${color}; border:1px solid ${color}; padding:2px 6px; border-radius:3px;">
-                                    ${item.status} (${item.job_count})
-                                </span>
+                                <span>${table}</span>
+                                <div>${badges}</div>
                             </li>
                         `;
                     });

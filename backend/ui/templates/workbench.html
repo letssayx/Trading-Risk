@@ -107,10 +107,10 @@
     <!-- Top Bar -->
     <div style="height:30px; background:#111; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #333; font-size:0.85em; color:#ccc;">
         <div style="font-weight:bold; margin-right:20px;">TURTLE TERMINAL</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()">Import Data</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="window.location.href='/data-viewer'">Historical Data</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="openConfig()">Config</div>
-        <div style="cursor:pointer; margin-right:15px;" onclick="document.getElementById('audit-modal').style.display='flex'">Audit Trail</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="uploader.open()"><u>I</u>mport Data</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="window.location.href='/data-viewer'"><u>H</u>istorical Data</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="openConfig()"><u>C</u>onfig</div>
+        <div style="cursor:pointer; margin-right:15px;" onclick="document.getElementById('audit-modal').style.display='flex'"><u>A</u>udit Trail</div>
     </div>
 
     <!-- Audit Trail Modal (Elegant Terminal Style) -->
@@ -320,8 +320,8 @@
             <!-- Bottom: Jules/Input -->
             <div class="lp-section" id="lp-bottom">
                 <div class="tab-header">
-                    <div class="tab-btn active" onclick="switchLeftTab('jules')">Jules Chat</div>
-                    <div class="tab-btn" onclick="switchLeftTab('python')">Python Code</div>
+                    <div class="tab-btn active" onclick="switchLeftTab('jules')"><u>J</u>ules Chat</div>
+                    <div class="tab-btn" onclick="switchLeftTab('python')"><u>P</u>ython Code</div>
                 </div>
                 <div class="panel-content" id="jules-content" style="padding:10px; flex: 1; overflow-y: auto;">
                     <div class="msg"><strong>Jules:</strong> Ready to analyze.</div>

@@ -66,7 +66,7 @@ class FieldMapper:
             return {'type': 'volatility', 'name': 'fo_volatility'}
 
         # MTO Delivery
-        if 'Record Type' in columns or 'Name of Security' in columns:
+        if 'Record Type' in columns or 'Name of Security' in columns or (len(columns) > 0 and 'Record Type' in str(columns[0])):
             return {'type': 'mto', 'name': 'mto_delivery'}
 
         # MWPL Client
@@ -347,7 +347,8 @@ class FieldMapper:
         for _, row in df.iterrows():
             # Skip header rows often found in DAT files
             # NOTE: '20' is a valid Record Type for data, DO NOT skip it.
-            if str(row.iloc[0]).strip() in ['Record Type']:
+            first_val = str(row.iloc[0]).strip()
+            if first_val.lower() == 'record type' or first_val == '':
                 continue
 
             record = {

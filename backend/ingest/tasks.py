@@ -103,7 +103,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None):
             # Before 6 PM, today's data not ready, so look for previous trading day
             target_date = NSEHolidayCalendar.get_previous_trading_day(today)
 
-        logger.info(f"Auto-importing for latest trading day: {target_date}")
+        logger.info(f"Auto-importing for latest trading day: {target_date} (IST: {ist_now})")
         return importer.import_date(target_date, patterns=patterns, progress_callback=progress_callback)
 
     except Exception as exc:
