@@ -165,7 +165,10 @@ class FieldMapper:
         # Filter EQ series if column exists
         series_col = cls._find_col(df, ['SctySrs', 'SERIES'])
         if series_col:
+            initial_count = len(df)
             df = df[df[series_col] == 'EQ'].copy()
+            if len(df) == 0 and initial_count > 0:
+                logger.warning(f"Bhavcopy EQ: Filtered all rows. Series column '{series_col}' found but no 'EQ' rows.")
 
         for _, row in df.iterrows():
             record = {

@@ -1,96 +1,113 @@
+from sqlalchemy import create_engine, text
+import os
 import logging
-from sqlalchemy import text
-from backend.infrastructure.db import engine
+from dotenv import load_dotenv
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
-logger = logging.getLogger(__name__)
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("SchemaFix")
 
-def fix_schema():
-    """
-    Consolidated migration script to fix schema issues.
+load_dotenv()
 
-    1. Alters mto_delivery columns to BIGINT (quantity_traded, deliverable_qty, sr_no).
-    2. Drops UNIQUE constraints on bulk_deals and block_deals to allow duplicate entries.
-    3. Verifies the changes.
-    """
-    logger.info("Starting schema fix migration...")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    logger.error("DATABASE_URL not found")
+    exit(1)
 
-    with engine.connect() as conn:
-        with conn.begin(): # Start a transaction
+engine = create_engine(DATABASE_URL)
 
-            # --- 1. Fix mto_delivery columns ---
-            logger.info("--- Fixing mto_delivery columns ---")
-            mto_commands = [
-                "ALTER TABLE mto_delivery ALTER COLUMN quantity_traded TYPE BIGINT;",
-                "ALTER TABLE mto_delivery ALTER COLUMN deliverable_qty TYPE BIGINT;",
-                "ALTER TABLE mto_delivery ALTER COLUMN sr_no TYPE BIGINT;"
-            ]
+def safe_execute(conn, sql, description):
+    try:
+        conn.execute(text(sql))
+        logger.info(f"✓ {description}")
+    except Exception as e:
+        # Check if error is "does not exist" or similar innocuous error
+        msg = str(e).lower()
+        if "does not exist" in msg or "already exists" in msg:
+            logger.info(f"⚠ {description} (Skipped/Already done: {e})")
+        else:
+            logger.error(f"✗ {description} failed: {e}")
 
-            for cmd in mto_commands:
-                try:
-                    logger.info(f"Executing: {cmd}")
-                    conn.execute(text(cmd))
-                except Exception as e:
-                    # Log error but continue (might already be BIGINT)
-                    logger.warning(f"Failed to execute {cmd}: {e}")
+def fix_mto_delivery(conn):
+    logger.info("--- Fixing mto_delivery ---")
 
-            # --- 2. Drop unique constraints on deals ---
-            logger.info("--- Dropping unique constraints on deals ---")
-            tables_to_fix = ['bulk_deals', 'block_deals']
+    # 1. Fix Column Types (Integer Overflow)
+    safe_execute(conn, "ALTER TABLE mto_delivery ALTER COLUMN quantity_traded TYPE BIGINT", "Alter quantity_traded to BIGINT")
+    safe_execute(conn, "ALTER TABLE mto_delivery ALTER COLUMN deliverable_qty TYPE BIGINT", "Alter deliverable_qty to BIGINT")
 
-            for table in tables_to_fix:
-                # Find unique constraints (contype='u') on the table
-                # Fixed parameter binding syntax: Use standard string formatting for table names
-                # as they are trusted internal strings and :table::regclass caused issues
-                query = text(f"""
-                    SELECT conname
-                    FROM pg_constraint
-                    WHERE conrelid = '{table}'::regclass AND contype = 'u';
-                """)
+    # 2. Fix Constraints for Hypertable (Must include trade_date)
+    # Drop old constraints
+    safe_execute(conn, "ALTER TABLE mto_delivery DROP CONSTRAINT IF EXISTS mto_delivery_pkey CASCADE", "Drop old PK")
+    safe_execute(conn, "ALTER TABLE mto_delivery DROP CONSTRAINT IF EXISTS uq_mto_delivery_unique CASCADE", "Drop old Unique Constraint")
 
-                try:
-                    constraints = conn.execute(query).fetchall()
+    # Add new constraints
+    safe_execute(conn, "ALTER TABLE mto_delivery ADD CONSTRAINT mto_delivery_pkey PRIMARY KEY (trade_date, id)", "Add composite PK (trade_date, id)")
+    safe_execute(conn, "ALTER TABLE mto_delivery ADD CONSTRAINT uq_mto_delivery_unique UNIQUE (trade_date, security_name)", "Add unique constraint (trade_date, security_name)")
 
-                    if not constraints:
-                        logger.info(f"No unique constraints found on {table}.")
-                        continue
+def fix_pe_ratio(conn):
+    logger.info("--- Fixing pe_ratio ---")
 
-                    for row in constraints:
-                        constraint_name = row[0] # row is a tuple/Row object
-                        drop_cmd = f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {constraint_name};"
-                        logger.info(f"Dropping constraint {constraint_name} on {table}...")
-                        try:
-                            conn.execute(text(drop_cmd))
-                            logger.info(f"Successfully dropped {constraint_name}.")
-                        except Exception as e:
-                            logger.error(f"Failed to drop constraint {constraint_name}: {e}")
+    safe_execute(conn, "ALTER TABLE pe_ratio DROP CONSTRAINT IF EXISTS pe_ratio_pkey CASCADE", "Drop old PK")
+    safe_execute(conn, "ALTER TABLE pe_ratio DROP CONSTRAINT IF EXISTS uq_pe_ratio_unique CASCADE", "Drop old Unique Constraint")
 
-                except Exception as e:
-                    logger.error(f"Error checking constraints for {table}: {e}")
+    safe_execute(conn, "ALTER TABLE pe_ratio ADD CONSTRAINT pe_ratio_pkey PRIMARY KEY (date, id)", "Add composite PK (date, id)")
+    safe_execute(conn, "ALTER TABLE pe_ratio ADD CONSTRAINT uq_pe_ratio_unique UNIQUE (date, symbol)", "Add unique constraint (date, symbol)")
 
-            # --- 3. Verify Changes ---
-            logger.info("--- Verifying Schema Changes ---")
-            verification_query = text("""
-                SELECT column_name, data_type
-                FROM information_schema.columns
-                WHERE table_name = 'mto_delivery'
-                  AND column_name IN ('quantity_traded', 'deliverable_qty', 'sr_no');
-            """)
-            try:
-                columns = conn.execute(verification_query).fetchall()
-                for col_name, dtype in columns:
-                    if dtype != 'bigint':
-                        logger.error(f"VERIFICATION FAILED: {col_name} is {dtype}, expected bigint")
-                    else:
-                        logger.info(f"VERIFIED: {col_name} is correctly set to {dtype}")
-            except Exception as e:
-                logger.error(f"Verification query failed: {e}")
+def fix_deals(conn):
+    logger.info("--- Fixing bulk_deals and block_deals ---")
 
-    logger.info("Schema fix migration completed.")
+    # Bulk Deals
+    safe_execute(conn, "ALTER TABLE bulk_deals DROP CONSTRAINT IF EXISTS bulk_deals_pkey CASCADE", "Drop bulk_deals PK")
+    safe_execute(conn, "ALTER TABLE bulk_deals ADD CONSTRAINT bulk_deals_pkey PRIMARY KEY (date, id)", "Add bulk_deals composite PK")
+    # Remove unique constraint if any (we allow duplicates for deals now as per logic)
+    safe_execute(conn, "ALTER TABLE bulk_deals DROP CONSTRAINT IF EXISTS uq_bulk_deals_unique CASCADE", "Drop bulk_deals unique constraint")
+
+    # Block Deals
+    safe_execute(conn, "ALTER TABLE block_deals DROP CONSTRAINT IF EXISTS block_deals_pkey CASCADE", "Drop block_deals PK")
+    safe_execute(conn, "ALTER TABLE block_deals ADD CONSTRAINT block_deals_pkey PRIMARY KEY (date, id)", "Add block_deals composite PK")
+    safe_execute(conn, "ALTER TABLE block_deals DROP CONSTRAINT IF EXISTS uq_block_deals_unique CASCADE", "Drop block_deals unique constraint")
+
+def fix_mwpl(conn):
+    logger.info("--- Fixing mwpl_client_position ---")
+    safe_execute(conn, "ALTER TABLE mwpl_client_position DROP CONSTRAINT IF EXISTS mwpl_client_position_pkey CASCADE", "Drop old PK")
+    safe_execute(conn, "ALTER TABLE mwpl_client_position ADD CONSTRAINT mwpl_client_position_pkey PRIMARY KEY (date, id)", "Add composite PK")
+
+    safe_execute(conn, "ALTER TABLE mwpl_client_position DROP CONSTRAINT IF EXISTS uq_mwpl_unique CASCADE", "Drop old Unique")
+    safe_execute(conn, "ALTER TABLE mwpl_client_position ADD CONSTRAINT uq_mwpl_unique UNIQUE (date, underlying_stock, client_position_num)", "Add Unique Constraint")
+
+def fix_fii_stats(conn):
+    logger.info("--- Fixing fii_derivatives_stats ---")
+    safe_execute(conn, "ALTER TABLE fii_derivatives_stats DROP CONSTRAINT IF EXISTS fii_derivatives_stats_pkey CASCADE", "Drop old PK")
+    safe_execute(conn, "ALTER TABLE fii_derivatives_stats ADD CONSTRAINT fii_derivatives_stats_pkey PRIMARY KEY (date, id)", "Add composite PK")
+
+    safe_execute(conn, "ALTER TABLE fii_derivatives_stats DROP CONSTRAINT IF EXISTS uq_fii_stats_unique CASCADE", "Drop old Unique")
+    safe_execute(conn, "ALTER TABLE fii_derivatives_stats ADD CONSTRAINT uq_fii_stats_unique UNIQUE (date, instrument_type)", "Add Unique Constraint")
+
+def fix_bhavcopies(conn):
+    logger.info("--- Fixing bhavcopies ---")
+    # EQ
+    safe_execute(conn, "ALTER TABLE bhavcopy_eq DROP CONSTRAINT IF EXISTS bhavcopy_eq_pkey CASCADE", "Drop EQ PK")
+    safe_execute(conn, "ALTER TABLE bhavcopy_eq ADD CONSTRAINT bhavcopy_eq_pkey PRIMARY KEY (trade_date, id)", "Add EQ PK")
+
+    # FO
+    safe_execute(conn, "ALTER TABLE bhavcopy_fo DROP CONSTRAINT IF EXISTS bhavcopy_fo_pkey CASCADE", "Drop FO PK")
+    safe_execute(conn, "ALTER TABLE bhavcopy_fo ADD CONSTRAINT bhavcopy_fo_pkey PRIMARY KEY (trade_date, id)", "Add FO PK")
+
 
 if __name__ == "__main__":
-    fix_schema()
+    print("Starting Schema Fix...")
+    try:
+        with engine.connect() as conn:
+            # We must commit after DDLS usually, or use autocommit
+            conn.execution_options(isolation_level="AUTOCOMMIT")
+
+            fix_mto_delivery(conn)
+            fix_pe_ratio(conn)
+            fix_deals(conn)
+            fix_mwpl(conn)
+            fix_fii_stats(conn)
+            fix_bhavcopies(conn)
+
+            print("Schema Fix Completed.")
+    except Exception as e:
+        print(f"Global Error: {e}")
