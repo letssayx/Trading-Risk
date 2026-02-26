@@ -147,11 +147,23 @@ async def list_data(
         if 'ticker_symb' in row_dict and 'symbol' not in row_dict:
             row_dict['symbol'] = row_dict['ticker_symb']
 
-        # Ensure instrument_type is present if available (handled by column add, but ensure key exists)
-        if 'instrument_type' in row_dict and row_dict['instrument_type'] is None:
-             # If explicitly None (legacy data), maybe map from instrument_name if possible?
-             # e.g. "BANKNIFTY 26FEB2026 PE 45000" -> OPTIDX? Hard to guess reliably.
-             pass
+        # Ensure instrument_type is present and valid
+        if 'instrument_type' in row_dict and not row_dict['instrument_type']:
+             # Heuristic: Infer instrument_type if missing (e.g. legacy data or import issue)
+             # This ensures frontend grid (which filters by Type) shows the data
+             symbol = row_dict.get('ticker_symb', row_dict.get('symbol', ''))
+             option_type = row_dict.get('option_type', '')
+
+             is_index = symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']
+             is_opt = option_type in ['CE', 'PE']
+
+             if is_index:
+                 row_dict['instrument_type'] = 'OPTIDX' if is_opt else 'FUTIDX'
+             else:
+                 # Default to Stock if not index.
+                 # Note: This is a fallback. Actual data usually has explicit type.
+                 row_dict['instrument_type'] = 'OPTSTK' if is_opt else 'FUTSTK'
+
         if 'underlying_stock' in row_dict and 'symbol' not in row_dict:
             row_dict['symbol'] = row_dict['underlying_stock']
 
