@@ -13,6 +13,9 @@ from backend.ingest import nse_models as models
 from typing import Dict, Any, List
 from datetime import datetime
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -49,8 +52,11 @@ async def list_data(
     """
     List data for a specific type with filters.
     """
+    logger.info(f"View Request: type={type}, symbol={symbol}, date={start_date} to {end_date}")
+
     model = get_model_for_type(type)
     if not model:
+        logger.error(f"Invalid data type requested: {type}")
         raise HTTPException(status_code=400, detail=f"Invalid data type: {type}")
 
     query = db.query(model)
@@ -121,6 +127,7 @@ async def list_data(
         query = query.order_by(desc(model.updated_at))
 
     results = query.limit(limit).all()
+    logger.info(f"Query returned {len(results)} rows for {type}")
 
     # Serialize results using Pydantic 'from_attributes' logic or simple dict
     # Since we don't have Pydantic models for all yet, we'll use a generic serializer
@@ -135,6 +142,13 @@ async def list_data(
             elif hasattr(val, 'isoformat'): # date
                 val = val.isoformat()
             row_dict[col.name] = val
+
+        # Normalization for frontend consistency
+        if 'ticker_symb' in row_dict and 'symbol' not in row_dict:
+            row_dict['symbol'] = row_dict['ticker_symb']
+        if 'underlying_stock' in row_dict and 'symbol' not in row_dict:
+            row_dict['symbol'] = row_dict['underlying_stock']
+
         data.append(row_dict)
 
     return data

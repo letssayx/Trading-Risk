@@ -327,9 +327,19 @@ class NSEImporter {
 
         // details is object { pattern: { status: 'SUCCESS', ... } }
         Object.entries(details).forEach(([key, res]) => {
-            const color = res.status === 'SUCCESS' ? '#4caf50' : '#f44336';
-            const icon = res.status === 'SUCCESS' ? '✓' : '✗';
-            const info = res.status === 'SUCCESS' ? `${res.rows_processed} rows` : res.error;
+            let color = '#f44336'; // Default red for failure
+            let icon = '✗';
+            let info = res.error || 'Unknown error';
+
+            if (res.status === 'SUCCESS') {
+                color = '#4caf50'; // Green
+                icon = '✓';
+                info = `${res.rows_processed} rows`;
+            } else if (res.status === 'EMPTY' || res.status === 'SKIPPED') {
+                color = '#ff9800'; // Orange/Yellow
+                icon = '⚠';
+                info = res.status === 'EMPTY' ? 'No records found' : (res.reason || 'Skipped');
+            }
 
             html += `<div style="color:${color}; margin-bottom:4px; font-size:0.9em;">
                 ${icon} <strong>${key}</strong>: ${info}
@@ -361,7 +371,11 @@ class NSEImporter {
                         const items = grouped[table];
                         // Create badges for each status
                         const badges = items.map(item => {
-                            const color = item.status === 'SUCCESS' ? '#4caf50' : (item.status === 'FAILED' ? '#f44336' : '#aaa');
+                            let color = '#aaa';
+                            if (item.status === 'SUCCESS') color = '#4caf50';
+                            else if (item.status === 'FAILED' || item.status === 'ERROR') color = '#f44336';
+                            else if (item.status === 'EMPTY' || item.status === 'SKIPPED') color = '#ff9800';
+
                             return `<span style="font-size:0.8em; color:${color}; border:1px solid ${color}; padding:2px 6px; border-radius:3px; margin-left:5px;">
                                     ${item.status} (${item.job_count})
                                 </span>`;
