@@ -435,6 +435,16 @@
             } else {
                 symbolGroup.style.display = 'flex';
             }
+            // Clear table on type change
+            clearHistoryTable();
+        }
+
+        function clearHistoryTable() {
+            document.getElementById('history-body').innerHTML = '';
+            document.getElementById('history-head').innerHTML = '';
+            document.getElementById('history-status-msg').innerText = "Ready";
+            document.getElementById('history-row-count').innerText = "0 Rows";
+            currentHistoryData = [];
         }
 
         async function loadHistoryData() {
@@ -443,10 +453,12 @@
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
 
+            // Clear previous data immediately
+            clearHistoryTable();
             document.getElementById('history-status-msg').innerText = "Loading...";
 
             try {
-                let url = `/api/data/view/list?type=${type}&limit=500&_t=${Date.now()}`; // Add timestamp to bust cache
+                let url = `/api/data/view/list?type=${type}&limit=500`; // Removed timestamp for speed, browser cache is usually fine with varying params
                 if (symbol) url += `&symbol=${symbol}`;
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
@@ -500,7 +512,17 @@
                     let val = row[key];
                     if (val === null || val === undefined) val = '-';
                     if (typeof val === 'number') {
-                         td.innerText = Number.isInteger(val) ? val.toLocaleString() : val.toFixed(2);
+                         // Smart formatting
+                         if (Number.isInteger(val)) {
+                             td.innerText = val.toLocaleString();
+                         } else {
+                             // Check for volatility columns or small numbers
+                             if (key.includes('volatility') || key.includes('_vol') || key.includes('iv') || key.includes('rate')) {
+                                 td.innerText = val.toFixed(4);
+                             } else {
+                                 td.innerText = val.toFixed(2);
+                             }
+                         }
                          td.style.textAlign = 'right';
                     } else {
                         td.innerText = val;
