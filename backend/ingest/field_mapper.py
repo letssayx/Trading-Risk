@@ -25,16 +25,34 @@ class FieldMapper:
         columns = set(df.columns)
 
         # Normalize columns for case-insensitive and whitespace-insensitive matching
-        columns_map = {c.strip().upper(): c for c in columns}
+        columns_map = {str(c).strip().upper(): c for c in columns}
         upper_cols = set(columns_map.keys())
+
+        # UDIFF Detection - Check Sgmt first if available
+        if 'SGMT' in upper_cols:
+            # Check a few rows to determine segment? Or just return generic UDIFF and let map split?
+            # Or assume if Sgmt is present, we check value
+            try:
+                # Check first value in Sgmt column
+                sgmt_col = columns_map['SGMT']
+                first_val = str(df[sgmt_col].iloc[0]).strip().upper() if len(df) > 0 else ''
+                if first_val == 'CM':
+                    return {'type': 'cm_udiff', 'name': 'bhavcopy_eq'}
+                elif first_val == 'FO':
+                    return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
+            except:
+                pass
+
+        # UDIFF FO bhavcopy (New Format) - Prioritize over EQ if ambiguous
+        # FO usually has Option Type or Strike Price which EQ lacks (or are empty)
+        if 'TCKRSYMB' in upper_cols and 'FININSTRMTP' in upper_cols and 'XPRYDT' in upper_cols:
+             # Check if it looks like FO by checking content or specific columns
+             if 'OPTNTP' in upper_cols or 'STRKPRIC' in upper_cols:
+                 return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
 
         # UDIFF CM bhavcopy (New Format)
         if 'TCKRSYMB' in upper_cols and 'SCTYSRS' in upper_cols and 'TRADDT' in upper_cols:
             return {'type': 'cm_udiff', 'name': 'bhavcopy_eq'}
-
-        # UDIFF FO bhavcopy (New Format)
-        if 'TCKRSYMB' in upper_cols and 'FININSTRMTP' in upper_cols and 'XPRYDT' in upper_cols:
-            return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
 
         # Old EQ bhavcopy / Variations
         if 'SYMBOL' in upper_cols and 'SERIES' in upper_cols:
@@ -75,7 +93,9 @@ class FieldMapper:
             return {'type': 'volatility', 'name': 'fo_volatility'}
 
         # MTO Delivery
-        if 'Record Type' in columns or 'Name of Security' in columns or (len(columns) > 0 and 'Record Type' in str(columns[0])):
+        # Fix: access df.columns list, not set
+        df_cols_list = df.columns.tolist()
+        if 'Record Type' in columns or 'Name of Security' in columns or (len(df_cols_list) > 0 and 'Record Type' in str(df_cols_list[0])):
             return {'type': 'mto', 'name': 'mto_delivery'}
 
         # MWPL Client
