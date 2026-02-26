@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 import pandas as pd
 import io
 from datetime import datetime
@@ -33,6 +33,7 @@ def get_model_for_type(data_type: str):
         'contract_delta': models.ContractDelta,
         'margin_trading': models.MarginTrading,
         'security_master': models.SecurityMaster,
+        'auctions': models.Auction, # Added auctions just in case
     }
     return mapping.get(data_type)
 
@@ -54,21 +55,59 @@ async def list_data(
 
     query = db.query(model)
 
-    # Apply Symbol Filter (if applicable)
+    # Apply Symbol/Search Filter (if applicable)
     if symbol:
-        symbol = symbol.upper()
+        symbol = symbol.upper().strip()
+
+        # Comprehensive Filtering Logic
+        filters = []
+
+        # 1. Standard Symbol (Equity, Deals, P/E, VaR, Delta, Margin)
         if hasattr(model, 'symbol'):
-            query = query.filter(model.symbol == symbol)
-        elif hasattr(model, 'ticker_symb'):
-            query = query.filter(model.ticker_symb == symbol)
-        elif hasattr(model, 'underlying_stock'):
-            query = query.filter(model.underlying_stock == symbol)
-        elif hasattr(model, 'security_name'):
-             # For MTO and similar, use partial match as security_name is often descriptive
-            query = query.filter(model.security_name.ilike(f"%{symbol}%"))
+            filters.append(model.symbol == symbol)
+
+        # 2. Ticker Symbol (Bhavcopy FO, Security Master)
+        if hasattr(model, 'ticker_symb'):
+            filters.append(model.ticker_symb == symbol)
+
+        # 3. Underlying Stock (MWPL)
+        if hasattr(model, 'underlying_stock'):
+            filters.append(model.underlying_stock == symbol)
+
+        # 4. Security Name (MTO, Bulk/Block Deals descriptive fallback)
+        if hasattr(model, 'security_name'):
+            filters.append(model.security_name.ilike(f"%{symbol}%"))
+
+        # 5. Client Type (Participant OI) - Exact or Partial
+        if hasattr(model, 'client_type'):
+             filters.append(model.client_type.ilike(f"%{symbol}%"))
+
+        # 6. Instrument Type (FII Stats)
+        if hasattr(model, 'instrument_type'):
+            filters.append(model.instrument_type.ilike(f"%{symbol}%"))
+
+        # 7. ISIN (Security Master)
+        if hasattr(model, 'isin'):
+            filters.append(model.isin == symbol)
+
+        # 8. FinInstrmId (Security Master)
+        if hasattr(model, 'fin_instrm_id'):
+            filters.append(model.fin_instrm_id == symbol)
+
+        # Apply filters using OR if multiple columns exist (e.g., Security Master has ticker, ISIN, ID)
+        if filters:
+            if len(filters) > 1:
+                query = query.filter(or_(*filters))
+            else:
+                query = query.filter(filters[0])
 
     # Apply Date Filter
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
+    # Security Master uses 'listed_date' or 'updated_at' but likely user wants to browse master list regardless of date
+    # If no date col (e.g. Security Master main view), skip date filter unless explicitly requested?
+    # Security Master HAS listed_date but maybe updated_at is better for sorting?
+    # Let's stick to trade_date/date for time-series.
+
     if date_col:
         if start_date:
             query = query.filter(date_col >= start_date)
@@ -77,6 +116,9 @@ async def list_data(
 
         # Order by date desc
         query = query.order_by(desc(date_col))
+    elif hasattr(model, 'updated_at'):
+        # Fallback for non-timeseries (Security Master)
+        query = query.order_by(desc(model.updated_at))
 
     results = query.limit(limit).all()
 
