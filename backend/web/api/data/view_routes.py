@@ -133,7 +133,7 @@ async def list_data(
     # Since we don't have Pydantic models for all yet, we'll use a generic serializer
     data = []
     for row in results:
-        # Convert row to dict, handling dates
+        # Convert row to dict, handling dates and serialization
         row_dict = {}
         for col in row.__table__.columns:
             val = getattr(row, col.name)
@@ -146,6 +146,12 @@ async def list_data(
         # Normalization for frontend consistency
         if 'ticker_symb' in row_dict and 'symbol' not in row_dict:
             row_dict['symbol'] = row_dict['ticker_symb']
+
+        # Ensure instrument_type is present if available (handled by column add, but ensure key exists)
+        if 'instrument_type' in row_dict and row_dict['instrument_type'] is None:
+             # If explicitly None (legacy data), maybe map from instrument_name if possible?
+             # e.g. "BANKNIFTY 26FEB2026 PE 45000" -> OPTIDX? Hard to guess reliably.
+             pass
         if 'underlying_stock' in row_dict and 'symbol' not in row_dict:
             row_dict['symbol'] = row_dict['underlying_stock']
 

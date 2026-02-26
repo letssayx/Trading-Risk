@@ -93,5 +93,13 @@ def parse_nse_date(date_str: str) -> Optional[date]:
     except:
         pass
 
+    # Pandas fallback (very robust)
+    try:
+        ts = pd.to_datetime(date_str, dayfirst=True)
+        if not pd.isna(ts):
+            return ts.date()
+    except:
+        pass
+
     logger.warning(f"Could not parse date: {date_str}")
     return None

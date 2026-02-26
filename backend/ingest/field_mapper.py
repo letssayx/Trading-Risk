@@ -220,9 +220,13 @@ class FieldMapper:
         records = []
         for _, row in df.iterrows():
             row_date = parse_nse_date(cls._get_val(row, ['TradDt', 'TIMESTAMP']))
+
+            # Explicitly map instrument_type (critical for frontend visibility)
+            inst_type = str(cls._get_val(row, ['FinInstrmTp', 'INSTRUMENT', 'INSTRUMENT TYPE']) or '').strip()
+
             record = {
                 'ticker_symb': str(cls._get_val(row, ['TckrSymb', 'SYMBOL', 'TICKER']) or '').strip(),
-                'instrument_type': str(cls._get_val(row, ['FinInstrmTp', 'INSTRUMENT']) or '').strip(),
+                'instrument_type': inst_type,
                 'trade_date': row_date or trade_date,
                 'expiry_date': parse_nse_date(cls._get_val(row, ['XpryDt', 'EXPIRY_DT', 'EXPIRY DATE'])),
                 'strike_price': cls._clean_numeric(cls._get_val(row, ['StrkPric', 'STRIKE_PR', 'STRIKE PRICE'])),
@@ -235,7 +239,8 @@ class FieldMapper:
                 'settle_price': cls._clean_numeric(cls._get_val(row, ['SttlmPric', 'SETTLE_PR'])),
                 'open_interest': cls._clean_integer(cls._get_val(row, ['OpnIntrst', 'OPEN_INT'])),
                 'change_in_oi': cls._clean_integer(cls._get_val(row, ['ChngInOpnIntrst', 'CHG_IN_OI'])),
-                'total_trading_vol': cls._clean_integer(cls._get_val(row, ['TtlTradgVol', 'CONTRACTS'])),
+                # Map Volume (TtlTradgVol) or Contracts if distinct
+                'total_trading_vol': cls._clean_integer(cls._get_val(row, ['TtlTradgVol', 'CONTRACTS', 'Total Traded Quantity'])),
                 'total_trf_val': cls._clean_numeric(cls._get_val(row, ['TtlTrfVal', 'VAL_IN_LAKH'])),
             }
             if record['ticker_symb']:

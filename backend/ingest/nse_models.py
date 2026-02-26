@@ -46,6 +46,7 @@ class BhavcopyFO(Base, TimescaleMixin):
     id = Column(Integer, autoincrement=True, nullable=False)
     trade_date = Column(Date, nullable=False, index=True)
     ticker_symb = Column(String(50), nullable=False, index=True)
+    instrument_type = Column(String(20), nullable=True, index=True)  # Added for FO visibility
     expiry_date = Column(Date, index=True)
     strike_price = Column(Float)
     option_type = Column(String(5))
