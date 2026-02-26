@@ -52,6 +52,9 @@ class NSEDataImporter:
             'mwpl_cli': models.MWPLClientPosition,
             'nse_security': models.SecurityMaster,
             'pe_ratio': models.PERatio,
+            'var_stats': models.VaRStat,
+            'contract_delta': models.ContractDelta,
+            'margin_trading': models.MarginTrading,
         }
         return mapping.get(key)
 
@@ -69,6 +72,9 @@ class NSEDataImporter:
             'mwpl_cli': ['date', 'underlying_stock', 'client_position_num'],
             'nse_security': ['fin_instrm_id'],
             'pe_ratio': ['date', 'symbol'],
+            'var_stats': ['date', 'symbol', 'series', 'file_type'],
+            'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
+            'margin_trading': ['date', 'symbol'],
         }
         return mapping.get(key, [])
 
@@ -94,6 +100,17 @@ class NSEDataImporter:
             return self.lib.get_mwpl(trade_date)
         elif key == 'pe_ratio':
             return self.lib.get_pe_ratio(trade_date)
+        elif key == 'nse_security':
+            return self.lib.get_security_master(trade_date)
+        elif key == 'var_stats':
+            # For simplicity, fetch BEGIN day only for now, or merge?
+            # Importer usually runs once per day. Let's default to BEGIN.
+            # Ideally should run both.
+            return self.lib.get_var_stats(trade_date, 'BEGIN')
+        elif key == 'contract_delta':
+            return self.lib.get_contract_delta(trade_date)
+        elif key == 'margin_trading':
+            return self.lib.get_margin_trading(trade_date)
 
         return pd.DataFrame()
 

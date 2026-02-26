@@ -60,6 +60,10 @@ class FieldMapper:
                 return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
 
         # Old FO Bhavcopy / Variations (often just called FO Bhavcopy)
+        # CAUTION: Contract Delta also has SYMBOL and EXPIRY DATE. Check for Delta specific col first.
+        if 'DELTA' in upper_cols:
+             return {'type': 'contract_delta', 'name': 'contract_delta'}
+
         if ('SYMBOL' in upper_cols or 'TICKER' in upper_cols) and ('EXPIRY_DT' in upper_cols or 'EXPIRY DATE' in upper_cols):
              return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'} # Fallback to fo_udiff mapper but might need new mapper if structure is vastly different.
              # Actually, if it's the old 'SYMBOL', 'EXPIRY_DT' format, _map_fo_udiff won't work because it expects 'TckrSymb'.
@@ -117,18 +121,29 @@ class FieldMapper:
         # Security Master
         if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:
             return {'type': 'security_master', 'name': 'security_master'}
+        # Also check for uppercase variants often seen in NSE files
+        if 'FININSTRMID' in upper_cols and 'TCKRSYMB' in upper_cols:
+             return {'type': 'security_master', 'name': 'security_master'}
 
         # VaR Stats
         if 'Security VaR' in columns or 'Security Symbol' in columns and 'VaR Margin' in columns:
             return {'type': 'var_stats', 'name': 'var_stats'}
+        # Robust check for VaR files which sometimes lack headers or have specific codes
+        if len(df.columns) > 8 and ('Security Symbol' in columns or 'Symbol' in columns):
+             return {'type': 'var_stats', 'name': 'var_stats'}
 
         # Contract Delta
         if 'Delta' in columns and 'Strike Price' in columns:
             return {'type': 'contract_delta', 'name': 'contract_delta'}
+        # Robust check
+        if 'DELTA' in upper_cols and 'SYMBOL' in upper_cols:
+             return {'type': 'contract_delta', 'name': 'contract_delta'}
 
         # Margin Trading
         if 'Quantity Funded' in columns or 'Amount Funded' in columns:
             return {'type': 'margin_trading', 'name': 'margin_trading'}
+        if 'QUANTITY FUNDED' in upper_cols:
+             return {'type': 'margin_trading', 'name': 'margin_trading'}
 
         return {'type': 'unknown', 'name': 'unknown'}
 
@@ -222,6 +237,7 @@ class FieldMapper:
             row_date = parse_nse_date(cls._get_val(row, ['TradDt', 'TIMESTAMP']))
 
             # Explicitly map instrument_type (critical for frontend visibility)
+            # Added 'FinInstrmTp' based on user feedback/screenshot
             inst_type = str(cls._get_val(row, ['FinInstrmTp', 'INSTRUMENT', 'INSTRUMENT TYPE']) or '').strip()
 
             record = {

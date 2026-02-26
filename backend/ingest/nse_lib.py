@@ -217,3 +217,90 @@ class NSELib:
             except:
                 pass
         return pd.DataFrame()
+
+    def get_security_master(self, trade_date: date) -> pd.DataFrame:
+        """Get Security Master (NSE_CM_security)."""
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{self.ARCHIVES_URL}/content/equities/NSE_CM_security_{date_str}.csv"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        return pd.DataFrame()
+
+    def get_pe_ratio(self, trade_date: date) -> pd.DataFrame:
+        """Get P/E Ratio Data (Indices)."""
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{self.ARCHIVES_URL}/content/indices/ind_close_all_{date_str}.csv"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        return pd.DataFrame()
+
+    def get_margin_trading(self, trade_date: date) -> pd.DataFrame:
+        """Get Margin Trading Disclosure."""
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{self.ARCHIVES_URL}/archives/equities/mto/margin_{date_str}.zip"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            try:
+                with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+                    # Usually contains a DAT or CSV file
+                    # File name format: MARGIN_TRADING_DISCLOSURE_ddmmyyyy.dat (CSV format)
+                    target_file = [n for n in zf.namelist() if 'MARGIN_TRADING' in n][0]
+                    with zf.open(target_file) as f:
+                        df = pd.read_csv(f, low_memory=False)
+                        df.columns = [c.strip() for c in df.columns]
+                        return df
+            except Exception as e:
+                logger.error(f"Error parsing Margin Trading: {e}")
+        return pd.DataFrame()
+
+    def get_var_stats(self, trade_date: date, file_type: str = 'BEGIN') -> pd.DataFrame:
+        """Get VaR Stats (Begin/End of Day)."""
+        # Type: '5' for Begin Day, '6' for End Day (based on typical NSE file naming/structure, but archives differ)
+        # Archive URL: https://nsearchives.nseindia.com/archives/nsccl/var/C_VAR1_ddmmyyyy_1.DAT (Begin)
+        #              https://nsearchives.nseindia.com/archives/nsccl/var/C_VAR1_ddmmyyyy_6.DAT (End)
+        # Using standard robust pattern if possible.
+
+        date_str = trade_date.strftime("%d%m%Y")
+        # 1st file (Begin Day) - C_VAR1_ddmmyyyy_1.DAT
+        # 6th file (End Day)   - C_VAR1_ddmmyyyy_6.DAT
+
+        suffix = '1' if file_type == 'BEGIN' else '6'
+        url = f"{self.ARCHIVES_URL}/archives/nsccl/var/C_VAR1_{date_str}_{suffix}.DAT"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            # These are usually comma separated without header? Or with header?
+            # Let's inspect content logic or assume standard CSV
+            try:
+                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                # Ensure columns are stripped
+                df.columns = [str(c).strip() for c in df.columns]
+                return df
+            except:
+                pass
+        return pd.DataFrame()
+
+    def get_contract_delta(self, trade_date: date) -> pd.DataFrame:
+        """Get Contract Delta."""
+        # Archive URL: https://nsearchives.nseindia.com/archives/nsccl/delta/N_DELTA_TRD_ddmmyyyy.DAT
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            try:
+                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                df.columns = [str(c).strip() for c in df.columns]
+                return df
+            except:
+                pass
+        return pd.DataFrame()
