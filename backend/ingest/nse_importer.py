@@ -92,6 +92,8 @@ class NSEDataImporter:
             return self.lib.get_mto_delivery(trade_date)
         elif key == 'mwpl_cli':
             return self.lib.get_mwpl(trade_date)
+        elif key == 'pe_ratio':
+            return self.lib.get_pe_ratio(trade_date)
 
         return pd.DataFrame()
 

@@ -135,3 +135,21 @@ class CapitalMarket:
             except Exception as e:
                 logger.error(f"Error parsing MWPL Data: {e}")
         return pd.DataFrame()
+
+    def pe_ratio_data(self, trade_date: date) -> pd.DataFrame:
+        """
+        Get P/E Ratio Data (Indices).
+        URL Pattern: https://nsearchives.nseindia.com/content/indices/ind_close_all_ddmmyyyy.csv
+        """
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{ARCHIVES_URL}/content/indices/ind_close_all_{date_str}.csv"
+
+        resp = self.session.get(url)
+        if resp.status_code == 200:
+            try:
+                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                df.columns = [c.strip() for c in df.columns]
+                return df
+            except Exception as e:
+                logger.error(f"Error parsing PE Ratio Data: {e}")
+        return pd.DataFrame()

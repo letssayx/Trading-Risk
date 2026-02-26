@@ -110,6 +110,10 @@ class FieldMapper:
         if 'SYMBOL' in columns and 'SYMBOL P/E' in columns:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
 
+        # P/E Ratio (Index format)
+        if 'Index Name' in columns and 'P/E' in columns:
+            return {'type': 'pe_ratio_idx', 'name': 'pe_ratio'}
+
         # Security Master
         if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:
             return {'type': 'security_master', 'name': 'security_master'}
@@ -136,12 +140,12 @@ class FieldMapper:
         if format_type == 'cm_udiff':
             return cls._map_cm_udiff(df, trade_date)
         elif format_type == 'fo_udiff':
-            return cls._map_fo_udiff(df)
+            return cls._map_fo_udiff(df, trade_date)
         elif format_type == 'eq_old':
-            return cls._map_eq_old(df)
+            return cls._map_eq_old(df, trade_date)
         elif format_type == 'deals':
              target = format_info.get('target_table', 'bulk_deals')
-             return cls._map_deals(df, target)
+             return cls._map_deals(df, target, trade_date)
         elif format_type == 'participant_oi':
             return cls._map_participant_oi(df, trade_date)
         elif format_type == 'fii_stats':
@@ -152,8 +156,8 @@ class FieldMapper:
             return cls._map_mto(df, trade_date)
         elif format_type == 'mwpl':
             return cls._map_mwpl(df, trade_date)
-        elif format_type == 'pe_ratio':
-            return cls._map_pe(df, trade_date)
+        elif format_type == 'pe_ratio' or format_type == 'pe_ratio_idx':
+            return cls._map_pe(df, trade_date, format_type)
         elif format_type == 'security_master':
             return cls._map_security_master(df)
         elif format_type == 'var_stats':
@@ -186,6 +190,8 @@ class FieldMapper:
         series_col = cls._find_col(df, ['SctySrs', 'SERIES'])
         if series_col:
             initial_count = len(df)
+            # Normalize whitespace in series column values
+            df[series_col] = df[series_col].astype(str).str.strip()
             df = df[df[series_col] == 'EQ'].copy()
             if len(df) == 0 and initial_count > 0:
                 logger.warning(f"Bhavcopy EQ: Filtered all rows. Series column '{series_col}' found but no 'EQ' rows.")
@@ -210,13 +216,14 @@ class FieldMapper:
         return records
 
     @classmethod
-    def _map_fo_udiff(cls, df: pd.DataFrame) -> List[Dict]:
+    def _map_fo_udiff(cls, df: pd.DataFrame, trade_date: Optional[date] = None) -> List[Dict]:
         records = []
         for _, row in df.iterrows():
+            row_date = parse_nse_date(cls._get_val(row, ['TradDt', 'TIMESTAMP']))
             record = {
                 'ticker_symb': str(cls._get_val(row, ['TckrSymb', 'SYMBOL', 'TICKER']) or '').strip(),
                 'instrument_type': str(cls._get_val(row, ['FinInstrmTp', 'INSTRUMENT']) or '').strip(),
-                'trade_date': parse_nse_date(cls._get_val(row, ['TradDt', 'TIMESTAMP'])),
+                'trade_date': row_date or trade_date,
                 'expiry_date': parse_nse_date(cls._get_val(row, ['XpryDt', 'EXPIRY_DT', 'EXPIRY DATE'])),
                 'strike_price': cls._clean_numeric(cls._get_val(row, ['StrkPric', 'STRIKE_PR', 'STRIKE PRICE'])),
                 'option_type': str(cls._get_val(row, ['OptnTp', 'OPTION_TYP', 'OPTION TYPE']) or '').strip(),
@@ -244,9 +251,11 @@ class FieldMapper:
         return None
 
     @classmethod
-    def _map_eq_old(cls, df: pd.DataFrame) -> List[Dict]:
+    def _map_eq_old(cls, df: pd.DataFrame, trade_date: Optional[date] = None) -> List[Dict]:
         records = []
+        # Normalize whitespace in series
         if 'SERIES' in df.columns:
+            df['SERIES'] = df['SERIES'].astype(str).str.strip()
             df = df[df['SERIES'] == 'EQ'].copy()
 
         for _, row in df.iterrows():
@@ -271,25 +280,27 @@ class FieldMapper:
         return records
 
     @classmethod
-    def _map_deals(cls, df: pd.DataFrame, table_name: str) -> List[Dict]:
+    def _map_deals(cls, df: pd.DataFrame, table_name: str, trade_date: Optional[date] = None) -> List[Dict]:
         records = []
-        date_col = 'DATE' if 'DATE' in df.columns else 'Date'
-        trade_date = None
+        # Try to find date column
+        date_col = cls._find_col(df, ['DATE', 'Date'])
+
+        # If trade_date passed, use it as default, otherwise try to extract from row
+        file_date = trade_date
 
         for _, row in df.iterrows():
-            if date_col in row and trade_date is None:
-                trade_date = parse_nse_date(row[date_col])
+            row_date = parse_nse_date(row.get(date_col)) if date_col else None
+            effective_date = row_date or file_date
 
             record = {
-                'date': trade_date,
-                'symbol': str(row.get('SYMBOL', row.get('Symbol', ''))).strip(),
-                'security_name': str(row.get('SECURITY NAME', row.get('Security Name', ''))).strip(),
-                'client_name': str(row.get('CLIENT NAME', row.get('Client Name', ''))).strip(),
-                'buy_sell': str(row.get('BUY/SELL', row.get('Buy/Sell', ''))).strip(),
-                'quantity_traded': cls._clean_integer(row.get('QUANTITY TRADED', row.get('Quantity Traded'))),
-                'trade_price': cls._clean_numeric(row.get('TRADE PRICE/ WEIGHTED. AVG. PRICE',
-                                                          row.get('Trade Price / Wght. Avg. Price'))),
-                'remarks': str(row.get('REMARKS', row.get('Remarks', ''))).strip(),
+                'date': effective_date,
+                'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol', 'Scrip Name']) or '').strip(),
+                'security_name': str(cls._get_val(row, ['SECURITY NAME', 'Security Name']) or '').strip(),
+                'client_name': str(cls._get_val(row, ['CLIENT NAME', 'Client Name']) or '').strip(),
+                'buy_sell': str(cls._get_val(row, ['BUY/SELL', 'Buy/Sell']) or '').strip(),
+                'quantity_traded': cls._clean_integer(cls._get_val(row, ['QUANTITY TRADED', 'Quantity Traded'])),
+                'trade_price': cls._clean_numeric(cls._get_val(row, ['TRADE PRICE/ WEIGHTED. AVG. PRICE', 'Trade Price / Wght. Avg. Price'])),
+                'remarks': str(cls._get_val(row, ['REMARKS', 'Remarks']) or '').strip(),
             }
             if record['symbol']:
                 records.append(record)
@@ -452,8 +463,24 @@ class FieldMapper:
         return records
 
     @classmethod
-    def _map_pe(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+    def _map_pe(cls, df: pd.DataFrame, trade_date: Optional[date], format_type: str = 'pe_ratio') -> List[Dict]:
         records = []
+
+        # Handle Index PE format
+        if format_type == 'pe_ratio_idx':
+            for _, row in df.iterrows():
+                row_date = parse_nse_date(row.get('Index Date'))
+                record = {
+                    'date': row_date or trade_date,
+                    'symbol': str(row.get('Index Name', '')).strip(),
+                    'symbol_pe': cls._clean_numeric(row.get('P/E')),
+                    'adjusted_pe': None # Not in Index file
+                }
+                if record['symbol']:
+                    records.append(record)
+            return records
+
+        # Standard Symbol PE
         for _, row in df.iterrows():
             record = {
                 'date': trade_date,

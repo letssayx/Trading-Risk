@@ -40,3 +40,6 @@ class NSELibClient:
 
     def get_mwpl(self, trade_date):
         return self.capital_market.market_watch_all_indices(trade_date)
+
+    def get_pe_ratio(self, trade_date):
+        return self.capital_market.pe_ratio_data(trade_date)
