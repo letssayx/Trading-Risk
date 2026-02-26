@@ -36,6 +36,10 @@ class FieldMapper:
         if 'SYMBOL' in columns and 'SERIES' in columns and 'DATE1' in columns:
             return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
 
+        # New format check - sometimes headers are slightly different
+        if 'SYMBOL' in columns and 'SERIES' in columns and 'PREV_CLOSE' in columns:
+             return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
+
         # Block/Bulk Deals
         if 'CLIENT NAME' in columns or 'Client Name' in columns:
             # Simple heuristic
@@ -195,7 +199,7 @@ class FieldMapper:
             record = {
                 'symbol': str(row.get('SYMBOL', '')).strip(),
                 'series': 'EQ',
-                'trade_date': parse_nse_date(row.get('DATE1')),
+                'trade_date': trade_date or parse_nse_date(row.get('DATE1')),
                 'prev_close': cls._clean_numeric(row.get('PREV_CLOSE')),
                 'open_price': cls._clean_numeric(row.get('OPEN_PRICE')),
                 'high_price': cls._clean_numeric(row.get('HIGH_PRICE')),
