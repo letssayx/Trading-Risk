@@ -149,6 +149,43 @@ class NSEDataImporter:
             logger.error(f"MTO Deduplication failed: {e}")
             return df
 
+    def _is_already_imported(self, db: Session, trade_date: date, key: str) -> bool:
+        """Check if a file type for a date is already successfully imported."""
+        exists = db.query(models.ImportLog).filter(
+            models.ImportLog.import_date == trade_date,
+            models.ImportLog.table_name == key,
+            models.ImportLog.status == 'SUCCESS'
+        ).first()
+        return exists is not None
+
+    def _deduplicate_records(self, records: List[Dict[str, Any]], unique_fields: List[str]) -> List[Dict[str, Any]]:
+        """
+        Deduplicate a list of records based on unique_fields.
+        Keeps the LAST occurrence.
+        """
+        if not records or not unique_fields:
+            return records
+
+        seen = {}
+        duplicates_count = 0
+
+        for record in records:
+            # Create a tuple key from the values of unique fields
+            key = tuple(record.get(f) for f in unique_fields)
+
+            # If key exists, it will be overwritten by the current (later) record
+            # effectively implementing "keep last"
+            if key in seen:
+                duplicates_count += 1
+            seen[key] = record
+
+        deduped_records = list(seen.values())
+
+        if duplicates_count > 0:
+            logger.info(f"Deduplicated {duplicates_count} records. Original: {len(records)}, Final: {len(deduped_records)}")
+
+        return deduped_records
+
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
                    force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
         """Import all configured files for a given date."""
@@ -187,6 +224,13 @@ class NSEDataImporter:
                     'timestamp': datetime.now().isoformat()
                 }
                 if progress_callback: progress_callback(progress)
+
+                # SKIP CHECK: If not forced, check if already imported successfully
+                if not force and self._is_already_imported(db, trade_date, key):
+                    logger.info(f"Skipping {key} for {trade_date} (Already Imported)")
+                    results[key] = {'status': 'SKIPPED', 'reason': 'Already Imported'}
+                    completed_files.append(key)
+                    continue
 
                 logger.info(f"[{idx+1}/{total_files}] Processing {key}...")
 
@@ -275,6 +319,12 @@ class NSEDataImporter:
         if not model_class:
             results[key] = {'status': 'CONFIG_ERROR'}
             return
+
+        # INTRA-BATCH DEDUPLICATION
+        # Ensure that the records list itself doesn't contain duplicates for unique keys
+        # This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time"
+        if unique_fields:
+            records = self._deduplicate_records(records, unique_fields)
 
         # Special handling for Deals: Delete & Insert
         if key in ['bulk_deals', 'block_deals']:
