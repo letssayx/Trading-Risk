@@ -120,8 +120,18 @@ async def list_data(
         if end_date:
             query = query.filter(date_col <= end_date)
 
-        # Order by date desc
-        query = query.order_by(desc(date_col))
+        # Order by date desc, then symbol asc (if available)
+        order_clauses = [desc(date_col)]
+        if hasattr(model, 'symbol'):
+            order_clauses.append(model.symbol.asc())
+        elif hasattr(model, 'ticker_symb'):
+            order_clauses.append(model.ticker_symb.asc())
+        elif hasattr(model, 'underlying_stock'):
+            order_clauses.append(model.underlying_stock.asc())
+        elif hasattr(model, 'security_name'):
+            order_clauses.append(model.security_name.asc())
+
+        query = query.order_by(*order_clauses)
     elif hasattr(model, 'updated_at'):
         # Fallback for non-timeseries (Security Master)
         query = query.order_by(desc(model.updated_at))
@@ -255,7 +265,19 @@ async def export_data(
     if date_col:
         if start_date: query = query.filter(date_col >= start_date)
         if end_date: query = query.filter(date_col <= end_date)
-        query = query.order_by(desc(date_col))
+
+        # Order by date desc, then symbol asc (if available)
+        order_clauses = [desc(date_col)]
+        if hasattr(model, 'symbol'):
+            order_clauses.append(model.symbol.asc())
+        elif hasattr(model, 'ticker_symb'):
+            order_clauses.append(model.ticker_symb.asc())
+        elif hasattr(model, 'underlying_stock'):
+            order_clauses.append(model.underlying_stock.asc())
+        elif hasattr(model, 'security_name'):
+            order_clauses.append(model.security_name.asc())
+
+        query = query.order_by(*order_clauses)
     elif hasattr(model, 'updated_at'):
         query = query.order_by(desc(model.updated_at))
 

@@ -315,9 +315,22 @@
                     <div id="tab-historical" class="import-tab-content" style="display:none;">
                         <div class="import-options">
                             <h4>Import Date Range</h4>
-                            <div class="option-row">
+                            <div class="option-row" style="margin-bottom: 10px;">
                                 <label>Start:</label> <input type="date" id="range-start" class="history-input">
                                 <label style="margin-left:15px;">End:</label> <input type="date" id="range-end" class="history-input">
+                            </div>
+                            <div class="option-row">
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility" checked> F&O Volatility</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats" checked> FII Stats</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi" checked> Participant OI</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="block_deals" checked> Block Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bulk_deals" checked> Bulk Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="mto"> MTO Delivery</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="mwpl_cli"> MWPL Position</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio"> P/E Ratio</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
                         </div>
