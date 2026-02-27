@@ -366,29 +366,31 @@ class NSEImporter {
                         grouped[item.table_name].push(item);
                     });
 
-                    let html = '<ul style="list-style:none; padding:0;">';
+                    // Render as Table
+                    let html = '<table class="data-table" style="margin-top:10px;"><thead><tr><th>Table Name</th><th>Status Summary</th></tr></thead><tbody>';
+
                     Object.keys(grouped).sort().forEach(table => {
                         const items = grouped[table];
                         // Create badges for each status
                         const badges = items.map(item => {
-                            let color = '#aaa';
+                            let color = '#d4d4d4';
                             if (item.status === 'SUCCESS') color = '#4caf50';
                             else if (item.status === 'FAILED' || item.status === 'ERROR') color = '#f44336';
                             else if (item.status === 'EMPTY' || item.status === 'SKIPPED') color = '#ff9800';
 
-                            return `<span style="font-size:0.8em; color:${color}; border:1px solid ${color}; padding:2px 6px; border-radius:3px; margin-left:5px;">
-                                    ${item.status} (${item.job_count})
+                            return `<span style="font-size:0.85em; color:${color}; font-weight:500; margin-right:8px;">
+                                    ${item.status}: ${item.job_count}
                                 </span>`;
                         }).join('');
 
                         html += `
-                            <li style="margin-bottom:5px; padding:5px; background:#333; border-radius:3px; display:flex; justify-content:space-between; align-items:center;">
-                                <span>${table}</span>
-                                <div>${badges}</div>
-                            </li>
+                            <tr>
+                                <td style="color:#00bcd4; font-weight:500;">${table}</td>
+                                <td>${badges}</td>
+                            </tr>
                         `;
                     });
-                    html += '</ul>';
+                    html += '</tbody></table>';
                     this.historyList.innerHTML = html;
                 } else {
                     this.historyList.innerHTML = '<p style="color:#888;">No recent imports found.</p>';

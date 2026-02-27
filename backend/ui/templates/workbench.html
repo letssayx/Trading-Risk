@@ -405,8 +405,20 @@
                     <button class="btn btn-secondary" onclick="loadAuditHistory()">Load History</button>
                     <button class="btn btn-secondary" onclick="downloadLogs()">Download Logs</button>
                 </div>
-                <div id="audit-log-container" style="flex:1; padding:15px; overflow-y:auto; font-family:monospace; font-size:13px; color:#d4d4d4;">
-                    <div style="color: #6a9955;">// Live Log Stream...</div>
+                <div class="table-wrapper">
+                    <table class="data-table" id="audit-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">Timestamp</th>
+                                <th style="width: 120px;">Source</th>
+                                <th style="width: 100px;">Level</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-log-body">
+                            <tr><td colspan="4" style="text-align:center; color:#888;">// Waiting for logs...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
                 <div class="history-status-bar">
                     <span id="log-count">0 Events</span>
@@ -635,7 +647,12 @@
             renderHistoryTable(currentHistoryData);
         }
 
-        function exportHistoryData() {
+        async function exportHistoryData() {
+            const btn = document.querySelector('button[onclick="exportHistoryData()"]');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Exporting...'; // Simple spinner effect
+
             const type = document.getElementById('data-type').value;
             const symbol = document.getElementById('symbol-input').value.trim();
             const start = document.getElementById('start-date').value;
@@ -646,16 +663,42 @@
             if (start) url += `&start_date=${start}`;
             if (end) url += `&end_date=${end}`;
 
-            // Trigger download
-            window.location.href = url;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(await response.text());
+
+                // Create Blob and Download
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                // Try to get filename from header or fallback
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `${type}_export.csv`;
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename=(.+)/);
+                    if (match && match.length > 1) filename = match[1];
+                }
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(downloadUrl);
+            } catch (e) {
+                console.error("Export Failed:", e);
+                alert("Export failed: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
         }
 
         // --- Audit Logic ---
         async function loadAuditHistory() {
             const start = document.getElementById('audit-start').value;
             const end = document.getElementById('audit-end').value;
-            const container = document.getElementById('audit-log-container');
-            container.innerHTML = 'Loading...';
+            const tbody = document.getElementById('audit-log-body');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
 
              try {
                 let url = '/api/audit/history?limit=1000';
@@ -663,20 +706,53 @@
                 if (end) url += `&end_date=${end}`;
                 const res = await fetch(url);
                 const logs = await res.json();
-                container.innerHTML = '';
-                logs.reverse().forEach(log => {
-                     const div = document.createElement('div');
-                     div.innerText = `${log.timestamp} - [${log.source}] ${log.message}`;
-                     div.style.borderBottom = '1px solid #333';
-                     container.appendChild(div);
+                tbody.innerHTML = '';
+
+                if(logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">No logs found for period</td></tr>';
+                    return;
+                }
+
+                // Render logs in reverse chronological order (latest top if API sends latest first, usually)
+                // Assuming API sends latest first. If not, reverse.
+                // Log object: {timestamp, source, level, message}
+                logs.forEach(log => {
+                     const tr = document.createElement('tr');
+
+                     // Style based on level
+                     let color = '#d4d4d4';
+                     if (log.level === 'ERROR') color = '#f48771';
+                     else if (log.level === 'WARNING') color = '#cca700';
+
+                     tr.style.color = color;
+
+                     tr.innerHTML = `
+                        <td>${log.timestamp.replace('T', ' ')}</td>
+                        <td>${log.source}</td>
+                        <td>${log.level}</td>
+                        <td>${log.message}</td>
+                     `;
+                     tbody.appendChild(tr);
                 });
-             } catch(e) { container.innerHTML = 'Error'; }
+                document.getElementById('log-count').innerText = `${logs.length} Events`;
+             } catch(e) {
+                 tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading logs: ${e.message}</td></tr>`;
+             }
         }
 
         function downloadLogs() {
-             const container = document.getElementById('audit-log-container');
-             const lines = Array.from(container.children).map(div => `"${div.innerText.replace(/"/g, '""')}"`);
-             const blob = new Blob([lines.join("\\n")], {type: "text/csv"});
+             const rows = Array.from(document.querySelectorAll('#audit-log-body tr'));
+             if(rows.length === 0 || rows[0].innerText.includes('Loading')) return;
+
+             let csv = "Timestamp,Source,Level,Message\n";
+             rows.forEach(row => {
+                 const cols = Array.from(row.querySelectorAll('td'));
+                 if(cols.length < 4) return; // Skip message rows
+                 const line = cols.map(c => `"${c.innerText.replace(/"/g, '""')}"`).join(",");
+                 csv += line + "\n";
+             });
+
+             const blob = new Blob([csv], {type: "text/csv"});
              const link = document.createElement("a");
              link.href = URL.createObjectURL(blob);
              link.download = `Audit_Trail_${new Date().toISOString().slice(0,10)}.csv`;
