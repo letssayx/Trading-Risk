@@ -250,11 +250,17 @@ class NSELib:
     def get_mwpl(self, trade_date: date) -> pd.DataFrame:
         """Get MWPL Data (Excel)."""
         date_str = trade_date.strftime("%d%m%Y")
-        filename = f"mwpl_cli_{date_str}.xls"
-        url = f"{self.ARCHIVES_URL}/archives/equities/mto/{filename}"
+        base_filename = f"mwpl_cli_{date_str}"
+        url = f"{self.ARCHIVES_URL}/archives/equities/mto/{base_filename}.xls"
 
-        # 1. Try local file first (for manual fallback)
-        content = self._read_local_file(filename)
+        # 1. Try local file first (for manual fallback) - Check multiple extensions
+        content = None
+        for ext in ['.xls', '.xlsx']:
+            filename = f"{base_filename}{ext}"
+            content = self._read_local_file(filename)
+            if content:
+                logger.info(f"Using local file: {filename}")
+                break
 
         # 2. Try network if local missing
         if not content:
