@@ -1,3 +1,16 @@
+// Global function to switch tabs (moved outside class to ensure availability)
+window.openImportTab = (tabName) => {
+    document.querySelectorAll('.import-tab-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.import-tabs .tab-btn').forEach(el => el.classList.remove('active'));
+
+    const target = document.getElementById(`tab-${tabName}`);
+    if (target) {
+        target.style.display = 'block';
+        const btn = document.querySelector(`.import-tabs .tab-btn[data-tab="${tabName}"]`);
+        if (btn) btn.classList.add('active');
+    }
+};
+
 class NSEImporter {
     constructor() {
         this.modal = document.getElementById('bhavcopy-upload-modal');
@@ -15,19 +28,6 @@ class NSEImporter {
     }
 
     initEventListeners() {
-        // Tab Switching
-        window.openImportTab = (tabName) => {
-            document.querySelectorAll('.import-tab-content').forEach(el => el.style.display = 'none');
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-
-            const target = document.getElementById(`tab-${tabName}`);
-            if (target) {
-                target.style.display = 'block';
-                const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
-                if (btn) btn.classList.add('active');
-            }
-        };
-
         // Latest Import
         const btnLatest = document.getElementById('btn-import-latest');
         if (btnLatest) {
@@ -46,49 +46,16 @@ class NSEImporter {
             btnManual.addEventListener('click', () => this.importManual());
         }
 
-        // Close logic
-        const closeSpan = document.querySelector('.close');
-        if (closeSpan) {
-            closeSpan.addEventListener('click', () => this.close());
-        }
-
-        // Prevent accidental closing on click inside content
-        // The modal overlay should be handled carefully. Usually modal is the overlay.
-        if(this.modal) {
-             this.modal.addEventListener('click', (e) => {
-                 // Close only if clicking the overlay (modal background), NOT the content
-                 // The structure in workbench.html wraps content in .import-container but that's inside #tab-import
-                 // Let's assume the modal *is* the overlay for a standalone modal,
-                 // BUT in workbench.html, 'bhavcopy-upload-modal' is just a DIV inside the tab content.
-                 // It is NOT a pop-up modal anymore. It's inline content.
-                 // So we don't need close-on-click-outside logic if it's a tab.
-
-                 // However, if the user meant the "Import Data" TAB behaves like a modal overlay?
-                 // No, structure shows it's a main tab content.
-                 // Let's disable the aggressive close logic if present.
-                 if (e.target.classList.contains('modal-overlay')) {
-                     this.close();
-                 }
-            });
-        }
-
         // Initial load
         this.fetchHistory();
     }
 
     open() {
-        // Since it's now a tab, this method might just refresh data
-        // If it were a modal:
-        if(this.modal && this.modal.classList.contains('modal')) {
-             this.modal.style.display = 'flex';
-        }
+        // Refresh history when "Import Data" main tab is opened
         this.fetchHistory();
     }
 
     close() {
-        if(this.modal && this.modal.classList.contains('modal')) {
-            this.modal.style.display = 'none';
-        }
         this.stopPolling();
     }
 
@@ -394,13 +361,17 @@ class NSEImporter {
                         // Create badges for each status
                         const badges = items.map(item => {
                             let color = '#d4d4d4';
+                            let timeBar = ''; // Placeholder for time bar if we wanted individual item bars
+
                             if (item.status === 'SUCCESS') color = '#4caf50';
                             else if (item.status === 'FAILED' || item.status === 'ERROR') color = '#f44336';
                             else if (item.status === 'EMPTY' || item.status === 'SKIPPED') color = '#ff9800';
 
-                            return `<span style="font-size:0.85em; color:${color}; font-weight:500; margin-right:8px;">
+                            return `<div style="margin-bottom:2px;">
+                                <span style="font-size:0.85em; color:${color}; font-weight:500; margin-right:8px;">
                                     ${item.status}: ${item.job_count}
-                                </span>`;
+                                </span>
+                            </div>`;
                         }).join('');
 
                         // Find max dates (using the aggregate logic from backend, or item iteration if needed)
@@ -422,6 +393,10 @@ class NSEImporter {
                         // Format timestamps
                         const fmtDate = lastDataDate ? lastDataDate : '-';
                         const fmtTime = lastDownloadTime ? new Date(lastDownloadTime).toLocaleString() : '-';
+
+                        // Create Time Bar (Visual indicator of recency? Or just display the time clearly?)
+                        // User requested: "show the time bar against the respective list in table name in the status summary"
+                        // and "show the downloaded time and date for each imports and which date data was pulled."
 
                         html += `
                             <tr>
