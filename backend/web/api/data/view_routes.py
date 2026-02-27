@@ -26,6 +26,7 @@ def get_model_for_type(data_type: str):
         'bhavcopy_eq': models.BhavcopyEQ,
         'bhavcopy_fo': models.BhavcopyFO,
         'participant_oi': models.FAOParticipantOI,
+        'fao_participant_oi': models.FAOParticipantOI,
         'fo_volatility': models.FOVolatility,
         'fii_stats': models.FIIDerivativesStat,
         'bulk_deals': models.BulkDeal,
