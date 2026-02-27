@@ -239,6 +239,10 @@ def process_results(results, model, skip_instrument_type=False):
         if 'underlying_stock' in row_dict and 'symbol' not in row_dict:
             row_dict['symbol'] = row_dict['underlying_stock']
 
+        # Alias instrument_type to FinInstrmTp for Bhavcopy FO if requested by user convention
+        if model.__tablename__ == 'bhavcopy_fo' and 'instrument_type' in row_dict:
+            row_dict['FinInstrmTp'] = row_dict['instrument_type']
+
         data.append(row_dict)
     return data
 
