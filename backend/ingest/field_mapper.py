@@ -1,9 +1,9 @@
-"""Field mapping for all NSE file formats - Based on actual file headers"""
 from typing import Dict, Any, List, Optional
 import pandas as pd
 import logging
 from datetime import date
 from backend.ingest.date_utils import parse_nse_date
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,6 @@ class FieldMapper:
 
         # UDIFF Detection - Check Sgmt first if available
         if 'SGMT' in upper_cols:
-            # Check a few rows to determine segment? Or just return generic UDIFF and let map split?
-            # Or assume if Sgmt is present, we check value
             try:
                 # Check first value in Sgmt column
                 sgmt_col = columns_map['SGMT']
@@ -44,9 +42,7 @@ class FieldMapper:
                 pass
 
         # UDIFF FO bhavcopy (New Format) - Prioritize over EQ if ambiguous
-        # FO usually has Option Type or Strike Price which EQ lacks (or are empty)
         if 'TCKRSYMB' in upper_cols and 'FININSTRMTP' in upper_cols and 'XPRYDT' in upper_cols:
-             # Check if it looks like FO by checking content or specific columns
              if 'OPTNTP' in upper_cols or 'STRKPRIC' in upper_cols:
                  return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
 
@@ -59,33 +55,23 @@ class FieldMapper:
             if 'DATE1' in upper_cols or 'PREV_CLOSE' in upper_cols or 'OPEN' in upper_cols:
                 return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
 
-        # Old FO Bhavcopy / Variations (often just called FO Bhavcopy)
-        # CAUTION: Contract Delta also has SYMBOL and EXPIRY DATE. Check for Delta specific col first.
+        # Contract Delta (Check first to avoid confusion with FO Bhavcopy)
         if 'DELTA' in upper_cols:
              return {'type': 'contract_delta', 'name': 'contract_delta'}
 
+        # Old FO Bhavcopy / Variations
         if ('SYMBOL' in upper_cols or 'TICKER' in upper_cols) and ('EXPIRY_DT' in upper_cols or 'EXPIRY DATE' in upper_cols):
-             return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'} # Fallback to fo_udiff mapper but might need new mapper if structure is vastly different.
-             # Actually, if it's the old 'SYMBOL', 'EXPIRY_DT' format, _map_fo_udiff won't work because it expects 'TckrSymb'.
-             # We should map it to a legacy FO mapper or normalize headers.
-             # For now, let's assume if it has TckrSymb it's UDIFF. If it has SYMBOL, it might be legacy.
-             # Let's add a legacy FO mapper if needed, or rely on normalization in mapper.
+             return {'type': 'fo_udiff', 'name': 'bhavcopy_fo'}
 
         # Block/Bulk Deals
         if 'CLIENT NAME' in columns or 'Client Name' in columns:
-            # Simple heuristic
-            if 'BLOCK' in str(df.columns).upper(): # unlikely to be in columns directly but maybe filename context needed?
-                 # Usually passed from outside, but if dataframe itself is distinctive...
-                 pass
-            # We often rely on the importer telling us the intended target, but this is auto-detect
-            return {'type': 'deals', 'name': 'deals_generic'} # Will resolve specific type later
+            return {'type': 'deals', 'name': 'deals_generic'}
 
         # Participant OI
         if 'Client Type' in columns and 'Future Index Long' in columns:
             return {'type': 'participant_oi', 'name': 'fao_participant_oi'}
 
         # FII Stats (special format - often no headers in row 0)
-        # We might need to check first few rows content
         try:
             if 'FII DERIVATIVES STATISTICS' in str(df.iloc[0:2]).upper():
                 return {'type': 'fii_stats', 'name': 'fii_derivatives_stats'}
@@ -97,24 +83,27 @@ class FieldMapper:
             return {'type': 'volatility', 'name': 'fo_volatility'}
 
         # MTO Delivery
-        # Fix: access df.columns list, not set
         df_cols_list = df.columns.tolist()
         if 'Record Type' in columns or 'Name of Security' in columns or (len(df_cols_list) > 0 and 'Record Type' in str(df_cols_list[0])):
             return {'type': 'mto', 'name': 'mto_delivery'}
 
-        # MWPL Client
+        # MWPL Client - Robust check for "Underlying Stock" and "Client 1"
+        # 1. Check existing headers
         if 'Underlying Stock' in columns and 'Client 1' in columns:
             return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
-        # MWPL Raw check (if headers are in row 2)
+        # 2. Check if first column name contains "MWPL"
         if len(df.columns) > 0 and "MWPL" in str(df.columns[0]):
              return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
-        # MWPL Deep Scan (for header=None)
-        # Scan first 5 rows for "Underlying Stock" and "Client 1"
-        for i in range(min(5, len(df))):
+        # 3. Deep Scan (first 20 rows) for header row
+        for i in range(min(20, len(df))):
             row_vals = [str(x).strip() for x in df.iloc[i].values if pd.notna(x)]
-            if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
+            # Check for "Underlying Stock" (exact or partial) and "Client 1" (partial)
+            has_underlying = any("Underlying Stock" in v for v in row_vals)
+            has_client1 = any("Client" in v and "1" in v for v in row_vals)
+
+            if has_underlying and has_client1:
                 return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
         # P/E Ratio
@@ -128,21 +117,18 @@ class FieldMapper:
         # Security Master
         if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:
             return {'type': 'security_master', 'name': 'security_master'}
-        # Also check for uppercase variants often seen in NSE files
         if 'FININSTRMID' in upper_cols and 'TCKRSYMB' in upper_cols:
              return {'type': 'security_master', 'name': 'security_master'}
 
         # VaR Stats
         if 'Security VaR' in columns or 'Security Symbol' in columns and 'VaR Margin' in columns:
             return {'type': 'var_stats', 'name': 'var_stats'}
-        # Robust check for VaR files which sometimes lack headers or have specific codes
         if len(df.columns) > 8 and ('Security Symbol' in columns or 'Symbol' in columns):
              return {'type': 'var_stats', 'name': 'var_stats'}
 
         # Contract Delta
         if 'Delta' in columns and 'Strike Price' in columns:
             return {'type': 'contract_delta', 'name': 'contract_delta'}
-        # Robust check
         if 'DELTA' in upper_cols and 'SYMBOL' in upper_cols:
              return {'type': 'contract_delta', 'name': 'contract_delta'}
 
@@ -242,9 +228,6 @@ class FieldMapper:
         records = []
         for _, row in df.iterrows():
             row_date = parse_nse_date(cls._get_val(row, ['TradDt', 'TIMESTAMP']))
-
-            # Explicitly map instrument_type (critical for frontend visibility)
-            # Added 'FinInstrmTp' based on user feedback/screenshot
             inst_type = str(cls._get_val(row, ['FinInstrmTp', 'INSTRUMENT', 'INSTRUMENT TYPE']) or '').strip()
 
             record = {
@@ -262,7 +245,6 @@ class FieldMapper:
                 'settle_price': cls._clean_numeric(cls._get_val(row, ['SttlmPric', 'SETTLE_PR'])),
                 'open_interest': cls._clean_integer(cls._get_val(row, ['OpnIntrst', 'OPEN_INT'])),
                 'change_in_oi': cls._clean_integer(cls._get_val(row, ['ChngInOpnIntrst', 'CHG_IN_OI'])),
-                # Map Volume (TtlTradgVol) or Contracts if distinct
                 'total_trading_vol': cls._clean_integer(cls._get_val(row, ['TtlTradgVol', 'CONTRACTS', 'Total Traded Quantity'])),
                 'total_trf_val': cls._clean_numeric(cls._get_val(row, ['TtlTrfVal', 'VAL_IN_LAKH'])),
             }
@@ -281,7 +263,6 @@ class FieldMapper:
     @classmethod
     def _map_eq_old(cls, df: pd.DataFrame, trade_date: Optional[date] = None) -> List[Dict]:
         records = []
-        # Normalize whitespace in series
         if 'SERIES' in df.columns:
             df['SERIES'] = df['SERIES'].astype(str).str.strip()
             df = df[df['SERIES'] == 'EQ'].copy()
@@ -310,10 +291,7 @@ class FieldMapper:
     @classmethod
     def _map_deals(cls, df: pd.DataFrame, table_name: str, trade_date: Optional[date] = None) -> List[Dict]:
         records = []
-        # Try to find date column
         date_col = cls._find_col(df, ['DATE', 'Date'])
-
-        # If trade_date passed, use it as default, otherwise try to extract from row
         file_date = trade_date
 
         for _, row in df.iterrows():
@@ -363,7 +341,6 @@ class FieldMapper:
     @classmethod
     def _map_fii_stats(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
-        # Find the start of data (skip header rows)
         start_row = 0
         for i, row in df.iterrows():
             row_str = ' '.join([str(x) for x in row.values if pd.notna(x)])
@@ -379,7 +356,6 @@ class FieldMapper:
 
             instrument = str(row.iloc[0]).strip().upper()
 
-            # Check if this is an instrument header
             for inv in cls.FII_STATS_INSTRUMENTS:
                 if inv in instrument:
                     current_instrument = inv
@@ -406,7 +382,6 @@ class FieldMapper:
     @classmethod
     def _map_volatility(cls, df: pd.DataFrame) -> List[Dict]:
         records = []
-        # Create column mapping for verbose headers
         col_map = {}
         for c in df.columns:
             c_str = str(c).strip()
@@ -438,8 +413,6 @@ class FieldMapper:
     def _map_mto(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
         for _, row in df.iterrows():
-            # Skip header rows often found in DAT files
-            # NOTE: '20' is a valid Record Type for data, DO NOT skip it.
             first_val = str(row.iloc[0]).strip()
             if first_val.lower() == 'record type' or first_val == '':
                 continue
@@ -461,61 +434,70 @@ class FieldMapper:
     def _map_mwpl(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
 
-        # Handle raw DF where headers are not yet set (header=None produces integer columns)
-        # Check if 'Client 1' is NOT in columns (meaning columns are likely ints)
+        # Handle raw DF where headers are not yet set
+        header_row_idx = None
+
+        # Check if 'Client 1' is NOT in columns (meaning columns are likely ints or messed up)
         if 'Client 1' not in df.columns:
-             # Try to find header row by scanning first few rows
-             header_row_idx = None
-             for i in range(min(10, len(df))):
+             # Scan first 20 rows to find header row
+             for i in range(min(20, len(df))):
                  # Convert row to string values for checking
                  row_vals = [str(x).strip() for x in df.iloc[i].values if pd.notna(x)]
-                 if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
+
+                 has_underlying = any("Underlying Stock" in v for v in row_vals)
+                 has_client1 = any("Client" in v and "1" in v for v in row_vals)
+
+                 if has_underlying and has_client1:
                      header_row_idx = i
                      break
 
              if header_row_idx is not None:
+                 logger.info(f"Found MWPL Header at row {header_row_idx}")
                  # Set the header
-                 # Force headers to be strings and strip them immediately
                  headers = [str(x).strip() for x in df.iloc[header_row_idx].values]
                  # Slice data after header
                  df = df.iloc[header_row_idx + 1:].copy()
                  # Assign new columns
                  df.columns = headers
-                 # Reset index to ensure clean iteration if needed, though iterrows handles it
                  df.reset_index(drop=True, inplace=True)
              else:
-                 # Fallback: if we can't find header, maybe it's already correct?
-                 # But if 'Client 1' wasn't in columns, and we didn't find it, we likely can't map.
                  logger.warning("MWPL Mapping: Could not locate header row containing 'Underlying Stock' and 'Client 1'")
                  return []
 
         # Normalize columns (strip whitespace) to ensure 'Client 1' lookup works
         df.columns = [str(c).strip() for c in df.columns]
 
+        # Identify "Client X" columns dynamically
+        client_col_map = {}
+        for col in df.columns:
+            # Regex to find "Client 1", "Client  2", "Client-3" etc.
+            match = re.match(r'Client\s*[_-]?\s*(\d+)', col, re.IGNORECASE)
+            if match:
+                client_num = int(match.group(1))
+                client_col_map[client_num] = col
+
+        logger.info(f"MWPL Mapping: Identified {len(client_col_map)} client columns.")
+
         for _, row in df.iterrows():
             underlying = str(row.get('Underlying Stock', '')).strip()
             if not underlying or underlying == 'nan' or underlying == 'None':
                 continue
 
-            for i in range(1, 16):
-                client_col = f'Client {i}'
-                # Check if column exists and value is not NA
-                if client_col in df.columns:
-                    val = row[client_col]
-                    if pd.notna(val):
-                        records.append({
-                            'date': trade_date,
-                            'underlying_stock': underlying,
-                            'client_position_num': i,
-                            'position_pct': cls._clean_numeric(val),
-                        })
+            for i, client_col_name in client_col_map.items():
+                val = row[client_col_name]
+                if pd.notna(val):
+                    records.append({
+                        'date': trade_date,
+                        'underlying_stock': underlying,
+                        'client_position_num': i,
+                        'position_pct': cls._clean_numeric(val),
+                    })
         return records
 
     @classmethod
     def _map_pe(cls, df: pd.DataFrame, trade_date: Optional[date], format_type: str = 'pe_ratio') -> List[Dict]:
         records = []
 
-        # Handle Index PE format
         if format_type == 'pe_ratio_idx':
             for _, row in df.iterrows():
                 row_date = parse_nse_date(row.get('Index Date'))
@@ -523,13 +505,12 @@ class FieldMapper:
                     'date': row_date or trade_date,
                     'symbol': str(row.get('Index Name', '')).strip(),
                     'symbol_pe': cls._clean_numeric(row.get('P/E')),
-                    'adjusted_pe': None # Not in Index file
+                    'adjusted_pe': None
                 }
                 if record['symbol']:
                     records.append(record)
             return records
 
-        # Standard Symbol PE
         for _, row in df.iterrows():
             record = {
                 'date': trade_date,
@@ -569,12 +550,6 @@ class FieldMapper:
     @classmethod
     def _map_var_stats(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
-        # Determine if begin or end based on filename context (passed in trade_date? No)
-        # We might need to guess or pass 'file_type' in format_info?
-        # For now, we assume caller handles file_type logic or we default to unknown
-        # The prompt implies 2 files.
-        # Let's map columns first.
-
         for _, row in df.iterrows():
             record = {
                 'date': trade_date,
@@ -586,9 +561,6 @@ class FieldMapper:
                 'extreme_loss_rate': cls._clean_numeric(row.get('Extreme Loss Rate')),
                 'adho_margin': cls._clean_numeric(row.get('Adhoc Margin')),
                 'applicable_margin_rate': cls._clean_numeric(row.get('Applicable Margin Rate')),
-                # file_type needs to be set by importer logic, or we infer?
-                # We'll leave it None here, and let the upsert handle defaults or update if needed?
-                # Actually, importer should inject it.
             }
             if record['symbol']:
                 records.append(record)
