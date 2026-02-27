@@ -75,7 +75,11 @@ app.include_router(audit_routes.router, prefix="/api/audit", tags=["audit"])
 async def startup_event():
     # Initialize DB
     print("Initializing Database...")
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"⚠️ Metadata Create Warning: {e}")
+
     try:
         TickVault().init_db()
         print("✅ TickVault initialized")

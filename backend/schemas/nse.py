@@ -1,5 +1,5 @@
 from typing import Literal, Any
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 class NSEImportRequest(BaseModel):
@@ -36,7 +36,15 @@ class VolatilityCompareRequest(BaseModel):
     symbols: list[str] = Field(..., min_items=1, max_items=10, description="List of symbols to compare")
     days: int = Field(90, ge=1, le=365, description="Number of days to look back")
 
+class ImportStatsSummary(BaseModel):
+    table_name: str
+    status: str
+    job_count: int
+    total_rows: int | None = None
+    last_import_date: date | None = None
+    last_download_time: datetime | None = None
+
 class ImportStatsResponse(BaseModel):
     """Statistics about import jobs."""
-    summary: list[dict[str, Any]]
+    summary: list[ImportStatsSummary]
     period: dict[str, str | None]

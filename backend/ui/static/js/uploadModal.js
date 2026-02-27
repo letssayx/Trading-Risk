@@ -337,12 +337,17 @@ class NSEImporter {
     }
 
     async fetchHistory() {
-        if (!this.historyList) return;
+        if (!this.historyList) {
+            console.warn("History list element not found, cannot render.");
+            return;
+        }
 
         try {
+            console.log("Fetching history...");
             const res = await fetch('/api/v1/nse/ingest/stats');
             if (res.ok) {
                 const data = await res.json(); // { summary: [...], period: {...} }
+                console.log("History data received:", data);
 
                 if (data.summary && data.summary.length > 0) {
                     // Group by table_name to avoid duplicates
@@ -353,7 +358,6 @@ class NSEImporter {
                     });
 
                     // Render as Table
-                    // Updated to show detailed timestamps as requested
                     let html = '<table class="data-table" style="margin-top:10px; width:100%;"><thead><tr><th>Table Name</th><th>Status Summary</th><th>Last Data Date</th><th>Downloaded At</th></tr></thead><tbody>';
 
                     Object.keys(grouped).sort().forEach(table => {
@@ -374,9 +378,6 @@ class NSEImporter {
                         }).join('');
 
                         // Find max dates (using the aggregate logic from backend, or item iteration if needed)
-                        // Backend now returns last_import_date and last_download_time per group
-                        // But we might have multiple groups per table (e.g. SUCCESS group, FAILED group)
-                        // Let's find the absolute max across all status groups for this table
                         let lastDataDate = '';
                         let lastDownloadTime = '';
 
@@ -391,27 +392,40 @@ class NSEImporter {
 
                         // Format timestamps
                         const fmtDate = lastDataDate ? lastDataDate : '-';
-                        const fmtTime = lastDownloadTime ? new Date(lastDownloadTime).toLocaleString() : '-';
+                        let fmtTime = '-';
+                        if (lastDownloadTime) {
+                            try {
+                                fmtTime = new Date(lastDownloadTime).toLocaleString();
+                            } catch (e) {
+                                fmtTime = lastDownloadTime;
+                            }
+                        }
 
                         // Show time bar for visual recency indicator
                         let timeBar = '';
                         if (lastDownloadTime) {
-                            const now = new Date();
-                            const dlTime = new Date(lastDownloadTime);
-                            const diffHours = (now - dlTime) / (1000 * 60 * 60);
-                            let barColor = '#4caf50';
-                            let barWidth = '100%';
+                            try {
+                                const now = new Date();
+                                const dlTime = new Date(lastDownloadTime);
+                                if (!isNaN(dlTime.getTime())) { // Check if valid date
+                                    const diffHours = (now - dlTime) / (1000 * 60 * 60);
+                                    let barColor = '#4caf50';
+                                    let barWidth = '100%';
 
-                            // Decay bar based on age (e.g. 24h)
-                            if (diffHours < 24) {
-                                barWidth = `${Math.max(10, 100 - (diffHours * 4))}%`;
-                            } else {
-                                barWidth = '10%';
-                                barColor = '#888';
+                                    // Decay bar based on age (e.g. 24h)
+                                    if (diffHours < 24) {
+                                        barWidth = `${Math.max(10, 100 - (diffHours * 4))}%`;
+                                    } else {
+                                        barWidth = '10%';
+                                        barColor = '#888';
+                                    }
+                                    timeBar = `<div style="width:100%; height:4px; background:#333; margin-top:4px; border-radius:2px;">
+                                        <div style="width:${barWidth}; height:100%; background:${barColor}; border-radius:2px;"></div>
+                                    </div>`;
+                                }
+                            } catch (e) {
+                                console.warn("Time bar error:", e);
                             }
-                            timeBar = `<div style="width:100%; height:4px; background:#333; margin-top:4px; border-radius:2px;">
-                                <div style="width:${barWidth}; height:100%; background:${barColor}; border-radius:2px;"></div>
-                            </div>`;
                         }
 
 
@@ -430,14 +444,16 @@ class NSEImporter {
                     html += '</tbody></table>';
                     this.historyList.innerHTML = html;
                 } else {
+                    console.log("Summary empty");
                     this.historyList.innerHTML = '<p style="color:#888;">No recent imports found.</p>';
                 }
             } else {
+                console.error("Stats API failed", res.status);
                 this.historyList.innerHTML = '<p style="color:#f44336">Failed to load history</p>';
             }
         } catch (e) {
             console.error("Failed to fetch history", e);
-            this.historyList.innerHTML = '<p style="color:#f44336">History unavailable</p>';
+            this.historyList.innerHTML = '<p style="color:#f44336">History unavailable: ' + e.message + '</p>';
         }
     }
 }
@@ -445,5 +461,9 @@ class NSEImporter {
 // Global instance for HTML onclick bindings
 // Using window.uploader to match workbench.html expectations
 document.addEventListener('DOMContentLoaded', () => {
-    window.uploader = new NSEImporter();
+    try {
+        window.uploader = new NSEImporter();
+    } catch (e) {
+        console.error("Failed to init NSEImporter:", e);
+    }
 });
