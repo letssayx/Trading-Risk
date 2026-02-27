@@ -25,8 +25,14 @@ class WebSocketLogHandler(logging.Handler):
         try:
             msg = self.format(record)
 
-            # 1. Broadcast to UI
-            asyncio.create_task(self.manager.broadcast(msg))
+            # 1. Broadcast to UI (Only if inside an async loop)
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_running():
+                    loop.create_task(self.manager.broadcast(msg))
+            except RuntimeError:
+                # No running loop (e.g., synchronous Celery worker)
+                pass
 
             # 2. Queue for DB Persistence
             # Parse simple message or keep raw
@@ -38,7 +44,27 @@ class WebSocketLogHandler(logging.Handler):
                 "message": record.getMessage(),
                 "meta_data": {"filename": record.filename, "line": record.lineno}
             }
+
+            # If running in sync context (no loop), we might need to flush manually or accept that
+            # the async log_flusher won't run.
+            # Ideally, we should check if we are in the main async app or a worker.
+            # For now, we append to buffer. In Celery, this buffer might grow if no one flushes it.
+            # A robust solution for Celery would be to push directly to DB or Redis if no loop.
             LOG_BUFFER.append(log_entry)
+
+            # Fallback flush for sync contexts if buffer gets too big
+            if len(LOG_BUFFER) >= BUFFER_SIZE:
+                try:
+                    # Check loop again
+                    try:
+                        asyncio.get_running_loop()
+                    except RuntimeError:
+                        # No loop, flush synchronously
+                        batch = LOG_BUFFER[:]
+                        LOG_BUFFER.clear()
+                        persist_log_batch.delay(batch)
+                except:
+                    pass
 
         except Exception:
             self.handleError(record)

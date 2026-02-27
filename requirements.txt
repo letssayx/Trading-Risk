@@ -22,3 +22,5 @@ pyotp
 hmmlearn
 plotly
 python-multipart
+xlrd
+openpyxl

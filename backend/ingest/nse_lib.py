@@ -210,9 +210,9 @@ class NSELib:
         resp = self.get(url)
         if resp.status_code == 200:
             try:
-                # Header is often in row 2 (index 1)
-                df = pd.read_excel(io.BytesIO(resp.content), header=1)
-                df.columns = [str(c).strip() for c in df.columns]
+                # Use header=None to let FieldMapper find the correct header row
+                # This handles cases where the title row count varies
+                df = pd.read_excel(io.BytesIO(resp.content), header=None)
                 return df
             except:
                 pass
