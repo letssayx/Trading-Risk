@@ -181,6 +181,26 @@ class NSELib:
             logger.error(f"FII Stats parse error: {e}")
             return pd.DataFrame()
 
+    def parse_pe_ratio(self, content: bytes) -> pd.DataFrame:
+        """Parse P/E Ratio CSV content."""
+        try:
+            df = pd.read_csv(io.BytesIO(content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        except Exception as e:
+            logger.error(f"P/E Ratio parse error: {e}")
+            return pd.DataFrame()
+
+    def parse_corporate_actions(self, content: bytes) -> pd.DataFrame:
+        """Parse Corporate Actions CSV content."""
+        try:
+            df = pd.read_csv(io.BytesIO(content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        except Exception as e:
+            logger.error(f"Corporate Actions parse error: {e}")
+            return pd.DataFrame()
+
     def get_bhavcopy_eq(self, trade_date: date) -> pd.DataFrame:
         """Get CM Bhavcopy (Equity) - Uses sec_bhavdata_full for delivery info."""
         date_str = trade_date.strftime("%d%m%Y")
@@ -230,9 +250,7 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-            df.columns = [c.strip() for c in df.columns]
-            return df
+            return self.parse_pe_ratio(resp.content)
         return pd.DataFrame()
 
     def get_fao_participant_oi(self, trade_date: date) -> pd.DataFrame:
@@ -377,6 +395,18 @@ class NSELib:
                 return df
             except:
                 pass
+        return pd.DataFrame()
+
+    def get_corporate_actions(self, trade_date: date) -> pd.DataFrame:
+        """Get Corporate Actions."""
+        # URL pattern from nselib: https://www.nseindia.com/api/corporates-corporateActions?index=equities&from=dd-mm-yyyy&to=dd-mm-yyyy&csv=true
+        # Note: This often requires full browser headers (cookies).
+        date_str = trade_date.strftime("%d-%m-%Y")
+        url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from={date_str}&to={date_str}&csv=true"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            return self.parse_corporate_actions(resp.content)
         return pd.DataFrame()
 
     def get_contract_delta(self, trade_date: date) -> pd.DataFrame:

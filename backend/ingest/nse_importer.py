@@ -55,6 +55,7 @@ class NSEDataImporter:
             'var_stats': models.VaRStat,
             'contract_delta': models.ContractDelta,
             'margin_trading': models.MarginTrading,
+            'corporate_actions': models.CorporateAction,
         }
         return mapping.get(key)
 
@@ -75,6 +76,7 @@ class NSEDataImporter:
             'var_stats': ['date', 'symbol', 'series', 'file_type'],
             'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
             'margin_trading': ['date', 'symbol'],
+            'corporate_actions': ['date', 'symbol', 'purpose'],
         }
         return mapping.get(key, [])
 
@@ -95,6 +97,10 @@ class NSEDataImporter:
                 return self.lib.parse_fao_participant_oi(content)
             elif key == 'fii_derivatives_stats':
                 return self.lib.parse_fii_derivatives_stats(content)
+            elif key == 'pe_ratio':
+                return self.lib.parse_pe_ratio(content)
+            elif key == 'corporate_actions':
+                return self.lib.parse_corporate_actions(content)
 
             # Default CSV Parsing for standard files
             # Check if content is bytes, decode if needed for CSV
@@ -150,6 +156,8 @@ class NSEDataImporter:
             return self.lib.get_contract_delta(trade_date)
         elif key == 'margin_trading':
             return self.lib.get_margin_trading(trade_date)
+        elif key == 'corporate_actions':
+            return self.lib.get_corporate_actions(trade_date)
 
         return pd.DataFrame()
 
@@ -237,7 +245,8 @@ class NSEDataImporter:
 
         available_keys = [
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
-            'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli'
+            'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
+            'pe_ratio', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions'
         ]
 
         patterns_to_run = patterns or available_keys

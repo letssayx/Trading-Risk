@@ -174,6 +174,8 @@ class FieldMapper:
             return cls._map_contract_delta(df, trade_date)
         elif format_type == 'margin_trading':
             return cls._map_margin_trading(df, trade_date)
+        elif format_type == 'corporate_actions':
+            return cls._map_corporate_actions(df, trade_date)
 
         return []
 
@@ -220,6 +222,31 @@ class FieldMapper:
                 'no_of_trades': cls._clean_integer(cls._get_val(row, ['TtlNbOfTxsExctd', 'NO_OF_TRADES'])),
             }
             if record['symbol']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_corporate_actions(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        # Columns usually: SYMBOL, COMPANY NAME, SERIES, PURPOSE, FACE VALUE, EX-DATE, RECORD DATE, BC START DATE, BC END DATE, ND START DATE, ND END DATE
+        for _, row in df.iterrows():
+            ex_date_val = parse_nse_date(cls._get_val(row, ['Ex-Date', 'EX-DATE']))
+
+            record = {
+                'date': ex_date_val or trade_date,
+                'ex_date': ex_date_val,
+                'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip(),
+                'company_name': str(cls._get_val(row, ['COMPANY NAME', 'Company Name']) or '').strip(),
+                'series': str(cls._get_val(row, ['SERIES', 'Series']) or '').strip(),
+                'face_value': cls._clean_numeric(cls._get_val(row, ['FACE VALUE', 'Face Value'])),
+                'purpose': str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip(),
+                'record_date': parse_nse_date(cls._get_val(row, ['RECORD DATE', 'Record Date'])),
+                'bc_start_date': parse_nse_date(cls._get_val(row, ['BC START DATE', 'BC Start Date'])),
+                'bc_end_date': parse_nse_date(cls._get_val(row, ['BC END DATE', 'BC End Date'])),
+                'nd_start_date': parse_nse_date(cls._get_val(row, ['ND START DATE', 'ND Start Date'])),
+                'nd_end_date': parse_nse_date(cls._get_val(row, ['ND END DATE', 'ND End Date'])),
+            }
+            if record['symbol'] and record['date']:
                 records.append(record)
         return records
 

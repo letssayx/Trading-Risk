@@ -328,6 +328,30 @@ class MarginTrading(Base, TimescaleMixin):
     )
 
 
+class CorporateAction(Base, TimescaleMixin):
+    """Corporate Actions for Equities"""
+    __tablename__ = "corporate_actions"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True) # Renamed from ex_date for Timescale consistency
+    symbol = Column(String(50), nullable=False, index=True)
+    company_name = Column(String(200))
+    series = Column(String(20))
+    face_value = Column(Float)
+    purpose = Column(Text)
+    ex_date = Column(Date) # Explicitly keep original if different from import date
+    record_date = Column(Date)
+    bc_start_date = Column(Date)
+    bc_end_date = Column(Date)
+    nd_start_date = Column(Date)
+    nd_end_date = Column(Date)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', 'symbol', 'purpose', name='uq_corp_action_unique'),
+    )
+
+
 class ImportLog(Base):
     """Import Audit Log"""
     __tablename__ = "import_logs"
