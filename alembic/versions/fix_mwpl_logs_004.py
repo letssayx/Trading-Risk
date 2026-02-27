@@ -23,16 +23,14 @@ def upgrade() -> None:
     # This is critical because previous attempts likely succeeded with 0 rows inserted
     # due to parsing failures, and the system now thinks those dates are 'done'.
     bind = op.get_bind()
-    session = Session(bind=bind)
 
+    # Use direct execution on bind to avoid session management issues in Alembic
     try:
-        session.execute(text("DELETE FROM import_logs WHERE table_name = 'mwpl_cli'"))
-        session.commit()
+        bind.execute(text("DELETE FROM import_logs WHERE table_name = 'mwpl_cli'"))
+        # We also clear system logs related to these failures so the dashboard looks clean
+        bind.execute(text("DELETE FROM system_logs WHERE source = 'NSE_Importer' AND meta_data->>'table' = 'mwpl_cli'"))
     except Exception as e:
         print(f"Warning: Failed to clear MWPL logs: {e}")
-        session.rollback()
-    finally:
-        session.close()
 
     # 2. Fix TimescaleDB Compression Policies
     # The actual ALTER TABLE commands are handled by the application startup code in `timescale.py`.
