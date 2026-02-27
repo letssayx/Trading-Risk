@@ -123,6 +123,64 @@ class NSELib:
             logger.error(f"Excel read (openpyxl) failed: {e3}")
             raise ValueError(f"Failed to parse Excel file with any engine. Last error: {e3}")
 
+    # --- Public parsing methods ---
+    def parse_mwpl(self, content: bytes) -> pd.DataFrame:
+        """Parse MWPL Excel content."""
+        try:
+            # Use header=None to let FieldMapper find the correct header row
+            df = self._read_excel_robust(content, header_val=None)
+            return df
+        except Exception as e:
+            logger.error(f"MWPL parse error: {e}")
+            return pd.DataFrame()
+
+    def parse_mto(self, content: bytes) -> pd.DataFrame:
+        """Parse MTO .DAT content."""
+        try:
+            decoded_content = content.decode('utf-8', errors='ignore')
+            lines = decoded_content.strip().split('\n')
+
+            # Robust logic: Find header line starting with "Record Type"
+            header_idx = -1
+            for i, line in enumerate(lines[:10]): # Check first 10 lines
+                if "Record Type" in line and "Name of Security" in line:
+                    header_idx = i
+                    break
+
+            if header_idx != -1 and len(lines) > header_idx + 1:
+                header = lines[header_idx]
+                data = lines[header_idx+1:]
+                csv_str = header + '\n' + '\n'.join(data)
+                df = pd.read_csv(io.StringIO(csv_str), low_memory=False)
+                df.columns = [c.strip() for c in df.columns]
+                return df
+        except Exception as e:
+            logger.error(f"MTO parse error: {e}")
+        return pd.DataFrame()
+
+    def parse_fao_participant_oi(self, content: bytes) -> pd.DataFrame:
+        """Parse FAO Participant OI CSV content."""
+        try:
+            # Skip metadata row if present
+            decoded_content = content.decode('utf-8', errors='ignore')
+            skiprows = 1 if "Participant wise Open Interest" in decoded_content.split('\n')[0] else 0
+
+            df = pd.read_csv(io.StringIO(decoded_content), skiprows=skiprows, low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        except Exception as e:
+            logger.error(f"FAO Participant OI parse error: {e}")
+            return pd.DataFrame()
+
+    def parse_fii_derivatives_stats(self, content: bytes) -> pd.DataFrame:
+        """Parse FII Derivatives Stats Excel content."""
+        try:
+            df = self._read_excel_robust(content)
+            return df
+        except Exception as e:
+            logger.error(f"FII Stats parse error: {e}")
+            return pd.DataFrame()
+
     def get_bhavcopy_eq(self, trade_date: date) -> pd.DataFrame:
         """Get CM Bhavcopy (Equity) - Uses sec_bhavdata_full for delivery info."""
         date_str = trade_date.strftime("%d%m%Y")
@@ -184,13 +242,7 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            # Skip metadata row if present
-            content = resp.content.decode('utf-8', errors='ignore')
-            skiprows = 1 if "Participant wise Open Interest" in content.split('\n')[0] else 0
-
-            df = pd.read_csv(io.StringIO(content), skiprows=skiprows, low_memory=False)
-            df.columns = [c.strip() for c in df.columns]
-            return df
+            return self.parse_fao_participant_oi(resp.content)
         return pd.DataFrame()
 
     def get_fii_derivatives_stats(self, trade_date: date) -> pd.DataFrame:
@@ -200,11 +252,7 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            try:
-                df = self._read_excel_robust(resp.content)
-                return df
-            except Exception as e:
-                logger.error(f"FII Stats parse error: {e}")
+            return self.parse_fii_derivatives_stats(resp.content)
         return pd.DataFrame()
 
     def get_fo_volatility(self, trade_date: date) -> pd.DataFrame:
@@ -227,23 +275,7 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            content = resp.content.decode('utf-8', errors='ignore')
-            lines = content.strip().split('\n')
-
-            # Robust logic: Find header line starting with "Record Type"
-            header_idx = -1
-            for i, line in enumerate(lines[:10]): # Check first 10 lines
-                if "Record Type" in line and "Name of Security" in line:
-                    header_idx = i
-                    break
-
-            if header_idx != -1 and len(lines) > header_idx + 1:
-                header = lines[header_idx]
-                data = lines[header_idx+1:]
-                csv_str = header + '\n' + '\n'.join(data)
-                df = pd.read_csv(io.StringIO(csv_str), low_memory=False)
-                df.columns = [c.strip() for c in df.columns]
-                return df
+            return self.parse_mto(resp.content)
 
         return pd.DataFrame()
 
@@ -272,12 +304,7 @@ class NSELib:
                 pass
 
         if content:
-            try:
-                # Use header=None to let FieldMapper find the correct header row
-                df = self._read_excel_robust(content, header_val=None)
-                return df
-            except Exception as e:
-                logger.error(f"MWPL parse error: {e}")
+            return self.parse_mwpl(content)
 
         return pd.DataFrame()
 

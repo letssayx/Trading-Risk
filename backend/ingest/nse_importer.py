@@ -78,6 +78,45 @@ class NSEDataImporter:
         }
         return mapping.get(key, [])
 
+    def _parse_content(self, content: bytes, key: str) -> pd.DataFrame:
+        """
+        Parse raw content into a DataFrame based on file key.
+        Used for manual uploads and fallback parsing.
+        """
+        if not content:
+            return pd.DataFrame()
+
+        try:
+            if key == 'mwpl_cli':
+                return self.lib.parse_mwpl(content)
+            elif key == 'mto':
+                return self.lib.parse_mto(content)
+            elif key == 'fao_participant_oi':
+                return self.lib.parse_fao_participant_oi(content)
+            elif key == 'fii_derivatives_stats':
+                return self.lib.parse_fii_derivatives_stats(content)
+
+            # Default CSV Parsing for standard files
+            # Check if content is bytes, decode if needed for CSV
+            try:
+                # Try reading as Excel first if it looks like Excel (magic numbers)
+                if content.startswith(b'\xd0\xcf\x11\xe0') or content.startswith(b'PK\x03\x04'):
+                     return self.lib._read_excel_robust(content)
+            except:
+                pass
+
+            # Fallback to CSV
+            try:
+                import io
+                return pd.read_csv(io.BytesIO(content), low_memory=False)
+            except Exception as e:
+                logger.warning(f"Default CSV parse failed for {key}: {e}")
+                return pd.DataFrame()
+
+        except Exception as e:
+            logger.error(f"Error parsing content for {key}: {e}")
+            return pd.DataFrame()
+
     def _fetch_data(self, key: str, trade_date: date) -> pd.DataFrame:
         """Route to appropriate NSELibClient method."""
         if key == 'bhavcopy_eq':
