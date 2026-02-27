@@ -6,6 +6,8 @@ import time
 
 from backend.ingest.nse_importer import NSEDataImporter
 from backend.ingest.date_utils import NSEHolidayCalendar
+from backend.ingest.nse_models import ImportLog
+from backend.infrastructure.db import SessionLocal
 
 logger = get_task_logger(__name__)
 
@@ -41,7 +43,7 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
 
 @shared_task(bind=True, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None):
-    """Import NSE data for a range of dates."""
+    """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
     try:
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
@@ -53,18 +55,75 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         total_days = (end_date - start_date).days + 1
         processed_days = 0
 
+        # Define default patterns if none provided (must match what import_date uses)
+        default_patterns = [
+            'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
+            'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli'
+        ]
+        target_patterns = patterns if patterns else default_patterns
+
+        # Pre-check database for completed dates to optimize range import
+        # We can do this efficiently by querying the ImportLog table
+        db = SessionLocal()
+        try:
+             # Find all successful imports in range for requested tables
+             completed_logs = db.query(ImportLog.import_date, ImportLog.table_name).filter(
+                 ImportLog.import_date >= start_date,
+                 ImportLog.import_date <= end_date,
+                 ImportLog.table_name.in_(target_patterns),
+                 ImportLog.status == 'SUCCESS'
+             ).all()
+
+             # Map date -> set of completed tables
+             completed_map = {}
+             for d, t in completed_logs:
+                 if d not in completed_map: completed_map[d] = set()
+                 completed_map[d].add(t)
+
+        except Exception as e:
+            logger.warning(f"Optimization check failed: {e}. Proceeding with standard check.")
+            completed_map = {}
+        finally:
+            db.close()
+
         while current_date <= end_date:
             if NSEHolidayCalendar.is_trading_day(current_date):
-                # Update task state for range progress
-                self.update_state(state='PROGRESS', meta={
-                    'current_date': current_date.isoformat(),
-                    'percent': int((processed_days / total_days) * 100),
-                    'status': f'Processing {current_date}'
-                })
 
-                # Import for this day
-                day_result = importer.import_date(current_date, patterns=patterns)
-                results.append(day_result)
+                # OPTIMIZATION: Check if all requested patterns are already done for this date
+                is_fully_done = False
+                if current_date in completed_map:
+                    done_tables = completed_map[current_date]
+                    # Check if all target patterns are in done_tables
+                    # Note: Using set subset check
+                    if set(target_patterns).issubset(done_tables):
+                        is_fully_done = True
+
+                if is_fully_done:
+                    logger.info(f"Skipping {current_date} (All requested files already imported)")
+                    # Mock a skipped result for consistency
+                    results.append({
+                        'status': 'SKIPPED',
+                        'date': current_date.isoformat(),
+                        'reason': 'Fully completed previously'
+                    })
+
+                    # Update progress even if skipping
+                    self.update_state(state='PROGRESS', meta={
+                        'current_date': current_date.isoformat(),
+                        'percent': int((processed_days / total_days) * 100),
+                        'status': f'Skipping {current_date} (Done)'
+                    })
+                else:
+                    # Update task state for range progress
+                    self.update_state(state='PROGRESS', meta={
+                        'current_date': current_date.isoformat(),
+                        'percent': int((processed_days / total_days) * 100),
+                        'status': f'Processing {current_date}'
+                    })
+
+                    # Import for this day (importer will still do file-level checks, but we saved task overhead if fully done)
+                    day_result = importer.import_date(current_date, patterns=patterns)
+                    results.append(day_result)
 
             current_date += timedelta(days=1)
             processed_days += 1

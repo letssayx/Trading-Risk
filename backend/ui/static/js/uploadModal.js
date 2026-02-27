@@ -51,25 +51,44 @@ class NSEImporter {
         if (closeSpan) {
             closeSpan.addEventListener('click', () => this.close());
         }
-        window.addEventListener('click', (e) => {
-            if (e.target === this.modal) this.close();
-        });
+
+        // Prevent accidental closing on click inside content
+        // The modal overlay should be handled carefully. Usually modal is the overlay.
+        if(this.modal) {
+             this.modal.addEventListener('click', (e) => {
+                 // Close only if clicking the overlay (modal background), NOT the content
+                 // The structure in workbench.html wraps content in .import-container but that's inside #tab-import
+                 // Let's assume the modal *is* the overlay for a standalone modal,
+                 // BUT in workbench.html, 'bhavcopy-upload-modal' is just a DIV inside the tab content.
+                 // It is NOT a pop-up modal anymore. It's inline content.
+                 // So we don't need close-on-click-outside logic if it's a tab.
+
+                 // However, if the user meant the "Import Data" TAB behaves like a modal overlay?
+                 // No, structure shows it's a main tab content.
+                 // Let's disable the aggressive close logic if present.
+                 if (e.target.classList.contains('modal-overlay')) {
+                     this.close();
+                 }
+            });
+        }
 
         // Initial load
         this.fetchHistory();
     }
 
     open() {
-        if(this.modal) {
-            this.modal.style.display = 'flex';
-            this.fetchHistory();
-        } else {
-            console.error("NSE Import Modal not found in DOM");
+        // Since it's now a tab, this method might just refresh data
+        // If it were a modal:
+        if(this.modal && this.modal.classList.contains('modal')) {
+             this.modal.style.display = 'flex';
         }
+        this.fetchHistory();
     }
 
     close() {
-        if(this.modal) this.modal.style.display = 'none';
+        if(this.modal && this.modal.classList.contains('modal')) {
+            this.modal.style.display = 'none';
+        }
         this.stopPolling();
     }
 
@@ -191,7 +210,7 @@ class NSEImporter {
 
         const fileInput = document.getElementById('manual-file');
         const fileType = document.getElementById('manual-type').value;
-        const fileDate = document.getElementById('manual-date').value;
+        const fileDate = document.getElementById('manual-date') ? document.getElementById('manual-date').value : null;
 
         if (!fileInput.files || fileInput.files.length === 0) {
             alert("Please select a file.");
@@ -367,7 +386,8 @@ class NSEImporter {
                     });
 
                     // Render as Table
-                    let html = '<table class="data-table" style="margin-top:10px;"><thead><tr><th>Table Name</th><th>Status Summary</th></tr></thead><tbody>';
+                    // Updated to show detailed timestamps as requested
+                    let html = '<table class="data-table" style="margin-top:10px; width:100%;"><thead><tr><th>Table Name</th><th>Status Summary</th><th>Last Data Date</th><th>Downloaded At</th></tr></thead><tbody>';
 
                     Object.keys(grouped).sort().forEach(table => {
                         const items = grouped[table];
@@ -383,10 +403,32 @@ class NSEImporter {
                                 </span>`;
                         }).join('');
 
+                        // Find max dates (using the aggregate logic from backend, or item iteration if needed)
+                        // Backend now returns last_import_date and last_download_time per group
+                        // But we might have multiple groups per table (e.g. SUCCESS group, FAILED group)
+                        // Let's find the absolute max across all status groups for this table
+                        let lastDataDate = '';
+                        let lastDownloadTime = '';
+
+                        items.forEach(item => {
+                            if (item.last_import_date && (!lastDataDate || item.last_import_date > lastDataDate)) {
+                                lastDataDate = item.last_import_date;
+                            }
+                            if (item.last_download_time && (!lastDownloadTime || item.last_download_time > lastDownloadTime)) {
+                                lastDownloadTime = item.last_download_time;
+                            }
+                        });
+
+                        // Format timestamps
+                        const fmtDate = lastDataDate ? lastDataDate : '-';
+                        const fmtTime = lastDownloadTime ? new Date(lastDownloadTime).toLocaleString() : '-';
+
                         html += `
                             <tr>
                                 <td style="color:#00bcd4; font-weight:500;">${table}</td>
                                 <td>${badges}</td>
+                                <td>${fmtDate}</td>
+                                <td style="font-size:0.85em; color:#aaa;">${fmtTime}</td>
                             </tr>
                         `;
                     });

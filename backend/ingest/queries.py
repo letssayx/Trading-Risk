@@ -178,13 +178,17 @@ def get_import_stats(
     start_date: date | None = None,
     end_date: date | None = None
 ) -> dict[str, Any]:
-    """Get import job statistics."""
+    """Get import job statistics.
+    Updated to return max dates (data date) and max download times (created_at).
+    """
     query = text("""
         SELECT
             table_name,
             status,
             COUNT(*) as job_count,
-            SUM(rows_inserted) as total_rows
+            SUM(rows_inserted) as total_rows,
+            MAX(import_date) as last_import_date,
+            MAX(created_at) as last_download_time
         FROM import_logs
         WHERE (:start IS NULL OR import_date >= :start)
           AND (:end IS NULL OR import_date <= :end)

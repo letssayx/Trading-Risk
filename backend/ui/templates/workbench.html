@@ -368,11 +368,17 @@
                                 <select id="manual-type" class="history-select" style="width:100%">
                                     <option value="bhavcopy_eq">Equity Bhavcopy (CSV/ZIP)</option>
                                     <option value="bhavcopy_fo">F&O Bhavcopy (ZIP)</option>
+                                    <option value="mwpl_cli">MWPL (.xls)</option>
+                                    <option value="mto">MTO Delivery (.dat)</option>
                                     <!-- Add other options as needed -->
                                 </select>
                             </div>
                             <div class="option-row">
                                 <input type="file" id="manual-file" style="margin-top:5px;" />
+                            </div>
+                             <div class="option-row">
+                                <label>Date (Optional):</label>
+                                <input type="date" id="manual-date" class="history-input">
                             </div>
                             <button id="btn-manual-upload" class="btn btn-primary" style="margin-top:15px; width:100%;">Upload & Import</button>
                         </div>
@@ -464,13 +470,20 @@
 
             // Show target
             const target = document.getElementById(`tab-${tabName}`);
-            if (target) target.classList.add('active');
+            if (target) {
+                target.classList.add('active');
+            } else {
+                console.warn(`Tab ${tabName} not found`);
+                return;
+            }
 
             const tabBtn = document.querySelector(`.main-tab[data-target="${tabName}"]`);
             if (tabBtn) tabBtn.classList.add('active');
 
             // Trigger specific refreshes if needed
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
+            if (tabName === 'import' && window.uploader) window.uploader.open();
+            if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
         }
 
         // Global Shortcut Handler

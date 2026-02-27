@@ -48,7 +48,8 @@ async def get_log_history(
     if start_date:
         query = query.filter(SystemLog.timestamp >= start_date)
     if end_date:
-        query = query.filter(SystemLog.timestamp <= end_date)
+        # Include the whole end day
+        query = query.filter(SystemLog.timestamp <= f"{end_date} 23:59:59")
 
     logs = query.limit(limit).all()
 
