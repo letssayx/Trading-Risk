@@ -13,7 +13,7 @@ window.openImportTab = (tabName) => {
 
 class NSEImporter {
     constructor() {
-        this.modal = document.getElementById('bhavcopy-upload-modal');
+        this.modal = document.getElementById('import-view-container');
         this.progressBar = document.getElementById('progress-bar');
         this.progressText = document.getElementById('progress-text');
         this.progressArea = document.getElementById('import-progress-area');
