@@ -515,7 +515,8 @@
 
         // --- History Logic (Ported from data_viewer.html) ---
         let currentHistoryData = [];
-        let sortDirection = 1; // 1 asc, -1 desc
+        let currentSortColumn = null;
+        let currentSortOrder = 'asc'; // 'asc' or 'desc'
 
         function updateHistoryControls() {
             const type = document.getElementById('data-type').value;
@@ -528,6 +529,9 @@
             }
             // Clear table on type change
             clearHistoryTable();
+            // Reset sorting
+            currentSortColumn = null;
+            currentSortOrder = 'asc';
         }
 
         function clearHistoryTable() {
@@ -538,11 +542,17 @@
             currentHistoryData = [];
         }
 
-        async function loadHistoryData() {
+        async function loadHistoryData(sortBy = null, sortOrder = 'asc') {
             const type = document.getElementById('data-type').value;
             const symbol = document.getElementById('symbol-input').value.trim();
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
+
+            // Use current sort state if not explicitly passed
+            if (!sortBy && currentSortColumn) {
+                sortBy = currentSortColumn;
+                sortOrder = currentSortOrder;
+            }
 
             // Clear previous data immediately
             clearHistoryTable();
@@ -560,10 +570,17 @@
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
 
+                // Add Server-Side Sorting Params
+                if (sortBy) {
+                    url += `&sort_by=${sortBy}&sort_order=${sortOrder}`;
+                    currentSortColumn = sortBy;
+                    currentSortOrder = sortOrder;
+                }
+
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(await res.text());
                 const data = await res.json();
-                currentHistoryData = data; // Store for sorting
+                currentHistoryData = data; // Store
 
                 if (data.length > 0 && Object.keys(data[0]).length === 0) {
                     throw new Error("Received rows but with no columns. Data structure error.");
@@ -599,8 +616,16 @@
             const trHead = document.createElement('tr');
             keys.forEach((key, index) => {
                 const th = document.createElement('th');
-                th.innerText = key.replace(/_/g, ' ').toUpperCase();
-                th.onclick = () => sortHistoryTable(key); // Sort on click
+
+                // Sort Indicator
+                let label = key.replace(/_/g, ' ').toUpperCase();
+                if (key === currentSortColumn) {
+                    label += (currentSortOrder === 'asc' ? ' ▲' : ' ▼');
+                    th.style.color = '#fff'; // Highlight active sort column
+                }
+
+                th.innerText = label;
+                th.onclick = () => sortHistoryTable(key); // Trigger Server-Side Sort
                 trHead.appendChild(th);
             });
             thead.appendChild(trHead);
@@ -635,16 +660,14 @@
         }
 
         function sortHistoryTable(key) {
-            sortDirection *= -1;
-            currentHistoryData.sort((a, b) => {
-                let valA = a[key] || '';
-                let valB = b[key] || '';
-                if (typeof valA === 'number' && typeof valB === 'number') {
-                    return (valA - valB) * sortDirection;
-                }
-                return String(valA).localeCompare(String(valB)) * sortDirection;
-            });
-            renderHistoryTable(currentHistoryData);
+            // Toggle order if clicking same column, else default to asc
+            let order = 'asc';
+            if (key === currentSortColumn) {
+                order = (currentSortOrder === 'asc') ? 'desc' : 'asc';
+            }
+
+            // Reload data with new sort params
+            loadHistoryData(key, order);
         }
 
         async function exportHistoryData() {
