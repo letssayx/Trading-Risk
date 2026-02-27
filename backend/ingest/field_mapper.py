@@ -461,33 +461,54 @@ class FieldMapper:
     def _map_mwpl(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
 
-        # Handle raw DF where headers are not yet set
+        # Handle raw DF where headers are not yet set (header=None produces integer columns)
+        # Check if 'Client 1' is NOT in columns (meaning columns are likely ints)
         if 'Client 1' not in df.columns:
-             # Try to find header row
-             for i, row in df.iterrows():
-                 # Check if this row looks like a header
-                 row_vals = [str(x) for x in row.values if pd.notna(x)]
+             # Try to find header row by scanning first few rows
+             header_row_idx = None
+             for i in range(min(10, len(df))):
+                 # Convert row to string values for checking
+                 row_vals = [str(x).strip() for x in df.iloc[i].values if pd.notna(x)]
                  if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
-                     # Found headers at index i
-                     headers = row
-                     df = df.iloc[i+1:].copy()
-                     df.columns = headers
+                     header_row_idx = i
                      break
+
+             if header_row_idx is not None:
+                 # Set the header
+                 # Force headers to be strings and strip them immediately
+                 headers = [str(x).strip() for x in df.iloc[header_row_idx].values]
+                 # Slice data after header
+                 df = df.iloc[header_row_idx + 1:].copy()
+                 # Assign new columns
+                 df.columns = headers
+                 # Reset index to ensure clean iteration if needed, though iterrows handles it
+                 df.reset_index(drop=True, inplace=True)
+             else:
+                 # Fallback: if we can't find header, maybe it's already correct?
+                 # But if 'Client 1' wasn't in columns, and we didn't find it, we likely can't map.
+                 logger.warning("MWPL Mapping: Could not locate header row containing 'Underlying Stock' and 'Client 1'")
+                 return []
+
+        # Normalize columns (strip whitespace) to ensure 'Client 1' lookup works
+        df.columns = [str(c).strip() for c in df.columns]
 
         for _, row in df.iterrows():
             underlying = str(row.get('Underlying Stock', '')).strip()
-            if not underlying or underlying == 'nan':
+            if not underlying or underlying == 'nan' or underlying == 'None':
                 continue
 
             for i in range(1, 16):
                 client_col = f'Client {i}'
-                if client_col in row and pd.notna(row[client_col]):
-                    records.append({
-                        'date': trade_date,
-                        'underlying_stock': underlying,
-                        'client_position_num': i,
-                        'position_pct': cls._clean_numeric(row[client_col]),
-                    })
+                # Check if column exists and value is not NA
+                if client_col in df.columns:
+                    val = row[client_col]
+                    if pd.notna(val):
+                        records.append({
+                            'date': trade_date,
+                            'underlying_stock': underlying,
+                            'client_position_num': i,
+                            'position_pct': cls._clean_numeric(val),
+                        })
         return records
 
     @classmethod

@@ -212,10 +212,11 @@ class NSELib:
             try:
                 # Use header=None to let FieldMapper find the correct header row
                 # This handles cases where the title row count varies
-                df = pd.read_excel(io.BytesIO(resp.content), header=None)
+                # Note: xlrd engine is required for .xls files
+                df = pd.read_excel(io.BytesIO(resp.content), header=None, engine='xlrd')
                 return df
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"MWPL parse error: {e}")
         return pd.DataFrame()
 
     def get_security_master(self, trade_date: date) -> pd.DataFrame:
