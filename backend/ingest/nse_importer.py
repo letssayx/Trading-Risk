@@ -16,7 +16,7 @@ from backend.models.audit import SystemLog
 from backend.ingest.timescale import setup_all_timescale_policies
 from backend.ingest.date_utils import NSEHolidayCalendar
 from backend.ingest.field_mapper import FieldMapper
-from backend.nselib import NSELibClient # NEW CLIENT
+from backend.ingest.nse_lib import NSELib # Use hardened internal library
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class NSEDataImporter:
     """Main importer: downloads → parses → inserts to TimescaleDB."""
 
     def __init__(self, db_session: Session | None = None):
-        self.lib = NSELibClient()
+        self.lib = NSELib()
         self.holidays = NSEHolidayCalendar()
         self._db_session = db_session
 
