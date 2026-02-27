@@ -470,6 +470,12 @@
             clearHistoryTable();
             document.getElementById('history-status-msg').innerText = "Loading...";
 
+            const tbody = document.getElementById('history-body');
+            tbody.innerHTML = '<tr><td colspan="100" style="text-align:center; color:#888;">Loading data...</td></tr>';
+
+            const btn = document.querySelector('button[onclick="loadHistoryData()"]');
+            if(btn) { btn.disabled = true; btn.innerText = "Loading..."; }
+
             try {
                 let url = `/api/data/view/list?type=${type}&limit=500`; // Removed timestamp for speed, browser cache is usually fine with varying params
                 if (symbol) url += `&symbol=${symbol}`;
@@ -492,6 +498,10 @@
             } catch (e) {
                 console.error("Load History Error:", e);
                 document.getElementById('history-status-msg').innerText = "Error: " + e.message;
+                const tbody = document.getElementById('history-body');
+                tbody.innerHTML = `<tr><td colspan="100" style="text-align:center; color:red;">Error loading data: ${e.message}</td></tr>`;
+            } finally {
+                if(btn) { btn.disabled = false; btn.innerText = "Load Data"; }
             }
         }
 

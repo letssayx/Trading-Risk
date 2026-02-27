@@ -306,9 +306,10 @@ async def export_data(
     query = db.query(model)
 
     # Re-use filtering logic (copied from list_data for now to keep independent)
+    filters = []
     if symbol:
         symbol = symbol.upper().strip()
-        filters = []
+
         if hasattr(model, 'symbol'): filters.append(model.symbol == symbol)
         if hasattr(model, 'ticker_symb'): filters.append(model.ticker_symb == symbol)
         if hasattr(model, 'underlying_stock'): filters.append(model.underlying_stock == symbol)
@@ -343,24 +344,49 @@ async def export_data(
         query = query.order_by(desc(model.updated_at))
 
     # Fetch all matching records (or limit to reasonable export size e.g. 50k)
-    results = query.limit(50000).all()
+    try:
+        results = query.limit(50000).all()
+        # Process results with potential instrument_type fix
+        data = process_results(results, model)
 
-    if not results:
+    except (ProgrammingError, OperationalError) as e:
+        # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
+        err_msg = str(e)
+        logger.error(f"Export Database Error for {type}: {err_msg}")
+
+        # Explicit rollback
+        db.rollback()
+
+        # Robust Fallback for known missing column issues
+        if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
+            logger.warning(f"Retrying export for {type} without 'instrument_type' column")
+            try:
+                # Re-build query since the previous transaction is dead
+                query = db.query(model)
+                if filters:
+                    if len(filters) > 1: query = query.filter(or_(*filters))
+                    else: query = query.filter(filters[0])
+
+                if date_col:
+                    if start_date: query = query.filter(date_col >= start_date)
+                    if end_date: query = query.filter(date_col <= end_date)
+
+                if hasattr(model, 'updated_at') and not date_col:
+                    query = query.order_by(desc(model.updated_at))
+                elif date_col:
+                    query = query.order_by(*order_clauses)
+
+                query = query.options(defer(model.instrument_type))
+                results = query.limit(50000).all()
+                data = process_results(results, model, skip_instrument_type=True)
+            except Exception as retry_exc:
+                logger.error(f"Export retry failed: {retry_exc}")
+                raise HTTPException(status_code=500, detail=f"Database error during export: {str(e)}")
+        else:
+             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    if not data:
         raise HTTPException(status_code=404, detail="No data found for export")
-
-    # Convert to list of dicts for DataFrame
-    data = []
-    for row in results:
-        row_dict = {}
-        for col in row.__table__.columns:
-            val = getattr(row, col.name)
-            # Format dates for CSV
-            if isinstance(val, (datetime, pd.Timestamp)):
-                val = val.isoformat()
-            elif hasattr(val, 'isoformat'):
-                val = val.isoformat()
-            row_dict[col.name] = val
-        data.append(row_dict)
 
     df = pd.DataFrame(data)
 
