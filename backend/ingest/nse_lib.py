@@ -210,12 +210,13 @@ class NSELib:
         resp = self.get(url)
         if resp.status_code == 200:
             try:
-                # Header is often in row 2 (index 1)
-                df = pd.read_excel(io.BytesIO(resp.content), header=1)
-                df.columns = [str(c).strip() for c in df.columns]
+                # Read without header to handle variable header rows
+                df = pd.read_excel(io.BytesIO(resp.content), header=None)
                 return df
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"MWPL parse error for {date_str}: {e}")
+                # Log response content snippet if possible to debug
+                logger.debug(f"MWPL response content type: {resp.headers.get('Content-Type')}")
         return pd.DataFrame()
 
     def get_security_master(self, trade_date: date) -> pd.DataFrame:

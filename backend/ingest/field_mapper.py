@@ -106,6 +106,13 @@ class FieldMapper:
         if 'Underlying Stock' in columns and 'Client 1' in columns:
             return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
+        # MWPL Header Search (Scan first few rows for headers)
+        # This handles cases where header=None was used and the real header is in row 0, 1, or 2
+        for i in range(min(5, len(df))):
+            row_vals = [str(x).strip() for x in df.iloc[i].values if pd.notna(x)]
+            if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
+                return {'type': 'mwpl', 'name': 'mwpl_client_position'}
+
         # MWPL Raw check (if headers are in row 2)
         if len(df.columns) > 0 and "MWPL" in str(df.columns[0]):
              return {'type': 'mwpl', 'name': 'mwpl_client_position'}
@@ -454,33 +461,47 @@ class FieldMapper:
     def _map_mwpl(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
 
-        # Handle raw DF where headers are not yet set
+        # Handle raw DF where headers are not yet set or misaligned
         if 'Client 1' not in df.columns:
-             # Try to find header row
-             for i, row in df.iterrows():
-                 # Check if this row looks like a header
-                 row_vals = [str(x) for x in row.values if pd.notna(x)]
+             # Try to find header row in the first few rows
+             header_row_idx = None
+             for i in range(min(5, len(df))):
+                 row_vals = [str(x).strip() for x in df.iloc[i].values if pd.notna(x)]
                  if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
-                     # Found headers at index i
-                     headers = row
-                     df = df.iloc[i+1:].copy()
-                     df.columns = headers
+                     header_row_idx = i
                      break
+
+             if header_row_idx is not None:
+                 # Found headers at index i
+                 # Set the columns from that row
+                 headers = [str(c).strip() for c in df.iloc[header_row_idx].values]
+
+                 # Slice the dataframe to get data after header
+                 df = df.iloc[header_row_idx+1:].copy()
+                 df.columns = headers
 
         for _, row in df.iterrows():
             underlying = str(row.get('Underlying Stock', '')).strip()
-            if not underlying or underlying == 'nan':
+            # Skip invalid rows (empty underlying or header repetitions)
+            if not underlying or underlying == 'nan' or underlying == 'Underlying Stock':
+                continue
+
+            # Additional check: Skip rows that are clearly not data (e.g. page numbers, etc)
+            if underlying.startswith('Position as percentage'):
                 continue
 
             for i in range(1, 16):
                 client_col = f'Client {i}'
+                # Robust check for column existence and non-null value
                 if client_col in row and pd.notna(row[client_col]):
-                    records.append({
-                        'date': trade_date,
-                        'underlying_stock': underlying,
-                        'client_position_num': i,
-                        'position_pct': cls._clean_numeric(row[client_col]),
-                    })
+                    val = cls._clean_numeric(row[client_col])
+                    if val is not None:
+                        records.append({
+                            'date': trade_date,
+                            'underlying_stock': underlying,
+                            'client_position_num': i,
+                            'position_pct': val,
+                        })
         return records
 
     @classmethod
