@@ -65,12 +65,11 @@ async def list_data(
     query = db.query(model)
 
     # Apply Symbol/Search Filter (if applicable)
+    filters = []
     if symbol:
         symbol = symbol.upper().strip()
 
         # Comprehensive Filtering Logic
-        filters = []
-
         # 1. Standard Symbol (Equity, Deals, P/E, VaR, Delta, Margin)
         if hasattr(model, 'symbol'):
             filters.append(model.symbol == symbol)
@@ -162,11 +161,27 @@ async def list_data(
         err_msg = str(e)
         logger.error(f"Database Error for {type}: {err_msg}")
 
+        # Explicit rollback required for Postgres transaction errors
+        db.rollback()
+
         # Robust Fallback for known missing column issues
         if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
             logger.warning(f"Retrying query for {type} without 'instrument_type' column")
             try:
                 # Retry query deferring the missing column
+                # Re-build query since the previous transaction is dead
+                query = db.query(model)
+                if filters:
+                    if len(filters) > 1: query = query.filter(or_(*filters))
+                    else: query = query.filter(filters[0])
+
+                if date_col:
+                    if start_date: query = query.filter(date_col >= start_date)
+                    if end_date: query = query.filter(date_col <= end_date)
+
+                if order_clauses:
+                    query = query.order_by(*order_clauses)
+
                 query = query.options(defer(model.instrument_type))
                 results = query.limit(limit).all()
                 return process_results(results, model, skip_instrument_type=True)
