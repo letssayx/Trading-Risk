@@ -361,7 +361,6 @@ class NSEImporter {
                         // Create badges for each status
                         const badges = items.map(item => {
                             let color = '#d4d4d4';
-                            let timeBar = ''; // Placeholder for time bar if we wanted individual item bars
 
                             if (item.status === 'SUCCESS') color = '#4caf50';
                             else if (item.status === 'FAILED' || item.status === 'ERROR') color = '#f44336';
@@ -394,13 +393,34 @@ class NSEImporter {
                         const fmtDate = lastDataDate ? lastDataDate : '-';
                         const fmtTime = lastDownloadTime ? new Date(lastDownloadTime).toLocaleString() : '-';
 
-                        // Create Time Bar (Visual indicator of recency? Or just display the time clearly?)
-                        // User requested: "show the time bar against the respective list in table name in the status summary"
-                        // and "show the downloaded time and date for each imports and which date data was pulled."
+                        // Show time bar for visual recency indicator
+                        let timeBar = '';
+                        if (lastDownloadTime) {
+                            const now = new Date();
+                            const dlTime = new Date(lastDownloadTime);
+                            const diffHours = (now - dlTime) / (1000 * 60 * 60);
+                            let barColor = '#4caf50';
+                            let barWidth = '100%';
+
+                            // Decay bar based on age (e.g. 24h)
+                            if (diffHours < 24) {
+                                barWidth = `${Math.max(10, 100 - (diffHours * 4))}%`;
+                            } else {
+                                barWidth = '10%';
+                                barColor = '#888';
+                            }
+                            timeBar = `<div style="width:100%; height:4px; background:#333; margin-top:4px; border-radius:2px;">
+                                <div style="width:${barWidth}; height:100%; background:${barColor}; border-radius:2px;"></div>
+                            </div>`;
+                        }
+
 
                         html += `
                             <tr>
-                                <td style="color:#00bcd4; font-weight:500;">${table}</td>
+                                <td style="color:#00bcd4; font-weight:500;">
+                                    ${table}
+                                    ${timeBar}
+                                </td>
                                 <td>${badges}</td>
                                 <td>${fmtDate}</td>
                                 <td style="font-size:0.85em; color:#aaa;">${fmtTime}</td>
