@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from backend.ingest import nse_models as models # Ensure models are imported so tables exist
 from backend.config.defaults.nse import TIMESCALE_RETENTION, TIMESCALE_COMPRESSION_AFTER_DAYS
 
 logger = logging.getLogger(__name__)
@@ -29,12 +30,11 @@ HYPERTABLES = list(TABLE_CONFIG.keys())
 def ensure_hypertable(db: Session, table_name: str) -> bool:
     """Create hypertable if not exists (idempotent)."""
     try:
-        config = TABLE_CONFIG.get(table_name)
-        if not config:
+        if table_name not in TABLE_CONFIG:
             logger.error(f"No config for table {table_name}")
             return False
 
-        time_column, _ = config
+        time_column, _ = TABLE_CONFIG[table_name]
 
         db.execute(text(f"""
             SELECT create_hypertable('{table_name}', '{time_column}',
@@ -42,7 +42,7 @@ def ensure_hypertable(db: Session, table_name: str) -> bool:
                 chunk_time_interval => INTERVAL '7 days')
         """))
         db.commit()
-        logger.info(f"✓ Hypertable ensured: {table_name}")
+        # logger.info(f"✓ Hypertable ensured: {table_name}")
         return True
     except Exception as e:
         logger.error(f"Failed to create hypertable {table_name}: {e}")
@@ -51,22 +51,26 @@ def ensure_hypertable(db: Session, table_name: str) -> bool:
 
 
 def set_compression_policy(db: Session, table_name: str, after_days: int | None = None) -> bool:
-    """Enable compression for hypertable."""
+    """
+    Enable compression for hypertable.
+    Fix: Do NOT include segment_column in order_by if it is already in segment_by.
+    """
     after_days = after_days or TIMESCALE_COMPRESSION_AFTER_DAYS
     try:
-        config = TABLE_CONFIG.get(table_name)
-        if not config:
+        if table_name not in TABLE_CONFIG:
             return False
 
-        time_column, segment_column = config
+        time_column, segment_column = TABLE_CONFIG[table_name]
 
-        # Build compression settings
+        # Compression Settings
+        # segmentby: Columns to group by (e.g., symbol)
+        # orderby: Columns to sort by WITHIN the segment (e.g., time DESC)
+        # CRITICAL: A column cannot be in both segmentby and orderby.
+
         segment_by_clause = f", timescaledb.compress_segmentby = '{segment_column}'" if segment_column else ""
 
-        # Order by time desc, then segment (common pattern)
+        # Only order by time. Segment column is handled by segmentby.
         order_by_clause = f"timescaledb.compress_orderby = '{time_column} DESC'"
-        if segment_column:
-             order_by_clause = f"timescaledb.compress_orderby = '{time_column} DESC, {segment_column}'"
 
         db.execute(text(f"""
             ALTER TABLE {table_name} SET (
@@ -80,9 +84,14 @@ def set_compression_policy(db: Session, table_name: str, after_days: int | None 
             SELECT add_compression_policy('{table_name}', INTERVAL '{after_days} days', if_not_exists => TRUE)
         """))
         db.commit()
-        logger.info(f"✓ Compression policy set: {table_name}")
+        # logger.info(f"✓ Compression policy set: {table_name}")
         return True
     except Exception as e:
+        # Check if error is "already enabled" or similar benign error
+        err_str = str(e).lower()
+        if "already enabled" in err_str:
+            return True
+
         logger.error(f"Failed to set compression for {table_name}: {e}")
         db.rollback()
         return False
@@ -100,7 +109,7 @@ def set_retention_policy(db: Session, table_name: str, keep_days: int | None = N
             SELECT add_retention_policy('{table_name}', INTERVAL '{keep_days} days', if_not_exists => TRUE)
         """))
         db.commit()
-        logger.info(f"✓ Retention policy set: {table_name} ({keep_days} days)")
+        # logger.info(f"✓ Retention policy set: {table_name} ({keep_days} days)")
         return True
     except Exception as e:
         logger.error(f"Failed to set retention for {table_name}: {e}")
@@ -111,6 +120,9 @@ def set_retention_policy(db: Session, table_name: str, keep_days: int | None = N
 def create_continuous_aggregates(db: Session) -> bool:
     """Create continuous aggregates for F&O OI."""
     try:
+        # Check if table exists first to avoid error spam?
+        # Assuming it exists if ensure_hypertable passed.
+
         db.execute(text("""
             CREATE MATERIALIZED VIEW IF NOT EXISTS fno_daily_oi_summary
             WITH (timescaledb.continuous) AS
