@@ -97,22 +97,46 @@
             height: calc(100% - 45px); /* Adjust based on controls height */
             overflow: auto;
             position: relative;
+            background: #1e1e1e;
         }
-        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85em; white-space: nowrap; }
-        .data-table th, .data-table td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+        /* Excel-like Grid */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 13px;
+            white-space: nowrap;
+            color: #d4d4d4;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #3e3e42;
+            padding: 4px 8px;
+            text-align: left;
+        }
         .data-table th {
-            background: #2d2d2d;
+            background: #252526;
             position: sticky;
             top: 0;
             z-index: 10;
-            font-weight: 600;
-            color: #ddd;
-            cursor: pointer; /* Sortable */
+            font-weight: normal;
+            color: #cccccc;
+            border-bottom: 2px solid #007acc;
+            cursor: pointer;
+            user-select: none;
         }
-        .data-table th:hover { background: #3e3e42; }
-        .data-table tr:nth-child(even) { background: #252526; }
-        .data-table tr:hover { background: #37373d; }
-        .data-table td { color: #ddd; } /* Force text color */
+        .data-table th:hover { background: #2d2d30; color: #fff; }
+        .data-table tr { background: #1e1e1e; }
+        .data-table tr:nth-child(even) { background: #1e1e1e; } /* No stripe for clean excel look, or maybe subtle */
+        .data-table tr:hover { background: #2a2d2e; } /* Row selection feel */
+        .data-table td { border-right: 1px solid #333; border-bottom: 1px solid #333; }
+
+        /* Loading/Empty State */
+        .data-table tr.message-row td {
+            padding: 40px;
+            font-size: 1.1em;
+            color: #888;
+            border: none;
+        }
         .history-status-bar {
             padding: 5px 15px;
             background: #007acc;
@@ -146,11 +170,11 @@
 
     <!-- Main Tab Bar -->
     <div class="main-tabs-bar">
-        <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')">Terminal</div>
-        <div class="main-tab" data-target="history" onclick="switchMainTab('history')">Historical Data</div>
-        <div class="main-tab" data-target="import" onclick="switchMainTab('import')">Import Data</div>
-        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')">Audit Trail</div>
-        <div class="main-tab" data-target="config" onclick="switchMainTab('config')">Config</div>
+        <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T"><u>T</u>erminal</div>
+        <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
+        <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
+        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+A"><u>A</u>udit Trail</div>
+        <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
     </div>
 
     <!-- Tab Content Container -->
@@ -419,6 +443,8 @@
 
     <script>
         // --- Main Tab Logic ---
+        const MAIN_TABS_ORDER = ['terminal', 'history', 'import', 'audit', 'config'];
+
         function switchMainTab(tabName) {
             // Hide all tabs
             document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
@@ -434,6 +460,46 @@
             // Trigger specific refreshes if needed
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
         }
+
+        // Global Shortcut Handler
+        document.addEventListener('keydown', (e) => {
+            // Avoid shortcuts when typing in inputs (except special keys if needed)
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            // Alt+Key for Tab Switching
+            if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+                const key = e.key.toLowerCase();
+                const map = {
+                    't': 'terminal',
+                    'h': 'history',
+                    'i': 'import',
+                    'a': 'audit',
+                    'c': 'config'
+                };
+                if (map[key]) {
+                    e.preventDefault();
+                    switchMainTab(map[key]);
+                }
+            }
+
+            // Ctrl+PageUp/Down for Cycling Tabs (Excel-like)
+            if (e.ctrlKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+                e.preventDefault();
+                const currentTab = document.querySelector('.main-tab.active');
+                if (currentTab) {
+                    const currentId = currentTab.dataset.target;
+                    let idx = MAIN_TABS_ORDER.indexOf(currentId);
+                    if (idx !== -1) {
+                        if (e.key === 'PageDown') {
+                            idx = (idx + 1) % MAIN_TABS_ORDER.length;
+                        } else {
+                            idx = (idx - 1 + MAIN_TABS_ORDER.length) % MAIN_TABS_ORDER.length;
+                        }
+                        switchMainTab(MAIN_TABS_ORDER[idx]);
+                    }
+                }
+            }
+        });
 
         // --- History Logic (Ported from data_viewer.html) ---
         let currentHistoryData = [];
