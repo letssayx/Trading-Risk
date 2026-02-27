@@ -15,6 +15,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 import pandas as pd
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -112,10 +113,6 @@ async def list_data(
 
     # Apply Date Filter
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
-    # Security Master uses 'listed_date' or 'updated_at' but likely user wants to browse master list regardless of date
-    # If no date col (e.g. Security Master main view), skip date filter unless explicitly requested?
-    # Security Master HAS listed_date but maybe updated_at is better for sorting?
-    # Let's stick to trade_date/date for time-series.
 
     if date_col:
         if start_date:
@@ -154,32 +151,34 @@ async def list_data(
 
     try:
         results = query.limit(limit).all()
-        logger.info(f"Query returned {len(results)} rows for {type}")
+
+        if not results and (start_date or end_date):
+             # Debugging: If no results with date filter, check total count for diagnostics
+             total_count = db.query(model).count()
+             logger.warning(f"Query returned 0 rows for {type} with date filter. Total rows in table: {total_count}")
+        else:
+             logger.info(f"Query returned {len(results)} rows for {type}")
+
         return process_results(results, model)
 
     except (ProgrammingError, OperationalError) as e:
         # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
         err_msg = str(e)
-        logger.error(f"Database Error for {type}: {err_msg}")
-
-        # Explicit rollback required for Postgres transaction errors
+        logger.error(f"Database Error for {type}: {err_msg}\n{traceback.format_exc()}")
         db.rollback()
 
         # Robust Fallback for known missing column issues
         if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
             logger.warning(f"Retrying query for {type} without 'instrument_type' column")
             try:
-                # Retry query deferring the missing column
-                # Re-build query since the previous transaction is dead
+                # Retry logic similar to above...
                 query = db.query(model)
                 if filters:
                     if len(filters) > 1: query = query.filter(or_(*filters))
                     else: query = query.filter(filters[0])
-
                 if date_col:
                     if start_date: query = query.filter(date_col >= start_date)
                     if end_date: query = query.filter(date_col <= end_date)
-
                 if order_clauses:
                     query = query.order_by(*order_clauses)
 
@@ -191,6 +190,12 @@ async def list_data(
                 raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    except Exception as e:
+        # Catch unexpected errors
+        logger.error(f"Unexpected error listing data for {type}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
 
 def process_results(results, model, skip_instrument_type=False):
     """Serialize and normalize results."""
