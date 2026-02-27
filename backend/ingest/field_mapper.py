@@ -110,6 +110,13 @@ class FieldMapper:
         if len(df.columns) > 0 and "MWPL" in str(df.columns[0]):
              return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
+        # MWPL Deep Scan (for header=None)
+        # Scan first 5 rows for "Underlying Stock" and "Client 1"
+        for i in range(min(5, len(df))):
+            row_vals = [str(x).strip() for x in df.iloc[i].values if pd.notna(x)]
+            if 'Underlying Stock' in row_vals and 'Client 1' in row_vals:
+                return {'type': 'mwpl', 'name': 'mwpl_client_position'}
+
         # P/E Ratio
         if 'SYMBOL' in columns and 'SYMBOL P/E' in columns:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
