@@ -4,6 +4,7 @@ import pandas as pd
 import io
 import zipfile
 import logging
+import os
 from datetime import date
 from typing import Optional, Dict, Any
 
@@ -13,6 +14,7 @@ class NSELib:
     """
     A robust adapter for fetching NSE data, modeled after the 'nselib' library.
     Handles session management, headers, and specific URL patterns/parsing for each report type.
+    Includes fallback to local file reading if network requests fail.
     """
 
     BASE_URL = "https://www.nseindia.com"
@@ -30,6 +32,8 @@ class NSELib:
         "Sec-Fetch-Mode": "navigate",
         "Accept-Language": "en-US,en;q=0.9,hi;q=0.8"
     }
+
+    DOWNLOAD_DIR = "backend/downloads" # Directory to check for local files
 
     def __init__(self):
         self.session = requests.Session()
@@ -77,6 +81,47 @@ class NSELib:
             resp = self.session.get(url, timeout=30)
 
         return resp
+
+    def _read_local_file(self, filename: str) -> Optional[bytes]:
+        """Attempt to read file from local DOWNLOAD_DIR."""
+        filepath = os.path.join(os.getcwd(), self.DOWNLOAD_DIR, filename)
+        if os.path.exists(filepath):
+            logger.info(f"Found local file: {filepath}")
+            try:
+                with open(filepath, 'rb') as f:
+                    return f.read()
+            except Exception as e:
+                logger.error(f"Failed to read local file {filepath}: {e}")
+        return None
+
+    def _read_excel_robust(self, content: bytes, header_val=None) -> pd.DataFrame:
+        """
+        Attempt to read Excel content using multiple engines/strategies.
+        Prioritizes auto-detection, then xlrd (for xls), then openpyxl (for xlsx).
+        """
+        bio = io.BytesIO(content)
+
+        # Strategy 1: Default (Auto-detect)
+        try:
+            bio.seek(0)
+            return pd.read_excel(bio, header=header_val)
+        except Exception as e1:
+            logger.warning(f"Excel read (auto) failed: {e1}. Retrying with engines...")
+
+        # Strategy 2: xlrd (Explicit for legacy .xls)
+        try:
+            bio.seek(0)
+            return pd.read_excel(bio, header=header_val, engine='xlrd')
+        except Exception as e2:
+            logger.warning(f"Excel read (xlrd) failed: {e2}")
+
+        # Strategy 3: openpyxl (Explicit for .xlsx)
+        try:
+            bio.seek(0)
+            return pd.read_excel(bio, header=header_val, engine='openpyxl')
+        except Exception as e3:
+            logger.error(f"Excel read (openpyxl) failed: {e3}")
+            raise ValueError(f"Failed to parse Excel file with any engine. Last error: {e3}")
 
     def get_bhavcopy_eq(self, trade_date: date) -> pd.DataFrame:
         """Get CM Bhavcopy (Equity) - Uses sec_bhavdata_full for delivery info."""
@@ -156,7 +201,7 @@ class NSELib:
         resp = self.get(url)
         if resp.status_code == 200:
             try:
-                df = pd.read_excel(io.BytesIO(resp.content))
+                df = self._read_excel_robust(resp.content)
                 return df
             except Exception as e:
                 logger.error(f"FII Stats parse error: {e}")
@@ -205,18 +250,29 @@ class NSELib:
     def get_mwpl(self, trade_date: date) -> pd.DataFrame:
         """Get MWPL Data (Excel)."""
         date_str = trade_date.strftime("%d%m%Y")
-        url = f"{self.ARCHIVES_URL}/archives/equities/mto/mwpl_cli_{date_str}.xls"
+        filename = f"mwpl_cli_{date_str}.xls"
+        url = f"{self.ARCHIVES_URL}/archives/equities/mto/{filename}"
 
-        resp = self.get(url)
-        if resp.status_code == 200:
+        # 1. Try local file first (for manual fallback)
+        content = self._read_local_file(filename)
+
+        # 2. Try network if local missing
+        if not content:
+            resp = self.get(url)
+            if resp.status_code == 200:
+                content = resp.content
+            else:
+                # Try .xlsx extension? Rare but possible
+                pass
+
+        if content:
             try:
                 # Use header=None to let FieldMapper find the correct header row
-                # This handles cases where the title row count varies
-                # Note: xlrd engine is required for .xls files
-                df = pd.read_excel(io.BytesIO(resp.content), header=None, engine='xlrd')
+                df = self._read_excel_robust(content, header_val=None)
                 return df
             except Exception as e:
                 logger.error(f"MWPL parse error: {e}")
+
         return pd.DataFrame()
 
     def get_security_master(self, trade_date: date) -> pd.DataFrame:
