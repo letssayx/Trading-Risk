@@ -272,6 +272,7 @@
                         <option value="india_vix">India VIX</option>
                         <option value="margin_trading">Margin Trading</option>
                         <option value="security_master">Security Master</option>
+                        <option value="corporate_actions">Corporate Actions</option>
                     </select>
                 </div>
                 <div class="control-group" id="symbol-group">
@@ -285,6 +286,10 @@
                 <div class="control-group">
                     <label>To:</label>
                     <input type="date" id="end-date" class="history-input">
+                </div>
+                <div class="control-group" style="display:flex; align-items:center; gap: 5px;">
+                    <input type="checkbox" id="all-dates-check" onchange="toggleDateInputs(this)">
+                    <label for="all-dates-check" style="margin:0; font-size:12px;">All Dates</label>
                 </div>
                 <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
                 <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
@@ -737,18 +742,42 @@
         }
 
         // --- Audit Logic ---
+        function toggleDateInputs(checkbox) {
+            const startInput = document.getElementById('start-date');
+            const endInput = document.getElementById('end-date');
+            if (checkbox.checked) {
+                startInput.value = '';
+                endInput.value = '';
+                startInput.disabled = true;
+                endInput.disabled = true;
+            } else {
+                startInput.disabled = false;
+                endInput.disabled = false;
+            }
+        }
+
         async function deleteHistoryData() {
-            const dt = document.getElementById('data-type-select').value;
+            const dt = document.getElementById('data-type').value;
             const sym = document.getElementById('symbol-input').value.trim();
-            const start = document.getElementById('start-date').value;
-            const end = document.getElementById('end-date').value;
+            let start = document.getElementById('start-date').value;
+            let end = document.getElementById('end-date').value;
+            const isAllDates = document.getElementById('all-dates-check').checked;
+
+            if (isAllDates) {
+                start = '1900-01-01';
+                end = '2100-12-31';
+            }
 
             if (!start || !end) {
-                alert("Please select both 'From' and 'To' dates to delete data within a range.");
+                alert("Please select both 'From' and 'To' dates to delete data within a range (or check 'All Dates').");
                 return;
             }
 
-            if (!confirm(`Are you sure you want to DELETE all data for '${dt}' from ${start} to ${end}? This will also delete the import logs so you can re-import later. THIS CANNOT BE UNDONE.`)) {
+            const msg = isAllDates ?
+                `Are you sure you want to DELETE ALL DATA for '${dt}' across all dates? This will also delete the import logs so you can re-import later. THIS CANNOT BE UNDONE.` :
+                `Are you sure you want to DELETE all data for '${dt}' from ${start} to ${end}? This will also delete the import logs so you can re-import later. THIS CANNOT BE UNDONE.`;
+
+            if (!confirm(msg)) {
                 return;
             }
 

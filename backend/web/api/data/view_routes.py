@@ -42,6 +42,7 @@ def get_model_for_type(data_type: str):
         'margin_trading': models.MarginTrading,
         'security_master': models.SecurityMaster,
         'auctions': models.Auction, # Added auctions just in case
+        'corporate_actions': models.CorporateAction,
     }
     return mapping.get(data_type)
 
