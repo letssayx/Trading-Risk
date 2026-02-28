@@ -339,9 +339,9 @@ class NSELib:
         return pd.DataFrame()
 
     def get_pe_ratio(self, trade_date: date) -> pd.DataFrame:
-        """Get P/E Ratio Data (Indices)."""
+        """Get P/E Ratio Data (Equities)."""
         date_str = trade_date.strftime("%d%m%Y")
-        url = f"{self.ARCHIVES_URL}/content/indices/ind_close_all_{date_str}.csv"
+        url = f"{self.ARCHIVES_URL}/archives/equities/pe/pe_{date_str}.csv"
 
         resp = self.get(url)
         if resp.status_code == 200:

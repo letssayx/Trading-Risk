@@ -111,8 +111,9 @@ class FieldMapper:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
 
         # P/E Ratio (Index format)
-        if 'Index Name' in columns and 'P/E' in columns:
-            return {'type': 'pe_ratio_idx', 'name': 'pe_ratio'}
+        # Disable indexing to prevent string truncation issues and only allow stock P/E.
+        # if 'Index Name' in columns and 'P/E' in columns:
+        #     return {'type': 'pe_ratio_idx', 'name': 'pe_ratio'}
 
         # Security Master
         if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:

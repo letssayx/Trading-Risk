@@ -243,7 +243,7 @@ class PERatio(Base, TimescaleMixin):
 
     id = Column(Integer, autoincrement=True, nullable=False)
     date = Column(Date, nullable=False, index=True)
-    symbol = Column(String(50), nullable=False, index=True)
+    symbol = Column(String(150), nullable=False, index=True)
     symbol_pe = Column(Float)
     adjusted_pe = Column(Float)
 
