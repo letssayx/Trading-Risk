@@ -301,7 +301,7 @@ class NSELib:
         """Get MWPL Data (Excel)."""
         date_str = trade_date.strftime("%d%m%Y")
         base_filename = f"mwpl_cli_{date_str}"
-        url = f"{self.ARCHIVES_URL}/archives/equities/mto/{base_filename}.xls"
+        url = f"{self.ARCHIVES_URL}/content/nsccl/{base_filename}.xls"
 
         # 1. Try local file first (for manual fallback) - Check multiple extensions
         content = None
