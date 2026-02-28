@@ -465,7 +465,9 @@ class FieldMapper:
         header_row_idx = None
 
         # Check if 'Client 1' is NOT in columns (meaning columns are likely ints or messed up)
-        if 'Client 1' not in df.columns:
+        # Or if "Underlying Stock" isn't present
+        columns_str = [str(c).strip() for c in df.columns]
+        if not any("Client" in c and "1" in c for c in columns_str) or not any("Underlying Stock" in c for c in columns_str):
              # Scan first 20 rows to find header row
              for i in range(min(20, len(df))):
                  # Convert row to string values for checking
@@ -505,8 +507,11 @@ class FieldMapper:
 
         logger.info(f"MWPL Mapping: Identified {len(client_col_map)} client columns.")
 
+        # Get the actual 'Underlying Stock' column name since we stripped whitespace
+        underlying_col = next((c for c in df.columns if "Underlying Stock" in str(c)), 'Underlying Stock')
+
         for _, row in df.iterrows():
-            underlying = str(row.get('Underlying Stock', '')).strip()
+            underlying = str(row.get(underlying_col, '')).strip()
             if not underlying or underlying == 'nan' or underlying == 'None':
                 continue
 

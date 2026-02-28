@@ -108,7 +108,7 @@ class NSEDataImporter:
                 # Try reading as Excel first if it looks like Excel (magic numbers)
                 if content.startswith(b'\xd0\xcf\x11\xe0') or content.startswith(b'PK\x03\x04'):
                      return self.lib._read_excel_robust(content)
-            except:
+            except Exception:
                 pass
 
             # Fallback to CSV
