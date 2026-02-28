@@ -359,6 +359,8 @@ class NSEDataImporter:
 
         if not records:
             results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}
+            # Log as FAILED so it can be retried if the parse issue is fixed
+            self._log_import(db, trade_date, key, 'FAILED', 0, 0, '0 records mapped from parsed file')
             return
 
         model_class = self._get_model_class(key)
@@ -366,6 +368,7 @@ class NSEDataImporter:
 
         if not model_class:
             results[key] = {'status': 'CONFIG_ERROR'}
+            self._log_import(db, trade_date, key, 'FAILED', 0, 0, f'No DB model configured for {key}')
             return
 
         # INTRA-BATCH DEDUPLICATION
