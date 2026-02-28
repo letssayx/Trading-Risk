@@ -209,11 +209,13 @@ class NSEDataImporter:
             return df
 
     def _is_already_imported(self, db: Session, trade_date: date, key: str) -> bool:
-        """Check if a file type for a date is already successfully imported."""
+        """Check if a file type for a date is already successfully imported with data."""
+        from sqlalchemy import or_
         exists = db.query(models.ImportLog).filter(
             models.ImportLog.import_date == trade_date,
             models.ImportLog.table_name == key,
-            models.ImportLog.status == 'SUCCESS'
+            models.ImportLog.status == 'SUCCESS',
+            or_(models.ImportLog.rows_inserted > 0, models.ImportLog.rows_updated > 0)
         ).first()
         return exists is not None
 

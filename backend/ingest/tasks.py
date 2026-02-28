@@ -65,13 +65,15 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         # Pre-check database for completed dates to optimize range import
         # We can do this efficiently by querying the ImportLog table
         db = SessionLocal()
+        from sqlalchemy import or_
         try:
-             # Find all successful imports in range for requested tables
+             # Find all successful imports in range for requested tables that ACTUALLY have data
              completed_logs = db.query(ImportLog.import_date, ImportLog.table_name).filter(
                  ImportLog.import_date >= start_date,
                  ImportLog.import_date <= end_date,
                  ImportLog.table_name.in_(target_patterns),
-                 ImportLog.status == 'SUCCESS'
+                 ImportLog.status == 'SUCCESS',
+                 or_(ImportLog.rows_inserted > 0, ImportLog.rows_updated > 0)
              ).all()
 
              # Map date -> set of completed tables
