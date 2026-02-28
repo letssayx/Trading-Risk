@@ -332,8 +332,9 @@ class NSEDataImporter:
         df = self._fetch_data(key, trade_date)
 
         if df.empty:
-            results[key] = {'status': 'EMPTY', 'rows': 0}
-            completed_files.append(key)
+            results[key] = {'status': 'EMPTY_DOWNLOAD', 'rows': 0}
+            # Log as FAILED so it can be retried if the file becomes available
+            self._log_import(db, trade_date, key, 'FAILED', 0, 0, 'Downloaded file was empty or missing')
             return
 
         if key == 'mto':
