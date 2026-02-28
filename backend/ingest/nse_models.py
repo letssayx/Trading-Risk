@@ -39,6 +39,23 @@ class BhavcopyEQ(Base, TimescaleMixin):
     )
 
 
+class IndexPERatio(Base, TimescaleMixin):
+    """Index P/E Ratio"""
+    __tablename__ = "index_pe_ratio"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(150), nullable=False, index=True)
+    pe = Column(Float)
+    pb = Column(Float)
+    div_yield = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', 'symbol', name='uq_index_pe_ratio_unique'),
+    )
+
+
 class BhavcopyFO(Base, TimescaleMixin):
     """F&O Bhavcopy"""
     __tablename__ = "bhavcopy_fo"

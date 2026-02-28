@@ -111,9 +111,8 @@ class FieldMapper:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
 
         # P/E Ratio (Index format)
-        # Disable indexing to prevent string truncation issues and only allow stock P/E.
-        # if 'Index Name' in columns and 'P/E' in columns:
-        #     return {'type': 'pe_ratio_idx', 'name': 'pe_ratio'}
+        if 'Index Name' in columns and 'P/E' in columns:
+            return {'type': 'pe_ratio_idx', 'name': 'pe_ratio_idx'}
 
         # Security Master
         if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:
@@ -537,8 +536,9 @@ class FieldMapper:
                 record = {
                     'date': row_date or trade_date,
                     'symbol': str(row.get('Index Name', '')).strip(),
-                    'symbol_pe': cls._clean_numeric(row.get('P/E')),
-                    'adjusted_pe': None
+                    'pe': cls._clean_numeric(row.get('P/E')),
+                    'pb': cls._clean_numeric(row.get('P/B')),
+                    'div_yield': cls._clean_numeric(row.get('Div Yield'))
                 }
                 if record['symbol']:
                     records.append(record)

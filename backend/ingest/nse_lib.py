@@ -191,6 +191,16 @@ class NSELib:
             logger.error(f"P/E Ratio parse error: {e}")
             return pd.DataFrame()
 
+    def parse_pe_ratio_idx(self, content: bytes) -> pd.DataFrame:
+        """Parse Index P/E Ratio CSV content."""
+        try:
+            df = pd.read_csv(io.BytesIO(content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        except Exception as e:
+            logger.error(f"Index P/E Ratio parse error: {e}")
+            return pd.DataFrame()
+
     def parse_corporate_actions(self, content: bytes) -> pd.DataFrame:
         """Parse Corporate Actions CSV content."""
         try:
@@ -281,9 +291,7 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-            df.columns = [c.strip() for c in df.columns]
-            return df
+            return self.parse_pe_ratio(resp.content)
         return pd.DataFrame()
 
     def get_mto_delivery(self, trade_date: date) -> pd.DataFrame:
@@ -294,6 +302,17 @@ class NSELib:
         resp = self.get(url)
         if resp.status_code == 200:
             return self.parse_mto(resp.content)
+
+        return pd.DataFrame()
+
+    def get_pe_ratio_idx(self, trade_date: date) -> pd.DataFrame:
+        """Get P/E Ratio Data (Indices)."""
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{self.ARCHIVES_URL}/content/indices/ind_close_all_{date_str}.csv"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            return self.parse_pe_ratio_idx(resp.content)
 
         return pd.DataFrame()
 

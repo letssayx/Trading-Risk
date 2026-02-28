@@ -35,6 +35,7 @@ def get_model_for_type(data_type: str):
         'mto': models.MTODelivery,
         'mwpl': models.MWPLClientPosition,
         'pe_ratio': models.PERatio,
+        'pe_ratio_idx': models.IndexPERatio,
         'var_stats': models.VaRStat,
         'contract_delta': models.ContractDelta,
         'margin_trading': models.MarginTrading,
