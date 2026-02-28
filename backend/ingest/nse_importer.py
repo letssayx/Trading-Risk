@@ -53,6 +53,7 @@ class NSEDataImporter:
             'nse_security': models.SecurityMaster,
             'pe_ratio': models.PERatio,
             'pe_ratio_idx': models.IndexPERatio,
+            'india_vix': models.IndiaVIX,
             'var_stats': models.VaRStat,
             'contract_delta': models.ContractDelta,
             'margin_trading': models.MarginTrading,
@@ -75,6 +76,7 @@ class NSEDataImporter:
             'nse_security': ['fin_instrm_id'],
             'pe_ratio': ['date', 'symbol'],
             'pe_ratio_idx': ['date', 'symbol'],
+            'india_vix': ['date'],
             'var_stats': ['date', 'symbol', 'series', 'file_type'],
             'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
             'margin_trading': ['date', 'symbol'],
@@ -103,6 +105,8 @@ class NSEDataImporter:
                 return self.lib.parse_pe_ratio(content)
             elif key == 'pe_ratio_idx':
                 return self.lib.parse_pe_ratio_idx(content)
+            elif key == 'india_vix':
+                return self.lib.parse_india_vix(content)
             elif key == 'corporate_actions':
                 return self.lib.parse_corporate_actions(content)
 
@@ -151,6 +155,8 @@ class NSEDataImporter:
             return self.lib.get_pe_ratio(trade_date)
         elif key == 'pe_ratio_idx':
             return self.lib.get_pe_ratio_idx(trade_date)
+        elif key == 'india_vix':
+            return self.lib.get_india_vix(trade_date)
         elif key == 'nse_security':
             return self.lib.get_security_master(trade_date)
         elif key == 'var_stats':
@@ -252,7 +258,7 @@ class NSEDataImporter:
         available_keys = [
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
-            'pe_ratio', 'pe_ratio_idx', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions'
+            'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions'
         ]
 
         patterns_to_run = patterns or available_keys

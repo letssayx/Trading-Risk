@@ -269,6 +269,7 @@
                         <option value="mwpl">MWPL Position</option>
                         <option value="pe_ratio">P/E Ratio (Equities)</option>
                         <option value="pe_ratio_idx">P/E Ratio (Indices)</option>
+                        <option value="india_vix">India VIX</option>
                         <option value="margin_trading">Margin Trading</option>
                         <option value="security_master">Security Master</option>
                     </select>
@@ -287,6 +288,7 @@
                 </div>
                 <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
                 <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
+                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer; margin-left: 5px;">Delete Data</button>
             </div>
 
             <div class="table-wrapper">
@@ -331,6 +333,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mwpl_cli"> MWPL Position</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio"> P/E Ratio (Equities)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
@@ -357,6 +360,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="mwpl_cli"> MWPL Position</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio"> P/E Ratio (Equities)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
@@ -733,6 +737,49 @@
         }
 
         // --- Audit Logic ---
+        async function deleteHistoryData() {
+            const dt = document.getElementById('data-type-select').value;
+            const sym = document.getElementById('symbol-input').value.trim();
+            const start = document.getElementById('start-date').value;
+            const end = document.getElementById('end-date').value;
+
+            if (!start || !end) {
+                alert("Please select both 'From' and 'To' dates to delete data within a range.");
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to DELETE all data for '${dt}' from ${start} to ${end}? This will also delete the import logs so you can re-import later. THIS CANNOT BE UNDONE.`)) {
+                return;
+            }
+
+            const btn = document.querySelector('.btn-danger');
+            if(btn) { btn.disabled = true; btn.innerText = "Deleting..."; }
+
+            try {
+                const params = new URLSearchParams({
+                    type: dt,
+                    start_date: start,
+                    end_date: end
+                });
+
+                const res = await fetch(`/api/data/view/range?${params.toString()}`, {
+                    method: 'DELETE'
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Deletion failed");
+                }
+                const data = await res.json();
+                alert(`Successfully deleted ${data.records_deleted} records and ${data.logs_deleted} import logs.`);
+                loadHistoryData(); // Reload to show empty
+            } catch (e) {
+                alert(`Error: ${e.message}`);
+            } finally {
+                if(btn) { btn.disabled = false; btn.innerText = "Delete Data"; }
+            }
+        }
+
         async function loadAuditHistory() {
             const start = document.getElementById('audit-start').value;
             const end = document.getElementById('audit-end').value;

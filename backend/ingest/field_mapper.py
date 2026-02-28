@@ -110,8 +110,12 @@ class FieldMapper:
         if 'SYMBOL' in columns and 'SYMBOL P/E' in columns:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
 
-        # P/E Ratio (Index format)
+        # P/E Ratio (Index format) / India VIX
         if 'Index Name' in columns and 'P/E' in columns:
+            # We return pe_ratio_idx by default. The importer caller sets the correct type if it explicitly wants india_vix.
+            # But wait, if someone uploads this file manually, how do we know if they want pe_ratio_idx or india_vix?
+            # We can map both, but typical manual upload would use the key they requested.
+            # We will use 'pe_ratio_idx' as the detected type, but `map_to_records` needs to support `india_vix`.
             return {'type': 'pe_ratio_idx', 'name': 'pe_ratio_idx'}
 
         # Security Master
@@ -166,6 +170,8 @@ class FieldMapper:
             return cls._map_mwpl(df, trade_date)
         elif format_type == 'pe_ratio' or format_type == 'pe_ratio_idx':
             return cls._map_pe(df, trade_date, format_type)
+        elif format_type == 'india_vix':
+            return cls._map_india_vix(df, trade_date)
         elif format_type == 'security_master':
             return cls._map_security_master(df)
         elif format_type == 'var_stats':
@@ -532,10 +538,13 @@ class FieldMapper:
 
         if format_type == 'pe_ratio_idx':
             for _, row in df.iterrows():
+                symbol = str(row.get('Index Name', '')).strip()
+                if symbol == 'India VIX':
+                    continue # Skip India VIX from pe_ratio_idx since we have a dedicated table
                 row_date = parse_nse_date(row.get('Index Date'))
                 record = {
                     'date': row_date or trade_date,
-                    'symbol': str(row.get('Index Name', '')).strip(),
+                    'symbol': symbol,
                     'pe': cls._clean_numeric(row.get('P/E')),
                     'pb': cls._clean_numeric(row.get('P/B')),
                     'div_yield': cls._clean_numeric(row.get('Div Yield'))
@@ -556,12 +565,42 @@ class FieldMapper:
         return records
 
     @classmethod
+    def _map_india_vix(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            symbol = str(row.get('Index Name', '')).strip()
+            if symbol != 'India VIX':
+                continue
+
+            row_date = parse_nse_date(row.get('Index Date'))
+            record = {
+                'date': row_date or trade_date,
+                'open_value': cls._clean_numeric(row.get('Open Index Value')),
+                'high_value': cls._clean_numeric(row.get('High Index Value')),
+                'low_value': cls._clean_numeric(row.get('Low Index Value')),
+                'close_value': cls._clean_numeric(row.get('Closing Index Value')),
+                'points_change': cls._clean_numeric(row.get('Points Change')),
+                'percent_change': cls._clean_numeric(row.get('Change(%)'))
+            }
+            records.append(record)
+        return records
+
+    @classmethod
     def _map_security_master(cls, df: pd.DataFrame) -> List[Dict]:
         records = []
         if 'SctySrs' in df.columns:
-            df = df[df['SctySrs'] == 'EQ'].copy()
+            # Only take EQ and F&O listed companies per user request
+            df = df[df['SctySrs'].isin(['EQ', 'FO', 'F&O'])].copy()
 
         for _, row in df.iterrows():
+
+            # Format additional_info to text properly if it's there
+            addtl_inf = row.get('AddtlInf', '')
+            if pd.isna(addtl_inf):
+                addtl_inf = ''
+            else:
+                addtl_inf = str(addtl_inf).strip()
+
             record = {
                 'fin_instrm_id': str(row.get('FinInstrmId', '')).strip(),
                 'ticker_symb': str(row.get('TckrSymb', '')).strip(),
@@ -572,7 +611,7 @@ class FieldMapper:
                 'par_val': cls._clean_numeric(row.get('ParVal')),
                 'issued_capital': cls._clean_numeric(row.get('IssdCptl')),
                 'listed_date': parse_nse_date(row.get('ListgDt')),
-                'additional_info': row.get('AddtlInf', ''),
+                'additional_info': addtl_inf,
                 'special_ex_date': parse_nse_date(row.get('SpclExDt')),
                 'status': row.get('Sts', ''),
             }

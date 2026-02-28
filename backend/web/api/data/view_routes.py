@@ -36,6 +36,7 @@ def get_model_for_type(data_type: str):
         'mwpl': models.MWPLClientPosition,
         'pe_ratio': models.PERatio,
         'pe_ratio_idx': models.IndexPERatio,
+        'india_vix': models.IndiaVIX,
         'var_stats': models.VaRStat,
         'contract_delta': models.ContractDelta,
         'margin_trading': models.MarginTrading,
@@ -43,6 +44,64 @@ def get_model_for_type(data_type: str):
         'auctions': models.Auction, # Added auctions just in case
     }
     return mapping.get(data_type)
+
+@router.delete("/api/data/view/range")
+async def delete_data_range(
+    type: str = Query(..., description="Data type"),
+    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """Delete data and import logs for a given data type and date range."""
+    model = get_model_for_type(type)
+    if not model:
+        raise HTTPException(status_code=400, detail=f"Invalid data type: {type}")
+
+    try:
+        s_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        e_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must be in YYYY-MM-DD format")
+
+    try:
+        # 1. Determine the date column name in the model
+        date_col = getattr(model, 'date', getattr(model, 'trade_date', None))
+        if not date_col:
+            raise HTTPException(status_code=400, detail=f"Model {type} does not have a recognizable date column")
+
+        # 2. Delete data
+        deleted_count = db.query(model).filter(
+            date_col >= s_date,
+            date_col <= e_date
+        ).delete(synchronize_session=False)
+
+        # 3. Delete from import_logs
+        # We need to map UI type to importer type/table name.
+        # In nse_importer, it's roughly the same except maybe mwpl_cli vs mwpl.
+        # Let's map backwards or just rely on the table name
+        table_name = model.__tablename__
+
+        logs_deleted = db.query(models.ImportLog).filter(
+            models.ImportLog.table_name == table_name,
+            models.ImportLog.import_date >= s_date,
+            models.ImportLog.import_date <= e_date
+        ).delete(synchronize_session=False)
+
+        db.commit()
+
+        logger.info(f"Deleted {deleted_count} rows from {table_name} and {logs_deleted} logs between {s_date} and {e_date}")
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted_count} records and {logs_deleted} logs for {type}",
+            "records_deleted": deleted_count,
+            "logs_deleted": logs_deleted
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting data range: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/api/data/view/list")
 async def list_data(

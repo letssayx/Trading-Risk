@@ -201,6 +201,16 @@ class NSELib:
             logger.error(f"Index P/E Ratio parse error: {e}")
             return pd.DataFrame()
 
+    def parse_india_vix(self, content: bytes) -> pd.DataFrame:
+        """Parse India VIX CSV content."""
+        try:
+            df = pd.read_csv(io.BytesIO(content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        except Exception as e:
+            logger.error(f"India VIX parse error: {e}")
+            return pd.DataFrame()
+
     def parse_corporate_actions(self, content: bytes) -> pd.DataFrame:
         """Parse Corporate Actions CSV content."""
         try:
@@ -316,6 +326,17 @@ class NSELib:
 
         return pd.DataFrame()
 
+    def get_india_vix(self, trade_date: date) -> pd.DataFrame:
+        """Get India VIX Data (from Indices file)."""
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{self.ARCHIVES_URL}/content/indices/ind_close_all_{date_str}.csv"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            return self.parse_india_vix(resp.content)
+
+        return pd.DataFrame()
+
     def get_mwpl(self, trade_date: date) -> pd.DataFrame:
         """Get MWPL Data (Excel)."""
         date_str = trade_date.strftime("%d%m%Y")
@@ -348,13 +369,24 @@ class NSELib:
     def get_security_master(self, trade_date: date) -> pd.DataFrame:
         """Get Security Master (NSE_CM_security)."""
         date_str = trade_date.strftime("%d%m%Y")
-        url = f"{self.ARCHIVES_URL}/content/equities/NSE_CM_security_{date_str}.csv"
+        url = f"{self.ARCHIVES_URL}/content/cm/NSE_CM_security_{date_str}.csv.gz"
 
         resp = self.get(url)
         if resp.status_code == 200:
-            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+            import gzip
+            content = gzip.decompress(resp.content)
+            df = pd.read_csv(io.BytesIO(content), low_memory=False)
             df.columns = [c.strip() for c in df.columns]
             return df
+
+        # Fallback to plain csv if gz is missing
+        url_csv = f"{self.ARCHIVES_URL}/content/cm/NSE_CM_security_{date_str}.csv"
+        resp_csv = self.get(url_csv)
+        if resp_csv.status_code == 200:
+            df = pd.read_csv(io.BytesIO(resp_csv.content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+
         return pd.DataFrame()
 
     def get_pe_ratio(self, trade_date: date) -> pd.DataFrame:
@@ -425,7 +457,16 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            return self.parse_corporate_actions(resp.content)
+            # We don't have a specific parse_fo_volatility, but parse_pe_ratio just does read_csv and strips columns.
+            # Using parse_pe_ratio for generic CSV parsing is risky if logic changes.
+            # But the bug was FOVOLT data being returned when mapped to models.FOVolatility
+            # (which is fine, if FOVolatility handles it). But we'll just return it using standard CSV reading.
+            try:
+                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                df.columns = [c.strip() for c in df.columns]
+                return df
+            except Exception as e:
+                logger.error(f"FO Volatility parse error: {e}")
         return pd.DataFrame()
 
     def get_contract_delta(self, trade_date: date) -> pd.DataFrame:

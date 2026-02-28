@@ -56,6 +56,25 @@ class IndexPERatio(Base, TimescaleMixin):
     )
 
 
+class IndiaVIX(Base, TimescaleMixin):
+    """India VIX"""
+    __tablename__ = "india_vix"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    open_value = Column(Float)
+    high_value = Column(Float)
+    low_value = Column(Float)
+    close_value = Column(Float)
+    points_change = Column(Float)
+    percent_change = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', name='uq_india_vix_date_unique'),
+    )
+
+
 class BhavcopyFO(Base, TimescaleMixin):
     """F&O Bhavcopy"""
     __tablename__ = "bhavcopy_fo"
