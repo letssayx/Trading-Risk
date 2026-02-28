@@ -170,11 +170,16 @@
 
     <!-- Main Tab Bar -->
     <div class="main-tabs-bar">
-        <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T"><u>T</u>erminal</div>
+        <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
+        <div class="main-tab" data-target="basis" onclick="switchMainTab('basis')" title="Basis">Basis</div>
+        <div class="main-tab" data-target="oi_analysis" onclick="switchMainTab('oi_analysis')" title="OI Analysis">OI Analysis</div>
+        <div class="main-tab" data-target="rollover" onclick="switchMainTab('rollover')" title="Rollover Analysis">Rollover Analysis</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+A"><u>A</u>udit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
+        <a class="main-tab" style="text-decoration:none; color:inherit;" href="https://www.nseindia.com/market-data/public-issues-rights-rits" target="_blank" title="Rights Renunciation">Rights</a>
+        <a class="main-tab" style="text-decoration:none; color:inherit;" href="https://www.nseindia.com/resources/exchange-communication-circulars" target="_blank" title="Circulars">Circulars</a>
     </div>
 
     <!-- Tab Content Container -->
@@ -246,6 +251,30 @@
                     <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
                     <div class="toolbox-item" title="Risk Models" draggable="true" data-type="risk">🛡️</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- TAB BASIS -->
+        <div id="tab-basis" class="main-tab-content">
+            <div style="padding: 20px;">
+                <h2>Basis Analysis</h2>
+                <p>Basis analysis content will be loaded here.</p>
+            </div>
+        </div>
+
+        <!-- TAB OI ANALYSIS -->
+        <div id="tab-oi_analysis" class="main-tab-content">
+            <div style="padding: 20px;">
+                <h2>OI Analysis</h2>
+                <p>OI Analysis content will be loaded here.</p>
+            </div>
+        </div>
+
+        <!-- TAB ROLLOVER -->
+        <div id="tab-rollover" class="main-tab-content">
+            <div style="padding: 20px;">
+                <h2>Rollover Analysis</h2>
+                <p>Rollover analysis content will be loaded here.</p>
             </div>
         </div>
 

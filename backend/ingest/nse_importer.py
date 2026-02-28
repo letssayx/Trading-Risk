@@ -57,8 +57,10 @@ class NSEDataImporter:
             'var_stats': models.VaRStat,
             'contract_delta': models.ContractDelta,
             'margin_trading': models.MarginTrading,
-            'corporate_actions': models.CorporateAction,
         }
+        if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
+            return getattr(models, 'CorporateAction')
+
         return mapping.get(key)
 
     def _get_unique_fields(self, key: str) -> List[str]:

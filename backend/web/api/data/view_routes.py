@@ -42,8 +42,11 @@ def get_model_for_type(data_type: str):
         'margin_trading': models.MarginTrading,
         'security_master': models.SecurityMaster,
         'auctions': models.Auction, # Added auctions just in case
-        'corporate_actions': models.CorporateAction,
     }
+    # Safely get CorporateAction if it exists in models (may be unmerged)
+    if data_type == 'corporate_actions' and hasattr(models, 'CorporateAction'):
+        return getattr(models, 'CorporateAction')
+
     return mapping.get(data_type)
 
 @router.delete("/api/data/view/range")
