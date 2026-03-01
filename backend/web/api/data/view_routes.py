@@ -130,26 +130,30 @@ async def delete_data_range(
     try:
         # 1. Determine the date column name in the model
         date_col = getattr(model, 'date', getattr(model, 'trade_date', None))
-        if not date_col:
-            raise HTTPException(status_code=400, detail=f"Model {type} does not have a recognizable date column")
-
-        # 2. Delete data
-        deleted_count = db.query(model).filter(
-            date_col >= s_date,
-            date_col <= e_date
-        ).delete(synchronize_session=False)
-
-        # 3. Delete from import_logs
-        # We need to map UI type to importer type/table name.
-        # In nse_importer, it's roughly the same except maybe mwpl_cli vs mwpl.
-        # Let's map backwards or just rely on the table name
         table_name = model.__tablename__
 
-        logs_deleted = db.query(models.ImportLog).filter(
-            models.ImportLog.table_name == table_name,
-            models.ImportLog.import_date >= s_date,
-            models.ImportLog.import_date <= e_date
-        ).delete(synchronize_session=False)
+        if not date_col:
+            if type == 'security_master':
+                # Security master doesn't have date filtering. Delete all.
+                deleted_count = db.query(model).delete(synchronize_session=False)
+                logs_deleted = db.query(models.ImportLog).filter(
+                    models.ImportLog.table_name == 'nse_security'
+                ).delete(synchronize_session=False)
+            else:
+                raise HTTPException(status_code=400, detail=f"Model {type} does not have a recognizable date column")
+        else:
+            # 2. Delete data by date range
+            deleted_count = db.query(model).filter(
+                date_col >= s_date,
+                date_col <= e_date
+            ).delete(synchronize_session=False)
+
+            # 3. Delete from import_logs
+            logs_deleted = db.query(models.ImportLog).filter(
+                models.ImportLog.table_name == table_name,
+                models.ImportLog.import_date >= s_date,
+                models.ImportLog.import_date <= e_date
+            ).delete(synchronize_session=False)
 
         db.commit()
 

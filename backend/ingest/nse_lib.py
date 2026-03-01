@@ -392,13 +392,21 @@ class NSELib:
     def get_pe_ratio(self, trade_date: date) -> pd.DataFrame:
         """Get P/E Ratio Data (Equities)."""
         date_str = trade_date.strftime("%d%m%Y")
-        url = f"{self.ARCHIVES_URL}/archives/equities/pe/pe_{date_str}.csv"
+        url = f"{self.ARCHIVES_URL}/content/equities/peDetail/PE_{date_str}.csv"
 
         resp = self.get(url)
         if resp.status_code == 200:
             df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
             df.columns = [c.strip() for c in df.columns]
             return df
+
+        alt_url = f"{self.ARCHIVES_URL}/archives/equities/pe/pe_{date_str}.csv"
+        resp = self.get(alt_url)
+        if resp.status_code == 200:
+            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+
         return pd.DataFrame()
 
     def get_margin_trading(self, trade_date: date) -> pd.DataFrame:

@@ -262,7 +262,8 @@ class NSEDataImporter:
         available_keys = [
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
-            'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions'
+            'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions',
+            'nse_security'
         ]
 
         patterns_to_run = patterns or available_keys
@@ -400,6 +401,9 @@ class NSEDataImporter:
             inserted = self._insert_batch(db, model_class, records)
             updated = 0
             logger.info(f"{key}: Deleted {deleted} old records, Inserted {inserted} new records.")
+        elif key == 'nse_security':
+            # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.
+            inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
         else:
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
 

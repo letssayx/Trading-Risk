@@ -357,7 +357,7 @@
                 </div>
                 <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
                 <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
-                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer; margin-left: 5px;">Delete Data</button>
+                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer; margin-left: auto;">Delete Data</button>
             </div>
 
             <div class="table-wrapper">
@@ -717,7 +717,7 @@
         function updateHistoryControls() {
             const type = document.getElementById('data-type').value;
             const symbolGroup = document.getElementById('symbol-group');
-            if (['fao_participant_oi', 'fii_stats'].includes(type)) {
+            if (['fao_participant_oi', 'fii_stats', 'india_vix'].includes(type)) {
                 symbolGroup.style.display = 'none';
                 document.getElementById('symbol-input').value = '';
             } else {
