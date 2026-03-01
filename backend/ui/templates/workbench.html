@@ -176,10 +176,11 @@
         <div class="main-tab" data-target="rollover" onclick="switchMainTab('rollover')" title="Rollover Analysis">Rollover Analysis</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
+        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
+        <div class="main-tab" data-target="rights" onclick="switchMainTab('rights')" title="Rights Renunciation">Rights</div>
+        <div class="main-tab" data-target="circulars" onclick="switchMainTab('circulars')" title="Circulars">Circulars</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+A"><u>A</u>udit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
-        <a class="main-tab" style="text-decoration:none; color:inherit;" href="https://www.nseindia.com/market-data/public-issues-rights-rits" target="_blank" title="Rights Renunciation">Rights</a>
-        <a class="main-tab" style="text-decoration:none; color:inherit;" href="https://www.nseindia.com/resources/exchange-communication-circulars" target="_blank" title="Circulars">Circulars</a>
     </div>
 
     <!-- Tab Content Container -->
@@ -232,8 +233,6 @@
                         <div class="wb-tabs-header">
                             <div class="wb-tab active" data-type="turtle">Turtle Legacy</div>
                             <div class="wb-tab" data-type="statarb">Stat Arb</div>
-                            <div class="wb-tab" data-type="oi">OI Analysis</div>
-                            <div class="wb-tab" data-type="rollover">Rollover</div>
                         </div>
                         <div class="wb-content" id="wb-content-area">
                             <!-- Dynamic Content Loaded by JS -->
@@ -263,18 +262,54 @@
         </div>
 
         <!-- TAB OI ANALYSIS -->
-        <div id="tab-oi_analysis" class="main-tab-content">
-            <div style="padding: 20px;">
-                <h2>OI Analysis</h2>
-                <p>OI Analysis content will be loaded here.</p>
-            </div>
+        <div id="tab-oi_analysis" class="main-tab-content" style="padding: 20px;">
+            <!-- Content loaded by workbookManager.js / OiTool -->
         </div>
 
         <!-- TAB ROLLOVER -->
-        <div id="tab-rollover" class="main-tab-content">
+        <div id="tab-rollover" class="main-tab-content" style="padding: 20px;">
+            <!-- Content loaded by workbookManager.js / RolloverTool -->
+        </div>
+
+        <!-- TAB CORPORATE ACTIONS -->
+        <div id="tab-corporate_actions" class="main-tab-content">
             <div style="padding: 20px;">
-                <h2>Rollover Analysis</h2>
-                <p>Rollover analysis content will be loaded here.</p>
+                <h2>Corporate Actions Tracker</h2>
+                <div style="margin-bottom: 10px;">
+                    <label>Symbol Filter: </label>
+                    <input type="text" id="ca-symbol-filter" placeholder="e.g. NIFTY, BDL" style="padding: 4px; border: 1px solid #333; background: #2a2a2a; color: white;">
+                    <button onclick="loadCorporateActions()" class="btn btn-primary" style="margin-left: 10px;">Refresh</button>
+                </div>
+                <div style="display:flex; gap: 20px;">
+                    <div style="flex:1; background: #1a1a1a; border: 1px solid #333; padding: 10px;">
+                        <h3 style="margin-top: 0; color: #5cb85c;">Upcoming Actions</h3>
+                        <div id="ca-upcoming-container" style="max-height: 500px; overflow-y: auto;">
+                            <!-- Populated by loadCorporateActions() -->
+                        </div>
+                    </div>
+                    <div style="flex:1; background: #1a1a1a; border: 1px solid #333; padding: 10px;">
+                        <h3 style="margin-top: 0; color: #ccc;">Past Actions</h3>
+                        <div id="ca-past-container" style="max-height: 500px; overflow-y: auto;">
+                            <!-- Populated by loadCorporateActions() -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB RIGHTS -->
+        <div id="tab-rights" class="main-tab-content">
+            <div style="padding: 20px;">
+                <h2>Rights Renunciation</h2>
+                <div id="rights-container">Loading...</div>
+            </div>
+        </div>
+
+        <!-- TAB CIRCULARS -->
+        <div id="tab-circulars" class="main-tab-content">
+            <div style="padding: 20px;">
+                <h2>Exchange Circulars</h2>
+                <div id="circulars-container">Loading...</div>
             </div>
         </div>
 
@@ -502,7 +537,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'history', 'import', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'rights', 'circulars', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -525,7 +560,114 @@
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
             if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
+
+            if (tabName === 'corporate_actions') loadCorporateActions();
+            if (tabName === 'rights') loadRights();
+            if (tabName === 'circulars') loadCirculars();
         }
+
+        // --- Corporate Actions UI ---
+        async function loadCorporateActions() {
+            const sym = document.getElementById('ca-symbol-filter').value.trim();
+            const url = sym ? `/api/data/view/list?type=corporate_actions&symbol=${sym}&limit=1000` : `/api/data/view/list?type=corporate_actions&limit=1000`;
+
+            try {
+                const response = await fetch(url);
+                if(!response.ok) throw new Error("Failed to load Corporate Actions or Schema not yet merged.");
+                const data = await response.json();
+
+                const upcoming = [];
+                const past = [];
+                const today = new Date().toISOString().split('T')[0];
+
+                data.forEach(item => {
+                    if(item.date >= today) upcoming.push(item);
+                    else past.push(item);
+                });
+
+                // Sort ascending for upcoming, descending for past
+                upcoming.sort((a,b) => a.date.localeCompare(b.date));
+                past.sort((a,b) => b.date.localeCompare(a.date));
+
+                document.getElementById('ca-upcoming-container').innerHTML = renderCATable(upcoming);
+                document.getElementById('ca-past-container').innerHTML = renderCATable(past);
+
+            } catch (err) {
+                document.getElementById('ca-upcoming-container').innerHTML = `<p style="color:red;">${err.message}</p>`;
+                document.getElementById('ca-past-container').innerHTML = '';
+            }
+        }
+
+        function renderCATable(items) {
+            if(!items || items.length === 0) return "<p>No data found.</p>";
+            let html = `<table class="history-table"><thead><tr>
+                <th>Date</th><th>Symbol</th><th>Purpose</th><th>Face Value</th>
+            </tr></thead><tbody>`;
+            items.forEach(i => {
+                html += `<tr>
+                    <td>${i.date || ''}</td>
+                    <td><strong>${i.symbol || ''}</strong></td>
+                    <td style="white-space:normal; max-width:200px;">${i.purpose || ''}</td>
+                    <td>${i.face_value !== null ? i.face_value : ''}</td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+            return html;
+        }
+
+        // --- Proxy Scrapers ---
+        async function loadRights() {
+            document.getElementById('rights-container').innerHTML = '<p>Loading Rights data from NSE...</p>';
+            try {
+                const response = await fetch('/api/proxy/rights');
+                const data = await response.json();
+
+                // NSE typically returns data inside an array or inside {data: []}
+                const items = Array.isArray(data) ? data : (data.data || []);
+                document.getElementById('rights-container').innerHTML = renderGenericProxyTable(items);
+            } catch(e) {
+                document.getElementById('rights-container').innerHTML = `<p style="color:red;">Error loading rights: ${e.message}</p>`;
+            }
+        }
+
+        async function loadCirculars() {
+            document.getElementById('circulars-container').innerHTML = '<p>Loading Circulars data from NSE...</p>';
+            try {
+                const response = await fetch('/api/proxy/circulars');
+                const data = await response.json();
+
+                const items = Array.isArray(data) ? data : (data.data || []);
+                document.getElementById('circulars-container').innerHTML = renderGenericProxyTable(items);
+            } catch(e) {
+                document.getElementById('circulars-container').innerHTML = `<p style="color:red;">Error loading circulars: ${e.message}</p>`;
+            }
+        }
+
+        function renderGenericProxyTable(dataList) {
+            if(!dataList || dataList.length === 0) return "<p>No entries found (API returned empty data or was blocked by WAF).</p>";
+
+            // Collect keys that look interesting (not deep objects)
+            const keys = Object.keys(dataList[0]).filter(k =>
+                typeof dataList[0][k] !== 'object' && !k.startsWith('_')
+            ).slice(0, 10); // Limit to 10 cols for sanity
+
+            let html = `<table class="history-table"><thead><tr>`;
+            keys.forEach(k => html += `<th>${k.toUpperCase().replace(/_/g, ' ')}</th>`);
+            html += `</tr></thead><tbody>`;
+
+            dataList.forEach(item => {
+                html += `<tr>`;
+                keys.forEach(k => {
+                    let val = item[k] || '';
+                    if(typeof val === 'string' && val.length > 100) val = val.substring(0, 97) + '...';
+                    html += `<td title="${item[k]}">${val}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</tbody></table>`;
+            return html;
+        }
+
 
         // Global Shortcut Handler
         document.addEventListener('keydown', (e) => {

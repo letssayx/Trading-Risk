@@ -16,10 +16,21 @@ from datetime import datetime
 import pandas as pd
 import logging
 import traceback
+import json
+
+from backend.nselib.lib import NseSession
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Share a single NseSession instance for proxying
+_nse_session = None
+def get_nse_session():
+    global _nse_session
+    if _nse_session is None:
+        _nse_session = NseSession()
+    return _nse_session
 
 def get_model_for_type(data_type: str):
     mapping = {
@@ -48,6 +59,55 @@ def get_model_for_type(data_type: str):
         return getattr(models, 'CorporateAction')
 
     return mapping.get(data_type)
+
+import requests
+
+@router.get("/api/proxy/rights")
+async def proxy_rights():
+    """Fetches Rights and Renunciations directly from NSE API endpoint."""
+    # Attempting to use a standard requests session first in case nselib session is being blocked
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    response = None
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+        url = "https://www.nseindia.com/api/corporates-rights-renunciation?index=equities"
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
+        body = getattr(response, 'text', 'N/A') if response else 'N/A'
+        logger.error(f"Failed to fetch Rights. Status: {status}, Body: {body}, Error: {e}")
+        # Return empty data instead of 502 to avoid breaking the UI completely, let UI handle empty state
+        return {"data": []}
+
+@router.get("/api/proxy/circulars")
+async def proxy_circulars():
+    """Fetches Exchange Circulars directly from NSE API endpoint."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    response = None
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+        url = "https://www.nseindia.com/api/circulars"
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
+        body = getattr(response, 'text', 'N/A') if response else 'N/A'
+        logger.error(f"Failed to fetch Circulars. Status: {status}, Body: {body}, Error: {e}")
+        return {"data": []}
+
 
 @router.delete("/api/data/view/range")
 async def delete_data_range(
