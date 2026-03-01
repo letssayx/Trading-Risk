@@ -1190,11 +1190,9 @@
                      if(auditContainer.scrollHeight - auditContainer.scrollTop < 200) auditContainer.scrollTop = auditContainer.scrollHeight;
                  }
 
-                 // Also stream to the new Import Data terminals
-                 const isCelery = msg.includes("MainProcess") || msg.includes("celery") || msg.includes("NSE_Importer");
-                 const targetTerminalId = isCelery ? 'celery-terminal' : 'uvicorn-terminal';
-                 const terminal = document.getElementById(targetTerminalId);
-                 if (terminal) {
+                 // Uvicorn logs via WebSocket
+                 const terminal = document.getElementById('uvicorn-terminal');
+                 if (terminal && !msg.includes("MainProcess") && !msg.includes("celery") && !msg.includes("NSE_Importer")) {
                      const div = document.createElement('div');
                      div.innerText = msg;
                      if (msg.includes("ERROR")) div.style.color = "#f48771";
@@ -1205,6 +1203,38 @@
                      if(terminal.scrollHeight - terminal.scrollTop < 300) terminal.scrollTop = terminal.scrollHeight;
                  }
              };
+
+             // Polling for Celery logs from DB since they don't share the same WS loop
+             let lastCeleryLogId = 0;
+             setInterval(async () => {
+                 const celeryTerminal = document.getElementById('celery-terminal');
+                 if(!celeryTerminal || celeryTerminal.offsetParent === null) return; // Only poll if visible
+
+                 try {
+                     // We fetch the latest audit logs that are likely from celery
+                     const res = await fetch(`/api/audit/history?limit=20`);
+                     if(res.ok) {
+                         const logs = await res.json();
+                         // Sort ascending by ID or timestamp
+                         logs.sort((a,b) => a.id - b.id);
+                         let newLogs = logs.filter(l => l.id > lastCeleryLogId && l.source === 'NSE_Importer');
+                         if(newLogs.length > 0) {
+                             lastCeleryLogId = newLogs[newLogs.length - 1].id;
+                             newLogs.forEach(log => {
+                                 const div = document.createElement('div');
+                                 div.innerText = `[${log.timestamp.replace('T', ' ').substring(0, 19)}] ${log.level} [${log.source}] ${log.message}`;
+                                 if (log.level === "ERROR") div.style.color = "#f48771";
+                                 else if (log.level === "WARNING") div.style.color = "#cca700";
+                                 else div.style.color = "#d4d4d4";
+                                 celeryTerminal.appendChild(div);
+                             });
+                             celeryTerminal.scrollTop = celeryTerminal.scrollHeight;
+                         }
+                     }
+                 } catch(e) {
+                     // silent fail for poller
+                 }
+             }, 3000);
         }
     </script>
 </body>

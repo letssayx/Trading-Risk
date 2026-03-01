@@ -426,8 +426,10 @@ class NSEImporter {
                                     let barWidth = '100%';
 
                                     // Decay bar based on age (e.g. 24h)
-                                    if (diffHours < 24) {
-                                        barWidth = `${Math.max(10, 100 - (diffHours * 4))}%`;
+                                    // Ensure difference is positive just in case of timezone mismatches
+                                    const safeDiffHours = Math.max(0, diffHours);
+                                    if (safeDiffHours < 24) {
+                                        barWidth = `${Math.max(10, 100 - (safeDiffHours * 4))}%`;
                                     } else {
                                         barWidth = '10%';
                                         barColor = '#888';
