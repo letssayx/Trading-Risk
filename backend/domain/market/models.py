@@ -52,11 +52,12 @@ class Bhavcopy(Base):
     settlement_price = Column(Float)  # SttlmPric
 
     # Volume & OI fields
-    total_traded_qty = Column(Integer) # TtlTradgVol
+    from sqlalchemy import BigInteger
+    total_traded_qty = Column(BigInteger) # TtlTradgVol
     total_traded_val = Column(Float) # TtlTrfVal
-    total_trades = Column(Integer) # TtlNbOfTxsExctd
-    open_interest = Column(Integer)  # OpnIntrst
-    change_in_oi = Column(Integer)   # ChngInOpnIntrst
+    total_trades = Column(BigInteger) # TtlNbOfTxsExctd
+    open_interest = Column(BigInteger)  # OpnIntrst
+    change_in_oi = Column(BigInteger)   # ChngInOpnIntrst
 
     lot_size = Column(Integer) # NewBrdLotQty
 
