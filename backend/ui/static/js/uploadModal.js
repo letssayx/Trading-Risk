@@ -25,6 +25,17 @@ class NSEImporter {
         this.isPolling = false;
 
         this.initEventListeners();
+        this.resumeActiveTask();
+    }
+
+    resumeActiveTask() {
+        const activeTaskId = localStorage.getItem('activeImportTaskId');
+        if (activeTaskId) {
+            console.log("Resuming polling for task:", activeTaskId);
+            this.progressArea.style.display = 'block';
+            this.progressText.textContent = "Resuming import tracking...";
+            this.pollTask(activeTaskId);
+        }
     }
 
     initEventListeners() {
@@ -258,12 +269,14 @@ class NSEImporter {
             this.pollInterval = null;
         }
         this.isPolling = false;
+        localStorage.removeItem('activeImportTaskId');
     }
 
     pollTask(taskId) {
         if (this.isPolling) this.stopPolling();
         this.isPolling = true;
 
+        localStorage.setItem('activeImportTaskId', taskId);
         this.pollInterval = setInterval(async () => {
             try {
                 const res = await fetch(`/api/v1/nse/ingest/import/status/${taskId}`);

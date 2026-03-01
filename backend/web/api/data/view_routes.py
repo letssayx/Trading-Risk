@@ -77,6 +77,8 @@ async def proxy_rights():
         session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
         url = "https://www.nseindia.com/api/corporates-rights-renunciation?index=equities"
         response = session.get(url, headers=headers, timeout=10)
+
+        # If API returns empty or fails, rights data might be available elsewhere, but NSE's API is correct.
         response.raise_for_status()
         return response.json()
     except Exception as e:

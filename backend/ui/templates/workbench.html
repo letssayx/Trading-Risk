@@ -151,10 +151,48 @@
         /* Import Tab Styles */
         .import-container {
             padding: 20px;
-            max-width: 1000px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: none;
             height: 100%;
+            overflow: hidden; /* removed scrollbar per user request */
+            display: flex;
+            gap: 20px;
+        }
+        .import-left-panel {
+            flex: 0 0 auto;
+            width: 1000px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* keep left panel scrollable internally if needed */
+        }
+        .import-right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 300px;
+            height: 100%;
+            padding-bottom: 20px;
+        }
+        .import-terminal {
+            flex: 1;
+            background-color: #0c0c0c;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            color: #d4d4d4;
             overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+        }
+        .import-tabs .tab-btn {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
         }
 
         /* Common Utils */
@@ -300,7 +338,10 @@
         <!-- TAB RIGHTS -->
         <div id="tab-rights" class="main-tab-content">
             <div style="padding: 20px;">
-                <h2>Rights Renunciation</h2>
+                <div style="display:flex; align-items:center; gap:15px; margin-bottom: 10px;">
+                    <h2 style="margin: 0;">Rights Renunciation</h2>
+                    <button onclick="loadRights()" class="btn btn-secondary">Refresh</button>
+                </div>
                 <div id="rights-container">Loading...</div>
             </div>
         </div>
@@ -308,7 +349,10 @@
         <!-- TAB CIRCULARS -->
         <div id="tab-circulars" class="main-tab-content">
             <div style="padding: 20px;">
-                <h2>Exchange Circulars</h2>
+                <div style="display:flex; align-items:center; gap:15px; margin-bottom: 10px;">
+                    <h2 style="margin: 0;">Exchange Circulars</h2>
+                    <button onclick="loadCirculars()" class="btn btn-secondary">Refresh</button>
+                </div>
                 <div id="circulars-container">Loading...</div>
             </div>
         </div>
@@ -377,7 +421,7 @@
         <div id="tab-import" class="main-tab-content">
             <div class="import-container">
                 <!-- Content from bhavcopy-upload-modal -->
-                <div id="import-view-container">
+                <div id="import-view-container" class="import-left-panel">
                      <h2 style="margin-top:0;">NSE Data Import</h2>
 
                      <div class="import-tabs" style="display:flex; border-bottom:1px solid #444; margin-bottom:15px;">
@@ -473,6 +517,15 @@
                     <div style="margin-top:20px;">
                         <h4>Recent Imports</h4>
                         <div id="import-history-list"></div>
+                    </div>
+                </div>
+
+                <div class="import-right-panel">
+                    <div class="import-terminal" id="celery-terminal">
+                        <div style="color: #4CAF50; margin-bottom: 5px;">--- Celery Worker Logs ---</div>
+                    </div>
+                    <div class="import-terminal" id="uvicorn-terminal">
+                        <div style="color: #2196F3; margin-bottom: 5px;">--- Uvicorn Backend Logs ---</div>
                     </div>
                 </div>
             </div>
@@ -659,8 +712,18 @@
                 html += `<tr>`;
                 keys.forEach(k => {
                     let val = item[k] || '';
-                    if(typeof val === 'string' && val.length > 100) val = val.substring(0, 97) + '...';
-                    html += `<td title="${item[k]}">${val}</td>`;
+                    if (typeof val === 'string' && (k.toLowerCase().includes('link') || k.toLowerCase() === 'url' || val.startsWith('http'))) {
+                        let linkUrl = val;
+                        if(val.startsWith('/') && !val.startsWith('//')) {
+                            linkUrl = 'https://www.nseindia.com' + val; // Handle relative links from NSE
+                        }
+                        // For display, truncate long URLs
+                        let displayVal = val.length > 50 ? val.substring(0, 47) + '...' : val;
+                        html += `<td><a href="${linkUrl}" target="_blank" style="color:#00bcd4; text-decoration:underline;" title="${val}">${displayVal}</a></td>`;
+                    } else {
+                        if(typeof val === 'string' && val.length > 100) val = val.substring(0, 97) + '...';
+                        html += `<td title="${item[k]}">${val}</td>`;
+                    }
                 });
                 html += `</tr>`;
             });
@@ -1125,6 +1188,21 @@
 
                      auditContainer.appendChild(div);
                      if(auditContainer.scrollHeight - auditContainer.scrollTop < 200) auditContainer.scrollTop = auditContainer.scrollHeight;
+                 }
+
+                 // Also stream to the new Import Data terminals
+                 const isCelery = msg.includes("MainProcess") || msg.includes("celery") || msg.includes("NSE_Importer");
+                 const targetTerminalId = isCelery ? 'celery-terminal' : 'uvicorn-terminal';
+                 const terminal = document.getElementById(targetTerminalId);
+                 if (terminal) {
+                     const div = document.createElement('div');
+                     div.innerText = msg;
+                     if (msg.includes("ERROR")) div.style.color = "#f48771";
+                     else if (msg.includes("WARNING")) div.style.color = "#cca700";
+                     else div.style.color = "#d4d4d4";
+                     terminal.appendChild(div);
+                     // Auto-scroll
+                     if(terminal.scrollHeight - terminal.scrollTop < 300) terminal.scrollTop = terminal.scrollHeight;
                  }
              };
         }
