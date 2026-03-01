@@ -373,6 +373,11 @@ class NSEDataImporter:
         if format_info.get('target_table') is None and key in ['bulk_deals', 'block_deals']:
                 format_info['target_table'] = key
 
+        # Special override: ind_close_all is used for both pe_ratio_idx and india_vix.
+        # FieldMapper defaults to pe_ratio_idx. If the caller specifically requested india_vix, override it.
+        if key == 'india_vix':
+            format_info['type'] = 'india_vix'
+
         records = FieldMapper.map_to_records(df, format_info, trade_date)
 
         if not records:
