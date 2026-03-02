@@ -736,7 +736,7 @@
                     { id: 'companyName', label: 'Company' },
                     { id: 'rightRatio', label: 'Ratio' },
                     { id: 'stage', label: 'Stage' },
-                    { id: 'boardResolutionDt', label: 'Board Res. Date' },
+                    { id: 'dateOfBrdResIssueApproving', label: 'Board Res. Date' },
                     { id: 'offerPrice', label: 'Offer Price' },
                     { id: 'issueOpenDate', label: 'Open Date' },
                     { id: 'issueCloseDate', label: 'Close Date' },
@@ -826,7 +826,7 @@
                     return new Date(0);
                 };
 
-                if (caSortCol === 'exDate' || caSortCol === 'bm_date' || caSortCol === 'recordDate' || caSortCol === 'issueOpenDate' || caSortCol === 'issueCloseDate' || caSortCol === 'boardResolutionDt') {
+                if (caSortCol === 'exDate' || caSortCol === 'bm_date' || caSortCol === 'recordDate' || caSortCol === 'issueOpenDate' || caSortCol === 'issueCloseDate' || caSortCol === 'dateOfBrdResIssueApproving') {
                     // Rights dates aren't fully pre-parsed in loadCorporateActionsData so parse on the fly or use existing _date
                     valA = a._date ? a._date.getTime() : parseDateStr(a[caSortCol]).getTime();
                     valB = b._date ? b._date.getTime() : parseDateStr(b[caSortCol]).getTime();
@@ -890,7 +890,7 @@
                         <td style="white-space:normal; max-width:200px;">${item.companyName || '-'}</td>
                         <td>${item.rightRatio || '-'}</td>
                         <td>${item.stage || '-'}</td>
-                        <td>${item.boardResolutionDt || '-'}</td>
+                        <td>${item.dateOfBrdResIssueApproving || item.boardResolutionDt || '-'}</td>
                         <td>${item.offerPrice || '-'}</td>
                         <td>${item.issueOpenDate || '-'}</td>
                         <td>${item.issueCloseDate || '-'}</td>
