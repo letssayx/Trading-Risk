@@ -311,26 +311,46 @@
 
         <!-- TAB CORPORATE ACTIONS -->
         <div id="tab-corporate_actions" class="main-tab-content">
-            <div style="padding: 20px;">
-                <h2>Corporate Actions Tracker</h2>
-                <div style="margin-bottom: 10px;">
-                    <label>Symbol Filter: </label>
-                    <input type="text" id="ca-symbol-filter" placeholder="e.g. NIFTY, BDL" style="padding: 4px; border: 1px solid #333; background: #2a2a2a; color: white;">
-                    <button onclick="loadCorporateActions()" class="btn btn-primary" style="margin-left: 10px;">Refresh</button>
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">Corporate Actions & Board Meetings</h2>
+                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px;">
+                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Corporate Actions</div>
+                        <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Board Meetings</div>
+                    </div>
                 </div>
-                <div style="display:flex; gap: 20px;">
-                    <div style="flex:1; background: #1a1a1a; border: 1px solid #333; padding: 10px;">
-                        <h3 style="margin-top: 0; color: #5cb85c;">Upcoming Actions</h3>
-                        <div id="ca-upcoming-container" style="max-height: 500px; overflow-y: auto;">
-                            <!-- Populated by loadCorporateActions() -->
-                        </div>
+
+                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px;">
+                    <div class="control-group">
+                        <label>Symbol / Company:</label>
+                        <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" onkeyup="filterCATable()">
                     </div>
-                    <div style="flex:1; background: #1a1a1a; border: 1px solid #333; padding: 10px;">
-                        <h3 style="margin-top: 0; color: #ccc;">Past Actions</h3>
-                        <div id="ca-past-container" style="max-height: 500px; overflow-y: auto;">
-                            <!-- Populated by loadCorporateActions() -->
-                        </div>
+                    <div class="control-group" id="ca-actions-filters">
+                        <label style="margin-right:10px;">Filter:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Bonus" onchange="filterCATable()"> Bonus</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Split" onchange="filterCATable()"> Split</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="AGM" onchange="filterCATable()"> AGM/EGM</label>
                     </div>
+                    <div class="control-group" id="ca-meetings-filters" style="display:none;">
+                        <label style="margin-right:10px;">Filter:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Financial Results" onchange="filterCATable()"> Financial Results</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Fund Raising" onchange="filterCATable()"> Fund Raising</label>
+                    </div>
+                    <button onclick="loadCorporateActionsData()" class="btn btn-primary">Refresh Data</button>
+                    <button onclick="exportCATableCSV()" class="btn btn-secondary" style="margin-left: auto;">Export CSV</button>
+                </div>
+
+                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;">
+                    <table class="data-table" id="ca-main-table">
+                        <thead id="ca-main-head"></thead>
+                        <tbody id="ca-main-body"></tbody>
+                    </table>
+                </div>
+                <div class="history-status-bar" style="border-radius: 0 0 4px 4px;">
+                    <span id="ca-status-msg">Ready</span>
+                    <span id="ca-row-count">0 Rows</span>
                 </div>
             </div>
         </div>
@@ -614,59 +634,259 @@
             if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
 
-            if (tabName === 'corporate_actions') loadCorporateActions();
+            // Note: corporate_actions load is handled by the wrapper function below
             if (tabName === 'rights') loadRights();
             if (tabName === 'circulars') loadCirculars();
         }
 
-        // --- Corporate Actions UI ---
-        async function loadCorporateActions() {
-            const sym = document.getElementById('ca-symbol-filter').value.trim();
-            const url = sym ? `/api/data/view/list?type=corporate_actions&symbol=${sym}&limit=1000` : `/api/data/view/list?type=corporate_actions&limit=1000`;
+        // --- Corporate Actions & Board Meetings UI ---
+        let caCurrentTab = 'actions';
+        let caRawData = [];
+        let caSortCol = 'date';
+        let caSortAsc = false;
+
+        function switchCATab(tab) {
+            caCurrentTab = tab;
+
+            // UI Toggle
+            document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
+            document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
+
+            document.getElementById('ca-actions-filters').style.display = tab === 'actions' ? 'flex' : 'none';
+            document.getElementById('ca-meetings-filters').style.display = tab === 'meetings' ? 'flex' : 'none';
+
+            // Clear current filters
+            document.querySelectorAll('.ca-filter-cb').forEach(cb => cb.checked = false);
+            document.getElementById('ca-search-input').value = '';
+
+            // Reset state and load
+            caRawData = [];
+            caSortCol = tab === 'actions' ? 'exDate' : 'bm_date';
+            caSortAsc = false; // Descending by default
+
+            loadCorporateActionsData();
+        }
+
+        async function loadCorporateActionsData() {
+            const tbody = document.getElementById('ca-main-body');
+            const thead = document.getElementById('ca-main-head');
+            const statusMsg = document.getElementById('ca-status-msg');
+            const rowCount = document.getElementById('ca-row-count');
+
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">Loading data from NSE...</td></tr>';
+            statusMsg.innerText = "Loading...";
+            rowCount.innerText = "0 Rows";
+
+            const endpoint = caCurrentTab === 'actions' ? '/api/proxy/corporate-actions' : '/api/proxy/board-meetings';
 
             try {
-                const response = await fetch(url);
-                if(!response.ok) throw new Error("Failed to load Corporate Actions or Schema not yet merged.");
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
                 const data = await response.json();
 
-                const upcoming = [];
-                const past = [];
-                const today = new Date().toISOString().split('T')[0];
+                // Usually data is in an array or wrapped in a `data` key
+                caRawData = Array.isArray(data) ? data : (data.data || []);
 
-                data.forEach(item => {
-                    if(item.date >= today) upcoming.push(item);
-                    else past.push(item);
+                // Format dates for sorting
+                caRawData.forEach(item => {
+                    if (item.exDate && item.exDate !== '-') item._date = new Date(item.exDate);
+                    else if (item.bm_date && item.bm_date !== '-') item._date = new Date(item.bm_date);
+                    else item._date = new Date(0);
+
+                    if (item.recDate && item.recDate !== '-') item._recDate = new Date(item.recDate);
+                    else item._recDate = new Date(0);
                 });
 
-                // Sort ascending for upcoming, descending for past
-                upcoming.sort((a,b) => a.date.localeCompare(b.date));
-                past.sort((a,b) => b.date.localeCompare(a.date));
-
-                document.getElementById('ca-upcoming-container').innerHTML = renderCATable(upcoming);
-                document.getElementById('ca-past-container').innerHTML = renderCATable(past);
-
+                renderCAHeaders();
+                filterCATable();
             } catch (err) {
-                document.getElementById('ca-upcoming-container').innerHTML = `<p style="color:red;">${err.message}</p>`;
-                document.getElementById('ca-past-container').innerHTML = '';
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#f44336;">Failed to load data: ${err.message}</td></tr>`;
+                statusMsg.innerText = "Error";
+                rowCount.innerText = "0 Rows";
             }
         }
 
-        function renderCATable(items) {
-            if(!items || items.length === 0) return "<p>No data found.</p>";
-            let html = `<table class="history-table"><thead><tr>
-                <th>Date</th><th>Symbol</th><th>Purpose</th><th>Face Value</th>
-            </tr></thead><tbody>`;
-            items.forEach(i => {
-                html += `<tr>
-                    <td>${i.date || ''}</td>
-                    <td><strong>${i.symbol || ''}</strong></td>
-                    <td style="white-space:normal; max-width:200px;">${i.purpose || ''}</td>
-                    <td>${i.face_value !== null ? i.face_value : ''}</td>
-                </tr>`;
+        function renderCAHeaders() {
+            const thead = document.getElementById('ca-main-head');
+            thead.innerHTML = '';
+
+            const tr = document.createElement('tr');
+            const cols = caCurrentTab === 'actions'
+                ? [
+                    { id: 'symbol', label: 'Symbol' },
+                    { id: 'comp', label: 'Company' },
+                    { id: 'purpose', label: 'Purpose' },
+                    { id: 'faceVal', label: 'Face Value' },
+                    { id: 'exDate', label: 'Ex-Date' },
+                    { id: 'recDate', label: 'Record Date' }
+                  ]
+                : [
+                    { id: 'symbol', label: 'Symbol' },
+                    { id: 'Company_Name', label: 'Company' },
+                    { id: 'Purposecode', label: 'Purpose' },
+                    { id: 'bm_desc', label: 'Details' },
+                    { id: 'bm_date', label: 'Meeting Date' }
+                  ];
+
+            cols.forEach(c => {
+                const th = document.createElement('th');
+                let text = c.label;
+                if (caSortCol === c.id) {
+                    text += caSortAsc ? ' ▲' : ' ▼';
+                    th.style.color = '#fff';
+                }
+                th.innerText = text;
+                th.onclick = () => {
+                    if (caSortCol === c.id) caSortAsc = !caSortAsc;
+                    else { caSortCol = c.id; caSortAsc = true; }
+                    filterCATable();
+                };
+                tr.appendChild(th);
             });
-            html += `</tbody></table>`;
-            return html;
+            thead.appendChild(tr);
         }
+
+        function filterCATable() {
+            if (!caRawData || caRawData.length === 0) return;
+
+            const search = document.getElementById('ca-search-input').value.toLowerCase();
+            const filterContainerId = caCurrentTab === 'actions' ? 'ca-actions-filters' : 'ca-meetings-filters';
+            const activeFilters = Array.from(document.querySelectorAll(`#${filterContainerId} .ca-filter-cb:checked`)).map(cb => cb.value.toLowerCase());
+
+            let filtered = caRawData.filter(item => {
+                // Search Match
+                const sym = (item.symbol || '').toLowerCase();
+                const comp = (item.comp || item.Company_Name || '').toLowerCase();
+                if (search && !sym.includes(search) && !comp.includes(search)) return false;
+
+                // Advanced Filters
+                if (activeFilters.length > 0) {
+                    const purpose = (item.purpose || item.Purposecode || item.bm_desc || '').toLowerCase();
+                    let match = false;
+                    for (const f of activeFilters) {
+                        if (purpose.includes(f)) { match = true; break; }
+                        // Special handling for AGM/EGM
+                        if (f === 'agm' && (purpose.includes('annual general meeting') || purpose.includes('extra ordinary general meeting'))) {
+                            match = true; break;
+                        }
+                    }
+                    if (!match) return false;
+                }
+
+                return true;
+            });
+
+            // Sort
+            filtered.sort((a, b) => {
+                let valA = a[caSortCol] || '';
+                let valB = b[caSortCol] || '';
+
+                // Use the parsed date object if sorting by a date column
+                if (caSortCol === 'exDate' || caSortCol === 'bm_date') {
+                    valA = a._date ? a._date.getTime() : 0;
+                    valB = b._date ? b._date.getTime() : 0;
+                } else if (caSortCol === 'recDate') {
+                    valA = a._recDate ? a._recDate.getTime() : 0;
+                    valB = b._recDate ? b._recDate.getTime() : 0;
+                }
+
+                if (valA < valB) return caSortAsc ? -1 : 1;
+                if (valA > valB) return caSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            renderCATableData(filtered);
+        }
+
+        function renderCATableData(data) {
+            const tbody = document.getElementById('ca-main-body');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
+                document.getElementById('ca-status-msg').innerText = "Ready";
+                document.getElementById('ca-row-count').innerText = "0 Rows";
+                return;
+            }
+
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+
+                // Highlighting logic
+                let rowColor = '';
+                const purpose = (item.purpose || item.Purposecode || item.bm_desc || '').toLowerCase();
+                if (purpose.includes('dividend')) rowColor = 'rgba(76, 175, 80, 0.15)'; // Soft green
+                else if (purpose.includes('bonus') || purpose.includes('split')) rowColor = 'rgba(0, 188, 212, 0.15)'; // Soft cyan
+                else if (purpose.includes('financial results')) rowColor = 'rgba(255, 152, 0, 0.15)'; // Soft orange
+
+                if (rowColor) tr.style.backgroundColor = rowColor;
+
+                if (caCurrentTab === 'actions') {
+                    tr.innerHTML = `
+                        <td><strong>${item.symbol || '-'}</strong></td>
+                        <td style="white-space:normal; max-width:200px;">${item.comp || '-'}</td>
+                        <td style="white-space:normal; max-width:300px;">${item.purpose || '-'}</td>
+                        <td>${item.faceVal !== undefined && item.faceVal !== null ? item.faceVal : '-'}</td>
+                        <td>${item.exDate || '-'}</td>
+                        <td>${item.recDate || '-'}</td>
+                    `;
+                } else {
+                     tr.innerHTML = `
+                        <td><strong>${item.symbol || '-'}</strong></td>
+                        <td style="white-space:normal; max-width:200px;">${item.Company_Name || '-'}</td>
+                        <td style="white-space:normal; max-width:150px;">${item.Purposecode || '-'}</td>
+                        <td style="white-space:normal; max-width:300px;">${item.bm_desc || '-'}</td>
+                        <td>${item.bm_date || '-'}</td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+
+            // Re-render headers to update sort arrows
+            renderCAHeaders();
+
+            document.getElementById('ca-status-msg').innerText = "Loaded successfully";
+            document.getElementById('ca-row-count').innerText = `${data.length} Rows`;
+        }
+
+        function exportCATableCSV() {
+            const thead = document.getElementById('ca-main-head');
+            const tbody = document.getElementById('ca-main-body');
+
+            if (tbody.rows.length === 0 || tbody.innerText.includes('Loading') || tbody.innerText.includes('No data')) {
+                alert("No data to export.");
+                return;
+            }
+
+            let csv = [];
+            const headers = Array.from(thead.querySelectorAll('th')).map(th => `"${th.innerText.replace(/[▲▼]/g, '').trim()}"`);
+            csv.push(headers.join(","));
+
+            Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+                const row = Array.from(tr.querySelectorAll('td')).map(td => `"${td.innerText.replace(/"/g, '""')}"`);
+                csv.push(row.join(","));
+            });
+
+            const blob = new Blob([csv.join("\n")], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `NSE_${caCurrentTab === 'actions' ? 'Corporate_Actions' : 'Board_Meetings'}_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Trigger load Corporate Actions when switchMainTab is called (override existing hook)
+        const _originalSwitchMainTab = switchMainTab;
+        switchMainTab = function(tabName) {
+            _originalSwitchMainTab(tabName);
+            if (tabName === 'corporate_actions' && caRawData.length === 0) {
+                // Initial load
+                switchCATab('actions');
+            }
+        };
 
         // --- Proxy Scrapers ---
         async function loadRights() {
