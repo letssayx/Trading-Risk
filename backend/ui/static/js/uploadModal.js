@@ -434,7 +434,7 @@ class NSEImporter {
                                         barWidth = '10%';
                                         barColor = '#888';
                                     }
-                                    timeBar = `<div style="width:100%; height:4px; background:#333; margin-top:4px; border-radius:2px;">
+                                    timeBar = `<div style="width:100%; height:4px; background:#333; margin-top:4px; border-radius:2px; overflow:hidden; position:relative; min-width:100px;">
                                         <div style="width:${barWidth}; height:100%; background:${barColor}; border-radius:2px;"></div>
                                     </div>`;
                                 }
@@ -446,8 +446,8 @@ class NSEImporter {
 
                         html += `
                             <tr>
-                                <td style="color:#00bcd4; font-weight:500;">
-                                    ${table}
+                                <td style="color:#00bcd4; font-weight:500; vertical-align:top; min-width:120px;">
+                                    <div style="margin-bottom: 2px;">${table}</div>
                                     ${timeBar}
                                 </td>
                                 <td>${badges}</td>

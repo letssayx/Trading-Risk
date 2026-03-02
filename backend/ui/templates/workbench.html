@@ -163,7 +163,7 @@
             width: 1000px;
             display: flex;
             flex-direction: column;
-            overflow-y: auto; /* keep left panel scrollable internally if needed */
+            overflow: hidden; /* no scrollbars anywhere in imports view per request */
         }
         .import-right-panel {
             flex: 1;
@@ -1212,18 +1212,24 @@
 
                  try {
                      // We fetch the latest audit logs that are likely from celery
-                     const res = await fetch(`/api/audit/history?limit=20`);
+                     const res = await fetch(`/api/audit/history?limit=200`);
                      if(res.ok) {
                          const logs = await res.json();
                          // Sort ascending by ID or timestamp
                          logs.sort((a,b) => a.id - b.id);
+
+                         // On first load, don't dump 200 logs, just get the last 20
+                         if (lastCeleryLogId === 0 && logs.length > 0) {
+                             lastCeleryLogId = logs[Math.max(0, logs.length - 20)].id - 1;
+                         }
+
                          let newLogs = logs.filter(l => l.id > lastCeleryLogId && l.source === 'NSE_Importer');
                          if(newLogs.length > 0) {
                              lastCeleryLogId = newLogs[newLogs.length - 1].id;
                              newLogs.forEach(log => {
                                  const div = document.createElement('div');
                                  div.innerText = `[${log.timestamp.replace('T', ' ').substring(0, 19)}] ${log.level} [${log.source}] ${log.message}`;
-                                 if (log.level === "ERROR") div.style.color = "#f48771";
+                                 if (log.level === "ERROR" || log.level === "FAILED") div.style.color = "#f48771";
                                  else if (log.level === "WARNING") div.style.color = "#cca700";
                                  else div.style.color = "#d4d4d4";
                                  celeryTerminal.appendChild(div);
@@ -1234,7 +1240,7 @@
                  } catch(e) {
                      // silent fail for poller
                  }
-             }, 3000);
+             }, 2000);
         }
     </script>
 </body>
