@@ -122,7 +122,7 @@ def proxy_board_meetings():
     response = None
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
-        url = "https://www.nseindia.com/api/corporate-board-meetings"
+        url = "https://www.nseindia.com/api/corporate-board-meetings?index=equities"
         response = session.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response.json()

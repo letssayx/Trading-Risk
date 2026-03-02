@@ -715,15 +715,15 @@
                 ? [
                     { id: 'symbol', label: 'Symbol' },
                     { id: 'comp', label: 'Company' },
-                    { id: 'purpose', label: 'Purpose' },
+                    { id: 'subject', label: 'Purpose' },
                     { id: 'faceVal', label: 'Face Value' },
                     { id: 'exDate', label: 'Ex-Date' },
                     { id: 'recDate', label: 'Record Date' }
                   ]
                 : [
-                    { id: 'symbol', label: 'Symbol' },
-                    { id: 'Company_Name', label: 'Company' },
-                    { id: 'Purposecode', label: 'Purpose' },
+                    { id: 'bm_symbol', label: 'Symbol' },
+                    { id: 'sm_name', label: 'Company' },
+                    { id: 'bm_purpose', label: 'Purpose' },
                     { id: 'bm_desc', label: 'Details' },
                     { id: 'bm_date', label: 'Meeting Date' }
                   ];
@@ -755,13 +755,13 @@
 
             let filtered = caRawData.filter(item => {
                 // Search Match
-                const sym = (item.symbol || '').toLowerCase();
-                const comp = (item.comp || item.Company_Name || '').toLowerCase();
+                const sym = (item.symbol || item.bm_symbol || '').toLowerCase();
+                const comp = (item.comp || item.sm_name || '').toLowerCase();
                 if (search && !sym.includes(search) && !comp.includes(search)) return false;
 
                 // Advanced Filters
                 if (activeFilters.length > 0) {
-                    const purpose = (item.purpose || item.Purposecode || item.bm_desc || '').toLowerCase();
+                    const purpose = (item.subject || item.bm_purpose || item.bm_desc || '').toLowerCase();
                     let match = false;
                     for (const f of activeFilters) {
                         if (purpose.includes(f)) { match = true; break; }
@@ -814,7 +814,7 @@
 
                 // Highlighting logic
                 let rowColor = '';
-                const purpose = (item.purpose || item.Purposecode || item.bm_desc || '').toLowerCase();
+                const purpose = (item.subject || item.bm_purpose || item.bm_desc || '').toLowerCase();
                 if (purpose.includes('dividend')) rowColor = 'rgba(76, 175, 80, 0.15)'; // Soft green
                 else if (purpose.includes('bonus') || purpose.includes('split')) rowColor = 'rgba(0, 188, 212, 0.15)'; // Soft cyan
                 else if (purpose.includes('financial results')) rowColor = 'rgba(255, 152, 0, 0.15)'; // Soft orange
@@ -825,16 +825,16 @@
                     tr.innerHTML = `
                         <td><strong>${item.symbol || '-'}</strong></td>
                         <td style="white-space:normal; max-width:200px;">${item.comp || '-'}</td>
-                        <td style="white-space:normal; max-width:300px;">${item.purpose || '-'}</td>
+                        <td style="white-space:normal; max-width:300px;">${item.subject || '-'}</td>
                         <td>${item.faceVal !== undefined && item.faceVal !== null ? item.faceVal : '-'}</td>
                         <td>${item.exDate || '-'}</td>
                         <td>${item.recDate || '-'}</td>
                     `;
                 } else {
                      tr.innerHTML = `
-                        <td><strong>${item.symbol || '-'}</strong></td>
-                        <td style="white-space:normal; max-width:200px;">${item.Company_Name || '-'}</td>
-                        <td style="white-space:normal; max-width:150px;">${item.Purposecode || '-'}</td>
+                        <td><strong>${item.bm_symbol || '-'}</strong></td>
+                        <td style="white-space:normal; max-width:200px;">${item.sm_name || '-'}</td>
+                        <td style="white-space:normal; max-width:150px;">${item.bm_purpose || '-'}</td>
                         <td style="white-space:normal; max-width:300px;">${item.bm_desc || '-'}</td>
                         <td>${item.bm_date || '-'}</td>
                     `;
