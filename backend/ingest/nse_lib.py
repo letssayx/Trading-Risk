@@ -391,24 +391,22 @@ class NSELib:
 
     def get_pe_ratio(self, trade_date: date) -> pd.DataFrame:
         """Get P/E Ratio Data (Equities)."""
-        # Note: The new NSE format uses a 2-digit year for PE equities (ddmmyy)
         date_str_short = trade_date.strftime("%d%m%y")
-        url = f"{self.ARCHIVES_URL}/content/equities/peDetail/PE_{date_str_short}.csv"
-
-        resp = self.get(url)
-        if resp.status_code == 200:
-            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-            df.columns = [c.strip() for c in df.columns]
-            return df
-
-        # Fallback to old archive format which used 4-digit year (ddmmyyyy)
         date_str_long = trade_date.strftime("%d%m%Y")
-        alt_url = f"{self.ARCHIVES_URL}/archives/equities/pe/pe_{date_str_long}.csv"
-        resp = self.get(alt_url)
-        if resp.status_code == 200:
-            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-            df.columns = [c.strip() for c in df.columns]
-            return df
+
+        urls = [
+            f"{self.ARCHIVES_URL}/content/equities/peDetail/PE_{date_str_short}.csv",
+            f"{self.ARCHIVES_URL}/content/equities/peDetail/pe_{date_str_short}.csv",
+            f"{self.ARCHIVES_URL}/archives/equities/pe/pe_{date_str_long}.csv",
+            f"{self.ARCHIVES_URL}/archives/equities/pe/PE_{date_str_long}.csv"
+        ]
+
+        for url in urls:
+            resp = self.get(url)
+            if resp.status_code == 200:
+                df = self.parse_pe_ratio(resp.content)
+                if not df.empty:
+                    return df
 
         return pd.DataFrame()
 

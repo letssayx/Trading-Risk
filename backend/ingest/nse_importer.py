@@ -455,7 +455,7 @@ class NSEDataImporter:
             cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
 
             stmt = pg_insert(table).values(cleaned)
-            update_cols = {c.name: c for c in table.columns
+            update_cols = {c.name: c for c in stmt.excluded
                           if c.name not in unique_fields and c.name not in ['id', 'created_at']}
 
             if unique_fields:
