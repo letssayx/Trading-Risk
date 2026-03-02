@@ -599,6 +599,10 @@ class FieldMapper:
         for _, row in df.iterrows():
             row_date = parse_nse_date(row.get('Date'))
             if not row_date:
+                # Fallback to trade_date if the Date column couldn't be parsed
+                row_date = trade_date
+
+            if not row_date:
                 continue
 
             record = {
