@@ -118,6 +118,10 @@ class FieldMapper:
             # We will use 'pe_ratio_idx' as the detected type, but `map_to_records` needs to support `india_vix`.
             return {'type': 'pe_ratio_idx', 'name': 'pe_ratio_idx'}
 
+        # Pure India VIX Historical Data file (e.g. downloaded manually from NSE website)
+        if 'Date' in columns and 'Open' in columns and 'High' in columns and 'Low' in columns and 'Close' in columns and 'Previous' in columns:
+            return {'type': 'india_vix_historical', 'name': 'india_vix'}
+
         # Security Master
         if 'FinInstrmId' in columns and 'TckrSymb' in columns and 'ISIN' in columns:
             return {'type': 'security_master', 'name': 'security_master'}
@@ -172,6 +176,8 @@ class FieldMapper:
             return cls._map_pe(df, trade_date, format_type)
         elif format_type == 'india_vix':
             return cls._map_india_vix(df, trade_date)
+        elif format_type == 'india_vix_historical':
+            return cls._map_india_vix_historical(df, trade_date)
         elif format_type == 'security_master':
             return cls._map_security_master(df)
         elif format_type == 'var_stats':
@@ -583,6 +589,26 @@ class FieldMapper:
                 'close_value': cls._clean_numeric(row.get('Closing Index Value')),
                 'points_change': cls._clean_numeric(row.get('Points Change')),
                 'percent_change': cls._clean_numeric(row.get('Change(%)'))
+            }
+            records.append(record)
+        return records
+
+    @classmethod
+    def _map_india_vix_historical(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            row_date = parse_nse_date(row.get('Date'))
+            if not row_date:
+                continue
+
+            record = {
+                'date': row_date,
+                'open_value': cls._clean_numeric(row.get('Open')),
+                'high_value': cls._clean_numeric(row.get('High')),
+                'low_value': cls._clean_numeric(row.get('Low')),
+                'close_value': cls._clean_numeric(row.get('Close')),
+                'points_change': cls._clean_numeric(row.get('Change')),
+                'percent_change': cls._clean_numeric(row.get('%Change'))
             }
             records.append(record)
         return records

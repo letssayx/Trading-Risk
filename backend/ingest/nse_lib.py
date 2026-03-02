@@ -395,6 +395,8 @@ class NSELib:
         date_str_long = trade_date.strftime("%d%m%Y")
 
         urls = [
+            f"{self.ARCHIVES_URL}/content/equities/peDetail/PE_{date_str_long}.csv",
+            f"{self.ARCHIVES_URL}/content/equities/peDetail/pe_{date_str_long}.csv",
             f"{self.ARCHIVES_URL}/content/equities/peDetail/PE_{date_str_short}.csv",
             f"{self.ARCHIVES_URL}/content/equities/peDetail/pe_{date_str_short}.csv",
             f"{self.ARCHIVES_URL}/archives/equities/pe/pe_{date_str_long}.csv",

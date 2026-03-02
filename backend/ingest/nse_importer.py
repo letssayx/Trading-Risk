@@ -375,7 +375,8 @@ class NSEDataImporter:
 
         # Special override: ind_close_all is used for both pe_ratio_idx and india_vix.
         # FieldMapper defaults to pe_ratio_idx. If the caller specifically requested india_vix, override it.
-        if key == 'india_vix':
+        # However, if it was identified as 'india_vix_historical' natively, keep that type so it maps correctly.
+        if key == 'india_vix' and format_info['type'] != 'india_vix_historical':
             format_info['type'] = 'india_vix'
 
         records = FieldMapper.map_to_records(df, format_info, trade_date)
