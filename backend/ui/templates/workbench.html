@@ -216,7 +216,8 @@
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
         <div class="main-tab" data-target="circulars" onclick="switchMainTab('circulars')" title="Circulars">Circulars</div>
-        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+A"><u>A</u>udit Trail</div>
+        <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
+        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
     </div>
 
@@ -367,6 +368,95 @@
                     <button onclick="loadCirculars()" class="btn btn-secondary">Refresh</button>
                 </div>
                 <div id="circulars-container">Loading...</div>
+            </div>
+        </div>
+
+        <!-- TAB AI-ANALYZE -->
+        <div id="tab-ai_analyze" class="main-tab-content" style="background: #0f1115; overflow-y: auto;">
+            <div class="ai-analyze-container">
+                <!-- Search Bar -->
+                <div class="ai-search-wrapper">
+                    <input type="text" id="ai-search-input" class="ai-search-input" placeholder="What event should I analyze?">
+                    <button class="ai-search-btn" onclick="runAiAnalysis()">Analyze</button>
+                </div>
+
+                <!-- Engine Icons -->
+                <div class="ai-engines-container">
+                    <div class="ai-engine-icon" data-engine="black_swan" title="Black Swan (Un-Systematic Risk)" onclick="selectEngine('black_swan')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #dc2626;"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <span class="engine-label">Black Swan</span>
+                    </div>
+                    <div class="ai-engine-icon" data-engine="macro" title="Monetary & Macro (Systematic Risk)" onclick="selectEngine('macro')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #3b82f6;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        <span class="engine-label">Macro</span>
+                    </div>
+                    <div class="ai-engine-icon" data-engine="corporate" title="Corporate Action" onclick="selectEngine('corporate')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #9333ea;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>
+                        <span class="engine-label">Corp Action</span>
+                    </div>
+                    <div class="ai-engine-icon" data-engine="derivatives" title="Derivatives Intelligence" onclick="selectEngine('derivatives')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #10b981;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        <span class="engine-label">Derivatives</span>
+                    </div>
+                    <div class="ai-engine-icon" data-engine="earnings" title="Earnings Engine" onclick="selectEngine('earnings')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #eab308;"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+                        <span class="engine-label">Earnings</span>
+                    </div>
+                </div>
+
+                <!-- Verdict Card (Hidden by default, shown after analysis) -->
+                <div id="ai-verdict-card" class="ai-verdict-card" style="display: none;">
+                    <div class="verdict-header">
+                        <div class="verdict-title">Executive Summary</div>
+                        <div class="verdict-confidence glow-badge">85% Confidence</div>
+                    </div>
+
+                    <div class="verdict-main">
+                        <div class="verdict-label">Predicted Opening Range</div>
+                        <div class="verdict-range text-emerald">₹68.40 — ₹71.10</div>
+                        <div class="verdict-targets">Target: ₹75.00 | Support: ₹65.00</div>
+                    </div>
+
+                    <div class="verdict-logic">
+                        <ul class="logic-list">
+                            <li><strong>Derivatives Shift:</strong> Significant Put writing observed at ₹65 strike, establishing strong near-term support.</li>
+                            <li><strong>Macro Catalyst:</strong> Recent rate hold by central bank favors yield-sensitive sectors.</li>
+                            <li><strong>Volatility Crush:</strong> IV percentile dropping post-event, suggesting price stabilization within the projected range.</li>
+                        </ul>
+                    </div>
+
+                    <button class="btn-pop-hood" onclick="toggleHood()">Pop the Hood</button>
+                </div>
+
+                <!-- Raw Data View -->
+                <div id="ai-raw-data" class="ai-raw-data" style="display: none;">
+                    <h3>Deep Dive Analysis</h3>
+                    <div class="raw-data-content">
+                        <!-- Placeholder for tables/json -->
+                        <p style="color: #888;">Fetching detailed engine logs and tables...</p>
+                        <table class="data-table" style="margin-top: 10px;">
+                            <thead>
+                                <tr><th>Metric</th><th>Value</th><th>Impact</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>IV Percentile</td><td>24%</td><td><span style="color: #10b981;">Bullish</span></td></tr>
+                                <tr><td>PCR (Volume)</td><td>1.15</td><td>Neutral</td></tr>
+                                <tr><td>FII Net OI</td><td>+12,400</td><td><span style="color: #10b981;">Bullish</span></td></tr>
+                            </tbody>
+                        </table>
+                        <pre style="background: #111; padding: 10px; margin-top: 15px; border: 1px solid #333; color: #a3a3a3; font-family: monospace;">
+{
+  "engine": "Derivatives Intelligence",
+  "reasoning_steps": [
+    "Analyzed option chain for nearest expiry.",
+    "Calculated max pain at ₹70.",
+    "Identified aggressive put selling at ₹65."
+  ]
+}
+                        </pre>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -603,7 +693,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'ai_analyze', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -1011,6 +1101,46 @@
         }
 
 
+        // --- AI-Analyze Logic ---
+        function selectEngine(engineId) {
+            document.querySelectorAll('.ai-engine-icon').forEach(el => el.classList.remove('active'));
+            const target = document.querySelector(`.ai-engine-icon[data-engine="${engineId}"]`);
+            if (target) {
+                target.classList.add('active');
+            }
+        }
+
+        function runAiAnalysis() {
+            const btn = document.querySelector('.ai-search-btn');
+            const input = document.getElementById('ai-search-input').value;
+            if (!input) {
+                alert("Please enter an event to analyze.");
+                return;
+            }
+
+            btn.innerText = "Analyzing...";
+            btn.disabled = true;
+
+            // Mocking a response delay
+            setTimeout(() => {
+                document.getElementById('ai-verdict-card').style.display = 'flex';
+                document.getElementById('ai-raw-data').style.display = 'none'; // Hide raw data on new search
+                btn.innerText = "Analyze";
+                btn.disabled = false;
+            }, 1500);
+        }
+
+        function toggleHood() {
+            const rawData = document.getElementById('ai-raw-data');
+            if (rawData.style.display === 'none' || rawData.style.display === '') {
+                rawData.style.display = 'block';
+                // Scroll into view
+                setTimeout(() => rawData.scrollIntoView({ behavior: 'smooth' }), 100);
+            } else {
+                rawData.style.display = 'none';
+            }
+        }
+
         // Global Shortcut Handler
         document.addEventListener('keydown', (e) => {
             // Avoid shortcuts when typing in inputs (except special keys if needed)
@@ -1023,7 +1153,8 @@
                     't': 'terminal',
                     'h': 'history',
                     'i': 'import',
-                    'a': 'audit',
+                    'a': 'ai_analyze',
+                    'u': 'audit',
                     'c': 'config'
                 };
                 if (map[key]) {

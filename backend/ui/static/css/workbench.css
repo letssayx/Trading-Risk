@@ -390,4 +390,231 @@ body {
 }
 .resizer-h:hover { background: var(--accent-color); opacity: 0.3; }
 
+/* --- AI-Analyze Styles --- */
+.ai-analyze-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.ai-search-wrapper {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+}
+
+.ai-search-input {
+    flex: 1;
+    padding: 16px 24px;
+    border-radius: 50px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #f8fafc;
+    font-size: 1.1em;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s;
+}
+
+.ai-search-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+.ai-search-btn {
+    padding: 0 32px;
+    border-radius: 50px;
+    background: #3b82f6;
+    color: white;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s;
+}
+
+.ai-search-btn:hover {
+    background: #2563eb;
+}
+
+.ai-engines-container {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    justify-content: center;
+    width: 100%;
+}
+
+.ai-engine-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+.ai-engine-icon:hover {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.ai-engine-icon.active {
+    background: #1e293b;
+    border-color: #475569;
+    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+}
+
+.engine-svg {
+    width: 32px;
+    height: 32px;
+}
+
+.engine-label {
+    font-size: 0.8em;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.ai-engine-icon:hover .engine-label,
+.ai-engine-icon.active .engine-label {
+    color: #f8fafc;
+}
+
+.ai-verdict-card {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid #1e293b;
+    border-radius: 16px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.verdict-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 16px;
+}
+
+.verdict-title {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #f8fafc;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.glow-badge {
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.verdict-main {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.verdict-label {
+    color: #94a3b8;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.verdict-range {
+    font-size: 2.5em;
+    font-weight: 700;
+    font-family: 'Consolas', monospace;
+    letter-spacing: -0.02em;
+}
+
+.text-emerald { color: #10b981; }
+.text-crimson { color: #dc2626; }
+
+.verdict-targets {
+    color: #cbd5e1;
+    font-size: 1.1em;
+}
+
+.verdict-logic {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.logic-list {
+    margin: 0;
+    padding-left: 20px;
+    color: #e2e8f0;
+    line-height: 1.6;
+}
+
+.logic-list li {
+    margin-bottom: 8px;
+}
+.logic-list li:last-child {
+    margin-bottom: 0;
+}
+.logic-list strong {
+    color: #94a3b8;
+}
+
+.btn-pop-hood {
+    align-self: center;
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    padding: 8px 24px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s;
+}
+
+.btn-pop-hood:hover {
+    background: #1e293b;
+    color: #f8fafc;
+    border-color: #64748b;
+}
+
+.ai-raw-data {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.ai-raw-data h3 {
+    margin-top: 0;
+    color: #e0e0e0;
+    font-size: 1.1em;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+}
+
 /* No more Modal styles needed */
