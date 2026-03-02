@@ -64,8 +64,7 @@ import requests
 
 @router.get("/api/proxy/rights")
 def proxy_rights():
-    """Fetches Rights and Renunciations directly from NSE API endpoint."""
-    # Attempting to use a standard requests session first in case nselib session is being blocked
+    """Fetches Rights Issues directly from NSE API endpoint."""
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -75,17 +74,14 @@ def proxy_rights():
     response = None
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
-        url = "https://www.nseindia.com/api/corporates-rights-renunciation?index=equities"
+        url = "https://www.nseindia.com/api/corporate-further-issues-ri"
         response = session.get(url, headers=headers, timeout=10)
-
-        # If API returns empty or fails, rights data might be available elsewhere, but NSE's API is correct.
         response.raise_for_status()
         return response.json()
     except Exception as e:
         status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
         body = getattr(response, 'text', 'N/A') if response else 'N/A'
         logger.error(f"Failed to fetch Rights. Status: {status}, Body: {body}, Error: {e}")
-        # Return empty data instead of 502 to avoid breaking the UI completely, let UI handle empty state
         return {"data": []}
 
 @router.get("/api/proxy/circulars")

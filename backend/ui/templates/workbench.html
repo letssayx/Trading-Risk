@@ -215,7 +215,6 @@
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
-        <div class="main-tab" data-target="rights" onclick="switchMainTab('rights')" title="Rights Renunciation">Rights</div>
         <div class="main-tab" data-target="circulars" onclick="switchMainTab('circulars')" title="Circulars">Circulars</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+A"><u>A</u>udit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
@@ -312,11 +311,11 @@
         <!-- TAB CORPORATE ACTIONS -->
         <div id="tab-corporate_actions" class="main-tab-content">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin: 0;">Corporate Actions & Board Meetings</h2>
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
                     <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px;">
                         <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Corporate Actions</div>
                         <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Board Meetings</div>
+                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
                     </div>
                 </div>
 
@@ -338,6 +337,11 @@
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Fund Raising" onchange="filterCATable()"> Fund Raising</label>
                     </div>
+                    <div class="control-group" id="ca-rights-filters" style="display:none;">
+                        <label style="margin-right:10px;">Stage:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="in-principle" onchange="filterCATable()"> In-Principle</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="listing stage" onchange="filterCATable()"> Listing Stage</label>
+                    </div>
                     <button onclick="loadCorporateActionsData()" class="btn btn-primary">Refresh Data</button>
                     <button onclick="exportCATableCSV()" class="btn btn-secondary" style="margin-left: auto;">Export CSV</button>
                 </div>
@@ -352,17 +356,6 @@
                     <span id="ca-status-msg">Ready</span>
                     <span id="ca-row-count">0 Rows</span>
                 </div>
-            </div>
-        </div>
-
-        <!-- TAB RIGHTS -->
-        <div id="tab-rights" class="main-tab-content">
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:15px; margin-bottom: 10px;">
-                    <h2 style="margin: 0;">Rights Renunciation</h2>
-                    <button onclick="loadRights()" class="btn btn-secondary">Refresh</button>
-                </div>
-                <div id="rights-container">Loading...</div>
             </div>
         </div>
 
@@ -610,7 +603,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'rights', 'circulars', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -635,7 +628,6 @@
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
 
             // Note: corporate_actions load is handled by the wrapper function below
-            if (tabName === 'rights') loadRights();
             if (tabName === 'circulars') loadCirculars();
         }
 
@@ -651,9 +643,11 @@
             // UI Toggle
             document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
             document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
+            document.getElementById('ca-tab-btn-rights').classList.toggle('active', tab === 'rights');
 
             document.getElementById('ca-actions-filters').style.display = tab === 'actions' ? 'flex' : 'none';
             document.getElementById('ca-meetings-filters').style.display = tab === 'meetings' ? 'flex' : 'none';
+            document.getElementById('ca-rights-filters').style.display = tab === 'rights' ? 'flex' : 'none';
 
             // Clear current filters
             document.querySelectorAll('.ca-filter-cb').forEach(cb => cb.checked = false);
@@ -661,7 +655,10 @@
 
             // Reset state and load
             caRawData = [];
-            caSortCol = tab === 'actions' ? 'exDate' : 'bm_date';
+            if (tab === 'actions') caSortCol = 'exDate';
+            else if (tab === 'meetings') caSortCol = 'bm_date';
+            else caSortCol = 'recordDate'; // Rights
+
             caSortAsc = false; // Descending by default
 
             loadCorporateActionsData();
@@ -677,7 +674,9 @@
             statusMsg.innerText = "Loading...";
             rowCount.innerText = "0 Rows";
 
-            const endpoint = caCurrentTab === 'actions' ? '/api/proxy/corporate-actions' : '/api/proxy/board-meetings';
+            let endpoint = '/api/proxy/corporate-actions';
+            if (caCurrentTab === 'meetings') endpoint = '/api/proxy/board-meetings';
+            if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
 
             try {
                 const response = await fetch(endpoint);
@@ -691,6 +690,7 @@
                 caRawData.forEach(item => {
                     if (item.exDate && item.exDate !== '-') item._date = new Date(item.exDate);
                     else if (item.bm_date && item.bm_date !== '-') item._date = new Date(item.bm_date);
+                    else if (item.recordDate && item.recordDate !== '-') item._date = new Date(item.recordDate);
                     else item._date = new Date(0);
 
                     if (item.recDate && item.recDate !== '-') item._recDate = new Date(item.recDate);
@@ -711,22 +711,37 @@
             thead.innerHTML = '';
 
             const tr = document.createElement('tr');
-            const cols = caCurrentTab === 'actions'
-                ? [
+            let cols = [];
+            if (caCurrentTab === 'actions') {
+                cols = [
                     { id: 'symbol', label: 'Symbol' },
                     { id: 'comp', label: 'Company' },
                     { id: 'subject', label: 'Purpose' },
                     { id: 'faceVal', label: 'Face Value' },
                     { id: 'exDate', label: 'Ex-Date' },
                     { id: 'recDate', label: 'Record Date' }
-                  ]
-                : [
+                ];
+            } else if (caCurrentTab === 'meetings') {
+                cols = [
                     { id: 'bm_symbol', label: 'Symbol' },
                     { id: 'sm_name', label: 'Company' },
                     { id: 'bm_purpose', label: 'Purpose' },
                     { id: 'bm_desc', label: 'Details' },
                     { id: 'bm_date', label: 'Meeting Date' }
-                  ];
+                ];
+            } else {
+                // Rights
+                cols = [
+                    { id: 'nseSymbol', label: 'Symbol' },
+                    { id: 'companyName', label: 'Company' },
+                    { id: 'rightRatio', label: 'Ratio' },
+                    { id: 'stage', label: 'Stage' },
+                    { id: 'offerPrice', label: 'Offer Price' },
+                    { id: 'issueOpenDate', label: 'Open Date' },
+                    { id: 'issueCloseDate', label: 'Close Date' },
+                    { id: 'recordDate', label: 'Record Date' }
+                ];
+            }
 
             cols.forEach(c => {
                 const th = document.createElement('th');
@@ -750,27 +765,44 @@
             if (!caRawData || caRawData.length === 0) return;
 
             const search = document.getElementById('ca-search-input').value.toLowerCase();
-            const filterContainerId = caCurrentTab === 'actions' ? 'ca-actions-filters' : 'ca-meetings-filters';
-            const activeFilters = Array.from(document.querySelectorAll(`#${filterContainerId} .ca-filter-cb:checked`)).map(cb => cb.value.toLowerCase());
+
+            let activeFilters = [];
+            let filterContainerId = '';
+            if (caCurrentTab === 'actions') filterContainerId = 'ca-actions-filters';
+            else if (caCurrentTab === 'meetings') filterContainerId = 'ca-meetings-filters';
+            else if (caCurrentTab === 'rights') filterContainerId = 'ca-rights-filters';
+
+            if (filterContainerId) {
+                activeFilters = Array.from(document.querySelectorAll(`#${filterContainerId} .ca-filter-cb:checked`)).map(cb => cb.value.toLowerCase());
+            }
 
             let filtered = caRawData.filter(item => {
                 // Search Match
-                const sym = (item.symbol || item.bm_symbol || '').toLowerCase();
-                const comp = (item.comp || item.sm_name || '').toLowerCase();
+                const sym = (item.symbol || item.bm_symbol || item.nseSymbol || '').toLowerCase();
+                const comp = (item.comp || item.sm_name || item.companyName || '').toLowerCase();
                 if (search && !sym.includes(search) && !comp.includes(search)) return false;
 
                 // Advanced Filters
                 if (activeFilters.length > 0) {
-                    const purpose = (item.subject || item.bm_purpose || item.bm_desc || '').toLowerCase();
-                    let match = false;
-                    for (const f of activeFilters) {
-                        if (purpose.includes(f)) { match = true; break; }
-                        // Special handling for AGM/EGM
-                        if (f === 'agm' && (purpose.includes('annual general meeting') || purpose.includes('extra ordinary general meeting'))) {
-                            match = true; break;
+                    if (caCurrentTab === 'rights') {
+                        const stage = (item.stage || '').toLowerCase();
+                        let match = false;
+                        for (const f of activeFilters) {
+                            if (stage.includes(f)) { match = true; break; }
                         }
+                        if (!match) return false;
+                    } else {
+                        const purpose = (item.subject || item.bm_purpose || item.bm_desc || '').toLowerCase();
+                        let match = false;
+                        for (const f of activeFilters) {
+                            if (purpose.includes(f)) { match = true; break; }
+                            // Special handling for AGM/EGM
+                            if (f === 'agm' && (purpose.includes('annual general meeting') || purpose.includes('extra ordinary general meeting'))) {
+                                match = true; break;
+                            }
+                        }
+                        if (!match) return false;
                     }
-                    if (!match) return false;
                 }
 
                 return true;
@@ -782,9 +814,21 @@
                 let valB = b[caSortCol] || '';
 
                 // Use the parsed date object if sorting by a date column
-                if (caSortCol === 'exDate' || caSortCol === 'bm_date') {
-                    valA = a._date ? a._date.getTime() : 0;
-                    valB = b._date ? b._date.getTime() : 0;
+                const parseDateStr = (dateStr) => {
+                    if (!dateStr || dateStr === '-') return new Date(0);
+                    const parts = dateStr.split('-');
+                    if (parts.length === 3) {
+                        const monthMap = { 'Jan':0, 'Feb':1, 'Mar':2, 'Apr':3, 'May':4, 'Jun':5, 'Jul':6, 'Aug':7, 'Sep':8, 'Oct':9, 'Nov':10, 'Dec':11 };
+                        let mIndex = monthMap[parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase()];
+                        if (mIndex !== undefined) return new Date(parts[2], mIndex, parseInt(parts[0], 10));
+                    }
+                    return new Date(0);
+                };
+
+                if (caSortCol === 'exDate' || caSortCol === 'bm_date' || caSortCol === 'recordDate' || caSortCol === 'issueOpenDate' || caSortCol === 'issueCloseDate') {
+                    // Rights dates aren't fully pre-parsed in loadCorporateActionsData so parse on the fly or use existing _date
+                    valA = a._date ? a._date.getTime() : parseDateStr(a[caSortCol]).getTime();
+                    valB = b._date ? b._date.getTime() : parseDateStr(b[caSortCol]).getTime();
                 } else if (caSortCol === 'recDate') {
                     valA = a._recDate ? a._recDate.getTime() : 0;
                     valB = b._recDate ? b._recDate.getTime() : 0;
@@ -830,13 +874,25 @@
                         <td>${item.exDate || '-'}</td>
                         <td>${item.recDate || '-'}</td>
                     `;
-                } else {
+                } else if (caCurrentTab === 'meetings') {
                      tr.innerHTML = `
                         <td><strong>${item.bm_symbol || '-'}</strong></td>
                         <td style="white-space:normal; max-width:200px;">${item.sm_name || '-'}</td>
                         <td style="white-space:normal; max-width:150px;">${item.bm_purpose || '-'}</td>
                         <td style="white-space:normal; max-width:300px;">${item.bm_desc || '-'}</td>
                         <td>${item.bm_date || '-'}</td>
+                    `;
+                } else {
+                    // Rights
+                     tr.innerHTML = `
+                        <td><strong>${item.nseSymbol || '-'}</strong></td>
+                        <td style="white-space:normal; max-width:200px;">${item.companyName || '-'}</td>
+                        <td>${item.rightRatio || '-'}</td>
+                        <td>${item.stage || '-'}</td>
+                        <td>${item.offerPrice || '-'}</td>
+                        <td>${item.issueOpenDate || '-'}</td>
+                        <td>${item.issueCloseDate || '-'}</td>
+                        <td>${item.recordDate || '-'}</td>
                     `;
                 }
                 tbody.appendChild(tr);
@@ -872,7 +928,8 @@
             const a = document.createElement('a');
             a.setAttribute('hidden', '');
             a.setAttribute('href', url);
-            a.setAttribute('download', `NSE_${caCurrentTab === 'actions' ? 'Corporate_Actions' : 'Board_Meetings'}_${new Date().toISOString().slice(0,10)}.csv`);
+            let filename = caCurrentTab === 'actions' ? 'Corporate_Actions' : caCurrentTab === 'meetings' ? 'Board_Meetings' : 'Rights';
+            a.setAttribute('download', `NSE_${filename}_${new Date().toISOString().slice(0,10)}.csv`);
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
