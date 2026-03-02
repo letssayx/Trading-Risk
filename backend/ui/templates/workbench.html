@@ -372,89 +372,100 @@
         </div>
 
         <!-- TAB AI-ANALYZE -->
-        <div id="tab-ai_analyze" class="main-tab-content" style="background: #0f1115; overflow-y: auto;">
-            <div class="ai-analyze-container">
-                <!-- Search Bar -->
-                <div class="ai-search-wrapper">
-                    <input type="text" id="ai-search-input" class="ai-search-input" placeholder="What event should I analyze?">
-                    <button class="ai-search-btn" onclick="runAiAnalysis()">Analyze</button>
+        <div id="tab-ai_analyze" class="main-tab-content">
+            <div class="ai-terminal-container">
+
+                <!-- Command Line (Top) -->
+                <div class="ai-cmd-bar">
+                    <span class="ai-cmd-prompt">TERMINAL_CMD: &gt;</span>
+                    <input type="text" id="ai-cmd-input" class="ai-cmd-input" placeholder="_" autocomplete="off" spellcheck="false" onkeypress="handleAiCmd(event)">
                 </div>
 
-                <!-- Engine Icons -->
-                <div class="ai-engines-container">
-                    <div class="ai-engine-icon" data-engine="black_swan" title="Black Swan (Un-Systematic Risk)" onclick="selectEngine('black_swan')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #dc2626;"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                        <span class="engine-label">Black Swan</span>
+                <!-- Active Intelligence Grid (Bonnet) -->
+                <div class="ai-intel-grid">
+                    <div class="intel-card" id="intel-blackswan">
+                        <div class="intel-header">BLACK SWAN</div>
+                        <div class="intel-metric text-emerald">NOMINAL</div>
+                        <div class="intel-subtext">Sys Risk < 0.5%</div>
                     </div>
-                    <div class="ai-engine-icon" data-engine="macro" title="Monetary & Macro (Systematic Risk)" onclick="selectEngine('macro')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #3b82f6;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                        <span class="engine-label">Macro</span>
+                    <div class="intel-card" id="intel-macro">
+                        <div class="intel-header">MACRO</div>
+                        <div class="intel-metric">83.15</div>
+                        <div class="intel-subtext">USD/INR</div>
                     </div>
-                    <div class="ai-engine-icon" data-engine="corporate" title="Corporate Action" onclick="selectEngine('corporate')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #9333ea;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>
-                        <span class="engine-label">Corp Action</span>
+                    <div class="intel-card" id="intel-corporate">
+                        <div class="intel-header">CORP ACTION</div>
+                        <div class="intel-metric text-crimson">ALERT</div>
+                        <div class="intel-subtext">2 Pending</div>
                     </div>
-                    <div class="ai-engine-icon" data-engine="derivatives" title="Derivatives Intelligence" onclick="selectEngine('derivatives')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #10b981;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                        <span class="engine-label">Derivatives</span>
+                    <div class="intel-card" id="intel-derivatives">
+                        <div class="intel-header">DERIVATIVES</div>
+                        <div class="intel-metric">0.85</div>
+                        <div class="intel-subtext">Nifty PCR</div>
                     </div>
-                    <div class="ai-engine-icon" data-engine="earnings" title="Earnings Engine" onclick="selectEngine('earnings')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="engine-svg" style="color: #eab308;"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
-                        <span class="engine-label">Earnings</span>
+                    <div class="intel-card" id="intel-earnings">
+                        <div class="intel-header">EARNINGS</div>
+                        <div class="intel-metric text-emerald">+12%</div>
+                        <div class="intel-subtext">Avg Suprise</div>
                     </div>
                 </div>
 
-                <!-- Verdict Card (Hidden by default, shown after analysis) -->
-                <div id="ai-verdict-card" class="ai-verdict-card" style="display: none;">
-                    <div class="verdict-header">
-                        <div class="verdict-title">Executive Summary</div>
-                        <div class="verdict-confidence glow-badge">85% Confidence</div>
+                <!-- Analysis Log (Center) -->
+                <div id="ai-analysis-feed" class="ai-analysis-feed" style="display: none;">
+
+                    <!-- Section A: Quant Logic -->
+                    <div class="ai-feed-section">
+                        <div class="section-title">[DEEPSEEK-R1] QUANT LOGIC</div>
+                        <div class="terminal-box" id="quant-log">
+                            <div class="log-line">Initializing context...</div>
+                        </div>
                     </div>
 
-                    <div class="verdict-main">
-                        <div class="verdict-label">Predicted Opening Range</div>
-                        <div class="verdict-range text-emerald">₹68.40 — ₹71.10</div>
-                        <div class="verdict-targets">Target: ₹75.00 | Support: ₹65.00</div>
-                    </div>
-
-                    <div class="verdict-logic">
-                        <ul class="logic-list">
-                            <li><strong>Derivatives Shift:</strong> Significant Put writing observed at ₹65 strike, establishing strong near-term support.</li>
-                            <li><strong>Macro Catalyst:</strong> Recent rate hold by central bank favors yield-sensitive sectors.</li>
-                            <li><strong>Volatility Crush:</strong> IV percentile dropping post-event, suggesting price stabilization within the projected range.</li>
-                        </ul>
-                    </div>
-
-                    <button class="btn-pop-hood" onclick="toggleHood()">Pop the Hood</button>
-                </div>
-
-                <!-- Raw Data View -->
-                <div id="ai-raw-data" class="ai-raw-data" style="display: none;">
-                    <h3>Deep Dive Analysis</h3>
-                    <div class="raw-data-content">
-                        <!-- Placeholder for tables/json -->
-                        <p style="color: #888;">Fetching detailed engine logs and tables...</p>
-                        <table class="data-table" style="margin-top: 10px;">
+                    <!-- Section B: Data Matrix -->
+                    <div class="ai-feed-section">
+                        <div class="section-title">[QWEN] DATA MATRIX</div>
+                        <table class="ai-dense-table">
                             <thead>
-                                <tr><th>Metric</th><th>Value</th><th>Impact</th></tr>
+                                <tr>
+                                    <th>SYMBOL</th>
+                                    <th>OPEN_INT</th>
+                                    <th>CHG_OI</th>
+                                    <th>IV</th>
+                                    <th>IMPLIED_MOVE</th>
+                                </tr>
                             </thead>
-                            <tbody>
-                                <tr><td>IV Percentile</td><td>24%</td><td><span style="color: #10b981;">Bullish</span></td></tr>
-                                <tr><td>PCR (Volume)</td><td>1.15</td><td>Neutral</td></tr>
-                                <tr><td>FII Net OI</td><td>+12,400</td><td><span style="color: #10b981;">Bullish</span></td></tr>
+                            <tbody id="data-matrix-body">
+                                <tr>
+                                    <td>RELIANCE</td>
+                                    <td>45,210,000</td>
+                                    <td class="text-emerald">+1.2M</td>
+                                    <td>22.4</td>
+                                    <td>± 4.5%</td>
+                                </tr>
+                                <tr>
+                                    <td>RELIANCE-FUT</td>
+                                    <td>12,400,000</td>
+                                    <td class="text-crimson">-400K</td>
+                                    <td>-</td>
+                                    <td>-</td>
+                                </tr>
                             </tbody>
                         </table>
-                        <pre style="background: #111; padding: 10px; margin-top: 15px; border: 1px solid #333; color: #a3a3a3; font-family: monospace;">
-{
-  "engine": "Derivatives Intelligence",
-  "reasoning_steps": [
-    "Analyzed option chain for nearest expiry.",
-    "Calculated max pain at ₹70.",
-    "Identified aggressive put selling at ₹65."
-  ]
-}
-                        </pre>
                     </div>
+
+                    <!-- Section C: Execution -->
+                    <div class="ai-feed-section">
+                        <div class="section-title">[GEMINI] EXECUTION</div>
+                        <div class="execution-box">
+                            <div class="exec-confidence">CONF_SCORE: 88%</div>
+                            <div class="exec-directive text-emerald">ACTION: ACCUMULATE ON DIPS</div>
+                            <div class="exec-details">
+                                TARGET: ₹3150.00 | STOP_LOSS: ₹2880.00 | HORIZON: 3W<br>
+                                RATIONALE: Call writing at 3000 strike indicates temporary ceiling, but aggressive put additions at 2900 provide strong institutional support.
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>
@@ -1102,43 +1113,46 @@
 
 
         // --- AI-Analyze Logic ---
-        function selectEngine(engineId) {
-            document.querySelectorAll('.ai-engine-icon').forEach(el => el.classList.remove('active'));
-            const target = document.querySelector(`.ai-engine-icon[data-engine="${engineId}"]`);
-            if (target) {
-                target.classList.add('active');
+        function handleAiCmd(e) {
+            if (e.key === 'Enter') {
+                runAiAnalysis();
             }
         }
 
         function runAiAnalysis() {
-            const btn = document.querySelector('.ai-search-btn');
-            const input = document.getElementById('ai-search-input').value;
-            if (!input) {
-                alert("Please enter an event to analyze.");
-                return;
-            }
+            const input = document.getElementById('ai-cmd-input');
+            const cmd = input.value.trim();
+            if (!cmd) return;
 
-            btn.innerText = "Analyzing...";
-            btn.disabled = true;
+            const feed = document.getElementById('ai-analysis-feed');
+            const quantLog = document.getElementById('quant-log');
 
-            // Mocking a response delay
+            // Reset and Show Feed
+            feed.style.display = 'flex';
+            quantLog.innerHTML = `<div class="log-line">> EXEC: ${cmd}</div><div class="log-line">Initializing context parameters...</div>`;
+
+            // Simulate Streaming Logic
             setTimeout(() => {
-                document.getElementById('ai-verdict-card').style.display = 'flex';
-                document.getElementById('ai-raw-data').style.display = 'none'; // Hide raw data on new search
-                btn.innerText = "Analyze";
-                btn.disabled = false;
-            }, 1500);
-        }
+                quantLog.innerHTML += `<div class="log-line text-emerald">[OK] Connected to Qwen data matrix</div>`;
+                quantLog.scrollTop = quantLog.scrollHeight;
+            }, 500);
 
-        function toggleHood() {
-            const rawData = document.getElementById('ai-raw-data');
-            if (rawData.style.display === 'none' || rawData.style.display === '') {
-                rawData.style.display = 'block';
-                // Scroll into view
-                setTimeout(() => rawData.scrollIntoView({ behavior: 'smooth' }), 100);
-            } else {
-                rawData.style.display = 'none';
-            }
+            setTimeout(() => {
+                quantLog.innerHTML += `<div class="log-line">Extracting options chain delta...</div>`;
+                quantLog.scrollTop = quantLog.scrollHeight;
+            }, 1200);
+
+            setTimeout(() => {
+                quantLog.innerHTML += `<div class="log-line">Running Monte Carlo simulation (N=10000)...</div>`;
+                quantLog.scrollTop = quantLog.scrollHeight;
+            }, 2000);
+
+            setTimeout(() => {
+                quantLog.innerHTML += `<div class="log-line text-emerald">[DONE] DeepSeek-R1 evaluation complete. Matrix updated.</div>`;
+                quantLog.scrollTop = quantLog.scrollHeight;
+                input.value = '';
+                input.placeholder = "_";
+            }, 3000);
         }
 
         // Global Shortcut Handler
