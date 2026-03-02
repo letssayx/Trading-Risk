@@ -71,18 +71,42 @@ def proxy_rights():
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'en-US,en;q=0.9',
     }
-    response = None
+
+    # The API requires specific index params or separate requests to fetch both stages.
+    # The default `/api/corporate-further-issues-ri` seems to only pull Listing Stage or a mix,
+    # Let's ensure we fetch both explicitly and deduplicate just in case.
+    all_data = []
+    seen_ids = set()
+
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
-        url = "https://www.nseindia.com/api/corporate-further-issues-ri"
-        response = session.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json()
+
+        url_listing = "https://www.nseindia.com/api/corporate-further-issues-ri"
+        res_listing = session.get(url_listing, headers=headers, timeout=10)
+        if res_listing.ok:
+            data = res_listing.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
     except Exception as e:
-        status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
-        body = getattr(response, 'text', 'N/A') if response else 'N/A'
-        logger.error(f"Failed to fetch Rights. Status: {status}, Body: {body}, Error: {e}")
-        return {"data": []}
+        logger.error(f"Failed to fetch Rights (Listing). Error: {e}")
+
+    try:
+        # According to NSE structure, the In-Principle URL might be slightly different or parameterized.
+        # But we'll try `/api/corporate-further-issues-ip` as well, as some APIs split them up (IP vs RI)
+        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ip"
+        res_in_principle = session.get(url_in_principle, headers=headers, timeout=10)
+        if res_in_principle.ok:
+            data = res_in_principle.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
+    except Exception as e:
+        logger.error(f"Failed to fetch Rights (In-Principle). Error: {e}")
+
+    return {"data": all_data}
 
 @router.get("/api/proxy/circulars")
 def proxy_circulars():
