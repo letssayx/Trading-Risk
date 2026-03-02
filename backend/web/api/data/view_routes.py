@@ -93,9 +93,7 @@ def proxy_rights():
         logger.error(f"Failed to fetch Rights (Listing). Error: {e}")
 
     try:
-        # According to NSE structure, the In-Principle URL might be slightly different or parameterized.
-        # But we'll try `/api/corporate-further-issues-ip` as well, as some APIs split them up (IP vs RI)
-        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ip"
+        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP"
         res_in_principle = session.get(url_in_principle, headers=headers, timeout=10)
         if res_in_principle.ok:
             data = res_in_principle.json().get('data', [])
