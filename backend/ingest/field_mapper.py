@@ -107,11 +107,11 @@ class FieldMapper:
                 return {'type': 'mwpl', 'name': 'mwpl_client_position'}
 
         # P/E Ratio
-        if 'SYMBOL' in columns and 'SYMBOL P/E' in columns:
+        if 'SYMBOL' in upper_cols and 'SYMBOL P/E' in upper_cols:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
 
         # P/E Ratio (Index format) / India VIX
-        if 'Index Name' in columns and 'P/E' in columns:
+        if 'INDEX NAME' in upper_cols and 'P/E' in upper_cols:
             # We return pe_ratio_idx by default. The importer caller sets the correct type if it explicitly wants india_vix.
             # But wait, if someone uploads this file manually, how do we know if they want pe_ratio_idx or india_vix?
             # We can map both, but typical manual upload would use the key they requested.
@@ -119,7 +119,7 @@ class FieldMapper:
             return {'type': 'pe_ratio_idx', 'name': 'pe_ratio_idx'}
 
         # Pure India VIX Historical Data file (e.g. downloaded manually from NSE website)
-        if 'Date' in columns and 'Open' in columns and 'High' in columns and 'Low' in columns and 'Close' in columns and 'Previous' in columns:
+        if 'DATE' in upper_cols and 'OPEN' in upper_cols and 'HIGH' in upper_cols and 'LOW' in upper_cols and 'CLOSE' in upper_cols and 'PREVIOUS' in upper_cols:
             return {'type': 'india_vix_historical', 'name': 'india_vix'}
 
         # Security Master
@@ -546,16 +546,16 @@ class FieldMapper:
 
         if format_type == 'pe_ratio_idx':
             for _, row in df.iterrows():
-                symbol = str(row.get('Index Name', '')).strip()
+                symbol = str(cls._get_val(row, ['Index Name']) or '').strip()
                 if symbol == 'India VIX':
                     continue # Skip India VIX from pe_ratio_idx since we have a dedicated table
-                row_date = parse_nse_date(row.get('Index Date'))
+                row_date = parse_nse_date(cls._get_val(row, ['Index Date']))
                 record = {
                     'date': row_date or trade_date,
                     'symbol': symbol,
-                    'pe': cls._clean_numeric(row.get('P/E')),
-                    'pb': cls._clean_numeric(row.get('P/B')),
-                    'div_yield': cls._clean_numeric(row.get('Div Yield'))
+                    'pe': cls._clean_numeric(cls._get_val(row, ['P/E'])),
+                    'pb': cls._clean_numeric(cls._get_val(row, ['P/B'])),
+                    'div_yield': cls._clean_numeric(cls._get_val(row, ['Div Yield']))
                 }
                 if record['symbol']:
                     records.append(record)
@@ -564,9 +564,9 @@ class FieldMapper:
         for _, row in df.iterrows():
             record = {
                 'date': trade_date,
-                'symbol': str(row.get('SYMBOL', '')).strip(),
-                'symbol_pe': cls._clean_numeric(row.get('SYMBOL P/E')),
-                'adjusted_pe': cls._clean_numeric(row.get('ADJUSTED P/E')),
+                'symbol': str(cls._get_val(row, ['SYMBOL']) or '').strip(),
+                'symbol_pe': cls._clean_numeric(cls._get_val(row, ['SYMBOL P/E'])),
+                'adjusted_pe': cls._clean_numeric(cls._get_val(row, ['ADJUSTED P/E'])),
             }
             if record['symbol']:
                 records.append(record)
@@ -576,19 +576,19 @@ class FieldMapper:
     def _map_india_vix(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
         for _, row in df.iterrows():
-            symbol = str(row.get('Index Name', '')).strip()
+            symbol = str(cls._get_val(row, ['Index Name']) or '').strip()
             if symbol != 'India VIX':
                 continue
 
-            row_date = parse_nse_date(row.get('Index Date'))
+            row_date = parse_nse_date(cls._get_val(row, ['Index Date']))
             record = {
                 'date': row_date or trade_date,
-                'open_value': cls._clean_numeric(row.get('Open Index Value')),
-                'high_value': cls._clean_numeric(row.get('High Index Value')),
-                'low_value': cls._clean_numeric(row.get('Low Index Value')),
-                'close_value': cls._clean_numeric(row.get('Closing Index Value')),
-                'points_change': cls._clean_numeric(row.get('Points Change')),
-                'percent_change': cls._clean_numeric(row.get('Change(%)'))
+                'open_value': cls._clean_numeric(cls._get_val(row, ['Open Index Value'])),
+                'high_value': cls._clean_numeric(cls._get_val(row, ['High Index Value'])),
+                'low_value': cls._clean_numeric(cls._get_val(row, ['Low Index Value'])),
+                'close_value': cls._clean_numeric(cls._get_val(row, ['Closing Index Value'])),
+                'points_change': cls._clean_numeric(cls._get_val(row, ['Points Change'])),
+                'percent_change': cls._clean_numeric(cls._get_val(row, ['Change(%)']))
             }
             records.append(record)
         return records
@@ -597,7 +597,7 @@ class FieldMapper:
     def _map_india_vix_historical(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
         for _, row in df.iterrows():
-            row_date = parse_nse_date(row.get('Date'))
+            row_date = parse_nse_date(cls._get_val(row, ['Date']))
             if not row_date:
                 # Fallback to trade_date if the Date column couldn't be parsed
                 row_date = trade_date
@@ -607,12 +607,12 @@ class FieldMapper:
 
             record = {
                 'date': row_date,
-                'open_value': cls._clean_numeric(row.get('Open')),
-                'high_value': cls._clean_numeric(row.get('High')),
-                'low_value': cls._clean_numeric(row.get('Low')),
-                'close_value': cls._clean_numeric(row.get('Close')),
-                'points_change': cls._clean_numeric(row.get('Change')),
-                'percent_change': cls._clean_numeric(row.get('%Change'))
+                'open_value': cls._clean_numeric(cls._get_val(row, ['Open'])),
+                'high_value': cls._clean_numeric(cls._get_val(row, ['High'])),
+                'low_value': cls._clean_numeric(cls._get_val(row, ['Low'])),
+                'close_value': cls._clean_numeric(cls._get_val(row, ['Close'])),
+                'points_change': cls._clean_numeric(cls._get_val(row, ['Change'])),
+                'percent_change': cls._clean_numeric(cls._get_val(row, ['%Change']))
             }
             records.append(record)
         return records
