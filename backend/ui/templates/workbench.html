@@ -1243,9 +1243,10 @@
                     tbody.innerHTML = '';
 
                     if(d.equity && d.equity.close_price) {
+                        const fallbackLabel = d.yfinance_fallback ? ' <span style="color:#cca700; font-size: 0.8em;">(YF)</span>' : '';
                         tbody.innerHTML += `
                             <tr>
-                                <td>${d.ticker} (EQ)</td>
+                                <td>${d.ticker} (EQ)${fallbackLabel}</td>
                                 <td>${(d.equity.total_traded_qty || 0).toLocaleString()} Vol</td>
                                 <td>-</td>
                                 <td>-</td>
@@ -1267,7 +1268,7 @@
                         `;
                     }
                     if(!d.equity.close_price && !d.futures.close_price) {
-                        tbody.innerHTML = `<tr><td colspan="5">No specific DB rows found for ${d.ticker}.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="5">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
                     }
                 } else if (msg.type === "execution") {
                     const ex = msg.data;

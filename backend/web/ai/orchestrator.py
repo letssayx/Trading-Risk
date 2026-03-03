@@ -136,11 +136,34 @@ class TerminalOrchestrator:
         Output ONLY valid JSON.
         """
 
-        response = await self.gemini_client.aio.models.generate_content(
-            model='gemini-1.5-pro-latest',
-            contents=prompt,
-        )
-        text = response.text
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-pro-latest']
+        response = None
+        text = ""
+
+        for model_name in models_to_try:
+            try:
+                response = await self.gemini_client.aio.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                text = response.text
+                break
+            except Exception as e:
+                # If it's a 404 or unsupported model error, try the next one
+                if "404" in str(e) or "NOT_FOUND" in str(e):
+                    continue
+                # If it's another error, we might still want to try the next model just in case
+                continue
+
+        if not response:
+            return {
+                "action": "ERROR SYNTHESIZING",
+                "target": 0.0,
+                "stop_loss": 0.0,
+                "confidence": 0,
+                "predicted_price": 0.0,
+                "rationale": "Failed to generate content: All Gemini fallback models resulted in 404 NOT_FOUND or other errors. Please check your API Key and model permissions."
+            }
 
         # Clean JSON
         try:
