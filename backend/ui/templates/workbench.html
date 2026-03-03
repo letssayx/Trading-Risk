@@ -209,6 +209,7 @@
     <!-- Main Tab Bar -->
     <div class="main-tabs-bar">
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
+        <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
         <div class="main-tab" data-target="basis" onclick="switchMainTab('basis')" title="Basis">Basis</div>
         <div class="main-tab" data-target="oi_analysis" onclick="switchMainTab('oi_analysis')" title="OI Analysis">OI Analysis</div>
         <div class="main-tab" data-target="rollover" onclick="switchMainTab('rollover')" title="Rollover Analysis">Rollover Analysis</div>
@@ -216,7 +217,6 @@
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
         <div class="main-tab" data-target="circulars" onclick="switchMainTab('circulars')" title="Circulars">Circulars</div>
-        <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
     </div>
@@ -386,28 +386,28 @@
                 <div class="ai-intel-grid">
                     <div class="intel-card" id="intel-blackswan">
                         <div class="intel-header">BLACK SWAN</div>
-                        <div class="intel-metric text-emerald">NOMINAL</div>
-                        <div class="intel-subtext">Sys Risk < 0.5%</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
                     </div>
                     <div class="intel-card" id="intel-macro">
                         <div class="intel-header">MACRO</div>
-                        <div class="intel-metric">83.15</div>
-                        <div class="intel-subtext">USD/INR</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
                     </div>
                     <div class="intel-card" id="intel-corporate">
                         <div class="intel-header">CORP ACTION</div>
-                        <div class="intel-metric text-crimson">ALERT</div>
-                        <div class="intel-subtext">2 Pending</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
                     </div>
                     <div class="intel-card" id="intel-derivatives">
                         <div class="intel-header">DERIVATIVES</div>
-                        <div class="intel-metric">0.85</div>
-                        <div class="intel-subtext">Nifty PCR</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
                     </div>
                     <div class="intel-card" id="intel-earnings">
                         <div class="intel-header">EARNINGS</div>
-                        <div class="intel-metric text-emerald">+12%</div>
-                        <div class="intel-subtext">Avg Suprise</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
                     </div>
                 </div>
 
@@ -718,7 +718,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'ai_analyze', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
