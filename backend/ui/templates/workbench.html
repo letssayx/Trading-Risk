@@ -61,6 +61,8 @@
             overflow: hidden;
             position: relative;
             background: #1e1e1e;
+            display: flex;
+            flex-direction: column;
         }
 
         .main-tab-content {
@@ -68,6 +70,25 @@
             width: 100%;
             display: none;
             overflow: hidden; /* Individual tabs manage scrolling */
+        }
+
+        .global-status-bar {
+            height: 25px;
+            background: #007acc;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-top: 1px solid #333;
+            user-select: none;
+            font-size: 12px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .global-status-bar a {
+            color: white;
+            text-decoration: none;
         }
 
         .main-tab-content.active {
@@ -466,7 +487,6 @@
                 <div class="ai-cmd-bar" style="margin-top: auto; border-top: 1px solid #333; border-bottom: none;">
                     <span class="ai-cmd-prompt" style="align-self: flex-start; margin-top: 8px;">TERMINAL_CMD: &gt;</span>
                     <textarea id="ai-cmd-input" class="ai-cmd-input" placeholder="_" autocomplete="off" spellcheck="false" onkeydown="handleAiCmd(event)" rows="1" style="resize: none; overflow: hidden; padding-top: 8px; min-height: 20px;"></textarea>
-                    <div id="ai-sys-accuracy" style="font-size: 0.8em; color: #888; margin-left: 15px; align-self: center;">SYS_ACCURACY: <span class="text-emerald" id="accuracy-score">--%</span></div>
                 </div>
 
             </div>
@@ -701,6 +721,16 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Global Status Bar -->
+    <div class="global-status-bar">
+        <div id="global-status-left">
+            <span>Turtle Terminal connected</span>
+        </div>
+        <div id="global-status-right">
+            <span id="global-sys-accuracy" style="margin-left: 15px;" title="AI System Accuracy based on previous predictions">SYS_ACCURACY: <span id="accuracy-score">--%</span></span>
+        </div>
     </div>
 
     <!-- Scripts -->
