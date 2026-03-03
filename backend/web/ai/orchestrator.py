@@ -81,12 +81,16 @@ class TerminalOrchestrator:
         real_data = fetch_bhavcopy_data(self.db, ticker)
         return real_data
 
-    async def step3_quant_logic(self, command: str, engine_type: str, callback: Callable):
+    async def step3_quant_logic(self, command: str, engine_type: str, data_matrix: Dict[str, Any], callback: Callable):
         """Uses Llama 3.3 (Groq) to stream reasoning logic."""
         prompt = f"""
         You are a quantitative trading logic engine analyzing a {engine_type} event.
         Command: {command}
 
+        Real Data Context:
+        {json.dumps(data_matrix, indent=2)}
+
+        Do not invent or assume current prices. Use the Real Data Context provided above.
         Think step-by-step about the market implications.
         Use the <think> tags to show your math and logic.
         """
@@ -133,7 +137,7 @@ class TerminalOrchestrator:
         """
 
         response = await self.gemini_client.aio.models.generate_content(
-            model='gemini-1.5-pro',
+            model='gemini-1.5-pro-latest',
             contents=prompt,
         )
         text = response.text
