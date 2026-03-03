@@ -10,8 +10,9 @@ The `TerminalOrchestrator` (`backend/web/ai/orchestrator.py`) handles incoming c
 graph TD;
     User[User Command] --> Dispatcher[Step 1: Dispatcher<br>Llama 3.3 (Groq)];
     Dispatcher --> DataClerk[Step 2: Data Clerk<br>Qwen 2.5 (OpenRouter)];
-    DataClerk --> QuantLogic[Step 3: Quant Engine<br>Llama 3.3 (Groq)];
-    QuantLogic --> Strategist[Step 4: Strategist<br>Gemini 1.5 Pro];
+    Dispatcher --> QuantLogic[Step 3: Quant Engine<br>Llama 3.3 (Groq)];
+    DataClerk --> Strategist[Step 4: Strategist<br>Gemini 1.5 Pro];
+    QuantLogic --> Strategist;
     Strategist --> UI[Execution Output & DB Log];
 ```
 

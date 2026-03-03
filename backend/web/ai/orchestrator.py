@@ -55,7 +55,7 @@ class TerminalOrchestrator:
         prompt = f"""
         Extract the NSE stock ticker symbol from this command.
         If it's an index, return NIFTY or BANKNIFTY.
-        If no ticker is found, return "NIFTY".
+        If no ticker is found, return "NONE".
         Command: "{command}"
         Return ONLY the ticker string in uppercase.
         """
@@ -73,26 +73,28 @@ class TerminalOrchestrator:
             ticker = response.choices[0].message.content.strip().upper()
             # Clean ticker
             ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
-            if not ticker: ticker = "NIFTY"
+            if not ticker: ticker = "NONE"
         except Exception as e:
-            ticker = "NIFTY"
+            ticker = "NONE"
 
         # 2. Fetch Real Data (Zero Hallucination)
         real_data = fetch_bhavcopy_data(self.db, ticker)
         return real_data
 
-    async def step3_quant_logic(self, command: str, engine_type: str, data_matrix: Dict[str, Any], callback: Callable):
+    async def step3_quant_logic(self, command: str, engine_type: str, callback: Callable):
         """Uses Llama 3.3 (Groq) to stream reasoning logic."""
         prompt = f"""
         You are a quantitative trading logic engine analyzing a {engine_type} event.
         Command: {command}
 
-        Real Data Context:
-        {json.dumps(data_matrix, indent=2)}
+        CRITICAL INSTRUCTIONS:
+        1. DO NOT invent, assume, or guess specific current stock prices, index levels, or numerical targets.
+        2. DO NOT perform arithmetic on assumed prices.
+        3. Your role is strictly to provide directional market reasoning, sector impact analysis, and qualitative logic.
+        4. The final numerical calculations will be handled by the Execution Strategist in the next step using real database values.
 
-        Do not invent or assume current prices. Use the Real Data Context provided above.
-        Think step-by-step about the market implications.
-        Use the <think> tags to show your math and logic.
+        Think step-by-step about the broader market implications and directional sentiment.
+        Use the <think> tags to show your logic.
         """
 
         stream = await self.groq_client.chat.completions.create(

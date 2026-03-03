@@ -23,6 +23,9 @@ def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
         "historical_context": ""
     }
 
+    if ticker == "NONE":
+        return matrix
+
     try:
         # 1. Fetch latest Equity data
         eq_query = select(BhavcopyEQ).filter(BhavcopyEQ.symbol == ticker).order_by(desc(BhavcopyEQ.trade_date)).limit(1)

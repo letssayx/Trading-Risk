@@ -78,16 +78,16 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                 async def stream_callback(token: str):
                     await websocket.send_json({"type": "quant_logic", "token": token})
 
-                # Step 2: Data Clerk
-                await websocket.send_json({"type": "status", "message": "Extracting Data Matrix..."})
-                data_matrix = await orchestrator.step2_data_clerk(command, engine_type)
+                # Step 2 & 3 in parallel
+                await websocket.send_json({"type": "status", "message": "Triggering Quant Engine & Data Matrix..."})
+
+                task_data = asyncio.create_task(orchestrator.step2_data_clerk(command, engine_type))
+                task_logic = asyncio.create_task(orchestrator.step3_quant_logic(command, engine_type, stream_callback))
+
+                data_matrix, reasoning = await asyncio.gather(task_data, task_logic)
 
                 # Send Data Matrix to UI
                 await websocket.send_json({"type": "data_matrix", "data": data_matrix})
-
-                # Step 3: Quant Logic
-                await websocket.send_json({"type": "status", "message": "Triggering Quant Engine..."})
-                reasoning = await orchestrator.step3_quant_logic(command, engine_type, data_matrix, stream_callback)
 
                 # Step 4: Synthesize
                 await websocket.send_json({"type": "status", "message": "Synthesizing Execution Plan..."})
