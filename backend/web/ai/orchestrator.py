@@ -4,7 +4,7 @@ import re
 from typing import Dict, Any, Optional, Callable
 from sqlalchemy.orm import Session
 from groq import AsyncGroq
-import google.generativeai as genai
+from google import genai
 from openai import AsyncOpenAI  # Used for OpenRouter
 from backend.web.ai.tools import fetch_bhavcopy_data
 from backend.ingest.nse_models import AIPrediction
@@ -16,8 +16,7 @@ class TerminalOrchestrator:
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_key,
         )
-        genai.configure(api_key=gemini_key)
-        self.gemini_model = genai.GenerativeModel('gemini-1.5-pro-latest')
+        self.gemini_client = genai.Client(api_key=gemini_key)
         self.db = db
         self.session_id = session_id
 
@@ -133,7 +132,10 @@ class TerminalOrchestrator:
         Output ONLY valid JSON.
         """
 
-        response = await self.gemini_model.generate_content_async(prompt)
+        response = await self.gemini_client.aio.models.generate_content(
+            model='gemini-1.5-pro',
+            contents=prompt,
+        )
         text = response.text
 
         # Clean JSON
