@@ -28,7 +28,7 @@ graph TD;
 - **Rationale:** Prevents AI from hallucinating stock prices by grounding all analysis purely on actual database records.
 
 ## Step 3: Quant Logic Engine (Chain-of-Thought)
-- **Engine:** `deepseek-r1-distill-llama-70b` (via Groq)
+- **Engine:** `llama-3.3-70b-versatile` (via Groq)
 - **Purpose:** Acts as the Quantitative logic engine. It uses the `<think>` tag paradigm to perform mathematical or logical step-by-step reasoning about market implications of the prompt.
 - **Streaming:** This logic is streamed character-by-character back to the WebSocket so the user sees the "Chain of Thought" happen live in the terminal.
 

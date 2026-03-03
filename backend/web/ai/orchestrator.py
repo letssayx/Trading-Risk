@@ -82,7 +82,7 @@ class TerminalOrchestrator:
         return real_data
 
     async def step3_quant_logic(self, command: str, engine_type: str, callback: Callable):
-        """Uses DeepSeek-R1 (Groq) to stream reasoning logic."""
+        """Uses Llama 3.3 (Groq) to stream reasoning logic."""
         prompt = f"""
         You are a quantitative trading logic engine analyzing a {engine_type} event.
         Command: {command}
@@ -93,7 +93,7 @@ class TerminalOrchestrator:
 
         stream = await self.groq_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="deepseek-r1-distill-llama-70b",
+            model="llama-3.3-70b-versatile",
             temperature=0.3,
             stream=True
         )

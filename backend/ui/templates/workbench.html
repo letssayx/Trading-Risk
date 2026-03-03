@@ -373,14 +373,7 @@
 
         <!-- TAB AI-ANALYZE -->
         <div id="tab-ai_analyze" class="main-tab-content">
-            <div class="ai-terminal-container">
-
-                <!-- Command Line (Top) -->
-                <div class="ai-cmd-bar">
-                    <span class="ai-cmd-prompt">TERMINAL_CMD: &gt;</span>
-                    <input type="text" id="ai-cmd-input" class="ai-cmd-input" placeholder="_" autocomplete="off" spellcheck="false" onkeypress="handleAiCmd(event)">
-                    <div id="ai-sys-accuracy" style="font-size: 0.8em; color: #888; margin-left: 15px;">SYS_ACCURACY: <span class="text-emerald" id="accuracy-score">--%</span></div>
-                </div>
+            <div class="ai-terminal-container" style="display: flex; flex-direction: column; height: 100%;">
 
                 <!-- Active Intelligence Grid (Bonnet) -->
                 <div class="ai-intel-grid">
@@ -467,6 +460,13 @@
                         </div>
                     </div>
 
+                </div>
+
+                <!-- Command Line (Bottom) -->
+                <div class="ai-cmd-bar" style="margin-top: auto; border-top: 1px solid #333; border-bottom: none;">
+                    <span class="ai-cmd-prompt" style="align-self: flex-start; margin-top: 8px;">TERMINAL_CMD: &gt;</span>
+                    <textarea id="ai-cmd-input" class="ai-cmd-input" placeholder="_" autocomplete="off" spellcheck="false" onkeydown="handleAiCmd(event)" rows="1" style="resize: none; overflow: hidden; padding-top: 8px; min-height: 20px;"></textarea>
+                    <div id="ai-sys-accuracy" style="font-size: 0.8em; color: #888; margin-left: 15px; align-self: center;">SYS_ACCURACY: <span class="text-emerald" id="accuracy-score">--%</span></div>
                 </div>
 
             </div>
@@ -1143,6 +1143,14 @@
         }
 
         function handleAiCmd(e) {
+            const inputEl = document.getElementById('ai-cmd-input');
+
+            // Auto-resize logic
+            setTimeout(() => {
+                inputEl.style.height = 'auto';
+                inputEl.style.height = (inputEl.scrollHeight) + 'px';
+            }, 0);
+
             if (e.key === 'Escape') {
                 if (aiWs && aiWs.readyState === WebSocket.OPEN) {
                     aiWs.send(JSON.stringify({command: "STOP"}));
@@ -1150,17 +1158,24 @@
                     document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by user.</div>`;
                 }
             } else if (e.key === 'Enter') {
-                const cmd = document.getElementById('ai-cmd-input').value.trim();
+                if (e.shiftKey) {
+                    // Allow multi-line
+                    return;
+                }
+                e.preventDefault(); // Prevent default enter behavior (newline)
+                const cmd = inputEl.value.trim();
                 if (cmd.toUpperCase() === 'STOP') {
                     if (aiWs && aiWs.readyState === WebSocket.OPEN) {
                         aiWs.send(JSON.stringify({command: "STOP"}));
                         aiWs.close();
                         document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by STOP command.</div>`;
                     }
-                    document.getElementById('ai-cmd-input').value = '';
+                    inputEl.value = '';
+                    inputEl.style.height = 'auto'; // Reset size
                     return;
                 }
                 runAiAnalysis(cmd);
+                inputEl.style.height = 'auto'; // Reset size
             }
         }
 
@@ -1198,7 +1213,7 @@
                 }));
                 cmdInput.value = '';
                 cmdInput.placeholder = "Processing... (Press ESC to stop)";
-                cmdInput.disabled = true;
+                cmdInput.readOnly = true;
             };
 
             aiWs.onmessage = (event) => {
@@ -1270,7 +1285,7 @@
                     quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] ${msg.message}</div>`;
                 } else if (msg.type === "done") {
                     cmdInput.placeholder = "_";
-                    cmdInput.disabled = false;
+                    cmdInput.readOnly = false;
                     cmdInput.focus();
                     aiWs.close();
                 }
@@ -1282,12 +1297,12 @@
             aiWs.onerror = () => {
                 quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] WebSocket connection failed. Is backend running?</div>`;
                 cmdInput.placeholder = "_";
-                cmdInput.disabled = false;
+                cmdInput.readOnly = false;
             };
 
             aiWs.onclose = () => {
                  cmdInput.placeholder = "_";
-                 cmdInput.disabled = false;
+                 cmdInput.readOnly = false;
             }
         }
 
