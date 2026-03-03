@@ -303,6 +303,10 @@ async def list_data(
             else:
                 query = query.filter(filters[0])
 
+    # Handle FO Instrument filter
+    if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':
+        query = query.filter(model.instrument_type.like(f"%{instrument.upper()}%"))
+
     # Apply Date Filter
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
 
@@ -494,12 +498,13 @@ async def export_data(
     symbol: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    instrument: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
     Export filtered data to CSV (Server-side streaming).
     """
-    logger.info(f"Export Request: type={type}, symbol={symbol}, date={start_date} to {end_date}")
+    logger.info(f"Export Request: type={type}, symbol={symbol}, date={start_date} to {end_date}, instrument={instrument}")
 
     model = get_model_for_type(type)
     if not model:
@@ -517,13 +522,16 @@ async def export_data(
         if hasattr(model, 'underlying_stock'): filters.append(model.underlying_stock == symbol)
         if hasattr(model, 'security_name'): filters.append(model.security_name.ilike(f"%{symbol}%"))
         if hasattr(model, 'client_type'): filters.append(model.client_type.ilike(f"%{symbol}%"))
-        if hasattr(model, 'instrument_type'): filters.append(model.instrument_type.ilike(f"%{symbol}%"))
+        if hasattr(model, 'instrument_type') and type != 'bhavcopy_fo': filters.append(model.instrument_type.ilike(f"%{symbol}%"))
         if hasattr(model, 'isin'): filters.append(model.isin == symbol)
         if hasattr(model, 'fin_instrm_id'): filters.append(model.fin_instrm_id == symbol)
 
         if filters:
             if len(filters) > 1: query = query.filter(or_(*filters))
             else: query = query.filter(filters[0])
+
+    if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':
+        query = query.filter(model.instrument_type.like(f"%{instrument.upper()}%"))
 
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
     if date_col:
@@ -546,8 +554,13 @@ async def export_data(
         query = query.order_by(desc(model.updated_at))
 
     # Fetch all matching records (or limit to reasonable export size e.g. 50k)
+    # If no date constraints are provided, fall back to limit to prevent OOM
+    has_date_constraint = start_date is not None or end_date is not None
     try:
-        results = query.all()
+        if has_date_constraint:
+            results = query.all()
+        else:
+            results = query.limit(50000).all()
         # Process results with potential instrument_type fix
         data = process_results(results, model)
 
@@ -579,7 +592,10 @@ async def export_data(
                     query = query.order_by(*order_clauses)
 
                 query = query.options(defer(model.instrument_type))
-                results = query.all()
+                if has_date_constraint:
+                    results = query.all()
+                else:
+                    results = query.limit(50000).all()
                 data = process_results(results, model, skip_instrument_type=True)
             except Exception as retry_exc:
                 logger.error(f"Export retry failed: {retry_exc}")

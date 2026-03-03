@@ -236,6 +236,54 @@ class NSEImporter {
         }
     }
 
+    async retryImport(dateStr, pattern) {
+        if (!(await this.checkHealth())) return;
+
+        this.startProgress(`Retrying import for ${pattern} on ${dateStr}...`);
+
+        try {
+            const params = new URLSearchParams();
+            params.append('start_date', dateStr);
+            params.append('end_date', dateStr);
+            params.append('patterns', pattern);
+            params.append('force', 'true');
+
+            const res = await fetch(`/api/v1/nse/ingest/import/range?${params.toString()}`, {
+                method: 'POST'
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || `HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+            const taskId = data.task_id || (data.success ? data.task_id : null);
+
+            if (taskId) {
+                this.pollTask(taskId);
+            } else {
+                this.failProgress(data.message || "Failed to start retry task: No Task ID");
+            }
+        } catch (e) {
+            this.failProgress(e.message);
+        }
+    }
+
+    openAuditLog(dateStr, level = 'ERROR') {
+        const auditStart = document.getElementById('audit-start');
+        const auditEnd = document.getElementById('audit-end');
+        const auditLevel = document.getElementById('audit-level');
+
+        if (auditStart) auditStart.value = dateStr;
+        if (auditEnd) auditEnd.value = dateStr;
+        if (auditLevel) auditLevel.value = level;
+
+        if (window.switchMainTab) {
+            window.switchMainTab('audit');
+        }
+    }
+
     // --- UI Helpers ---
 
     startProgress(msg) {
@@ -391,10 +439,23 @@ class NSEImporter {
                             else if (item.status === 'FAILED' || item.status === 'ERROR') color = '#f44336';
                             else if (item.status === 'EMPTY' || item.status === 'SKIPPED') color = '#ff9800';
 
-                            return `<div style="margin-bottom:2px;">
+                            let extraActions = '';
+                            if (item.status === 'FAILED' || item.status === 'ERROR') {
+                                // We don't have the exact date of the failed run per-item in this grouped view,
+                                // but we do have last_import_date. If we want precision, we use the max date.
+                                const dateArg = item.last_import_date ? `'${item.last_import_date}'` : "''";
+                                const patternArg = `'${table}'`;
+                                extraActions = `
+                                    <button class="btn btn-primary" style="padding: 2px 5px; font-size: 0.7em; margin-left: 5px;" onclick="window.uploader.retryImport(${dateArg}, ${patternArg})">Retry</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 5px; font-size: 0.7em; margin-left: 5px;" onclick="window.uploader.openAuditLog(${dateArg})">View Log</button>
+                                `;
+                            }
+
+                            return `<div style="margin-bottom:2px; display: flex; align-items: center;">
                                 <span style="font-size:0.85em; color:${color}; font-weight:500; margin-right:8px;">
                                     ${item.status}: ${item.job_count}
                                 </span>
+                                ${extraActions}
                             </div>`;
                         }).join('');
 

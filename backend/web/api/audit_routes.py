@@ -37,6 +37,7 @@ async def log_client_event(
 async def get_log_history(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    level: Optional[str] = None,
     limit: int = 500,
     db: Session = Depends(get_db)
 ):
@@ -50,6 +51,8 @@ async def get_log_history(
     if end_date:
         # Include the whole end day
         query = query.filter(SystemLog.timestamp <= f"{end_date} 23:59:59")
+    if level and level.upper() != 'ALL':
+        query = query.filter(SystemLog.level == level.upper())
 
     logs = query.limit(limit).all()
 

@@ -397,7 +397,7 @@
             <div class="ai-terminal-container" style="display: flex; flex-direction: column; height: 100%;">
 
                 <!-- Active Intelligence Grid (Bonnet) -->
-                <div class="ai-intel-grid">
+                <div class="ai-intel-grid" style="display: none;">
                     <div class="intel-card" id="intel-blackswan">
                         <div class="intel-header">BLACK SWAN</div>
                         <div class="intel-metric">--</div>
@@ -521,6 +521,14 @@
                 <div class="control-group" id="symbol-group">
                     <label>Symbol:</label>
                     <input type="text" id="symbol-input" class="history-input" placeholder="e.g. RELIANCE">
+                </div>
+                <div class="control-group" id="instrument-group" style="display:none;">
+                    <label>Instrument:</label>
+                    <select id="instrument-input" class="history-select">
+                        <option value="ALL">All</option>
+                        <option value="FUT">Futures</option>
+                        <option value="OPT">Options</option>
+                    </select>
                 </div>
                 <div class="control-group">
                     <label>From:</label>
@@ -680,9 +688,15 @@
         <!-- TAB 4: AUDIT TRAIL -->
         <div id="tab-audit" class="main-tab-content">
              <div class="import-container" style="max-width:100%; height:100%; display:flex; flex-direction:column; padding:0;">
-                <div style="padding:10px; background:#252526; border-bottom:1px solid #333; display:flex; gap:10px;">
+                <div style="padding:10px; background:#252526; border-bottom:1px solid #333; display:flex; gap:10px; align-items: center;">
                     <input type="date" id="audit-start" class="history-input">
                     <input type="date" id="audit-end" class="history-input">
+                    <select id="audit-level" class="history-select">
+                        <option value="ALL">All Levels</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
                     <button class="btn btn-secondary" onclick="loadAuditHistory()">Load History</button>
                     <button class="btn btn-secondary" onclick="downloadLogs()">Download Logs</button>
                 </div>
@@ -1398,12 +1412,22 @@
         function updateHistoryControls() {
             const type = document.getElementById('data-type').value;
             const symbolGroup = document.getElementById('symbol-group');
+            const instrumentGroup = document.getElementById('instrument-group');
+
             if (['fao_participant_oi', 'fii_stats', 'india_vix'].includes(type)) {
                 symbolGroup.style.display = 'none';
                 document.getElementById('symbol-input').value = '';
             } else {
                 symbolGroup.style.display = 'flex';
             }
+
+            if (type === 'bhavcopy_fo') {
+                instrumentGroup.style.display = 'flex';
+            } else {
+                instrumentGroup.style.display = 'none';
+                document.getElementById('instrument-input').value = 'ALL';
+            }
+
             // Clear table on type change
             clearHistoryTable();
             // Reset sorting
@@ -1424,6 +1448,7 @@
             const symbol = document.getElementById('symbol-input').value.trim();
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
+            const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
 
             // Use current sort state if not explicitly passed
             if (!sortBy && currentSortColumn) {
@@ -1446,6 +1471,7 @@
                 if (symbol) url += `&symbol=${symbol}`;
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
+                if (type === 'bhavcopy_fo' && instrument !== 'ALL') url += `&instrument=${instrument}`;
 
                 // Add Server-Side Sorting Params
                 if (sortBy) {
@@ -1557,11 +1583,13 @@
             const symbol = document.getElementById('symbol-input').value.trim();
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
+            const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
 
             let url = `/api/data/view/export?type=${type}`;
             if (symbol) url += `&symbol=${symbol}`;
             if (start) url += `&start_date=${start}`;
             if (end) url += `&end_date=${end}`;
+            if (type === 'bhavcopy_fo' && instrument !== 'ALL') url += `&instrument=${instrument}`;
 
             try {
                 const response = await fetch(url);
@@ -1664,6 +1692,7 @@
         async function loadAuditHistory() {
             const start = document.getElementById('audit-start').value;
             const end = document.getElementById('audit-end').value;
+            const level = document.getElementById('audit-level') ? document.getElementById('audit-level').value : 'ALL';
             const tbody = document.getElementById('audit-log-body');
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
 
@@ -1671,6 +1700,7 @@
                 let url = '/api/audit/history?limit=1000';
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
+                if (level && level !== 'ALL') url += `&level=${level}`;
                 const res = await fetch(url);
                 const logs = await res.json();
                 tbody.innerHTML = '';
