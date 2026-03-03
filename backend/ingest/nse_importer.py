@@ -252,7 +252,7 @@ class NSEDataImporter:
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
                    force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
         """Import all configured files for a given date."""
-        if not self.holidays.is_trading_day(trade_date):
+        if not force and not self.holidays.is_trading_day(trade_date):
             return {
                 'status': 'SKIPPED',
                 'reason': f'{trade_date} is not a trading day',

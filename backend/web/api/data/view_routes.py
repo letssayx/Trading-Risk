@@ -547,7 +547,7 @@ async def export_data(
 
     # Fetch all matching records (or limit to reasonable export size e.g. 50k)
     try:
-        results = query.limit(50000).all()
+        results = query.all()
         # Process results with potential instrument_type fix
         data = process_results(results, model)
 
@@ -579,7 +579,7 @@ async def export_data(
                     query = query.order_by(*order_clauses)
 
                 query = query.options(defer(model.instrument_type))
-                results = query.limit(50000).all()
+                results = query.all()
                 data = process_results(results, model, skip_instrument_type=True)
             except Exception as retry_exc:
                 logger.error(f"Export retry failed: {retry_exc}")

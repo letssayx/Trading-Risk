@@ -84,7 +84,7 @@ def evaluate_ai_predictions(self):
 
 
 @shared_task(bind=True, name='backend.ingest.tasks.import_nse_range')
-def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None):
+def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
     try:
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -131,11 +131,11 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
             db.close()
 
         while current_date <= end_date:
-            if NSEHolidayCalendar.is_trading_day(current_date):
+            if force or NSEHolidayCalendar.is_trading_day(current_date):
 
                 # OPTIMIZATION: Check if all requested patterns are already done for this date
                 is_fully_done = False
-                if current_date in completed_map:
+                if not force and current_date in completed_map:
                     done_tables = completed_map[current_date]
                     # Check if all target patterns are in done_tables
                     # Note: Using set subset check
@@ -166,7 +166,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                     })
 
                     # Import for this day (importer will still do file-level checks, but we saved task overhead if fully done)
-                    day_result = importer.import_date(current_date, patterns=patterns)
+                    day_result = importer.import_date(current_date, patterns=patterns, force=force)
                     results.append(day_result)
 
             current_date += timedelta(days=1)
@@ -179,7 +179,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         self.retry(exc=exc, countdown=60)
 
 @shared_task(bind=True, name='backend.ingest.tasks.import_nse_latest')
-def import_nse_latest(self, patterns: Optional[List[str]] = None):
+def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False):
     """Import data for the most recent trading day."""
 
     def progress_callback(progress_dict: dict):
@@ -207,7 +207,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None):
             target_date = NSEHolidayCalendar.get_previous_trading_day(today)
 
         logger.info(f"Auto-importing for latest trading day: {target_date} (IST: {ist_now})")
-        return importer.import_date(target_date, patterns=patterns, progress_callback=progress_callback)
+        return importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback)
 
     except Exception as exc:
         logger.error(f"Latest import failed: {exc}")

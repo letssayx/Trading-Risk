@@ -107,6 +107,10 @@ class NSEImporter {
         try {
             const params = new URLSearchParams();
             patterns.forEach(p => params.append('patterns', p));
+            const forceCheckbox = document.getElementById('force-import-latest');
+            if (forceCheckbox && forceCheckbox.checked) {
+                params.append('force', 'true');
+            }
 
             const res = await fetch(`/api/v1/nse/ingest/import/latest?${params.toString()}`, {
                 method: 'POST'
@@ -159,6 +163,10 @@ class NSEImporter {
             params.append('start_date', start);
             params.append('end_date', end);
             patterns.forEach(p => params.append('patterns', p));
+            const forceCheckbox = document.getElementById('force-import-range');
+            if (forceCheckbox && forceCheckbox.checked) {
+                params.append('force', 'true');
+            }
 
             const res = await fetch(`/api/v1/nse/ingest/import/range?${params.toString()}`, {
                 method: 'POST'

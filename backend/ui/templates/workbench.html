@@ -74,7 +74,7 @@
 
         .global-status-bar {
             height: 25px;
-            background: #007acc;
+            background: #252526;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -530,13 +530,14 @@
                     <label>To:</label>
                     <input type="date" id="end-date" class="history-input">
                 </div>
-                <div class="control-group" style="display:flex; align-items:center; gap: 5px;">
+                <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
+                <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
+
+                <div class="control-group" style="display:flex; align-items:center; gap: 5px; margin-left: auto;">
                     <input type="checkbox" id="all-dates-check" onchange="toggleDateInputs(this)">
                     <label for="all-dates-check" style="margin:0; font-size:12px;">All Dates</label>
                 </div>
-                <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
-                <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
-                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer; margin-left: auto;">Delete Data</button>
+                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer;">Delete Data</button>
             </div>
 
             <div class="table-wrapper">
@@ -570,13 +571,13 @@
                         <div class="import-options">
                             <h4>Import Data for Latest Trading Day</h4>
                             <div class="option-row">
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility" checked> F&O Volatility</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats" checked> FII Stats</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi" checked> Participant OI</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="block_deals" checked> Block Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bulk_deals" checked> Bulk Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo"> F&O Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility"> F&O Volatility</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats"> FII Stats</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi"> Participant OI</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="block_deals"> Block Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bulk_deals"> Bulk Deals</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mto"> MTO Delivery</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mwpl_cli"> MWPL Position</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio"> P/E Ratio (Equities)</label>
@@ -585,6 +586,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
+                            <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-latest" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
                         </div>
                     </div>
 
@@ -597,13 +599,13 @@
                                 <label style="margin-left:15px;">End:</label> <input type="date" id="range-end" class="history-input">
                             </div>
                             <div class="option-row">
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility" checked> F&O Volatility</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats" checked> FII Stats</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi" checked> Participant OI</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="block_deals" checked> Block Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bulk_deals" checked> Bulk Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo"> F&O Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility"> F&O Volatility</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats"> FII Stats</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi"> Participant OI</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="block_deals"> Block Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bulk_deals"> Bulk Deals</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="mto"> MTO Delivery</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="mwpl_cli"> MWPL Position</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio"> P/E Ratio (Equities)</label>
@@ -612,6 +614,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
+                            <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-range" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
                         </div>
                     </div>
 
@@ -621,11 +624,19 @@
                             <h4>Manual File Upload</h4>
                             <div class="option-row">
                                 <select id="manual-type" class="history-select" style="width:100%">
-                                    <option value="bhavcopy_eq">Equity Bhavcopy (CSV/ZIP)</option>
-                                    <option value="bhavcopy_fo">F&O Bhavcopy (ZIP)</option>
-                                    <option value="mwpl_cli">MWPL (.xls)</option>
-                                    <option value="mto">MTO Delivery (.dat)</option>
-                                    <!-- Add other options as needed -->
+                                    <option value="bhavcopy_eq">Equity Bhavcopy</option>
+                                    <option value="bhavcopy_fo">F&O Bhavcopy</option>
+                                    <option value="fo_volatility">F&O Volatility</option>
+                                    <option value="fii_derivatives_stats">FII Stats</option>
+                                    <option value="fao_participant_oi">Participant OI</option>
+                                    <option value="block_deals">Block Deals</option>
+                                    <option value="bulk_deals">Bulk Deals</option>
+                                    <option value="mto">MTO Delivery</option>
+                                    <option value="mwpl_cli">MWPL Position</option>
+                                    <option value="pe_ratio">P/E Ratio (Equities)</option>
+                                    <option value="pe_ratio_idx">P/E Ratio (Indices)</option>
+                                    <option value="india_vix">India VIX</option>
+                                    <option value="nse_security">Security Master</option>
                                 </select>
                             </div>
                             <div class="option-row">
@@ -728,8 +739,9 @@
         <div id="global-status-left">
             <span>Turtle Terminal connected</span>
         </div>
-        <div id="global-status-right">
-            <span id="global-sys-accuracy" style="margin-left: 15px;" title="AI System Accuracy based on previous predictions">SYS_ACCURACY: <span id="accuracy-score">--%</span></span>
+        <div id="global-status-right" style="display: flex; gap: 15px;">
+            <span id="global-sys-accuracy" title="AI System Accuracy based on previous predictions">SYS_ACCURACY: <span id="accuracy-score">--%</span></span>
+            <span id="global-datetime"></span>
         </div>
     </div>
 
@@ -1720,6 +1732,15 @@
             ChartTabs.init();
             WorkbookManager.init();
             connectLiveFeed();
+
+            // Setup clock
+            const dtEl = document.getElementById('global-datetime');
+            setInterval(() => {
+                if (dtEl) {
+                    const now = new Date();
+                    dtEl.innerText = now.toLocaleString();
+                }
+            }, 1000);
 
             // Set default dates
             const today = new Date().toISOString().split('T')[0];
