@@ -401,3 +401,20 @@ class ImportLog(Base):
     error_msg = Column(Text)
     source_file = Column(String(200))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class AIPrediction(Base):
+    """AI Prediction Logs for Benchmarking"""
+    __tablename__ = "ai_predictions"
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String(100), index=True)
+    ticker = Column(String(50), index=True)
+    engine_type = Column(String(50))
+    predicted_price = Column(Float)
+    actual_price = Column(Float, nullable=True) # Updated later by background worker
+    action = Column(String(50))
+    target = Column(Float)
+    stop_loss = Column(Float)
+    confidence = Column(Integer)
+    rationale = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

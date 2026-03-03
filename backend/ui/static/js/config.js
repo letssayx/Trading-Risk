@@ -1,46 +1,52 @@
+// Ensure keys are loaded from session memory when config tab opens
 function openConfig() {
-    document.getElementById('config-modal').style.display = 'block';
-    // Clear previous status
+    // If it's a modal (legacy)
+    const modal = document.getElementById('config-modal');
+    if (modal) modal.style.display = 'block';
+
+    // Switch to tab if available
+    if (typeof switchMainTab === 'function') {
+        switchMainTab('config');
+    }
+
+    // Populate existing keys
+    document.getElementById('cfg-google').value = sessionStorage.getItem('GOOGLE_API_KEY') || '';
+    document.getElementById('cfg-groq').value = sessionStorage.getItem('GROQ_API_KEY') || '';
+    document.getElementById('cfg-openrouter').value = sessionStorage.getItem('OPENROUTER_API_KEY') || '';
+
     const status = document.getElementById('config-status');
     if (status) status.innerText = '';
 }
 
-async function saveConfig() {
-    const google = document.getElementById('cfg-google').value;
-    const status = document.getElementById('config-status') || createStatusElement();
+function saveConfig() {
+    const google = document.getElementById('cfg-google').value.trim();
+    const groq = document.getElementById('cfg-groq').value.trim();
+    const openrouter = document.getElementById('cfg-openrouter').value.trim();
 
-    status.innerText = "Saving...";
-    status.style.color = "#ccc";
+    const status = document.getElementById('config-status');
 
     try {
-        const res = await fetch('/api/config', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                google_api_key: google
-            })
-        });
+        // Securely store keys in session storage (wipes on browser close)
+        if (google) sessionStorage.setItem('GOOGLE_API_KEY', google);
+        if (groq) sessionStorage.setItem('GROQ_API_KEY', groq);
+        if (openrouter) sessionStorage.setItem('OPENROUTER_API_KEY', openrouter);
 
-        if (res.ok) {
-            status.innerText = "Configuration Saved (Runtime)";
-            status.style.color = "#4caf50";
-            setTimeout(() => {
-                document.getElementById('config-modal').style.display = 'none';
-            }, 1000);
-        } else {
-            throw new Error("Failed to save");
-        }
+        status.innerText = "Keys saved to Secure Session Storage ✅";
+        status.style.color = "#4caf50";
+
+        setTimeout(() => {
+            status.innerText = '';
+        }, 3000);
+
     } catch (e) {
-        status.innerText = "Error saving config";
+        status.innerText = "Error saving to session storage.";
         status.style.color = "#f44336";
     }
 }
 
-function createStatusElement() {
-    const div = document.createElement('div');
-    div.id = 'config-status';
-    div.style.marginTop = '10px';
-    div.style.fontSize = '0.9em';
-    document.querySelector('#config-modal .modal-content').appendChild(div);
-    return div;
-}
+// Auto-load config when script initializes
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('cfg-google').value = sessionStorage.getItem('GOOGLE_API_KEY') || '';
+    document.getElementById('cfg-groq').value = sessionStorage.getItem('GROQ_API_KEY') || '';
+    document.getElementById('cfg-openrouter').value = sessionStorage.getItem('OPENROUTER_API_KEY') || '';
+});

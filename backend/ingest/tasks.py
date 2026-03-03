@@ -41,6 +41,48 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
         logger.error(f"Import failed: {exc}")
         self.retry(exc=exc, countdown=60)  # Retry after 1 min on failure
 
+from celery import shared_task
+
+@shared_task(bind=True, name="evaluate_ai_predictions")
+def evaluate_ai_predictions(self):
+    """
+    Background worker that runs (e.g., at 9:15 AM) to evaluate all pending AI predictions
+    by fetching the latest actual opening price and calculating accuracy.
+    """
+    from backend.infrastructure.db import SessionLocal
+    from backend.ingest.nse_models import AIPrediction, BhavcopyEQ
+    from sqlalchemy import select, desc
+
+    db = SessionLocal()
+    try:
+        # Find all predictions without an actual_price
+        pending = db.query(AIPrediction).filter(AIPrediction.actual_price.is_(None)).all()
+        updated_count = 0
+
+        for pred in pending:
+            # Look up the latest open price for the ticker
+            latest_eq = db.execute(
+                select(BhavcopyEQ.open_price)
+                .filter(BhavcopyEQ.symbol == pred.ticker)
+                .order_by(desc(BhavcopyEQ.trade_date))
+                .limit(1)
+            ).scalar_one_or_none()
+
+            if latest_eq:
+                pred.actual_price = latest_eq
+                updated_count += 1
+
+        if updated_count > 0:
+            db.commit()
+
+        return {"status": "SUCCESS", "evaluated_count": updated_count}
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+
 @shared_task(bind=True, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""

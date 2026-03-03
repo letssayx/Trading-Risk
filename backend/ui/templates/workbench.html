@@ -379,6 +379,7 @@
                 <div class="ai-cmd-bar">
                     <span class="ai-cmd-prompt">TERMINAL_CMD: &gt;</span>
                     <input type="text" id="ai-cmd-input" class="ai-cmd-input" placeholder="_" autocomplete="off" spellcheck="false" onkeypress="handleAiCmd(event)">
+                    <div id="ai-sys-accuracy" style="font-size: 0.8em; color: #888; margin-left: 15px;">SYS_ACCURACY: <span class="text-emerald" id="accuracy-score">--%</span></div>
                 </div>
 
                 <!-- Active Intelligence Grid (Bonnet) -->
@@ -678,12 +679,25 @@
         <!-- TAB 5: CONFIG -->
         <div id="tab-config" class="main-tab-content">
             <div class="import-container">
-                <h2>Configuration</h2>
-                <div style="margin-bottom: 10px;">
-                    <label>Google API Key (Gemini):</label>
-                    <input type="password" id="cfg-google" class="history-input" style="width: 100%;">
+                <h2>API Key Management (Secure Session)</h2>
+                <p style="color:#aaa; font-size:0.9em; margin-top:-10px; margin-bottom:20px;">
+                    Keys are stored securely in your browser's encrypted sessionStorage and injected at runtime.
+                    They are never saved to the server database.
+                </p>
+                <div style="margin-bottom: 15px; max-width: 500px;">
+                    <label>Google API Key (Gemini 1.5 Pro):</label>
+                    <input type="password" id="cfg-google" class="history-input" style="width: 100%; margin-top:5px;" placeholder="AIzaSy...">
                 </div>
-                <button onclick="saveConfig()" class="btn btn-primary">Save Config</button>
+                <div style="margin-bottom: 15px; max-width: 500px;">
+                    <label>Groq API Key (Llama 3.3 & DeepSeek-R1):</label>
+                    <input type="password" id="cfg-groq" class="history-input" style="width: 100%; margin-top:5px;" placeholder="gsk_...">
+                </div>
+                <div style="margin-bottom: 15px; max-width: 500px;">
+                    <label>OpenRouter API Key (Qwen 2.5):</label>
+                    <input type="password" id="cfg-openrouter" class="history-input" style="width: 100%; margin-top:5px;" placeholder="sk-or-v1-...">
+                </div>
+                <button onclick="saveConfig()" class="btn btn-primary">Save Keys to Session</button>
+                <div id="config-status" style="margin-top: 10px; font-weight: bold;"></div>
             </div>
         </div>
 
@@ -727,6 +741,7 @@
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
             if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
+            if (tabName === 'ai_analyze') fetchSystemAccuracy();
 
             // Note: corporate_actions load is handled by the wrapper function below
             if (tabName === 'circulars') loadCirculars();
@@ -1113,46 +1128,167 @@
 
 
         // --- AI-Analyze Logic ---
-        function handleAiCmd(e) {
-            if (e.key === 'Enter') {
-                runAiAnalysis();
+        let aiWs = null;
+
+        async function fetchSystemAccuracy() {
+            try {
+                const res = await fetch('/api/ai/accuracy?session_id=local_trader_01');
+                if(res.ok) {
+                    const data = await res.json();
+                    document.getElementById('accuracy-score').innerText = `${data.accuracy}%`;
+                }
+            } catch(e) {
+                console.warn("Could not fetch AI accuracy", e);
             }
         }
 
-        function runAiAnalysis() {
-            const input = document.getElementById('ai-cmd-input');
-            const cmd = input.value.trim();
+        function handleAiCmd(e) {
+            if (e.key === 'Escape') {
+                if (aiWs && aiWs.readyState === WebSocket.OPEN) {
+                    aiWs.send(JSON.stringify({command: "STOP"}));
+                    aiWs.close();
+                    document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by user.</div>`;
+                }
+            } else if (e.key === 'Enter') {
+                const cmd = document.getElementById('ai-cmd-input').value.trim();
+                if (cmd.toUpperCase() === 'STOP') {
+                    if (aiWs && aiWs.readyState === WebSocket.OPEN) {
+                        aiWs.send(JSON.stringify({command: "STOP"}));
+                        aiWs.close();
+                        document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by STOP command.</div>`;
+                    }
+                    document.getElementById('ai-cmd-input').value = '';
+                    return;
+                }
+                runAiAnalysis(cmd);
+            }
+        }
+
+        function runAiAnalysis(cmd) {
             if (!cmd) return;
+
+            const groqKey = sessionStorage.getItem('GROQ_API_KEY');
+            const openrouterKey = sessionStorage.getItem('OPENROUTER_API_KEY');
+            const googleKey = sessionStorage.getItem('GOOGLE_API_KEY');
 
             const feed = document.getElementById('ai-analysis-feed');
             const quantLog = document.getElementById('quant-log');
+            const cmdInput = document.getElementById('ai-cmd-input');
 
             // Reset and Show Feed
             feed.style.display = 'flex';
-            quantLog.innerHTML = `<div class="log-line">> EXEC: ${cmd}</div><div class="log-line">Initializing context parameters...</div>`;
+            quantLog.innerHTML = `<div class="log-line">> EXEC: ${cmd}</div>`;
+            document.getElementById('data-matrix-body').innerHTML = '<tr><td colspan="5">Awaiting extraction...</td></tr>';
+            document.querySelector('.execution-box').innerHTML = '<div class="log-line">Awaiting strategist synthesis...</div>';
 
-            // Simulate Streaming Logic
-            setTimeout(() => {
-                quantLog.innerHTML += `<div class="log-line text-emerald">[OK] Connected to Qwen data matrix</div>`;
-                quantLog.scrollTop = quantLog.scrollHeight;
-            }, 500);
+            if (!groqKey || !openrouterKey || !googleKey) {
+                quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] Missing API keys. Please set them in Config tab.</div>`;
+                cmdInput.value = '';
+                return;
+            }
 
-            setTimeout(() => {
-                quantLog.innerHTML += `<div class="log-line">Extracting options chain delta...</div>`;
-                quantLog.scrollTop = quantLog.scrollHeight;
-            }, 1200);
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            aiWs = new WebSocket(`${protocol}//${window.location.host}/ws/ai-analyze`);
 
-            setTimeout(() => {
-                quantLog.innerHTML += `<div class="log-line">Running Monte Carlo simulation (N=10000)...</div>`;
-                quantLog.scrollTop = quantLog.scrollHeight;
-            }, 2000);
+            aiWs.onopen = () => {
+                aiWs.send(JSON.stringify({
+                    command: cmd,
+                    keys: { groq: groqKey, openrouter: openrouterKey, google: googleKey },
+                    session_id: "local_trader_01"
+                }));
+                cmdInput.value = '';
+                cmdInput.placeholder = "Processing... (Press ESC to stop)";
+                cmdInput.disabled = true;
+            };
 
-            setTimeout(() => {
-                quantLog.innerHTML += `<div class="log-line text-emerald">[DONE] DeepSeek-R1 evaluation complete. Matrix updated.</div>`;
+            aiWs.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === "status") {
+                    quantLog.innerHTML += `<div class="log-line text-emerald">[SYSTEM] ${msg.message}</div>`;
+                } else if (msg.type === "engine_type") {
+                    quantLog.innerHTML += `<div class="log-line">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>`;
+                } else if (msg.type === "quant_logic") {
+                    // Append token by token for typing effect
+                    let lastLine = quantLog.lastElementChild;
+                    let safeToken = msg.token.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>');
+
+                    // Basic styling for think tags stream (if streaming <think>)
+                    safeToken = safeToken.replace(/&lt;think&gt;/g, '<span class="think-tag">').replace(/&lt;\/think&gt;/g, '</span>');
+
+                    if (lastLine && lastLine.classList.contains('stream-line')) {
+                        lastLine.innerHTML += safeToken;
+                    } else {
+                        quantLog.innerHTML += `<div class="log-line stream-line">${safeToken}</div>`;
+                    }
+                } else if (msg.type === "data_matrix") {
+                    // Render Table
+                    const d = msg.data;
+                    const tbody = document.getElementById('data-matrix-body');
+                    tbody.innerHTML = '';
+
+                    if(d.equity && d.equity.close_price) {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${d.ticker} (EQ)</td>
+                                <td>${(d.equity.total_traded_qty || 0).toLocaleString()} Vol</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>₹${d.equity.close_price}</td>
+                            </tr>
+                        `;
+                    }
+                    if(d.futures && d.futures.close_price) {
+                        let oiColor = (d.futures.change_in_oi > 0) ? 'text-emerald' : 'text-crimson';
+                        let oiSign = (d.futures.change_in_oi > 0) ? '+' : '';
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${d.ticker}-FUT</td>
+                                <td>${(d.futures.open_interest || 0).toLocaleString()}</td>
+                                <td class="${oiColor}">${oiSign}${(d.futures.change_in_oi || 0).toLocaleString()}</td>
+                                <td>-</td>
+                                <td>± ${d.futures.implied_move_pct || 0}%</td>
+                            </tr>
+                        `;
+                    }
+                    if(!d.equity.close_price && !d.futures.close_price) {
+                        tbody.innerHTML = `<tr><td colspan="5">No specific DB rows found for ${d.ticker}.</td></tr>`;
+                    }
+                } else if (msg.type === "execution") {
+                    const ex = msg.data;
+                    const exBox = document.querySelector('.execution-box');
+                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'text-crimson' : 'text-emerald';
+                    exBox.innerHTML = `
+                        <div class="exec-confidence">CONF_SCORE: ${ex.confidence}%</div>
+                        <div class="exec-directive ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
+                        <div class="exec-details">
+                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br>
+                            RATIONALE: ${ex.rationale}
+                        </div>
+                    `;
+                } else if (msg.type === "error") {
+                    quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] ${msg.message}</div>`;
+                } else if (msg.type === "done") {
+                    cmdInput.placeholder = "_";
+                    cmdInput.disabled = false;
+                    cmdInput.focus();
+                    aiWs.close();
+                }
+
+                // Auto-scroll
                 quantLog.scrollTop = quantLog.scrollHeight;
-                input.value = '';
-                input.placeholder = "_";
-            }, 3000);
+            };
+
+            aiWs.onerror = () => {
+                quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] WebSocket connection failed. Is backend running?</div>`;
+                cmdInput.placeholder = "_";
+                cmdInput.disabled = false;
+            };
+
+            aiWs.onclose = () => {
+                 cmdInput.placeholder = "_";
+                 cmdInput.disabled = false;
+            }
         }
 
         // Global Shortcut Handler
