@@ -44,7 +44,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b']
+        models_to_try = ['gemini-1.5-flash']
         text = ""
         error_msg = ""
 
@@ -301,7 +301,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b']
+        models_to_try = ['gemini-1.5-flash']
         response = None
         text = ""
         error_msg = ""
@@ -329,7 +329,7 @@ class TerminalOrchestrator:
                     "Failed to generate content via Gemini API.",
                     f"Last error encountered: {error_msg}",
                     "All fallback models failed. Please check your API Key and model permissions.",
-                    "Ensure you have access to gemini-2.0-flash or gemini-1.5-flash-8b."
+                    "Ensure you have access to gemini-1.5-flash."
                 ]
             }
 
@@ -464,7 +464,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b']
+        models_to_try = ['gemini-1.5-flash']
         text = ""
         error_msg = ""
 
