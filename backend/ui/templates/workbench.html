@@ -430,7 +430,7 @@
 
                     <!-- Section A: Quant Logic -->
                     <div class="ai-feed-section">
-                        <div class="section-title" style="display: none;">[DEEPSEEK-R1] QUANT LOGIC</div>
+                        <div class="section-title"><span style="display: none;">[DEEPSEEK-R1] </span>QUANT LOGIC</div>
                         <div class="terminal-box" id="quant-log">
                             <div class="log-line">Initializing context...</div>
                         </div>
@@ -438,7 +438,7 @@
 
                     <!-- Section B: Data Matrix -->
                     <div class="ai-feed-section">
-                        <div class="section-title" style="display: none;">[QWEN] DATA MATRIX</div>
+                        <div class="section-title"><span style="display: none;">[QWEN] </span>DATA MATRIX</div>
                         <table class="ai-dense-table">
                             <thead>
                                 <tr>
@@ -470,7 +470,7 @@
 
                     <!-- Section C: Execution -->
                     <div class="ai-feed-section">
-                        <div class="section-title" style="display: none;">[GEMINI] EXECUTION</div>
+                        <div class="section-title"><span style="display: none;">[GEMINI] </span>EXECUTION</div>
                         <div class="execution-box">
                             <div class="exec-confidence">CONF_SCORE: 88%</div>
                             <div class="exec-directive text-emerald">ACTION: ACCUMULATE ON DIPS</div>
@@ -1249,7 +1249,7 @@
 
             // Reset and Show Feed
             feed.style.display = 'flex';
-            if (intelGrid) intelGrid.style.display = 'grid';
+            if (intelGrid) intelGrid.style.display = 'none'; // Keep intelGrid hidden as requested by user
             quantLog.innerHTML = `<div class="log-line">> EXEC: ${cmd}</div>`;
             document.getElementById('data-matrix-body').innerHTML = '<tr><td colspan="5">Awaiting extraction...</td></tr>';
             document.querySelector('.execution-box').innerHTML = '<div class="log-line">Awaiting strategist synthesis...</div>';
