@@ -1,7 +1,6 @@
-from typing import List, Dict, Any, Type, Optional
+from typing import List, Dict, Any, Type
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from backend.domain.portfolio.models import TradeSide
 
 class TransactionCostModel:
     def __init__(self, slippage_bps: float = 5.0, stt_pct: float = 0.1, comm_per_lot: float = 20.0):
@@ -51,7 +50,7 @@ class BacktestEngine:
                 # 2. Run Strategy Logic
                 try:
                     signals = strategy.run(snapshot) # Assuming interface exists
-                except Exception as e:
+                except Exception:
                     # In production log this, for now pass
                     signals = []
 
@@ -103,7 +102,6 @@ class BacktestEngine:
         self.trades_buffer.append(trade)
 
     def evaluate_performance(self):
-        total_pnl = 0.0
         total_cost = 0.0
 
         # Simple FIFO PnL Logic on buffer
