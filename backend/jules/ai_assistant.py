@@ -2,12 +2,17 @@ import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 import logging
+from typing import Dict, List
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+# Module-level cache for available models to avoid redundant API calls
+# Keyed by API key to handle key changes correctly
+_MODELS_CACHE: Dict[str, List[str]] = {}
 
 class JulesAssistant:
     def __init__(self):
@@ -30,10 +35,19 @@ class JulesAssistant:
         Dynamically selects the best available model for generateContent.
         """
         try:
-            available_models = []
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available_models.append(m.name)
+            # Check cache first
+            if self.api_key in _MODELS_CACHE:
+                available_models = _MODELS_CACHE[self.api_key]
+                logger.info(f"Jules: Using cached models for key: {self.api_key[:8]}...")
+            else:
+                available_models = []
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        available_models.append(m.name)
+
+                # Cache the results
+                if available_models:
+                    _MODELS_CACHE[self.api_key] = available_models
 
             logger.info(f"Jules: Available Models: {available_models}")
 
