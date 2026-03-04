@@ -8,6 +8,58 @@ from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO
 
 logger = logging.getLogger(__name__)
 
+def search_db_symbol(db: Session, query: str) -> str:
+    """
+    Searches the SecurityMaster or distinct values in Bhavcopy for a matching NSE symbol.
+    """
+    try:
+        from backend.ingest.nse_models import SecurityMaster, BhavcopyEQ
+        from sqlalchemy import func
+
+        query = query.upper().strip()
+
+        # Check SecurityMaster
+        sm_query = select(SecurityMaster.ticker_symb).filter(
+            func.upper(SecurityMaster.ticker_symb).like(f"%{query}%")
+        ).limit(5)
+
+        results = db.execute(sm_query).scalars().all()
+        if results:
+            return f"Found potential symbols in DB: {', '.join(results)}"
+
+        # Check distinct Bhavcopy symbols
+        bc_query = select(BhavcopyEQ.symbol).filter(
+            func.upper(BhavcopyEQ.symbol).like(f"%{query}%")
+        ).distinct().limit(5)
+
+        bc_results = db.execute(bc_query).scalars().all()
+        if bc_results:
+            return f"Found potential symbols in historical DB: {', '.join(bc_results)}"
+
+        return f"No symbols found in local DB matching '{query}'"
+    except Exception as e:
+        logger.error(f"Error querying historical DB for symbol {query}: {e}")
+        return f"Error searching database: {e}"
+
+def search_yfinance_symbol(query: str) -> str:
+    """
+    Searches Yahoo Finance for a matching ticker symbol.
+    """
+    import requests
+    try:
+        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            quotes = data.get('quotes', [])
+            if quotes:
+                results = [f"{q.get('symbol')} ({q.get('shortname', '')})" for q in quotes[:5]]
+                return f"Found potential symbols on YFinance: {', '.join(results)}"
+        return f"No symbols found on YFinance matching '{query}'"
+    except Exception as e:
+        return f"Error searching YFinance: {e}"
+
 def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
     """
     Fetches the most recent End of Day data for a given ticker from the local database.

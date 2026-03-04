@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from groq import AsyncGroq
 from google import genai
 from openai import AsyncOpenAI  # Used for OpenRouter
-from backend.web.ai.tools import fetch_bhavcopy_data
+from backend.web.ai.tools import fetch_bhavcopy_data, search_db_symbol, search_yfinance_symbol
 from backend.ingest.nse_models import AIPrediction
 
 class TerminalOrchestrator:
@@ -121,51 +121,126 @@ class TerminalOrchestrator:
         prompt = f"""
         Extract the NSE stock ticker symbol from this command.
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before answering.
+        Use the available tools `search_db_symbol` and `search_yfinance_symbol` to search the database or YFinance to accurately identify the official ticker symbol if a company name or vague entity is mentioned. Do not guess; use the tools to confirm.
         Output your logic first inside `<reasoning>` tags.
-        If it's an index, return NIFTY or BANKNIFTY.
-        If a company name is provided, map it to its official NSE ticker symbol (e.g., "L&T" -> "LT", "Reliance" -> "RELIANCE").
         If no ticker is found, return "NONE".
         Command: "{command}"
         After your reasoning, your final output MUST contain the final ticker string in uppercase (or NONE) enclosed in `<ticker>` tags, for example `<ticker>NIFTY</ticker>`.
         """
-        qwen_reasoning = ""
-        try:
-            response = await self.openrouter_client.chat.completions.create(
-                model="qwen/qwen-2.5-coder-32b-instruct",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
-                extra_headers={
-                    "HTTP-Referer": "https://turtle-terminal.local",
-                    "X-Title": "Turtle Terminal",
-                    "X-Zero-Retention": "true" # Professional Data Handling
+
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_db_symbol",
+                    "description": "Searches the local Historical Data database (Security Master & Bhavcopy) for a matching official NSE symbol based on a company name or partial query. Always try this first.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The company name or partial symbol to search for."
+                            }
+                        },
+                        "required": ["query"]
+                    }
                 }
-            )
-            raw_text = response.choices[0].message.content.strip()
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_yfinance_symbol",
+                    "description": "Searches Yahoo Finance for a matching ticker symbol based on a company name. Very useful if the local DB search fails.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The company name or entity to search for on Yahoo Finance."
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            }
+        ]
 
-            # Extract reasoning
-            reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', raw_text, re.DOTALL | re.IGNORECASE)
-            if reasoning_match:
-                qwen_reasoning = reasoning_match.group(1).strip()
+        qwen_reasoning = ""
+        messages = [{"role": "user", "content": prompt}]
+        max_tool_calls = 3
+        current_calls = 0
+        ticker = "NONE"
 
-            # Extract ticker
-            ticker_match = re.search(r'<ticker>(.*?)</ticker>', raw_text, re.DOTALL | re.IGNORECASE)
-            if ticker_match:
-                ticker = ticker_match.group(1).strip().upper()
-                # Clean ticker
-                ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
-            else:
-                # Fallback if no <ticker> tags are found
-                raw_text_no_reasoning = re.sub(r'<reasoning>.*?</reasoning>', '', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
-                ticker = raw_text_no_reasoning.upper()
-                ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
+        while current_calls < max_tool_calls:
+            try:
+                response = await self.openrouter_client.chat.completions.create(
+                    model="qwen/qwen-2.5-coder-32b-instruct",
+                    messages=messages,
+                    tools=tools,
+                    temperature=0.0,
+                    extra_headers={
+                        "HTTP-Referer": "https://turtle-terminal.local",
+                        "X-Title": "Turtle Terminal",
+                        "X-Zero-Retention": "true" # Professional Data Handling
+                    }
+                )
 
-            if not ticker: ticker = "NONE"
-        except Exception as e:
-            ticker = "NONE"
+                message = response.choices[0].message
+                messages.append(message)
+
+                # Check for tool calls
+                if message.tool_calls:
+                    for tool_call in message.tool_calls:
+                        function_name = tool_call.function.name
+                        function_args = json.loads(tool_call.function.arguments)
+
+                        tool_result = "Tool execution failed."
+                        if function_name == "search_db_symbol":
+                            tool_result = search_db_symbol(self.db, function_args.get("query", ""))
+                        elif function_name == "search_yfinance_symbol":
+                            tool_result = search_yfinance_symbol(function_args.get("query", ""))
+
+                        messages.append({
+                            "role": "tool",
+                            "name": function_name,
+                            "content": tool_result,
+                            "tool_call_id": tool_call.id
+                        })
+                    current_calls += 1
+                    continue # Loop back to get Qwen's response to the tool output
+
+                # Process final textual output
+                raw_text = message.content.strip() if message.content else ""
+
+                # Extract reasoning
+                reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', raw_text, re.DOTALL | re.IGNORECASE)
+                if reasoning_match:
+                    # Append instead of overwrite to capture reasoning across tool calls
+                    qwen_reasoning += "\n" + reasoning_match.group(1).strip()
+
+                # Extract ticker
+                ticker_match = re.search(r'<ticker>(.*?)</ticker>', raw_text, re.DOTALL | re.IGNORECASE)
+                if ticker_match:
+                    ticker = ticker_match.group(1).strip().upper()
+                    # Clean ticker
+                    ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
+                else:
+                    # Fallback if no <ticker> tags are found
+                    raw_text_no_reasoning = re.sub(r'<reasoning>.*?</reasoning>', '', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
+                    ticker = raw_text_no_reasoning.upper()
+                    ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
+
+                if not ticker: ticker = "NONE"
+                break # We got a final text answer without tool calls
+
+            except Exception as e:
+                ticker = "NONE"
+                qwen_reasoning += f"\n[Error querying Qwen: {e}]"
+                break
 
         # 2. Fetch Real Data (Zero Hallucination)
         real_data = fetch_bhavcopy_data(self.db, ticker)
-        real_data['qwen_reasoning'] = qwen_reasoning
+        real_data['qwen_reasoning'] = qwen_reasoning.strip()
         return real_data
 
     async def step3_quant_logic(self, command: str, engine_type: str, callback: Callable):
