@@ -44,7 +44,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
         text = ""
         error_msg = ""
 
@@ -174,7 +174,7 @@ class TerminalOrchestrator:
         while current_calls < max_tool_calls:
             try:
                 response = await self.openrouter_client.chat.completions.create(
-                    model="qwen/qwen-2.5-coder-32b-instruct",
+                    model="qwen/qwen-2.5-72b-instruct",
                     messages=messages,
                     tools=tools,
                     temperature=0.0,
@@ -301,7 +301,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
         response = None
         text = ""
         error_msg = ""
@@ -329,7 +329,7 @@ class TerminalOrchestrator:
                     "Failed to generate content via Gemini API.",
                     f"Last error encountered: {error_msg}",
                     "All fallback models failed. Please check your API Key and model permissions.",
-                    "Ensure you have access to gemini-1.5-flash."
+                    "Ensure you have access to gemini-1.5-flash-8b, gemini-1.5-flash-002, or gemini-2.0-flash."
                 ]
             }
 
@@ -464,7 +464,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
         text = ""
         error_msg = ""
 
