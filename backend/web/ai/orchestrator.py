@@ -44,7 +44,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
+        models_to_try = ['gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash']
         text = ""
         error_msg = ""
 
@@ -173,20 +173,13 @@ class TerminalOrchestrator:
 
         while current_calls < max_tool_calls:
             try:
-                response = await self.openrouter_client.chat.completions.create(
-                    model="qwen/qwen-2.5-coder-32b-instruct",
+                response = await self.groq_client.chat.completions.create(
+                    model="qwen-2.5-coder-32b",
                     messages=messages,
                     tools=tools,
                     temperature=0.0,
                     extra_headers={
-                        "HTTP-Referer": "https://turtle-terminal.local",
-                        "X-Title": "Turtle Terminal",
                         "X-Zero-Retention": "true" # Professional Data Handling
-                    },
-                    extra_body={
-                        "provider": {
-                            "require_parameters": True
-                        }
                     }
                 )
 
@@ -308,7 +301,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro-latest']
+        models_to_try = ['gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash']
         response = None
         text = ""
         error_msg = ""
@@ -471,7 +464,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
+        models_to_try = ['gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash']
         text = ""
         error_msg = ""
 
