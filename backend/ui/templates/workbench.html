@@ -397,7 +397,7 @@
             <div class="ai-terminal-container" style="display: flex; flex-direction: column; height: 100%;">
 
                 <!-- Active Intelligence Grid (Bonnet) -->
-                <div class="ai-intel-grid">
+                <div class="ai-intel-grid" style="display: none;">
                     <div class="intel-card" id="intel-blackswan">
                         <div class="intel-header" style="display: none;">BLACK SWAN</div>
                         <div class="intel-metric">--</div>
@@ -1245,9 +1245,11 @@
             const feed = document.getElementById('ai-analysis-feed');
             const quantLog = document.getElementById('quant-log');
             const cmdInput = document.getElementById('ai-cmd-input');
+            const intelGrid = document.querySelector('.ai-intel-grid');
 
             // Reset and Show Feed
             feed.style.display = 'flex';
+            if (intelGrid) intelGrid.style.display = 'grid';
             quantLog.innerHTML = `<div class="log-line">> EXEC: ${cmd}</div>`;
             document.getElementById('data-matrix-body').innerHTML = '<tr><td colspan="5">Awaiting extraction...</td></tr>';
             document.querySelector('.execution-box').innerHTML = '<div class="log-line">Awaiting strategist synthesis...</div>';
