@@ -126,7 +126,7 @@ class TerminalOrchestrator:
         If a company name is provided, map it to its official NSE ticker symbol (e.g., "L&T" -> "LT", "Reliance" -> "RELIANCE").
         If no ticker is found, return "NONE".
         Command: "{command}"
-        After your reasoning, your final output should ONLY contain the final ticker string in uppercase (or NONE) and NOTHING ELSE.
+        After your reasoning, your final output MUST contain the final ticker string in uppercase (or NONE) enclosed in `<ticker>` tags, for example `<ticker>NIFTY</ticker>`.
         """
         qwen_reasoning = ""
         try:
@@ -146,11 +146,19 @@ class TerminalOrchestrator:
             reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', raw_text, re.DOTALL | re.IGNORECASE)
             if reasoning_match:
                 qwen_reasoning = reasoning_match.group(1).strip()
-                raw_text = re.sub(r'<reasoning>.*?</reasoning>', '', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
 
-            ticker = raw_text.upper()
-            # Clean ticker
-            ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
+            # Extract ticker
+            ticker_match = re.search(r'<ticker>(.*?)</ticker>', raw_text, re.DOTALL | re.IGNORECASE)
+            if ticker_match:
+                ticker = ticker_match.group(1).strip().upper()
+                # Clean ticker
+                ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
+            else:
+                # Fallback if no <ticker> tags are found
+                raw_text_no_reasoning = re.sub(r'<reasoning>.*?</reasoning>', '', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
+                ticker = raw_text_no_reasoning.upper()
+                ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
+
             if not ticker: ticker = "NONE"
         except Exception as e:
             ticker = "NONE"
