@@ -92,13 +92,13 @@ const Layout = {
             }
         });
 
-        // Fix Close buttons
-        const closeBtns = document.querySelectorAll('.close');
-        closeBtns.forEach(btn => {
-            btn.onclick = function() {
-                const modal = this.closest('.modal');
+        // Fix Close buttons via Event Delegation for dynamically created elements
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.close');
+            if (btn) {
+                const modal = btn.closest('.modal');
                 if (modal) modal.style.display = 'none';
-            };
+            }
         });
     },
 
