@@ -69,9 +69,15 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                     session_id=session_id
                 )
 
+                # Step 0: Persona Prefilter
+                await websocket.send_json({"type": "status", "message": "Jules converting command into Quant Task..."})
+                expanded_command = await orchestrator.step0_persona_prefilter(command)
+                # Show the expanded command in the UI as well
+                await websocket.send_json({"type": "governance_log", "message": f"[JULES TASK] {expanded_command}"})
+
                 # Step 1: Dispatch
                 await websocket.send_json({"type": "status", "message": "Classifying command..."})
-                engine_type = await orchestrator.step1_dispatch(command)
+                engine_type = await orchestrator.step1_dispatch(expanded_command)
                 await websocket.send_json({"type": "engine_type", "data": engine_type})
 
                 # Setup streaming callback for Step 3
@@ -81,20 +87,72 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                 # Step 2 & 3 in parallel
                 await websocket.send_json({"type": "status", "message": "Triggering Quant Engine & Data Matrix..."})
 
-                task_data = asyncio.create_task(orchestrator.step2_data_clerk(command, engine_type))
-                task_logic = asyncio.create_task(orchestrator.step3_quant_logic(command, engine_type, stream_callback))
+                task_data = asyncio.create_task(orchestrator.step2_data_clerk(expanded_command, engine_type))
+                task_logic = asyncio.create_task(orchestrator.step3_quant_logic(expanded_command, engine_type, stream_callback))
 
                 data_matrix, reasoning = await asyncio.gather(task_data, task_logic)
 
                 # Send Data Matrix to UI
                 await websocket.send_json({"type": "data_matrix", "data": data_matrix})
 
-                # Step 4: Synthesize
+                # Step 4: Synthesize with Retry Loop for Compliance Judge
                 await websocket.send_json({"type": "status", "message": "Synthesizing Execution Plan..."})
-                exec_card = await orchestrator.step4_strategist(command, engine_type, data_matrix, reasoning)
+
+                max_retries = 2
+                current_retry = 0
+                system_constraint = ""
+                final_exec_card = None
+
+                while current_retry <= max_retries:
+                    modified_reasoning = reasoning
+                    if system_constraint:
+                        modified_reasoning += f"\n\nSYSTEM CONSTRAINT (Correct your output based on this critique):\n{system_constraint}"
+
+                    exec_card = await orchestrator.step4_strategist(expanded_command, engine_type, data_matrix, modified_reasoning)
+
+                    # Step 5: Compliance Judge
+                    await websocket.send_json({"type": "status", "message": "Running Compliance Judge Verification..."})
+                    judge_result = await orchestrator.step5_compliance_judge(expanded_command, data_matrix, reasoning, exec_card)
+
+                    if judge_result.get("status") == "PASS":
+                        final_exec_card = exec_card
+                        break
+                    else:
+                        critique = judge_result.get("critique", "Unknown error in verification.")
+                        await websocket.send_json({"type": "governance_log", "message": f"System self-correcting: {critique}"})
+                        system_constraint = critique
+                        current_retry += 1
+
+                if not final_exec_card:
+                    # If we exhausted retries, we fallback to the last generated card and send a warning
+                    final_exec_card = exec_card
+                    await websocket.send_json({"type": "governance_log", "message": "Warning: Max retries reached. Output may not be fully compliant."})
+
+                # Step 6: Persona Filter
+                await websocket.send_json({"type": "status", "message": "Applying Quant Desk Persona..."})
+                final_card = await orchestrator.step6_persona_filter(final_exec_card)
+
+                # Persist to DB using the final approved and formatted card
+                try:
+                    pred = AIPrediction(
+                        session_id=session_id,
+                        ticker=data_matrix.get("ticker", "NIFTY"),
+                        engine_type=engine_type,
+                        predicted_price=float(final_card.get("predicted_price", 0)),
+                        action=final_card.get("action", ""),
+                        target=float(final_card.get("target", 0)),
+                        stop_loss=float(final_card.get("stop_loss", 0)),
+                        confidence=int(final_card.get("confidence", 0)),
+                        rationale=final_card.get("rationale", "")
+                    )
+                    db.add(pred)
+                    db.commit()
+                except Exception as db_err:
+                    print(f"Error persisting prediction: {db_err}")
+                    db.rollback()
 
                 # Send final execution card
-                await websocket.send_json({"type": "execution", "data": exec_card})
+                await websocket.send_json({"type": "execution", "data": final_card})
                 await websocket.send_json({"type": "done"})
 
             except Exception as e:

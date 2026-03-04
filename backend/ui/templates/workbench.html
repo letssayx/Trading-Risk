@@ -453,7 +453,14 @@
                         </table>
                     </div>
 
-                    <!-- Section C: Execution -->
+                    <!-- Section C: Governance Log -->
+                    <div class="ai-feed-section" id="governance-section" style="display: none;">
+                        <div class="section-title text-crimson">[LLAMA 3.3] COMPLIANCE JUDGE</div>
+                        <div class="terminal-box" id="governance-log">
+                        </div>
+                    </div>
+
+                    <!-- Section D: Execution -->
                     <div class="ai-feed-section">
                         <div class="section-title">[GEMINI] EXECUTION</div>
                         <div class="execution-box">
@@ -1231,6 +1238,10 @@
             document.getElementById('data-matrix-body').innerHTML = '<tr><td colspan="5">Awaiting extraction...</td></tr>';
             document.querySelector('.execution-box').innerHTML = '<div class="log-line">Awaiting strategist synthesis...</div>';
 
+            // Reset Governance Log
+            document.getElementById('governance-section').style.display = 'none';
+            document.getElementById('governance-log').innerHTML = '';
+
             if (!groqKey || !openrouterKey || !googleKey) {
                 quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] Missing API keys. Please set them in Config tab.</div>`;
                 cmdInput.value = '';
@@ -1305,6 +1316,11 @@
                     if(!d.equity.close_price && !d.futures.close_price) {
                         tbody.innerHTML = `<tr><td colspan="5">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
                     }
+                } else if (msg.type === "governance_log") {
+                    const govSection = document.getElementById('governance-section');
+                    const govLog = document.getElementById('governance-log');
+                    govSection.style.display = 'flex';
+                    govLog.innerHTML += `<div class="log-line text-crimson">> ${msg.message}</div>`;
                 } else if (msg.type === "execution") {
                     const ex = msg.data;
                     const exBox = document.querySelector('.execution-box');

@@ -22,6 +22,41 @@ class TerminalOrchestrator:
 
         # We pass stream=True implicitly in the client calls or we just wrap it for Groq
 
+    async def step0_persona_prefilter(self, command: str) -> str:
+        """Uses Gemini to deeply reason about the user's raw command and convert it into a detailed quant task."""
+        prompt = f"""
+        You are 'Jules', the expert UI/UX Logic model for a hedge fund terminal.
+        A trader has entered the following command: "{command}"
+
+        Your task is to convert this raw command into a detailed, strict, step-by-step task instructions for the backend quant engines.
+        Use deep reasoning and chain of thought. Output ONLY the final detailed task description. Do not include your internal reasoning in the final output, just the expanded task.
+        Ensure you explicitly instruct the downstream models to use quant grade logic, strictly no hallucination, no fake data, and no false assumptions.
+
+        Example Output Format:
+        Task - You are an expert derivatives strategist. Use step-by-step reasoning to analyze [Subject].
+        Analyze:
+        a. Calculate a theoretical opening price based on a [Model type] shock.
+        b. Provide a final predicted opening price range.
+        Output - strictly no hallucination, no fake data, no false assumptions.
+        """
+
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        text = command # Default to original command if it fails
+
+        for model_name in models_to_try:
+            try:
+                response = await self.gemini_client.aio.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    text = response.text.strip()
+                break
+            except Exception:
+                continue
+
+        return text
+
     async def step1_dispatch(self, command: str) -> str:
         """Uses Llama 3.3 to classify the command into an Engine type."""
         prompt = f"""
@@ -174,21 +209,6 @@ class TerminalOrchestrator:
                 text = match.group(0)
             exec_data = json.loads(text)
 
-            # Persist to DB
-            pred = AIPrediction(
-                session_id=self.session_id,
-                ticker=data_matrix.get("ticker", "NIFTY"),
-                engine_type=engine_type,
-                predicted_price=float(exec_data.get("predicted_price", 0)),
-                action=exec_data.get("action", ""),
-                target=float(exec_data.get("target", 0)),
-                stop_loss=float(exec_data.get("stop_loss", 0)),
-                confidence=int(exec_data.get("confidence", 0)),
-                rationale=exec_data.get("rationale", "")
-            )
-            self.db.add(pred)
-            self.db.commit()
-
             return exec_data
         except Exception as e:
             # Fallback
@@ -200,3 +220,122 @@ class TerminalOrchestrator:
                 "predicted_price": 0.0,
                 "rationale": f"Failed to parse Gemini output: {str(e)}"
             }
+
+    async def step5_compliance_judge(self, command: str, data_matrix: Dict[str, Any], reasoning: str, exec_card: Dict[str, Any]) -> Dict[str, Any]:
+        """Uses Llama 3.3 to verify the logic and data integrity (Compliance Judge)."""
+
+        # Deterministic checks
+        try:
+            action = str(exec_card.get("action", "")).upper()
+            target = float(exec_card.get("target", 0.0))
+
+            # Fetch current close price to do deterministic check
+            current_price = 0.0
+            if data_matrix.get("equity") and data_matrix["equity"].get("close_price"):
+                current_price = float(data_matrix["equity"]["close_price"])
+            elif data_matrix.get("futures") and data_matrix["futures"].get("close_price"):
+                current_price = float(data_matrix["futures"]["close_price"])
+
+            if current_price > 0.0:
+                if "BUY" in action or "ACCUMULATE" in action or "LONG" in action:
+                    if target > 0 and target <= current_price:
+                        return {"status": "FAIL", "critique": f"Deterministic failure: Action is {action} but target price {target} is not greater than current price {current_price}."}
+                elif "SELL" in action or "SHORT" in action:
+                    if target > 0 and target >= current_price:
+                        return {"status": "FAIL", "critique": f"Deterministic failure: Action is {action} but target price {target} is not less than current price {current_price}."}
+        except Exception as e:
+            # If deterministic checks fail to parse numbers, we let the LLM Judge handle it.
+            pass
+
+        # LLM Judge
+        prompt = f"""
+        You are the Compliance Judge for a Hedge Fund's AI trading system.
+        Your job is to verify that the Strategist's Output (Execution Card) strictly adheres to the Real Data and Quant Reasoning.
+
+        Real Data JSON:
+        {json.dumps(data_matrix, indent=2)}
+
+        Quant Reasoning:
+        {reasoning}
+
+        Strategist's Output:
+        {json.dumps(exec_card, indent=2)}
+
+        Check for the following:
+        1. Hallucination Jump: Does the Strategist's rationale contradict the Quant's step-by-step logic?
+        2. Data Verification: Are the numbers in the Output consistent with the Real Data JSON? (e.g., target price must be somewhat realistic based on current prices, OI numbers cited must match Data Matrix).
+        3. Safety Guardrails: If there are major discrepancies or missing data, flag it.
+
+        Return a strict JSON response with exactly these keys:
+        - "status": string ("PASS" or "FAIL")
+        - "critique": string (If FAIL, explain exactly what the error is and how the Strategist should fix it. If PASS, leave empty string.)
+
+        Output ONLY valid JSON.
+        """
+
+        try:
+            response = await self.groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                temperature=0.0,
+                extra_headers={
+                    "X-Zero-Retention": "true"
+                }
+            )
+            text = response.choices[0].message.content.strip()
+
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+
+            judge_res = json.loads(text)
+            return judge_res
+        except Exception as e:
+            # If the judge fails to parse or respond, we fail safely to trigger a retry
+            return {"status": "FAIL", "critique": f"Compliance Judge encountered an error checking output: {str(e)}"}
+
+    async def step6_persona_filter(self, exec_card: Dict[str, Any]) -> Dict[str, Any]:
+        """Uses Gemini to rewrite the execution card into a Quant Desk tone."""
+        prompt = f"""
+        You are 'Jules', a seasoned hedge fund quant desk UI/UX model.
+        Rewrite the following trading execution output to have a professional, highly concise 'Quant Desk' tone.
+        Remove wordy, robotic phrases. Ensure the formatting is actionable, highlighting the critical signal.
+
+        Original Input:
+        {json.dumps(exec_card, indent=2)}
+
+        Return a strict JSON object with the exact same keys:
+        - "action": string
+        - "target": float
+        - "stop_loss": float
+        - "confidence": integer
+        - "predicted_price": float
+        - "rationale": string (Rewrite this to be a short, sharp quant desk note, e.g., "High conviction on IDFC; OI surge confirmed").
+
+        Output ONLY valid JSON.
+        """
+
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        text = ""
+
+        for model_name in models_to_try:
+            try:
+                response = await self.gemini_client.aio.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                text = response.text
+                break
+            except Exception:
+                continue
+
+        try:
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+            final_card = json.loads(text)
+
+            return final_card
+        except Exception as e:
+            # If formatting fails, just return the original card so we don't break the UI
+            return exec_card
