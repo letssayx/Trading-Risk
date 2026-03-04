@@ -62,7 +62,14 @@ def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
     if not matrix["equity"] or not matrix.get("equity", {}).get("close_price"):
         try:
             # Format ticker for YFinance
-            yf_ticker = "^NSEI" if ticker.upper() in ["NIFTY", "NIFTY 50"] else f"{ticker.upper()}.NS"
+            yf_ticker = f"{ticker.upper()}.NS"
+            if ticker.upper() in ["NIFTY", "NIFTY 50", "NIFTY50"]:
+                yf_ticker = "^NSEI"
+            elif ticker.upper() in ["BANKNIFTY", "BANK NIFTY", "NIFTY BANK"]:
+                yf_ticker = "^NSEBANK"
+            elif ticker.upper() in ["FINNIFTY", "NIFTY FIN SERVICE"]:
+                yf_ticker = "NIFTY_FIN_SERVICE.NS"
+
             stock = yf.Ticker(yf_ticker)
 
             # Get latest close price

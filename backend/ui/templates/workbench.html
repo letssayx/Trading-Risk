@@ -1319,6 +1319,9 @@
                     if(!d.equity.close_price && !d.futures.close_price) {
                         tbody.innerHTML = `<tr><td colspan="5">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
                     }
+                    if (d.qwen_reasoning) {
+                        tbody.innerHTML += `<tr><td colspan="5" style="white-space: normal; word-wrap: break-word; color: #a0a0a0; padding: 10px;"><strong>[Reasoning]</strong><br>${d.qwen_reasoning.replace(/\n/g, '<br>')}</td></tr>`;
+                    }
                 } else if (msg.type === "governance_log") {
                     const govSection = document.getElementById('governance-section');
                     const govLog = document.getElementById('governance-log');
@@ -1328,14 +1331,23 @@
                     const ex = msg.data;
                     const exBox = document.querySelector('.execution-box');
                     let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'text-crimson' : 'text-emerald';
-                    exBox.innerHTML = `
-                        <div class="exec-confidence">CONF_SCORE: ${ex.confidence}%</div>
+                    let executionHtml = `
+                        <div class="exec-confidence" title="AI-assessed conviction score based on available data. Improve this by providing more specific data or a clearer prompt.">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
                         <div class="exec-directive ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
                         <div class="exec-details">
                             TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br>
                             RATIONALE: ${ex.rationale}
                         </div>
                     `;
+                    if (ex.reasoning) {
+                        executionHtml += `
+                            <div class="exec-details" style="color: #a0a0a0; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #333;">
+                                <strong>[Reasoning]</strong><br>
+                                ${ex.reasoning.replace(/\n/g, '<br>')}
+                            </div>
+                        `;
+                    }
+                    exBox.innerHTML = executionHtml;
                 } else if (msg.type === "error") {
                     quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] ${msg.message}</div>`;
                 } else if (msg.type === "done") {

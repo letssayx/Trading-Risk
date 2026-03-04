@@ -114,6 +114,9 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                     await websocket.send_json({"type": "status", "message": "Running Compliance Judge Verification..."})
                     judge_result = await orchestrator.step5_compliance_judge(expanded_command, data_matrix, reasoning, exec_card)
 
+                    if judge_result.get("reasoning"):
+                        await websocket.send_json({"type": "governance_log", "message": f"Reasoning: {judge_result.get('reasoning')}"})
+
                     if judge_result.get("status") == "PASS":
                         final_exec_card = exec_card
                         break

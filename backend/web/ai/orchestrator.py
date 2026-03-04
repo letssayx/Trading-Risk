@@ -92,11 +92,14 @@ class TerminalOrchestrator:
         prompt = f"""
         Extract the NSE stock ticker symbol from this command.
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before answering.
+        Output your logic first inside `<reasoning>` tags.
         If it's an index, return NIFTY or BANKNIFTY.
+        If a company name is provided, map it to its official NSE ticker symbol (e.g., "L&T" -> "LT", "Reliance" -> "RELIANCE").
         If no ticker is found, return "NONE".
         Command: "{command}"
-        Your output should ONLY contain the final ticker string in uppercase (or NONE). No other text.
+        After your reasoning, your final output should ONLY contain the final ticker string in uppercase (or NONE) and NOTHING ELSE.
         """
+        qwen_reasoning = ""
         try:
             response = await self.openrouter_client.chat.completions.create(
                 model="qwen/qwen-2.5-coder-32b-instruct",
@@ -108,7 +111,15 @@ class TerminalOrchestrator:
                     "X-Zero-Retention": "true" # Professional Data Handling
                 }
             )
-            ticker = response.choices[0].message.content.strip().upper()
+            raw_text = response.choices[0].message.content.strip()
+
+            # Extract reasoning
+            reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', raw_text, re.DOTALL | re.IGNORECASE)
+            if reasoning_match:
+                qwen_reasoning = reasoning_match.group(1).strip()
+                raw_text = re.sub(r'<reasoning>.*?</reasoning>', '', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
+
+            ticker = raw_text.upper()
             # Clean ticker
             ticker = re.sub(r'[^A-Z0-9-]', '', ticker)
             if not ticker: ticker = "NONE"
@@ -117,6 +128,7 @@ class TerminalOrchestrator:
 
         # 2. Fetch Real Data (Zero Hallucination)
         real_data = fetch_bhavcopy_data(self.db, ticker)
+        real_data['qwen_reasoning'] = qwen_reasoning
         return real_data
 
     async def step3_quant_logic(self, command: str, engine_type: str, callback: Callable):
@@ -169,10 +181,10 @@ class TerminalOrchestrator:
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before deciding on the execution card.
         You can output your thought process first inside `<reasoning>` tags.
         After your reasoning, provide a final execution recommendation as a strict JSON object with EXACTLY these keys:
-        - "action": string (e.g., "ACCUMULATE ON DIPS", "AGGRESSIVE SHORT", "HOLD")
+        - "action": string (MUST be strictly one of: "BUY", "SELL", or "HOLD")
         - "target": float (the numerical price target)
         - "stop_loss": float (the numerical stop loss)
-        - "confidence": integer (0 to 100 representing confidence score)
+        - "confidence": integer (0 to 100 representing confidence score. Penalize/lower this score heavily if Real Data is missing ("NONE" ticker or no close prices). Boost it if data strongly aligns with reasoning.)
         - "predicted_price": float (your predicted opening price for the next session)
         - "rationale": string (a 1-2 sentence explanation)
 
@@ -291,13 +303,22 @@ class TerminalOrchestrator:
                     "X-Zero-Retention": "true"
                 }
             )
-            text = response.choices[0].message.content.strip()
+            raw_text = response.choices[0].message.content.strip()
 
-            match = re.search(r'\{.*\}', text, re.DOTALL)
+            # Extract reasoning
+            judge_reasoning = ""
+            reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', raw_text, re.DOTALL | re.IGNORECASE)
+            if reasoning_match:
+                judge_reasoning = reasoning_match.group(1).strip()
+
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
             if match:
                 text = match.group(0)
+            else:
+                text = raw_text
 
             judge_res = json.loads(text)
+            judge_res['reasoning'] = judge_reasoning
             return judge_res
         except Exception as e:
             # If the judge fails to parse or respond, we fail safely to trigger a retry
@@ -316,7 +337,7 @@ class TerminalOrchestrator:
         You MUST use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) to determine the best phrasing.
         You can output your internal thought process inside `<reasoning>` tags.
         Then, return a strict JSON object with the exact same keys:
-        - "action": string
+        - "action": string (MUST be strictly one of: "BUY", "SELL", or "HOLD")
         - "target": float
         - "stop_loss": float
         - "confidence": integer
@@ -340,13 +361,19 @@ class TerminalOrchestrator:
             except Exception:
                 continue
 
+        gemini_reasoning = ""
+        reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', text, re.DOTALL | re.IGNORECASE)
+        if reasoning_match:
+            gemini_reasoning = reasoning_match.group(1).strip()
+
         try:
             match = re.search(r'\{.*\}', text, re.DOTALL)
             if match:
                 text = match.group(0)
             final_card = json.loads(text)
-
+            final_card['reasoning'] = gemini_reasoning
             return final_card
         except Exception as e:
             # If formatting fails, just return the original card so we don't break the UI
+            exec_card['reasoning'] = gemini_reasoning
             return exec_card
