@@ -29,7 +29,9 @@ class TerminalOrchestrator:
         A trader has entered the following command: "{command}"
 
         Your task is to convert this raw command into a detailed, strict, step-by-step task instructions for the backend quant engines.
-        Use deep reasoning and chain of thought. Output ONLY the final detailed task description. Do not include your internal reasoning in the final output, just the expanded task.
+        You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally).
+        You can output your internal reasoning first if needed, but the final task must be clearly separated.
+        Actually, just output ONLY the final detailed task description to avoid breaking the pipeline, but ensure your generation process is deliberate.
         Ensure you explicitly instruct the downstream models to use quant grade logic, strictly no hallucination, no fake data, and no false assumptions.
 
         Example Output Format:
@@ -89,10 +91,11 @@ class TerminalOrchestrator:
         # 1. Extract Ticker
         prompt = f"""
         Extract the NSE stock ticker symbol from this command.
+        You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before answering.
         If it's an index, return NIFTY or BANKNIFTY.
         If no ticker is found, return "NONE".
         Command: "{command}"
-        Return ONLY the ticker string in uppercase.
+        Your output should ONLY contain the final ticker string in uppercase (or NONE). No other text.
         """
         try:
             response = await self.openrouter_client.chat.completions.create(
@@ -123,13 +126,14 @@ class TerminalOrchestrator:
         Command: {command}
 
         CRITICAL INSTRUCTIONS:
-        1. DO NOT invent, assume, or guess specific current stock prices, index levels, or numerical targets.
-        2. DO NOT perform arithmetic on assumed prices.
-        3. Your role is strictly to provide directional market reasoning, sector impact analysis, and qualitative logic.
-        4. The final numerical calculations will be handled by the Execution Strategist in the next step using real database values.
+        1. You MUST use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally).
+        2. DO NOT invent, assume, or guess specific current stock prices, index levels, or numerical targets.
+        3. DO NOT perform arithmetic on assumed prices.
+        4. Your role is strictly to provide directional market reasoning, sector impact analysis, and qualitative logic.
+        5. The final numerical calculations will be handled by the Execution Strategist in the next step using real database values.
 
         Think step-by-step about the broader market implications and directional sentiment.
-        Use the <think> tags to show your logic.
+        Always output your internal reasoning explicitly inside `<think>` ... `</think>` tags before your final response.
         """
 
         stream = await self.groq_client.chat.completions.create(
@@ -162,7 +166,9 @@ class TerminalOrchestrator:
         Quant Reasoning:
         {reasoning}
 
-        Provide a final execution recommendation. You must return your response as a strict JSON object with EXACTLY these keys:
+        You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before deciding on the execution card.
+        You can output your thought process first inside `<reasoning>` tags.
+        After your reasoning, provide a final execution recommendation as a strict JSON object with EXACTLY these keys:
         - "action": string (e.g., "ACCUMULATE ON DIPS", "AGGRESSIVE SHORT", "HOLD")
         - "target": float (the numerical price target)
         - "stop_loss": float (the numerical stop loss)
@@ -170,7 +176,7 @@ class TerminalOrchestrator:
         - "predicted_price": float (your predicted opening price for the next session)
         - "rationale": string (a 1-2 sentence explanation)
 
-        Output ONLY valid JSON.
+        The final output MUST contain this valid JSON block.
         """
 
         models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-pro-latest']
@@ -266,11 +272,14 @@ class TerminalOrchestrator:
         2. Data Verification: Are the numbers in the Output consistent with the Real Data JSON? (e.g., target price must be somewhat realistic based on current prices, OI numbers cited must match Data Matrix).
         3. Safety Guardrails: If there are major discrepancies or missing data, flag it.
 
-        Return a strict JSON response with exactly these keys:
+        You MUST use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before reaching your conclusion.
+        Output your logic first inside `<reasoning>` tags.
+
+        Then, return a strict JSON response with exactly these keys:
         - "status": string ("PASS" or "FAIL")
         - "critique": string (If FAIL, explain exactly what the error is and how the Strategist should fix it. If PASS, leave empty string.)
 
-        Output ONLY valid JSON.
+        Your final output MUST contain this valid JSON block.
         """
 
         try:
@@ -304,7 +313,9 @@ class TerminalOrchestrator:
         Original Input:
         {json.dumps(exec_card, indent=2)}
 
-        Return a strict JSON object with the exact same keys:
+        You MUST use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) to determine the best phrasing.
+        You can output your internal thought process inside `<reasoning>` tags.
+        Then, return a strict JSON object with the exact same keys:
         - "action": string
         - "target": float
         - "stop_loss": float
@@ -312,7 +323,7 @@ class TerminalOrchestrator:
         - "predicted_price": float
         - "rationale": string (Rewrite this to be a short, sharp quant desk note, e.g., "High conviction on IDFC; OI surge confirmed").
 
-        Output ONLY valid JSON.
+        Your final output MUST contain this valid JSON block.
         """
 
         models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']

@@ -1267,6 +1267,9 @@
 
                 if (msg.type === "status") {
                     quantLog.innerHTML += `<div class="log-line text-emerald">[SYSTEM] ${msg.message}</div>`;
+                } else if (msg.type === "jules_task") {
+                    // Show Jules' chain of thought/task visibly in the quant log
+                    quantLog.innerHTML += `<div class="log-line" style="color:#00bcd4; margin-top:10px; margin-bottom:10px; padding:8px; border-left:2px solid #00bcd4; background:#1e1e1e;"><strong>[JULES PRE-PROCESS]</strong><br>${msg.message.replace(/\\n/g, '<br>')}</div>`;
                 } else if (msg.type === "engine_type") {
                     quantLog.innerHTML += `<div class="log-line">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>`;
                 } else if (msg.type === "quant_logic") {
