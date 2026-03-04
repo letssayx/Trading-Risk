@@ -22,7 +22,7 @@ class TerminalOrchestrator:
 
         # We pass stream=True implicitly in the client calls or we just wrap it for Groq
 
-    async def step0_persona_prefilter(self, command: str) -> str:
+    async def step0_persona_prefilter(self, command: str) -> Dict[str, str]:
         """Uses Gemini to deeply reason about the user's raw command and convert it into a detailed quant task."""
         prompt = f"""
         You are 'Jules', the expert UI/UX Logic model for a hedge fund terminal.
@@ -30,20 +30,23 @@ class TerminalOrchestrator:
 
         Your task is to convert this raw command into a detailed, strict, step-by-step task instructions for the backend quant engines.
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally).
-        You can output your internal reasoning first if needed, but the final task must be clearly separated.
-        Actually, just output ONLY the final detailed task description to avoid breaking the pipeline, but ensure your generation process is deliberate.
+        Output your internal reasoning first inside `<reasoning>` tags.
         Ensure you explicitly instruct the downstream models to use quant grade logic, strictly no hallucination, no fake data, and no false assumptions.
 
-        Example Output Format:
-        Task - You are an expert derivatives strategist. Use step-by-step reasoning to analyze [Subject].
-        Analyze:
-        a. Calculate a theoretical opening price based on a [Model type] shock.
-        b. Provide a final predicted opening price range.
-        Output - strictly no hallucination, no fake data, no false assumptions.
+        Then, output a strict JSON object with exactly these keys:
+        - "task": string (The detailed task description for the downstream models).
+
+        Example JSON Output:
+        {{
+            "task": "Task - You are an expert derivatives strategist. Use step-by-step reasoning to analyze [Subject]. Analyze: a. Calculate a theoretical opening price... Output - strictly no hallucination, no fake data, no false assumptions."
+        }}
+
+        Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
-        text = command # Default to original command if it fails
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
+        text = ""
+        error_msg = ""
 
         for model_name in models_to_try:
             try:
@@ -54,10 +57,36 @@ class TerminalOrchestrator:
                 if response and response.text:
                     text = response.text.strip()
                 break
-            except Exception:
+            except Exception as e:
+                error_msg = str(e)
                 continue
 
-        return text
+        if not text:
+            # Complete failure fallback
+            return {
+                "task": command,
+                "reasoning": f"Failed to generate task via Gemini fallback chain. Error: {error_msg}. Proceeding with raw command."
+            }
+
+        reasoning = ""
+        reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', text, re.DOTALL | re.IGNORECASE)
+        if reasoning_match:
+            reasoning = reasoning_match.group(1).strip()
+
+        try:
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+            result = json.loads(text)
+            return {
+                "task": result.get("task", command),
+                "reasoning": reasoning
+            }
+        except Exception as e:
+            return {
+                "task": command,
+                "reasoning": reasoning + f"\n\nJSON Parse Error: {str(e)}. Proceeding with raw command."
+            }
 
     async def step1_dispatch(self, command: str) -> str:
         """Uses Llama 3.3 to classify the command into an Engine type."""
@@ -191,9 +220,10 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-pro-latest']
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro-latest']
         response = None
         text = ""
+        error_msg = ""
 
         for model_name in models_to_try:
             try:
@@ -204,10 +234,7 @@ class TerminalOrchestrator:
                 text = response.text
                 break
             except Exception as e:
-                # If it's a 404 or unsupported model error, try the next one
-                if "404" in str(e) or "NOT_FOUND" in str(e):
-                    continue
-                # If it's another error, we might still want to try the next model just in case
+                error_msg = str(e)
                 continue
 
         if not response:
@@ -217,7 +244,12 @@ class TerminalOrchestrator:
                 "stop_loss": 0.0,
                 "confidence": 0,
                 "predicted_price": 0.0,
-                "rationale": "Failed to generate content: All Gemini fallback models resulted in 404 NOT_FOUND or other errors. Please check your API Key and model permissions."
+                "rationale": [
+                    "Failed to generate content via Gemini API.",
+                    f"Last error encountered: {error_msg}",
+                    "All fallback models failed. Please check your API Key and model permissions.",
+                    "Ensure you have access to gemini-1.5-pro or gemini-1.5-flash."
+                ]
             }
 
         # Clean JSON
@@ -236,7 +268,11 @@ class TerminalOrchestrator:
                 "stop_loss": 0.0,
                 "confidence": 0,
                 "predicted_price": 0.0,
-                "rationale": f"Failed to parse Gemini output: {str(e)}"
+                "rationale": [
+                    "Failed to parse Gemini output as JSON.",
+                    f"Error details: {str(e)}",
+                    "Raw text length: " + str(len(text))
+                ]
             }
 
     async def step5_compliance_judge(self, command: str, data_matrix: Dict[str, Any], reasoning: str, exec_card: Dict[str, Any]) -> Dict[str, Any]:
@@ -347,8 +383,9 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
         text = ""
+        error_msg = ""
 
         for model_name in models_to_try:
             try:
@@ -358,8 +395,14 @@ class TerminalOrchestrator:
                 )
                 text = response.text
                 break
-            except Exception:
+            except Exception as e:
+                error_msg = str(e)
                 continue
+
+        if not text:
+            # If API fails, fall back to the original execution card but preserve list format
+            exec_card['reasoning'] = f"Gemini rewrite failed ({error_msg}). Proceeding with original strategist output."
+            return exec_card
 
         gemini_reasoning = ""
         reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', text, re.DOTALL | re.IGNORECASE)
@@ -375,5 +418,5 @@ class TerminalOrchestrator:
             return final_card
         except Exception as e:
             # If formatting fails, just return the original card so we don't break the UI
-            exec_card['reasoning'] = gemini_reasoning
+            exec_card['reasoning'] = gemini_reasoning + f"\n[JSON Parse Error: {str(e)}]"
             return exec_card

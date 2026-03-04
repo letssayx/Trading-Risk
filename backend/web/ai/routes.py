@@ -71,9 +71,15 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
 
                 # Step 0: Persona Prefilter
                 await websocket.send_json({"type": "status", "message": "Jules converting command into Quant Task..."})
-                expanded_command = await orchestrator.step0_persona_prefilter(command)
-                # Show the expanded command in the UI as well
-                await websocket.send_json({"type": "jules_task", "message": expanded_command})
+                step0_res = await orchestrator.step0_persona_prefilter(command)
+                expanded_command = step0_res.get("task", command)
+
+                # Show Jules' reasoning + the final task
+                await websocket.send_json({
+                    "type": "jules_task",
+                    "message": expanded_command,
+                    "reasoning": step0_res.get("reasoning", "")
+                })
 
                 # Step 1: Dispatch
                 await websocket.send_json({"type": "status", "message": "Classifying command..."})

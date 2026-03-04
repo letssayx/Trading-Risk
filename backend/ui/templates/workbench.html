@@ -1269,7 +1269,12 @@
                     quantLog.innerHTML += `<div class="log-line text-emerald">[SYSTEM] ${msg.message}</div>`;
                 } else if (msg.type === "jules_task") {
                     // Show Jules' chain of thought/task visibly in the quant log
-                    quantLog.innerHTML += `<div class="log-line" style="color:#00bcd4; margin-top:10px; margin-bottom:10px; padding:8px; border-left:2px solid #00bcd4; background:#1e1e1e;"><strong>[JULES PRE-PROCESS]</strong><br>${msg.message.replace(/\\n/g, '<br>')}</div>`;
+                    let julesOutput = `<div class="log-line" style="color:#00bcd4; margin-top:10px; margin-bottom:10px; padding:8px; border-left:2px solid #00bcd4; background:#1e1e1e;"><strong>[JULES PRE-PROCESS]</strong><br>`;
+                    if (msg.reasoning) {
+                        julesOutput += `<br><span style="color:#e6a23c;">&gt; Reasoning: ${msg.reasoning.replace(/\n/g, '<br>')}</span><br><br>`;
+                    }
+                    julesOutput += `<strong>Final Task:</strong> ${msg.message.replace(/\n/g, '<br>')}</div>`;
+                    quantLog.innerHTML += julesOutput;
                 } else if (msg.type === "engine_type") {
                     quantLog.innerHTML += `<div class="log-line">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>`;
                 } else if (msg.type === "quant_logic") {
@@ -1339,7 +1344,7 @@
                     }
 
                     let executionHtml = `
-                        <div class="exec-confidence" title="AI-assessed conviction score based on available data. Improve this by providing more specific data or a clearer prompt.">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
+                        <div class="exec-confidence" title="Calculated based on data completeness and alignment with reasoning. Penalized heavily if data is missing or missing specific tickers.">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
                         <div class="exec-directive ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
                         <div class="exec-details">
                             TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br>
