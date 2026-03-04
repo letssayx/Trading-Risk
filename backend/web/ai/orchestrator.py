@@ -182,6 +182,11 @@ class TerminalOrchestrator:
                         "HTTP-Referer": "https://turtle-terminal.local",
                         "X-Title": "Turtle Terminal",
                         "X-Zero-Retention": "true" # Professional Data Handling
+                    },
+                    extra_body={
+                        "provider": {
+                            "require_parameters": True
+                        }
                     }
                 )
 
