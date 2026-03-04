@@ -31,6 +31,23 @@ function saveConfig() {
         if (groq) sessionStorage.setItem('GROQ_API_KEY', groq);
         if (openrouter) sessionStorage.setItem('OPENROUTER_API_KEY', openrouter);
 
+        // Also attempt to update the backend config if Admin Token is present
+        const adminToken = localStorage.getItem('admin_token');
+        if (adminToken && google) {
+            fetch('/api/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Token': adminToken
+                },
+                body: JSON.stringify({ google_api_key: google })
+            }).then(response => {
+                if (!response.ok) {
+                    console.warn("Failed to sync config with backend:", response.status);
+                }
+            }).catch(err => console.warn("Network error syncing config with backend:", err));
+        }
+
         status.innerText = "Keys saved to Secure Session Storage ✅";
         status.style.color = "#4caf50";
 
