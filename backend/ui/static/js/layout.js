@@ -55,7 +55,11 @@ const Layout = {
                         if (typeof switchMainTab === 'function') switchMainTab('import');
                         else if (window.uploader) window.uploader.open();
                         break;
-                    case 'KeyA': // Alt+A: Audit Trail
+                    case 'KeyA': // Alt+A: AI-Analyze
+                        e.preventDefault();
+                        if (typeof switchMainTab === 'function') switchMainTab('ai_analyze');
+                        break;
+                    case 'KeyU': // Alt+U: Audit Trail
                         e.preventDefault();
                         if (typeof switchMainTab === 'function') switchMainTab('audit');
                         else {

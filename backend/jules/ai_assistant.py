@@ -1,5 +1,6 @@
 import os
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 import logging
 from typing import Dict, List
@@ -16,7 +17,8 @@ _MODELS_CACHE: Dict[str, List[str]] = {}
 
 class JulesAssistant:
     def __init__(self):
-        self.model = None
+        self.client = None
+        self.model_name = 'gemini-1.5-flash'
         self._load_key()
 
     def _load_key(self):
@@ -24,10 +26,10 @@ class JulesAssistant:
         load_dotenv(override=True)
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if self.api_key:
-            genai.configure(api_key=self.api_key)
+            self.client = genai.Client(api_key=self.api_key)
             self._select_best_model()
         else:
-            self.model = None
+            self.client = None
             logger.warning("Jules: No Google API Key found.")
 
     def _select_best_model(self):
@@ -41,7 +43,9 @@ class JulesAssistant:
                 logger.info(f"Jules: Using cached models for key: {self.api_key[:8]}...")
             else:
                 available_models = []
-                for m in genai.list_models():
+                # Use the new SDK's list models method
+                models = self.client.models.list()
+                for m in models:
                     if 'generateContent' in m.supported_generation_methods:
                         available_models.append(m.name)
 
@@ -53,24 +57,28 @@ class JulesAssistant:
 
             # Preference list
             preferences = [
-                'models/gemini-1.5-flash',
-                'models/gemini-1.5-pro',
-                'models/gemini-pro',
-                'models/gemini-1.0-pro'
+                'gemini-2.0-flash',
+                'gemini-1.5-flash',
+                'gemini-1.5-pro',
+                'gemini-pro'
             ]
 
             selected = None
 
             # 1. Try preferences first
             for pref in preferences:
-                if pref in available_models:
-                    selected = pref
+                for am in available_models:
+                    # Check for exact match or suffix match (to handle 'models/' prefix)
+                    if am == pref or am.endswith('/' + pref):
+                        selected = am
+                        break
+                if selected:
                     break
 
             # 2. If no preference found, pick the first available 'gemini' model
             if not selected:
                 for m in available_models:
-                    if 'gemini' in m:
+                    if 'gemini' in m.lower():
                         selected = m
                         break
 
@@ -80,16 +88,15 @@ class JulesAssistant:
 
             if selected:
                 logger.info(f"Jules: Selected Model -> {selected}")
-                self.model = genai.GenerativeModel(selected)
+                self.model_name = selected
             else:
                 logger.error("Jules: No suitable model found in list.")
                 # Fallback to hardcoded if list fails (e.g. permission issue on list)
-                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                self.model_name = 'gemini-1.5-flash'
 
         except Exception as e:
-            logger.error(f"Jules: Error listing models: {e}")
-            # Fallback
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            logger.error(f"Jules: Error selecting model: {e}")
+            self.model_name = 'gemini-1.5-flash'
 
     def _scan_directory(self, root_path: str, max_depth: int = 2) -> dict:
         """
@@ -190,10 +197,10 @@ class JulesAssistant:
 
     async def get_response(self, message: str) -> str:
         # Always reload key before request to catch config changes
-        if not self.model:
+        if not self.client:
              self._load_key()
 
-        if not self.model:
+        if not self.client:
             return "Please configure your Google API Key in Settings to use Jules."
 
         try:
@@ -211,15 +218,15 @@ class JulesAssistant:
                 f"{code_context}"
             )
 
-            # Since Gemini Pro stateless chat might not support system instructions directly in start_chat in all versions,
-            # we prepend it to the first message or use history.
-            history = [
-                {"role": "user", "parts": [system_instruction]},
-                {"role": "model", "parts": ["Understood. I am Jules, system-aware architect for Turtle Terminal. I see the modules and strategies."]}
-            ]
-
-            chat = self.model.start_chat(history=history)
-            response = await chat.send_message_async(message)
+            # Using the new genai client format
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=[
+                    types.Content(role="user", parts=[types.Part.from_text(system_instruction)]),
+                    types.Content(role="model", parts=[types.Part.from_text("Understood. I am Jules, system-aware architect for Turtle Terminal. I see the modules and strategies.")]),
+                    types.Content(role="user", parts=[types.Part.from_text(message)])
+                ]
+            )
             return response.text
         except Exception as e:
             logger.error(f"Jules: Generation Error: {e}")

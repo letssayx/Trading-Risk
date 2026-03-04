@@ -390,4 +390,191 @@ body {
 }
 .resizer-h:hover { background: var(--accent-color); opacity: 0.3; }
 
+/* --- AI-Analyze Hedge Fund Terminal Styles --- */
+.ai-terminal-container {
+    width: 100%;
+    height: 100%;
+    background: #0a0a0c;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Consolas', 'Courier New', monospace;
+    color: #c5c5c5;
+}
+
+/* Command Line */
+.ai-cmd-bar {
+    display: flex;
+    align-items: center;
+    background: #111216;
+    border-bottom: 1px solid #333;
+    padding: 10px 20px;
+    font-size: 1.1em;
+}
+
+.ai-cmd-prompt {
+    color: #00bcd4;
+    margin-right: 10px;
+    font-weight: bold;
+    user-select: none;
+}
+
+.ai-cmd-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    font-family: inherit;
+    font-size: inherit;
+    outline: none;
+}
+
+.ai-cmd-input::placeholder {
+    color: #444;
+}
+
+/* Active Intelligence Grid */
+.ai-intel-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    padding: 15px 20px;
+    border-bottom: 1px solid #222;
+    background: #0d0d11;
+}
+
+.intel-card {
+    background: #16181d;
+    border: 1px solid #2a2d35;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border-radius: 0; /* Sharp corners */
+}
+
+.intel-header {
+    font-size: 0.75em;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.intel-metric {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #e0e0e0; /* Monochrome default */
+}
+
+.intel-subtext {
+    font-size: 0.7em;
+    color: #666;
+}
+
+/* Colors for alerts/status */
+.text-emerald { color: #10b981; }
+.text-crimson { color: #f44336; }
+
+/* Analysis Feed */
+.ai-analysis-feed {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+.ai-feed-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.section-title {
+    font-size: 0.85em;
+    color: #00bcd4;
+    border-bottom: 1px dashed #333;
+    padding-bottom: 5px;
+    width: max-content;
+}
+
+/* Terminal Box (Section A) */
+.terminal-box {
+    background: #000;
+    border: 1px solid #333;
+    padding: 15px;
+    min-height: 100px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.9em;
+    color: #aaa;
+    line-height: 1.5;
+}
+
+.log-line {
+    margin-bottom: 4px;
+}
+
+.think-tag {
+    color: #64748b; /* Dim slate for R1 reasoning */
+    font-style: italic;
+    border-left: 2px solid #334155;
+    padding-left: 10px;
+    margin: 5px 0;
+    display: block;
+}
+
+/* Data Matrix (Section B) */
+.ai-dense-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+    border: 1px solid #333;
+}
+
+.ai-dense-table th, .ai-dense-table td {
+    border: 1px solid #333;
+    padding: 6px 10px;
+    text-align: left;
+}
+
+.ai-dense-table th {
+    background: #16181d;
+    color: #888;
+    font-weight: normal;
+}
+
+.ai-dense-table tr:nth-child(even) {
+    background: #0f1115;
+}
+
+/* Execution Box (Section C) */
+.execution-box {
+    background: #111216;
+    border: 1px solid #00bcd4;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.exec-confidence {
+    font-size: 0.85em;
+    color: #888;
+}
+
+.exec-directive {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+.exec-details {
+    font-size: 0.9em;
+    color: #ccc;
+    line-height: 1.6;
+    margin-top: 5px;
+    border-top: 1px dotted #333;
+    padding-top: 10px;
+}
+
 /* No more Modal styles needed */

@@ -61,6 +61,8 @@
             overflow: hidden;
             position: relative;
             background: #1e1e1e;
+            display: flex;
+            flex-direction: column;
         }
 
         .main-tab-content {
@@ -68,6 +70,25 @@
             width: 100%;
             display: none;
             overflow: hidden; /* Individual tabs manage scrolling */
+        }
+
+        .global-status-bar {
+            height: 25px;
+            background: #252526;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-top: 1px solid #333;
+            user-select: none;
+            font-size: 12px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .global-status-bar a {
+            color: white;
+            text-decoration: none;
         }
 
         .main-tab-content.active {
@@ -209,6 +230,7 @@
     <!-- Main Tab Bar -->
     <div class="main-tabs-bar">
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
+        <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
         <div class="main-tab" data-target="basis" onclick="switchMainTab('basis')" title="Basis">Basis</div>
         <div class="main-tab" data-target="oi_analysis" onclick="switchMainTab('oi_analysis')" title="OI Analysis">OI Analysis</div>
         <div class="main-tab" data-target="rollover" onclick="switchMainTab('rollover')" title="Rollover Analysis">Rollover Analysis</div>
@@ -216,7 +238,7 @@
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
         <div class="main-tab" data-target="circulars" onclick="switchMainTab('circulars')" title="Circulars">Circulars</div>
-        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+A"><u>A</u>udit Trail</div>
+        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
     </div>
 
@@ -370,6 +392,106 @@
             </div>
         </div>
 
+        <!-- TAB AI-ANALYZE -->
+        <div id="tab-ai_analyze" class="main-tab-content">
+            <div class="ai-terminal-container" style="display: flex; flex-direction: column; height: 100%;">
+
+                <!-- Active Intelligence Grid (Bonnet) -->
+                <div class="ai-intel-grid">
+                    <div class="intel-card" id="intel-blackswan">
+                        <div class="intel-header" style="display: none;">BLACK SWAN</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-macro">
+                        <div class="intel-header" style="display: none;">MACRO</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-corporate">
+                        <div class="intel-header" style="display: none;">CORP ACTION</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-derivatives">
+                        <div class="intel-header" style="display: none;">DERIVATIVES</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-earnings">
+                        <div class="intel-header" style="display: none;">EARNINGS</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                </div>
+
+                <!-- Analysis Log (Center) -->
+                <div id="ai-analysis-feed" class="ai-analysis-feed" style="display: none;">
+
+                    <!-- Section A: Quant Logic -->
+                    <div class="ai-feed-section">
+                        <div class="section-title" style="display: none;">[DEEPSEEK-R1] QUANT LOGIC</div>
+                        <div class="terminal-box" id="quant-log">
+                            <div class="log-line">Initializing context...</div>
+                        </div>
+                    </div>
+
+                    <!-- Section B: Data Matrix -->
+                    <div class="ai-feed-section">
+                        <div class="section-title" style="display: none;">[QWEN] DATA MATRIX</div>
+                        <table class="ai-dense-table">
+                            <thead>
+                                <tr>
+                                    <th>SYMBOL</th>
+                                    <th>OPEN_INT</th>
+                                    <th>CHG_OI</th>
+                                    <th>IV</th>
+                                    <th>IMPLIED_MOVE</th>
+                                </tr>
+                            </thead>
+                            <tbody id="data-matrix-body">
+                                <tr>
+                                    <td>RELIANCE</td>
+                                    <td>45,210,000</td>
+                                    <td class="text-emerald">+1.2M</td>
+                                    <td>22.4</td>
+                                    <td>± 4.5%</td>
+                                </tr>
+                                <tr>
+                                    <td>RELIANCE-FUT</td>
+                                    <td>12,400,000</td>
+                                    <td class="text-crimson">-400K</td>
+                                    <td>-</td>
+                                    <td>-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Section C: Execution -->
+                    <div class="ai-feed-section">
+                        <div class="section-title" style="display: none;">[GEMINI] EXECUTION</div>
+                        <div class="execution-box">
+                            <div class="exec-confidence">CONF_SCORE: 88%</div>
+                            <div class="exec-directive text-emerald">ACTION: ACCUMULATE ON DIPS</div>
+                            <div class="exec-details">
+                                TARGET: ₹3150.00 | STOP_LOSS: ₹2880.00 | HORIZON: 3W<br>
+                                RATIONALE: Call writing at 3000 strike indicates temporary ceiling, but aggressive put additions at 2900 provide strong institutional support.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Command Line (Bottom) -->
+                <div class="ai-cmd-bar" style="margin-top: auto; border-top: 1px solid #333; border-bottom: none;">
+                    <span class="ai-cmd-prompt" style="align-self: flex-start; margin-top: 8px;">TERMINAL_CMD: &gt;</span>
+                    <textarea id="ai-cmd-input" class="ai-cmd-input" placeholder="_" autocomplete="off" spellcheck="false" onkeydown="handleAiCmd(event)" rows="1" style="resize: none; overflow: hidden; padding-top: 8px; min-height: 20px;"></textarea>
+                </div>
+
+            </div>
+        </div>
+
         <!-- TAB 2: HISTORICAL DATA -->
         <div id="tab-history" class="main-tab-content">
             <div class="history-controls">
@@ -400,6 +522,14 @@
                     <label>Symbol:</label>
                     <input type="text" id="symbol-input" class="history-input" placeholder="e.g. RELIANCE">
                 </div>
+                <div class="control-group" id="instrument-group" style="display:none;">
+                    <label>Instrument:</label>
+                    <select id="instrument-input" class="history-select">
+                        <option value="ALL">All</option>
+                        <option value="FUT">Futures</option>
+                        <option value="OPT">Options</option>
+                    </select>
+                </div>
                 <div class="control-group">
                     <label>From:</label>
                     <input type="date" id="start-date" class="history-input">
@@ -408,13 +538,14 @@
                     <label>To:</label>
                     <input type="date" id="end-date" class="history-input">
                 </div>
-                <div class="control-group" style="display:flex; align-items:center; gap: 5px;">
+                <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
+                <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
+
+                <div class="control-group" style="display:flex; align-items:center; gap: 5px; margin-left: auto;">
                     <input type="checkbox" id="all-dates-check" onchange="toggleDateInputs(this)">
                     <label for="all-dates-check" style="margin:0; font-size:12px;">All Dates</label>
                 </div>
-                <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
-                <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
-                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer; margin-left: auto;">Delete Data</button>
+                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer;">Delete Data</button>
             </div>
 
             <div class="table-wrapper">
@@ -448,13 +579,13 @@
                         <div class="import-options">
                             <h4>Import Data for Latest Trading Day</h4>
                             <div class="option-row">
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility" checked> F&O Volatility</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats" checked> FII Stats</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi" checked> Participant OI</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="block_deals" checked> Block Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bulk_deals" checked> Bulk Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo"> F&O Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility"> F&O Volatility</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats"> FII Stats</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi"> Participant OI</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="block_deals"> Block Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bulk_deals"> Bulk Deals</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mto"> MTO Delivery</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mwpl_cli"> MWPL Position</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio"> P/E Ratio (Equities)</label>
@@ -463,6 +594,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
+                            <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-latest" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
                         </div>
                     </div>
 
@@ -475,13 +607,13 @@
                                 <label style="margin-left:15px;">End:</label> <input type="date" id="range-end" class="history-input">
                             </div>
                             <div class="option-row">
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq" checked> Equity Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo" checked> F&O Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility" checked> F&O Volatility</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats" checked> FII Stats</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi" checked> Participant OI</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="block_deals" checked> Block Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bulk_deals" checked> Bulk Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo"> F&O Bhavcopy</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility"> F&O Volatility</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats"> FII Stats</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi"> Participant OI</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="block_deals"> Block Deals</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bulk_deals"> Bulk Deals</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="mto"> MTO Delivery</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="mwpl_cli"> MWPL Position</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio"> P/E Ratio (Equities)</label>
@@ -490,6 +622,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
+                            <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-range" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
                         </div>
                     </div>
 
@@ -499,11 +632,19 @@
                             <h4>Manual File Upload</h4>
                             <div class="option-row">
                                 <select id="manual-type" class="history-select" style="width:100%">
-                                    <option value="bhavcopy_eq">Equity Bhavcopy (CSV/ZIP)</option>
-                                    <option value="bhavcopy_fo">F&O Bhavcopy (ZIP)</option>
-                                    <option value="mwpl_cli">MWPL (.xls)</option>
-                                    <option value="mto">MTO Delivery (.dat)</option>
-                                    <!-- Add other options as needed -->
+                                    <option value="bhavcopy_eq">Equity Bhavcopy</option>
+                                    <option value="bhavcopy_fo">F&O Bhavcopy</option>
+                                    <option value="fo_volatility">F&O Volatility</option>
+                                    <option value="fii_derivatives_stats">FII Stats</option>
+                                    <option value="fao_participant_oi">Participant OI</option>
+                                    <option value="block_deals">Block Deals</option>
+                                    <option value="bulk_deals">Bulk Deals</option>
+                                    <option value="mto">MTO Delivery</option>
+                                    <option value="mwpl_cli">MWPL Position</option>
+                                    <option value="pe_ratio">P/E Ratio (Equities)</option>
+                                    <option value="pe_ratio_idx">P/E Ratio (Indices)</option>
+                                    <option value="india_vix">India VIX</option>
+                                    <option value="nse_security">Security Master</option>
                                 </select>
                             </div>
                             <div class="option-row">
@@ -547,9 +688,15 @@
         <!-- TAB 4: AUDIT TRAIL -->
         <div id="tab-audit" class="main-tab-content">
              <div class="import-container" style="max-width:100%; height:100%; display:flex; flex-direction:column; padding:0;">
-                <div style="padding:10px; background:#252526; border-bottom:1px solid #333; display:flex; gap:10px;">
+                <div style="padding:10px; background:#252526; border-bottom:1px solid #333; display:flex; gap:10px; align-items: center;">
                     <input type="date" id="audit-start" class="history-input">
                     <input type="date" id="audit-end" class="history-input">
+                    <select id="audit-level" class="history-select">
+                        <option value="ALL">All Levels</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
                     <button class="btn btn-secondary" onclick="loadAuditHistory()">Load History</button>
                     <button class="btn btn-secondary" onclick="downloadLogs()">Download Logs</button>
                 </div>
@@ -577,15 +724,39 @@
         <!-- TAB 5: CONFIG -->
         <div id="tab-config" class="main-tab-content">
             <div class="import-container">
-                <h2>Configuration</h2>
-                <div style="margin-bottom: 10px;">
-                    <label>Google API Key (Gemini):</label>
-                    <input type="password" id="cfg-google" class="history-input" style="width: 100%;">
+                <h2>API Key Management (Secure Session)</h2>
+                <p style="color:#aaa; font-size:0.9em; margin-top:-10px; margin-bottom:20px;">
+                    Keys are stored securely in your browser's encrypted sessionStorage and injected at runtime.
+                    They are never saved to the server database.
+                </p>
+                <div style="margin-bottom: 15px; max-width: 500px;">
+                    <label>Google API Key (Gemini 1.5 Pro):</label>
+                    <input type="password" id="cfg-google" class="history-input" style="width: 100%; margin-top:5px;" placeholder="AIzaSy...">
                 </div>
-                <button onclick="saveConfig()" class="btn btn-primary">Save Config</button>
+                <div style="margin-bottom: 15px; max-width: 500px;">
+                    <label>Groq API Key (Llama 3.3 & DeepSeek-R1):</label>
+                    <input type="password" id="cfg-groq" class="history-input" style="width: 100%; margin-top:5px;" placeholder="gsk_...">
+                </div>
+                <div style="margin-bottom: 15px; max-width: 500px;">
+                    <label>OpenRouter API Key (Qwen 2.5):</label>
+                    <input type="password" id="cfg-openrouter" class="history-input" style="width: 100%; margin-top:5px;" placeholder="sk-or-v1-...">
+                </div>
+                <button onclick="saveConfig()" class="btn btn-primary">Save Keys to Session</button>
+                <div id="config-status" style="margin-top: 10px; font-weight: bold;"></div>
             </div>
         </div>
 
+    </div>
+
+    <!-- Global Status Bar -->
+    <div class="global-status-bar">
+        <div id="global-status-left">
+            <span>Turtle Terminal connected</span>
+        </div>
+        <div id="global-status-right" style="display: flex; gap: 15px;">
+            <span id="global-sys-accuracy" title="AI System Accuracy based on previous predictions">SYS_ACCURACY: <span id="accuracy-score">--%</span></span>
+            <span id="global-datetime"></span>
+        </div>
     </div>
 
     <!-- Scripts -->
@@ -603,7 +774,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -626,6 +797,7 @@
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
             if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
+            if (tabName === 'ai_analyze') fetchSystemAccuracy();
 
             // Note: corporate_actions load is handled by the wrapper function below
             if (tabName === 'circulars') loadCirculars();
@@ -1011,6 +1183,186 @@
         }
 
 
+        // --- AI-Analyze Logic ---
+        let aiWs = null;
+
+        async function fetchSystemAccuracy() {
+            try {
+                const res = await fetch('/api/ai/accuracy?session_id=local_trader_01');
+                if(res.ok) {
+                    const data = await res.json();
+                    document.getElementById('accuracy-score').innerText = `${data.accuracy}%`;
+                }
+            } catch(e) {
+                console.warn("Could not fetch AI accuracy", e);
+            }
+        }
+
+        function handleAiCmd(e) {
+            const inputEl = document.getElementById('ai-cmd-input');
+
+            // Auto-resize logic
+            setTimeout(() => {
+                inputEl.style.height = 'auto';
+                inputEl.style.height = (inputEl.scrollHeight) + 'px';
+            }, 0);
+
+            if (e.key === 'Escape') {
+                if (aiWs && aiWs.readyState === WebSocket.OPEN) {
+                    aiWs.send(JSON.stringify({command: "STOP"}));
+                    aiWs.close();
+                    document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by user.</div>`;
+                }
+            } else if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    // Allow multi-line
+                    return;
+                }
+                e.preventDefault(); // Prevent default enter behavior (newline)
+                const cmd = inputEl.value.trim();
+                if (cmd.toUpperCase() === 'STOP') {
+                    if (aiWs && aiWs.readyState === WebSocket.OPEN) {
+                        aiWs.send(JSON.stringify({command: "STOP"}));
+                        aiWs.close();
+                        document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by STOP command.</div>`;
+                    }
+                    inputEl.value = '';
+                    inputEl.style.height = 'auto'; // Reset size
+                    return;
+                }
+                runAiAnalysis(cmd);
+                inputEl.style.height = 'auto'; // Reset size
+            }
+        }
+
+        function runAiAnalysis(cmd) {
+            if (!cmd) return;
+
+            const groqKey = sessionStorage.getItem('GROQ_API_KEY');
+            const openrouterKey = sessionStorage.getItem('OPENROUTER_API_KEY');
+            const googleKey = sessionStorage.getItem('GOOGLE_API_KEY');
+
+            const feed = document.getElementById('ai-analysis-feed');
+            const quantLog = document.getElementById('quant-log');
+            const cmdInput = document.getElementById('ai-cmd-input');
+
+            // Reset and Show Feed
+            feed.style.display = 'flex';
+            quantLog.innerHTML = `<div class="log-line">> EXEC: ${cmd}</div>`;
+            document.getElementById('data-matrix-body').innerHTML = '<tr><td colspan="5">Awaiting extraction...</td></tr>';
+            document.querySelector('.execution-box').innerHTML = '<div class="log-line">Awaiting strategist synthesis...</div>';
+
+            if (!groqKey || !openrouterKey || !googleKey) {
+                quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] Missing API keys. Please set them in Config tab.</div>`;
+                cmdInput.value = '';
+                return;
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            aiWs = new WebSocket(`${protocol}//${window.location.host}/ws/ai-analyze`);
+
+            aiWs.onopen = () => {
+                aiWs.send(JSON.stringify({
+                    command: cmd,
+                    keys: { groq: groqKey, openrouter: openrouterKey, google: googleKey },
+                    session_id: "local_trader_01"
+                }));
+                cmdInput.value = '';
+                cmdInput.placeholder = "Processing... (Press ESC to stop)";
+                cmdInput.readOnly = true;
+            };
+
+            aiWs.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === "status") {
+                    quantLog.innerHTML += `<div class="log-line text-emerald">[SYSTEM] ${msg.message}</div>`;
+                } else if (msg.type === "engine_type") {
+                    quantLog.innerHTML += `<div class="log-line">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>`;
+                } else if (msg.type === "quant_logic") {
+                    // Append token by token for typing effect
+                    let lastLine = quantLog.lastElementChild;
+                    let safeToken = msg.token.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>');
+
+                    // Basic styling for think tags stream (if streaming <think>)
+                    safeToken = safeToken.replace(/&lt;think&gt;/g, '<span class="think-tag">').replace(/&lt;\/think&gt;/g, '</span>');
+
+                    if (lastLine && lastLine.classList.contains('stream-line')) {
+                        lastLine.innerHTML += safeToken;
+                    } else {
+                        quantLog.innerHTML += `<div class="log-line stream-line">${safeToken}</div>`;
+                    }
+                } else if (msg.type === "data_matrix") {
+                    // Render Table
+                    const d = msg.data;
+                    const tbody = document.getElementById('data-matrix-body');
+                    tbody.innerHTML = '';
+
+                    if(d.equity && d.equity.close_price) {
+                        const fallbackLabel = d.yfinance_fallback ? ' <span style="color:#cca700; font-size: 0.8em;">(YF)</span>' : '';
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${d.ticker} (EQ)${fallbackLabel}</td>
+                                <td>${(d.equity.total_traded_qty || 0).toLocaleString()} Vol</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>₹${d.equity.close_price}</td>
+                            </tr>
+                        `;
+                    }
+                    if(d.futures && d.futures.close_price) {
+                        let oiColor = (d.futures.change_in_oi > 0) ? 'text-emerald' : 'text-crimson';
+                        let oiSign = (d.futures.change_in_oi > 0) ? '+' : '';
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${d.ticker}-FUT</td>
+                                <td>${(d.futures.open_interest || 0).toLocaleString()}</td>
+                                <td class="${oiColor}">${oiSign}${(d.futures.change_in_oi || 0).toLocaleString()}</td>
+                                <td>-</td>
+                                <td>± ${d.futures.implied_move_pct || 0}%</td>
+                            </tr>
+                        `;
+                    }
+                    if(!d.equity.close_price && !d.futures.close_price) {
+                        tbody.innerHTML = `<tr><td colspan="5">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
+                    }
+                } else if (msg.type === "execution") {
+                    const ex = msg.data;
+                    const exBox = document.querySelector('.execution-box');
+                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'text-crimson' : 'text-emerald';
+                    exBox.innerHTML = `
+                        <div class="exec-confidence">CONF_SCORE: ${ex.confidence}%</div>
+                        <div class="exec-directive ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
+                        <div class="exec-details">
+                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br>
+                            RATIONALE: ${ex.rationale}
+                        </div>
+                    `;
+                } else if (msg.type === "error") {
+                    quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] ${msg.message}</div>`;
+                } else if (msg.type === "done") {
+                    cmdInput.placeholder = "_";
+                    cmdInput.readOnly = false;
+                    cmdInput.focus();
+                    aiWs.close();
+                }
+
+                // Auto-scroll
+                quantLog.scrollTop = quantLog.scrollHeight;
+            };
+
+            aiWs.onerror = () => {
+                quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] WebSocket connection failed. Is backend running?</div>`;
+                cmdInput.placeholder = "_";
+                cmdInput.readOnly = false;
+            };
+
+            aiWs.onclose = () => {
+                 cmdInput.placeholder = "_";
+                 cmdInput.readOnly = false;
+            }
+        }
+
         // Global Shortcut Handler
         document.addEventListener('keydown', (e) => {
             // Avoid shortcuts when typing in inputs (except special keys if needed)
@@ -1023,7 +1375,8 @@
                     't': 'terminal',
                     'h': 'history',
                     'i': 'import',
-                    'a': 'audit',
+                    'a': 'ai_analyze',
+                    'u': 'audit',
                     'c': 'config'
                 };
                 if (map[key]) {
@@ -1059,12 +1412,22 @@
         function updateHistoryControls() {
             const type = document.getElementById('data-type').value;
             const symbolGroup = document.getElementById('symbol-group');
+            const instrumentGroup = document.getElementById('instrument-group');
+
             if (['fao_participant_oi', 'fii_stats', 'india_vix'].includes(type)) {
                 symbolGroup.style.display = 'none';
                 document.getElementById('symbol-input').value = '';
             } else {
                 symbolGroup.style.display = 'flex';
             }
+
+            if (type === 'bhavcopy_fo') {
+                instrumentGroup.style.display = 'flex';
+            } else {
+                instrumentGroup.style.display = 'none';
+                document.getElementById('instrument-input').value = 'ALL';
+            }
+
             // Clear table on type change
             clearHistoryTable();
             // Reset sorting
@@ -1085,6 +1448,7 @@
             const symbol = document.getElementById('symbol-input').value.trim();
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
+            const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
 
             // Use current sort state if not explicitly passed
             if (!sortBy && currentSortColumn) {
@@ -1107,6 +1471,7 @@
                 if (symbol) url += `&symbol=${symbol}`;
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
+                if (type === 'bhavcopy_fo' && instrument !== 'ALL') url += `&instrument=${instrument}`;
 
                 // Add Server-Side Sorting Params
                 if (sortBy) {
@@ -1218,11 +1583,13 @@
             const symbol = document.getElementById('symbol-input').value.trim();
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
+            const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
 
             let url = `/api/data/view/export?type=${type}`;
             if (symbol) url += `&symbol=${symbol}`;
             if (start) url += `&start_date=${start}`;
             if (end) url += `&end_date=${end}`;
+            if (type === 'bhavcopy_fo' && instrument !== 'ALL') url += `&instrument=${instrument}`;
 
             try {
                 const response = await fetch(url);
@@ -1325,6 +1692,7 @@
         async function loadAuditHistory() {
             const start = document.getElementById('audit-start').value;
             const end = document.getElementById('audit-end').value;
+            const level = document.getElementById('audit-level') ? document.getElementById('audit-level').value : 'ALL';
             const tbody = document.getElementById('audit-log-body');
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
 
@@ -1332,6 +1700,7 @@
                 let url = '/api/audit/history?limit=1000';
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
+                if (level && level !== 'ALL') url += `&level=${level}`;
                 const res = await fetch(url);
                 const logs = await res.json();
                 tbody.innerHTML = '';
@@ -1393,6 +1762,15 @@
             ChartTabs.init();
             WorkbookManager.init();
             connectLiveFeed();
+
+            // Setup clock
+            const dtEl = document.getElementById('global-datetime');
+            setInterval(() => {
+                if (dtEl) {
+                    const now = new Date();
+                    dtEl.innerText = now.toLocaleString();
+                }
+            }, 1000);
 
             // Set default dates
             const today = new Date().toISOString().split('T')[0];
