@@ -44,7 +44,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b']
         text = ""
         error_msg = ""
 
@@ -173,8 +173,8 @@ class TerminalOrchestrator:
 
         while current_calls < max_tool_calls:
             try:
-                response = await self.groq_client.chat.completions.create(
-                    model="qwen-2.5-32b",
+                response = await self.openrouter_client.chat.completions.create(
+                    model="qwen/qwen-2.5-coder-32b-instruct",
                     messages=messages,
                     tools=tools,
                     temperature=0.0,
@@ -301,7 +301,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b']
         response = None
         text = ""
         error_msg = ""
@@ -329,7 +329,7 @@ class TerminalOrchestrator:
                     "Failed to generate content via Gemini API.",
                     f"Last error encountered: {error_msg}",
                     "All fallback models failed. Please check your API Key and model permissions.",
-                    "Ensure you have access to gemini-2.0-flash, gemini-1.5-flash-8b, or gemini-1.5-pro."
+                    "Ensure you have access to gemini-2.0-flash or gemini-1.5-flash-8b."
                 ]
             }
 
@@ -464,7 +464,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash-8b']
         text = ""
         error_msg = ""
 

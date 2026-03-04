@@ -22,7 +22,7 @@ graph TD;
 - **Rationale:** Ensures downstream logic is appropriately context-aware of the event type.
 
 ## Step 2: Data Clerk (Zero Hallucination Data Extraction)
-- **Engine:** `qwen-2.5-32b` (via Groq)
+- **Engine:** `qwen/qwen-2.5-coder-32b-instruct` (via OpenRouter)
 - **Purpose:** Extracts the core stock ticker symbol or index from the user's query.
 - **Data Matrix:** Once the ticker is extracted, it programmatically queries the local TimescaleDB instance (via `tools.fetch_bhavcopy_data`) to fetch the most recent End-of-Day (EOD) metrics, Futures Open Interest, and Implied Move percentage.
 - **Rationale:** Prevents AI from hallucinating stock prices by grounding all analysis purely on actual database records.
