@@ -186,7 +186,7 @@ class TerminalOrchestrator:
         - "stop_loss": float (the numerical stop loss)
         - "confidence": integer (0 to 100 representing confidence score. Penalize/lower this score heavily if Real Data is missing ("NONE" ticker or no close prices). Boost it if data strongly aligns with reasoning.)
         - "predicted_price": float (your predicted opening price for the next session)
-        - "rationale": string (a 1-2 sentence explanation)
+        - "rationale": array of strings (Provide 4 to 5 strong, logical, step-by-step reasons why this action was arrived at based on the data and reasoning.)
 
         The final output MUST contain this valid JSON block.
         """
@@ -342,7 +342,7 @@ class TerminalOrchestrator:
         - "stop_loss": float
         - "confidence": integer
         - "predicted_price": float
-        - "rationale": string (Rewrite this to be a short, sharp quant desk note, e.g., "High conviction on IDFC; OI surge confirmed").
+        - "rationale": array of strings (Rewrite the 4 to 5 strong logical reasons to be short, sharp quant desk notes/bullet points).
 
         Your final output MUST contain this valid JSON block.
         """

@@ -1331,12 +1331,19 @@
                     const ex = msg.data;
                     const exBox = document.querySelector('.execution-box');
                     let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'text-crimson' : 'text-emerald';
+                    let rationaleHtml = "";
+                    if (Array.isArray(ex.rationale)) {
+                        rationaleHtml = "<ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px;'>" + ex.rationale.map(r => `<li>${r}</li>`).join('') + "</ul>";
+                    } else {
+                        rationaleHtml = ex.rationale;
+                    }
+
                     let executionHtml = `
                         <div class="exec-confidence" title="AI-assessed conviction score based on available data. Improve this by providing more specific data or a clearer prompt.">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
                         <div class="exec-directive ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
                         <div class="exec-details">
                             TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br>
-                            RATIONALE: ${ex.rationale}
+                            RATIONALE: ${rationaleHtml}
                         </div>
                     `;
                     if (ex.reasoning) {

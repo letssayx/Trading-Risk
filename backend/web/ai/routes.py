@@ -137,6 +137,12 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
 
                 # Persist to DB using the final approved and formatted card
                 try:
+                    raw_rationale = final_card.get("rationale", [])
+                    if isinstance(raw_rationale, list):
+                        db_rationale = " | ".join([str(r) for r in raw_rationale])
+                    else:
+                        db_rationale = str(raw_rationale)
+
                     pred = AIPrediction(
                         session_id=session_id,
                         ticker=data_matrix.get("ticker", "NIFTY"),
@@ -146,7 +152,7 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                         target=float(final_card.get("target", 0)),
                         stop_loss=float(final_card.get("stop_loss", 0)),
                         confidence=int(final_card.get("confidence", 0)),
-                        rationale=final_card.get("rationale", "")
+                        rationale=db_rationale
                     )
                     db.add(pred)
                     db.commit()
