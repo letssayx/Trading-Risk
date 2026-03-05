@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from groq import AsyncGroq
 from google import genai
 from openai import AsyncOpenAI  # Used for OpenRouter
-from backend.web.ai.tools import fetch_bhavcopy_data, search_db_symbol, search_yfinance_symbol
+from backend.web.ai.tools import fetch_bhavcopy_data, search_db_symbol, search_yfinance_symbol, fetch_detailed_db_data, fetch_yfinance_historical
 from backend.ingest.nse_models import AIPrediction
 
 class TerminalOrchestrator:
@@ -47,7 +47,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
         text = ""
         error_msg = ""
 
@@ -101,7 +101,7 @@ class TerminalOrchestrator:
             }
 
     async def step1_dispatch(self, command: str) -> str:
-        """Uses Llama 3.3 to classify the command into an Engine type."""
+        """Uses Gemini 1.5 to classify the command into an Engine type."""
         prompt = f"""
         Classify the following trading command into exactly one of these 5 categories:
         1. Black Swan
@@ -114,13 +114,25 @@ class TerminalOrchestrator:
 
         Return ONLY the exact category name. Nothing else.
         """
-        response = await self.groq_client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.3-70b-versatile",
-            temperature=0.0,
-            max_completion_tokens=10
-        )
-        engine_type = response.choices[0].message.content.strip()
+
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
+        engine_type = ""
+
+        for model_name in models_to_try:
+            try:
+                response = await self.gemini_client.aio.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    engine_type = response.text.strip()
+                    break
+            except Exception:
+                continue
+
+        if not engine_type:
+            engine_type = "Derivatives"
+
         # Clean up any surrounding punctuation
         for val in ["Black Swan", "Macro", "Corporate Action", "Derivatives", "Earnings"]:
             if val.lower() in engine_type.lower():
@@ -133,11 +145,17 @@ class TerminalOrchestrator:
         prompt = f"""
         Extract the NSE stock ticker symbol from this command.
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before answering.
-        Use the available tools `search_db_symbol` and `search_yfinance_symbol` to search the database or YFinance to accurately identify the official ticker symbol if a company name or vague entity is mentioned. Do not guess; use the tools to confirm.
+
+        You have several tools at your disposal:
+        1. `search_db_symbol` / `search_yfinance_symbol`: Use these to accurately identify the official ticker symbol if a company name or vague entity is mentioned. Do not guess.
+        2. `fetch_detailed_db_data`: Once you have the ticker, you MUST use this to extract deeper contextual data (historical prices, volatility, P/E, corporate actions) from our local app database to aid the downstream quantitative models.
+        3. `fetch_yfinance_historical`: You can additionally use this to gather recent historical market outcomes or news from the internet (Yahoo Finance).
+
         Output your logic first inside `<reasoning>` tags.
-        If no ticker is found, return "NONE".
+        If no ticker is found, return "NONE" in the ticker tag.
         Command: "{command}"
-        After your reasoning, your final output MUST contain the final ticker string in uppercase (or NONE) enclosed in `<ticker>` tags, for example `<ticker>NIFTY</ticker>`.
+
+        After your reasoning and all tool calls are complete, your final output MUST contain the final ticker string in uppercase (or NONE) enclosed in `<ticker>` tags, for example `<ticker>NIFTY</ticker>`.
         """
 
         tools = [
@@ -174,14 +192,57 @@ class TerminalOrchestrator:
                         "required": ["query"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "fetch_detailed_db_data",
+                    "description": "Fetches deep context from the local DB, including historical prices, open interest, P/E, volatility, and corporate actions. Always call this once you know the exact ticker.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "ticker": {
+                                "type": "string",
+                                "description": "The exact official NSE ticker symbol (e.g., RELIANCE)."
+                            },
+                            "days": {
+                                "type": "integer",
+                                "description": "Number of days of historical data to retrieve (default: 30)."
+                            }
+                        },
+                        "required": ["ticker"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "fetch_yfinance_historical",
+                    "description": "Fetches historical price trends and recent news from Yahoo Finance. Useful for getting broader internet context.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "ticker": {
+                                "type": "string",
+                                "description": "The exact official NSE ticker symbol."
+                            },
+                            "days": {
+                                "type": "integer",
+                                "description": "Number of days of historical data to retrieve (default: 30)."
+                            }
+                        },
+                        "required": ["ticker"]
+                    }
+                }
             }
         ]
 
         qwen_reasoning = ""
         messages = [{"role": "user", "content": prompt}]
-        max_tool_calls = 3
+        max_tool_calls = 5 # Increased due to additional tools
         current_calls = 0
         ticker = "NONE"
+        deep_data_cache = {}
 
         while current_calls < max_tool_calls:
             try:
@@ -206,6 +267,12 @@ class TerminalOrchestrator:
                             tool_result = search_db_symbol(self.db, function_args.get("query", ""))
                         elif function_name == "search_yfinance_symbol":
                             tool_result = search_yfinance_symbol(function_args.get("query", ""))
+                        elif function_name == "fetch_detailed_db_data":
+                            tool_result = fetch_detailed_db_data(self.db, function_args.get("ticker", ""), function_args.get("days", 30))
+                            deep_data_cache["local_db_deep_dive"] = json.loads(tool_result) if tool_result.startswith("{") else tool_result
+                        elif function_name == "fetch_yfinance_historical":
+                            tool_result = fetch_yfinance_historical(function_args.get("ticker", ""), function_args.get("days", 30))
+                            deep_data_cache["yfinance_deep_dive"] = json.loads(tool_result) if tool_result.startswith("{") else tool_result
 
                         # For OpenRouter compatibility, `content` must be a string.
                         messages.append({
@@ -249,6 +316,13 @@ class TerminalOrchestrator:
         # 2. Fetch Real Data (Zero Hallucination)
         real_data = fetch_bhavcopy_data(self.db, ticker)
         real_data['qwen_reasoning'] = qwen_reasoning.strip()
+
+        # Merge any deep data fetched by Qwen into the final real_data matrix
+        if "local_db_deep_dive" in deep_data_cache:
+            real_data['local_db_history'] = deep_data_cache["local_db_deep_dive"]
+        if "yfinance_deep_dive" in deep_data_cache:
+            real_data['yfinance_history'] = deep_data_cache["yfinance_deep_dive"]
+
         return real_data
 
     async def step3_quant_logic(self, command: str, engine_type: str, callback: Callable):
@@ -331,7 +405,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
         response = None
         text = ""
         error_msg = ""
@@ -453,14 +527,34 @@ class TerminalOrchestrator:
         try:
             response = await self.groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 temperature=0.0,
                 extra_headers={
                     "X-Zero-Retention": "true"
                 }
             )
             raw_text = response.choices[0].message.content.strip()
+        except Exception as groq_e:
+            # Fallback to Gemini 1.5 if Groq fails
+            try:
+                models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
+                response = None
+                for model_name in models_to_try:
+                    try:
+                        response = await self.gemini_client.aio.models.generate_content(
+                            model=model_name,
+                            contents=prompt,
+                        )
+                        raw_text = response.text.strip()
+                        break
+                    except Exception:
+                        continue
+                if not response:
+                    raise Exception(f"Gemini fallback failed. Groq error was: {str(groq_e)}")
+            except Exception as e:
+                return {"status": "FAIL", "critique": f"Compliance Judge encountered an error checking output: {str(e)}"}
 
+        try:
             # Extract reasoning
             judge_reasoning = ""
             reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', raw_text, re.DOTALL | re.IGNORECASE)
@@ -478,7 +572,7 @@ class TerminalOrchestrator:
             return judge_res
         except Exception as e:
             # If the judge fails to parse or respond, we fail safely to trigger a retry
-            return {"status": "FAIL", "critique": f"Compliance Judge encountered an error checking output: {str(e)}"}
+            return {"status": "FAIL", "critique": f"Compliance Judge encountered a parsing error checking output: {str(e)}"}
 
     async def step6_persona_filter(self, exec_card: Dict[str, Any]) -> Dict[str, Any]:
         """Uses Gemini to rewrite the execution card into a Quant Desk tone."""
@@ -503,7 +597,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
         text = ""
         error_msg = ""
 
