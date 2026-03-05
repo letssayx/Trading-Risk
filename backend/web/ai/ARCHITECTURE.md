@@ -22,13 +22,13 @@ graph TD;
 - **Rationale:** Ensures downstream logic is appropriately context-aware of the event type.
 
 ## Step 2: Data Clerk (Zero Hallucination Data Extraction)
-- **Engine:** `qwen-qwq-32b` (via Groq)
+- **Engine:** `qwen/qwen3-32b` (via Groq)
 - **Purpose:** Extracts the core stock ticker symbol or index from the user's query.
 - **Data Matrix:** Once the ticker is extracted, it programmatically queries the local TimescaleDB instance (via `tools.fetch_bhavcopy_data`) to fetch the most recent End-of-Day (EOD) metrics, Futures Open Interest, and Implied Move percentage.
 - **Rationale:** Prevents AI from hallucinating stock prices by grounding all analysis purely on actual database records.
 
 ## Step 3: Quant Logic Engine (Chain-of-Thought)
-- **Engine:** `deepseek-r1-distill-qwen-32b` (via Groq)
+- **Engine:** `deepseek/deepseek-r1` (via OpenRouter), fallback: `openai/gpt-oss-120b` (via Groq)
 - **Purpose:** Acts as the Quantitative logic engine. It uses the `<think>` tag paradigm to perform mathematical or logical step-by-step reasoning about market implications of the prompt.
 - **Streaming:** This logic is streamed character-by-character back to the WebSocket so the user sees the "Chain of Thought" happen live in the terminal.
 

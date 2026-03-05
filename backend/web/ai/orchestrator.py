@@ -47,7 +47,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
         text = ""
         error_msg = ""
 
@@ -177,7 +177,7 @@ class TerminalOrchestrator:
         while current_calls < max_tool_calls:
             try:
                 response = await self.groq_client.chat.completions.create(
-                    model="qwen-qwq-32b",
+                    model="qwen/qwen3-32b",
                     messages=messages,
                     tools=tools,
                     temperature=0.0,
@@ -261,21 +261,41 @@ class TerminalOrchestrator:
         Always output your internal reasoning explicitly inside `<think>` ... `</think>` tags before your final response.
         """
 
-        stream = await self.groq_client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="deepseek-r1-distill-qwen-32b",
-            temperature=0.3,
-            stream=True
-        )
+        try:
+            stream = await self.openrouter_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="deepseek/deepseek-r1",
+                temperature=0.3,
+                stream=True
+            )
 
-        full_reasoning = ""
-        async for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                token = chunk.choices[0].delta.content
-                full_reasoning += token
-                await callback(token)
+            full_reasoning = ""
+            async for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    token = chunk.choices[0].delta.content
+                    full_reasoning += token
+                    await callback(token)
 
-        return full_reasoning
+            return full_reasoning
+        except Exception as e:
+            # Fallback to openai/gpt-oss-120b on Groq if deepseek-r1 fails on OpenRouter
+            await callback(f"\n[DeepSeek-R1 failed: {e}. Falling back to openai/gpt-oss-120b via Groq...]\n")
+
+            stream = await self.groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="openai/gpt-oss-120b",
+                temperature=0.3,
+                stream=True
+            )
+
+            full_reasoning = ""
+            async for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    token = chunk.choices[0].delta.content
+                    full_reasoning += token
+                    await callback(token)
+
+            return full_reasoning
 
     async def step4_strategist(self, command: str, engine_type: str, data_matrix: Dict[str, Any], reasoning: str) -> Dict[str, Any]:
         """Uses Gemini 1.5 Pro to synthesize the final execution card."""
@@ -304,7 +324,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
         response = None
         text = ""
         error_msg = ""
@@ -332,7 +352,7 @@ class TerminalOrchestrator:
                     "Failed to generate content via Gemini API.",
                     f"Last error encountered: {error_msg}",
                     "All fallback models failed. Please check your API Key and model permissions.",
-                    "Ensure you have access to gemini-1.5-flash."
+                    "Ensure you have access to gemini-1.5-flash-8b, gemini-1.5-flash-002, or gemini-2.0-flash."
                 ]
             }
 
@@ -467,7 +487,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002', 'gemini-2.0-flash']
         text = ""
         error_msg = ""
 
