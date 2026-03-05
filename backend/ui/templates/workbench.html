@@ -1164,8 +1164,8 @@
                     aiWs.send(JSON.stringify({command: "STOP"}));
                     aiWs.close();
                     document.getElementById('ai-chat-feed').innerHTML += `
-                    <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
-                        <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM]</div>
+                    <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                        <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM]</div>
                         <div class="log-line text-warning">[INTERRUPT] Execution halted by user.</div>
                     </div>`;
                 }
@@ -1181,8 +1181,8 @@
                         aiWs.send(JSON.stringify({command: "STOP"}));
                         aiWs.close();
                         document.getElementById('ai-chat-feed').innerHTML += `
-                        <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
-                            <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM]</div>
+                        <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM]</div>
                             <div class="log-line text-warning">[INTERRUPT] Execution halted by STOP command.</div>
                         </div>`;
                     }
@@ -1211,16 +1211,16 @@
 
             // Append initial user command
             chatFeed.innerHTML = `
-                <div class="chat-message user-message" style="background: #111216; border: 1px solid #333; padding: 15px; margin-bottom: 15px;">
-                    <div class="section-title" style="color: #ccc; border-bottom: 1px dashed #555; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[TRADER]</div>
+                <div class="chat-message user-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                    <div style="color: #ccc; font-weight: bold; margin-bottom: 5px;">[TRADER]</div>
                     <div class="log-line">> EXEC: ${cmd}</div>
                 </div>
             `;
 
             if (!groqKey || !openrouterKey || !googleKey) {
                 chatFeed.innerHTML += `
-                <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
-                    <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM ERROR]</div>
+                <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                    <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
                     <div class="log-line text-warning">[ERROR] Missing API keys. Please set them in Config tab.</div>
                 </div>`;
                 cmdInput.value = '';
@@ -1248,13 +1248,13 @@
 
                 if (msg.type === "status") {
                     chatFeed.innerHTML += `
-                        <div class="chat-message status-message" style="background: #0d1a15; border: 1px solid #005a32; padding: 10px; margin-bottom: 15px;">
+                        <div class="chat-message status-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
                             <div class="log-line text-emerald" style="font-size: 0.9em;">[SYSTEM] ${msg.message}</div>
                         </div>`;
                 } else if (msg.type === "jules_task") {
                     let julesOutput = `
-                    <div class="chat-message jules-message" style="background: #0d1b2a; border: 1px solid #1b263b; padding: 15px; margin-bottom: 15px;">
-                        <div class="section-title" style="color: #00bcd4; border-bottom: 1px dashed #00bcd4; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[JULES PRE-PROCESS]</div>`;
+                    <div class="chat-message jules-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                        <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[JULES PRE-PROCESS]</div>`;
 
                     if (msg.reasoning) {
                         julesOutput += `
@@ -1269,31 +1269,69 @@
                     chatFeed.innerHTML += julesOutput;
                 } else if (msg.type === "engine_type") {
                     chatFeed.innerHTML += `
-                        <div class="chat-message status-message" style="background: #111216; border: 1px dashed #555; padding: 10px; margin-bottom: 15px;">
+                        <div class="chat-message status-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
                             <div class="log-line text-muted" style="font-size: 0.9em;">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>
                         </div>`;
                 } else if (msg.type === "quant_logic") {
                     if (!currentQuantLogicBlock) {
                         // Create new block for quant logic
                         const id = "quant-logic-" + Date.now();
-                        chatFeed.innerHTML += `
-                        <div class="chat-message deepseek-message" id="${id}" style="background: #000; border: 1px solid #333; padding: 15px; margin-bottom: 15px;">
-                            <div class="section-title" style="color: #64748b; border-bottom: 1px dashed #64748b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[DEEPSEEK-R1] QUANT LOGIC</div>
-                            <div class="quant-content" style="color: #aaa; line-height: 1.5; white-space: pre-wrap;"></div>
-                        </div>`;
+                        chatFeed.insertAdjacentHTML('beforeend', `
+                        <div class="chat-message deepseek-message" id="${id}" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <details>
+                                <summary style="cursor: pointer; color: #64748b; font-weight: bold; margin-bottom: 5px;">[DEEPSEEK-R1] QUANT LOGIC</summary>
+                                <div class="quant-content" style="color: #aaa; line-height: 1.5; white-space: pre-wrap; padding-left: 20px;"></div>
+                            </details>
+                        </div>`);
                         currentQuantLogicBlock = document.getElementById(id).querySelector('.quant-content');
+                        currentQuantLogicBlock._inThink = false;
                     }
 
-                    let safeToken = msg.token.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    safeToken = safeToken.replace(/&lt;think&gt;/g, '<details open style="margin-bottom: 10px; margin-top: 10px;"><summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary><div class="think-tag" style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23; font-style: normal; display: block;">').replace(/&lt;\/think&gt;/g, '</div></details>');
+                    let token = msg.token;
 
-                    currentQuantLogicBlock.innerHTML += safeToken;
+                    if (token.includes("<think>")) {
+                        token = token.replace("<think>", "");
+                        currentQuantLogicBlock._inThink = true;
 
+                        const detailsHtml = `<details open style="margin-bottom: 10px; margin-top: 10px;">
+                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
+                            <div class="think-tag" style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23; font-style: normal; display: block;"></div>
+                        </details>`;
+                        currentQuantLogicBlock.insertAdjacentHTML('beforeend', detailsHtml);
+                    }
+
+                    let isClosing = false;
+                    if (token.includes("</think>")) {
+                        token = token.replace("</think>", "");
+                        isClosing = true;
+                    }
+
+                    if (token) {
+                        if (currentQuantLogicBlock._inThink) {
+                            const thinkTags = currentQuantLogicBlock.querySelectorAll('.think-tag');
+                            if (thinkTags.length > 0) {
+                                // Safe escape for innerHTML append inside think tag
+                                let safeToken = token.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                                thinkTags[thinkTags.length - 1].innerHTML += safeToken;
+                            } else {
+                                // Fallback
+                                currentQuantLogicBlock.insertAdjacentText('beforeend', token);
+                            }
+                        } else {
+                            // If we use innerHTML += here, we wipe out the <details> state (like if it was closed)
+                            // Better to use insertAdjacentText to just append text node safely
+                            currentQuantLogicBlock.insertAdjacentText('beforeend', token);
+                        }
+                    }
+
+                    if (isClosing) {
+                        currentQuantLogicBlock._inThink = false;
+                    }
                 } else if (msg.type === "data_matrix") {
                     const d = msg.data;
                     let matrixOutput = `
-                    <div class="chat-message qwen-message" style="background: #0a0a0a; border: 1px solid #333; padding: 15px; margin-bottom: 15px;">
-                        <div class="section-title" style="color: #e6a23c; border-bottom: 1px dashed #e6a23c; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[QWEN] DATA MATRIX</div>`;
+                    <div class="chat-message qwen-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                        <div style="color: #e6a23c; font-weight: bold; margin-bottom: 5px;">[QWEN] DATA MATRIX</div>`;
 
                     if (d.qwen_reasoning) {
                         matrixOutput += `
@@ -1354,9 +1392,11 @@
 
                 } else if (msg.type === "governance_log") {
                     chatFeed.innerHTML += `
-                    <div class="chat-message llama-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
-                        <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[LLAMA 3.3] COMPLIANCE JUDGE</div>
-                        <div class="log-line text-warning">> ${msg.message}</div>
+                    <div class="chat-message llama-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                        <details>
+                            <summary style="cursor: pointer; color: #b8860b; font-weight: bold; margin-bottom: 5px;">[LLAMA 3.3] COMPLIANCE JUDGE</summary>
+                            <div class="log-line text-warning" style="padding-left: 20px;">> ${msg.message}</div>
+                        </details>
                     </div>`;
                 } else if (msg.type === "execution") {
                     const ex = msg.data;
@@ -1369,8 +1409,8 @@
                     }
 
                     let execOutput = `
-                    <div class="chat-message gemini-message" style="background: #111216; border: 1px solid #00bcd4; padding: 15px; margin-bottom: 15px;">
-                        <div class="section-title" style="color: #00bcd4; border-bottom: 1px dashed #00bcd4; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[GEMINI] EXECUTION</div>`;
+                    <div class="chat-message gemini-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                        <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[GEMINI] EXECUTION</div>`;
 
                     if (ex.reasoning) {
                         execOutput += `
@@ -1393,8 +1433,8 @@
                     chatFeed.innerHTML += execOutput;
                 } else if (msg.type === "error") {
                     chatFeed.innerHTML += `
-                    <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
-                        <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM ERROR]</div>
+                    <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                        <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
                         <div class="log-line text-warning">[ERROR] ${msg.message}</div>
                     </div>`;
                 } else if (msg.type === "done") {
@@ -1411,8 +1451,8 @@
 
             aiWs.onerror = () => {
                 chatFeed.innerHTML += `
-                <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
-                    <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM ERROR]</div>
+                <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                    <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
                     <div class="log-line text-warning">[ERROR] WebSocket connection failed. Is backend running?</div>
                 </div>`;
                 cmdInput.placeholder = "_";
