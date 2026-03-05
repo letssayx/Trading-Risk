@@ -65,11 +65,20 @@ class TerminalOrchestrator:
                 continue
 
         if not text:
-            # Complete failure fallback
-            return {
-                "task": command,
-                "reasoning": f"Failed to generate task via Gemini fallback chain. Error: {error_msg}. Proceeding with raw command."
-            }
+            # Fallback to Groq Llama 3.3 if all Gemini models fail (e.g. Rate Limits)
+            try:
+                groq_response = await self.groq_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama-3.3-70b-versatile",
+                    temperature=0.0
+                )
+                text = groq_response.choices[0].message.content.strip()
+            except Exception as groq_e:
+                # Complete failure fallback
+                return {
+                    "task": command,
+                    "reasoning": f"Failed to generate task via Gemini fallback chain (Error: {error_msg}) and Groq fallback failed (Error: {groq_e}). Proceeding with raw command."
+                }
 
         reasoning = ""
         reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', text, re.DOTALL | re.IGNORECASE)
@@ -176,14 +185,11 @@ class TerminalOrchestrator:
 
         while current_calls < max_tool_calls:
             try:
-                response = await self.groq_client.chat.completions.create(
+                response = await self.openrouter_client.chat.completions.create(
                     model="qwen/qwen3-32b",
                     messages=messages,
                     tools=tools,
-                    temperature=0.0,
-                    extra_headers={
-                        "X-Zero-Retention": "true" # Professional Data Handling
-                    }
+                    temperature=0.0
                 )
 
                 message = response.choices[0].message
@@ -201,10 +207,11 @@ class TerminalOrchestrator:
                         elif function_name == "search_yfinance_symbol":
                             tool_result = search_yfinance_symbol(function_args.get("query", ""))
 
+                        # For OpenRouter compatibility, `content` must be a string.
                         messages.append({
                             "role": "tool",
                             "name": function_name,
-                            "content": tool_result,
+                            "content": str(tool_result),
                             "tool_call_id": tool_call.id
                         })
                     current_calls += 1
@@ -342,19 +349,28 @@ class TerminalOrchestrator:
                 continue
 
         if not response:
-            return {
-                "action": "ERROR SYNTHESIZING",
-                "target": 0.0,
-                "stop_loss": 0.0,
-                "confidence": 0,
-                "predicted_price": 0.0,
-                "rationale": [
-                    "Failed to generate content via Gemini API.",
-                    f"Last error encountered: {error_msg}",
-                    "All fallback models failed. Please check your API Key and model permissions.",
-                    "Ensure you have access to gemini-1.5-flash-8b, gemini-1.5-flash-002, or gemini-2.0-flash."
-                ]
-            }
+            # Fallback to Groq Llama 3.3 if all Gemini models fail
+            try:
+                groq_response = await self.groq_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama-3.3-70b-versatile",
+                    temperature=0.0
+                )
+                text = groq_response.choices[0].message.content.strip()
+            except Exception as groq_e:
+                return {
+                    "action": "ERROR SYNTHESIZING",
+                    "target": 0.0,
+                    "stop_loss": 0.0,
+                    "confidence": 0,
+                    "predicted_price": 0.0,
+                    "rationale": [
+                        "Failed to generate content via Gemini API.",
+                        f"Gemini error: {error_msg}",
+                        f"Groq fallback also failed: {groq_e}",
+                        "Please check your API Keys and model permissions."
+                    ]
+                }
 
         # Clean JSON
         try:
