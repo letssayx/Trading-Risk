@@ -241,6 +241,7 @@ async def list_data(
     symbol: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    instrument: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = Query('asc', pattern='^(asc|desc)$'),
     limit: int = 100,
@@ -249,7 +250,7 @@ async def list_data(
     """
     List data for a specific type with filters and optional sorting.
     """
-    logger.info(f"View Request: type={type}, symbol={symbol}, date={start_date} to {end_date}, sort={sort_by} {sort_order}")
+    logger.info(f"View Request: type={type}, symbol={symbol}, instrument={instrument}, date={start_date} to {end_date}, sort={sort_by} {sort_order}")
 
     model = get_model_for_type(type)
     if not model:
