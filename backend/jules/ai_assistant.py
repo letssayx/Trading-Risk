@@ -18,7 +18,7 @@ _MODELS_CACHE: Dict[str, List[str]] = {}
 class JulesAssistant:
     def __init__(self):
         self.client = None
-        self.model_name = 'gemini-1.5-flash-8b'
+        self.model_name = 'gemini-1.5-flash'
         self._load_key()
 
     def _load_key(self):
@@ -26,7 +26,10 @@ class JulesAssistant:
         load_dotenv(override=True)
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if self.api_key:
-            self.client = genai.Client(api_key=self.api_key)
+            self.client = genai.Client(
+                api_key=self.api_key,
+                http_options={'api_version': 'v1'}
+            )
             self._select_best_model()
         else:
             self.client = None
@@ -57,9 +60,7 @@ class JulesAssistant:
 
             # Preference list
             preferences = [
-                'gemini-1.5-flash-8b',
-                'gemini-1.5-flash-002',
-                'gemini-2.0-flash'
+                'gemini-1.5-flash'
             ]
 
             selected = None
@@ -91,11 +92,11 @@ class JulesAssistant:
             else:
                 logger.error("Jules: No suitable model found in list.")
                 # Fallback to hardcoded if list fails (e.g. permission issue on list)
-                self.model_name = 'gemini-1.5-flash-8b'
+                self.model_name = 'gemini-1.5-flash'
 
         except Exception as e:
             logger.error(f"Jules: Error selecting model: {e}")
-            self.model_name = 'gemini-1.5-flash-8b'
+            self.model_name = 'gemini-1.5-flash'
 
     def _scan_directory(self, root_path: str, max_depth: int = 2) -> dict:
         """
