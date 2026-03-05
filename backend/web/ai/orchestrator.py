@@ -320,21 +320,32 @@ class TerminalOrchestrator:
 
         return real_data
 
-    async def step3_quant_logic(self, command: str, engine_type: str, callback: Callable):
-        """Uses Llama 3.3 (Groq) to stream reasoning logic."""
+    async def step3_quant_logic(self, command: str, engine_type: str, data_matrix: Dict[str, Any], system_constraint: str, callback: Callable) -> tuple[str, Dict[str, Any]]:
+        """Uses DeepSeek to stream reasoning logic AND generate the execution numbers."""
+
+        constraint_block = f"\nCRITICAL GOVERNANCE FEEDBACK TO FIX: {system_constraint}\n" if system_constraint else ""
+
         prompt = f"""
-        You are a quantitative trading logic engine analyzing a {engine_type} event.
+        You are a Quantitative Trading Logic Engine analyzing a {engine_type} event.
         Command: {command}
+
+        REAL MARKET DATA (DO NOT HALLUCINATE OUTSIDE OF THIS):
+        {json.dumps(data_matrix, indent=2)}
+        {constraint_block}
 
         CRITICAL INSTRUCTIONS:
         1. You MUST use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally).
-        2. DO NOT invent, assume, or guess specific current stock prices, index levels, or numerical targets.
-        3. DO NOT perform arithmetic on assumed prices.
-        4. Your role is strictly to provide directional market reasoning, sector impact analysis, and qualitative logic.
-        5. The final numerical calculations will be handled by the Execution Strategist in the next step using real database values.
+        2. First, output your internal reasoning explicitly inside `<think>` ... `</think>` tags.
+        3. Analyze the broader market implications, directional sentiment, and use the provided REAL MARKET DATA to calculate realistic trading targets.
+        4. AFTER the `</think>` tag, you MUST output a STRICT JSON object representing the Execution Card. It must contain exactly these keys:
+           - "action": string (MUST be strictly one of: "BUY", "SELL", or "HOLD")
+           - "target": float (the numerical price target)
+           - "stop_loss": float (the numerical stop loss)
+           - "predicted_price": float (your predicted opening price for the next session)
+           - "confidence": integer (0 to 100 representing confidence score)
+           - "rationale": array of strings (4 to 5 step-by-step logic notes)
 
-        Think step-by-step about the broader market implications and directional sentiment.
-        Always output your internal reasoning explicitly inside `<think>` ... `</think>` tags before your final response.
+        The final output MUST contain this valid JSON block after the reasoning. Do not include markdown formatting like ```json around the block if possible, just the raw JSON.
         """
 
         try:
@@ -345,16 +356,35 @@ class TerminalOrchestrator:
                 stream=True
             )
 
-            full_reasoning = ""
+            full_text = ""
             async for chunk in stream:
                 if chunk.choices[0].delta.content is not None:
                     token = chunk.choices[0].delta.content
-                    full_reasoning += token
+                    full_text += token
                     await callback(token)
 
-            return full_reasoning
+            # Parse JSON out of full_text
+            json_str = full_text
+            match = re.search(r'\{.*\}', full_text, re.DOTALL)
+            if match:
+                json_str = match.group(0)
+
+            try:
+                exec_card = json.loads(json_str)
+            except Exception as e:
+                exec_card = {
+                    "action": "ERROR SYNTHESIZING",
+                    "target": 0.0,
+                    "stop_loss": 0.0,
+                    "confidence": 0,
+                    "predicted_price": 0.0,
+                    "rationale": ["Failed to parse DeepSeek JSON.", str(e)]
+                }
+
+            return full_text, exec_card
+
         except Exception as e:
-            # Fallback to openai/gpt-oss-120b on Groq if deepseek-r1 fails on OpenRouter
+            # Fallback to openai/gpt-oss-120b on Groq if deepseek-r1 fails
             await callback(f"\n[DeepSeek-R1 failed: {e}. Falling back to openai/gpt-oss-120b via Groq...]\n")
 
             stream = await self.groq_client.chat.completions.create(
@@ -364,95 +394,31 @@ class TerminalOrchestrator:
                 stream=True
             )
 
-            full_reasoning = ""
+            full_text = ""
             async for chunk in stream:
                 if chunk.choices[0].delta.content is not None:
                     token = chunk.choices[0].delta.content
-                    full_reasoning += token
+                    full_text += token
                     await callback(token)
 
-            return full_reasoning
-
-    async def step4_strategist(self, command: str, engine_type: str, data_matrix: Dict[str, Any], reasoning: str) -> Dict[str, Any]:
-        """Uses Gemini 1.5 Pro to synthesize the final execution card."""
-        prompt = f"""
-        You are the Head Strategist for a Hedge Fund.
-
-        Scenario: {command}
-        Engine: {engine_type}
-
-        Real Data (Do not invent numbers outside of this):
-        {json.dumps(data_matrix, indent=2)}
-
-        Quant Reasoning:
-        {reasoning}
-
-        You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before deciding on the execution card.
-        You can output your thought process first inside `<reasoning>` tags.
-        After your reasoning, provide a final execution recommendation as a strict JSON object with EXACTLY these keys:
-        - "action": string (MUST be strictly one of: "BUY", "SELL", or "HOLD")
-        - "target": float (the numerical price target)
-        - "stop_loss": float (the numerical stop loss)
-        - "confidence": integer (0 to 100 representing confidence score. Penalize/lower this score heavily if Real Data is missing ("NONE" ticker or no close prices). Boost it if data strongly aligns with reasoning.)
-        - "predicted_price": float (your predicted opening price for the next session)
-        - "rationale": array of strings (Provide 4 to 5 strong, logical, step-by-step reasons why this action was arrived at based on the data and reasoning.)
-
-        The final output MUST contain this valid JSON block.
-        """
-
-        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
-        response = None
-        text = ""
-        error_msg = ""
-
-        for model_name in models_to_try:
-            try:
-                response = await self.gemini_client.aio.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                )
-                text = response.text
-                break
-            except Exception as e:
-                error_msg = str(e)
-                continue
-
-        if not response:
-            return {
-                "action": "ERROR SYNTHESIZING",
-                "target": 0.0,
-                "stop_loss": 0.0,
-                "confidence": 0,
-                "predicted_price": 0.0,
-                "rationale": [
-                    "Failed to generate content via Gemini API.",
-                    f"Gemini error: {error_msg}",
-                    "Please check your API Keys and model permissions."
-                ]
-            }
-
-        # Clean JSON
-        try:
-            match = re.search(r'\{.*\}', text, re.DOTALL)
+            json_str = full_text
+            match = re.search(r'\{.*\}', full_text, re.DOTALL)
             if match:
-                text = match.group(0)
-            exec_data = json.loads(text)
+                json_str = match.group(0)
 
-            return exec_data
-        except Exception as e:
-            # Fallback
-            return {
-                "action": "ERROR SYNTHESIZING",
-                "target": 0.0,
-                "stop_loss": 0.0,
-                "confidence": 0,
-                "predicted_price": 0.0,
-                "rationale": [
-                    "Failed to parse Gemini output as JSON.",
-                    f"Error details: {str(e)}",
-                    "Raw text length: " + str(len(text))
-                ]
-            }
+            try:
+                exec_card = json.loads(json_str)
+            except Exception as e:
+                exec_card = {
+                    "action": "ERROR SYNTHESIZING",
+                    "target": 0.0,
+                    "stop_loss": 0.0,
+                    "confidence": 0,
+                    "predicted_price": 0.0,
+                    "rationale": ["Failed to parse GPT-120B JSON.", str(e)]
+                }
+
+            return full_text, exec_card
 
     async def step5_compliance_judge(self, command: str, data_matrix: Dict[str, Any], reasoning: str, exec_card: Dict[str, Any]) -> Dict[str, Any]:
         """Uses Llama 3.3 to verify the logic and data integrity (Compliance Judge)."""
@@ -545,8 +511,9 @@ class TerminalOrchestrator:
     async def step6_persona_filter(self, exec_card: Dict[str, Any]) -> Dict[str, Any]:
         """Uses Gemini to rewrite the execution card into a Quant Desk tone."""
         prompt = f"""
-        You are 'Jules', a seasoned hedge fund quant desk UI/UX model.
-        Rewrite the following trading execution output to have a professional, highly concise 'Quant Desk' tone.
+        You are 'Jules', the Head Strategist for a Hedge Fund.
+        The Quant Engine and Governance Judge have finalized the trading numbers.
+        Your job is to summarize and rewrite the following trading execution output to have a professional, highly concise 'Quant Desk' tone.
         Remove wordy, robotic phrases. Ensure the formatting is actionable, highlighting the critical signal.
 
         Original Input:
@@ -560,7 +527,7 @@ class TerminalOrchestrator:
         - "stop_loss": float
         - "confidence": integer
         - "predicted_price": float
-        - "rationale": array of strings (Rewrite the 4 to 5 strong logical reasons to be short, sharp quant desk notes/bullet points).
+        - "rationale": array of strings (Rewrite the 4 to 5 strong logical reasons to be short, sharp quant desk notes/bullet points summarizing the logic).
 
         Your final output MUST contain this valid JSON block.
         """
