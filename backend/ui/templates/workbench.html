@@ -430,6 +430,30 @@
 
                     <!-- Unified AI Chat Feed -->
                     <div class="ai-chat-feed" id="ai-chat-feed" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-right: 10px; font-family: monospace;">
+                        <div class="chat-message system-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM] ORCHESTRATOR ONLINE</div>
+                            <div class="log-line text-warning">> All AI Agent nodes initialized and awaiting command.</div>
+                        </div>
+                        <div class="chat-message jules-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #4ade80; font-weight: bold; margin-bottom: 5px;">[JULES / GEMINI 2.5] DISPATCHER</div>
+                            <div class="log-line">> Standing by to classify and structure raw intent.</div>
+                        </div>
+                        <div class="chat-message qwen-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #e6a23c; font-weight: bold; margin-bottom: 5px;">[QWEN 32B] DATA CLERK</div>
+                            <div class="log-line">> Local DB, Timescale, and YFinance conduits active.</div>
+                        </div>
+                        <div class="chat-message deepseek-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #818cf8; font-weight: bold; margin-bottom: 5px;">[DEEPSEEK R1] QUANT ENGINE</div>
+                            <div class="log-line">> Logic streams normalized. Ready to process.</div>
+                        </div>
+                        <div class="chat-message gemini-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[GEMINI 2.5] EXECUTION STRATEGIST</div>
+                            <div class="log-line">> Synthesis models primed.</div>
+                        </div>
+                        <div class="chat-message llama-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[GPT 120B] COMPLIANCE JUDGE</div>
+                            <div class="log-line">> Guardrails and verification protocols engaged.</div>
+                        </div>
                     </div>
 
 
@@ -1209,7 +1233,7 @@
             // Show Feed
             feedContainer.style.display = 'flex';
 
-            // Append initial user command
+            // Clear default team members and append initial user command
             chatFeed.innerHTML = `
                 <div class="chat-message user-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
                     <div style="color: #ccc; font-weight: bold; margin-bottom: 5px;">[TRADER]</div>

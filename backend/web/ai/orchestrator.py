@@ -47,7 +47,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
+        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
         text = ""
         error_msg = ""
 
@@ -105,7 +105,7 @@ class TerminalOrchestrator:
         Return ONLY the exact category name. Nothing else.
         """
 
-        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
+        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
         engine_type = ""
 
         for model_name in models_to_try:
@@ -136,9 +136,14 @@ class TerminalOrchestrator:
         Extract the NSE stock ticker symbol from this command.
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before answering.
 
+        Critically, you must use your own internal knowledge to resolve common Indian market terms into their official NSE tickers. For example:
+        - "nifty" or "nifty 50" -> NIFTY
+        - "bank nifty" or "banknifty" -> BANKNIFTY
+        - "fin nifty" or "finnifty" -> FINNIFTY
+
         You have several tools at your disposal:
-        1. `search_db_symbol` / `search_yfinance_symbol`: Use these to accurately identify the official ticker symbol if a company name or vague entity is mentioned. Do not guess.
-        2. `fetch_detailed_db_data`: Once you have the ticker, you MUST use this to extract deeper contextual data (historical prices, volatility, P/E, corporate actions) from our local app database to aid the downstream quantitative models.
+        1. `search_db_symbol` / `search_yfinance_symbol`: Use these to accurately identify the official ticker symbol if a company name or vague entity is mentioned and you aren't absolutely sure.
+        2. `fetch_detailed_db_data`: Once you have the exact official ticker, you MUST call this to extract deeper contextual data (historical prices, volatility, P/E, corporate actions) from our local app database to aid the downstream quantitative models.
         3. `fetch_yfinance_historical`: You can additionally use this to gather recent historical market outcomes or news from the internet (Yahoo Finance).
 
         Output your logic first inside `<reasoning>` tags.
@@ -395,7 +400,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
+        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
         response = None
         text = ""
         error_msg = ""
@@ -560,7 +565,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
+        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
         text = ""
         error_msg = ""
 
