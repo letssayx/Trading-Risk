@@ -1387,7 +1387,26 @@
                     if(!hasData) {
                         matrixOutput += `<tr><td colspan="5" style="border: 1px solid #333; padding: 8px; text-align: center;">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
                     }
-                    matrixOutput += `</tbody></table></div>`;
+                    matrixOutput += `</tbody></table>`;
+
+                    if (d.local_db_history || d.yfinance_history) {
+                        matrixOutput += `<div style="margin-top: 10px; font-size: 0.85em; color: #a0a0a0;">`;
+                        if (d.local_db_history && d.local_db_history.ticker) {
+                            matrixOutput += `<details style="margin-bottom: 5px;">
+                                <summary style="cursor: pointer; color: #4ade80;">[View Local DB Context: Volatility, P/E, Corp Actions]</summary>
+                                <pre style="background: #111; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px; color: #888;">${JSON.stringify(d.local_db_history, null, 2)}</pre>
+                            </details>`;
+                        }
+                        if (d.yfinance_history && d.yfinance_history.history) {
+                            matrixOutput += `<details style="margin-bottom: 5px;">
+                                <summary style="cursor: pointer; color: #60a5fa;">[View YFinance Context: Recent History & News]</summary>
+                                <pre style="background: #111; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px; color: #888;">${JSON.stringify(d.yfinance_history, null, 2)}</pre>
+                            </details>`;
+                        }
+                        matrixOutput += `</div>`;
+                    }
+
+                    matrixOutput += `</div>`;
                     chatFeed.innerHTML += matrixOutput;
 
                 } else if (msg.type === "governance_log") {

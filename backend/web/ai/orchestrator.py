@@ -47,7 +47,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
         text = ""
         error_msg = ""
 
@@ -105,7 +105,7 @@ class TerminalOrchestrator:
         Return ONLY the exact category name. Nothing else.
         """
 
-        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
         engine_type = ""
 
         for model_name in models_to_try:
@@ -395,7 +395,7 @@ class TerminalOrchestrator:
         The final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
         response = None
         text = ""
         error_msg = ""
@@ -560,7 +560,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3.1-pro-preview']
         text = ""
         error_msg = ""
 
