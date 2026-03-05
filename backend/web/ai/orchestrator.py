@@ -437,7 +437,7 @@ class TerminalOrchestrator:
         try:
             response = await self.groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="deepseek-r1-distill-qwen-32b",
+                model="llama-3.3-70b-versatile",
                 temperature=0.0,
                 extra_headers={
                     "X-Zero-Retention": "true"
