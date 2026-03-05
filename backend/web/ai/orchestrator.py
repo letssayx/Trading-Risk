@@ -65,20 +65,10 @@ class TerminalOrchestrator:
                 continue
 
         if not text:
-            # Fallback to Groq Llama 3.3 if all Gemini models fail (e.g. Rate Limits)
-            try:
-                groq_response = await self.groq_client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model="llama-3.3-70b-versatile",
-                    temperature=0.0
-                )
-                text = groq_response.choices[0].message.content.strip()
-            except Exception as groq_e:
-                # Complete failure fallback
-                return {
-                    "task": command,
-                    "reasoning": f"Failed to generate task via Gemini fallback chain (Error: {error_msg}) and Groq fallback failed (Error: {groq_e}). Proceeding with raw command."
-                }
+            return {
+                "task": command,
+                "reasoning": f"Failed to generate task via Gemini (Error: {error_msg}). Proceeding with raw command."
+            }
 
         reasoning = ""
         reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', text, re.DOTALL | re.IGNORECASE)
@@ -423,28 +413,18 @@ class TerminalOrchestrator:
                 continue
 
         if not response:
-            # Fallback to Groq Llama 3.3 if all Gemini models fail
-            try:
-                groq_response = await self.groq_client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model="llama-3.3-70b-versatile",
-                    temperature=0.0
-                )
-                text = groq_response.choices[0].message.content.strip()
-            except Exception as groq_e:
-                return {
-                    "action": "ERROR SYNTHESIZING",
-                    "target": 0.0,
-                    "stop_loss": 0.0,
-                    "confidence": 0,
-                    "predicted_price": 0.0,
-                    "rationale": [
-                        "Failed to generate content via Gemini API.",
-                        f"Gemini error: {error_msg}",
-                        f"Groq fallback also failed: {groq_e}",
-                        "Please check your API Keys and model permissions."
-                    ]
-                }
+            return {
+                "action": "ERROR SYNTHESIZING",
+                "target": 0.0,
+                "stop_loss": 0.0,
+                "confidence": 0,
+                "predicted_price": 0.0,
+                "rationale": [
+                    "Failed to generate content via Gemini API.",
+                    f"Gemini error: {error_msg}",
+                    "Please check your API Keys and model permissions."
+                ]
+            }
 
         # Clean JSON
         try:
@@ -534,25 +514,8 @@ class TerminalOrchestrator:
                 }
             )
             raw_text = response.choices[0].message.content.strip()
-        except Exception as groq_e:
-            # Fallback to Gemini 1.5 if Groq fails
-            try:
-                models_to_try = ['gemini-1.5-flash-8b', 'gemini-1.5-flash-002']
-                response = None
-                for model_name in models_to_try:
-                    try:
-                        response = await self.gemini_client.aio.models.generate_content(
-                            model=model_name,
-                            contents=prompt,
-                        )
-                        raw_text = response.text.strip()
-                        break
-                    except Exception:
-                        continue
-                if not response:
-                    raise Exception(f"Gemini fallback failed. Groq error was: {str(groq_e)}")
-            except Exception as e:
-                return {"status": "FAIL", "critique": f"Compliance Judge encountered an error checking output: {str(e)}"}
+        except Exception as e:
+            return {"status": "FAIL", "critique": f"Compliance Judge encountered an error communicating with Groq: {str(e)}"}
 
         try:
             # Extract reasoning
