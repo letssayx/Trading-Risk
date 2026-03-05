@@ -428,44 +428,10 @@
                 <!-- Analysis Log (Center) -->
                 <div id="ai-analysis-feed" class="ai-analysis-feed">
 
-                    <!-- Section A: Quant Logic -->
-                    <div class="ai-feed-section">
-                        <div class="section-title">[DEEPSEEK-R1] QUANT LOGIC</div>
-                        <div class="terminal-box" id="quant-log">
-                        </div>
+                    <!-- Unified AI Chat Feed -->
+                    <div class="ai-chat-feed" id="ai-chat-feed" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-right: 10px; font-family: monospace;">
                     </div>
 
-                    <!-- Section B: Data Matrix -->
-                    <div class="ai-feed-section">
-                        <div class="section-title">[QWEN] DATA MATRIX</div>
-                        <table class="ai-dense-table">
-                            <thead>
-                                <tr>
-                                    <th>SYMBOL</th>
-                                    <th>OPEN_INT</th>
-                                    <th>CHG_OI</th>
-                                    <th>IV</th>
-                                    <th>IMPLIED_MOVE</th>
-                                </tr>
-                            </thead>
-                            <tbody id="data-matrix-body">
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Section C: Governance Log -->
-                    <div class="ai-feed-section" id="governance-section" style="display: none;">
-                        <div class="section-title text-crimson">[LLAMA 3.3] COMPLIANCE JUDGE</div>
-                        <div class="terminal-box" id="governance-log">
-                        </div>
-                    </div>
-
-                    <!-- Section D: Execution -->
-                    <div class="ai-feed-section">
-                        <div class="section-title">[GEMINI] EXECUTION</div>
-                        <div class="execution-box">
-                        </div>
-                    </div>
 
                 </div>
 
@@ -1197,7 +1163,11 @@
                 if (aiWs && aiWs.readyState === WebSocket.OPEN) {
                     aiWs.send(JSON.stringify({command: "STOP"}));
                     aiWs.close();
-                    document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by user.</div>`;
+                    document.getElementById('ai-chat-feed').innerHTML += `
+                    <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
+                        <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM]</div>
+                        <div class="log-line text-warning">[INTERRUPT] Execution halted by user.</div>
+                    </div>`;
                 }
             } else if (e.key === 'Enter') {
                 if (e.shiftKey) {
@@ -1210,7 +1180,11 @@
                     if (aiWs && aiWs.readyState === WebSocket.OPEN) {
                         aiWs.send(JSON.stringify({command: "STOP"}));
                         aiWs.close();
-                        document.getElementById('quant-log').innerHTML += `<div class="log-line text-crimson">[INTERRUPT] Execution halted by STOP command.</div>`;
+                        document.getElementById('ai-chat-feed').innerHTML += `
+                        <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
+                            <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM]</div>
+                            <div class="log-line text-warning">[INTERRUPT] Execution halted by STOP command.</div>
+                        </div>`;
                     }
                     inputEl.value = '';
                     inputEl.style.height = 'auto'; // Reset size
@@ -1228,22 +1202,27 @@
             const openrouterKey = sessionStorage.getItem('OPENROUTER_API_KEY');
             const googleKey = sessionStorage.getItem('GOOGLE_API_KEY');
 
-            const feed = document.getElementById('ai-analysis-feed');
-            const quantLog = document.getElementById('quant-log');
+            const feedContainer = document.getElementById('ai-analysis-feed');
+            const chatFeed = document.getElementById('ai-chat-feed');
             const cmdInput = document.getElementById('ai-cmd-input');
 
-            // Reset and Show Feed
-            feed.style.display = 'flex';
-            quantLog.innerHTML = `<div class="log-line">> EXEC: ${cmd}</div>`;
-            document.getElementById('data-matrix-body').innerHTML = '<tr><td colspan="5">Awaiting extraction...</td></tr>';
-            document.querySelector('.execution-box').innerHTML = '<div class="log-line">Awaiting strategist synthesis...</div>';
+            // Show Feed
+            feedContainer.style.display = 'flex';
 
-            // Reset Governance Log
-            document.getElementById('governance-section').style.display = 'none';
-            document.getElementById('governance-log').innerHTML = '';
+            // Append initial user command
+            chatFeed.innerHTML = `
+                <div class="chat-message user-message" style="background: #111216; border: 1px solid #333; padding: 15px; margin-bottom: 15px;">
+                    <div class="section-title" style="color: #ccc; border-bottom: 1px dashed #555; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[TRADER]</div>
+                    <div class="log-line">> EXEC: ${cmd}</div>
+                </div>
+            `;
 
             if (!groqKey || !openrouterKey || !googleKey) {
-                quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] Missing API keys. Please set them in Config tab.</div>`;
+                chatFeed.innerHTML += `
+                <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
+                    <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM ERROR]</div>
+                    <div class="log-line text-warning">[ERROR] Missing API keys. Please set them in Config tab.</div>
+                </div>`;
                 cmdInput.value = '';
                 return;
             }
@@ -1262,119 +1241,180 @@
                 cmdInput.readOnly = true;
             };
 
+            let currentQuantLogicBlock = null;
+
             aiWs.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
 
                 if (msg.type === "status") {
-                    quantLog.innerHTML += `<div class="log-line text-emerald">[SYSTEM] ${msg.message}</div>`;
+                    chatFeed.innerHTML += `
+                        <div class="chat-message status-message" style="background: #0d1a15; border: 1px solid #005a32; padding: 10px; margin-bottom: 15px;">
+                            <div class="log-line text-emerald" style="font-size: 0.9em;">[SYSTEM] ${msg.message}</div>
+                        </div>`;
                 } else if (msg.type === "jules_task") {
-                    // Show Jules' chain of thought/task visibly in the quant log
-                    let julesOutput = `<div class="log-line" style="color:#00bcd4; margin-top:10px; margin-bottom:10px; padding:8px; border-left:2px solid #00bcd4; background:#1e1e1e;"><strong>[JULES PRE-PROCESS]</strong><br>`;
+                    let julesOutput = `
+                    <div class="chat-message jules-message" style="background: #0d1b2a; border: 1px solid #1b263b; padding: 15px; margin-bottom: 15px;">
+                        <div class="section-title" style="color: #00bcd4; border-bottom: 1px dashed #00bcd4; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[JULES PRE-PROCESS]</div>`;
+
                     if (msg.reasoning) {
-                        julesOutput += `<br><span style="color:#e6a23c;">&gt; Reasoning: ${msg.reasoning.replace(/\n/g, '<br>')}</span><br><br>`;
+                        julesOutput += `
+                        <details style="margin-bottom: 10px;">
+                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
+                            <div style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23;">
+                                ${msg.reasoning.replace(/\n/g, '<br>')}
+                            </div>
+                        </details>`;
                     }
-                    julesOutput += `<strong>Final Task:</strong> ${msg.message.replace(/\n/g, '<br>')}</div>`;
-                    quantLog.innerHTML += julesOutput;
+                    julesOutput += `<div class="log-line" style="color: #e0e0e0;"><strong>Final Task:</strong><br>${msg.message.replace(/\n/g, '<br>')}</div></div>`;
+                    chatFeed.innerHTML += julesOutput;
                 } else if (msg.type === "engine_type") {
-                    quantLog.innerHTML += `<div class="log-line">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>`;
+                    chatFeed.innerHTML += `
+                        <div class="chat-message status-message" style="background: #111216; border: 1px dashed #555; padding: 10px; margin-bottom: 15px;">
+                            <div class="log-line text-muted" style="font-size: 0.9em;">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>
+                        </div>`;
                 } else if (msg.type === "quant_logic") {
-                    // Append token by token for typing effect
-                    let lastLine = quantLog.lastElementChild;
-                    let safeToken = msg.token.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>');
-
-                    // Basic styling for think tags stream (if streaming <think>)
-                    safeToken = safeToken.replace(/&lt;think&gt;/g, '<span class="think-tag">').replace(/&lt;\/think&gt;/g, '</span>');
-
-                    if (lastLine && lastLine.classList.contains('stream-line')) {
-                        lastLine.innerHTML += safeToken;
-                    } else {
-                        quantLog.innerHTML += `<div class="log-line stream-line">${safeToken}</div>`;
+                    if (!currentQuantLogicBlock) {
+                        // Create new block for quant logic
+                        const id = "quant-logic-" + Date.now();
+                        chatFeed.innerHTML += `
+                        <div class="chat-message deepseek-message" id="${id}" style="background: #000; border: 1px solid #333; padding: 15px; margin-bottom: 15px;">
+                            <div class="section-title" style="color: #64748b; border-bottom: 1px dashed #64748b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[DEEPSEEK-R1] QUANT LOGIC</div>
+                            <div class="quant-content" style="color: #aaa; line-height: 1.5; white-space: pre-wrap;"></div>
+                        </div>`;
+                        currentQuantLogicBlock = document.getElementById(id).querySelector('.quant-content');
                     }
-                } else if (msg.type === "data_matrix") {
-                    // Render Table
-                    const d = msg.data;
-                    const tbody = document.getElementById('data-matrix-body');
-                    tbody.innerHTML = '';
 
+                    let safeToken = msg.token.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    safeToken = safeToken.replace(/&lt;think&gt;/g, '<details open style="margin-bottom: 10px; margin-top: 10px;"><summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary><div class="think-tag" style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23; font-style: normal; display: block;">').replace(/&lt;\/think&gt;/g, '</div></details>');
+
+                    currentQuantLogicBlock.innerHTML += safeToken;
+
+                } else if (msg.type === "data_matrix") {
+                    const d = msg.data;
+                    let matrixOutput = `
+                    <div class="chat-message qwen-message" style="background: #0a0a0a; border: 1px solid #333; padding: 15px; margin-bottom: 15px;">
+                        <div class="section-title" style="color: #e6a23c; border-bottom: 1px dashed #e6a23c; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[QWEN] DATA MATRIX</div>`;
+
+                    if (d.qwen_reasoning) {
+                        matrixOutput += `
+                        <details style="margin-bottom: 10px;">
+                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
+                            <div style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23;">
+                                ${d.qwen_reasoning.replace(/\n/g, '<br>')}
+                            </div>
+                        </details>`;
+                    }
+
+                    matrixOutput += `
+                        <table class="ai-dense-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em; border: 1px solid #333; margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">SYMBOL</th>
+                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">OPEN_INT</th>
+                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">CHG_OI</th>
+                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">IV</th>
+                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">IMPLIED_MOVE</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                    let hasData = false;
                     if(d.equity && d.equity.close_price) {
+                        hasData = true;
                         const fallbackLabel = d.yfinance_fallback ? ' <span style="color:#cca700; font-size: 0.8em;">(YF)</span>' : '';
-                        tbody.innerHTML += `
+                        matrixOutput += `
                             <tr>
-                                <td>${d.ticker} (EQ)${fallbackLabel}</td>
-                                <td>${(d.equity.total_traded_qty || 0).toLocaleString()} Vol</td>
-                                <td>-</td>
-                                <td>-</td>
-                                <td>₹${d.equity.close_price}</td>
+                                <td style="border: 1px solid #333; padding: 8px;">${d.ticker} (EQ)${fallbackLabel}</td>
+                                <td style="border: 1px solid #333; padding: 8px;">${(d.equity.total_traded_qty || 0).toLocaleString()} Vol</td>
+                                <td style="border: 1px solid #333; padding: 8px;">-</td>
+                                <td style="border: 1px solid #333; padding: 8px;">-</td>
+                                <td style="border: 1px solid #333; padding: 8px;">₹${d.equity.close_price}</td>
                             </tr>
                         `;
                     }
                     if(d.futures && d.futures.close_price) {
-                        let oiColor = (d.futures.change_in_oi > 0) ? 'text-emerald' : 'text-crimson';
+                        hasData = true;
+                        let oiColor = (d.futures.change_in_oi > 0) ? 'color: #10b981;' : 'color: #f59e0b;';
                         let oiSign = (d.futures.change_in_oi > 0) ? '+' : '';
-                        tbody.innerHTML += `
+                        matrixOutput += `
                             <tr>
-                                <td>${d.ticker}-FUT</td>
-                                <td>${(d.futures.open_interest || 0).toLocaleString()}</td>
-                                <td class="${oiColor}">${oiSign}${(d.futures.change_in_oi || 0).toLocaleString()}</td>
-                                <td>-</td>
-                                <td>± ${d.futures.implied_move_pct || 0}%</td>
+                                <td style="border: 1px solid #333; padding: 8px;">${d.ticker}-FUT</td>
+                                <td style="border: 1px solid #333; padding: 8px;">${(d.futures.open_interest || 0).toLocaleString()}</td>
+                                <td style="border: 1px solid #333; padding: 8px; ${oiColor}">${oiSign}${(d.futures.change_in_oi || 0).toLocaleString()}</td>
+                                <td style="border: 1px solid #333; padding: 8px;">-</td>
+                                <td style="border: 1px solid #333; padding: 8px;">± ${d.futures.implied_move_pct || 0}%</td>
                             </tr>
                         `;
                     }
-                    if(!d.equity.close_price && !d.futures.close_price) {
-                        tbody.innerHTML = `<tr><td colspan="5">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
+                    if(!hasData) {
+                        matrixOutput += `<tr><td colspan="5" style="border: 1px solid #333; padding: 8px; text-align: center;">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
                     }
-                    if (d.qwen_reasoning) {
-                        tbody.innerHTML += `<tr><td colspan="5" style="white-space: normal; word-wrap: break-word; color: #a0a0a0; padding: 10px;"><strong>[Reasoning]</strong><br>${d.qwen_reasoning.replace(/\n/g, '<br>')}</td></tr>`;
-                    }
+                    matrixOutput += `</tbody></table></div>`;
+                    chatFeed.innerHTML += matrixOutput;
+
                 } else if (msg.type === "governance_log") {
-                    const govSection = document.getElementById('governance-section');
-                    const govLog = document.getElementById('governance-log');
-                    govSection.style.display = 'flex';
-                    govLog.innerHTML += `<div class="log-line text-crimson">> ${msg.message}</div>`;
+                    chatFeed.innerHTML += `
+                    <div class="chat-message llama-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
+                        <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[LLAMA 3.3] COMPLIANCE JUDGE</div>
+                        <div class="log-line text-warning">> ${msg.message}</div>
+                    </div>`;
                 } else if (msg.type === "execution") {
                     const ex = msg.data;
-                    const exBox = document.querySelector('.execution-box');
-                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'text-crimson' : 'text-emerald';
+                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'color: #f59e0b;' : 'color: #10b981;';
                     let rationaleHtml = "";
                     if (Array.isArray(ex.rationale)) {
-                        rationaleHtml = "<ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px;'>" + ex.rationale.map(r => `<li>${r}</li>`).join('') + "</ul>";
+                        rationaleHtml = "<ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px; color: #ccc;'>" + ex.rationale.map(r => `<li>${r}</li>`).join('') + "</ul>";
                     } else {
                         rationaleHtml = ex.rationale;
                     }
 
-                    let executionHtml = `
-                        <div class="exec-confidence" title="Calculated based on data completeness and alignment with reasoning. Penalized heavily if data is missing or missing specific tickers.">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
-                        <div class="exec-directive ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
-                        <div class="exec-details">
-                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br>
-                            RATIONALE: ${rationaleHtml}
-                        </div>
-                    `;
+                    let execOutput = `
+                    <div class="chat-message gemini-message" style="background: #111216; border: 1px solid #00bcd4; padding: 15px; margin-bottom: 15px;">
+                        <div class="section-title" style="color: #00bcd4; border-bottom: 1px dashed #00bcd4; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[GEMINI] EXECUTION</div>`;
+
                     if (ex.reasoning) {
-                        executionHtml += `
-                            <div class="exec-details" style="color: #a0a0a0; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #333;">
-                                <strong>[Reasoning]</strong><br>
+                        execOutput += `
+                        <details style="margin-bottom: 15px;">
+                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
+                            <div style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23;">
                                 ${ex.reasoning.replace(/\n/g, '<br>')}
                             </div>
-                        `;
+                        </details>`;
                     }
-                    exBox.innerHTML = executionHtml;
+
+                    execOutput += `
+                        <div class="exec-confidence" title="Calculated based on data completeness and alignment with reasoning." style="font-size: 0.85em; color: #888; margin-bottom: 5px;">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
+                        <div class="exec-directive" style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px; ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
+                        <div class="exec-details" style="font-size: 0.9em; color: #ccc; line-height: 1.6; border-top: 1px dotted #333; padding-top: 10px;">
+                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br><br>
+                            <strong>RATIONALE:</strong><br> ${rationaleHtml}
+                        </div>
+                    </div>`;
+                    chatFeed.innerHTML += execOutput;
                 } else if (msg.type === "error") {
-                    quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] ${msg.message}</div>`;
+                    chatFeed.innerHTML += `
+                    <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
+                        <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM ERROR]</div>
+                        <div class="log-line text-warning">[ERROR] ${msg.message}</div>
+                    </div>`;
                 } else if (msg.type === "done") {
                     cmdInput.placeholder = "_";
                     cmdInput.readOnly = false;
                     cmdInput.focus();
                     aiWs.close();
+                    currentQuantLogicBlock = null;
                 }
 
-                // Auto-scroll
-                quantLog.scrollTop = quantLog.scrollHeight;
+                // Auto-scroll chat feed
+                chatFeed.scrollTop = chatFeed.scrollHeight;
             };
 
             aiWs.onerror = () => {
-                quantLog.innerHTML += `<div class="log-line text-crimson">[ERROR] WebSocket connection failed. Is backend running?</div>`;
+                chatFeed.innerHTML += `
+                <div class="chat-message error-message" style="background: #1e1e1e; border: 1px solid #b8860b; padding: 15px; margin-bottom: 15px;">
+                    <div class="section-title" style="color: #b8860b; border-bottom: 1px dashed #b8860b; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold;">[SYSTEM ERROR]</div>
+                    <div class="log-line text-warning">[ERROR] WebSocket connection failed. Is backend running?</div>
+                </div>`;
                 cmdInput.placeholder = "_";
                 cmdInput.readOnly = false;
             };
@@ -1382,6 +1422,7 @@
             aiWs.onclose = () => {
                  cmdInput.placeholder = "_";
                  cmdInput.readOnly = false;
+                 currentQuantLogicBlock = null;
             }
         }
 

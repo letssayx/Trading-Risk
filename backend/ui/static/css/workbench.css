@@ -498,17 +498,53 @@ body {
     width: max-content;
 }
 
-/* Terminal Box (Section A) */
-.terminal-box {
-    background: #000;
-    border: 1px solid #333;
-    padding: 15px;
-    min-height: 100px;
-    max-height: 200px;
-    overflow-y: auto;
-    font-size: 0.9em;
-    color: #aaa;
-    line-height: 1.5;
+/* Unified AI Chat Feed */
+.ai-chat-feed {
+    padding-right: 5px;
+}
+
+.ai-chat-feed::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ai-chat-feed::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+.ai-chat-feed::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 4px;
+}
+
+.ai-chat-feed::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.chat-message {
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+details > summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+details > summary::-webkit-details-marker {
+    display: none;
+}
+
+details > summary::before {
+    content: "▶";
+    font-size: 0.8em;
+    display: inline-block;
+    margin-right: 5px;
+    transition: transform 0.2s;
+}
+
+details[open] > summary::before {
+    transform: rotate(90deg);
 }
 
 .log-line {
@@ -516,65 +552,9 @@ body {
 }
 
 .think-tag {
-    color: #64748b; /* Dim slate for R1 reasoning */
+    color: #64748b;
     font-style: italic;
-    border-left: 2px solid #334155;
-    padding-left: 10px;
-    margin: 5px 0;
     display: block;
-}
-
-/* Data Matrix (Section B) */
-.ai-dense-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85em;
-    border: 1px solid #333;
-}
-
-.ai-dense-table th, .ai-dense-table td {
-    border: 1px solid #333;
-    padding: 6px 10px;
-    text-align: left;
-}
-
-.ai-dense-table th {
-    background: #16181d;
-    color: #888;
-    font-weight: normal;
-}
-
-.ai-dense-table tr:nth-child(even) {
-    background: #0f1115;
-}
-
-/* Execution Box (Section C) */
-.execution-box {
-    background: #111216;
-    border: 1px solid #00bcd4;
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.exec-confidence {
-    font-size: 0.85em;
-    color: #888;
-}
-
-.exec-directive {
-    font-size: 1.3em;
-    font-weight: bold;
-}
-
-.exec-details {
-    font-size: 0.9em;
-    color: #ccc;
-    line-height: 1.6;
-    margin-top: 5px;
-    border-top: 1px dotted #333;
-    padding-top: 10px;
 }
 
 /* No more Modal styles needed */
