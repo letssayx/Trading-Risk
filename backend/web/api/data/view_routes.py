@@ -306,7 +306,15 @@ async def list_data(
 
     # Handle FO Instrument filter
     if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':
-        query = query.filter(model.instrument_type.like(f"%{instrument.upper()}%"))
+        inst_upper = instrument.upper()
+        if 'FUT' in inst_upper:
+            # Match old (FUTIDX, FUTSTK) and new (STF, IDF, FUTIVX) formats
+            query = query.filter(model.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))
+        elif 'OPT' in inst_upper:
+            # Match old (OPTIDX, OPTSTK) and new (STO, IDO, OPTIRC) formats
+            query = query.filter(model.instrument_type.in_(['STO', 'IDO', 'OPTIDX', 'OPTSTK', 'OPTIRC']))
+        else:
+            query = query.filter(model.instrument_type.like(f"%{inst_upper}%"))
 
     # Apply Date Filter
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
@@ -584,7 +592,13 @@ async def export_data(
             else: query = query.filter(filters[0])
 
     if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':
-        query = query.filter(model.instrument_type.like(f"%{instrument.upper()}%"))
+        inst_upper = instrument.upper()
+        if 'FUT' in inst_upper:
+            query = query.filter(model.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))
+        elif 'OPT' in inst_upper:
+            query = query.filter(model.instrument_type.in_(['STO', 'IDO', 'OPTIDX', 'OPTSTK', 'OPTIRC']))
+        else:
+            query = query.filter(model.instrument_type.like(f"%{inst_upper}%"))
 
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
     if date_col:

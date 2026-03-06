@@ -63,8 +63,12 @@ async def get_import_status(task_id: str):
         }
 
         if task.state == 'PROGRESS':
+            # Store task info inside meta to match frontend expectations
+            response["meta"] = task.info
+
+            # Optional: maintain top-level values for backwards compatibility
             response.update({
-                "progress": task.info.get("progress", 0),
+                "progress": task.info.get("progress", task.info.get("percent", 0)),
                 "current_file": task.info.get("current_file", ""),
                 "files_completed": task.info.get("files_completed", []),
                 "files_failed": task.info.get("files_failed", [])
