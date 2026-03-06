@@ -28,20 +28,19 @@ class TerminalOrchestrator:
     async def step0_persona_prefilter(self, command: str) -> Dict[str, str]:
         """Uses Gemini to deeply reason about the user's raw command and convert it into a detailed quant task."""
         prompt = f"""
-        You are 'Jules', the expert UI/UX Logic model for a hedge fund terminal.
         A trader has entered the following command: "{command}"
 
-        Your task is to convert this raw command into a detailed, strict, step-by-step task instructions for the backend quant engines.
+        Your task is to convert this raw command into a concise, direct task instruction for a quantitative trading engine.
+        Do NOT include boilerplate phrasing like "You are an expert...". Just provide the direct mathematical or logical steps required.
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally).
         Output your internal reasoning first inside `<reasoning>` tags.
-        Ensure you explicitly instruct the downstream models to use quant grade logic, strictly no hallucination, no fake data, and no false assumptions.
 
         Then, output a strict JSON object with exactly these keys:
-        - "task": string (The detailed task description for the downstream models).
+        - "task": string (The concise, direct task instruction).
 
         Example JSON Output:
         {{
-            "task": "Task - You are an expert derivatives strategist. Use step-by-step reasoning to analyze [Subject]. Analyze: a. Calculate a theoretical opening price... Output - strictly no hallucination, no fake data, no false assumptions."
+            "task": "Analyze [Subject]. Calculate a theoretical opening price based on recent volatility and open interest. Output trade execution target and stop loss."
         }}
 
         Your final output MUST contain this valid JSON block.
@@ -156,24 +155,22 @@ class TerminalOrchestrator:
         """Uses Qwen 2.5 (OpenRouter) to extract ticker and fetch real data."""
         # 1. Extract Ticker
         prompt = f"""
-        Extract the NSE stock ticker symbol from this command.
+        Extract the official NSE stock ticker symbol from this command.
         You must use deep logical deliberate reasoning and chain of thought (think through a feedback loop internally) before answering.
 
-        Critically, you must use your own internal knowledge to resolve common Indian market terms into their official NSE tickers. For example:
-        - "nifty" or "nifty 50" -> NIFTY
-        - "bank nifty" or "banknifty" -> BANKNIFTY
-        - "fin nifty" or "finnifty" -> FINNIFTY
+        Critically, you must resolve common Indian market terms into their exact official NSE database tickers (e.g., NIFTY, BANKNIFTY).
+        Do NOT output Yahoo Finance specific tickers like 'NSEI' or '^NSEI' in the final output. The downstream system requires the official Indian exchange ticker.
 
         You have several tools at your disposal:
-        1. `search_db_symbol` / `search_yfinance_symbol`: Use these to accurately identify the official ticker symbol if a company name or vague entity is mentioned and you aren't absolutely sure.
+        1. `search_db_symbol`: Use this FIRST to accurately identify the official NSE ticker symbol from the local database if a company name or vague entity is mentioned.
         2. `fetch_detailed_db_data`: Once you have the exact official ticker, you MUST call this to extract deeper contextual data (historical prices, volatility, P/E, corporate actions) from our local app database to aid the downstream quantitative models.
-        3. `fetch_yfinance_historical`: You can additionally use this to gather recent historical market outcomes or news from the internet (Yahoo Finance).
+        3. `search_yfinance_symbol` / `fetch_yfinance_historical`: Use these only as a last resort if the local database yields no results.
 
         Output your logic first inside `<reasoning>` tags.
         If no ticker is found, return "NONE" in the ticker tag.
         Command: "{command}"
 
-        After your reasoning and all tool calls are complete, your final output MUST contain the final ticker string in uppercase (or NONE) enclosed in `<ticker>` tags, for example `<ticker>NIFTY</ticker>`.
+        After your reasoning and all tool calls are complete, your final output MUST contain the final official NSE ticker string in uppercase (or NONE) enclosed in `<ticker>` tags, for example `<ticker>NIFTY</ticker>`.
         """
 
         tools = [
@@ -376,6 +373,7 @@ class TerminalOrchestrator:
                 messages=[{"role": "user", "content": prompt}],
                 model="deepseek/deepseek-r1",
                 temperature=0.3,
+                max_tokens=2500,
                 stream=True
             )
 
@@ -407,13 +405,14 @@ class TerminalOrchestrator:
             return full_text, exec_card
 
         except Exception as e:
-            # Fallback to openai/gpt-oss-120b on Groq if deepseek-r1 fails
-            await callback(f"\n[DeepSeek-R1 failed: {e}. Falling back to openai/gpt-oss-120b via Groq...]\n")
+            # Fallback to openai/gpt-oss-120b on OpenRouter if deepseek-r1 fails
+            await callback(f"\n[DeepSeek-R1 failed: {e}. Falling back to openai/gpt-oss-120b via OpenRouter...]\n")
 
-            stream = await self.groq_client.chat.completions.create(
+            stream = await self.openrouter_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 model="openai/gpt-oss-120b",
                 temperature=0.3,
+                max_tokens=2500,
                 stream=True
             )
 

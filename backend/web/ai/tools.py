@@ -175,9 +175,9 @@ def fetch_yfinance_historical(ticker: str, days: int = 30) -> str:
     import json
     try:
         yf_ticker = f"{ticker.upper()}.NS"
-        if ticker.upper() in ["NIFTY", "NIFTY 50", "NIFTY50"]:
+        if ticker.upper() in ["NIFTY", "NIFTY 50", "NIFTY50", "NSEI", "^NSEI"]:
             yf_ticker = "^NSEI"
-        elif ticker.upper() in ["BANKNIFTY", "BANK NIFTY", "NIFTY BANK"]:
+        elif ticker.upper() in ["BANKNIFTY", "BANK NIFTY", "NIFTY BANK", "NSEBANK", "^NSEBANK"]:
             yf_ticker = "^NSEBANK"
         elif ticker.upper() in ["FINNIFTY", "NIFTY FIN SERVICE"]:
             yf_ticker = "NIFTY_FIN_SERVICE.NS"
@@ -345,9 +345,9 @@ def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
         try:
             # Format ticker for YFinance
             yf_ticker = f"{ticker.upper()}.NS"
-            if ticker.upper() in ["NIFTY", "NIFTY 50", "NIFTY50"]:
+            if ticker.upper() in ["NIFTY", "NIFTY 50", "NIFTY50", "NSEI", "^NSEI"]:
                 yf_ticker = "^NSEI"
-            elif ticker.upper() in ["BANKNIFTY", "BANK NIFTY", "NIFTY BANK"]:
+            elif ticker.upper() in ["BANKNIFTY", "BANK NIFTY", "NIFTY BANK", "NSEBANK", "^NSEBANK"]:
                 yf_ticker = "^NSEBANK"
             elif ticker.upper() in ["FINNIFTY", "NIFTY FIN SERVICE"]:
                 yf_ticker = "NIFTY_FIN_SERVICE.NS"
