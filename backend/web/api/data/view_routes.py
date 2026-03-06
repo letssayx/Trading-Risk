@@ -632,52 +632,57 @@ async def export_data(
     # Fetch all matching records (or limit to reasonable export size e.g. 50k)
     # If no date constraints are provided, fall back to limit to prevent OOM
     has_date_constraint = start_date is not None or end_date is not None
-    try:
-        if has_date_constraint:
-            results = query.all()
-        else:
-            results = query.limit(50000).all()
-        # Process results with potential instrument_type fix
-        data = process_results(results, model)
 
-    except (ProgrammingError, OperationalError) as e:
-        # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
-        err_msg = str(e)
-        logger.error(f"Export Database Error for {type}: {err_msg}")
+    def execute_export_query():
+        try:
+            if has_date_constraint:
+                results = query.all()
+            else:
+                results = query.limit(50000).all()
+            # Process results with potential instrument_type fix
+            return process_results(results, model)
 
-        # Explicit rollback
-        db.rollback()
+        except (ProgrammingError, OperationalError) as e:
+            # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
+            err_msg = str(e)
+            logger.error(f"Export Database Error for {type}: {err_msg}")
 
-        # Robust Fallback for known missing column issues
-        if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
-            logger.warning(f"Retrying export for {type} without 'instrument_type' column")
-            try:
-                # Re-build query since the previous transaction is dead
-                query = db.query(model)
-                if filters:
-                    if len(filters) > 1: query = query.filter(or_(*filters))
-                    else: query = query.filter(filters[0])
+            # Explicit rollback
+            db.rollback()
 
-                if date_col:
-                    if start_date: query = query.filter(date_col >= start_date)
-                    if end_date: query = query.filter(date_col <= end_date)
+            # Robust Fallback for known missing column issues
+            if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
+                logger.warning(f"Retrying export for {type} without 'instrument_type' column")
+                try:
+                    # Re-build query since the previous transaction is dead
+                    retry_query = db.query(model)
+                    if filters:
+                        if len(filters) > 1: retry_query = retry_query.filter(or_(*filters))
+                        else: retry_query = retry_query.filter(filters[0])
 
-                if hasattr(model, 'updated_at') and not date_col:
-                    query = query.order_by(desc(model.updated_at))
-                elif date_col:
-                    query = query.order_by(*order_clauses)
+                    if date_col:
+                        if start_date: retry_query = retry_query.filter(date_col >= start_date)
+                        if end_date: retry_query = retry_query.filter(date_col <= end_date)
 
-                query = query.options(defer(model.instrument_type))
-                if has_date_constraint:
-                    results = query.all()
-                else:
-                    results = query.limit(50000).all()
-                data = process_results(results, model, skip_instrument_type=True)
-            except Exception as retry_exc:
-                logger.error(f"Export retry failed: {retry_exc}")
-                raise HTTPException(status_code=500, detail=f"Database error during export: {str(e)}")
-        else:
-             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+                    if hasattr(model, 'updated_at') and not date_col:
+                        retry_query = retry_query.order_by(desc(model.updated_at))
+                    elif date_col:
+                        retry_query = retry_query.order_by(*order_clauses)
+
+                    retry_query = retry_query.options(defer(model.instrument_type))
+                    if has_date_constraint:
+                        results = retry_query.all()
+                    else:
+                        results = retry_query.limit(50000).all()
+                    return process_results(results, model, skip_instrument_type=True)
+                except Exception as retry_exc:
+                    logger.error(f"Export retry failed: {retry_exc}")
+                    raise HTTPException(status_code=500, detail=f"Database error during export: {str(e)}")
+            else:
+                 raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    from fastapi.concurrency import run_in_threadpool
+    data = await run_in_threadpool(execute_export_query)
 
     if not data:
         raise HTTPException(status_code=404, detail="No data found for export")

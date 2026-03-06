@@ -446,7 +446,6 @@ class NSEDataImporter:
                 stmt = pg_insert(table).values(chunk)
                 result = db.execute(stmt)
                 total_inserted += result.rowcount
-                db.flush()
             return total_inserted
         except Exception as e:
             logger.error(f"Insert failed: {e}")
@@ -488,8 +487,6 @@ class NSEDataImporter:
 
                 result = db.execute(stmt)
                 total_processed += result.rowcount
-                # IMPORTANT: Flush the session after each chunk so memory doesn't explode
-                db.flush()
 
             return total_processed, 0
         except Exception as e:
@@ -552,7 +549,6 @@ class NSEDataImporter:
             for i in range(0, len(legacy_records), batch_size):
                 chunk = legacy_records[i:i + batch_size]
                 db.bulk_insert_mappings(Bhavcopy, chunk)
-                db.flush()
 
         except Exception as e:
             logger.error(f"Legacy sync failed: {e}")
