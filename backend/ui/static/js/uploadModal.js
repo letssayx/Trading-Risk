@@ -372,7 +372,7 @@ class NSEImporter {
                 console.error("Polling error", e);
                 // Don't stop polling immediately on network blip
             }
-        }, 1000);
+        }, 5000); // Polling every 5 seconds to reduce DB contention
     }
 
     renderDetails(details) {
