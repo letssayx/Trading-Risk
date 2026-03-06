@@ -66,7 +66,7 @@ class NSEDataImporter:
     def _get_unique_fields(self, key: str) -> List[str]:
         mapping = {
             'bhavcopy_eq': ['symbol', 'series', 'trade_date'],
-            'bhavcopy_fo': ['trade_date', 'ticker_symb', 'expiry_date', 'strike_price', 'option_type'],
+            'bhavcopy_fo': ['trade_date', 'ticker_symb', 'instrument_type', 'expiry_date', 'strike_price', 'option_type'],
             'fao_participant_oi': ['trade_date', 'client_type'],
             'fo_volatility': ['trade_date', 'symbol'],
             # Bulk/Block deals: No unique fields for upsert anymore (we do delete-insert)
