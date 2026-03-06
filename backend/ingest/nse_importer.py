@@ -311,13 +311,16 @@ class NSEDataImporter:
 
                 except Exception as e:
                     logger.exception(f"Error importing {key}: {e}")
+                    # If we hit an exception outside of the begin_nested (or it failed to clean up), explicitly rollback to be safe
+                    db.rollback()
                     results[key] = {'status': 'ERROR', 'error': str(e)}
                     # Log failure (needs its own transaction to persist even if file failed)
                     try:
                          # We need a new transaction for logging since the previous one rolled back
-                        with db.begin():
-                            self._log_import(db, trade_date, key, 'FAILED', 0, 0, str(e))
+                        self._log_import(db, trade_date, key, 'FAILED', 0, 0, str(e))
+                        db.commit()
                     except:
+                        db.rollback()
                         pass
                     failed_files.append(key)
 

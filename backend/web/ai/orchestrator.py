@@ -273,20 +273,21 @@ class TerminalOrchestrator:
 
                 # Check for tool calls
                 if message.tool_calls:
+                    from fastapi.concurrency import run_in_threadpool
                     for tool_call in message.tool_calls:
                         function_name = tool_call.function.name
                         function_args = json.loads(tool_call.function.arguments)
 
                         tool_result = "Tool execution failed."
                         if function_name == "search_db_symbol":
-                            tool_result = search_db_symbol(self.db, function_args.get("query", ""))
+                            tool_result = await run_in_threadpool(search_db_symbol, self.db, function_args.get("query", ""))
                         elif function_name == "search_yfinance_symbol":
-                            tool_result = search_yfinance_symbol(function_args.get("query", ""))
+                            tool_result = await run_in_threadpool(search_yfinance_symbol, function_args.get("query", ""))
                         elif function_name == "fetch_detailed_db_data":
-                            tool_result = fetch_detailed_db_data(self.db, function_args.get("ticker", ""), function_args.get("days", 30))
+                            tool_result = await run_in_threadpool(fetch_detailed_db_data, self.db, function_args.get("ticker", ""), function_args.get("days", 30))
                             deep_data_cache["local_db_deep_dive"] = json.loads(tool_result) if tool_result.startswith("{") else tool_result
                         elif function_name == "fetch_yfinance_historical":
-                            tool_result = fetch_yfinance_historical(function_args.get("ticker", ""), function_args.get("days", 30))
+                            tool_result = await run_in_threadpool(fetch_yfinance_historical, function_args.get("ticker", ""), function_args.get("days", 30))
                             deep_data_cache["yfinance_deep_dive"] = json.loads(tool_result) if tool_result.startswith("{") else tool_result
 
                         # For OpenRouter compatibility, `content` must be a string.
@@ -329,7 +330,8 @@ class TerminalOrchestrator:
                 break
 
         # 2. Fetch Real Data (Zero Hallucination)
-        real_data = fetch_bhavcopy_data(self.db, ticker)
+        from fastapi.concurrency import run_in_threadpool
+        real_data = await run_in_threadpool(fetch_bhavcopy_data, self.db, ticker)
         real_data['qwen_reasoning'] = qwen_reasoning.strip()
 
         # Merge any deep data fetched by Qwen into the final real_data matrix

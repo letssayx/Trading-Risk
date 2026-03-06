@@ -180,7 +180,8 @@ async def get_stats(
     Get statistics about import jobs.
     """
     try:
-        return queries.get_import_stats(db, start_date, end_date)
+        from fastapi.concurrency import run_in_threadpool
+        return await run_in_threadpool(queries.get_import_stats, db, start_date, end_date)
     except Exception as e:
         logger.error(f"Failed to fetch stats: {e}")
         raise HTTPException(status_code=500, detail={"message": "Database query failed", "error": str(e)})
@@ -197,7 +198,8 @@ async def get_eq_timeseries(
     Get equity timeseries data with resampling.
     """
     try:
-        data = queries.get_bhavcopy_eq_timeseries(db, symbol, start_date, end_date, resample)
+        from fastapi.concurrency import run_in_threadpool
+        data = await run_in_threadpool(queries.get_bhavcopy_eq_timeseries, db, symbol, start_date, end_date, resample)
         if not data:
             raise HTTPException(status_code=404, detail="No data found for criteria")
         return {"success": True, "data": data}
@@ -216,7 +218,8 @@ async def get_oi_trend(
     Get Open Interest trend for a symbol.
     """
     try:
-        result = queries.get_fno_oi_trend(db, symbol, expiry, lookback_days)
+        from fastapi.concurrency import run_in_threadpool
+        result = await run_in_threadpool(queries.get_fno_oi_trend, db, symbol, expiry, lookback_days)
         if not result:
             raise HTTPException(status_code=404, detail="No data found")
 
@@ -245,7 +248,8 @@ async def compare_volatility(
         if len(symbol_list) > 10:
             raise HTTPException(status_code=400, detail="Max 10 symbols allowed")
 
-        df = queries.get_volatility_comparison(db, symbol_list, days)
+        from fastapi.concurrency import run_in_threadpool
+        df = await run_in_threadpool(queries.get_volatility_comparison, db, symbol_list, days)
         return {"success": True, "data": df.to_dict(orient="records")}
     except Exception as e:
         logger.error(f"Volatility comparison failed: {e}")
@@ -260,7 +264,8 @@ async def get_participant_heatmap(
     Get Participant-wise Open Interest Heatmap.
     """
     try:
-        result = queries.get_participant_oi_heatmap(db, date)
+        from fastapi.concurrency import run_in_threadpool
+        result = await run_in_threadpool(queries.get_participant_oi_heatmap, db, date)
         return {"success": True, "data": result}
     except Exception as e:
         logger.error(f"Heatmap query failed: {e}")
