@@ -91,7 +91,8 @@ async def startup_event():
     # Helper to run Timescale setup in background without blocking startup
     def run_timescale_setup():
         try:
-            setup_timescale_policies(db=SessionLocal())
+            with SessionLocal() as db:
+                setup_timescale_policies(db=db)
             print("✅ TimescaleDB setup completed successfully in background")
         except Exception as e:
             print(f"⚠️ TimescaleDB Setup Warning (Broker/DB may be offline or locked): {e}")

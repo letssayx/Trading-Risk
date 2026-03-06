@@ -162,8 +162,9 @@ async def setup_timescale(db: Session = Depends(get_db)):
     """
     Initialize TimescaleDB policies (One-time setup).
     """
+    from fastapi.concurrency import run_in_threadpool
     try:
-        setup_timescale_policies(db)
+        await run_in_threadpool(setup_timescale_policies, db)
         return {"success": True, "message": "TimescaleDB setup completed"}
     except Exception as e:
         logger.error(f"Failed to trigger timescale setup: {e}")

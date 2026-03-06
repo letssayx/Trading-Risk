@@ -354,52 +354,56 @@ async def list_data(
     if order_clauses:
         query = query.order_by(*order_clauses)
 
-    try:
-        results = query.limit(limit).all()
+    def execute_query():
+        try:
+            results = query.limit(limit).all()
 
-        if not results and (start_date or end_date):
-             # Debugging: If no results with date filter, check total count for diagnostics
-             total_count = db.query(model).count()
-             logger.warning(f"Query returned 0 rows for {type} with date filter. Total rows in table: {total_count}")
-        else:
-             logger.info(f"Query returned {len(results)} rows for {type}")
+            if not results and (start_date or end_date):
+                 # Debugging: If no results with date filter, check total count for diagnostics
+                 total_count = db.query(model).count()
+                 logger.warning(f"Query returned 0 rows for {type} with date filter. Total rows in table: {total_count}")
+            else:
+                 logger.info(f"Query returned {len(results)} rows for {type}")
 
-        return process_results(results, model)
+            return process_results(results, model)
 
-    except (ProgrammingError, OperationalError) as e:
-        # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
-        err_msg = str(e)
-        logger.error(f"Database Error for {type}: {err_msg}\n{traceback.format_exc()}")
-        db.rollback()
+        except (ProgrammingError, OperationalError) as e:
+            # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
+            err_msg = str(e)
+            logger.error(f"Database Error for {type}: {err_msg}\n{traceback.format_exc()}")
+            db.rollback()
 
-        # Robust Fallback for known missing column issues
-        if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
-            logger.warning(f"Retrying query for {type} without 'instrument_type' column")
-            try:
-                # Retry logic similar to above...
-                query = db.query(model)
-                if filters:
-                    if len(filters) > 1: query = query.filter(or_(*filters))
-                    else: query = query.filter(filters[0])
-                if date_col:
-                    if start_date: query = query.filter(date_col >= start_date)
-                    if end_date: query = query.filter(date_col <= end_date)
-                if order_clauses:
-                    query = query.order_by(*order_clauses)
+            # Robust Fallback for known missing column issues
+            if "instrument_type" in err_msg and hasattr(model, 'instrument_type'):
+                logger.warning(f"Retrying query for {type} without 'instrument_type' column")
+                try:
+                    # Retry logic similar to above...
+                    retry_query = db.query(model)
+                    if filters:
+                        if len(filters) > 1: retry_query = retry_query.filter(or_(*filters))
+                        else: retry_query = retry_query.filter(filters[0])
+                    if date_col:
+                        if start_date: retry_query = retry_query.filter(date_col >= start_date)
+                        if end_date: retry_query = retry_query.filter(date_col <= end_date)
+                    if order_clauses:
+                        retry_query = retry_query.order_by(*order_clauses)
 
-                query = query.options(defer(model.instrument_type))
-                results = query.limit(limit).all()
-                return process_results(results, model, skip_instrument_type=True)
-            except Exception as retry_exc:
-                logger.error(f"Retry failed: {retry_exc}")
-                raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+                    retry_query = retry_query.options(defer(model.instrument_type))
+                    results = retry_query.limit(limit).all()
+                    return process_results(results, model, skip_instrument_type=True)
+                except Exception as retry_exc:
+                    logger.error(f"Retry failed: {retry_exc}")
+                    raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    except Exception as e:
-        # Catch unexpected errors
-        logger.error(f"Unexpected error listing data for {type}: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        except Exception as e:
+            # Catch unexpected errors
+            logger.error(f"Unexpected error listing data for {type}: {e}\n{traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+    from fastapi.concurrency import run_in_threadpool
+    return await run_in_threadpool(execute_query)
 
 
 def process_results(results, model, skip_instrument_type=False):
