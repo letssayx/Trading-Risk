@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional, Any
 from datetime import datetime
+from fastapi.concurrency import run_in_threadpool
 
 from backend.infrastructure.db import get_db
 from backend.models.audit import SystemLog
@@ -54,7 +55,8 @@ async def get_log_history(
     if level and level.upper() != 'ALL':
         query = query.filter(SystemLog.level == level.upper())
 
-    logs = query.limit(limit).all()
+    # Wrap sync db call in threadpool to prevent blocking the async event loop
+    logs = await run_in_threadpool(lambda: query.limit(limit).all())
 
     return [
         {
