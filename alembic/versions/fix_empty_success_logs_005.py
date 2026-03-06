@@ -11,7 +11,7 @@ from sqlalchemy.sql import text
 
 # revision identifiers, used by Alembic.
 revision = 'fix_empty_success_logs_005'
-down_revision = 'fix_mwpl_logs_004'
+down_revision = 'fix_mwpl_compression_reimport'
 branch_labels = None
 depends_on = None
 
