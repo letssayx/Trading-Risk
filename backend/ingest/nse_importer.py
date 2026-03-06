@@ -423,17 +423,21 @@ class NSEDataImporter:
         self._log_import(db, trade_date, key, 'SUCCESS', inserted, updated)
         completed_files.append(key)
 
-    def _insert_batch(self, db: Session, model_class, records: list[dict[str, Any]]) -> int:
+    def _insert_batch(self, db: Session, model_class, records: list[dict[str, Any]], batch_size: int = 5000) -> int:
         if not records: return 0
+        total_inserted = 0
         try:
             table = model_class.__table__
             valid_cols = set(c.name for c in table.columns)
             cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
 
-            # Simple Insert
-            stmt = pg_insert(table).values(cleaned)
-            result = db.execute(stmt)
-            return result.rowcount
+            # Simple Insert in chunks
+            for i in range(0, len(cleaned), batch_size):
+                chunk = cleaned[i:i + batch_size]
+                stmt = pg_insert(table).values(chunk)
+                result = db.execute(stmt)
+                total_inserted += result.rowcount
+            return total_inserted
         except Exception as e:
             logger.error(f"Insert failed: {e}")
             raise
@@ -448,28 +452,34 @@ class NSEDataImporter:
             raise
 
     def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
-                     unique_fields: list[str]) -> tuple[int, int]:
+                     unique_fields: list[str], batch_size: int = 5000) -> tuple[int, int]:
         if not records: return 0, 0
+        total_processed = 0
         try:
             table = model_class.__table__
             valid_cols = set(c.name for c in table.columns)
             cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
 
-            stmt = pg_insert(table).values(cleaned)
-            update_cols = {c.name: c for c in stmt.excluded
-                          if c.name not in unique_fields and c.name not in ['id', 'created_at']}
+            # Upsert in chunks to avoid massive SQL statements that bog down Postgres
+            for i in range(0, len(cleaned), batch_size):
+                chunk = cleaned[i:i + batch_size]
+                stmt = pg_insert(table).values(chunk)
+                update_cols = {c.name: c for c in stmt.excluded
+                              if c.name not in unique_fields and c.name not in ['id', 'created_at']}
 
-            if unique_fields:
-                if update_cols:
-                    stmt = stmt.on_conflict_do_update(index_elements=unique_fields, set_=update_cols)
+                if unique_fields:
+                    if update_cols:
+                        stmt = stmt.on_conflict_do_update(index_elements=unique_fields, set_=update_cols)
+                    else:
+                        stmt = stmt.on_conflict_do_nothing(index_elements=unique_fields)
                 else:
-                    stmt = stmt.on_conflict_do_nothing(index_elements=unique_fields)
-            else:
-                # Fallback to simple insert if no unique fields (shouldn't happen for upsert path)
-                pass
+                    # Fallback to simple insert if no unique fields (shouldn't happen for upsert path)
+                    pass
 
-            result = db.execute(stmt)
-            return result.rowcount, 0
+                result = db.execute(stmt)
+                total_processed += result.rowcount
+
+            return total_processed, 0
         except Exception as e:
             logger.error(f"Upsert failed: {e}")
             raise
@@ -494,7 +504,7 @@ class NSEDataImporter:
         )
         db.add(sys_log)
 
-    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str):
+    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str, batch_size: int = 5000):
         if not records: return
         try:
             legacy_records = []
@@ -525,7 +535,12 @@ class NSEDataImporter:
 
             trade_date = records[0]['trade_date']
             db.query(Bhavcopy).filter(Bhavcopy.trade_date == trade_date, Bhavcopy.segment == segment).delete(synchronize_session=False)
-            db.bulk_insert_mappings(Bhavcopy, legacy_records)
+
+            # Chunk the legacy insert as well
+            for i in range(0, len(legacy_records), batch_size):
+                chunk = legacy_records[i:i + batch_size]
+                db.bulk_insert_mappings(Bhavcopy, chunk)
+
         except Exception as e:
             logger.error(f"Legacy sync failed: {e}")
 
