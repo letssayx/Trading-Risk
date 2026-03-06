@@ -1,6 +1,6 @@
 """add instrument_type to uq_bhavcopy_fo_unique
 
-Revision ID: add_instrument_type_uq_bhavcopy_fo_009
+Revision ID: add_inst_type_bhav_fo_009
 Revises: ai_analysis_bank_009
 Create Date: 2026-03-06 04:50:00.000000
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'add_instrument_type_uq_bhavcopy_fo_009'
+revision = 'add_inst_type_bhav_fo_009'
 down_revision = 'ai_analysis_bank_009'
 branch_labels = None
 depends_on = None
