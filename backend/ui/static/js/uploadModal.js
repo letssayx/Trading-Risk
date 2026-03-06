@@ -57,6 +57,16 @@ class NSEImporter {
             btnManual.addEventListener('click', () => this.importManual());
         }
 
+        // Cancel Polling
+        const btnCancel = document.getElementById('btn-cancel-polling');
+        if (btnCancel) {
+            btnCancel.addEventListener('click', () => {
+                this.stopPolling();
+                if (this.progressArea) this.progressArea.style.display = 'none';
+                console.log("Manually stopped tracking task.");
+            });
+        }
+
         // Initial load
         this.fetchHistory();
     }

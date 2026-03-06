@@ -640,9 +640,10 @@
                     </div>
 
                     <!-- Progress -->
-                    <div id="import-progress-area" style="margin-top:20px; padding:15px; background:#222; border-radius:4px; display:none;">
-                        <div id="progress-text" style="color:#ccc; font-size:0.9em;">Starting...</div>
-                        <div style="width:100%; background:#444; height:10px; border-radius:5px;">
+                    <div id="import-progress-area" style="margin-top:20px; padding:15px; background:#222; border-radius:4px; display:none; position:relative;">
+                        <button id="btn-cancel-polling" style="position:absolute; top:10px; right:10px; background:#e74c3c; color:white; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:3px;">Stop/Clear Task</button>
+                        <div id="progress-text" style="color:#ccc; font-size:0.9em; width:80%;">Starting...</div>
+                        <div style="width:100%; background:#444; height:10px; border-radius:5px; margin-top:8px;">
                             <div id="progress-bar" style="width:0%; background:#00bcd4; height:100%; border-radius:5px;"></div>
                         </div>
                         <div id="import-details" style="margin-top:10px; font-size:0.85em;"></div>
@@ -2018,9 +2019,14 @@
                  const celeryTerminal = document.getElementById('celery-terminal');
                  if(!celeryTerminal || celeryTerminal.offsetParent === null) return; // Only poll if visible
 
+                 // ONLY poll if an import is actually running, to prevent infinite looping and DB spam
+                 if (!window.uploader || !window.uploader.isPolling) {
+                     return;
+                 }
+
                  try {
                      // We fetch the latest audit logs that are likely from celery
-                     const res = await fetch(`/api/audit/history?limit=200`);
+                     const res = await fetch(`/api/audit/history?limit=50`);
                      if(res.ok) {
                          const logs = await res.json();
                          // Sort ascending by ID or timestamp

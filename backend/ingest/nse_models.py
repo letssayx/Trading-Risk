@@ -1,5 +1,5 @@
 """NSE Database Models - TimescaleDB Optimized"""
-from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func
+from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from backend.infrastructure.db import Base
 
@@ -103,7 +103,7 @@ class BhavcopyFO(Base, TimescaleMixin):
         UniqueConstraint('trade_date', 'ticker_symb', 'instrument_type', 'expiry_date', 'strike_price', 'option_type',
                         name='uq_bhavcopy_fo_unique'),
         Index('idx_bhavcopy_fo_symbol_expiry', 'ticker_symb', 'expiry_date'),
-        Index('idx_bhavcopy_fo_date_symb', 'trade_date', 'ticker_symb'),
+        Index('idx_bhavcopy_fo_date_symb', text('trade_date DESC'), text('ticker_symb ASC')),
     )
 
 

@@ -16,7 +16,7 @@ depends_on = None
 
 def upgrade() -> None:
     # Add composite index for sorting by trade_date DESC, ticker_symb ASC
-    op.create_index('idx_bhavcopy_fo_date_symb', 'bhavcopy_fo', ['trade_date', 'ticker_symb'], unique=False)
+    op.create_index('idx_bhavcopy_fo_date_symb', 'bhavcopy_fo', [sa.text('trade_date DESC'), sa.text('ticker_symb ASC')], unique=False)
 
 def downgrade() -> None:
     # Remove the index if we need to rollback
