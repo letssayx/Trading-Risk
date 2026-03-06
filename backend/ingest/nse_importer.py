@@ -303,7 +303,7 @@ class NSEDataImporter:
                 # If using pure SQLAlchemy session, we can rely on begin_nested()
                 try:
                     with db.begin_nested():
-                        self._process_file(db, key, trade_date, results, completed_files)
+                        self._process_file(db, key, trade_date, results, completed_files, force)
 
                     # If we reach here, the nested transaction committed successfully.
                     # We commit the outer transaction periodically or at the end to persist logs.
@@ -333,13 +333,19 @@ class NSEDataImporter:
             'details': results
         }
 
-    def _process_file(self, db: Session, key: str, trade_date: date, results: dict, completed_files: list):
+    def _process_file(self, db: Session, key: str, trade_date: date, results: dict, completed_files: list, force: bool = False):
         df = self._fetch_data(key, trade_date)
 
         if df.empty:
             results[key] = {'status': 'EMPTY_DOWNLOAD', 'rows': 0}
-            # Log as FAILED so it can be retried if the file becomes available
-            self._log_import(db, trade_date, key, 'FAILED', 0, 0, 'Downloaded file was empty or missing')
+            # If forced (e.g., on a holiday), treat missing files as SUCCESS since NSE might simply not publish them.
+            # Otherwise, log as FAILED so it can be retried.
+            if force:
+                logger.warning(f"File {key} missing on forced import for {trade_date}. Marking as EMPTY_DOWNLOAD.")
+                self._log_import(db, trade_date, key, 'SUCCESS', 0, 0, 'Downloaded file was empty or missing (Forced Import)')
+                completed_files.append(key)
+            else:
+                self._log_import(db, trade_date, key, 'FAILED', 0, 0, 'Downloaded file was empty or missing')
             return
 
         if key == 'mto':
@@ -423,7 +429,7 @@ class NSEDataImporter:
         self._log_import(db, trade_date, key, 'SUCCESS', inserted, updated)
         completed_files.append(key)
 
-    def _insert_batch(self, db: Session, model_class, records: list[dict[str, Any]], batch_size: int = 5000) -> int:
+    def _insert_batch(self, db: Session, model_class, records: list[dict[str, Any]], batch_size: int = 1000) -> int:
         if not records: return 0
         total_inserted = 0
         try:
@@ -452,7 +458,7 @@ class NSEDataImporter:
             raise
 
     def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
-                     unique_fields: list[str], batch_size: int = 5000) -> tuple[int, int]:
+                     unique_fields: list[str], batch_size: int = 1000) -> tuple[int, int]:
         if not records: return 0, 0
         total_processed = 0
         try:
@@ -504,7 +510,7 @@ class NSEDataImporter:
         )
         db.add(sys_log)
 
-    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str, batch_size: int = 5000):
+    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str, batch_size: int = 1000):
         if not records: return
         try:
             legacy_records = []

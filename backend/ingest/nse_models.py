@@ -103,6 +103,7 @@ class BhavcopyFO(Base, TimescaleMixin):
         UniqueConstraint('trade_date', 'ticker_symb', 'instrument_type', 'expiry_date', 'strike_price', 'option_type',
                         name='uq_bhavcopy_fo_unique'),
         Index('idx_bhavcopy_fo_symbol_expiry', 'ticker_symb', 'expiry_date'),
+        Index('idx_bhavcopy_fo_date_symb', 'trade_date', 'ticker_symb'),
     )
 
 
