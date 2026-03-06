@@ -47,11 +47,23 @@ def fetch_detailed_db_data(db: Session, ticker: str, days: int = 30) -> str:
     Useful to provide Qwen with deeper context on volatility, P/E, and corporate actions.
     """
     try:
-        from backend.ingest.nse_models import BhavcopyEQ, FOVolatility, PERatio, CorporateAction
+        from backend.ingest.nse_models import (
+            BhavcopyEQ, FOVolatility, PERatio, CorporateAction,
+            BulkDeal, BlockDeal, FIIDerivativesStat, MWPLClientPosition, ParticipantOI
+        )
         import json
 
         ticker = ticker.upper().strip()
-        result = {"ticker": ticker, "equity_history": [], "volatility_history": [], "pe_history": [], "recent_corporate_actions": []}
+        result = {
+            "ticker": ticker,
+            "equity_history": [],
+            "volatility_history": [],
+            "pe_history": [],
+            "recent_corporate_actions": [],
+            "bulk_block_deals": [],
+            "fii_derivatives_stats": [],
+            "mwpl_participant_oi": []
+        }
 
         # Equity History
         eq_query = select(BhavcopyEQ).filter(BhavcopyEQ.symbol == ticker).order_by(desc(BhavcopyEQ.trade_date)).limit(days)
@@ -91,6 +103,64 @@ def fetch_detailed_db_data(db: Session, ticker: str, days: int = 30) -> str:
                 "date": str(r.date),
                 "purpose": r.purpose,
                 "ex_date": str(r.ex_date) if r.ex_date else None
+            })
+
+        # Bulk & Block Deals
+        bulk_query = select(BulkDeal).filter(BulkDeal.symbol == ticker).order_by(desc(BulkDeal.date)).limit(5)
+        bulk_results = db.execute(bulk_query).scalars().all()
+        for r in bulk_results:
+            result["bulk_block_deals"].append({
+                "date": str(r.date),
+                "type": "BULK",
+                "buy_sell": r.buy_sell,
+                "quantity": r.quantity_traded,
+                "price": r.trade_price,
+                "client": r.client_name
+            })
+
+        block_query = select(BlockDeal).filter(BlockDeal.symbol == ticker).order_by(desc(BlockDeal.date)).limit(5)
+        block_results = db.execute(block_query).scalars().all()
+        for r in block_results:
+            result["bulk_block_deals"].append({
+                "date": str(r.date),
+                "type": "BLOCK",
+                "buy_sell": r.buy_sell,
+                "quantity": r.quantity_traded,
+                "price": r.trade_price,
+                "client": r.client_name
+            })
+
+        # FII Derivatives Stats (Market wide usually, not ticker specific, but added for context)
+        fii_query = select(FIIDerivativesStat).order_by(desc(FIIDerivativesStat.date)).limit(5)
+        fii_results = db.execute(fii_query).scalars().all()
+        for r in fii_results:
+            result["fii_derivatives_stats"].append({
+                "date": str(r.date),
+                "instrument": r.instrument_type,
+                "buy_amt_cr": r.buy_amt_crores,
+                "sell_amt_cr": r.sell_amt_crores,
+                "oi_contracts": r.oi_contracts
+            })
+
+        # MWPL Client Position
+        mwpl_query = select(MWPLClientPosition).filter(MWPLClientPosition.underlying_stock == ticker).order_by(desc(MWPLClientPosition.date)).limit(5)
+        mwpl_results = db.execute(mwpl_query).scalars().all()
+        for r in mwpl_results:
+            result["mwpl_participant_oi"].append({
+                "date": str(r.date),
+                "type": "MWPL",
+                "position_pct": r.position_pct
+            })
+
+        # Participant OI (Market wide context)
+        poi_query = select(ParticipantOI).filter(ParticipantOI.client_type == 'FII').order_by(desc(ParticipantOI.trade_date)).limit(1)
+        poi_results = db.execute(poi_query).scalars().all()
+        for r in poi_results:
+            result["mwpl_participant_oi"].append({
+                "date": str(r.trade_date),
+                "type": "Participant_OI_FII",
+                "future_index_long": r.future_index_long,
+                "future_index_short": r.future_index_short
             })
 
         return json.dumps(result, indent=2)
@@ -178,6 +248,9 @@ def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
         "ticker": ticker,
         "equity": {},
         "futures": {},
+        "options": {},
+        "vix": {},
+        "mto_delivery": {},
         "yfinance_fallback": False,
         "historical_context": ""
     }
@@ -186,6 +259,14 @@ def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
         return matrix
 
     try:
+        from backend.ingest.nse_models import MTODelivery
+
+        # Determine likely instrument type for futures/options
+        # Typically NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY are indices
+        is_index = ticker in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50"]
+        fut_inst = 'FUTIDX' if is_index else 'FUTSTK'
+        opt_inst = 'OPTIDX' if is_index else 'OPTSTK'
+
         # 1. Fetch latest Equity data
         eq_query = select(BhavcopyEQ).filter(BhavcopyEQ.symbol == ticker).order_by(desc(BhavcopyEQ.trade_date)).limit(1)
         eq_result = db.execute(eq_query).scalar_one_or_none()
@@ -199,21 +280,63 @@ def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
                 "deliverable_pct": eq_result.deliverable_pct
             }
 
-        # 2. Fetch latest F&O data (specifically Futures for OI changes)
+        # 2. Fetch latest Futures data
         fo_query = select(BhavcopyFO).filter(
             BhavcopyFO.ticker_symb == ticker,
-            BhavcopyFO.instrument_type == 'FUTSTK'
+            BhavcopyFO.instrument_type == fut_inst
         ).order_by(desc(BhavcopyFO.trade_date)).limit(1)
         fo_result = db.execute(fo_query).scalar_one_or_none()
 
         if fo_result:
             matrix["futures"] = {
+                "instrument_type": fo_result.instrument_type,
                 "trade_date": str(fo_result.trade_date),
                 "close_price": fo_result.close_price,
                 "open_interest": fo_result.open_interest,
                 "change_in_oi": fo_result.change_in_oi,
                 "implied_move_pct": round(abs((fo_result.close_price - eq_result.close_price) / eq_result.close_price) * 100, 2) if eq_result and eq_result.close_price else None
             }
+
+        # 3. Fetch latest Options data (closest expiry, highest OI or just ATM)
+        # We will grab a summary of recent options
+        opt_query = select(BhavcopyFO).filter(
+            BhavcopyFO.ticker_symb == ticker,
+            BhavcopyFO.instrument_type == opt_inst
+        ).order_by(desc(BhavcopyFO.trade_date), desc(BhavcopyFO.open_interest)).limit(2)
+        opt_results = db.execute(opt_query).scalars().all()
+
+        if opt_results:
+            matrix["options"]["summary"] = []
+            for r in opt_results:
+                matrix["options"]["summary"].append({
+                    "instrument_type": r.instrument_type,
+                    "trade_date": str(r.trade_date),
+                    "strike_price": r.strike_price,
+                    "option_type": r.option_type,
+                    "close_price": r.close_price,
+                    "open_interest": r.open_interest
+                })
+
+        # 4. Fetch VIX Data (Global context)
+        vix_query = select(BhavcopyEQ).filter(BhavcopyEQ.symbol == 'India VIX').order_by(desc(BhavcopyEQ.trade_date)).limit(1)
+        vix_result = db.execute(vix_query).scalar_one_or_none()
+        if vix_result:
+            matrix["vix"] = {
+                "trade_date": str(vix_result.trade_date),
+                "close_price": vix_result.close_price,
+                "prev_close": vix_result.prev_close
+            }
+
+        # 5. Fetch MTO Delivery specifically
+        mto_query = select(MTODelivery).filter(MTODelivery.security_name == ticker).order_by(desc(MTODelivery.trade_date)).limit(1)
+        mto_result = db.execute(mto_query).scalar_one_or_none()
+        if mto_result:
+             matrix["mto_delivery"] = {
+                 "trade_date": str(mto_result.trade_date),
+                 "deliverable_qty": mto_result.deliverable_qty,
+                 "deliverable_pct": mto_result.deliverable_pct
+             }
+
     except Exception as e:
         logger.warning(f"DB lookup failed for {ticker}: {e}")
 

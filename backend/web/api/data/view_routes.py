@@ -449,6 +449,58 @@ def process_results(results, model, skip_instrument_type=False):
         data.append(row_dict)
     return data
 
+@router.get("/api/data/view/symbols/autocomplete")
+async def autocomplete_symbols(
+    q: str = Query(..., min_length=2),
+    db: Session = Depends(get_db)
+):
+    """
+    Fast autocomplete endpoint for the AI-Analyze command bar.
+    Searches SecurityMaster for matching symbols or company names.
+    """
+    from backend.ingest.nse_models import SecurityMaster
+    from sqlalchemy import func, or_, select
+
+    q_upper = q.upper().strip()
+
+    # Prioritize exact symbol matches first, then partial symbol, then name
+    query = select(SecurityMaster.ticker_symb, SecurityMaster.instrument_name).filter(
+        or_(
+            func.upper(SecurityMaster.ticker_symb).like(f"{q_upper}%"),
+            func.upper(SecurityMaster.instrument_name).like(f"%{q_upper}%")
+        )
+    ).limit(10)
+
+    results = db.execute(query).all()
+
+    data = []
+    seen = set()
+    for row in results:
+        if row.ticker_symb not in seen:
+            data.append({
+                "symbol": row.ticker_symb,
+                "name": row.instrument_name or ""
+            })
+            seen.add(row.ticker_symb)
+
+    # If no results found in SecurityMaster, try distinct from BhavcopyEQ as fallback
+    if not data:
+        from backend.ingest.nse_models import BhavcopyEQ
+        bc_query = select(BhavcopyEQ.symbol).filter(
+            func.upper(BhavcopyEQ.symbol).like(f"{q_upper}%")
+        ).distinct().limit(5)
+
+        bc_results = db.execute(bc_query).scalars().all()
+        for sym in bc_results:
+            if sym not in seen:
+                data.append({
+                    "symbol": sym,
+                    "name": "Historical Symbol"
+                })
+                seen.add(sym)
+
+    return data
+
 @router.get("/api/data/view/search")
 async def search_data(
     symbol: str = Query(..., min_length=2),

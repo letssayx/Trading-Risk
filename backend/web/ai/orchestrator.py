@@ -65,10 +65,20 @@ class TerminalOrchestrator:
                 continue
 
         if not text:
-            return {
-                "task": command,
-                "reasoning": f"Failed to generate task via Gemini (Error: {error_msg}). Proceeding with raw command."
-            }
+            # Fallback to DeepSeek R1 via OpenRouter
+            try:
+                fallback_response = await self.openrouter_client.chat.completions.create(
+                    model="deepseek/deepseek-r1",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3
+                )
+                if fallback_response and fallback_response.choices and fallback_response.choices[0].message.content:
+                    text = fallback_response.choices[0].message.content.strip()
+            except Exception as e:
+                return {
+                    "task": command,
+                    "reasoning": f"Failed to generate task via Gemini ({error_msg}) AND DeepSeek fallback ({str(e)}). Proceeding with raw command."
+                }
 
         reasoning = ""
         reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', text, re.DOTALL | re.IGNORECASE)
@@ -119,6 +129,19 @@ class TerminalOrchestrator:
                     break
             except Exception:
                 continue
+
+        if not engine_type:
+            # Fallback to DeepSeek R1
+            try:
+                fallback_response = await self.openrouter_client.chat.completions.create(
+                    model="deepseek/deepseek-r1",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0
+                )
+                if fallback_response and fallback_response.choices and fallback_response.choices[0].message.content:
+                    engine_type = fallback_response.choices[0].message.content.strip()
+            except Exception:
+                pass
 
         if not engine_type:
             engine_type = "Derivatives"
@@ -549,9 +572,18 @@ class TerminalOrchestrator:
                 continue
 
         if not text:
-            # If API fails, fall back to the original execution card but preserve list format
-            exec_card['reasoning'] = f"Gemini rewrite failed ({error_msg}). Proceeding with original strategist output."
-            return exec_card
+            # Fallback to DeepSeek R1
+            try:
+                fallback_response = await self.openrouter_client.chat.completions.create(
+                    model="deepseek/deepseek-r1",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3
+                )
+                if fallback_response and fallback_response.choices and fallback_response.choices[0].message.content:
+                    text = fallback_response.choices[0].message.content.strip()
+            except Exception as e:
+                exec_card['reasoning'] = f"Gemini rewrite failed ({error_msg}) AND DeepSeek fallback failed ({str(e)}). Proceeding with original strategist output."
+                return exec_card
 
         gemini_reasoning = ""
         reasoning_match = re.search(r'<reasoning>(.*?)</reasoning>', text, re.DOTALL | re.IGNORECASE)
