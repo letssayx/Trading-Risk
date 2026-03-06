@@ -50,7 +50,8 @@ async def get_import_status(task_id: str):
     """
     try:
         # Query Celery task status
-        task = import_nse_date.AsyncResult(task_id)
+        from celery.result import AsyncResult
+        task = AsyncResult(task_id)
 
         response = {
             "task_id": task_id,
@@ -76,13 +77,27 @@ async def get_import_status(task_id: str):
         elif task.state == 'SUCCESS':
             # task.result is the return value of the function
             result = task.result
+            files_completed = []
+            files_failed = []
+
+            # Handle both single date (dict) and range import (list of dicts) results
+            if isinstance(result, dict) and 'details' in result:
+                files_completed = [k for k, v in result.get('details', {}).items() if v.get('status') == 'SUCCESS']
+                files_failed = [k for k, v in result.get('details', {}).items() if v.get('status') != 'SUCCESS']
+            elif isinstance(result, list):
+                # Range import result is a list of results
+                for day_res in result:
+                    if isinstance(day_res, dict) and 'details' in day_res:
+                        files_completed.extend([k for k, v in day_res.get('details', {}).items() if v.get('status') == 'SUCCESS'])
+                        files_failed.extend([k for k, v in day_res.get('details', {}).items() if v.get('status') != 'SUCCESS'])
+
             response.update({
                 "progress": 100,
                 "status": "SUCCESS",
                 "current_file": "Done",
                 # The result structure matches NSEImportResponse mostly
-                "files_completed": [k for k, v in result.get('details', {}).items() if v.get('status') == 'SUCCESS'],
-                "files_failed": [k for k, v in result.get('details', {}).items() if v.get('status') != 'SUCCESS']
+                "files_completed": list(set(files_completed)),
+                "files_failed": list(set(files_failed))
             })
         elif task.state == 'FAILURE':
             response.update({

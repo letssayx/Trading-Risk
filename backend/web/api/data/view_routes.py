@@ -286,7 +286,7 @@ async def list_data(
              filters.append(model.client_type.ilike(f"%{symbol}%"))
 
         # 6. Instrument Type (FII Stats)
-        if hasattr(model, 'instrument_type'):
+        if hasattr(model, 'instrument_type') and type != 'bhavcopy_fo':
             filters.append(model.instrument_type.ilike(f"%{symbol}%"))
 
         # 7. ISIN (Security Master)
