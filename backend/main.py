@@ -88,14 +88,18 @@ async def startup_event():
     except Exception as e:
         print(f"⚠️ TickVault Init Warning: {e}")
 
-    # Trigger TimescaleDB setup (async)
-    # Wrap in broad exception handler to prevent startup crash if Broker/DB is down
-    try:
-        setup_timescale_policies(db=SessionLocal())
-        print("✅ TimescaleDB setup triggered")
-    except Exception as e:
-        # Log error but don't stop startup
-        print(f"⚠️ TimescaleDB Setup Warning (Broker/DB may be offline): {e}")
+    # Helper to run Timescale setup in background without blocking startup
+    def run_timescale_setup():
+        try:
+            setup_timescale_policies(db=SessionLocal())
+            print("✅ TimescaleDB setup completed successfully in background")
+        except Exception as e:
+            print(f"⚠️ TimescaleDB Setup Warning (Broker/DB may be offline or locked): {e}")
+
+    # Trigger TimescaleDB setup in a background thread to prevent Uvicorn from hanging
+    # if Postgres gets stuck on long ALTER TABLE commands.
+    asyncio.create_task(asyncio.to_thread(run_timescale_setup))
+    print("✅ TimescaleDB setup triggered in background")
 
     print("✅ Database initialized")
 
