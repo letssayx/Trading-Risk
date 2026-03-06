@@ -196,30 +196,35 @@ async def delete_data_range(
         date_col = getattr(model, 'date', getattr(model, 'trade_date', None))
         table_name = model.__tablename__
 
-        if not date_col:
-            if type == 'security_master':
-                # Security master doesn't have date filtering. Delete all.
-                deleted_count = db.query(model).delete(synchronize_session=False)
-                logs_deleted = db.query(models.ImportLog).filter(
-                    models.ImportLog.table_name == 'nse_security'
-                ).delete(synchronize_session=False)
+        def execute_delete():
+            if not date_col:
+                if type == 'security_master':
+                    # Security master doesn't have date filtering. Delete all.
+                    deleted_count = db.query(model).delete(synchronize_session=False)
+                    logs_deleted = db.query(models.ImportLog).filter(
+                        models.ImportLog.table_name == 'nse_security'
+                    ).delete(synchronize_session=False)
+                else:
+                    raise HTTPException(status_code=400, detail=f"Model {type} does not have a recognizable date column")
             else:
-                raise HTTPException(status_code=400, detail=f"Model {type} does not have a recognizable date column")
-        else:
-            # 2. Delete data by date range
-            deleted_count = db.query(model).filter(
-                date_col >= s_date,
-                date_col <= e_date
-            ).delete(synchronize_session=False)
+                # 2. Delete data by date range
+                deleted_count = db.query(model).filter(
+                    date_col >= s_date,
+                    date_col <= e_date
+                ).delete(synchronize_session=False)
 
-            # 3. Delete from import_logs
-            logs_deleted = db.query(models.ImportLog).filter(
-                models.ImportLog.table_name == table_name,
-                models.ImportLog.import_date >= s_date,
-                models.ImportLog.import_date <= e_date
-            ).delete(synchronize_session=False)
+                # 3. Delete from import_logs
+                logs_deleted = db.query(models.ImportLog).filter(
+                    models.ImportLog.table_name == table_name,
+                    models.ImportLog.import_date >= s_date,
+                    models.ImportLog.import_date <= e_date
+                ).delete(synchronize_session=False)
 
-        db.commit()
+            db.commit()
+            return deleted_count, logs_deleted
+
+        from fastapi.concurrency import run_in_threadpool
+        deleted_count, logs_deleted = await run_in_threadpool(execute_delete)
 
         logger.info(f"Deleted {deleted_count} rows from {table_name} and {logs_deleted} logs between {s_date} and {e_date}")
         return {

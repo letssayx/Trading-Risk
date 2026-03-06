@@ -373,11 +373,14 @@ async def import_bhavcopy(
                  raise HTTPException(400, "Could not determine date from file or input.")
 
         if overwrite_existing:
-            db.query(Bhavcopy).filter(
-                Bhavcopy.trade_date == parsed_file_date,
-                Bhavcopy.segment.in_(segments_list)
-            ).delete(synchronize_session=False)
-            db.commit()
+            def delete_existing():
+                db.query(Bhavcopy).filter(
+                    Bhavcopy.trade_date == parsed_file_date,
+                    Bhavcopy.segment.in_(segments_list)
+                ).delete(synchronize_session=False)
+                db.commit()
+            from fastapi.concurrency import run_in_threadpool
+            await run_in_threadpool(delete_existing)
 
         objects = []
         errors = []
@@ -435,12 +438,14 @@ async def import_bhavcopy(
                 errors.append(f"Row error: {str(e)}")
 
         if objects:
-            try:
-                db.bulk_save_objects(objects)
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                raise HTTPException(500, f"DB Error: {str(e)}")
+            def save_objects():
+                try:
+                    db.bulk_save_objects(objects)
+                    db.commit()
+                except Exception as e:
+                    db.rollback()
+                    raise HTTPException(500, f"DB Error: {str(e)}")
+            await run_in_threadpool(save_objects)
 
         # History
         try:
