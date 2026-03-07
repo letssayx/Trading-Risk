@@ -127,3 +127,57 @@ async def analyze_rollover(symbol: str, db: Session = Depends(get_db)):
     # 3. Analyze
     result = RolloverAnalyzer.analyze(symbol, near_data, next_data)
     return result
+
+@router.get("/morning-report/list")
+async def list_reports():
+    """Lists all previously generated PDF reports."""
+    import os
+    reports_dir = os.path.join(os.path.dirname(__file__), '../../../reports')
+    if not os.path.exists(reports_dir):
+        return {"reports": []}
+
+    reports = []
+    for f in os.listdir(reports_dir):
+        if f.endswith('.pdf') and f.startswith('Morning_Report_'):
+            date_str = f.replace('Morning_Report_', '').replace('.pdf', '')
+            reports.append({
+                "filename": f,
+                "date": date_str,
+                "url": f"/api/morning-report/download/{date_str}"
+            })
+
+    # Sort newest first
+    reports.sort(key=lambda x: x["date"], reverse=True)
+    return {"reports": reports}
+
+class PrepareRequest(BaseModel):
+    target_date: str
+
+@router.post("/morning-report/prepare")
+async def trigger_prepare_data(request: PrepareRequest):
+    """Triggers the Celery task strictly to compute and save the DailyDerivativesAnalysis data."""
+    from backend.ingest.tasks import prepare_morning_data_task
+    task = prepare_morning_data_task.delay(request.target_date)
+    return {"task_id": task.id, "status": "processing"}
+
+@router.get("/morning-report/list")
+async def list_reports():
+    """Lists all previously generated PDF reports."""
+    import os
+    reports_dir = os.path.join(os.path.dirname(__file__), '../../../reports')
+    if not os.path.exists(reports_dir):
+        return {"reports": []}
+
+    reports = []
+    for f in os.listdir(reports_dir):
+        if f.endswith('.pdf') and f.startswith('Morning_Report_'):
+            date_str = f.replace('Morning_Report_', '').replace('.pdf', '')
+            reports.append({
+                "filename": f,
+                "date": date_str,
+                "url": f"/api/morning-report/download/{date_str}"
+            })
+
+    # Sort newest first
+    reports.sort(key=lambda x: x["date"], reverse=True)
+    return {"reports": reports}

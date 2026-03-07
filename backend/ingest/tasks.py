@@ -212,3 +212,110 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
     except Exception as exc:
         logger.error(f"Latest import failed: {exc}")
         self.retry(exc=exc, countdown=300)
+
+@shared_task(bind=True, name="prepare_morning_data_task")
+def prepare_morning_data_task(self, target_date_str: str):
+    """
+    Celery task to STRICTLY compute the DailyDerivativesAnalysis table.
+    """
+    from datetime import datetime
+    from backend.ingest.morning_report import MorningReportCalculator
+
+    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+
+    calc = MorningReportCalculator(target_date)
+    calc_result = calc.run_all()
+
+    if calc_result["status"] == "error":
+        return {"status": "FAILED", "error": calc_result["message"]}
+
+    return {"status": "SUCCESS", "message": "Data computed"}
+
+@shared_task(bind=True, name="generate_morning_report_task")
+def generate_morning_report_task(self, target_date_str: str, author: str, logo_path: str = None):
+    """
+    Celery task to generate the PDF report from pre-computed data.
+    """
+    from datetime import datetime
+    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+
+    # 1. Generate Matplotlib Charts
+    import pandas as pd
+    from backend.infrastructure.db import SessionLocal
+    from sqlalchemy import text
+    from backend.ingest.charts import MorningReportChartGenerator
+    from backend.ingest.ai_report_generator import AIMorningReportOrchestrator
+
+    db = SessionLocal()
+    chart_gen = MorningReportChartGenerator()
+
+    fii_query = text("""
+        SELECT trade_date as date, close_price as nifty_close, fii_net_long_ratio as fii_ratio
+        FROM daily_derivatives_analysis
+        WHERE ticker_symb = 'NIFTY' AND trade_date <= :dt
+        ORDER BY trade_date DESC LIMIT 30
+    """)
+    fii_df = pd.read_sql(fii_query, db.bind, params={"dt": target_date}).sort_values('date')
+    fii_chart_base64 = chart_gen.generate_fii_vs_index(fii_df)
+
+    # Data Table
+    table_query = text("""
+        SELECT ticker_symb, close_price, volume, open_interest, pcr_vol, basis_points
+        FROM daily_derivatives_analysis
+        WHERE trade_date = :dt
+        ORDER BY open_interest DESC LIMIT 20
+    """)
+    table_data = [dict(row._mapping) for row in db.execute(table_query, {"dt": target_date}).fetchall()]
+
+    db.close()
+
+    # 2. AI Inference (Run Async in Sync Wrapper)
+    import asyncio
+    import nest_asyncio
+
+    # Must run the async calls in the same context so the httpx Client isn't reused across closed loops
+    async def run_ai_orchestrator():
+        orchestrator = AIMorningReportOrchestrator(target_date)
+        try:
+            mo = await orchestrator.generate_macro_overview()
+            ts = await orchestrator.generate_stock_inferences()
+            return mo, ts
+        finally:
+            orchestrator.close()
+
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        nest_asyncio.apply()
+
+    macro_overview, top_stocks = asyncio.run(run_ai_orchestrator())
+
+    # 3. Compile the PDF
+    import os
+    from jinja2 import Environment, FileSystemLoader
+    from weasyprint import HTML
+
+    reports_dir = os.path.join(os.path.dirname(__file__), '../../reports')
+    os.makedirs(reports_dir, exist_ok=True)
+    pdf_filename = f"Morning_Report_{target_date_str}.pdf"
+    pdf_filepath = os.path.join(reports_dir, pdf_filename)
+
+    template_vars = {
+        "report_date": target_date_str,
+        "author": author,
+        "fii_chart": fii_chart_base64,
+        "macro_overview": macro_overview,
+        "top_stocks": top_stocks,
+        "data_table": table_data
+    }
+
+    env = Environment(loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), '../web/templates')))
+    template = env.get_template('morning_report.html')
+    html_out = template.render(**template_vars)
+
+    HTML(string=html_out).write_pdf(pdf_filepath)
+
+    return {
+        "status": "SUCCESS",
+        "message": f"Report generated successfully: {pdf_filename}",
+        "filepath": pdf_filepath
+    }

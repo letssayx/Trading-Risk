@@ -234,7 +234,7 @@
         <div class="main-tab" data-target="basis" onclick="switchMainTab('basis')" title="Basis">Basis</div>
         <div class="main-tab" data-target="oi_analysis" onclick="switchMainTab('oi_analysis')" title="OI Analysis">OI Analysis</div>
         <div class="main-tab" data-target="rollover" onclick="switchMainTab('rollover')" title="Rollover Analysis">Rollover Analysis</div>
-        <div class="main-tab" data-target="morning_report" onclick="switchMainTab('morning_report')" title="Morning Report">Morning Report</div>
+        <div class="main-tab" data-target="morning_report" onclick="switchMainTab('morning_report')" title="Reports">Reports</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
@@ -393,57 +393,166 @@
             </div>
         </div>
 
-        <!-- TAB MORNING REPORT -->
-        <div id="tab-morning_report" class="main-tab-content" style="display: flex; flex-direction: column; height: 100%;">
-            <!-- Top Controls Area -->
-            <div style="background: #252526; border-bottom: 1px solid #333; padding: 15px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                <div>
-                    <h2 style="margin: 0; font-size: 16px; color: #fff;">Daily Derivatives Analysis</h2>
-                    <p style="margin: 2px 0 0 0; font-size: 12px; color: #888;">Synthesize metrics into PDF or view raw data.</p>
+        <!-- TAB REPORTS -->
+        <div id="tab-morning_report" class="main-tab-content">
+            <div style="display: flex; height: 100%;">
+
+                <!-- Left Panel: Controls & Archive -->
+                <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column;">
+
+                    <div style="padding: 20px; border-bottom: 1px solid #333;">
+                        <h2 style="margin: 0 0 5px 0; font-size: 16px; color: #fff;">Derivatives Analysis</h2>
+                        <p style="margin: 0 0 20px 0; font-size: 12px; color: #888;">Synthesize daily PDF reports.</p>
+
+                        <div class="control-group" style="margin-bottom: 15px; flex-direction: column; align-items: flex-start;">
+                            <label for="mr-target-date" style="color:#ccc; margin-bottom: 5px;">Trading Date</label>
+                            <input type="date" id="mr-target-date" class="history-input" style="width: 100%; box-sizing: border-box;">
+                        </div>
+
+                        <div class="control-group" style="margin-bottom: 20px; flex-direction: column; align-items: flex-start;">
+                            <label for="mr-author-name" style="color:#ccc; margin-bottom: 5px;">Analyst / Author</label>
+                            <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System" style="width: 100%; box-sizing: border-box;">
+                        </div>
+
+                        <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
+                        <button id="mr-view-data-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; display: none;">View Data Grid</button>
+                        <button id="mr-generate-btn" class="btn btn-primary" style="width: 100%; padding: 8px; background: #007acc; border-color: #007acc; opacity: 0.5;" disabled>2. Generate PDF Report</button>
+
+                        <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
+                        <button id="mr-download-btn" class="btn" style="width: 100%; padding: 8px; background-color: #28a745; display: none; margin-top: 10px; color: white; border: none;">Open PDF</button>
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; overflow-y: auto;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc; border-bottom: 1px solid #444; padding-bottom: 5px;">Report Archive</h3>
+                        <ul id="mr-archive-list" style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
+                            <li style="color: #666; font-style: italic;">Loading archive...</li>
+                        </ul>
+                    </div>
+
                 </div>
 
-                <div style="border-left: 1px solid #444; height: 30px; margin: 0 10px;"></div>
-
-                <div class="control-group">
-                    <label for="mr-target-date" style="color:#ccc;">Trading Date</label>
-                    <input type="date" id="mr-target-date" class="history-input">
+                <!-- Right Panel: Data View Area -->
+                <div class="table-wrapper" style="flex: 1; border-radius: 0; margin: 0; background: #1e1e1e;">
+                    <table class="data-table" id="mr-data-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Close Price</th>
+                                <th>Volume</th>
+                                <th>Open Interest</th>
+                                <th>PCR (Vol)</th>
+                                <th>Basis (bps)</th>
+                                <th>MWPL %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mr-data-body">
+                            <tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">Select a date and click 'View Structured Data' to load underlying metrics.</td></tr>
+                        </tbody>
+                    </table>
                 </div>
 
-                <div class="control-group">
-                    <label for="mr-author-name" style="color:#ccc;">Analyst / Author</label>
-                    <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System">
-                </div>
-
-                <button id="mr-view-data-btn" class="btn btn-secondary" style="padding: 6px 12px;">View Data</button>
-                <button id="mr-generate-btn" class="btn btn-primary" style="padding: 6px 12px; background: #007acc; border-color: #007acc;">Generate PDF Report</button>
-                <button id="mr-download-btn" class="btn" style="padding: 6px 12px; background-color: #28a745; display: none; margin-left: auto;">Download PDF</button>
-
-                <div id="mr-status-text" style="color: #aaa; margin-left: 15px; font-size: 12px; font-style: italic;"></div>
             </div>
-
-            <!-- Data View Area -->
-            <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 0; margin: 0;">
-                <table class="data-table" id="mr-data-table">
-                    <thead>
-                        <tr>
-                            <th>Symbol</th>
-                            <th>Close Price</th>
-                            <th>Volume</th>
-                            <th>Open Interest</th>
-                            <th>PCR (Vol)</th>
-                            <th>Basis (bps)</th>
-                            <th>MWPL %</th>
-                        </tr>
-                    </thead>
-                    <tbody id="mr-data-body">
-                        <tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">Select a date and click 'View Data' to load underlying metrics, or 'Generate PDF Report' to run the calculation pipeline.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
             <script>
                 document.getElementById('mr-target-date').valueAsDate = new Date();
                 let mrPollingInterval;
+
+                // Load Archive
+                async function loadMrArchive() {
+                    const list = document.getElementById('mr-archive-list');
+                    try {
+                        const res = await fetch('/api/morning-report/list');
+                        const data = await res.json();
+                        if (data.reports.length === 0) {
+                            list.innerHTML = '<li style="color: #666; font-style: italic;">No reports found.</li>';
+                            return;
+                        }
+                        list.innerHTML = '';
+                        data.reports.forEach(r => {
+                            const li = document.createElement('li');
+                            li.style.marginBottom = '8px';
+                            li.innerHTML = `<a href="${r.url}" target="_blank" style="color: #4da6ff; text-decoration: none;">📄 ${r.date}</a>`;
+                            list.appendChild(li);
+                        });
+                    } catch (e) {
+                        list.innerHTML = '<li style="color: red;">Failed to load.</li>';
+                    }
+                }
+
+                // Initialize archive list
+                loadMrArchive();
+
+                // Prepare Data Button Handler
+                document.getElementById('mr-prepare-btn').addEventListener('click', async () => {
+                    const targetDate = document.getElementById('mr-target-date').value;
+                    const statusText = document.getElementById('mr-status-text');
+                    const prepBtn = document.getElementById('mr-prepare-btn');
+                    const genBtn = document.getElementById('mr-generate-btn');
+                    const viewBtn = document.getElementById('mr-view-data-btn');
+                    const tbody = document.getElementById('mr-data-body');
+
+                    if(!targetDate) { alert('Please select a date.'); return; }
+
+                    prepBtn.disabled = true;
+                    prepBtn.style.opacity = '0.5';
+                    statusText.innerText = 'Triggering data preparation task...';
+                    statusText.style.color = '#aaa';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 20px;">Calculating composite metrics...</td></tr>';
+
+                    try {
+                        const res = await fetch('/api/morning-report/prepare', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ target_date: targetDate })
+                        });
+                        const data = await res.json();
+
+                        if(data.task_id) {
+                            statusText.innerText = 'Processing metrics...';
+                            mrPollingInterval = setInterval(() => checkPrepStatus(data.task_id, targetDate), 3000);
+                        } else {
+                            throw new Error('No task ID returned.');
+                        }
+                    } catch (e) {
+                        statusText.innerText = `Error: ${e.message}`;
+                        statusText.style.color = 'red';
+                        prepBtn.disabled = false;
+                        prepBtn.style.opacity = '1';
+                    }
+                });
+
+                async function checkPrepStatus(taskId, targetDate) {
+                    try {
+                        const res = await fetch(`/api/morning-report/status/${taskId}`);
+                        const data = await res.json();
+                        const statusText = document.getElementById('mr-status-text');
+                        const genBtn = document.getElementById('mr-generate-btn');
+                        const prepBtn = document.getElementById('mr-prepare-btn');
+                        const viewBtn = document.getElementById('mr-view-data-btn');
+
+                        if(data.status === 'SUCCESS') {
+                            clearInterval(mrPollingInterval);
+                            statusText.innerText = 'Data Prepared Successfully.';
+                            statusText.style.color = '#28a745';
+
+                            prepBtn.disabled = false;
+                            prepBtn.style.opacity = '1';
+                            genBtn.disabled = false;
+                            genBtn.style.opacity = '1';
+                            viewBtn.style.display = 'block';
+
+                            // Auto-load data
+                            document.getElementById('mr-view-data-btn').click();
+                        } else if(data.status === 'FAILED' || data.status === 'FAILURE') {
+                            clearInterval(mrPollingInterval);
+                            statusText.innerText = `Preparation Failed: ${data.error || 'Unknown Error'}`;
+                            statusText.style.color = 'red';
+                            prepBtn.disabled = false;
+                            prepBtn.style.opacity = '1';
+                        }
+                    } catch (e) {
+                        console.error('Error polling prep status', e);
+                    }
+                }
 
                 // View Data Button Handler
                 document.getElementById('mr-view-data-btn').addEventListener('click', async () => {
@@ -453,9 +562,6 @@
 
                     if(!targetDate) return;
 
-                    statusText.innerText = 'Fetching structured data...';
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 20px;">Loading data...</td></tr>';
-
                     try {
                         const res = await fetch(`/api/morning-report/data/${targetDate}`);
                         if (!res.ok) throw new Error('Data fetch failed');
@@ -464,7 +570,6 @@
                         tbody.innerHTML = '';
                         if(data.length === 0) {
                             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 20px;">No data found. Ensure the report has been generated for this date first.</td></tr>';
-                            statusText.innerText = 'Ready';
                             return;
                         }
 
@@ -482,6 +587,11 @@
                             tbody.appendChild(tr);
                         });
                         statusText.innerText = `Loaded ${data.length} records.`;
+
+                        // Enable generate button if data exists
+                        const genBtn = document.getElementById('mr-generate-btn');
+                        genBtn.disabled = false;
+                        genBtn.style.opacity = '1';
                     } catch(e) {
                         statusText.innerText = 'Failed to load data.';
                         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
@@ -501,7 +611,7 @@
                     generateBtn.disabled = true;
                     generateBtn.style.opacity = '0.5';
                     downloadBtn.style.display = 'none';
-                    statusText.innerText = 'Triggering task...';
+                    statusText.innerText = 'Triggering PDF generation task...';
                     statusText.style.color = '#aaa';
 
                     try {
@@ -513,8 +623,8 @@
                         const data = await res.json();
 
                         if(data.task_id) {
-                            statusText.innerText = 'Processing (Calculating Metrics & Synthesizing)...';
-                            mrPollingInterval = setInterval(() => checkMrStatus(data.task_id, targetDate), 3000);
+                            statusText.innerText = 'Generating PDF & AI Insights...';
+                            mrPollingInterval = setInterval(() => checkGenStatus(data.task_id, targetDate), 3000);
                         } else {
                             throw new Error('No task ID returned.');
                         }
@@ -526,7 +636,7 @@
                     }
                 });
 
-                async function checkMrStatus(taskId, targetDate) {
+                async function checkGenStatus(taskId, targetDate) {
                     try {
                         const res = await fetch(`/api/morning-report/status/${taskId}`);
                         const data = await res.json();
@@ -538,7 +648,7 @@
                             statusText.style.color = '#28a745';
 
                             const downloadBtn = document.getElementById('mr-download-btn');
-                            downloadBtn.style.display = 'inline-block';
+                            downloadBtn.style.display = 'block';
                             downloadBtn.onclick = () => {
                                 window.open(`/api/morning-report/download/${targetDate}`, '_blank');
                             };
@@ -546,10 +656,8 @@
                             document.getElementById('mr-generate-btn').disabled = false;
                             document.getElementById('mr-generate-btn').style.opacity = '1';
 
-                            // Optionally auto-refresh data table if empty
-                            if(document.getElementById('mr-data-body').children.length === 1 && document.getElementById('mr-data-body').innerText.includes('Select a date')) {
-                                document.getElementById('mr-view-data-btn').click();
-                            }
+                            // Refresh Archive
+                            loadMrArchive();
                         } else if(data.status === 'FAILED' || data.status === 'FAILURE') {
                             clearInterval(mrPollingInterval);
                             statusText.innerText = `Generation Failed: ${data.error || 'Unknown Error'}`;
@@ -558,7 +666,7 @@
                             document.getElementById('mr-generate-btn').style.opacity = '1';
                         }
                     } catch (e) {
-                        console.error('Error polling MR status', e);
+                        console.error('Error polling Gen status', e);
                     }
                 }
             </script>
