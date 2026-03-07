@@ -49,7 +49,9 @@ class JulesAssistant:
                 # Use the new SDK's list models method
                 models = self.client.models.list()
                 for m in models:
-                    if 'generateContent' in m.supported_generation_methods:
+                    # In newer google-genai versions, this attribute is 'supported_methods' or a method check
+                    methods = getattr(m, 'supported_generation_methods', getattr(m, 'supported_methods', []))
+                    if any('generatecontent' in str(method).lower() for method in methods):
                         available_models.append(m.name)
 
                 # Cache the results
