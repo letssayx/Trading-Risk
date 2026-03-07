@@ -24,3 +24,6 @@ plotly
 python-multipart
 xlrd
 openpyxl
+weasyprint
+matplotlib
+httpx

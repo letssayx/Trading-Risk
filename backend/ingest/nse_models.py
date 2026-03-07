@@ -389,6 +389,44 @@ class CorporateAction(Base, TimescaleMixin):
     )
 
 
+class DailyDerivativesAnalysis(Base, TimescaleMixin):
+    """Composite Daily Derivatives Analysis"""
+    __tablename__ = "daily_derivatives_analysis"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+
+    # Price & Vol
+    underlying_close = Column(Float)
+    futures_close = Column(Float)
+    basis = Column(Float) # Future - Spot
+    basis_pct = Column(Float) # Basis / Spot %
+    annualized_vol = Column(Float) # 30-day annualized from FOVolatility
+
+    # Open Interest & Volume
+    futures_oi = Column(BigInteger)
+    futures_volume = Column(BigInteger)
+    rollover_pct = Column(Float) # Rollover % (Next+Far / Total)
+
+    # Options & Volatility Surface
+    pcr_oi = Column(Float)
+    pcr_volume = Column(Float)
+    atm_iv = Column(Float)
+    put_25d_iv = Column(Float)
+    call_25d_iv = Column(Float)
+    skew_25d = Column(Float) # Put 25d IV - Call 25d IV
+
+    # Limits
+    mwpl_utilization_pct = Column(Float) # Total MWPL used (sum of client positions)
+    top_3_clients_mwpl_pct = Column(Float) # Concentration risk
+
+    __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
+        UniqueConstraint('trade_date', 'symbol', name='uq_daily_deriv_analysis_unique'),
+    )
+
+
 class ImportLog(Base):
     """Import Audit Log"""
     __tablename__ = "import_logs"

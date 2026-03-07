@@ -575,14 +575,22 @@
 
                         data.forEach(row => {
                             const tr = document.createElement('tr');
+
+                            const futures_volume = row.futures_volume !== null && row.futures_volume !== undefined ? row.futures_volume.toLocaleString() : 'N/A';
+                            const futures_oi = row.futures_oi !== null && row.futures_oi !== undefined ? row.futures_oi.toLocaleString() : 'N/A';
+                            const underlying_close = row.underlying_close !== null && row.underlying_close !== undefined ? row.underlying_close.toFixed(2) : 'N/A';
+                            const pcr_volume = row.pcr_volume !== null && row.pcr_volume !== undefined ? row.pcr_volume.toFixed(2) : 'N/A';
+                            const basis = row.basis !== null && row.basis !== undefined ? row.basis.toFixed(2) : 'N/A';
+                            const mwpl = row.mwpl_utilization_pct !== null && row.mwpl_utilization_pct !== undefined ? row.mwpl_utilization_pct.toFixed(2) : '0.00';
+
                             tr.innerHTML = `
                                 <td>${row.symbol}</td>
-                                <td>${row.close_price}</td>
-                                <td>${row.volume.toLocaleString()}</td>
-                                <td>${row.open_interest.toLocaleString()}</td>
-                                <td>${row.pcr_vol}</td>
-                                <td>${row.basis_points}</td>
-                                <td style="color: ${row.mwpl > 90 ? '#ff4d4d' : 'inherit'};">${row.mwpl}%</td>
+                                <td>${underlying_close}</td>
+                                <td>${futures_volume}</td>
+                                <td>${futures_oi}</td>
+                                <td>${pcr_volume}</td>
+                                <td>${basis}</td>
+                                <td style="color: ${parseFloat(mwpl) > 90 ? '#ff4d4d' : 'inherit'};">${mwpl}%</td>
                             `;
                             tbody.appendChild(tr);
                         });

@@ -123,3 +123,53 @@ def calculate_option_greeks(
         "theta": float(theta),
         "rho": float(rho)
     }
+
+def bs_price(S: float, K: float, T: float, r: float, sigma: float, option_type: str = "call") -> float:
+    """Calculates Black-Scholes price for a European option."""
+    if T <= 0 or sigma <= 0:
+        return max(0, S - K) if option_type.lower() == "call" else max(0, K - S)
+
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+
+    is_call = option_type.lower() == "call"
+
+    if is_call:
+        return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+    else:
+        return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+
+def calculate_implied_volatility(
+    target_price: float, S: float, K: float, T: float, r: float, option_type: str = "call"
+) -> float:
+    """
+    Calculates Implied Volatility using Newton-Raphson method.
+    Returns 0.0 if it fails to converge.
+    """
+    MAX_ITER = 100
+    TOLERANCE = 1e-5
+
+    # Starting guess (approximate ATM vol)
+    sigma = 0.3
+
+    for i in range(MAX_ITER):
+        price = bs_price(S, K, T, r, sigma, option_type)
+        diff = target_price - price
+
+        if abs(diff) < TOLERANCE:
+            return sigma
+
+        vega_dict = calculate_option_greeks(S, K, T, r, sigma, option_type)
+        vega = vega_dict.get("vega", 0.0) * 100.0  # Adjust back from 1% reporting
+
+        if vega == 0:
+            break
+
+        sigma = sigma + diff / vega
+
+        if sigma <= 0.001:  # Prevent negative or zero vol
+            sigma = 0.001
+
+    # Fallback to Brent's method / bisection if Newton-Raphson fails?
+    # For now, just return what we have or 0
+    return sigma if abs(target_price - bs_price(S, K, T, r, sigma, option_type)) < 1.0 else 0.0

@@ -214,108 +214,68 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         self.retry(exc=exc, countdown=300)
 
 @shared_task(bind=True, name="prepare_morning_data_task")
-def prepare_morning_data_task(self, target_date_str: str):
+def prepare_morning_data_task(self, target_date_str: str, batch_mode: bool = False):
     """
     Celery task to STRICTLY compute the DailyDerivativesAnalysis table.
+    If batch_mode is True, computes for the last 3 years up to target_date.
     """
-    from datetime import datetime
-    from backend.ingest.morning_report import MorningReportCalculator
-
-    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
-
-    calc = MorningReportCalculator(target_date)
-    calc_result = calc.run_all()
-
-    if calc_result["status"] == "error":
-        return {"status": "FAILED", "error": calc_result["message"]}
-
-    return {"status": "SUCCESS", "message": "Data computed"}
-
-@shared_task(bind=True, name="generate_morning_report_task")
-def generate_morning_report_task(self, target_date_str: str, author: str, logo_path: str = None):
-    """
-    Celery task to generate the PDF report from pre-computed data.
-    """
-    from datetime import datetime
-    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
-
-    # 1. Generate Matplotlib Charts
-    import pandas as pd
+    from datetime import datetime, timedelta
     from backend.infrastructure.db import SessionLocal
-    from sqlalchemy import text
-    from backend.ingest.charts import MorningReportChartGenerator
-    from backend.ingest.ai_report_generator import AIMorningReportOrchestrator
+    from backend.analysis.toolbox.reports.morning_report import MorningReportCalculator
 
-    db = SessionLocal()
-    chart_gen = MorningReportChartGenerator()
+    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
-    fii_query = text("""
-        SELECT trade_date as date, close_price as nifty_close, fii_net_long_ratio as fii_ratio
-        FROM daily_derivatives_analysis
-        WHERE ticker_symb = 'NIFTY' AND trade_date <= :dt
-        ORDER BY trade_date DESC LIMIT 30
-    """)
-    fii_df = pd.read_sql(fii_query, db.bind, params={"dt": target_date}).sort_values('date')
-    fii_chart_base64 = chart_gen.generate_fii_vs_index(fii_df)
+    results = []
+    with SessionLocal() as db:
+        calc = MorningReportCalculator(db)
 
-    # Data Table
-    table_query = text("""
-        SELECT ticker_symb, close_price, volume, open_interest, pcr_vol, basis_points
-        FROM daily_derivatives_analysis
-        WHERE trade_date = :dt
-        ORDER BY open_interest DESC LIMIT 20
-    """)
-    table_data = [dict(row._mapping) for row in db.execute(table_query, {"dt": target_date}).fetchall()]
+        if batch_mode:
+            start_date = target_date - timedelta(days=3*365)
+            # Find trading dates in range (simplified, typically query distinct dates from BhavcopyFO)
+            from backend.domain.market.models import Bhavcopy
+            trading_dates = [d[0] for d in db.query(Bhavcopy.trade_date).filter(
+                Bhavcopy.trade_date >= start_date,
+                Bhavcopy.trade_date <= target_date
+            ).distinct().order_by(Bhavcopy.trade_date.asc()).all()]
 
-    db.close()
-
-    # 2. AI Inference (Run Async in Sync Wrapper)
-    import asyncio
-    import nest_asyncio
-
-    # Must run the async calls in the same context so the httpx Client isn't reused across closed loops
-    async def run_ai_orchestrator():
-        orchestrator = AIMorningReportOrchestrator(target_date)
-        try:
-            mo = await orchestrator.generate_macro_overview()
-            ts = await orchestrator.generate_stock_inferences()
-            return mo, ts
-        finally:
-            orchestrator.close()
-
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        nest_asyncio.apply()
-
-    macro_overview, top_stocks = asyncio.run(run_ai_orchestrator())
-
-    # 3. Compile the PDF
-    import os
-    from jinja2 import Environment, FileSystemLoader
-    from weasyprint import HTML
-
-    reports_dir = os.path.join(os.path.dirname(__file__), '../../reports')
-    os.makedirs(reports_dir, exist_ok=True)
-    pdf_filename = f"Morning_Report_{target_date_str}.pdf"
-    pdf_filepath = os.path.join(reports_dir, pdf_filename)
-
-    template_vars = {
-        "report_date": target_date_str,
-        "author": author,
-        "fii_chart": fii_chart_base64,
-        "macro_overview": macro_overview,
-        "top_stocks": top_stocks,
-        "data_table": table_data
-    }
-
-    env = Environment(loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), '../web/templates')))
-    template = env.get_template('morning_report.html')
-    html_out = template.render(**template_vars)
-
-    HTML(string=html_out).write_pdf(pdf_filepath)
+            for d in trading_dates:
+                res = calc.calculate_for_date(d)
+                results.append({"date": str(d), "result": res})
+        else:
+            calc_result = calc.calculate_for_date(target_date)
+            results.append({"date": str(target_date), "result": calc_result})
 
     return {
         "status": "SUCCESS",
-        "message": f"Report generated successfully: {pdf_filename}",
-        "filepath": pdf_filepath
+        "message": f"Data preparation completed for {'batch' if batch_mode else target_date_str}",
+        "metrics": results[-1] if not batch_mode else {"batch_processed": len(results)}
+    }
+
+@shared_task(bind=True, name="generate_morning_report_task")
+def generate_morning_report_task(self, target_date_str: str, author: str = "System", logo_path: str = None):
+    """
+    Celery task to STRICTLY generate the PDF report (after prepare_morning_data_task is done).
+    """
+    import asyncio
+    from datetime import datetime
+    from backend.infrastructure.db import SessionLocal
+    from backend.analysis.toolbox.reports.generator import MorningReportGenerator
+
+    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+
+    # Run async function in sync context since Celery workers are synchronous
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    with SessionLocal() as db:
+        generator = MorningReportGenerator(db, target_date)
+        pdf_path = loop.run_until_complete(generator.generate_report())
+
+    return {
+        "status": "SUCCESS",
+        "message": f"Report generated at {pdf_path}",
+        "url": f"/api/morning-report/download/{target_date_str}"
     }
