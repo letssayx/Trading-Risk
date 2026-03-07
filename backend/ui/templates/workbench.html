@@ -437,23 +437,40 @@
                 </div>
 
                 <!-- Right Panel: Data View Area -->
-                <div class="table-wrapper" style="flex: 1; border-radius: 0; margin: 0; background: #1e1e1e;">
-                    <table class="data-table" id="mr-data-table">
-                        <thead>
-                            <tr>
-                                <th style="text-align: left;">Symbol</th>
-                                <th>Close Price</th>
-                                <th>Volume</th>
-                                <th>Open Interest</th>
-                                <th>PCR (Vol)</th>
-                                <th>Basis (%)</th>
-                                <th>MWPL %</th>
-                            </tr>
-                        </thead>
-                        <tbody id="mr-data-body">
-                            <tr><td colspan="7" style="text-align: center; color: #666; padding: 20px;">Select a date and click 'Prepare Data' to load underlying metrics.</td></tr>
-                        </tbody>
-                    </table>
+                <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e;">
+                    <!-- Data Grid Controls -->
+                    <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
+                        <span style="color: #aaa; font-size: 13px;">Timeseries Metric:</span>
+                        <select id="mr-metric-select" class="history-select" style="width: 200px;">
+                            <option value="underlying_close">Close Price</option>
+                            <option value="futures_volume">Volume</option>
+                            <option value="futures_oi">Open Interest</option>
+                            <option value="pcr_volume">PCR (Vol)</option>
+                            <option value="basis_pct">Basis (%)</option>
+                            <option value="mwpl_utilization_pct">MWPL %</option>
+                            <option value="atm_iv">ATM IV</option>
+                            <option value="skew_25d">25d Skew</option>
+                            <option value="rollover_pct">Rollover %</option>
+                        </select>
+                        <span style="color: #aaa; font-size: 13px; margin-left: 10px;">Symbol:</span>
+                        <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;">
+                        <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
+                    </div>
+
+                    <div class="table-wrapper" style="flex: 1; border-radius: 0; margin: 0;">
+                        <table class="data-table" id="mr-data-table">
+                            <thead id="mr-data-head">
+                                <tr>
+                                    <th style="text-align: left;">Date</th>
+                                    <th>Symbol</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mr-data-body">
+                                <tr><td colspan="3" style="text-align: center; color: #666; padding: 20px;">Select a metric & symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
             </div>
@@ -561,49 +578,89 @@
                     }
                 }
 
-                // View Data Button Handler
-                document.getElementById('mr-view-data-btn').addEventListener('click', async () => {
+                // View Data Button Handler (Timeseries / Snapshot)
+                async function loadTimeseriesData(snapshotMode = true) {
                     const targetDate = document.getElementById('mr-target-date').value;
+                    const metric = document.getElementById('mr-metric-select').value;
+                    const symbol = document.getElementById('mr-symbol-input').value.toUpperCase();
                     const tbody = document.getElementById('mr-data-body');
+                    const thead = document.getElementById('mr-data-head');
                     const statusText = document.getElementById('mr-status-text');
 
-                    if(!targetDate) return;
+                    if(snapshotMode && !targetDate) return;
+                    if(!snapshotMode && !symbol) { alert('Please enter a symbol for Timeseries view.'); return; }
 
                     try {
-                        const res = await fetch(`/api/morning-report/data/${targetDate}`);
+                        let url = `/api/morning-report/data/${targetDate}`;
+                        if (!snapshotMode) {
+                            url = `/api/morning-report/timeseries?symbol=${symbol}&metric=${metric}`;
+                        }
+
+                        const res = await fetch(url);
                         if (!res.ok) throw new Error('Data fetch failed');
                         const data = await res.json();
 
                         tbody.innerHTML = '';
                         if(data.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 20px;">No data found. Ensure the report has been generated for this date first.</td></tr>';
+                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 7 : 3}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
                             return;
                         }
 
-                        data.forEach(row => {
-                            const tr = document.createElement('tr');
-
-                            const futures_volume = row.futures_volume !== null && row.futures_volume !== undefined ? row.futures_volume.toLocaleString() : 'N/A';
-                            const futures_oi = row.futures_oi !== null && row.futures_oi !== undefined ? row.futures_oi.toLocaleString() : 'N/A';
-                            const underlying_close = row.underlying_close !== null && row.underlying_close !== undefined ? row.underlying_close.toFixed(2) : 'N/A';
-                            const pcr_volume = row.pcr_volume !== null && row.pcr_volume !== undefined ? row.pcr_volume.toFixed(2) : 'N/A';
-                            const basis = row.basis !== null && row.basis !== undefined ? row.basis.toFixed(2) : 'N/A';
-                            const mwpl = row.mwpl_utilization_pct !== null && row.mwpl_utilization_pct !== undefined ? row.mwpl_utilization_pct.toFixed(2) : '0.00';
-
-                            tr.innerHTML = `
-                                <td style="text-align: left;"><strong>${row.symbol}</strong></td>
-                                <td>${underlying_close}</td>
-                                <td>${futures_volume}</td>
-                                <td>${futures_oi}</td>
-                                <td>${pcr_volume}</td>
-                                <td>${basis}</td>
-                                <td style="color: ${parseFloat(mwpl) > 90 ? '#ff4d4d' : 'inherit'};">${mwpl}%</td>
+                        if (snapshotMode) {
+                            thead.innerHTML = `
+                                <tr>
+                                    <th style="text-align: left;">Symbol</th>
+                                    <th>Close Price</th>
+                                    <th>Volume</th>
+                                    <th>Open Interest</th>
+                                    <th>PCR (Vol)</th>
+                                    <th>Basis (%)</th>
+                                    <th>MWPL %</th>
+                                </tr>
                             `;
-                            tbody.appendChild(tr);
-                        });
+                            data.forEach(row => {
+                                const tr = document.createElement('tr');
+                                const futures_volume = row.futures_volume !== null && row.futures_volume !== undefined ? row.futures_volume.toLocaleString() : 'N/A';
+                                const futures_oi = row.futures_oi !== null && row.futures_oi !== undefined ? row.futures_oi.toLocaleString() : 'N/A';
+                                const underlying_close = row.underlying_close !== null && row.underlying_close !== undefined ? row.underlying_close.toFixed(2) : 'N/A';
+                                const pcr_volume = row.pcr_volume !== null && row.pcr_volume !== undefined ? row.pcr_volume.toFixed(2) : 'N/A';
+                                const basis = row.basis !== null && row.basis !== undefined ? row.basis.toFixed(2) : 'N/A';
+                                const mwpl = row.mwpl_utilization_pct !== null && row.mwpl_utilization_pct !== undefined ? row.mwpl_utilization_pct.toFixed(2) : '0.00';
+
+                                tr.innerHTML = `
+                                    <td style="text-align: left;"><strong>${row.symbol}</strong></td>
+                                    <td>${underlying_close}</td>
+                                    <td>${futures_volume}</td>
+                                    <td>${futures_oi}</td>
+                                    <td>${pcr_volume}</td>
+                                    <td>${basis}</td>
+                                    <td style="color: ${parseFloat(mwpl) > 90 ? '#ff4d4d' : 'inherit'};">${mwpl}%</td>
+                                `;
+                                tbody.appendChild(tr);
+                            });
+                        } else {
+                            thead.innerHTML = `
+                                <tr>
+                                    <th style="text-align: left;">Date</th>
+                                    <th>Symbol</th>
+                                    <th>${metric.toUpperCase()}</th>
+                                </tr>
+                            `;
+                            data.forEach(row => {
+                                const tr = document.createElement('tr');
+                                const val = row.value !== null && row.value !== undefined ? Number(row.value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4}) : 'N/A';
+                                tr.innerHTML = `
+                                    <td style="text-align: left;">${row.trade_date}</td>
+                                    <td><strong>${row.symbol}</strong></td>
+                                    <td>${val}</td>
+                                `;
+                                tbody.appendChild(tr);
+                            });
+                        }
+
                         statusText.innerText = `Loaded ${data.length} records.`;
 
-                        // Enable generate button if data exists
+                        // Enable generate button if data exists (snapshot mode)
                         const genBtn = document.getElementById('mr-generate-btn');
                         genBtn.disabled = false;
                         genBtn.style.opacity = '1';
@@ -611,7 +668,10 @@
                         statusText.innerText = 'Failed to load data.';
                         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
                     }
-                });
+                }
+
+                document.getElementById('mr-view-data-btn').addEventListener('click', () => loadTimeseriesData(true));
+                document.getElementById('mr-fetch-ts-btn').addEventListener('click', () => loadTimeseriesData(false));
 
                 // Generate PDF Button Handler
                 document.getElementById('mr-generate-btn').addEventListener('click', async () => {

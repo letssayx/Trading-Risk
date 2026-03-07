@@ -194,7 +194,7 @@ async def list_reports():
 
 @router.get("/api/morning-report/status/{task_id}")
 async def check_task_status(task_id: str):
-    from backend.infrastructure.celery_app import celery_app
+    from backend.celery_worker import app as celery_app
     from celery.result import AsyncResult
     task_result = AsyncResult(task_id, app=celery_app)
 
@@ -222,5 +222,37 @@ async def get_report_data(target_date: str, db: Session = Depends(get_db)):
         d = dict(r.__dict__)
         d.pop('_sa_instance_state', None)
         result.append(d)
+
+    return result
+
+@router.get("/api/morning-report/timeseries")
+async def get_report_timeseries(symbol: str, metric: str, db: Session = Depends(get_db)):
+    from backend.ingest.nse_models import DailyDerivativesAnalysis
+
+    # Check if metric is valid column to prevent SQL injection or crashes
+    valid_columns = [c.name for c in DailyDerivativesAnalysis.__table__.columns]
+    if metric not in valid_columns:
+        raise HTTPException(status_code=400, detail="Invalid metric requested")
+
+    metric_col = getattr(DailyDerivativesAnalysis, metric)
+
+    records = db.query(
+        DailyDerivativesAnalysis.trade_date,
+        DailyDerivativesAnalysis.symbol,
+        metric_col.label('value')
+    ).filter(
+        DailyDerivativesAnalysis.symbol == symbol.upper()
+    ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(100).all()
+
+    if not records:
+        return []
+
+    result = []
+    for r in records:
+        result.append({
+            "trade_date": str(r.trade_date),
+            "symbol": r.symbol,
+            "value": r.value
+        })
 
     return result
