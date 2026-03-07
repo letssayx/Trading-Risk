@@ -404,19 +404,20 @@
                         <h2 style="margin: 0 0 5px 0; font-size: 16px; color: #fff;">Derivatives Analysis</h2>
                         <p style="margin: 0 0 20px 0; font-size: 12px; color: #888;">Synthesize daily PDF reports.</p>
 
-                        <div class="control-group" style="margin-bottom: 15px; flex-direction: column; align-items: flex-start;">
-                            <label for="mr-target-date" style="color:#ccc; margin-bottom: 5px;">Trading Date</label>
-                            <input type="date" id="mr-target-date" class="history-input" style="width: 100%; box-sizing: border-box;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
+                                <label for="mr-target-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">From Date</label>
+                                <input type="date" id="mr-target-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
+                            </div>
+                            <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
+                                <label for="mr-end-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">To Date (Optional)</label>
+                                <input type="date" id="mr-end-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
+                            </div>
                         </div>
 
                         <div class="control-group" style="margin-bottom: 20px; flex-direction: column; align-items: flex-start;">
-                            <label for="mr-author-name" style="color:#ccc; margin-bottom: 5px;">Analyst / Author</label>
+                            <label for="mr-author-name" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">Analyst / Author</label>
                             <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System" style="width: 100%; box-sizing: border-box;">
-                        </div>
-
-                        <div class="control-group" style="margin-bottom: 20px; align-items: center;">
-                            <input type="checkbox" id="mr-batch-mode" style="margin-right: 8px; accent-color: #007acc; cursor: pointer;">
-                            <label for="mr-batch-mode" style="color: #ccc; cursor: pointer; font-size: 13px;">Process Historical Batch (3 Years)</label>
                         </div>
 
                         <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
@@ -440,20 +441,8 @@
                 <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e;">
                     <!-- Data Grid Controls -->
                     <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
-                        <span style="color: #aaa; font-size: 13px;">Timeseries Metric:</span>
-                        <select id="mr-metric-select" class="history-select" style="width: 200px;">
-                            <option value="underlying_close">Close Price</option>
-                            <option value="futures_volume">Volume</option>
-                            <option value="futures_oi">Open Interest</option>
-                            <option value="pcr_volume">PCR (Vol)</option>
-                            <option value="basis_pct">Basis (%)</option>
-                            <option value="mwpl_utilization_pct">MWPL %</option>
-                            <option value="atm_iv">ATM IV</option>
-                            <option value="skew_25d">25d Skew</option>
-                            <option value="rollover_pct">Rollover %</option>
-                        </select>
-                        <span style="color: #aaa; font-size: 13px; margin-left: 10px;">Symbol:</span>
-                        <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;">
+                        <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
+                        <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY">
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
                     </div>
 
@@ -463,11 +452,19 @@
                                 <tr>
                                     <th style="text-align: left;">Date</th>
                                     <th>Symbol</th>
-                                    <th>Value</th>
+                                    <th>Close</th>
+                                    <th>Volume</th>
+                                    <th>OI</th>
+                                    <th>PCR (V)</th>
+                                    <th>Basis (%)</th>
+                                    <th>MWPL %</th>
+                                    <th>ATM IV</th>
+                                    <th>25d Skew</th>
+                                    <th>Roll %</th>
                                 </tr>
                             </thead>
                             <tbody id="mr-data-body">
-                                <tr><td colspan="3" style="text-align: center; color: #666; padding: 20px;">Select a metric & symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                                <tr><td colspan="11" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -506,19 +503,18 @@
                 // Prepare Data Button Handler
                 document.getElementById('mr-prepare-btn').addEventListener('click', async () => {
                     const targetDate = document.getElementById('mr-target-date').value;
+                    const endDate = document.getElementById('mr-end-date').value;
                     const statusText = document.getElementById('mr-status-text');
                     const prepBtn = document.getElementById('mr-prepare-btn');
                     const genBtn = document.getElementById('mr-generate-btn');
                     const viewBtn = document.getElementById('mr-view-data-btn');
                     const tbody = document.getElementById('mr-data-body');
 
-                    if(!targetDate) { alert('Please select a date.'); return; }
-
-                    const batchMode = document.getElementById('mr-batch-mode').checked;
+                    if(!targetDate) { alert('Please select a From Date.'); return; }
 
                     prepBtn.disabled = true;
                     prepBtn.style.opacity = '0.5';
-                    statusText.innerText = batchMode ? 'Triggering historical batch preparation task (this may take a while)...' : 'Triggering data preparation task...';
+                    statusText.innerText = endDate ? 'Triggering historical range preparation task (this may take a while)...' : 'Triggering data preparation task...';
                     statusText.style.color = '#aaa';
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 20px;">Calculating composite metrics...</td></tr>';
 
@@ -526,7 +522,7 @@
                         const res = await fetch('/api/morning-report/prepare', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ target_date: targetDate, batch: batchMode })
+                            body: JSON.stringify({ target_date: targetDate, end_date: endDate || null })
                         });
                         const data = await res.json();
 
@@ -581,8 +577,7 @@
                 // View Data Button Handler (Timeseries / Snapshot)
                 async function loadTimeseriesData(snapshotMode = true) {
                     const targetDate = document.getElementById('mr-target-date').value;
-                    const metric = document.getElementById('mr-metric-select').value;
-                    const symbol = document.getElementById('mr-symbol-input').value.toUpperCase();
+                    const symbol = document.getElementById('mr-symbol-input').value.toUpperCase() || 'NIFTY';
                     const tbody = document.getElementById('mr-data-body');
                     const thead = document.getElementById('mr-data-head');
                     const statusText = document.getElementById('mr-status-text');
@@ -593,7 +588,7 @@
                     try {
                         let url = `/api/morning-report/data/${targetDate}`;
                         if (!snapshotMode) {
-                            url = `/api/morning-report/timeseries?symbol=${symbol}&metric=${metric}`;
+                            url = `/api/morning-report/timeseries?symbol=${symbol}`;
                         }
 
                         const res = await fetch(url);
@@ -602,7 +597,7 @@
 
                         tbody.innerHTML = '';
                         if(data.length === 0) {
-                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 7 : 3}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
+                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 7 : 11}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
                             return;
                         }
 
@@ -643,16 +638,41 @@
                                 <tr>
                                     <th style="text-align: left;">Date</th>
                                     <th>Symbol</th>
-                                    <th>${metric.toUpperCase()}</th>
+                                    <th>Close</th>
+                                    <th>Volume</th>
+                                    <th>OI</th>
+                                    <th>PCR (V)</th>
+                                    <th>Basis (%)</th>
+                                    <th>MWPL %</th>
+                                    <th>ATM IV</th>
+                                    <th>25d Skew</th>
+                                    <th>Roll %</th>
                                 </tr>
                             `;
                             data.forEach(row => {
                                 const tr = document.createElement('tr');
-                                const val = row.value !== null && row.value !== undefined ? Number(row.value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4}) : 'N/A';
+                                const futures_volume = row.futures_volume !== null && row.futures_volume !== undefined ? row.futures_volume.toLocaleString() : 'N/A';
+                                const futures_oi = row.futures_oi !== null && row.futures_oi !== undefined ? row.futures_oi.toLocaleString() : 'N/A';
+                                const underlying_close = row.underlying_close !== null && row.underlying_close !== undefined ? row.underlying_close.toFixed(2) : 'N/A';
+                                const pcr_volume = row.pcr_volume !== null && row.pcr_volume !== undefined ? row.pcr_volume.toFixed(2) : 'N/A';
+                                const basis = row.basis !== null && row.basis !== undefined ? row.basis.toFixed(2) : 'N/A';
+                                const mwpl = row.mwpl_utilization_pct !== null && row.mwpl_utilization_pct !== undefined ? row.mwpl_utilization_pct.toFixed(2) : '0.00';
+                                const atm_iv = row.atm_iv !== null && row.atm_iv !== undefined ? (row.atm_iv * 100).toFixed(2) + '%' : 'N/A';
+                                const skew = row.skew_25d !== null && row.skew_25d !== undefined ? (row.skew_25d * 100).toFixed(2) + '%' : 'N/A';
+                                const roll = row.rollover_pct !== null && row.rollover_pct !== undefined ? row.rollover_pct.toFixed(2) : 'N/A';
+
                                 tr.innerHTML = `
                                     <td style="text-align: left;">${row.trade_date}</td>
                                     <td><strong>${row.symbol}</strong></td>
-                                    <td>${val}</td>
+                                    <td>${underlying_close}</td>
+                                    <td>${futures_volume}</td>
+                                    <td>${futures_oi}</td>
+                                    <td>${pcr_volume}</td>
+                                    <td>${basis}</td>
+                                    <td style="color: ${parseFloat(mwpl) > 90 ? '#ff4d4d' : 'inherit'};">${mwpl}%</td>
+                                    <td>${atm_iv}</td>
+                                    <td>${skew}</td>
+                                    <td>${roll}</td>
                                 `;
                                 tbody.appendChild(tr);
                             });

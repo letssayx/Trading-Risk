@@ -214,41 +214,40 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         self.retry(exc=exc, countdown=300)
 
 @shared_task(bind=True, name="prepare_morning_data_task")
-def prepare_morning_data_task(self, target_date_str: str, batch_mode: bool = False):
+def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = None):
     """
     Celery task to STRICTLY compute the DailyDerivativesAnalysis table.
-    If batch_mode is True, computes for the last 3 years up to target_date.
+    If end_date_str is provided, computes for the range [target_date_str, end_date_str].
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
     from backend.infrastructure.db import SessionLocal
     from backend.analysis.toolbox.reports.morning_report import MorningReportCalculator
 
-    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+    start_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
     results = []
     with SessionLocal() as db:
         calc = MorningReportCalculator(db)
 
-        if batch_mode:
-            start_date = target_date - timedelta(days=3*365)
-            # Find trading dates in range (simplified, typically query distinct dates from BhavcopyFO)
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
             from backend.domain.market.models import Bhavcopy
             trading_dates = [d[0] for d in db.query(Bhavcopy.trade_date).filter(
                 Bhavcopy.trade_date >= start_date,
-                Bhavcopy.trade_date <= target_date
+                Bhavcopy.trade_date <= end_date
             ).distinct().order_by(Bhavcopy.trade_date.asc()).all()]
 
             for d in trading_dates:
                 res = calc.calculate_for_date(d)
                 results.append({"date": str(d), "result": res})
         else:
-            calc_result = calc.calculate_for_date(target_date)
-            results.append({"date": str(target_date), "result": calc_result})
+            calc_result = calc.calculate_for_date(start_date)
+            results.append({"date": str(start_date), "result": calc_result})
 
     return {
         "status": "SUCCESS",
-        "message": f"Data preparation completed for {'batch' if batch_mode else target_date_str}",
-        "metrics": results[-1] if not batch_mode else {"batch_processed": len(results)}
+        "message": f"Data preparation completed for range" if end_date_str else f"Data preparation completed for {target_date_str}",
+        "metrics": results[-1] if not end_date_str else {"batch_processed": len(results)}
     }
 
 @shared_task(bind=True, name="generate_morning_report_task")

@@ -131,13 +131,13 @@ async def analyze_rollover(symbol: str, db: Session = Depends(get_db)):
 
 class PrepareRequest(BaseModel):
     target_date: str
-    batch: bool = False
+    end_date: Optional[str] = None
 
 @router.post("/api/morning-report/prepare")
 async def trigger_prepare_data(request: PrepareRequest):
     """Triggers the Celery task strictly to compute and save the DailyDerivativesAnalysis data."""
     from backend.ingest.tasks import prepare_morning_data_task
-    task = prepare_morning_data_task.delay(request.target_date, request.batch)
+    task = prepare_morning_data_task.delay(request.target_date, request.end_date)
     return {"task_id": task.id, "status": "processing"}
 
 class GenerateRequest(BaseModel):
@@ -226,33 +226,21 @@ async def get_report_data(target_date: str, db: Session = Depends(get_db)):
     return result
 
 @router.get("/api/morning-report/timeseries")
-async def get_report_timeseries(symbol: str, metric: str, db: Session = Depends(get_db)):
+async def get_report_timeseries(symbol: str, limit: int = 100, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
 
-    # Check if metric is valid column to prevent SQL injection or crashes
-    valid_columns = [c.name for c in DailyDerivativesAnalysis.__table__.columns]
-    if metric not in valid_columns:
-        raise HTTPException(status_code=400, detail="Invalid metric requested")
-
-    metric_col = getattr(DailyDerivativesAnalysis, metric)
-
-    records = db.query(
-        DailyDerivativesAnalysis.trade_date,
-        DailyDerivativesAnalysis.symbol,
-        metric_col.label('value')
-    ).filter(
+    records = db.query(DailyDerivativesAnalysis).filter(
         DailyDerivativesAnalysis.symbol == symbol.upper()
-    ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(100).all()
+    ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
 
     if not records:
         return []
 
     result = []
     for r in records:
-        result.append({
-            "trade_date": str(r.trade_date),
-            "symbol": r.symbol,
-            "value": r.value
-        })
+        d = dict(r.__dict__)
+        d.pop('_sa_instance_state', None)
+        d['trade_date'] = str(d['trade_date'])
+        result.append(d)
 
     return result

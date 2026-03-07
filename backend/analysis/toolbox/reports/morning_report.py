@@ -48,7 +48,7 @@ class MorningReportCalculator:
         symbols_query = self.db.query(BhavcopyFO.ticker_symb).filter(
             BhavcopyFO.trade_date == target_date,
             BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
-        ).distinct().all()
+        ).with_entities(BhavcopyFO.ticker_symb).distinct().all()
 
         symbols = [s[0] for s in symbols_query]
         print(f"[{target_date}] Found {len(symbols)} active F&O symbols.")
