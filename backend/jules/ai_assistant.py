@@ -37,69 +37,24 @@ class JulesAssistant:
 
     def _select_best_model(self):
         """
-        Dynamically selects the best available model for generateContent.
+        Directly explicitly select the preferred model.
+        Bypasses dynamic list filtering due to volatile google-genai SDK schemas causing empty lists.
         """
         try:
-            # Check cache first
-            if self.api_key in _MODELS_CACHE:
-                available_models = _MODELS_CACHE[self.api_key]
-                logger.info(f"Jules: Using cached models for key: {self.api_key[:8]}...")
-            else:
-                available_models = []
-                # Use the new SDK's list models method
-                models = self.client.models.list()
-                for m in models:
-                    # In newer google-genai versions, this attribute is 'supported_methods' or a method check
-                    methods = getattr(m, 'supported_generation_methods', getattr(m, 'supported_methods', []))
-                    if any('generatecontent' in str(method).lower() for method in methods):
-                        available_models.append(m.name)
-
-                # Cache the results
-                if available_models:
-                    _MODELS_CACHE[self.api_key] = available_models
-
-            logger.info(f"Jules: Available Models: {available_models}")
-
-            # Preference list
+            # Explicit preferences from the user
             preferences = [
-                'gemini-1.5-flash-8b',
-                'gemini-1.5-flash-002',
-                'gemini-2.0-flash'
+                'gemini-2.5-flash',
+                'gemini-2.5-pro',
+                'gemini-2.0-flash',
+                'gemini-1.5-flash-8b'
             ]
 
-            selected = None
-
-            # 1. Try preferences first
-            for pref in preferences:
-                for am in available_models:
-                    # Check for exact match or suffix match (to handle 'models/' prefix)
-                    if am == pref or am.endswith('/' + pref):
-                        selected = am
-                        break
-                if selected:
-                    break
-
-            # 2. If no preference found, pick the first available 'gemini' model
-            if not selected:
-                for m in available_models:
-                    if 'gemini' in m.lower():
-                        selected = m
-                        break
-
-            # 3. Fallback to anything
-            if not selected and available_models:
-                selected = available_models[0]
-
-            if selected:
-                logger.info(f"Jules: Selected Model -> {selected}")
-                self.model_name = selected
-            else:
-                logger.error("Jules: No suitable model found in list.")
-                # Fallback to hardcoded if list fails (e.g. permission issue on list)
-                self.model_name = 'gemini-2.0-flash'
+            self.model_name = preferences[0]
+            logger.info(f"Jules: Explicitly assigned model -> {self.model_name}")
 
         except Exception as e:
             logger.error(f"Jules: Error selecting model: {e}")
+            self.model_name = 'gemini-2.0-flash'
             self.model_name = 'gemini-2.0-flash'
 
     def _scan_directory(self, root_path: str, max_depth: int = 2) -> dict:
