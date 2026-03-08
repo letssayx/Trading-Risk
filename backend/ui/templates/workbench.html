@@ -549,7 +549,7 @@
                         const prepBtn = document.getElementById('mr-prepare-btn');
                         const viewBtn = document.getElementById('mr-view-data-btn');
 
-                        if(data.status === 'SUCCESS') {
+                        if(data.state === 'SUCCESS' || data.status === 'SUCCESS') {
                             clearInterval(mrPollingInterval);
                             statusText.innerText = 'Data Prepared Successfully.';
                             statusText.style.color = '#28a745';
@@ -562,7 +562,7 @@
 
                             // Auto-load data
                             document.getElementById('mr-view-data-btn').click();
-                        } else if(data.status === 'FAILED' || data.status === 'FAILURE') {
+                        } else if(data.state === 'FAILURE' || data.status === 'FAILED' || data.status === 'FAILURE') {
                             clearInterval(mrPollingInterval);
                             statusText.innerText = `Preparation Failed: ${data.error || 'Unknown Error'}`;
                             statusText.style.color = 'red';

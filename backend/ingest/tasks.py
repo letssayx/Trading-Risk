@@ -226,29 +226,37 @@ def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = No
     start_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
     results = []
-    with SessionLocal() as db:
-        calc = MorningReportCalculator(db)
+    try:
+        with SessionLocal() as db:
+            calc = MorningReportCalculator(db)
 
-        if end_date_str:
-            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-            from backend.domain.market.models import Bhavcopy
-            trading_dates = [d[0] for d in db.query(Bhavcopy.trade_date).filter(
-                Bhavcopy.trade_date >= start_date,
-                Bhavcopy.trade_date <= end_date
-            ).distinct().order_by(Bhavcopy.trade_date.asc()).all()]
+            if end_date_str:
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                from backend.domain.market.models import Bhavcopy
+                trading_dates = [d[0] for d in db.query(Bhavcopy.trade_date).filter(
+                    Bhavcopy.trade_date >= start_date,
+                    Bhavcopy.trade_date <= end_date
+                ).distinct().order_by(Bhavcopy.trade_date.asc()).all()]
 
-            for d in trading_dates:
-                res = calc.calculate_for_date(d)
-                results.append({"date": str(d), "result": res})
-        else:
-            calc_result = calc.calculate_for_date(start_date)
-            results.append({"date": str(start_date), "result": calc_result})
+                for d in trading_dates:
+                    res = calc.calculate_for_date(d)
+                    results.append({"date": str(d), "result": res})
+            else:
+                calc_result = calc.calculate_for_date(start_date)
+                results.append({"date": str(start_date), "result": calc_result})
 
-    return {
-        "status": "SUCCESS",
-        "message": f"Data preparation completed for range" if end_date_str else f"Data preparation completed for {target_date_str}",
-        "metrics": results[-1] if not end_date_str else {"batch_processed": len(results)}
-    }
+        return {
+            "status": "SUCCESS",
+            "message": f"Data preparation completed for range" if end_date_str else f"Data preparation completed for {target_date_str}",
+            "metrics": results[-1] if not end_date_str else {"batch_processed": len(results)}
+        }
+    except Exception as e:
+        logger.error(f"Morning Report Preparation Failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # Updating state explicitly so it isn't swallowed
+        self.update_state(state='FAILURE', meta={"error": str(e)})
+        raise e
 
 @shared_task(bind=True, name="generate_morning_report_task")
 def generate_morning_report_task(self, target_date_str: str, author: str = "System", logo_path: str = None):
