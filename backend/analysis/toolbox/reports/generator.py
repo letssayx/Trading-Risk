@@ -39,11 +39,12 @@ class MorningReportGenerator:
     <meta charset="utf-8">
     <title>Morning Derivatives Report - {{ date }}</title>
     <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #333; }
-        h1 { color: #1a365d; border-bottom: 2px solid #1a365d; padding-bottom: 5px; }
-        h2 { color: #2b6cb0; border-bottom: 1px solid #e2e8f0; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-        th, td { border: 1px solid #cbd5e0; padding: 6px; text-align: right; }
+        @page { size: A4 landscape; margin: 1cm; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #333; }
+        h1 { color: #1a365d; border-bottom: 2px solid #1a365d; padding-bottom: 5px; font-size: 18px; }
+        h2 { color: #2b6cb0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 9px; }
+        th, td { border: 1px solid #cbd5e0; padding: 4px; text-align: right; }
         th { background-color: #f7fafc; color: #4a5568; font-weight: bold; text-align: center; }
         .text-left { text-align: left; }
         .highlight-green { color: #38a169; font-weight: bold; }
@@ -51,12 +52,12 @@ class MorningReportGenerator:
         .ai-inference { background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 15px; margin: 20px 0; font-style: italic; font-size: 11px; }
         .page-break { page-break-after: always; }
         .chart-container { text-align: center; margin: 20px 0; }
-        .chart-container img { max-width: 100%; height: auto; }
+        .chart-container img { max-width: 80%; height: auto; }
         .section { margin-bottom: 30px; }
     </style>
 </head>
 <body>
-    <h1>Daily Derivatives Report</h1>
+    <h1>Daily Derivatives Report - Institutional Matrix</h1>
     <p><strong>Date:</strong> {{ date }}</p>
 
     <div class="ai-inference">
@@ -65,31 +66,44 @@ class MorningReportGenerator:
     </div>
 
     <div class="section">
-        <h2>Top 10 High Conviction Watchlist</h2>
+        <h2>Top 10 High Conviction Watchlist (by Highest ATM IV)</h2>
         <table>
             <thead>
                 <tr>
                     <th class="text-left">Symbol</th>
                     <th>Close</th>
-                    <th>MWPL %</th>
-                    <th>Basis %</th>
+                    <th>Basis 1 (bps)</th>
                     <th>Rollover %</th>
+                    <th>MWPL (Top) %</th>
                     <th>PCR (OI)</th>
-                    <th>ATM IV</th>
-                    <th>25d Skew</th>
+                    <th>ATM IV (Near)</th>
+                    <th>25d Skew (Near)</th>
+                    <th>Beta (252)</th>
+                    <th>ATR (14)</th>
+                    <th>1-Sig Vol</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in top_10 %}
                 <tr>
                     <td class="text-left"><strong>{{ row.symbol }}</strong></td>
-                    <td>{{ "%.2f"|format(row.underlying_close) }}</td>
-                    <td>{{ "%.1f"|format(row.mwpl_utilization_pct) }}%</td>
-                    <td>{{ "%.2f"|format(row.basis_pct) }}%</td>
-                    <td>{{ "%.1f"|format(row.rollover_pct) }}%</td>
-                    <td>{{ "%.2f"|format(row.pcr_oi) }}</td>
-                    <td>{{ "%.1f"|format(row.atm_iv * 100) }}%</td>
-                    <td>{{ "%.1f"|format(row.skew_25d * 100) }}%</td>
+                    <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
+                    <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
+                    <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
+                    <td>
+                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
+                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
+                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
+                        {% else %}
+                            0.0%
+                        {% endif %}
+                    </td>
+                    <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
+                    <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
+                    <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
+                    <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
+                    <td>{{ "%.2f"|format(row.atr_14_cash or 0) }}</td>
+                    <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -99,7 +113,7 @@ class MorningReportGenerator:
     <div class="page-break"></div>
 
     <div class="section chart-container">
-        <h2>Market Snapshot</h2>
+        <h2>Market Snapshot - IV Profile</h2>
         <img src="file://{{ chart_path }}" alt="Market Snapshot Chart">
     </div>
 
@@ -112,27 +126,44 @@ class MorningReportGenerator:
                 <tr>
                     <th class="text-left">Symbol</th>
                     <th>Close</th>
-                    <th>Basis %</th>
-                    <th>Rollover %</th>
-                    <th>MWPL %</th>
+                    <th>Total Vol</th>
+                    <th>Total OI</th>
                     <th>PCR (OI)</th>
-                    <th>PCR (Vol)</th>
-                    <th>ATM IV</th>
-                    <th>25d Skew</th>
+                    <th>Basis 1 (bps)</th>
+                    <th>MWPL (Top) %</th>
+                    <th>ATM IV (Near)</th>
+                    <th>25d Skew (Near)</th>
+                    <th>Roll %</th>
+                    <th>1-Sig Vol</th>
+                    <th>Beta (252)</th>
+                    <th>Del Vol 5d</th>
+                    <th>EMA 50</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in all_data %}
                 <tr>
                     <td class="text-left">{{ row.symbol }}</td>
-                    <td>{{ "%.2f"|format(row.underlying_close) }}</td>
-                    <td>{{ "%.2f"|format(row.basis_pct) }}%</td>
-                    <td>{{ "%.1f"|format(row.rollover_pct) }}%</td>
-                    <td>{{ "%.1f"|format(row.mwpl_utilization_pct) }}%</td>
-                    <td>{{ "%.2f"|format(row.pcr_oi) }}</td>
-                    <td>{{ "%.2f"|format(row.pcr_volume) }}</td>
-                    <td>{{ "%.1f"|format(row.atm_iv * 100) }}%</td>
-                    <td>{{ "%.1f"|format(row.skew_25d * 100) }}%</td>
+                    <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(row.futures_total_vol or 0) }}</td>
+                    <td>{{ "{:,.0f}".format(row.futures_total_oi or 0) }}</td>
+                    <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
+                    <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
+                    <td>
+                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
+                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
+                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
+                        {% else %}
+                            0.0%
+                        {% endif %}
+                    </td>
+                    <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
+                    <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
+                    <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
+                    <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
+                    <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
+                    <td>{{ "%.1f"|format(row.mavg_delivery_vol_5d or 0) }}%</td>
+                    <td>{{ "%.2f"|format(row.ema_50_cash or 0) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -147,10 +178,14 @@ class MorningReportGenerator:
         # Note: Since the real DeepSeek call might require environment variables we don't have,
         # we will use a dummy prompt here. In real scenario, it integrates via OpenRouter.
         try:
-            prompt = "Act as an institutional derivatives quant. Analyze the following Top 10 stocks based on MWPL utilization, Skew, PCR and Basis, and provide a 2 paragraph high conviction trading call summary. Focus heavily on MWPL squeeze setups.\n\nData:\n"
+            prompt = "Act as an institutional derivatives quant. Analyze the following Top 10 stocks based on IV, Skew, PCR and Basis, and provide a 2 paragraph high conviction trading call summary. Focus heavily on Volatility and Skew setups.\n\nData:\n"
 
             for row in top_10_data:
-                prompt += f"{row.symbol}: MWPL={row.mwpl_utilization_pct}%, Skew={row.skew_25d*100}%, Basis={row.basis_pct}%, PCR={row.pcr_oi}\n"
+                mwpl_str = "0"
+                if row.mwpl_array and len(row.mwpl_array) > 0:
+                    first_key = list(row.mwpl_array[0].keys())[0]
+                    mwpl_str = str(row.mwpl_array[0][first_key])
+                prompt += f"{row.symbol}: ATM IV={row.atm_iv_near*100 if row.atm_iv_near else 0}%, Skew Near={row.skew_25d_near*100 if row.skew_25d_near else 0}%, Basis BPS={row.basis_1_bps}, PCR={row.pcr_oi}, MWPL={mwpl_str}%\n"
 
             # Using OpenRouter DeepSeek (we'll implement the actual API call logic using litellm or httpx if needed)
             import httpx
@@ -184,15 +219,15 @@ class MorningReportGenerator:
             return f"Failed to generate AI inference: {str(e)}"
 
     def generate_chart(self, top_10_data: list) -> str:
-        """Generates a bar chart of MWPL Utilization for the top 10 stocks."""
+        """Generates a bar chart of ATM IV for the top 10 stocks."""
         symbols = [r.symbol for r in top_10_data]
-        mwpl = [r.mwpl_utilization_pct for r in top_10_data]
+        ivs = [(r.atm_iv_near * 100) if r.atm_iv_near else 0 for r in top_10_data]
 
         plt.figure(figsize=(10, 6))
-        plt.bar(symbols, mwpl, color='#2b6cb0')
-        plt.title('Top 10 Stocks by MWPL Utilization')
+        plt.bar(symbols, ivs, color='#e53e3e')
+        plt.title('Top 10 Stocks by ATM IV (Near)')
         plt.xlabel('Symbol')
-        plt.ylabel('MWPL Utilization (%)')
+        plt.ylabel('ATM IV (%)')
         plt.xticks(rotation=45)
         plt.tight_layout()
 
@@ -208,7 +243,7 @@ class MorningReportGenerator:
         # 1. Fetch data
         records = self.db.query(DailyDerivativesAnalysis).filter(
             DailyDerivativesAnalysis.trade_date == self.target_date
-        ).order_by(DailyDerivativesAnalysis.mwpl_utilization_pct.desc()).all()
+        ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
 
         if not records:
             raise ValueError(f"No DailyDerivativesAnalysis data found for {self.target_date}")

@@ -1,6 +1,6 @@
 """NSE Database Models - TimescaleDB Optimized"""
 from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func, text
-from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.dialects.postgresql import TIMESTAMP, JSONB
 from backend.infrastructure.db import Base
 
 
@@ -397,29 +397,46 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     trade_date = Column(Date, nullable=False, index=True)
     symbol = Column(String(50), nullable=False, index=True)
 
-    # Price & Vol
-    underlying_close = Column(Float)
-    futures_close = Column(Float)
-    basis = Column(Float) # Future - Spot
-    basis_pct = Column(Float) # Basis / Spot %
-    annualized_vol = Column(Float) # 30-day annualized from FOVolatility
+    # Core Price & OI Metrics
+    close_price = Column(Float)            # Near Month Futures Close
+    futures_total_vol = Column(BigInteger) # Sum of Vol across all futures expiries
+    futures_total_oi = Column(BigInteger)  # Sum of OI across all futures expiries
+    pcr_oi = Column(Float)                 # Total Put OI / Total Call OI
 
-    # Open Interest & Volume
-    futures_oi = Column(BigInteger)
-    futures_volume = Column(BigInteger)
-    rollover_pct = Column(Float) # Rollover % (Next+Far / Total)
+    # Volatility & Skew
+    atm_iv_near = Column(Float)            # Near Month ATM IV
+    atm_iv_next = Column(Float)            # Next Month ATM IV
+    skew_25d_near = Column(Float)          # Near Month (Put 25d IV - Call 25d IV)
+    skew_25d_far = Column(Float)           # Far Month (Put 25d IV - Call 25d IV)
+    daily_volatility = Column(Float)       # 1 Sigma Daily Volatility (from fo_volatility)
 
-    # Options & Volatility Surface
-    pcr_oi = Column(Float)
-    pcr_volume = Column(Float)
-    atm_iv = Column(Float)
-    put_25d_iv = Column(Float)
-    call_25d_iv = Column(Float)
-    skew_25d = Column(Float) # Put 25d IV - Call 25d IV
+    # Limits & Carry
+    rollover_pct = Column(Float)           # (Next OI + Far OI) / Total OI
+    mwpl_array = Column(JSONB)             # Array of top clients [{"client_1": 45.2}, ...]
+    basis_1_bps = Column(Float)            # (Near Fut - Cash) / Cash * 10000
+    basis_2_bps = Column(Float)            # (Next Fut - Cash) / Cash * 10000
+    calendar_spread_1_bps = Column(Float)  # (Next Fut - Near Fut) / Near Fut * 10000
+    calendar_spread_2_bps = Column(Float)  # (Far Fut - Next Fut) / Next Fut * 10000
 
-    # Limits
-    mwpl_utilization_pct = Column(Float) # Total MWPL used (sum of client positions)
-    top_3_clients_mwpl_pct = Column(Float) # Concentration risk
+    # Statistical & Valuation
+    pe_ratio = Column(Float)               # Directly from pe_ratio table
+    beta_252 = Column(Float)               # 252-day Log Return regression (Cash vs NIFTY)
+    beta_500 = Column(Float)               # 500-day Log Return regression
+    r_squared_252 = Column(Float)          # R-squared of 252-day regression
+    r_squared_500 = Column(Float)          # R-squared of 500-day regression
+
+    # Cash Technicals
+    atr_14_cash = Column(Float)            # 14-day SMA of True Range (Cash)
+    ema_20_cash = Column(Float)            # 20-day EMA (Cash Close)
+    ema_50_cash = Column(Float)            # 50-day EMA (Cash Close)
+    ema_100_cash = Column(Float)           # 100-day EMA (Cash Close)
+    ema_200_cash = Column(Float)           # 200-day EMA (Cash Close)
+
+    # Cash Delivery (from mto)
+    mavg_delivery_vol_pct_5d = Column(Float)  # 5-day Avg Delivery %
+    mavg_delivery_vol_pct_10d = Column(Float) # 10-day Avg Delivery %
+    mavg_delivery_vol_pct_20d = Column(Float) # 20-day Avg Delivery %
+    mavg_delivery_vol_pct_30d = Column(Float) # 30-day Avg Delivery %
 
     __table_args__ = (
         PrimaryKeyConstraint('trade_date', 'id'),

@@ -212,7 +212,7 @@ async def get_report_data(target_date: str, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
     records = db.query(DailyDerivativesAnalysis).filter(
         DailyDerivativesAnalysis.trade_date == target_date
-    ).order_by(DailyDerivativesAnalysis.mwpl_utilization_pct.desc()).all()
+    ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
 
     if not records:
         return []

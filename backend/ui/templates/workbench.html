@@ -453,18 +453,22 @@
                                     <th style="text-align: left;">Date</th>
                                     <th>Symbol</th>
                                     <th>Close</th>
-                                    <th>Volume</th>
-                                    <th>OI</th>
-                                    <th>PCR (V)</th>
-                                    <th>Basis (%)</th>
-                                    <th>MWPL %</th>
+                                    <th>Total Vol</th>
+                                    <th>Total OI</th>
+                                    <th>PCR (OI)</th>
+                                    <th>Basis 1 (bps)</th>
+                                    <th>MWPL (Top)</th>
                                     <th>ATM IV</th>
-                                    <th>25d Skew</th>
+                                    <th>Skew (Near)</th>
+                                    <th>Skew (Far)</th>
                                     <th>Roll %</th>
+                                    <th>1-Sig Vol</th>
+                                    <th>ATR(14)</th>
+                                    <th>Beta(252)</th>
                                 </tr>
                             </thead>
                             <tbody id="mr-data-body">
-                                <tr><td colspan="11" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                                <tr><td colspan="15" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -601,36 +605,72 @@
                             return;
                         }
 
+                        // For the new 29-column schema
+                        const generateTableHTML = (row, isSnapshot) => {
+                            const fVol = row.futures_total_vol !== null ? row.futures_total_vol.toLocaleString() : '-';
+                            const fOi = row.futures_total_oi !== null ? row.futures_total_oi.toLocaleString() : '-';
+                            const close = row.close_price !== null ? row.close_price.toFixed(2) : '-';
+                            const pcr = row.pcr_oi !== null ? row.pcr_oi.toFixed(2) : '-';
+                            const basis = row.basis_1_bps !== null ? row.basis_1_bps.toFixed(0) : '-';
+
+                            // Check array safely
+                            let mwpl = '0.00';
+                            if (row.mwpl_array && Array.isArray(row.mwpl_array) && row.mwpl_array.length > 0) {
+                                // Just grab the top client as an example for the summary grid, or sum it if they want
+                                const firstKey = Object.keys(row.mwpl_array[0])[0];
+                                mwpl = row.mwpl_array[0][firstKey].toFixed(2);
+                            }
+
+                            const atmIv = row.atm_iv_near !== null ? (row.atm_iv_near * 100).toFixed(2) + '%' : '-';
+                            const skewNear = row.skew_25d_near !== null ? (row.skew_25d_near * 100).toFixed(2) + '%' : '-';
+                            const skewFar = row.skew_25d_far !== null ? (row.skew_25d_far * 100).toFixed(2) + '%' : '-';
+                            const roll = row.rollover_pct !== null ? row.rollover_pct.toFixed(2) + '%' : '-';
+                            const vol1Sig = row.daily_volatility !== null ? (row.daily_volatility * 100).toFixed(2) + '%' : '-';
+                            const atr = row.atr_14_cash !== null ? row.atr_14_cash.toFixed(2) : '-';
+                            const beta = row.beta_252 !== null ? row.beta_252.toFixed(2) : '-';
+
+                            let html = isSnapshot ? `<td style="text-align: left;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left;">${row.trade_date}</td><td><strong>${row.symbol}</strong></td>`;
+
+                            html += `
+                                <td>${close}</td>
+                                <td>${fVol}</td>
+                                <td>${fOi}</td>
+                                <td>${pcr}</td>
+                                <td>${basis}</td>
+                                <td style="color: ${parseFloat(mwpl) > 20 ? '#ff4d4d' : 'inherit'};">${mwpl}% (Top Cli)</td>
+                                <td>${atmIv}</td>
+                                <td>${skewNear}</td>
+                                <td>${skewFar}</td>
+                                <td>${roll}</td>
+                                <td>${vol1Sig}</td>
+                                <td>${atr}</td>
+                                <td>${beta}</td>
+                            `;
+                            return html;
+                        };
+
                         if (snapshotMode) {
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left;">Symbol</th>
-                                    <th>Close Price</th>
-                                    <th>Volume</th>
-                                    <th>Open Interest</th>
-                                    <th>PCR (Vol)</th>
-                                    <th>Basis (%)</th>
-                                    <th>MWPL %</th>
+                                    <th>Close</th>
+                                    <th>Total Vol</th>
+                                    <th>Total OI</th>
+                                    <th>PCR (OI)</th>
+                                    <th>Basis 1 (bps)</th>
+                                    <th>MWPL (Top)</th>
+                                    <th>ATM IV</th>
+                                    <th>Skew (Near)</th>
+                                    <th>Skew (Far)</th>
+                                    <th>Roll %</th>
+                                    <th>1-Sig Vol</th>
+                                    <th>ATR(14)</th>
+                                    <th>Beta(252)</th>
                                 </tr>
                             `;
                             data.forEach(row => {
                                 const tr = document.createElement('tr');
-                                const futures_volume = row.futures_volume !== null && row.futures_volume !== undefined ? row.futures_volume.toLocaleString() : 'N/A';
-                                const futures_oi = row.futures_oi !== null && row.futures_oi !== undefined ? row.futures_oi.toLocaleString() : 'N/A';
-                                const underlying_close = row.underlying_close !== null && row.underlying_close !== undefined ? row.underlying_close.toFixed(2) : 'N/A';
-                                const pcr_volume = row.pcr_volume !== null && row.pcr_volume !== undefined ? row.pcr_volume.toFixed(2) : 'N/A';
-                                const basis = row.basis !== null && row.basis !== undefined ? row.basis.toFixed(2) : 'N/A';
-                                const mwpl = row.mwpl_utilization_pct !== null && row.mwpl_utilization_pct !== undefined ? row.mwpl_utilization_pct.toFixed(2) : '0.00';
-
-                                tr.innerHTML = `
-                                    <td style="text-align: left;"><strong>${row.symbol}</strong></td>
-                                    <td>${underlying_close}</td>
-                                    <td>${futures_volume}</td>
-                                    <td>${futures_oi}</td>
-                                    <td>${pcr_volume}</td>
-                                    <td>${basis}</td>
-                                    <td style="color: ${parseFloat(mwpl) > 90 ? '#ff4d4d' : 'inherit'};">${mwpl}%</td>
-                                `;
+                                tr.innerHTML = generateTableHTML(row, true);
                                 tbody.appendChild(tr);
                             });
                         } else {
@@ -639,41 +679,23 @@
                                     <th style="text-align: left;">Date</th>
                                     <th>Symbol</th>
                                     <th>Close</th>
-                                    <th>Volume</th>
-                                    <th>OI</th>
-                                    <th>PCR (V)</th>
-                                    <th>Basis (%)</th>
-                                    <th>MWPL %</th>
+                                    <th>Total Vol</th>
+                                    <th>Total OI</th>
+                                    <th>PCR (OI)</th>
+                                    <th>Basis 1 (bps)</th>
+                                    <th>MWPL (Top)</th>
                                     <th>ATM IV</th>
-                                    <th>25d Skew</th>
+                                    <th>Skew (Near)</th>
+                                    <th>Skew (Far)</th>
                                     <th>Roll %</th>
+                                    <th>1-Sig Vol</th>
+                                    <th>ATR(14)</th>
+                                    <th>Beta(252)</th>
                                 </tr>
                             `;
                             data.forEach(row => {
                                 const tr = document.createElement('tr');
-                                const futures_volume = row.futures_volume !== null && row.futures_volume !== undefined ? row.futures_volume.toLocaleString() : 'N/A';
-                                const futures_oi = row.futures_oi !== null && row.futures_oi !== undefined ? row.futures_oi.toLocaleString() : 'N/A';
-                                const underlying_close = row.underlying_close !== null && row.underlying_close !== undefined ? row.underlying_close.toFixed(2) : 'N/A';
-                                const pcr_volume = row.pcr_volume !== null && row.pcr_volume !== undefined ? row.pcr_volume.toFixed(2) : 'N/A';
-                                const basis = row.basis !== null && row.basis !== undefined ? row.basis.toFixed(2) : 'N/A';
-                                const mwpl = row.mwpl_utilization_pct !== null && row.mwpl_utilization_pct !== undefined ? row.mwpl_utilization_pct.toFixed(2) : '0.00';
-                                const atm_iv = row.atm_iv !== null && row.atm_iv !== undefined ? (row.atm_iv * 100).toFixed(2) + '%' : 'N/A';
-                                const skew = row.skew_25d !== null && row.skew_25d !== undefined ? (row.skew_25d * 100).toFixed(2) + '%' : 'N/A';
-                                const roll = row.rollover_pct !== null && row.rollover_pct !== undefined ? row.rollover_pct.toFixed(2) : 'N/A';
-
-                                tr.innerHTML = `
-                                    <td style="text-align: left;">${row.trade_date}</td>
-                                    <td><strong>${row.symbol}</strong></td>
-                                    <td>${underlying_close}</td>
-                                    <td>${futures_volume}</td>
-                                    <td>${futures_oi}</td>
-                                    <td>${pcr_volume}</td>
-                                    <td>${basis}</td>
-                                    <td style="color: ${parseFloat(mwpl) > 90 ? '#ff4d4d' : 'inherit'};">${mwpl}%</td>
-                                    <td>${atm_iv}</td>
-                                    <td>${skew}</td>
-                                    <td>${roll}</td>
-                                `;
+                                tr.innerHTML = generateTableHTML(row, false);
                                 tbody.appendChild(tr);
                             });
                         }
