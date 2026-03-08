@@ -737,7 +737,7 @@
                         const data = await res.json();
                         const statusText = document.getElementById('mr-status-text');
 
-                        if(data.status === 'SUCCESS') {
+                        if(data.state === 'SUCCESS' || data.status === 'SUCCESS') {
                             clearInterval(mrPollingInterval);
                             statusText.innerText = 'Report generated successfully!';
                             statusText.style.color = '#28a745';

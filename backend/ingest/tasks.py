@@ -232,11 +232,11 @@ def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = No
 
             if end_date_str:
                 end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-                from backend.domain.market.models import Bhavcopy
-                trading_dates = [d[0] for d in db.query(Bhavcopy.trade_date).filter(
-                    Bhavcopy.trade_date >= start_date,
-                    Bhavcopy.trade_date <= end_date
-                ).distinct().order_by(Bhavcopy.trade_date.asc()).all()]
+                from backend.ingest.nse_models import BhavcopyFO
+                trading_dates = [d[0] for d in db.query(BhavcopyFO.trade_date).filter(
+                    BhavcopyFO.trade_date >= start_date,
+                    BhavcopyFO.trade_date <= end_date
+                ).distinct().order_by(BhavcopyFO.trade_date.asc()).all()]
 
                 for d in trading_dates:
                     res = calc.calculate_for_date(d)
