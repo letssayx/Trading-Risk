@@ -132,37 +132,26 @@
             color: #d4d4d4;
         }
         .data-table th, .data-table td {
-            border: 1px solid #444444; /* Dark mode Excel border color */
-            padding: 4px 6px; /* Compact padding */
+            border: 1px solid #3e3e42;
+            padding: 4px 6px;
             text-align: left;
         }
         .data-table th {
-            background: #2d2d30; /* Dark mode header */
+            background: #252526;
             position: sticky;
             top: 0;
             z-index: 10;
-            font-weight: bold;
+            font-weight: normal;
             color: #cccccc;
-            border-bottom: 1px solid #555555;
-            border-right: 1px solid #444444;
+            border-bottom: 2px solid #007acc;
             cursor: pointer;
             user-select: none;
-            box-shadow: 0 1px 0 #555555;
         }
-        .data-table th:hover { background: #3e3e42; color: #ffffff; }
+        .data-table th:hover { background: #2d2d30; color: #fff; }
         .data-table tr { background: #1e1e1e; }
-        .data-table tr:nth-child(even) { background: #252526; } /* Subtle alternating row */
-        .data-table tr:hover { background: #2a2d2e; } /* Excel selection hover feel */
-        .data-table td { border-right: 1px solid #333333; border-bottom: 1px solid #333333; }
-
-        /* Apply to specific columns in the report table so sticky left headers match style */
-        #mr-data-head th:nth-child(1), #mr-data-head th:nth-child(2) {
-            background: #2d2d30 !important;
-            z-index: 11;
-        }
-        #mr-data-head th:nth-child(1):hover, #mr-data-head th:nth-child(2):hover {
-            background: #3e3e42 !important;
-        }
+        .data-table tr:nth-child(even) { background: #1e1e1e; } /* No stripe for clean excel look, or maybe subtle */
+        .data-table tr:hover { background: #2a2d2e; } /* Row selection feel */
+        .data-table td { border-right: 1px solid #333; border-bottom: 1px solid #333; }
 
         /* Loading/Empty State */
         .data-table tr.message-row td {
@@ -463,8 +452,8 @@
                         <table class="data-table" id="mr-data-table">
                             <thead id="mr-data-head">
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; z-index: 11; background: #2d2d30;">Date</th>
-                                    <th style="position: sticky; top: 0; left: 80px; z-index: 11; background: #2d2d30;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Date</th>
+                                    <th style="position: sticky; top: 0; left: 80px; background: #1e1e1e; z-index: 3;">Symbol</th>
                                     <th>Close</th>
                                     <th>Total Vol</th>
                                     <th>Total OI</th>
@@ -679,7 +668,7 @@
                             const del20 = row.mavg_delivery_vol_pct_20d !== null ? row.mavg_delivery_vol_pct_20d.toFixed(2) + '%' : '-';
                             const del30 = row.mavg_delivery_vol_pct_30d !== null ? row.mavg_delivery_vol_pct_30d.toFixed(2) + '%' : '-';
 
-                            let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: inherit; z-index: 2; border-right: 1px solid #444444;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: inherit; z-index: 2; border-right: 1px solid #444444;">${row.trade_date}</td><td style="position: sticky; left: 80px; background: inherit; z-index: 2; border-right: 1px solid #444444;"><strong>${row.symbol}</strong></td>`;
+                            let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.trade_date}</td><td style="position: sticky; left: 80px; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>`;
 
                             html += `
                                 <td>${close}</td>
@@ -718,7 +707,7 @@
                         if (snapshotMode) {
                             thead.innerHTML = `
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; z-index: 11; background: #2d2d30;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Symbol</th>
                                     <th>Close</th>
                                     <th>Total Vol</th>
                                     <th>Total OI</th>
