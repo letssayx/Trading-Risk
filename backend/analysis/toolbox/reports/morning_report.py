@@ -248,7 +248,7 @@ class MorningReportCalculator:
     def calculate_for_date(self, target_date: date) -> Dict[str, Any]:
         symbols_query = self.db.query(BhavcopyFO.ticker_symb).filter(
             BhavcopyFO.trade_date == target_date,
-            BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
+            BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX', 'STF', 'IDF'])
         ).with_entities(BhavcopyFO.ticker_symb).distinct().all()
 
         symbols = [s[0] for s in symbols_query]
@@ -262,7 +262,7 @@ class MorningReportCalculator:
             futs = self.db.query(BhavcopyFO).filter(
                 BhavcopyFO.trade_date == target_date,
                 BhavcopyFO.ticker_symb == symbol,
-                BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX']),
+                BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX', 'STF', 'IDF']),
                 BhavcopyFO.expiry_date >= target_date
             ).order_by(BhavcopyFO.expiry_date.asc()).all()
 
@@ -297,7 +297,7 @@ class MorningReportCalculator:
             all_opts = self.db.query(BhavcopyFO).filter(
                 BhavcopyFO.trade_date == target_date,
                 BhavcopyFO.ticker_symb == symbol,
-                BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX'])
+                BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO'])
             ).all()
 
             put_oi = sum(o.open_interest for o in all_opts if o.option_type == 'PE')
