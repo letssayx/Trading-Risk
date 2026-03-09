@@ -1,7 +1,7 @@
 """add instrument_type to uq_bhavcopy_fo_unique
 
 Revision ID: add_inst_type_bhav_fo_009
-Revises: create_pe_ratio_idx_008
+Revises: ai_analysis_bank_009
 Create Date: 2026-03-06 04:50:00.000000
 
 """

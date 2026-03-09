@@ -1,4 +1,4 @@
-"""add_close_price
+"""add_close_price_and_oi_metrics
 
 Revision ID: edcfb2e5c68f
 Revises: 1234567890ab
@@ -21,8 +21,20 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     op.add_column('daily_derivatives_analysis', sa.Column('close_price', sa.Float(), nullable=True))
+    op.add_column('daily_derivatives_analysis', sa.Column('highest_oi_strike_pe', sa.Float(), nullable=True))
+    op.add_column('daily_derivatives_analysis', sa.Column('highest_oi_strike_ce', sa.Float(), nullable=True))
+    op.add_column('daily_derivatives_analysis', sa.Column('chg_oi_options', sa.BigInteger(), nullable=True))
+    op.add_column('daily_derivatives_analysis', sa.Column('chg_oi_futures', sa.BigInteger(), nullable=True))
+    op.add_column('daily_derivatives_analysis', sa.Column('total_options_call_oi', sa.BigInteger(), nullable=True))
+    op.add_column('daily_derivatives_analysis', sa.Column('total_options_put_oi', sa.BigInteger(), nullable=True))
 
 
 def downgrade() -> None:
     """Downgrade schema."""
+    op.drop_column('daily_derivatives_analysis', 'total_options_put_oi')
+    op.drop_column('daily_derivatives_analysis', 'total_options_call_oi')
+    op.drop_column('daily_derivatives_analysis', 'chg_oi_futures')
+    op.drop_column('daily_derivatives_analysis', 'chg_oi_options')
+    op.drop_column('daily_derivatives_analysis', 'highest_oi_strike_ce')
+    op.drop_column('daily_derivatives_analysis', 'highest_oi_strike_pe')
     op.drop_column('daily_derivatives_analysis', 'close_price')

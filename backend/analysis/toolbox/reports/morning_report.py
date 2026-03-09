@@ -304,6 +304,23 @@ class MorningReportCalculator:
             call_oi = sum(o.open_interest for o in all_opts if o.option_type == 'CE')
             pcr_oi = (put_oi / call_oi) if call_oi > 0 else 0.0
 
+            # Find Highest OI Strikes for PE and CE
+            highest_pe_strike = 0.0
+            highest_pe_oi = 0
+            highest_ce_strike = 0.0
+            highest_ce_oi = 0
+
+            for o in all_opts:
+                if o.option_type == 'PE' and o.open_interest > highest_pe_oi:
+                    highest_pe_oi = o.open_interest
+                    highest_pe_strike = o.strike_price
+                if o.option_type == 'CE' and o.open_interest > highest_ce_oi:
+                    highest_ce_oi = o.open_interest
+                    highest_ce_strike = o.strike_price
+
+            chg_oi_opts = sum(o.chg_in_oi for o in all_opts if o.chg_in_oi is not None)
+            chg_oi_futs = sum(f.chg_in_oi for f in futs if f.chg_in_oi is not None)
+
             # Volatility & Skew
             daily_vol = self._get_daily_vol(target_date, symbol)
             # Proxy annual vol for the root of BS solver (rough approximation using daily_vol * sqrt(365))
@@ -340,6 +357,12 @@ class MorningReportCalculator:
             record.futures_total_vol = total_vol
             record.futures_total_oi = total_oi
             record.pcr_oi = pcr_oi
+            record.highest_oi_strike_pe = highest_pe_strike
+            record.highest_oi_strike_ce = highest_ce_strike
+            record.chg_oi_options = chg_oi_opts
+            record.chg_oi_futures = chg_oi_futs
+            record.total_options_call_oi = call_oi
+            record.total_options_put_oi = put_oi
             record.atm_iv_near = atm_iv_near
             record.atm_iv_next = atm_iv_next
             record.skew_25d_near = skew_near

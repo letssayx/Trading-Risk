@@ -402,6 +402,12 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     futures_total_vol = Column(BigInteger) # Sum of Vol across all futures expiries
     futures_total_oi = Column(BigInteger)  # Sum of OI across all futures expiries
     pcr_oi = Column(Float)                 # Total Put OI / Total Call OI
+    highest_oi_strike_pe = Column(Float)   # Highest concentration OI strike price for PE
+    highest_oi_strike_ce = Column(Float)   # Highest concentration OI strike price for CE
+    chg_oi_options = Column(BigInteger)    # Total change in OI options
+    chg_oi_futures = Column(BigInteger)    # Total change in OI futures
+    total_options_call_oi = Column(BigInteger) # Total Futures Calls OI
+    total_options_put_oi = Column(BigInteger)  # Total Futures Puts OI
 
     # Volatility & Skew
     atm_iv_near = Column(Float)            # Near Month ATM IV
