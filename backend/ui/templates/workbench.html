@@ -117,24 +117,25 @@
         .table-wrapper {
             height: calc(100% - 45px); /* Adjust based on controls height */
             overflow: auto;
-            overflow-x: auto;
-            overflow-y: auto;
             position: relative;
             background: #1e1e1e;
+            width: 100%;
         }
         /* Excel-like Grid */
         .data-table {
-            width: 100%;
             border-collapse: collapse;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 13px;
             white-space: nowrap;
             color: #d4d4d4;
+            width: max-content;
+            min-width: 100%;
         }
         .data-table th, .data-table td {
             border: 1px solid #3e3e42;
-            padding: 4px 6px;
-            text-align: left;
+            padding: 4px 8px;
+            text-align: right;
+            min-width: 80px;
         }
         .data-table th {
             background: #252526;
@@ -452,8 +453,8 @@
                         <table class="data-table" id="mr-data-table">
                             <thead id="mr-data-head">
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Date</th>
-                                    <th style="position: sticky; top: 0; left: 80px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #2d2d30; z-index: 4; border-right: 1px solid #444; width: 80px; min-width: 80px;">Date</th>
+                                    <th style="position: sticky; top: 0; left: 96px; background: #2d2d30; z-index: 4; border-right: 1px solid #444; width: 80px; min-width: 80px;">Symbol</th>
                                     <th>Close</th>
                                     <th>Total Vol</th>
                                     <th>Total OI</th>
@@ -539,7 +540,7 @@
                     prepBtn.style.opacity = '0.5';
                     statusText.innerText = endDate ? 'Triggering historical range preparation task (this may take a while)...' : 'Triggering data preparation task...';
                     statusText.style.color = '#aaa';
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 20px;">Calculating composite metrics...</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="30" style="text-align: center; color: #888; padding: 20px;">Calculating composite metrics...</td></tr>';
 
                     try {
                         const res = await fetch('/api/morning-report/prepare', {
@@ -620,7 +621,7 @@
 
                         tbody.innerHTML = '';
                         if(data.length === 0) {
-                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 7 : 11}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
+                            tbody.innerHTML = `<tr><td colspan="30" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
                             return;
                         }
 
@@ -668,7 +669,7 @@
                             const del20 = row.mavg_delivery_vol_pct_20d !== null ? row.mavg_delivery_vol_pct_20d.toFixed(2) + '%' : '-';
                             const del30 = row.mavg_delivery_vol_pct_30d !== null ? row.mavg_delivery_vol_pct_30d.toFixed(2) + '%' : '-';
 
-                            let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.trade_date}</td><td style="position: sticky; left: 80px; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>`;
+                            let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2; border-right: 1px solid #444; width: 80px; min-width: 80px;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2; border-right: 1px solid #444; width: 80px; min-width: 80px;">${row.trade_date}</td><td style="position: sticky; left: 96px; background: #1e1e1e; z-index: 2; border-right: 1px solid #444; width: 80px; min-width: 80px;"><strong>${row.symbol}</strong></td>`;
 
                             html += `
                                 <td>${close}</td>
@@ -707,7 +708,7 @@
                         if (snapshotMode) {
                             thead.innerHTML = `
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #2d2d30; z-index: 4; border-right: 1px solid #444; width: 80px; min-width: 80px;">Symbol</th>
                                     <th>Close</th>
                                     <th>Total Vol</th>
                                     <th>Total OI</th>
@@ -747,8 +748,8 @@
                         } else {
                             thead.innerHTML = `
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Date</th>
-                                    <th style="position: sticky; top: 0; left: 80px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #2d2d30; z-index: 4; border-right: 1px solid #444; width: 80px; min-width: 80px;">Date</th>
+                                    <th style="position: sticky; top: 0; left: 96px; background: #2d2d30; z-index: 4; border-right: 1px solid #444; width: 80px; min-width: 80px;">Symbol</th>
                                     <th>Close</th>
                                     <th>Total Vol</th>
                                     <th>Total OI</th>
@@ -795,7 +796,7 @@
                         genBtn.style.opacity = '1';
                     } catch(e) {
                         statusText.innerText = 'Failed to load data.';
-                        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="30" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
                     }
                 }
 
