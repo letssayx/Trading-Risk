@@ -122,7 +122,8 @@
         }
         /* Excel-like Grid */
         .data-table {
-            width: 100%;
+            width: max-content;
+            min-width: 100%;
             border-collapse: collapse;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 13px;
@@ -450,8 +451,8 @@
                         <table class="data-table" id="mr-data-table">
                             <thead id="mr-data-head">
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Date</th>
-                                    <th style="position: sticky; top: 0; left: 80px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
                                     <th>Close</th>
                                     <th>Total Vol</th>
                                     <th>Total OI</th>
@@ -679,7 +680,7 @@
                             const del20 = row.mavg_delivery_vol_pct_20d !== null ? row.mavg_delivery_vol_pct_20d.toFixed(2) + '%' : '-';
                             const del30 = row.mavg_delivery_vol_pct_30d !== null ? row.mavg_delivery_vol_pct_30d.toFixed(2) + '%' : '-';
 
-                            let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.trade_date}</td><td style="position: sticky; left: 80px; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>`;
+                            let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2; min-width: 90px; max-width: 90px; width: 90px; box-sizing: border-box;">${row.trade_date}</td><td style="position: sticky; left: 90px; background: #1e1e1e; z-index: 2; text-align: left;"><strong>${row.symbol}</strong></td>`;
 
                             html += `
                                 <td>${close}</td>
@@ -770,12 +771,18 @@
                         } else {
                             thead.innerHTML = `
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Date</th>
-                                    <th style="position: sticky; top: 0; left: 80px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
                                     <th>Close</th>
                                     <th>Total Vol</th>
                                     <th>Total OI</th>
                                     <th>PCR (OI)</th>
+                                    <th>High OI Strike (PE)</th>
+                                    <th>High OI Strike (CE)</th>
+                                    <th>Chg OI (OPT)</th>
+                                    <th>Chg OI (FUT)</th>
+                                    <th>Total Call OI</th>
+                                    <th>Total Put OI</th>
                                     <th>IV Near</th>
                                     <th>IV Next</th>
                                     <th>Skew Near</th>
