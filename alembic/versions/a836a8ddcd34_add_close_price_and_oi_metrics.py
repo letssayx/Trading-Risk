@@ -1,8 +1,8 @@
 """add_close_price_and_oi_metrics
 
-Revision ID: edcfb2e5c68f
+Revision ID: a836a8ddcd34
 Revises: 1234567890ab
-Create Date: 2026-03-08 20:58:24.651774
+Create Date: 2026-03-09 11:26:48.938785
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'edcfb2e5c68f'
+revision: str = 'a836a8ddcd34'
 down_revision: Union[str, Sequence[str], None] = '1234567890ab'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
