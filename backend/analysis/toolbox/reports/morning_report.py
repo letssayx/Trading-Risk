@@ -318,8 +318,8 @@ class MorningReportCalculator:
                     highest_ce_oi = o.open_interest
                     highest_ce_strike = o.strike_price
 
-            chg_oi_opts = sum(o.chg_in_oi for o in all_opts if o.chg_in_oi is not None)
-            chg_oi_futs = sum(f.chg_in_oi for f in futs if f.chg_in_oi is not None)
+            chg_oi_opts = sum(o.change_in_oi for o in all_opts if o.change_in_oi is not None)
+            chg_oi_futs = sum(f.change_in_oi for f in futs if f.change_in_oi is not None)
 
             # Volatility & Skew
             daily_vol = self._get_daily_vol(target_date, symbol)

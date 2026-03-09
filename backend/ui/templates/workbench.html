@@ -117,6 +117,7 @@
         .table-wrapper {
             height: calc(100% - 45px); /* Adjust based on controls height */
             overflow: auto;
+            overflow-x: auto;
             position: relative;
             background: #1e1e1e;
         }
@@ -439,7 +440,7 @@
                 </div>
 
                 <!-- Right Panel: Data View Area -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e;">
+                <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e; max-width: calc(100vw - 300px);">
                     <!-- Data Grid Controls -->
                     <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
@@ -447,7 +448,7 @@
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
                     </div>
 
-                    <div class="table-wrapper" style="flex: 1; border-radius: 0; margin: 0;">
+                    <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0; overflow-x: auto; max-width: 100%;">
                         <table class="data-table" id="mr-data-table">
                             <thead id="mr-data-head">
                                 <tr>
