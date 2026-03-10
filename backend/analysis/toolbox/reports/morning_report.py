@@ -56,7 +56,7 @@ class MorningReportCalculator:
         query = text("""
             SELECT trade_date, close_price, high_price, low_price
             FROM bhavcopy_eq
-            WHERE ticker_symb = :sym AND series = 'EQ' AND trade_date <= :dt
+            WHERE symbol = :sym AND series = 'EQ' AND trade_date <= :dt
             ORDER BY trade_date DESC
             LIMIT :lmt
         """)
