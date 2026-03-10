@@ -427,7 +427,6 @@
 
                         <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
                         <button id="mr-view-data-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">View Selected Date Data Grid</button>
-                        <button id="mr-export-excel-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;" onclick="exportTableToCSV('morning_report_data.csv')">Export Grid to CSV (Excel)</button>
                         <button id="mr-generate-btn" class="btn btn-primary" style="width: 100%; padding: 8px; background: #007acc; border-color: #007acc; opacity: 0.5;" disabled>2. Generate PDF Report</button>
 
                         <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
@@ -450,6 +449,8 @@
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
                         <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY">
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
+                        <div style="flex: 1;"></div>
+                        <button id="mr-export-excel-btn" class="btn btn-secondary" style="padding: 4px 10px;" onclick="exportTableToCSV('morning_report_data.csv')">Export to CSV</button>
                     </div>
 
                     <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0; overflow-x: auto; max-width: 100%;">
@@ -1635,9 +1636,9 @@
             }
             if (tabName === 'morning_report' && !_mrInitialLoaded) {
                 _mrInitialLoaded = true;
-                // Auto-load snapshot
+                // Auto-load timeseries for NIFTY by default
                 setTimeout(() => {
-                    loadTimeseriesData(true);
+                    loadTimeseriesData(false);
                 }, 100);
             }
         };
@@ -1707,33 +1708,49 @@
 
 
         // CSV Export logic
-        function exportTableToCSV(filename) {
-            const table = document.querySelector("#mr-data-head").parentElement;
-            if (!table) return;
-
-            let csv = [];
-            const rows = table.querySelectorAll("tr");
-
-            for (let i = 0; i < rows.length; i++) {
-                let row = [], cols = rows[i].querySelectorAll("td, th");
-
-                for (let j = 0; j < cols.length; j++) {
-                    // Clean up text content for CSV (remove newlines from headers, escape quotes)
-                    let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ");
-                    data = data.replace(/"/g, '""');
-                    row.push('"' + data + '"');
-                }
-                csv.push(row.join(","));
+        async function exportTableToCSV(filename) {
+            const btn = document.getElementById("mr-export-excel-btn");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "⏳ Downloading...";
             }
 
-            const csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
-            const downloadLink = document.createElement("a");
-            downloadLink.download = filename;
-            downloadLink.href = window.URL.createObjectURL(csvFile);
-            downloadLink.style.display = "none";
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
+            // Allow UI to update before heavy synchronous loop
+            await new Promise(r => setTimeout(r, 50));
+
+            try {
+                const table = document.querySelector("#mr-data-head").parentElement;
+                if (!table) return;
+
+                let csv = [];
+                const rows = table.querySelectorAll("tr");
+
+                for (let i = 0; i < rows.length; i++) {
+                    let row = [], cols = rows[i].querySelectorAll("td, th");
+
+                    for (let j = 0; j < cols.length; j++) {
+                        // Clean up text content for CSV (remove newlines from headers, escape quotes)
+                        let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ");
+                        data = data.replace(/"/g, '""');
+                        row.push('"' + data + '"');
+                    }
+                    csv.push(row.join(","));
+                }
+
+                const csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
+                const downloadLink = document.createElement("a");
+                downloadLink.download = filename;
+                downloadLink.href = window.URL.createObjectURL(csvFile);
+                downloadLink.style.display = "none";
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Export to CSV";
+                }
+            }
         }
 
         // --- AI-Analyze Logic ---
