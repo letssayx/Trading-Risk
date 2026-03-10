@@ -233,10 +233,7 @@
     <div class="main-tabs-bar">
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
         <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
-        <div class="main-tab" data-target="basis" onclick="switchMainTab('basis')" title="Basis">Basis</div>
-        <div class="main-tab" data-target="oi_analysis" onclick="switchMainTab('oi_analysis')" title="OI Analysis">OI Analysis</div>
-        <div class="main-tab" data-target="rollover" onclick="switchMainTab('rollover')" title="Rollover Analysis">Rollover Analysis</div>
-        <div class="main-tab" data-target="morning_report" onclick="switchMainTab('morning_report')" title="Reports">Reports</div>
+        <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
@@ -315,24 +312,6 @@
             </div>
         </div>
 
-        <!-- TAB BASIS -->
-        <div id="tab-basis" class="main-tab-content">
-            <div style="padding: 20px;">
-                <h2>Basis Analysis</h2>
-                <p>Basis analysis content will be loaded here.</p>
-            </div>
-        </div>
-
-        <!-- TAB OI ANALYSIS -->
-        <div id="tab-oi_analysis" class="main-tab-content" style="padding: 20px;">
-            <!-- Content loaded by workbookManager.js / OiTool -->
-        </div>
-
-        <!-- TAB ROLLOVER -->
-        <div id="tab-rollover" class="main-tab-content" style="padding: 20px;">
-            <!-- Content loaded by workbookManager.js / RolloverTool -->
-        </div>
-
         <!-- TAB CORPORATE ACTIONS -->
         <div id="tab-corporate_actions" class="main-tab-content">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
@@ -395,66 +374,78 @@
             </div>
         </div>
 
-        <!-- TAB REPORTS -->
-        <div id="tab-morning_report" class="main-tab-content">
-            <div style="display: flex; height: 100%;">
+        <!-- TAB DERIVATIVES ANALYSIS -->
+        <div id="tab-derivatives" class="main-tab-content">
+            <div style="display: flex; flex-direction: column; height: 100%;">
 
-                <!-- Left Panel: Controls & Archive -->
-                <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; position: relative;">
-
-                    <div style="padding: 20px; border-bottom: 1px solid #333; position: relative;">
-                        <div id="report-task-queue" style="position: absolute; top: 20px; right: 20px; background: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #888; display: flex; align-items: center; gap: 5px;">
-                            Queue: <span id="queue-status-indicator" style="color: #4caf50;">Idle</span>
-                        </div>
-                        <h2 style="margin: 0 0 5px 0; font-size: 16px; color: #fff;">Derivatives Analysis</h2>
-                        <p style="margin: 0 0 20px 0; font-size: 12px; color: #888;">Synthesize daily PDF reports.</p>
-
-                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
-                                <label for="mr-target-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">From Date</label>
-                                <input type="date" id="mr-target-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
-                            </div>
-                            <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
-                                <label for="mr-end-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">To Date (Optional)</label>
-                                <input type="date" id="mr-end-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
-                            </div>
-                        </div>
-
-                        <div class="control-group" style="margin-bottom: 20px; flex-direction: column; align-items: flex-start;">
-                            <label for="mr-author-name" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">Analyst / Author</label>
-                            <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System" style="width: 100%; box-sizing: border-box;">
-                        </div>
-
-                        <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
-                        <button id="mr-view-data-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">View Selected Date Data Grid</button>
-                        <button id="mr-generate-btn" class="btn btn-primary" style="width: 100%; padding: 8px; background: #007acc; border-color: #007acc; opacity: 0.5;" disabled>2. Generate PDF Report</button>
-
-                        <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
-                        <button id="mr-download-btn" class="btn" style="width: 100%; padding: 8px; background-color: #28a745; display: none; margin-top: 10px; color: white; border: none;">Open PDF</button>
-                    </div>
-
-                    <div style="flex: 1; padding: 20px; overflow-y: auto;">
-                        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc; border-bottom: 1px solid #444; padding-bottom: 5px;">Report Archive</h3>
-                        <ul id="mr-archive-list" style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
-                            <li style="color: #666; font-style: italic;">Loading archive...</li>
-                        </ul>
-                    </div>
-
+                <!-- Inner Sub-Tab Bar -->
+                <div style="display: flex; background: #1e1e1e; border-bottom: 1px solid #333; padding: 0 10px;">
+                    <div class="deriv-sub-tab active" data-target="data_matrix" onclick="switchDerivTab('data_matrix')" style="padding: 10px 20px; cursor: pointer; color: #fff; font-weight: bold; border-bottom: 2px solid #00bcd4;">Data Matrix</div>
+                    <div class="deriv-sub-tab" data-target="oi_analysis" onclick="switchDerivTab('oi_analysis')" style="padding: 10px 20px; cursor: pointer; color: #ccc; border-bottom: 2px solid transparent;">OI Analysis</div>
+                    <div class="deriv-sub-tab" data-target="rollover_analysis" onclick="switchDerivTab('rollover_analysis')" style="padding: 10px 20px; cursor: pointer; color: #ccc; border-bottom: 2px solid transparent;">Rollover Analysis</div>
+                    <div class="deriv-sub-tab" data-target="basis_analysis" onclick="switchDerivTab('basis_analysis')" style="padding: 10px 20px; cursor: pointer; color: #ccc; border-bottom: 2px solid transparent;">Basis Analysis</div>
                 </div>
 
-                <!-- Right Panel: Data View Area -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e; max-width: calc(100vw - 300px);">
-                    <!-- Data Grid Controls -->
-                    <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
-                        <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
-                        <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY">
-                        <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
-                        <div style="flex: 1;"></div>
-                        <button id="mr-export-excel-btn" class="btn btn-secondary" style="padding: 4px 10px;" onclick="exportTableToCSV('morning_report_data.csv')">Export to CSV</button>
-                    </div>
+                <!-- Main Content Area -->
+                <div style="flex: 1; display: flex; position: relative;">
 
-                    <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0; overflow-x: auto; max-width: 100%;">
-                        <table class="data-table" id="mr-data-table">
+                    <!-- DATA MATRIX VIEW (Default) -->
+                    <div id="deriv-tab-data_matrix" class="deriv-sub-content" style="flex: 1; display: flex; flex-direction: row;">
+
+                        <!-- Left Panel: Controls & Archive -->
+                        <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; position: relative;">
+                            <div style="padding: 20px; border-bottom: 1px solid #333; position: relative;">
+                                <div id="report-task-queue" style="position: absolute; top: 20px; right: 20px; background: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #888; display: flex; align-items: center; gap: 5px;">
+                                    Queue: <span id="queue-status-indicator" style="color: #4caf50;">Idle</span>
+                                </div>
+                                <h2 style="margin: 0 0 5px 0; font-size: 16px; color: #fff;">Data Matrix</h2>
+                                <p style="margin: 0 0 20px 0; font-size: 12px; color: #888;">Synthesize daily PDF reports.</p>
+
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                    <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
+                                        <label for="mr-target-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">From Date</label>
+                                        <input type="date" id="mr-target-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
+                                    </div>
+                                    <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
+                                        <label for="mr-end-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">To Date (Optional)</label>
+                                        <input type="date" id="mr-end-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
+                                    </div>
+                                </div>
+
+                                <div class="control-group" style="margin-bottom: 20px; flex-direction: column; align-items: flex-start;">
+                                    <label for="mr-author-name" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">Analyst / Author</label>
+                                    <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System" style="width: 100%; box-sizing: border-box;">
+                                </div>
+
+                                <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
+                                <button id="mr-view-data-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">View Selected Date Data Grid</button>
+                                <button id="mr-generate-btn" class="btn btn-primary" style="width: 100%; padding: 8px; background: #007acc; border-color: #007acc; opacity: 0.5;" disabled>2. Generate PDF Report</button>
+
+                                <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
+                                <button id="mr-download-btn" class="btn" style="width: 100%; padding: 8px; background-color: #28a745; display: none; margin-top: 10px; color: white; border: none;">Open PDF</button>
+                            </div>
+
+                            <div style="flex: 1; padding: 20px; overflow-y: auto;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc; border-bottom: 1px solid #444; padding-bottom: 5px;">Report Archive</h3>
+                                <ul id="mr-archive-list" style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
+                                    <li style="color: #666; font-style: italic;">Loading archive...</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Data View Area -->
+                        <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e; max-width: calc(100vw - 300px);">
+                            <!-- Data Grid Controls -->
+                            <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
+                                <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY">
+                                <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
+                                <div style="flex: 1;"></div>
+                                <button id="mr-export-excel-btn" class="btn btn-secondary" style="padding: 4px 10px;" onclick="triggerCSVExport()">Export to CSV</button>
+                            </div>
+
+                            <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0; overflow-x: auto; max-width: 100%;">
+                                <table class="data-table" id="mr-data-table">
                             <thead id="mr-data-head">
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
@@ -499,13 +490,85 @@
                             <tbody id="mr-data-body">
                                 <tr><td colspan="37" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
-                            </table>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
 
+                    <!-- OI ANALYSIS SUB-TAB -->
+                    <div id="deriv-tab-oi_analysis" class="deriv-sub-content" style="flex: 1; display: none; flex-direction: column; background: #1e1e1e;">
+                        <div style="padding: 15px; border-bottom: 1px solid #333; display: flex; gap: 15px; align-items: center;">
+                            <input type="text" id="oi-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;">
+                            <button onclick="fetchOIData()" class="btn btn-secondary">Analyze Participant OI</button>
+                        </div>
+                        <div id="oi-results" style="padding: 20px; overflow-y: auto; flex: 1;">
+                            <p style="color:#888;">Select a symbol to view Open Interest Analysis</p>
+                        </div>
+                    </div>
+
+                    <!-- ROLLOVER ANALYSIS SUB-TAB -->
+                    <div id="deriv-tab-rollover_analysis" class="deriv-sub-content" style="flex: 1; display: none; flex-direction: column; background: #1e1e1e;">
+                        <div style="padding: 15px; border-bottom: 1px solid #333; display: flex; gap: 15px; align-items: center;">
+                            <input type="text" id="rollover-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;">
+                            <button onclick="fetchRolloverData()" class="btn btn-secondary">Calculate Rollovers</button>
+                        </div>
+                        <div id="rollover-results" style="padding: 20px; overflow-y: auto; flex: 1;">
+                            <p style="color:#888;">Select a symbol to view Rollover Analysis</p>
+                        </div>
+                    </div>
+
+                    <!-- BASIS ANALYSIS SUB-TAB -->
+                    <div id="deriv-tab-basis_analysis" class="deriv-sub-content" style="flex: 1; display: none; flex-direction: column; background: #1e1e1e;">
+                        <div style="padding: 15px; border-bottom: 1px solid #333; display: flex; gap: 15px; align-items: center;">
+                            <input type="text" id="basis-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;">
+                            <button onclick="fetchBasis()" class="btn btn-secondary">Calculate Basis</button>
+                        </div>
+                        <div id="basis-results" style="padding: 20px; overflow-y: auto; flex: 1;">
+                            <p style="color:#888;">Select a symbol to view Futures Basis/Premium</p>
+                        </div>
+                    </div>
+
+                </div>
             </div>
             <script>
+                function fetchOIData() { document.getElementById('oi-results').innerHTML = `<p style="color:#888;">OI Analysis engine is initializing...</p>`; }
+                function fetchRolloverData() { document.getElementById('rollover-results').innerHTML = `<p style="color:#888;">Rollover Analysis engine is initializing...</p>`; }
+                function fetchBasis() { document.getElementById('basis-results').innerHTML = `<p style="color:#888;">Basis engine is initializing...</p>`; }
+
+                // Derivative sub-tabs toggle logic
+                function switchDerivTab(tabName) {
+                    document.querySelectorAll('.deriv-sub-tab').forEach(el => {
+                        el.classList.remove('active');
+                        el.style.color = '#ccc';
+                        el.style.borderBottom = '2px solid transparent';
+                    });
+                    document.querySelectorAll('.deriv-sub-content').forEach(el => {
+                        el.style.display = 'none';
+                    });
+
+                    const activeTab = document.querySelector(`.deriv-sub-tab[data-target="${tabName}"]`);
+                    const activeContent = document.getElementById(`deriv-tab-${tabName}`);
+
+                    if(activeTab) {
+                        activeTab.classList.add('active');
+                        activeTab.style.color = '#fff';
+                        activeTab.style.borderBottom = '2px solid #00bcd4';
+                    }
+                    if(activeContent) {
+                        if (tabName === 'data_matrix') {
+                            activeContent.style.display = 'flex';
+                        } else {
+                            activeContent.style.display = 'flex';
+                        }
+                    }
+
+                    // Sync the global symbol search across inputs for convenience
+                    const currentSym = document.getElementById('mr-symbol-input').value;
+                    if (document.getElementById('oi-symbol-input').value === '') document.getElementById('oi-symbol-input').value = currentSym;
+                    if (document.getElementById('rollover-symbol-input').value === '') document.getElementById('rollover-symbol-input').value = currentSym;
+                    if (document.getElementById('basis-symbol-input').value === '') document.getElementById('basis-symbol-input').value = currentSym;
+                }
+
                 document.getElementById('mr-target-date').valueAsDate = new Date();
                 let mrPollingInterval;
 
@@ -624,6 +687,7 @@
 
                 // View Data Button Handler (Timeseries / Snapshot)
                 async function loadTimeseriesData(snapshotMode = true) {
+                    currentReportMode = snapshotMode ? 'snapshot' : 'timeseries';
                     const targetDate = document.getElementById('mr-target-date').value;
                     const symbol = document.getElementById('mr-symbol-input').value.toUpperCase() || 'NIFTY';
                     const tbody = document.getElementById('mr-data-body');
@@ -1290,7 +1354,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'basis', 'oi_analysis', 'rollover', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -1634,7 +1698,7 @@
                 // Initial load
                 switchCATab('actions');
             }
-            if (tabName === 'morning_report' && !_mrInitialLoaded) {
+            if (tabName === 'derivatives' && !_mrInitialLoaded) {
                 _mrInitialLoaded = true;
                 // Auto-load timeseries for NIFTY by default
                 setTimeout(() => {
@@ -1707,7 +1771,22 @@
         }
 
 
+        let currentReportMode = 'timeseries'; // Track state for export naming
+
         // CSV Export logic
+        function triggerCSVExport() {
+            let filename = 'derivatives_analysis.csv';
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (currentReportMode === 'timeseries') {
+                const sym = document.getElementById('mr-symbol-input').value.toUpperCase() || 'NIFTY';
+                filename = `${sym}_${todayStr}.csv`;
+            } else {
+                const dt = document.getElementById('mr-target-date').value || todayStr;
+                filename = `Snapshot_${dt}.csv`;
+            }
+            exportTableToCSV(filename);
+        }
+
         async function exportTableToCSV(filename) {
             const btn = document.getElementById("mr-export-excel-btn");
             if (btn) {
