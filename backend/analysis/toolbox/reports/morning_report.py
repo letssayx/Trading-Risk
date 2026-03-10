@@ -276,7 +276,7 @@ class MorningReportCalculator:
             # Underlying Cash Close
             eq_record = self.db.query(BhavcopyEQ).filter(
                 BhavcopyEQ.trade_date == target_date,
-                BhavcopyEQ.ticker_symb == symbol,
+                BhavcopyEQ.symbol == symbol,
                 BhavcopyEQ.series == 'EQ'
             ).first()
             cash_close = eq_record.close_price if eq_record else near_fut.close_price
