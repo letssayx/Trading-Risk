@@ -460,6 +460,9 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
+                                    <th style="white-space: pre-wrap;">Fut1<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut2<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
@@ -727,6 +730,10 @@
                             const totCallOi = row.total_options_call_oi !== null ? row.total_options_call_oi.toLocaleString() : '-';
                             const totPutOi = row.total_options_put_oi !== null ? row.total_options_put_oi.toLocaleString() : '-';
 
+                            const f1Exp = row.near_expiry_date !== null ? row.near_expiry_date : '-';
+                            const f2Exp = row.next_expiry_date !== null ? row.next_expiry_date : '-';
+                            const f3Exp = row.far_expiry_date !== null ? row.far_expiry_date : '-';
+
                             const atmIvNear = row.atm_iv_near !== null ? (row.atm_iv_near * 100).toFixed(2) + '%' : '-';
                             const atmIvNext = row.atm_iv_next !== null ? (row.atm_iv_next * 100).toFixed(2) + '%' : '-';
                             const skewNear = row.skew_25d_near !== null ? (row.skew_25d_near * 100).toFixed(2) + '%' : '-';
@@ -782,6 +789,9 @@
                                 <td>${chgOiFut}</td>
                                 <td>${totCallOi}</td>
                                 <td>${totPutOi}</td>
+                                <td>${f1Exp}</td>
+                                <td>${f2Exp}</td>
+                                <td>${f3Exp}</td>
                                 <td>${atmIvNear}</td>
                                 <td>${atmIvNext}</td>
                                 <td>${skewNear}</td>
@@ -825,6 +835,9 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
+                                    <th style="white-space: pre-wrap;">Fut1<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut2<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
@@ -872,6 +885,9 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
+                                    <th style="white-space: pre-wrap;">Fut1<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut2<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>

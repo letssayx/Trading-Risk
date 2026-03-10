@@ -416,6 +416,11 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     skew_25d_far = Column(Float)           # Far Month (Put 25d IV - Call 25d IV)
     daily_volatility = Column(Float)       # 1 Sigma Daily Volatility (from fo_volatility)
 
+    # Expiry Tracking
+    near_expiry_date = Column(Date)        # Date of Fut1 Expiry
+    next_expiry_date = Column(Date)        # Date of Fut2 Expiry
+    far_expiry_date = Column(Date)         # Date of Fut3 Expiry
+
     # Limits & Carry
     rollover_pct = Column(Float)           # (Next OI + Far OI) / Total OI
     mwpl_array = Column(JSONB)             # Array of top clients [{"client_1": 45.2}, ...]

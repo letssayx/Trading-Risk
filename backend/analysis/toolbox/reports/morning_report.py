@@ -426,6 +426,10 @@ class MorningReportCalculator:
                 record = DailyDerivativesAnalysis(trade_date=target_date, symbol=symbol)
                 self.db.add(record)
 
+            record.near_expiry_date = near_fut.expiry_date if near_fut else None
+            record.next_expiry_date = next_fut.expiry_date if next_fut else None
+            record.far_expiry_date = far_fut.expiry_date if far_fut else None
+
             record.close_price = c_f(near_fut.close_price)
             record.futures_total_vol = c_i(total_vol)
             record.futures_total_oi = c_i(total_oi)
