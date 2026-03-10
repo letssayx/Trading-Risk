@@ -400,9 +400,12 @@
             <div style="display: flex; height: 100%;">
 
                 <!-- Left Panel: Controls & Archive -->
-                <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column;">
+                <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; position: relative;">
 
-                    <div style="padding: 20px; border-bottom: 1px solid #333;">
+                    <div style="padding: 20px; border-bottom: 1px solid #333; position: relative;">
+                        <div id="report-task-queue" style="position: absolute; top: 20px; right: 20px; background: #1e1e1e; border: 1px solid #444; border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #888; display: flex; align-items: center; gap: 5px;">
+                            Queue: <span id="queue-status-indicator" style="color: #4caf50;">Idle</span>
+                        </div>
                         <h2 style="margin: 0 0 5px 0; font-size: 16px; color: #fff;">Derivatives Analysis</h2>
                         <p style="margin: 0 0 20px 0; font-size: 12px; color: #888;">Synthesize daily PDF reports.</p>
 
@@ -424,6 +427,7 @@
 
                         <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
                         <button id="mr-view-data-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">View Selected Date Data Grid</button>
+                        <button id="mr-export-excel-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;" onclick="exportTableToCSV('morning_report_data.csv')">Export Grid to CSV (Excel)</button>
                         <button id="mr-generate-btn" class="btn btn-primary" style="width: 100%; padding: 8px; background: #007acc; border-color: #007acc; opacity: 0.5;" disabled>2. Generate PDF Report</button>
 
                         <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
@@ -464,23 +468,23 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
-                                    <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
-                                    <th style="white-space: pre-wrap;">ATM IV<br>(Next)</th>
-                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
-                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
-                                    <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
-                                    <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
+                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
+                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far) (%)</th>
+                                    <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility (%)</th>
+                                    <th style="white-space: pre-wrap;">Rollover<br>Percentage (%)</th>
                                     <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
-                                    <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
-                                    <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
-                                    <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
-                                    <th style="white-space: pre-wrap;">Calendar Spread 2<br>(bps)</th>
+                                    <th style="white-space: pre-wrap;">Basis 1<br>(Bps)</th>
+                                    <th style="white-space: pre-wrap;">Basis 2<br>(Bps)</th>
+                                    <th style="white-space: pre-wrap;">Calendar Spread 1<br>(Bps)</th>
+                                    <th style="white-space: pre-wrap;">Calendar Spread 2<br>(Bps)</th>
                                     <th style="white-space: pre-wrap;">P/E<br>Ratio</th>
                                     <th style="white-space: pre-wrap;">&beta;<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">&beta;<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
-                                    <th style="white-space: pre-wrap;">14-Day<br>ATR</th>
+                                    <th style="white-space: pre-wrap;">14-Day<br>ATR (%)</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">100-Day<br>EMA</th>
@@ -577,11 +581,16 @@
                         const genBtn = document.getElementById('mr-generate-btn');
                         const prepBtn = document.getElementById('mr-prepare-btn');
                         const viewBtn = document.getElementById('mr-view-data-btn');
+                        const queueStatus = document.getElementById('queue-status-indicator');
 
                         if(data.state === 'SUCCESS' || data.status === 'SUCCESS') {
                             clearInterval(mrPollingInterval);
                             statusText.innerText = 'Data Prepared Successfully.';
                             statusText.style.color = '#28a745';
+                            if (queueStatus) {
+                                queueStatus.innerText = 'Idle';
+                                queueStatus.style.color = '#4caf50';
+                            }
 
                             prepBtn.disabled = false;
                             prepBtn.style.opacity = '1';
@@ -594,9 +603,18 @@
                         } else if(data.state === 'FAILURE' || data.status === 'FAILED' || data.status === 'FAILURE') {
                             clearInterval(mrPollingInterval);
                             statusText.innerText = `Preparation Failed: ${data.error || 'Unknown Error'}`;
-                            statusText.style.color = 'red';
+                            statusText.style.color = '#ff5555';
+                            if (queueStatus) {
+                                queueStatus.innerText = 'Error';
+                                queueStatus.style.color = '#ff5555';
+                            }
                             prepBtn.disabled = false;
                             prepBtn.style.opacity = '1';
+                        } else {
+                            if (queueStatus) {
+                                queueStatus.innerText = 'Active';
+                                queueStatus.style.color = '#ff9800';
+                            }
                         }
                     } catch (e) {
                         console.error('Error polling prep status', e);
@@ -655,8 +673,13 @@
                             // Check array safely
                             let mwpl = '0.00';
                             if (row.mwpl_array && Array.isArray(row.mwpl_array) && row.mwpl_array.length > 0) {
-                                const firstKey = Object.keys(row.mwpl_array[0])[0];
-                                mwpl = row.mwpl_array[0][firstKey].toFixed(2);
+                                // Handle both new simple array and old dict array format
+                                if (typeof row.mwpl_array[0] === 'object') {
+                                    const firstKey = Object.keys(row.mwpl_array[0])[0];
+                                    mwpl = row.mwpl_array[0][firstKey].toFixed(2);
+                                } else {
+                                    mwpl = Number(row.mwpl_array[0]).toFixed(2);
+                                }
                             }
 
                             const basis1 = row.basis_1_bps !== null ? row.basis_1_bps.toFixed(0) : '-';
@@ -670,16 +693,16 @@
                             const r252 = row.r_squared_252 !== null ? row.r_squared_252.toFixed(2) : '-';
                             const r500 = row.r_squared_500 !== null ? row.r_squared_500.toFixed(2) : '-';
 
-                            const atr = row.atr_14_cash !== null ? row.atr_14_cash.toFixed(2) : '-';
+                            const atr = row.atr_14_cash !== null ? row.atr_14_cash.toFixed(2) + '%' : '-';
                             const ema20 = row.ema_20_cash !== null ? row.ema_20_cash.toFixed(2) : '-';
                             const ema50 = row.ema_50_cash !== null ? row.ema_50_cash.toFixed(2) : '-';
                             const ema100 = row.ema_100_cash !== null ? row.ema_100_cash.toFixed(2) : '-';
                             const ema200 = row.ema_200_cash !== null ? row.ema_200_cash.toFixed(2) : '-';
 
-                            const del5 = row.mavg_delivery_vol_pct_5d !== null ? row.mavg_delivery_vol_pct_5d.toFixed(2) + '%' : '-';
-                            const del10 = row.mavg_delivery_vol_pct_10d !== null ? row.mavg_delivery_vol_pct_10d.toFixed(2) + '%' : '-';
-                            const del20 = row.mavg_delivery_vol_pct_20d !== null ? row.mavg_delivery_vol_pct_20d.toFixed(2) + '%' : '-';
-                            const del30 = row.mavg_delivery_vol_pct_30d !== null ? row.mavg_delivery_vol_pct_30d.toFixed(2) + '%' : '-';
+                            const d5 = row.mavg_delivery_vol_pct_5d !== null && row.mavg_delivery_vol_pct_5d > 0 ? row.mavg_delivery_vol_pct_5d.toFixed(2) + '%' : '0.00%';
+                            const d10 = row.mavg_delivery_vol_pct_10d !== null && row.mavg_delivery_vol_pct_10d > 0 ? row.mavg_delivery_vol_pct_10d.toFixed(2) + '%' : '0.00%';
+                            const d20 = row.mavg_delivery_vol_pct_20d !== null && row.mavg_delivery_vol_pct_20d > 0 ? row.mavg_delivery_vol_pct_20d.toFixed(2) + '%' : '0.00%';
+                            const d30 = row.mavg_delivery_vol_pct_30d !== null && row.mavg_delivery_vol_pct_30d > 0 ? row.mavg_delivery_vol_pct_30d.toFixed(2) + '%' : '0.00%';
 
                             let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2; min-width: 90px; max-width: 90px; width: 90px; box-sizing: border-box;">${row.trade_date}</td><td style="position: sticky; left: 90px; background: #1e1e1e; z-index: 2; text-align: left;"><strong>${row.symbol}</strong></td>`;
 
@@ -715,10 +738,10 @@
                                 <td>${ema50}</td>
                                 <td>${ema100}</td>
                                 <td>${ema200}</td>
-                                <td>${del5}</td>
-                                <td>${del10}</td>
-                                <td>${del20}</td>
-                                <td>${del30}</td>
+                                <td>${d5}</td>
+                                <td>${d10}</td>
+                                <td>${d20}</td>
+                                <td>${d30}</td>
                             `;
                             return html;
                         };
@@ -737,23 +760,23 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
-                                    <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
-                                    <th style="white-space: pre-wrap;">ATM IV<br>(Next)</th>
-                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
-                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
-                                    <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
-                                    <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
+                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
+                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far) (%)</th>
+                                    <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility (%)</th>
+                                    <th style="white-space: pre-wrap;">Rollover<br>Percentage (%)</th>
                                     <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
-                                    <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
-                                    <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
-                                    <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
-                                    <th style="white-space: pre-wrap;">Calendar Spread 2<br>(bps)</th>
+                                    <th style="white-space: pre-wrap;">Basis 1<br>(Bps)</th>
+                                    <th style="white-space: pre-wrap;">Basis 2<br>(Bps)</th>
+                                    <th style="white-space: pre-wrap;">Calendar Spread 1<br>(Bps)</th>
+                                    <th style="white-space: pre-wrap;">Calendar Spread 2<br>(Bps)</th>
                                     <th style="white-space: pre-wrap;">P/E<br>Ratio</th>
                                     <th style="white-space: pre-wrap;">&beta;<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">&beta;<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
-                                    <th style="white-space: pre-wrap;">14-Day<br>ATR</th>
+                                    <th style="white-space: pre-wrap;">14-Day<br>ATR (%)</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">100-Day<br>EMA</th>
@@ -1674,6 +1697,36 @@
             return html;
         }
 
+
+        // CSV Export logic
+        function exportTableToCSV(filename) {
+            const table = document.querySelector("#mr-data-head").parentElement;
+            if (!table) return;
+
+            let csv = [];
+            const rows = table.querySelectorAll("tr");
+
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll("td, th");
+
+                for (let j = 0; j < cols.length; j++) {
+                    // Clean up text content for CSV (remove newlines from headers, escape quotes)
+                    let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ");
+                    data = data.replace(/"/g, '""');
+                    row.push('"' + data + '"');
+                }
+                csv.push(row.join(","));
+            }
+
+            const csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
+            const downloadLink = document.createElement("a");
+            downloadLink.download = filename;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
 
         // --- AI-Analyze Logic ---
         let aiWs = null;

@@ -28,15 +28,36 @@ class MorningReportCalculator:
         return record.applicable_daily_vol if record else 0.0
 
     def _get_pe_ratio(self, target_date: date, symbol: str) -> float:
-        """Fetch PE ratio from pe_ratio table."""
+        """Fetch PE ratio from pe_ratio or index_pe_ratio table."""
         record = self.db.query(PERatio).filter(
             PERatio.date == target_date,
             PERatio.symbol == symbol
         ).first()
-        return record.symbol_pe if record else 0.0
+
+        if record:
+            return record.symbol_pe
+
+        # Check index PE mapping
+        from backend.ingest.nse_models import IndexPERatio
+        index_mapping = {
+            'NIFTY': 'Nifty 50',
+            'BANKNIFTY': 'Nifty Bank',
+            'FINNIFTY': 'Nifty Financial Services',
+            'MIDCPNIFTY': 'Nifty Midcap Select'
+        }
+        idx_symbol = index_mapping.get(symbol)
+        if idx_symbol:
+            idx_record = self.db.query(IndexPERatio).filter(
+                IndexPERatio.date == target_date,
+                IndexPERatio.symbol == idx_symbol
+            ).first()
+            if idx_record:
+                return idx_record.pe
+
+        return 0.0
 
     def _get_mwpl_array(self, target_date: date, symbol: str) -> list:
-        """Fetch MWPL client limits for the symbol as a JSON array."""
+        """Fetch MWPL client limits for the symbol as a JSON array of values."""
         records = self.db.query(MWPLClientPosition).filter(
             MWPLClientPosition.date == target_date,
             MWPLClientPosition.underlying_stock == symbol
@@ -46,8 +67,8 @@ class MorningReportCalculator:
             return []
 
         arr = []
-        for i, r in enumerate(records):
-            arr.append({f"client_{i+1}": r.position_pct})
+        for r in records:
+            arr.append(r.position_pct)
         return arr
 
     def _fetch_cash_history(self, target_date: date, symbol: str, days: int = 500) -> pd.DataFrame:
@@ -62,7 +83,22 @@ class MorningReportCalculator:
         """)
         result = self.db.execute(query, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
         if not result:
-            return pd.DataFrame()
+            # Fallback to near futures for indices or stocks without EQ data
+            query_fo = text("""
+                SELECT trade_date, close_price, high_price, low_price
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK') AND trade_date <= :dt
+                ORDER BY trade_date DESC, expiry_date ASC
+                LIMIT :lmt
+            """)
+            result_fo = self.db.execute(query_fo, {"sym": symbol, "dt": target_date, "lmt": days * 3}).fetchall()
+            if not result_fo:
+                return pd.DataFrame()
+
+            df = pd.DataFrame(result_fo, columns=['date', 'close', 'high', 'low'])
+            # Group by date FIRST to retain the near-expiry (which was ordered first in SQL), then sort by date
+            df = df.groupby('date').first().reset_index().sort_values('date')
+            return df.tail(days).reset_index(drop=True)
 
         df = pd.DataFrame(result, columns=['date', 'close', 'high', 'low'])
         df = df.sort_values('date').reset_index(drop=True)
@@ -125,8 +161,8 @@ class MorningReportCalculator:
         }
 
     def _calculate_technicals(self, df: pd.DataFrame) -> dict:
-        """Calculates 14-day ATR and 20/50/100/200-day EMAs."""
-        res = {"atr_14": 0.0, "ema_20": 0.0, "ema_50": 0.0, "ema_100": 0.0, "ema_200": 0.0}
+        """Calculates 14-day ATR (Wilder's Smoothing as %) and 20/50/100/200-day EMAs."""
+        res = {"atr_14_pct": 0.0, "ema_20": 0.0, "ema_50": 0.0, "ema_100": 0.0, "ema_200": 0.0}
         if df.empty:
             return res
 
@@ -137,7 +173,7 @@ class MorningReportCalculator:
         if len(df) >= 100: res['ema_100'] = close.ewm(span=100, adjust=False).mean().iloc[-1]
         if len(df) >= 200: res['ema_200'] = close.ewm(span=200, adjust=False).mean().iloc[-1]
 
-        # ATR
+        # Wilder's Smoothing ATR (14-day)
         if len(df) > 1:
             high = df['high']
             low = df['low']
@@ -146,21 +182,38 @@ class MorningReportCalculator:
             tr2 = (high - prev_close).abs()
             tr3 = (low - prev_close).abs()
             tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-            res['atr_14'] = tr.rolling(window=14).mean().iloc[-1]
+
+            # Wilder's Smoothing is equivalent to ewm(alpha=1/n)
+            atr = tr.ewm(alpha=1/14, adjust=False).mean().iloc[-1]
+            last_close = close.iloc[-1]
+
+            # Convert to ATR % for readability
+            if last_close > 0:
+                res['atr_14_pct'] = (atr / last_close) * 100
 
         return res
 
     def _get_delivery_averages(self, target_date: date, symbol: str) -> dict:
         query = text("""
-            SELECT trade_date, quantity_traded, deliverable_qty
-            FROM mto_delivery
-            WHERE security_name = :sym AND trade_date <= :dt
-            ORDER BY trade_date DESC
+            SELECT m.trade_date, m.quantity_traded, m.deliverable_qty
+            FROM mto_delivery m
+            JOIN security_master sm ON m.security_name = sm.security_series OR m.security_name = sm.ticker_symb
+            WHERE sm.ticker_symb = :sym AND m.trade_date <= :dt
+            ORDER BY m.trade_date DESC
             LIMIT 30
         """)
-        # Fallback to symbol matching if security_name isn't perfectly mapped (MTO sometimes uses full names or symbols)
-        # Assuming security_name matches symbol for now.
         result = self.db.execute(query, {"sym": symbol, "dt": target_date}).fetchall()
+
+        # Fallback if security_master join fails to map correctly
+        if not result:
+            query_fb = text("""
+                SELECT trade_date, quantity_traded, deliverable_qty
+                FROM mto_delivery
+                WHERE security_name = :sym AND trade_date <= :dt
+                ORDER BY trade_date DESC
+                LIMIT 30
+            """)
+            result = self.db.execute(query_fb, {"sym": symbol, "dt": target_date}).fetchall()
 
         res = {"5d": 0.0, "10d": 0.0, "20d": 0.0, "30d": 0.0}
         if not result:
@@ -280,9 +333,13 @@ class MorningReportCalculator:
             if not futs:
                 continue
 
-            near_fut = futs[0]
-            next_fut = futs[1] if len(futs) > 1 else None
-            far_fut = futs[2] if len(futs) > 2 else None
+            # Identify Futures 1, 2, and 3 distinctly (handling cases where there are many weekly futures)
+            expiries = sorted(list(set(f.expiry_date for f in futs)))
+            near_fut = next((f for f in futs if f.expiry_date == expiries[0]), None)
+            next_fut = next((f for f in futs if len(expiries) > 1 and f.expiry_date == expiries[1]), None)
+            far_fut = next((f for f in futs if len(expiries) > 2 and f.expiry_date == expiries[2]), None)
+
+            if not near_fut: continue
 
             # Underlying Cash Close
             eq_record = self.db.query(BhavcopyEQ).filter(
@@ -290,12 +347,17 @@ class MorningReportCalculator:
                 BhavcopyEQ.symbol == symbol,
                 BhavcopyEQ.series == 'EQ'
             ).first()
-            cash_close = eq_record.close_price if eq_record else near_fut.close_price
-            if cash_close <= 0: continue
+
+            # Basis should only be calculated if we have ACTUAL cash data. No fallback.
+            # Basis 1/2 are set to 0.0 if there is no underlying cash close.
+            cash_close = eq_record.close_price if eq_record else 0.0
+            proxy_cash_for_greeks = cash_close if cash_close > 0 else near_fut.close_price
+
+            if proxy_cash_for_greeks <= 0: continue
 
             # Spreads & Basis (bps)
-            basis_1 = (near_fut.close_price - cash_close) / cash_close * 10000
-            basis_2 = (next_fut.close_price - cash_close) / cash_close * 10000 if next_fut else 0.0
+            basis_1 = (near_fut.close_price - cash_close) / cash_close * 10000 if cash_close > 0 else 0.0
+            basis_2 = (next_fut.close_price - cash_close) / cash_close * 10000 if next_fut and cash_close > 0 else 0.0
             cal_spread_1 = (next_fut.close_price - near_fut.close_price) / near_fut.close_price * 10000 if next_fut else 0.0
             cal_spread_2 = (far_fut.close_price - next_fut.close_price) / next_fut.close_price * 10000 if far_fut and next_fut else 0.0
 
@@ -341,9 +403,9 @@ class MorningReportCalculator:
             next_opts = [o for o in all_opts if next_fut and o.expiry_date == next_fut.expiry_date]
             far_opts = [o for o in all_opts if far_fut and o.expiry_date == far_fut.expiry_date]
 
-            atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, cash_close, near_fut.expiry_date, target_date, proxy_ann_vol)
-            atm_iv_next, _ = self.calculate_iv_and_skew(next_opts, cash_close, next_fut.expiry_date, target_date, proxy_ann_vol) if next_fut else (0.0, 0.0)
-            _, skew_far = self.calculate_iv_and_skew(far_opts, cash_close, far_fut.expiry_date, target_date, proxy_ann_vol) if far_fut else (0.0, 0.0)
+            atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, proxy_cash_for_greeks, near_fut.expiry_date, target_date, proxy_ann_vol)
+            atm_iv_next, _ = self.calculate_iv_and_skew(next_opts, proxy_cash_for_greeks, next_fut.expiry_date, target_date, proxy_ann_vol) if next_fut else (0.0, 0.0)
+            _, skew_far = self.calculate_iv_and_skew(far_opts, proxy_cash_for_greeks, far_fut.expiry_date, target_date, proxy_ann_vol) if far_fut else (0.0, 0.0)
 
             # Other Metrics
             mwpl_arr = self._get_mwpl_array(target_date, symbol)
@@ -390,7 +452,7 @@ class MorningReportCalculator:
             record.beta_500 = c_f(betas['beta_500'])
             record.r_squared_252 = c_f(betas['r_squared_252'])
             record.r_squared_500 = c_f(betas['r_squared_500'])
-            record.atr_14_cash = c_f(techs['atr_14'])
+            record.atr_14_cash = c_f(techs.get('atr_14_pct', 0.0))
             record.ema_20_cash = c_f(techs['ema_20'])
             record.ema_50_cash = c_f(techs['ema_50'])
             record.ema_100_cash = c_f(techs['ema_100'])
