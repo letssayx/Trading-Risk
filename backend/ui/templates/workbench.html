@@ -418,7 +418,6 @@
                                 </div>
 
                                 <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
-                                <button id="mr-view-data-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">View Selected Date Data Grid</button>
                                 <button id="mr-generate-btn" class="btn btn-primary" style="width: 100%; padding: 8px; background: #007acc; border-color: #007acc; opacity: 0.5;" disabled>2. Generate PDF Report</button>
 
                                 <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
@@ -460,9 +459,6 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
-                                    <th style="white-space: pre-wrap;">Fut1<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut2<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
@@ -607,7 +603,6 @@
                     const statusText = document.getElementById('mr-status-text');
                     const prepBtn = document.getElementById('mr-prepare-btn');
                     const genBtn = document.getElementById('mr-generate-btn');
-                    const viewBtn = document.getElementById('mr-view-data-btn');
                     const tbody = document.getElementById('mr-data-body');
 
                     if(!targetDate) { alert('Please select a From Date.'); return; }
@@ -647,7 +642,6 @@
                         const statusText = document.getElementById('mr-status-text');
                         const genBtn = document.getElementById('mr-generate-btn');
                         const prepBtn = document.getElementById('mr-prepare-btn');
-                        const viewBtn = document.getElementById('mr-view-data-btn');
                         const queueStatus = document.getElementById('queue-status-indicator');
 
                         if(data.state === 'SUCCESS' || data.status === 'SUCCESS') {
@@ -663,10 +657,9 @@
                             prepBtn.style.opacity = '1';
                             genBtn.disabled = false;
                             genBtn.style.opacity = '1';
-                            viewBtn.style.display = 'block';
 
                             // Auto-load data
-                            document.getElementById('mr-view-data-btn').click();
+                            loadTimeseriesData(true);
                         } else if(data.state === 'FAILURE' || data.status === 'FAILED' || data.status === 'FAILURE') {
                             clearInterval(mrPollingInterval);
                             statusText.innerText = `Preparation Failed: ${data.error || 'Unknown Error'}`;
@@ -730,10 +723,6 @@
                             const totCallOi = row.total_options_call_oi !== null ? row.total_options_call_oi.toLocaleString() : '-';
                             const totPutOi = row.total_options_put_oi !== null ? row.total_options_put_oi.toLocaleString() : '-';
 
-                            const f1Exp = row.near_expiry_date !== null ? row.near_expiry_date : '-';
-                            const f2Exp = row.next_expiry_date !== null ? row.next_expiry_date : '-';
-                            const f3Exp = row.far_expiry_date !== null ? row.far_expiry_date : '-';
-
                             const atmIvNear = row.atm_iv_near !== null ? (row.atm_iv_near * 100).toFixed(2) + '%' : '-';
                             const atmIvNext = row.atm_iv_next !== null ? (row.atm_iv_next * 100).toFixed(2) + '%' : '-';
                             const skewNear = row.skew_25d_near !== null ? (row.skew_25d_near * 100).toFixed(2) + '%' : '-';
@@ -789,9 +778,6 @@
                                 <td>${chgOiFut}</td>
                                 <td>${totCallOi}</td>
                                 <td>${totPutOi}</td>
-                                <td>${f1Exp}</td>
-                                <td>${f2Exp}</td>
-                                <td>${f3Exp}</td>
                                 <td>${atmIvNear}</td>
                                 <td>${atmIvNext}</td>
                                 <td>${skewNear}</td>
@@ -835,9 +821,6 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
-                                    <th style="white-space: pre-wrap;">Fut1<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut2<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
@@ -865,6 +848,17 @@
                                     <th style="white-space: pre-wrap;">30-Day Avg<br>Delivery %</th>
                                 </tr>
                             `;
+                            // Pin NIFTY and BANKNIFTY to top
+                            const pinned = ['NIFTY', 'BANKNIFTY'];
+                            data.sort((a, b) => {
+                                let indexA = pinned.indexOf(a.symbol);
+                                let indexB = pinned.indexOf(b.symbol);
+                                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                if (indexA !== -1) return -1;
+                                if (indexB !== -1) return 1;
+                                return a.symbol.localeCompare(b.symbol);
+                            });
+
                             data.forEach(row => {
                                 const tr = document.createElement('tr');
                                 tr.innerHTML = generateTableHTML(row, true);
@@ -885,9 +879,6 @@
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
-                                    <th style="white-space: pre-wrap;">Fut1<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut2<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
@@ -934,7 +925,6 @@
                     }
                 }
 
-                document.getElementById('mr-view-data-btn').addEventListener('click', () => loadTimeseriesData(true));
                 document.getElementById('mr-fetch-ts-btn').addEventListener('click', () => loadTimeseriesData(false));
 
                 // Generate PDF Button Handler

@@ -38,6 +38,12 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
         return result
 
     except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            err_msg = str(exc)
+            logger.error(f"Max retries exceeded for import_nse_date: {err_msg}")
+            self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+            raise Exception(f"Import Failed: {err_msg}")
+
         logger.error(f"Import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=exc, countdown=60)  # Retry after 1 min on failure, up to 3 times
 
@@ -175,6 +181,12 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         return {'range': f"{start_date_str} to {end_date_str}", 'results': results}
 
     except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            err_msg = str(exc)
+            logger.error(f"Max retries exceeded for range import: {err_msg}")
+            self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+            raise Exception(f"Range Import Failed: {err_msg}")
+
         logger.error(f"Range import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=exc, countdown=60)
 
@@ -210,6 +222,12 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         return importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback)
 
     except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            err_msg = str(exc)
+            logger.error(f"Max retries exceeded for latest import: {err_msg}")
+            self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+            raise Exception(f"Latest Import Failed: {err_msg}")
+
         logger.error(f"Latest import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=exc, countdown=300)
 
@@ -251,12 +269,13 @@ def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = No
             "metrics": results[-1] if not end_date_str else {"batch_processed": len(results)}
         }
     except Exception as e:
-        logger.error(f"Morning Report Preparation Failed: {str(e)}")
+        err_msg = str(e)
+        logger.error(f"Morning Report Preparation Failed: {err_msg}")
         import traceback
         traceback.print_exc()
-        # Updating state explicitly so it isn't swallowed
-        self.update_state(state='FAILURE', meta={"error": str(e)})
-        raise e
+        # Update state with a generic exception string to prevent serialization errors
+        self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+        raise Exception(f"Morning Report Preparation Failed: {err_msg}")
 
 @shared_task(bind=True, name="generate_morning_report_task")
 def generate_morning_report_task(self, target_date_str: str, author: str = "System", logo_path: str = None):
