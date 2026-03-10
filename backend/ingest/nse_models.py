@@ -404,22 +404,24 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     pcr_oi = Column(Float)                 # Total Put OI / Total Call OI
     highest_oi_strike_pe = Column(Float)   # Highest concentration OI strike price for PE
     highest_oi_strike_ce = Column(Float)   # Highest concentration OI strike price for CE
+    pct_away_highest_pe = Column(Float)    # % Away (Highest PE Strike from Cash Close)
+    pct_away_highest_ce = Column(Float)    # % Away (Highest CE Strike from Cash Close)
     chg_oi_options = Column(BigInteger)    # Total change in OI options
     chg_oi_futures = Column(BigInteger)    # Total change in OI futures
+    near_expiry_date = Column(Date)        # Near Month Futures Expiry
+    next_expiry_date = Column(Date)        # Next Month Futures Expiry
+    far_expiry_date = Column(Date)         # Far Month Futures Expiry
     total_options_call_oi = Column(BigInteger) # Total Futures Calls OI
     total_options_put_oi = Column(BigInteger)  # Total Futures Puts OI
 
     # Volatility & Skew
     atm_iv_near = Column(Float)            # Near Month ATM IV
     atm_iv_next = Column(Float)            # Next Month ATM IV
+    iv_rank_252 = Column(Float)            # IV Rank (252-day)
+    iv_percentile_252 = Column(Float)      # IV Percentile (252-day)
     skew_25d_near = Column(Float)          # Near Month (Put 25d IV - Call 25d IV)
     skew_25d_far = Column(Float)           # Far Month (Put 25d IV - Call 25d IV)
     daily_volatility = Column(Float)       # 1 Sigma Daily Volatility (from fo_volatility)
-
-    # Expiry Tracking
-    near_expiry_date = Column(Date)        # Date of Fut1 Expiry
-    next_expiry_date = Column(Date)        # Date of Fut2 Expiry
-    far_expiry_date = Column(Date)         # Date of Fut3 Expiry
 
     # Limits & Carry
     rollover_pct = Column(Float)           # (Next OI + Far OI) / Total OI
@@ -435,6 +437,8 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     beta_500 = Column(Float)               # 500-day Log Return regression
     r_squared_252 = Column(Float)          # R-squared of 252-day regression
     r_squared_500 = Column(Float)          # R-squared of 500-day regression
+    price_pct_change = Column(Float)       # 1-Day Price % Change
+    relative_volume_20d = Column(Float)    # Relative Volume (20d SMA)
 
     # Cash Technicals
     atr_14_cash = Column(Float)            # 14-day SMA of True Range (Cash)
@@ -485,3 +489,19 @@ class AIPrediction(Base):
     confidence = Column(Integer)
     rationale = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class FIIDIICash(Base, TimescaleMixin):
+    """FII/DII Cash Market Activity"""
+    __tablename__ = "fii_dii_cash"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    trade_date = Column(Date, nullable=False, index=True)
+    category = Column(String(50), nullable=False) # e.g., 'FII', 'DII'
+    buy_value = Column(Float, nullable=True) # in Crores usually
+    sell_value = Column(Float, nullable=True) # in Crores usually
+    net_value = Column(Float, nullable=True) # in Crores usually
+
+    __table_args__ = (
+        PrimaryKeyConstraint('id', 'trade_date'),
+        Index('idx_fii_dii_cash_date', 'trade_date'),
+    )

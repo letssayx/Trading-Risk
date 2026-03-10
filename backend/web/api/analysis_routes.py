@@ -244,3 +244,174 @@ async def get_report_timeseries(symbol: str, limit: int = 100, db: Session = Dep
         result.append(d)
 
     return result
+
+@router.get("/api/market-activity/dynamic-chart/{symbol}")
+async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
+    """
+    Fetches 500 days of dynamic chart data for the UI Multi-Axis Tech Chart (Tile 3/4).
+    Returns Candlesticks (OHLC), Volume, ATR (14d), Donchian Channel (20d), and Near Month Future OI.
+    """
+    from sqlalchemy import text
+    import pandas as pd
+    import numpy as np
+
+    symbol = symbol.upper()
+
+    # 1. Fetch 500 days of Cash Market Data (OHLC, Volume)
+    cash_query = text("""
+        SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
+        FROM bhavcopy_eq
+        WHERE symbol = :sym AND series = 'EQ'
+        ORDER BY trade_date ASC
+        LIMIT 500
+    """)
+    cash_results = db.execute(cash_query, {"sym": symbol}).fetchall()
+
+    if not cash_results:
+        # Fallback to near futures for indices or stocks without EQ data
+        fo_query = text("""
+            SELECT * FROM (
+                SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price, total_trading_vol as volume
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                ORDER BY trade_date ASC, expiry_date ASC
+            ) AS distinct_dates
+            ORDER BY trade_date ASC
+            LIMIT 500
+        """)
+        cash_results = db.execute(fo_query, {"sym": symbol}).fetchall()
+
+    if not cash_results:
+        raise HTTPException(status_code=404, detail=f"No data found for symbol {symbol}")
+
+    df = pd.DataFrame(cash_results, columns=['trade_date', 'open', 'high', 'low', 'close', 'volume'])
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
+
+    # Handle duplicate dates in fallback data by taking the first (nearest expiry)
+    df = df.sort_values(['trade_date']).groupby('trade_date').first().reset_index()
+    df.set_index('trade_date', inplace=True)
+
+    # 2. Calculate ATR (14-day Wilder's)
+    df['prev_close'] = df['close'].shift(1)
+    df['tr1'] = df['high'] - df['low']
+    df['tr2'] = (df['high'] - df['prev_close']).abs()
+    df['tr3'] = (df['low'] - df['prev_close']).abs()
+    df['tr'] = df[['tr1', 'tr2', 'tr3']].max(axis=1)
+    df['atr_14'] = df['tr'].ewm(alpha=1/14, adjust=False).mean()
+    # Convert ATR to % of price
+    df['atr_14_pct'] = np.where(df['close'] > 0, (df['atr_14'] / df['close']) * 100, 0)
+
+    # 3. Calculate Donchian Channels (20-day) & MA20
+    df['donchian_upper'] = df['high'].rolling(window=20).max()
+    df['donchian_lower'] = df['low'].rolling(window=20).min()
+    df['ma20'] = df['close'].rolling(window=20).mean()
+
+    # 4. Fetch 500 days of Total Futures OI
+    oi_query = text("""
+        SELECT trade_date, SUM(open_interest) as total_oi
+        FROM bhavcopy_fo
+        WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK')
+        GROUP BY trade_date
+        ORDER BY trade_date ASC
+        LIMIT 500
+    """)
+    oi_results = db.execute(oi_query, {"sym": symbol}).fetchall()
+    df_oi = pd.DataFrame(oi_results, columns=['trade_date', 'total_oi'])
+    if not df_oi.empty:
+        df_oi['trade_date'] = pd.to_datetime(df_oi['trade_date'])
+        df_oi.set_index('trade_date', inplace=True)
+        # Merge into main DF
+        df = df.join(df_oi, how='left')
+    else:
+        df['total_oi'] = 0
+
+    # Fill NaNs for JSON serialization
+    df.fillna(0, inplace=True)
+
+    # Prepare response arrays
+    dates = df.index.strftime('%Y-%m-%d').tolist()
+    # ECharts candlestick expects [open, close, lowest, highest]
+    ohlc = df[['open', 'close', 'low', 'high']].values.tolist()
+
+    return {
+        "dates": dates,
+        "ohlc": ohlc,
+        "volume": df['volume'].tolist(),
+        "ma20": df['ma20'].tolist(),
+        "donchian_upper": df['donchian_upper'].tolist(),
+        "donchian_lower": df['donchian_lower'].tolist(),
+        "atr": df['atr_14_pct'].tolist(),
+        "oi": df['total_oi'].tolist()
+    }
+
+@router.get("/api/market-activity/participant-oi")
+async def get_participant_oi(db: Session = Depends(get_db)):
+    from backend.ingest.nse_models import FAOParticipantOI
+
+    # Get the last 252 trading days
+    dates = db.query(FAOParticipantOI.trade_date).distinct().order_by(FAOParticipantOI.trade_date.desc()).limit(252).all()
+    dates = [d[0] for d in dates]
+    dates.sort() # chronological
+
+    if not dates:
+         return {"dates": [], "fii_net_long": [], "pro_net_long": [], "client_net_long": []}
+
+    records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date.in_(dates)).all()
+
+    import pandas as pd
+    df = pd.DataFrame([{
+        'date': r.trade_date,
+        'client_type': r.client_type,
+        'fut_idx_long': r.future_index_long,
+        'fut_idx_short': r.future_index_short
+    } for r in records])
+
+    if df.empty:
+         return {"dates": [], "fii_net_long": [], "pro_net_long": [], "client_net_long": []}
+
+    df['net_long'] = df['fut_idx_long'] - df['fut_idx_short']
+
+    pivot = df.pivot(index='date', columns='client_type', values='net_long').fillna(0)
+    pivot = pivot.reindex(pd.to_datetime(dates)).fillna(0)
+
+    return {
+        "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
+        "fii_net_long": pivot.get('FII', pd.Series(0, index=pivot.index)).tolist(),
+        "pro_net_long": pivot.get('PRO', pd.Series(0, index=pivot.index)).tolist(),
+        "client_net_long": pivot.get('Client', pd.Series(0, index=pivot.index)).tolist()
+    }
+
+@router.get("/api/market-activity/cash-flow")
+async def get_cash_market_flow(db: Session = Depends(get_db)):
+    """
+    Returns real FII/DII Cash Market Flow from the database over the last 252 days.
+    """
+    from backend.ingest.nse_models import FIIDIICash
+
+    dates_query = db.query(FIIDIICash.trade_date).distinct().order_by(FIIDIICash.trade_date.desc()).limit(252).all()
+    dates = [d[0] for d in dates_query]
+    dates.sort()
+
+    if not dates:
+         return {"dates": [], "fii_net": [], "dii_net": []}
+
+    records = db.query(FIIDIICash).filter(FIIDIICash.trade_date.in_(dates)).all()
+
+    import pandas as pd
+    df = pd.DataFrame([{
+        'date': r.trade_date,
+        'category': r.category,
+        'net_value': r.net_value
+    } for r in records])
+
+    if df.empty:
+         return {"dates": [], "fii_net": [], "dii_net": []}
+
+    pivot = df.pivot(index='date', columns='category', values='net_value').fillna(0)
+    pivot = pivot.reindex(pd.to_datetime(dates)).fillna(0)
+
+    return {
+        "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
+        "fii_net": pivot.get('FII', pd.Series(0, index=pivot.index)).tolist(),
+        "dii_net": pivot.get('DII', pd.Series(0, index=pivot.index)).tolist()
+    }

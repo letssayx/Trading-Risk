@@ -12,7 +12,7 @@ from backend.infrastructure.db import SessionLocal
 logger = get_task_logger(__name__)
 
 # Use shared_task decorator for integration with main Celery app
-@shared_task(bind=True, name='backend.ingest.tasks.import_nse_date', max_retries=3)
+@shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_date')
 def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, force: bool = False):
     """Import NSE data for a specific date."""
 
@@ -40,12 +40,12 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
     except Exception as exc:
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
-            logger.error(f"Max retries exceeded for import_nse_date: {err_msg}")
+            logger.error(f"Max retries exceeded for date import: {err_msg}")
             self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
-            raise Exception(f"Import Failed: {err_msg}")
+            raise Exception(f"Date Import Failed: {err_msg}")
 
         logger.error(f"Import failed: {exc}. Retrying... ({self.request.retries}/3)")
-        self.retry(exc=exc, countdown=60)  # Retry after 1 min on failure, up to 3 times
+        self.retry(exc=exc, countdown=60)  # Retry after 1 min on failure
 
 from celery import shared_task
 
@@ -89,7 +89,7 @@ def evaluate_ai_predictions(self):
         db.close()
 
 
-@shared_task(bind=True, name='backend.ingest.tasks.import_nse_range', max_retries=3)
+@shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
     try:
@@ -190,7 +190,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         logger.error(f"Range import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=exc, countdown=60)
 
-@shared_task(bind=True, name='backend.ingest.tasks.import_nse_latest', max_retries=3)
+@shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_latest')
 def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False):
     """Import data for the most recent trading day."""
 
@@ -273,7 +273,7 @@ def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = No
         logger.error(f"Morning Report Preparation Failed: {err_msg}")
         import traceback
         traceback.print_exc()
-        # Update state with a generic exception string to prevent serialization errors
+        # Updating state explicitly with exc_type so it isn't swallowed and prevents Celery ValueError
         self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
         raise Exception(f"Morning Report Preparation Failed: {err_msg}")
 

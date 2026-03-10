@@ -28,36 +28,15 @@ class MorningReportCalculator:
         return record.applicable_daily_vol if record else 0.0
 
     def _get_pe_ratio(self, target_date: date, symbol: str) -> float:
-        """Fetch PE ratio from pe_ratio or index_pe_ratio table."""
+        """Fetch PE ratio from pe_ratio table."""
         record = self.db.query(PERatio).filter(
             PERatio.date == target_date,
             PERatio.symbol == symbol
         ).first()
-
-        if record:
-            return record.symbol_pe
-
-        # Check index PE mapping
-        from backend.ingest.nse_models import IndexPERatio
-        index_mapping = {
-            'NIFTY': 'Nifty 50',
-            'BANKNIFTY': 'Nifty Bank',
-            'FINNIFTY': 'Nifty Financial Services',
-            'MIDCPNIFTY': 'Nifty Midcap Select'
-        }
-        idx_symbol = index_mapping.get(symbol)
-        if idx_symbol:
-            idx_record = self.db.query(IndexPERatio).filter(
-                IndexPERatio.date == target_date,
-                IndexPERatio.symbol == idx_symbol
-            ).first()
-            if idx_record:
-                return idx_record.pe
-
-        return 0.0
+        return record.symbol_pe if record else 0.0
 
     def _get_mwpl_array(self, target_date: date, symbol: str) -> list:
-        """Fetch MWPL client limits for the symbol as a JSON array of values."""
+        """Fetch MWPL client limits for the symbol as a JSON array."""
         records = self.db.query(MWPLClientPosition).filter(
             MWPLClientPosition.date == target_date,
             MWPLClientPosition.underlying_stock == symbol
@@ -67,15 +46,15 @@ class MorningReportCalculator:
             return []
 
         arr = []
-        for r in records:
-            arr.append(r.position_pct)
+        for i, r in enumerate(records):
+            arr.append({f"client_{i+1}": r.position_pct})
         return arr
 
     def _fetch_cash_history(self, target_date: date, symbol: str, days: int = 500) -> pd.DataFrame:
         """Fetches historical cash close prices for Regression, ATR, and EMA calculations."""
         # Using a raw query for speed over a large window
         query = text("""
-            SELECT trade_date, close_price, high_price, low_price
+            SELECT trade_date, close_price, high_price, low_price, total_traded_qty as volume
             FROM bhavcopy_eq
             WHERE symbol = :sym AND series = 'EQ' AND trade_date <= :dt
             ORDER BY trade_date DESC
@@ -85,22 +64,20 @@ class MorningReportCalculator:
         if not result:
             # Fallback to near futures for indices or stocks without EQ data
             query_fo = text("""
-                SELECT trade_date, close_price, high_price, low_price
-                FROM bhavcopy_fo
-                WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK') AND trade_date <= :dt
-                ORDER BY trade_date DESC, expiry_date ASC
+                SELECT * FROM (
+                    SELECT DISTINCT ON (trade_date) trade_date, close_price, high_price, low_price, total_trading_vol as volume
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK') AND trade_date <= :dt
+                    ORDER BY trade_date DESC, expiry_date ASC
+                ) AS distinct_dates
+                ORDER BY trade_date DESC
                 LIMIT :lmt
             """)
-            result_fo = self.db.execute(query_fo, {"sym": symbol, "dt": target_date, "lmt": days * 3}).fetchall()
-            if not result_fo:
-                return pd.DataFrame()
+            result = self.db.execute(query_fo, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
+        if not result:
+            return pd.DataFrame()
 
-            df = pd.DataFrame(result_fo, columns=['date', 'close', 'high', 'low'])
-            # Group by date FIRST to retain the near-expiry (which was ordered first in SQL), then sort by date
-            df = df.groupby('date').first().reset_index().sort_values('date')
-            return df.tail(days).reset_index(drop=True)
-
-        df = pd.DataFrame(result, columns=['date', 'close', 'high', 'low'])
+        df = pd.DataFrame(result, columns=['date', 'close', 'high', 'low', 'volume'])
         df = df.sort_values('date').reset_index(drop=True)
         return df
 
@@ -161,19 +138,31 @@ class MorningReportCalculator:
         }
 
     def _calculate_technicals(self, df: pd.DataFrame) -> dict:
-        """Calculates 14-day ATR (Wilder's Smoothing as %) and 20/50/100/200-day EMAs."""
-        res = {"atr_14_pct": 0.0, "ema_20": 0.0, "ema_50": 0.0, "ema_100": 0.0, "ema_200": 0.0}
+        """Calculates 14-day ATR, EMAs, Price % Change, and Relative Volume."""
+        res = {
+            "atr_14": 0.0, "ema_20": 0.0, "ema_50": 0.0, "ema_100": 0.0, "ema_200": 0.0,
+            "price_pct_change": 0.0, "rel_vol_20d": 0.0
+        }
         if df.empty:
             return res
 
         close = df['close']
 
-        if len(df) >= 20: res['ema_20'] = close.ewm(span=20, adjust=False).mean().iloc[-1]
+        if len(df) >= 2:
+            res['price_pct_change'] = ((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2]) * 100
+
+        if len(df) >= 20:
+            res['ema_20'] = close.ewm(span=20, adjust=False).mean().iloc[-1]
+            if 'volume' in df.columns:
+                vol_sma_20 = df['volume'].rolling(window=20).mean().iloc[-1]
+                if vol_sma_20 > 0:
+                    res['rel_vol_20d'] = df['volume'].iloc[-1] / vol_sma_20
+
         if len(df) >= 50: res['ema_50'] = close.ewm(span=50, adjust=False).mean().iloc[-1]
         if len(df) >= 100: res['ema_100'] = close.ewm(span=100, adjust=False).mean().iloc[-1]
         if len(df) >= 200: res['ema_200'] = close.ewm(span=200, adjust=False).mean().iloc[-1]
 
-        # Wilder's Smoothing ATR (14-day)
+        # ATR
         if len(df) > 1:
             high = df['high']
             low = df['low']
@@ -182,38 +171,21 @@ class MorningReportCalculator:
             tr2 = (high - prev_close).abs()
             tr3 = (low - prev_close).abs()
             tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-
-            # Wilder's Smoothing is equivalent to ewm(alpha=1/n)
-            atr = tr.ewm(alpha=1/14, adjust=False).mean().iloc[-1]
-            last_close = close.iloc[-1]
-
-            # Convert to ATR % for readability
-            if last_close > 0:
-                res['atr_14_pct'] = (atr / last_close) * 100
+            res['atr_14'] = tr.rolling(window=14).mean().iloc[-1]
 
         return res
 
     def _get_delivery_averages(self, target_date: date, symbol: str) -> dict:
         query = text("""
-            SELECT m.trade_date, m.quantity_traded, m.deliverable_qty
-            FROM mto_delivery m
-            JOIN security_master sm ON m.security_name = sm.security_series OR m.security_name = sm.ticker_symb
-            WHERE sm.ticker_symb = :sym AND m.trade_date <= :dt
-            ORDER BY m.trade_date DESC
+            SELECT trade_date, quantity_traded, deliverable_qty
+            FROM mto_delivery
+            WHERE security_name = :sym AND trade_date <= :dt
+            ORDER BY trade_date DESC
             LIMIT 30
         """)
+        # Fallback to symbol matching if security_name isn't perfectly mapped (MTO sometimes uses full names or symbols)
+        # Assuming security_name matches symbol for now.
         result = self.db.execute(query, {"sym": symbol, "dt": target_date}).fetchall()
-
-        # Fallback if security_master join fails to map correctly
-        if not result:
-            query_fb = text("""
-                SELECT trade_date, quantity_traded, deliverable_qty
-                FROM mto_delivery
-                WHERE security_name = :sym AND trade_date <= :dt
-                ORDER BY trade_date DESC
-                LIMIT 30
-            """)
-            result = self.db.execute(query_fb, {"sym": symbol, "dt": target_date}).fetchall()
 
         res = {"5d": 0.0, "10d": 0.0, "20d": 0.0, "30d": 0.0}
         if not result:
@@ -298,6 +270,34 @@ class MorningReportCalculator:
         skew = put_25d_iv - call_25d_iv
         return atm_iv, skew
 
+    def _calculate_iv_rank_percentile(self, symbol: str, target_date: date, current_iv: float) -> tuple:
+        """Calculates 252-day IV Rank and IV Percentile using historical DailyDerivativesAnalysis data."""
+        if current_iv == 0.0:
+            return 0.0, 0.0
+
+        hist_records = self.db.query(DailyDerivativesAnalysis.atm_iv_near).filter(
+            DailyDerivativesAnalysis.symbol == symbol,
+            DailyDerivativesAnalysis.trade_date <= target_date,
+            DailyDerivativesAnalysis.atm_iv_near > 0.0
+        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(252).all()
+
+        ivs = [r[0] for r in hist_records]
+        if current_iv not in ivs: # ensure current is in there if it's new
+            ivs.append(current_iv)
+
+        if len(ivs) < 10: # Need at least some history for a meaningful rank
+            return 0.0, 0.0
+
+        min_iv = min(ivs)
+        max_iv = max(ivs)
+
+        iv_rank = ((current_iv - min_iv) / (max_iv - min_iv) * 100.0) if max_iv > min_iv else 0.0
+
+        lower_iv_count = sum(1 for iv in ivs if iv < current_iv)
+        iv_pctile = (lower_iv_count / len(ivs)) * 100.0
+
+        return iv_rank, iv_pctile
+
     def calculate_for_date(self, target_date: date) -> Dict[str, Any]:
         symbols_query = self.db.query(BhavcopyFO.ticker_symb).filter(
             BhavcopyFO.trade_date == target_date,
@@ -309,17 +309,6 @@ class MorningReportCalculator:
 
         nifty_hist = self._fetch_nifty_history(target_date)
         processed_count = 0
-
-        # Helper to safely cast numpy floats to native python floats
-        def c_f(val):
-            if val is None: return 0.0
-            v = float(val)
-            return 0.0 if np.isnan(v) or np.isinf(v) else v
-
-        def c_i(val):
-            if val is None: return 0
-            v = float(val)
-            return 0 if np.isnan(v) or np.isinf(v) else int(v)
 
         for symbol in symbols:
             # Get All Futures for the symbol
@@ -333,13 +322,18 @@ class MorningReportCalculator:
             if not futs:
                 continue
 
-            # Identify Futures 1, 2, and 3 distinctly (handling cases where there are many weekly futures)
-            expiries = sorted(list(set(f.expiry_date for f in futs)))
-            near_fut = next((f for f in futs if f.expiry_date == expiries[0]), None)
-            next_fut = next((f for f in futs if len(expiries) > 1 and f.expiry_date == expiries[1]), None)
-            far_fut = next((f for f in futs if len(expiries) > 2 and f.expiry_date == expiries[2]), None)
+            # Identify unique expiry dates to avoid duplicate weekly contracts throwing off the month logic
+            unique_expiries = []
+            for f in futs:
+                if f.expiry_date not in unique_expiries:
+                    unique_expiries.append(f.expiry_date)
 
-            if not near_fut: continue
+            near_fut = next((f for f in futs if f.expiry_date == unique_expiries[0]), None) if len(unique_expiries) > 0 else None
+            next_fut = next((f for f in futs if f.expiry_date == unique_expiries[1]), None) if len(unique_expiries) > 1 else None
+            far_fut = next((f for f in futs if f.expiry_date == unique_expiries[2]), None) if len(unique_expiries) > 2 else None
+
+            if not near_fut:
+                continue
 
             # Underlying Cash Close
             eq_record = self.db.query(BhavcopyEQ).filter(
@@ -347,17 +341,12 @@ class MorningReportCalculator:
                 BhavcopyEQ.symbol == symbol,
                 BhavcopyEQ.series == 'EQ'
             ).first()
-
-            # Basis should only be calculated if we have ACTUAL cash data. No fallback.
-            # Basis 1/2 are set to 0.0 if there is no underlying cash close.
-            cash_close = eq_record.close_price if eq_record else 0.0
-            proxy_cash_for_greeks = cash_close if cash_close > 0 else near_fut.close_price
-
-            if proxy_cash_for_greeks <= 0: continue
+            cash_close = eq_record.close_price if eq_record else near_fut.close_price
+            if cash_close <= 0: continue
 
             # Spreads & Basis (bps)
-            basis_1 = (near_fut.close_price - cash_close) / cash_close * 10000 if cash_close > 0 else 0.0
-            basis_2 = (next_fut.close_price - cash_close) / cash_close * 10000 if next_fut and cash_close > 0 else 0.0
+            basis_1 = (near_fut.close_price - cash_close) / cash_close * 10000
+            basis_2 = (next_fut.close_price - cash_close) / cash_close * 10000 if next_fut else 0.0
             cal_spread_1 = (next_fut.close_price - near_fut.close_price) / near_fut.close_price * 10000 if next_fut else 0.0
             cal_spread_2 = (far_fut.close_price - next_fut.close_price) / next_fut.close_price * 10000 if far_fut and next_fut else 0.0
 
@@ -403,13 +392,15 @@ class MorningReportCalculator:
             next_opts = [o for o in all_opts if next_fut and o.expiry_date == next_fut.expiry_date]
             far_opts = [o for o in all_opts if far_fut and o.expiry_date == far_fut.expiry_date]
 
-            atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, proxy_cash_for_greeks, near_fut.expiry_date, target_date, proxy_ann_vol)
-            atm_iv_next, _ = self.calculate_iv_and_skew(next_opts, proxy_cash_for_greeks, next_fut.expiry_date, target_date, proxy_ann_vol) if next_fut else (0.0, 0.0)
-            _, skew_far = self.calculate_iv_and_skew(far_opts, proxy_cash_for_greeks, far_fut.expiry_date, target_date, proxy_ann_vol) if far_fut else (0.0, 0.0)
+            atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, cash_close, near_fut.expiry_date, target_date, proxy_ann_vol)
+            atm_iv_next, _ = self.calculate_iv_and_skew(next_opts, cash_close, next_fut.expiry_date, target_date, proxy_ann_vol) if next_fut else (0.0, 0.0)
+            _, skew_far = self.calculate_iv_and_skew(far_opts, cash_close, far_fut.expiry_date, target_date, proxy_ann_vol) if far_fut else (0.0, 0.0)
 
             # Other Metrics
             mwpl_arr = self._get_mwpl_array(target_date, symbol)
             pe_val = self._get_pe_ratio(target_date, symbol)
+
+            iv_rank, iv_pctile = self._calculate_iv_rank_percentile(symbol, target_date, atm_iv_near)
 
             stock_hist = self._fetch_cash_history(target_date, symbol)
             betas = self._calculate_betas_and_rsquared(stock_hist, nifty_hist)
@@ -426,45 +417,50 @@ class MorningReportCalculator:
                 record = DailyDerivativesAnalysis(trade_date=target_date, symbol=symbol)
                 self.db.add(record)
 
+            record.close_price = near_fut.close_price
+            record.futures_total_vol = total_vol
+            record.futures_total_oi = total_oi
+            record.pcr_oi = pcr_oi
+            record.highest_oi_strike_pe = highest_pe_strike
+            record.highest_oi_strike_ce = highest_ce_strike
+            record.pct_away_highest_pe = ((highest_pe_strike - cash_close) / cash_close) * 100 if highest_pe_strike and cash_close else None
+            record.pct_away_highest_ce = ((highest_ce_strike - cash_close) / cash_close) * 100 if highest_ce_strike and cash_close else None
+            record.chg_oi_options = chg_oi_opts
+            record.chg_oi_futures = chg_oi_futs
             record.near_expiry_date = near_fut.expiry_date if near_fut else None
             record.next_expiry_date = next_fut.expiry_date if next_fut else None
             record.far_expiry_date = far_fut.expiry_date if far_fut else None
-
-            record.close_price = c_f(near_fut.close_price)
-            record.futures_total_vol = c_i(total_vol)
-            record.futures_total_oi = c_i(total_oi)
-            record.pcr_oi = c_f(pcr_oi)
-            record.highest_oi_strike_pe = c_f(highest_pe_strike)
-            record.highest_oi_strike_ce = c_f(highest_ce_strike)
-            record.chg_oi_options = c_i(chg_oi_opts)
-            record.chg_oi_futures = c_i(chg_oi_futs)
-            record.total_options_call_oi = c_i(call_oi)
-            record.total_options_put_oi = c_i(put_oi)
-            record.atm_iv_near = c_f(atm_iv_near)
-            record.atm_iv_next = c_f(atm_iv_next)
-            record.skew_25d_near = c_f(skew_near)
-            record.skew_25d_far = c_f(skew_far)
-            record.rollover_pct = c_f(rollover_pct)
-            record.daily_volatility = c_f(daily_vol)
+            record.total_options_call_oi = call_oi
+            record.total_options_put_oi = put_oi
+            record.atm_iv_near = atm_iv_near
+            record.atm_iv_next = atm_iv_next
+            record.iv_rank_252 = iv_rank
+            record.iv_percentile_252 = iv_pctile
+            record.skew_25d_near = skew_near
+            record.skew_25d_far = skew_far
+            record.rollover_pct = rollover_pct
+            record.daily_volatility = daily_vol
             record.mwpl_array = mwpl_arr
-            record.basis_1_bps = c_f(basis_1)
-            record.basis_2_bps = c_f(basis_2)
-            record.calendar_spread_1_bps = c_f(cal_spread_1)
-            record.calendar_spread_2_bps = c_f(cal_spread_2)
-            record.pe_ratio = c_f(pe_val)
-            record.beta_252 = c_f(betas['beta_252'])
-            record.beta_500 = c_f(betas['beta_500'])
-            record.r_squared_252 = c_f(betas['r_squared_252'])
-            record.r_squared_500 = c_f(betas['r_squared_500'])
-            record.atr_14_cash = c_f(techs.get('atr_14_pct', 0.0))
-            record.ema_20_cash = c_f(techs['ema_20'])
-            record.ema_50_cash = c_f(techs['ema_50'])
-            record.ema_100_cash = c_f(techs['ema_100'])
-            record.ema_200_cash = c_f(techs['ema_200'])
-            record.mavg_delivery_vol_pct_5d = c_f(deliv['5d'])
-            record.mavg_delivery_vol_pct_10d = c_f(deliv['10d'])
-            record.mavg_delivery_vol_pct_20d = c_f(deliv['20d'])
-            record.mavg_delivery_vol_pct_30d = c_f(deliv['30d'])
+            record.basis_1_bps = basis_1
+            record.basis_2_bps = basis_2
+            record.calendar_spread_1_bps = cal_spread_1
+            record.calendar_spread_2_bps = cal_spread_2
+            record.pe_ratio = pe_val
+            record.beta_252 = betas['beta_252']
+            record.beta_500 = betas['beta_500']
+            record.r_squared_252 = betas['r_squared_252']
+            record.r_squared_500 = betas['r_squared_500']
+            record.price_pct_change = techs.get('price_pct_change', 0.0)
+            record.relative_volume_20d = techs.get('rel_vol_20d', 0.0)
+            record.atr_14_cash = techs['atr_14']
+            record.ema_20_cash = techs['ema_20']
+            record.ema_50_cash = techs['ema_50']
+            record.ema_100_cash = techs['ema_100']
+            record.ema_200_cash = techs['ema_200']
+            record.mavg_delivery_vol_pct_5d = deliv['5d']
+            record.mavg_delivery_vol_pct_10d = deliv['10d']
+            record.mavg_delivery_vol_pct_20d = deliv['20d']
+            record.mavg_delivery_vol_pct_30d = deliv['30d']
 
             processed_count += 1
 

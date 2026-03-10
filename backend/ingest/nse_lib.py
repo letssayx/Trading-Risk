@@ -41,26 +41,33 @@ class NSELib:
         self._cookies_primed = False
 
     def _ensure_session(self):
-        """Prime cookies if not already done."""
+        """Prime cookies if not already done. Retries to avoid Connection timeouts."""
+        import time
         if self._cookies_primed:
             return
 
-        try:
-            logger.info(f"Priming NSE session via {self.BASE_URL}...")
-            # Minimal headers for initial handshake often helps
-            headers = {
-                'User-Agent': self.HEADERS['User-Agent'],
-                'Accept': '*/*',
-                'Connection': 'keep-alive'
-            }
-            resp = self.session.get(self.BASE_URL, headers=headers, timeout=10)
-            if resp.status_code == 200:
-                self._cookies_primed = True
-                logger.info("Session primed successfully.")
-            else:
-                logger.warning(f"Session prime failed: {resp.status_code}")
-        except Exception as e:
-            logger.error(f"Session prime error: {e}")
+        for attempt in range(1, 4):
+            try:
+                logger.info(f"Priming NSE session via {self.BASE_URL}... (Attempt {attempt})")
+                # Minimal headers for initial handshake often helps
+                headers = {
+                    'User-Agent': self.HEADERS['User-Agent'],
+                    'Accept': '*/*',
+                    'Connection': 'keep-alive'
+                }
+                resp = self.session.get(self.BASE_URL, headers=headers, timeout=30)
+                if resp.status_code == 200:
+                    self._cookies_primed = True
+                    logger.info("Session primed successfully.")
+                    return
+                else:
+                    logger.warning(f"Session prime failed: {resp.status_code}")
+            except Exception as e:
+                logger.error(f"Session prime error on attempt {attempt}: {e}")
+
+            time.sleep(5 * attempt)
+
+        logger.error("Failed to prime NSE session after 3 attempts.")
 
     def get(self, url: str) -> requests.Response:
         """Execute GET request with session handling."""
@@ -495,3 +502,65 @@ class NSELib:
             except:
                 pass
         return pd.DataFrame()
+
+    def get_fii_dii_cash(self, trade_date: date) -> pd.DataFrame:
+        """Fetch FII/DII Cash Market flow data. Usually uses the daily API endpoint."""
+        # NSE publishes this data in the evening via an API
+        url = "https://www.nseindia.com/api/fiidiiTradeReact"
+        resp = self.get(url)
+        if not resp or resp.status_code != 200:
+            logger.error(f"Failed to fetch FII/DII Cash Flow for {trade_date}")
+            return pd.DataFrame()
+
+        try:
+            data = resp.json()
+            records = []
+
+            # Validate that the API response actually matches the requested trade_date.
+            # fiidiiTradeReact usually only returns the latest date. Do not ingest today's data for historical dates.
+            api_date_str = None
+            if data and len(data) > 0 and 'date' in data[0]:
+                api_date_str = data[0]['date']
+
+            if not api_date_str:
+                return pd.DataFrame()
+
+            # Parse the API date (e.g. '10-Mar-2026')
+            from datetime import datetime
+            try:
+                api_date = datetime.strptime(api_date_str, "%d-%b-%Y").date()
+            except ValueError:
+                return pd.DataFrame()
+
+            if api_date != trade_date:
+                logger.warning(f"FII/DII API returned data for {api_date}, skipping import for requested {trade_date}")
+                return pd.DataFrame()
+
+            # The API returns a list of dictionaries with categories. The main categories are FII/FPI and DII
+            for item in data:
+                cat = item.get('category')
+                if not cat: continue
+                if 'FII' in cat or 'FPI' in cat:
+                    cat_name = 'FII'
+                elif 'DII' in cat:
+                    cat_name = 'DII'
+                else:
+                    continue
+
+                records.append({
+                    'trade_date': trade_date,
+                    'category': cat_name,
+                    'buy_value': float(item.get('buyValue', 0)),
+                    'sell_value': float(item.get('sellValue', 0)),
+                    'net_value': float(item.get('netValue', 0))
+                })
+
+            if not records:
+                logger.warning(f"No FII/DII records parsed for {trade_date}")
+                return pd.DataFrame()
+
+            return pd.DataFrame(records)
+
+        except Exception as e:
+            logger.error(f"Error parsing FII/DII cash flow data: {e}")
+            return pd.DataFrame()

@@ -57,6 +57,7 @@ class NSEDataImporter:
             'var_stats': models.VaRStat,
             'contract_delta': models.ContractDelta,
             'margin_trading': models.MarginTrading,
+            'fii_dii_cash': models.FIIDIICash,
         }
         if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
             return getattr(models, 'CorporateAction')
@@ -83,6 +84,7 @@ class NSEDataImporter:
             'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
             'margin_trading': ['date', 'symbol'],
             'corporate_actions': ['date', 'symbol', 'purpose'],
+            'fii_dii_cash': ['trade_date', 'category'],
         }
         return mapping.get(key, [])
 
@@ -161,6 +163,8 @@ class NSEDataImporter:
             return self.lib.get_india_vix(trade_date)
         elif key == 'nse_security':
             return self.lib.get_security_master(trade_date)
+        elif key == 'fii_dii_cash':
+            return self.lib.get_fii_dii_cash(trade_date)
         elif key == 'var_stats':
             # For simplicity, fetch BEGIN day only for now, or merge?
             # Importer usually runs once per day. Let's default to BEGIN.
@@ -263,7 +267,7 @@ class NSEDataImporter:
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
             'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions',
-            'nse_security'
+            'nse_security', 'fii_dii_cash'
         ]
 
         patterns_to_run = patterns or available_keys
