@@ -257,6 +257,17 @@ class MorningReportCalculator:
         nifty_hist = self._fetch_nifty_history(target_date)
         processed_count = 0
 
+        # Helper to safely cast numpy floats to native python floats
+        def c_f(val):
+            if val is None: return 0.0
+            v = float(val)
+            return 0.0 if np.isnan(v) or np.isinf(v) else v
+
+        def c_i(val):
+            if val is None: return 0
+            v = float(val)
+            return 0 if np.isnan(v) or np.isinf(v) else int(v)
+
         for symbol in symbols:
             # Get All Futures for the symbol
             futs = self.db.query(BhavcopyFO).filter(
@@ -353,41 +364,41 @@ class MorningReportCalculator:
                 record = DailyDerivativesAnalysis(trade_date=target_date, symbol=symbol)
                 self.db.add(record)
 
-            record.close_price = near_fut.close_price
-            record.futures_total_vol = total_vol
-            record.futures_total_oi = total_oi
-            record.pcr_oi = pcr_oi
-            record.highest_oi_strike_pe = highest_pe_strike
-            record.highest_oi_strike_ce = highest_ce_strike
-            record.chg_oi_options = chg_oi_opts
-            record.chg_oi_futures = chg_oi_futs
-            record.total_options_call_oi = call_oi
-            record.total_options_put_oi = put_oi
-            record.atm_iv_near = atm_iv_near
-            record.atm_iv_next = atm_iv_next
-            record.skew_25d_near = skew_near
-            record.skew_25d_far = skew_far
-            record.rollover_pct = rollover_pct
-            record.daily_volatility = daily_vol
+            record.close_price = c_f(near_fut.close_price)
+            record.futures_total_vol = c_i(total_vol)
+            record.futures_total_oi = c_i(total_oi)
+            record.pcr_oi = c_f(pcr_oi)
+            record.highest_oi_strike_pe = c_f(highest_pe_strike)
+            record.highest_oi_strike_ce = c_f(highest_ce_strike)
+            record.chg_oi_options = c_i(chg_oi_opts)
+            record.chg_oi_futures = c_i(chg_oi_futs)
+            record.total_options_call_oi = c_i(call_oi)
+            record.total_options_put_oi = c_i(put_oi)
+            record.atm_iv_near = c_f(atm_iv_near)
+            record.atm_iv_next = c_f(atm_iv_next)
+            record.skew_25d_near = c_f(skew_near)
+            record.skew_25d_far = c_f(skew_far)
+            record.rollover_pct = c_f(rollover_pct)
+            record.daily_volatility = c_f(daily_vol)
             record.mwpl_array = mwpl_arr
-            record.basis_1_bps = basis_1
-            record.basis_2_bps = basis_2
-            record.calendar_spread_1_bps = cal_spread_1
-            record.calendar_spread_2_bps = cal_spread_2
-            record.pe_ratio = pe_val
-            record.beta_252 = betas['beta_252']
-            record.beta_500 = betas['beta_500']
-            record.r_squared_252 = betas['r_squared_252']
-            record.r_squared_500 = betas['r_squared_500']
-            record.atr_14_cash = techs['atr_14']
-            record.ema_20_cash = techs['ema_20']
-            record.ema_50_cash = techs['ema_50']
-            record.ema_100_cash = techs['ema_100']
-            record.ema_200_cash = techs['ema_200']
-            record.mavg_delivery_vol_pct_5d = deliv['5d']
-            record.mavg_delivery_vol_pct_10d = deliv['10d']
-            record.mavg_delivery_vol_pct_20d = deliv['20d']
-            record.mavg_delivery_vol_pct_30d = deliv['30d']
+            record.basis_1_bps = c_f(basis_1)
+            record.basis_2_bps = c_f(basis_2)
+            record.calendar_spread_1_bps = c_f(cal_spread_1)
+            record.calendar_spread_2_bps = c_f(cal_spread_2)
+            record.pe_ratio = c_f(pe_val)
+            record.beta_252 = c_f(betas['beta_252'])
+            record.beta_500 = c_f(betas['beta_500'])
+            record.r_squared_252 = c_f(betas['r_squared_252'])
+            record.r_squared_500 = c_f(betas['r_squared_500'])
+            record.atr_14_cash = c_f(techs['atr_14'])
+            record.ema_20_cash = c_f(techs['ema_20'])
+            record.ema_50_cash = c_f(techs['ema_50'])
+            record.ema_100_cash = c_f(techs['ema_100'])
+            record.ema_200_cash = c_f(techs['ema_200'])
+            record.mavg_delivery_vol_pct_5d = c_f(deliv['5d'])
+            record.mavg_delivery_vol_pct_10d = c_f(deliv['10d'])
+            record.mavg_delivery_vol_pct_20d = c_f(deliv['20d'])
+            record.mavg_delivery_vol_pct_30d = c_f(deliv['30d'])
 
             processed_count += 1
 
