@@ -457,6 +457,9 @@
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 2<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
@@ -487,7 +490,7 @@
                                 </tr>
                             </thead>
                             <tbody id="mr-data-body">
-                                <tr><td colspan="37" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                                <tr><td colspan="40" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
                                 </table>
                             </div>
@@ -705,7 +708,7 @@
 
                         tbody.innerHTML = '';
                         if(data.length === 0) {
-                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 36 : 37}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
+                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 39 : 40}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
                             return;
                         }
 
@@ -921,7 +924,7 @@
                         genBtn.style.opacity = '1';
                     } catch(e) {
                         statusText.innerText = 'Failed to load data.';
-                        tbody.innerHTML = `<tr><td colspan="37" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="40" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
                     }
                 }
 
