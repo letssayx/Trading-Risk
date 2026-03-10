@@ -12,7 +12,7 @@ from backend.infrastructure.db import SessionLocal
 logger = get_task_logger(__name__)
 
 # Use shared_task decorator for integration with main Celery app
-@shared_task(bind=True, name='backend.ingest.tasks.import_nse_date')
+@shared_task(bind=True, name='backend.ingest.tasks.import_nse_date', max_retries=3)
 def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, force: bool = False):
     """Import NSE data for a specific date."""
 
@@ -38,8 +38,8 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
         return result
 
     except Exception as exc:
-        logger.error(f"Import failed: {exc}")
-        self.retry(exc=exc, countdown=60)  # Retry after 1 min on failure
+        logger.error(f"Import failed: {exc}. Retrying... ({self.request.retries}/3)")
+        self.retry(exc=exc, countdown=60)  # Retry after 1 min on failure, up to 3 times
 
 from celery import shared_task
 
@@ -83,7 +83,7 @@ def evaluate_ai_predictions(self):
         db.close()
 
 
-@shared_task(bind=True, name='backend.ingest.tasks.import_nse_range')
+@shared_task(bind=True, name='backend.ingest.tasks.import_nse_range', max_retries=3)
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
     try:
@@ -175,10 +175,10 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         return {'range': f"{start_date_str} to {end_date_str}", 'results': results}
 
     except Exception as exc:
-        logger.error(f"Range import failed: {exc}")
+        logger.error(f"Range import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=exc, countdown=60)
 
-@shared_task(bind=True, name='backend.ingest.tasks.import_nse_latest')
+@shared_task(bind=True, name='backend.ingest.tasks.import_nse_latest', max_retries=3)
 def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False):
     """Import data for the most recent trading day."""
 
@@ -210,7 +210,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         return importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback)
 
     except Exception as exc:
-        logger.error(f"Latest import failed: {exc}")
+        logger.error(f"Latest import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=exc, countdown=300)
 
 @shared_task(bind=True, name="prepare_morning_data_task")
