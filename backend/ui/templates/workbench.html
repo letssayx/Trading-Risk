@@ -414,7 +414,9 @@
                         </div>
 
                         <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
-                        <button id="mr-generate-btn" class="btn btn-primary" style="width: 100%; padding: 8px; background: #007acc; border-color: #007acc; opacity: 0.5;" disabled>2. Generate PDF Report</button>
+                        <button id="mr-generate-btn" class="btn btn-primary" style="margin-left: auto;" disabled>2. Generate PDF Report</button>
+                    <button id="mr-status-btn" class="btn btn-secondary" style="margin-left: 10px;">Check Status</button>
+                    <button id="mr-export-btn" class="btn btn-secondary" style="margin-left: 10px;">Download Table (CSV)</button>
 
                         <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
                         <button id="mr-download-btn" class="btn" style="width: 100%; padding: 8px; background-color: #28a745; display: none; margin-top: 10px; color: white; border: none;">Open PDF</button>
@@ -445,6 +447,7 @@
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
                                     <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Close<br>Price</th>
+                                    <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
@@ -459,11 +462,11 @@
                                     <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
-                                    <th style="white-space: pre-wrap;">ATM IV<br>(Near) (%)</th>
-                                    <th style="white-space: pre-wrap;">ATM IV<br>(Next) (%)</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Next)</th>
                                     <th style="white-space: pre-wrap;">IV Rank<br>(252d)</th>
-                                    <th style="white-space: pre-wrap;">IV %ile<br>(252d)</th>
-                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near) (%)</th>
+                                    <th style="white-space: pre-wrap;">IV Percentile<br>(252d)</th>
+                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
@@ -478,20 +481,16 @@
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">Price %<br>Change</th>
-                                    <th style="white-space: pre-wrap;">Rel Vol<br>(20d SMA)</th>
-                                    <th style="white-space: pre-wrap;">14-Day<br>ATR</th>
+                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
+                                    <th style="white-space: pre-wrap;">14-Day<br>ATR %</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">100-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">200-Day<br>EMA</th>
-                                    <th style="white-space: pre-wrap;">5-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">10-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">20-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">30-Day Avg<br>Delivery %</th>
                                 </tr>
                             </thead>
                             <tbody id="mr-data-body">
-                                <tr><td colspan="46" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                                <tr><td colspan="42" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
                             </table>
                         </div>
@@ -628,68 +627,102 @@
 
                         // For the new 29-column schema
                         const generateTableHTML = (row, isSnapshot) => {
-                            const close = row.close_price !== null ? row.close_price.toFixed(2) : '-';
-                            const fVol = row.futures_total_vol !== null ? row.futures_total_vol.toLocaleString() : '-';
-                            const fOi = row.futures_total_oi !== null ? row.futures_total_oi.toLocaleString() : '-';
-                            const pcr = row.pcr_oi !== null ? row.pcr_oi.toFixed(2) : '-';
+                            const close = (row.close_price != null && typeof row.close_price === 'number') ? row.close_price.toFixed(2) : '-';
+                            const vwap = (row.vwap != null && typeof row.vwap === 'number') ? row.vwap.toFixed(2) : '-';
+                            const fVol = (row.futures_total_vol != null && typeof row.futures_total_vol === 'number') ? row.futures_total_vol.toLocaleString() : '-';
+                            const fOi = (row.futures_total_oi != null && typeof row.futures_total_oi === 'number') ? row.futures_total_oi.toLocaleString() : '-';
+                            const pcr = (row.pcr_oi != null && typeof row.pcr_oi === 'number') ? row.pcr_oi.toFixed(2) : '-';
 
-                            const hiOiStrikePe = row.highest_oi_strike_pe !== null ? row.highest_oi_strike_pe.toLocaleString() : '-';
-                            const pctAwayPe = row.pct_away_highest_pe !== null ? row.pct_away_highest_pe.toFixed(2) + '%' : '-';
-                            const hiOiStrikeCe = row.highest_oi_strike_ce !== null ? row.highest_oi_strike_ce.toLocaleString() : '-';
-                            const pctAwayCe = row.pct_away_highest_ce !== null ? row.pct_away_highest_ce.toFixed(2) + '%' : '-';
-                            const chgOiOpt = row.chg_oi_options !== null ? row.chg_oi_options.toLocaleString() : '-';
-                            const chgOiFut = row.chg_oi_futures !== null ? row.chg_oi_futures.toLocaleString() : '-';
+                            const hiOiStrikePe = (row.highest_oi_strike_pe != null && typeof row.highest_oi_strike_pe === 'number') ? row.highest_oi_strike_pe.toLocaleString() : '-';
+                            const pctAwayPe = (row.pct_away_highest_pe != null && typeof row.pct_away_highest_pe === 'number') ? (row.pct_away_highest_pe).toFixed(2) + '%' : '-';
+                            const hiOiStrikeCe = (row.highest_oi_strike_ce != null && typeof row.highest_oi_strike_ce === 'number') ? row.highest_oi_strike_ce.toLocaleString() : '-';
+                            const pctAwayCe = (row.pct_away_highest_ce != null && typeof row.pct_away_highest_ce === 'number') ? (row.pct_away_highest_ce).toFixed(2) + '%' : '-';
+                            const chgOiOpt = (row.chg_oi_options != null && typeof row.chg_oi_options === 'number') ? row.chg_oi_options.toLocaleString() : '-';
+                            const chgOiFut = (row.chg_oi_futures != null && typeof row.chg_oi_futures === 'number') ? row.chg_oi_futures.toLocaleString() : '-';
                             const fut1Exp = row.near_expiry_date !== null ? row.near_expiry_date : '-';
                             const fut2Exp = row.next_expiry_date !== null ? row.next_expiry_date : '-';
                             const fut3Exp = row.far_expiry_date !== null ? row.far_expiry_date : '-';
-                            const totCallOi = row.total_options_call_oi !== null ? row.total_options_call_oi.toLocaleString() : '-';
-                            const totPutOi = row.total_options_put_oi !== null ? row.total_options_put_oi.toLocaleString() : '-';
+                            const totCallOi = (row.total_options_call_oi != null && typeof row.total_options_call_oi === 'number') ? row.total_options_call_oi.toLocaleString() : '-';
+                            const totPutOi = (row.total_options_put_oi != null && typeof row.total_options_put_oi === 'number') ? row.total_options_put_oi.toLocaleString() : '-';
 
-                            const atmIvNear = row.atm_iv_near !== null ? (row.atm_iv_near * 100).toFixed(2) + '%' : '-';
-                            const atmIvNext = row.atm_iv_next !== null ? (row.atm_iv_next * 100).toFixed(2) + '%' : '-';
-                            const ivRank = row.iv_rank_252 !== null ? row.iv_rank_252.toFixed(2) : '-';
-                            const ivPctile = row.iv_percentile_252 !== null ? row.iv_percentile_252.toFixed(2) : '-';
-                            const skewNear = row.skew_25d_near !== null ? (row.skew_25d_near * 100).toFixed(2) + '%' : '-';
-                            const skewFar = row.skew_25d_far !== null ? (row.skew_25d_far * 100).toFixed(2) + '%' : '-';
-                            const vol1Sig = row.daily_volatility !== null ? (row.daily_volatility * 100).toFixed(2) + '%' : '-';
+                            const atmIvNear = (row.atm_iv_near != null && typeof row.atm_iv_near === 'number') ? (row.atm_iv_near * 100).toFixed(2) + '%' : '-';
+                            const atmIvNext = (row.atm_iv_next != null && typeof row.atm_iv_next === 'number') ? (row.atm_iv_next * 100).toFixed(2) + '%' : '-';
+                            const ivRank = (row.iv_rank_252 != null && typeof row.iv_rank_252 === 'number') ? row.iv_rank_252.toFixed(2) : '-';
+                            const ivPctile = (row.iv_percentile_252 != null && typeof row.iv_percentile_252 === 'number') ? row.iv_percentile_252.toFixed(2) : '-';
+                            const skewNear = (row.skew_25d_near != null && typeof row.skew_25d_near === 'number') ? (row.skew_25d_near * 100).toFixed(2) + '%' : '-';
+                            const skewFar = (row.skew_25d_far != null && typeof row.skew_25d_far === 'number') ? (row.skew_25d_far * 100).toFixed(2) + '%' : '-';
+                            const vol1Sig = (row.daily_volatility != null && typeof row.daily_volatility === 'number') ? (row.daily_volatility * 100).toFixed(2) + '%' : '-';
 
-                            const roll = row.rollover_pct !== null ? row.rollover_pct.toFixed(2) + '%' : '-';
+                            const roll = (row.rollover_pct != null && typeof row.rollover_pct === 'number') ? (row.rollover_pct * 100).toFixed(2) + '%' : '-';
 
-                            // Check array safely
                             let mwpl = '0.00';
+                            let maxMwpl = 0;
+                            let maxClient = '';
                             if (row.mwpl_array && Array.isArray(row.mwpl_array) && row.mwpl_array.length > 0) {
-                                const firstKey = Object.keys(row.mwpl_array[0])[0];
-                                mwpl = row.mwpl_array[0][firstKey].toFixed(2);
+                                // mwpl_array is usually [{"client_name": value}, ...] or [value] or string.
+                                // To be safe, we extract the highest value if it's an array of objects.
+                                try {
+                                    row.mwpl_array.forEach(item => {
+                                        if (typeof item === 'object' && item !== null) {
+                                            for (let key in item) {
+                                                const val = parseFloat(item[key]);
+                                                if (!isNaN(val) && val > maxMwpl) {
+                                                    maxMwpl = val;
+                                                    maxClient = key;
+                                                }
+                                            }
+                                        } else if (typeof item === 'number') {
+                                            if (item > maxMwpl) maxMwpl = item;
+                                        }
+                                    });
+                                    if (maxMwpl > 0) {
+                                        mwpl = maxMwpl.toFixed(2);
+                                    } else {
+                                        // fallback if structure was different
+                                        const firstKey = Object.keys(row.mwpl_array[0])[0];
+                                        if (firstKey) mwpl = parseFloat(row.mwpl_array[0][firstKey]).toFixed(2);
+                                    }
+                                } catch (e) {
+                                    mwpl = '0.00';
+                                }
                             }
 
-                            const basis1 = row.basis_1_bps !== null ? row.basis_1_bps.toFixed(0) : '-';
-                            const basis2 = row.basis_2_bps !== null ? row.basis_2_bps.toFixed(0) : '-';
-                            const cal1 = row.calendar_spread_1_bps !== null ? row.calendar_spread_1_bps.toFixed(0) : '-';
-                            const cal2 = row.calendar_spread_2_bps !== null ? row.calendar_spread_2_bps.toFixed(0) : '-';
+                            const basis1 = (row.basis_1_bps != null && typeof row.basis_1_bps === 'number') ? row.basis_1_bps.toFixed(0) : '-';
+                            const basis2 = (row.basis_2_bps != null && typeof row.basis_2_bps === 'number') ? row.basis_2_bps.toFixed(0) : '-';
+                            const cal1 = (row.calendar_spread_1_bps != null && typeof row.calendar_spread_1_bps === 'number') ? row.calendar_spread_1_bps.toFixed(0) : '-';
+                            const cal2 = (row.calendar_spread_2_bps != null && typeof row.calendar_spread_2_bps === 'number') ? row.calendar_spread_2_bps.toFixed(0) : '-';
 
-                            const pe = row.pe_ratio !== null ? row.pe_ratio.toFixed(2) : '-';
-                            const b252 = row.beta_252 !== null ? row.beta_252.toFixed(2) : '-';
-                            const b500 = row.beta_500 !== null ? row.beta_500.toFixed(2) : '-';
-                            const r252 = row.r_squared_252 !== null ? row.r_squared_252.toFixed(2) : '-';
-                            const r500 = row.r_squared_500 !== null ? row.r_squared_500.toFixed(2) : '-';
-                            const pxPct = row.price_pct_change !== null ? row.price_pct_change.toFixed(2) + '%' : '-';
-                            const relVol = row.relative_volume_20d !== null ? row.relative_volume_20d.toFixed(2) : '-';
+                            const pe = (row.pe_ratio != null && typeof row.pe_ratio === 'number') ? row.pe_ratio.toFixed(2) : '-';
+                            const b252 = (row.beta_252 != null && typeof row.beta_252 === 'number') ? row.beta_252.toFixed(2) : '-';
+                            const b500 = (row.beta_500 != null && typeof row.beta_500 === 'number') ? row.beta_500.toFixed(2) : '-';
+                            const r252 = (row.r_squared_252 != null && typeof row.r_squared_252 === 'number') ? row.r_squared_252.toFixed(2) : '-';
+                            const r500 = (row.r_squared_500 != null && typeof row.r_squared_500 === 'number') ? row.r_squared_500.toFixed(2) : '-';
+                            const pxPct = (row.price_pct_change != null && typeof row.price_pct_change === 'number') ? (row.price_pct_change).toFixed(2) + '%' : '-';
+                            const relVol = (row.relative_volume_20d != null && typeof row.relative_volume_20d === 'number') ? row.relative_volume_20d.toFixed(2) : '-';
 
-                            const atr = row.atr_14_cash !== null ? row.atr_14_cash.toFixed(2) : '-';
-                            const ema20 = row.ema_20_cash !== null ? row.ema_20_cash.toFixed(2) : '-';
-                            const ema50 = row.ema_50_cash !== null ? row.ema_50_cash.toFixed(2) : '-';
-                            const ema100 = row.ema_100_cash !== null ? row.ema_100_cash.toFixed(2) : '-';
-                            const ema200 = row.ema_200_cash !== null ? row.ema_200_cash.toFixed(2) : '-';
+                            const atr = (row.atr_14_cash != null && typeof row.atr_14_cash === 'number') ? row.atr_14_cash.toFixed(2) : '-';
+                            const ema20 = (row.ema_20_cash != null && typeof row.ema_20_cash === 'number') ? row.ema_20_cash.toFixed(2) : '-';
+                            const ema50 = (row.ema_50_cash != null && typeof row.ema_50_cash === 'number') ? row.ema_50_cash.toFixed(2) : '-';
+                            const ema100 = (row.ema_100_cash != null && typeof row.ema_100_cash === 'number') ? row.ema_100_cash.toFixed(2) : '-';
+                            const ema200 = (row.ema_200_cash != null && typeof row.ema_200_cash === 'number') ? row.ema_200_cash.toFixed(2) : '-';
 
-                            const del5 = row.mavg_delivery_vol_pct_5d !== null ? row.mavg_delivery_vol_pct_5d.toFixed(2) + '%' : '-';
-                            const del10 = row.mavg_delivery_vol_pct_10d !== null ? row.mavg_delivery_vol_pct_10d.toFixed(2) + '%' : '-';
-                            const del20 = row.mavg_delivery_vol_pct_20d !== null ? row.mavg_delivery_vol_pct_20d.toFixed(2) + '%' : '-';
-                            const del30 = row.mavg_delivery_vol_pct_30d !== null ? row.mavg_delivery_vol_pct_30d.toFixed(2) + '%' : '-';
+                            // Note: delivery fields don't exist in model, using '-'
+                            const del5 = '-';
+                            const del10 = '-';
+                            const del20 = '-';
+                            const del30 = '-';
 
-                            let html = isSnapshot ? `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2;"><strong>${row.symbol}</strong></td>` : `<td style="text-align: left; position: sticky; left: 0; background: #1e1e1e; z-index: 2; min-width: 90px; max-width: 90px; width: 90px; box-sizing: border-box;">${row.trade_date}</td><td style="position: sticky; left: 90px; background: #1e1e1e; z-index: 2; text-align: left;"><strong>${row.symbol}</strong></td>`;
+                            let html = ``;
+                            if(!isSnapshot) {
+                                html += `<td style="position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.trade_date}</td>`;
+                                html += `<td style="position: sticky; left: 90px; background: #1e1e1e; z-index: 2;">${row.symbol}</td>`;
+                            } else {
+                                html += `<td style="position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.symbol}</td>`;
+                            }
 
                             html += `
                                 <td>${close}</td>
+                                <td>${vwap}</td>
                                 <td>${fVol}</td>
                                 <td>${fOi}</td>
                                 <td>${pcr}</td>
@@ -729,30 +762,33 @@
                                 <td>${ema50}</td>
                                 <td>${ema100}</td>
                                 <td>${ema200}</td>
-                                <td>${del5}</td>
-                                <td>${del10}</td>
-                                <td>${del20}</td>
-                                <td>${del30}</td>
                             `;
                             return html;
                         };
-
                         if (snapshotMode) {
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Close<br>Price</th>
+                                    <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
+                                    <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
+                                    <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 2<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next)</th>
+                                    <th style="white-space: pre-wrap;">IV Rank<br>(252d)</th>
+                                    <th style="white-space: pre-wrap;">IV Percentile<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
@@ -767,39 +803,58 @@
                                     <th style="white-space: pre-wrap;">&beta;<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
-                                    <th style="white-space: pre-wrap;">14-Day<br>ATR</th>
+                                    <th style="white-space: pre-wrap;">Price %<br>Change</th>
+                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
+                                    <th style="white-space: pre-wrap;">14-Day<br>ATR %</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">100-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">200-Day<br>EMA</th>
-                                    <th style="white-space: pre-wrap;">5-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">10-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">20-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">30-Day Avg<br>Delivery %</th>
                                 </tr>
                             `;
-                            data.forEach(row => {
-                                const tr = document.createElement('tr');
-                                tr.innerHTML = generateTableHTML(row, true);
-                                tbody.appendChild(tr);
-                            });
+                            const renderChunk = (start) => {
+                                const end = Math.min(start + 50, data.length);
+                                const fragment = document.createDocumentFragment();
+                                for (let i = start; i < end; i++) {
+                                    const tr = document.createElement('tr');
+                                    tr.innerHTML = generateTableHTML(data[i], true);
+                                    fragment.appendChild(tr);
+                                }
+                                tbody.appendChild(fragment);
+                                if (end < data.length) {
+                                    requestAnimationFrame(() => renderChunk(end));
+                                } else {
+                                    statusText.innerText = `Loaded ${data.length} records.`;
+                                    const genBtn = document.getElementById('mr-generate-btn');
+                                    if(genBtn) { genBtn.disabled = false; genBtn.style.opacity = '1'; }
+                                }
+                            };
+                            requestAnimationFrame(() => renderChunk(0));
                         } else {
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
                                     <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Close<br>Price</th>
+                                    <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
+                                    <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
+                                    <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 2<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Next)</th>
+                                    <th style="white-space: pre-wrap;">IV Rank<br>(252d)</th>
+                                    <th style="white-space: pre-wrap;">IV Percentile<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
@@ -814,37 +869,119 @@
                                     <th style="white-space: pre-wrap;">&beta;<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
-                                    <th style="white-space: pre-wrap;">14-Day<br>ATR</th>
+                                    <th style="white-space: pre-wrap;">Price %<br>Change</th>
+                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
+                                    <th style="white-space: pre-wrap;">14-Day<br>ATR %</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">100-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">200-Day<br>EMA</th>
-                                    <th style="white-space: pre-wrap;">5-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">10-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">20-Day Avg<br>Delivery %</th>
-                                    <th style="white-space: pre-wrap;">30-Day Avg<br>Delivery %</th>
                                 </tr>
                             `;
-                            data.forEach(row => {
-                                const tr = document.createElement('tr');
-                                tr.innerHTML = generateTableHTML(row, false);
-                                tbody.appendChild(tr);
-                            });
+                            const renderChunk = (start) => {
+                                const end = Math.min(start + 50, data.length);
+                                const fragment = document.createDocumentFragment();
+                                for (let i = start; i < end; i++) {
+                                    const tr = document.createElement('tr');
+                                    tr.innerHTML = generateTableHTML(data[i], false);
+                                    fragment.appendChild(tr);
+                                }
+                                tbody.appendChild(fragment);
+                                if (end < data.length) {
+                                    requestAnimationFrame(() => renderChunk(end));
+                                } else {
+                                    statusText.innerText = `Loaded ${data.length} records.`;
+                                }
+                            };
+                            requestAnimationFrame(() => renderChunk(0));
                         }
-
-                        statusText.innerText = `Loaded ${data.length} records.`;
-
-                        // Enable generate button if data exists (snapshot mode)
-                        const genBtn = document.getElementById('mr-generate-btn');
-                        genBtn.disabled = false;
-                        genBtn.style.opacity = '1';
+// Status updated async during renderChunk
                     } catch(e) {
                         statusText.innerText = 'Failed to load data.';
-                        tbody.innerHTML = `<tr><td colspan="46" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="42" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
                     }
                 }
 
-                document.getElementById('mr-fetch-ts-btn').addEventListener('click', () => loadTimeseriesData(false));
+
+                // --- CSV Export Logic ---
+                document.getElementById('mr-export-btn').addEventListener('click', () => {
+                    const thead = document.getElementById('mr-data-head');
+                    const tbody = document.getElementById('mr-data-body');
+                    const statusText = document.getElementById('mr-status-text');
+                    const originalText = statusText.innerText;
+
+                    statusText.innerText = '⏳ Downloading CSV...';
+
+                    setTimeout(() => {
+                        try {
+                            let csv = [];
+                            const headRow = thead.querySelectorAll('tr th');
+                            let headers = [];
+                            headRow.forEach(h => {
+                                // replace br and
+ with space
+                                headers.push('"' + h.innerText.replace(/\n/g, ' ').replace(/\r/g, '').trim() + '"');
+                            });
+                            csv.push(headers.join(','));
+
+                            const rows = tbody.querySelectorAll('tr');
+                            rows.forEach(r => {
+                                let rowData = [];
+                                r.querySelectorAll('td').forEach(c => {
+                                    rowData.push('"' + c.innerText.trim() + '"');
+                                });
+                                csv.push(rowData.join(','));
+                            });
+
+                            const csvString = csv.join('\n');
+                            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.setAttribute('href', url);
+
+                            const targetDate = document.getElementById('mr-target-date').value;
+                            const symbol = document.getElementById('mr-symbol-input').value || 'NIFTY';
+                            const isSnapshot = !document.getElementById('mr-symbol-input').parentElement.style.display || document.getElementById('mr-symbol-input').parentElement.style.display === 'none';
+
+                            const filename = isSnapshot ? `derivatives_snapshot_${targetDate}.csv` : `derivatives_timeseries_${symbol}.csv`;
+
+                            link.setAttribute('download', filename);
+                            link.style.display = 'none';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            statusText.innerText = originalText;
+                        } catch(e) {
+                            statusText.innerText = `CSV Error: ${e.message}`;
+                        }
+                    }, 50);
+                });
+
+                // Status Check Button Logic
+                document.getElementById('mr-status-btn').addEventListener('click', async () => {
+                    const targetDate = document.getElementById('mr-target-date').value;
+                    if(!targetDate) { alert('Please select a date.'); return; }
+                    const statusText = document.getElementById('mr-status-text');
+
+                    try {
+                        const res = await fetch(`/api/morning-report/data/${targetDate}`);
+                        if(res.ok) {
+                            const data = await res.json();
+                            if(data && data.length > 0) {
+                                statusText.innerText = `Status: Data Ready (${data.length} records available).`;
+                                statusText.style.color = '#4CAF50';
+                                loadTimeseriesData(true);
+                            } else {
+                                statusText.innerText = 'Status: Data Not Prepared yet.';
+                                statusText.style.color = '#ff9800';
+                            }
+                        }
+                    } catch (e) {
+                        statusText.innerText = `Status Error: ${e.message}`;
+                    }
+                });
+
+document.getElementById('mr-fetch-ts-btn').addEventListener('click', () => loadTimeseriesData(false));
 
                 // Generate PDF Button Handler
                 document.getElementById('mr-generate-btn').addEventListener('click', async () => {

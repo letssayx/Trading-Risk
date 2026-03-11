@@ -210,9 +210,14 @@ async def check_task_status(task_id: str):
 @router.get("/api/morning-report/data/{target_date}")
 async def get_report_data(target_date: str, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
-    records = db.query(DailyDerivativesAnalysis).filter(
-        DailyDerivativesAnalysis.trade_date == target_date
-    ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
+    from fastapi.concurrency import run_in_threadpool
+
+    def fetch_data():
+        return db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.trade_date == target_date
+        ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
+
+    records = await run_in_threadpool(fetch_data)
 
     if not records:
         return []
@@ -226,12 +231,16 @@ async def get_report_data(target_date: str, db: Session = Depends(get_db)):
     return result
 
 @router.get("/api/morning-report/timeseries")
-async def get_report_timeseries(symbol: str, limit: int = 100, db: Session = Depends(get_db)):
+async def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
+    from fastapi.concurrency import run_in_threadpool
 
-    records = db.query(DailyDerivativesAnalysis).filter(
-        DailyDerivativesAnalysis.symbol == symbol.upper()
-    ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
+    def fetch_ts():
+        return db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.symbol == symbol.upper()
+        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
+
+    records = await run_in_threadpool(fetch_ts)
 
     if not records:
         return []

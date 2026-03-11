@@ -445,6 +445,7 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     ema_20_cash = Column(Float)            # 20-day EMA (Cash Close)
     ema_50_cash = Column(Float)            # 50-day EMA (Cash Close)
     ema_100_cash = Column(Float)           # 100-day EMA (Cash Close)
+    vwap = Column(Float)                   # VWAP
     ema_200_cash = Column(Float)           # 200-day EMA (Cash Close)
 
     # Cash Delivery (from mto)

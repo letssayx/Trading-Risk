@@ -1,0 +1,83 @@
+<<<<<<< SEARCH
+    from backend.ingest.nse_models import DailyDerivativesAnalysis
+    records = db.query(DailyDerivativesAnalysis).filter(
+        DailyDerivativesAnalysis.trade_date == target_date
+    ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
+
+    if not records:
+        return []
+
+    result = []
+    for r in records:
+        d = dict(r.__dict__)
+        d.pop('_sa_instance_state', None)
+        result.append(d)
+
+    return result
+=======
+    from backend.ingest.nse_models import DailyDerivativesAnalysis
+    from fastapi.concurrency import run_in_threadpool
+
+    def fetch_data():
+        return db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.trade_date == target_date
+        ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
+
+    records = await run_in_threadpool(fetch_data)
+
+    if not records:
+        return []
+
+    result = []
+    for r in records:
+        d = dict(r.__dict__)
+        d.pop('_sa_instance_state', None)
+        result.append(d)
+
+    return result
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+@router.get("/api/morning-report/timeseries")
+async def get_report_timeseries(symbol: str, limit: int = 100, db: Session = Depends(get_db)):
+    from backend.ingest.nse_models import DailyDerivativesAnalysis
+
+    records = db.query(DailyDerivativesAnalysis).filter(
+        DailyDerivativesAnalysis.symbol == symbol.upper()
+    ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
+
+    if not records:
+        return []
+
+    result = []
+    for r in records:
+        d = dict(r.__dict__)
+        d.pop('_sa_instance_state', None)
+        d['trade_date'] = str(d['trade_date'])
+        result.append(d)
+
+    return result
+=======
+@router.get("/api/morning-report/timeseries")
+async def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(get_db)):
+    from backend.ingest.nse_models import DailyDerivativesAnalysis
+    from fastapi.concurrency import run_in_threadpool
+
+    def fetch_ts():
+        return db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.symbol == symbol.upper()
+        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
+
+    records = await run_in_threadpool(fetch_ts)
+
+    if not records:
+        return []
+
+    result = []
+    for r in records:
+        d = dict(r.__dict__)
+        d.pop('_sa_instance_state', None)
+        d['trade_date'] = str(d['trade_date'])
+        result.append(d)
+
+    return result
+>>>>>>> REPLACE
