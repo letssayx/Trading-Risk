@@ -6,19 +6,17 @@ def test_ui():
         page = browser.new_page()
         page.goto("http://localhost:8000/workbench")
 
-        # Wait for the derivatives tab and click it
-        page.locator(".main-tab[data-target='derivatives']").click()
-        page.wait_for_timeout(2000)
+        # Click Historical Data tab
+        page.locator(".main-tab[data-target='historical']").click()
+        page.wait_for_timeout(1000)
+        page.locator("#dataType").click()
+        page.wait_for_timeout(500)
+        page.screenshot(path="/home/jules/verification/historical_fii_dii.png", full_page=True)
 
-        # Take screenshot of the headers
-        page.screenshot(path="/home/jules/verification/derivatives_headers.png", full_page=True)
-
-        # Try loading timeseries explicitly
-        page.locator("#mr-fetch-ts-btn").click()
-        page.wait_for_timeout(2000)
-
-        # Take second screenshot for timeseries view
-        page.screenshot(path="/home/jules/verification/derivatives_ts_headers.png", full_page=True)
+        # Click Import Data tab
+        page.locator(".main-tab[data-target='import']").click()
+        page.wait_for_timeout(1000)
+        page.screenshot(path="/home/jules/verification/import_fii_dii.png", full_page=True)
 
         browser.close()
 
