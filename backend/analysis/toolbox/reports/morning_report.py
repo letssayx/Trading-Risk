@@ -74,6 +74,7 @@ class MorningReportCalculator:
                 LIMIT :lmt
             """)
             result = self.db.execute(query_fo, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
+
         if not result:
             return pd.DataFrame()
 
