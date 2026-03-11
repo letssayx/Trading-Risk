@@ -46,7 +46,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro']
         text = ""
         error_msg = ""
 
@@ -114,7 +114,7 @@ class TerminalOrchestrator:
         Return ONLY the exact category name. Nothing else.
         """
 
-        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro']
         engine_type = ""
 
         for model_name in models_to_try:
@@ -381,7 +381,7 @@ class TerminalOrchestrator:
 
             full_text = ""
             async for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
+                if len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
                     token = chunk.choices[0].delta.content
                     full_text += token
                     await callback(token)
@@ -556,7 +556,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.5-pro', 'gemini-2.5-flash']
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro']
         text = ""
         error_msg = ""
 

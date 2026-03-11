@@ -10,33 +10,51 @@ logger = logging.getLogger(__name__)
 
 def search_db_symbol(db: Session, query: str) -> str:
     """
-    Searches the SecurityMaster or distinct values in Bhavcopy for a matching NSE symbol.
+    Searches SymbolMaster, SecurityMaster, or distinct values in Bhavcopy for a matching NSE symbol using fuzzy matching to correct spelling errors.
     """
     try:
-        from backend.ingest.nse_models import SecurityMaster, BhavcopyEQ
-        from sqlalchemy import func
+        from backend.ingest.nse_models import SymbolMaster, SecurityMaster, BhavcopyEQ
+        from sqlalchemy import func, or_
 
-        query = query.upper().strip()
+        clean_query = query.strip()
+        fuzzy_query = f"%{clean_query}%"
 
-        # Check SecurityMaster
-        sm_query = select(SecurityMaster.ticker_symb).filter(
-            func.upper(SecurityMaster.ticker_symb).like(f"%{query}%")
+        # 1. Check Custom SymbolMaster (Both Symbol and Company Name)
+        sym_master_query = select(SymbolMaster.symbol, SymbolMaster.company_name).filter(
+            or_(
+                SymbolMaster.symbol.ilike(fuzzy_query),
+                SymbolMaster.company_name.ilike(fuzzy_query)
+            )
         ).limit(5)
 
-        results = db.execute(sm_query).scalars().all()
-        if results:
-            return f"Found potential symbols in DB: {', '.join(results)}"
+        sm_results = db.execute(sym_master_query).all()
+        if sm_results:
+            hits = [f"{r[0]} ({r[1] or 'Unknown Company'})" for r in sm_results]
+            return f"Found potential symbols in Master Data: {', '.join(hits)}"
 
-        # Check distinct Bhavcopy symbols
+        # 2. Check SecurityMaster
+        sec_query = select(SecurityMaster.ticker_symb, SecurityMaster.instrument_name).filter(
+            or_(
+                SecurityMaster.ticker_symb.ilike(fuzzy_query),
+                SecurityMaster.instrument_name.ilike(fuzzy_query)
+            )
+        ).limit(5)
+
+        sec_results = db.execute(sec_query).all()
+        if sec_results:
+            hits = [f"{r[0]} ({r[1] or 'Unknown'})" for r in sec_results]
+            return f"Found potential symbols in Security DB: {', '.join(hits)}"
+
+        # 3. Check distinct Bhavcopy symbols
         bc_query = select(BhavcopyEQ.symbol).filter(
-            func.upper(BhavcopyEQ.symbol).like(f"%{query}%")
+            BhavcopyEQ.symbol.ilike(fuzzy_query)
         ).distinct().limit(5)
 
         bc_results = db.execute(bc_query).scalars().all()
         if bc_results:
             return f"Found potential symbols in historical DB: {', '.join(bc_results)}"
 
-        return f"No symbols found in local DB matching '{query}'"
+        return f"No symbols found in local DB matching '{clean_query}'. Could be a spelling error or untracked instrument."
     except Exception as e:
         logger.error(f"Error querying historical DB for symbol {query}: {e}")
         return f"Error searching database: {e}"
@@ -49,13 +67,14 @@ def fetch_detailed_db_data(db: Session, ticker: str, days: int = 30) -> str:
     try:
         from backend.ingest.nse_models import (
             BhavcopyEQ, FOVolatility, PERatio, CorporateAction,
-            BulkDeal, BlockDeal, FIIDerivativesStat, MWPLClientPosition, ParticipantOI
+            BulkDeal, BlockDeal, FIIDerivativesStat, MWPLClientPosition, ParticipantOI, SymbolMaster
         )
         import json
 
         ticker = ticker.upper().strip()
         result = {
             "ticker": ticker,
+            "symbol_master_details": {},
             "equity_history": [],
             "volatility_history": [],
             "pe_history": [],
@@ -64,6 +83,17 @@ def fetch_detailed_db_data(db: Session, ticker: str, days: int = 30) -> str:
             "fii_derivatives_stats": [],
             "mwpl_participant_oi": []
         }
+
+        # Inject Symbol Master context
+        sm_result = db.query(SymbolMaster).filter(SymbolMaster.symbol == ticker).first()
+        if sm_result:
+            result["symbol_master_details"] = {
+                "company_name": sm_result.company_name,
+                "broad_index": sm_result.broad_index,
+                "sector_index": sm_result.sector_index,
+                "derivative_liquidity_tier": sm_result.derivative_liquidity_tier,
+                "typical_hedge_index": sm_result.typical_hedge_index
+            }
 
         # Equity History
         eq_query = select(BhavcopyEQ).filter(BhavcopyEQ.symbol == ticker).order_by(desc(BhavcopyEQ.trade_date)).limit(days)
@@ -261,9 +291,20 @@ def fetch_bhavcopy_data(db: Session, ticker: str) -> Dict[str, Any]:
     try:
         from backend.ingest.nse_models import MTODelivery
 
+        from backend.ingest.nse_models import SymbolMaster
+
         # Determine likely instrument type for futures/options
-        # Typically NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY are indices
-        is_index = ticker in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50"]
+        # Look it up in SymbolMaster to check if it's an index, otherwise fallback to hardcoded list
+        is_index = False
+        sm_rec = db.query(SymbolMaster).filter(SymbolMaster.symbol == ticker).first()
+        if sm_rec and sm_rec.typical_hedge_index:
+            # If a symbol is its own typical hedge index, it's highly likely an index
+            if sm_rec.symbol == sm_rec.typical_hedge_index:
+                is_index = True
+
+        if not is_index:
+            is_index = ticker in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50"]
+
         fut_inst = 'FUTIDX' if is_index else 'FUTSTK'
         opt_inst = 'OPTIDX' if is_index else 'OPTSTK'
 

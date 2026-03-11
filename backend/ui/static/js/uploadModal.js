@@ -26,6 +26,175 @@ class NSEImporter {
 
         this.initEventListeners();
         this.resumeActiveTask();
+        this.initSymbolMaster();
+    }
+
+    initSymbolMaster() {
+        const btnUploadCsv = document.getElementById('btn-upload-symbol-csv');
+        const btnAddManual = document.getElementById('btn-add-symbol-manual');
+        const btnRefresh = document.getElementById('btn-refresh-symbol-db');
+
+        if (btnUploadCsv) {
+            btnUploadCsv.addEventListener('click', async () => {
+                const fileInput = document.getElementById('symbol-csv-upload');
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert('Please select a CSV file first.');
+                    return;
+                }
+
+                btnUploadCsv.disabled = true;
+                btnUploadCsv.textContent = 'Processing...';
+
+                const text = await file.text();
+                const lines = text.split('\n').filter(l => l.trim().length > 0);
+
+                if (lines.length < 2) {
+                    alert('CSV must contain headers and at least one row of data.');
+                    btnUploadCsv.disabled = false;
+                    btnUploadCsv.textContent = 'Process CSV';
+                    return;
+                }
+
+                // Detect headers
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+
+                const data = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const parts = lines[i].split(',').map(p => p.trim());
+                    const row = {};
+
+                    headers.forEach((h, index) => {
+                        let key = '';
+                        if (h.includes('symbol')) key = 'symbol';
+                        else if (h.includes('company')) key = 'company_name';
+                        else if (h.includes('broad')) key = 'broad_index';
+                        else if (h.includes('sector')) key = 'sector_index';
+                        else if (h.includes('tier')) key = 'derivative_liquidity_tier';
+                        else if (h.includes('hedge')) key = 'typical_hedge_index';
+
+                        if (key && parts[index]) {
+                            row[key] = parts[index];
+                        }
+                    });
+
+                    if (row.symbol) {
+                        data.push(row);
+                    }
+                }
+
+                if (data.length === 0) {
+                    alert('Could not parse any valid rows with a "Symbol" column.');
+                    btnUploadCsv.disabled = false;
+                    btnUploadCsv.textContent = 'Process CSV';
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/v1/symbol-master/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: data })
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert(`Success: ${result.message}`);
+                        fileInput.value = '';
+                        this.refreshSymbolMasterTable();
+                    } else {
+                        alert(`Error: ${result.detail || result.message}`);
+                    }
+                } catch (e) {
+                    alert(`Upload failed: ${e.message}`);
+                } finally {
+                    btnUploadCsv.disabled = false;
+                    btnUploadCsv.textContent = 'Process CSV';
+                }
+            });
+        }
+
+        if (btnAddManual) {
+            btnAddManual.addEventListener('click', async () => {
+                const symbol = document.getElementById('sm-input-symbol').value.trim();
+                if (!symbol) {
+                    alert('Symbol is compulsory.');
+                    return;
+                }
+
+                const row = {
+                    symbol: symbol,
+                    company_name: document.getElementById('sm-input-company').value.trim(),
+                    broad_index: document.getElementById('sm-input-broad').value.trim(),
+                    sector_index: document.getElementById('sm-input-sector').value.trim(),
+                    derivative_liquidity_tier: document.getElementById('sm-input-tier').value.trim(),
+                    typical_hedge_index: document.getElementById('sm-input-hedge').value.trim()
+                };
+
+                btnAddManual.disabled = true;
+                btnAddManual.textContent = 'Saving...';
+
+                try {
+                    const response = await fetch('/api/v1/symbol-master/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: [row] })
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        // Clear inputs
+                        document.querySelectorAll('[id^="sm-input-"]').forEach(el => el.value = '');
+                        this.refreshSymbolMasterTable();
+                    } else {
+                        alert(`Error: ${result.detail || result.message}`);
+                    }
+                } catch (e) {
+                    alert(`Save failed: ${e.message}`);
+                } finally {
+                    btnAddManual.disabled = false;
+                    btnAddManual.textContent = 'Add / Update';
+                }
+            });
+        }
+
+        if (btnRefresh) {
+            btnRefresh.addEventListener('click', () => this.refreshSymbolMasterTable());
+            // Auto load on init
+            this.refreshSymbolMasterTable();
+        }
+    }
+
+    async refreshSymbolMasterTable() {
+        const tbody = document.getElementById('symbol-master-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        try {
+            const response = await fetch('/api/v1/symbol-master');
+            const result = await response.json();
+
+            if (response.ok && result.data && result.data.length > 0) {
+                tbody.innerHTML = '';
+                result.data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${item.symbol || '-'}</strong></td>
+                        <td>${item.company_name || '-'}</td>
+                        <td>${item.broad_index || '-'}</td>
+                        <td>${item.sector_index || '-'}</td>
+                        <td>${item.derivative_liquidity_tier || '-'}</td>
+                        <td>${item.typical_hedge_index || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">No data loaded.</td></tr>';
+            }
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#f44336;">Failed to load data: ${e.message}</td></tr>`;
+        }
     }
 
     resumeActiveTask() {

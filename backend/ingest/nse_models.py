@@ -253,6 +253,18 @@ class MWPLClientPosition(Base, TimescaleMixin):
     )
 
 
+class SymbolMaster(Base):
+    """Custom user-provided mapping for symbols, indices, sectors, and liquidity tiers."""
+    __tablename__ = "symbol_master"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    symbol = Column(String(50), nullable=False, unique=True, index=True) # e.g. HDFCBANK
+    company_name = Column(String(255), nullable=True)                    # e.g. HDFC Bank
+    broad_index = Column(String(100), nullable=True)                     # e.g. Nifty 50
+    sector_index = Column(String(100), nullable=True)                    # e.g. Nifty Bank
+    derivative_liquidity_tier = Column(String(50), nullable=True)        # e.g. Tier 1
+    typical_hedge_index = Column(String(50), nullable=True)              # e.g. BANKNIFTY
+
 class SecurityMaster(Base):
     """Security Master (NOT time-series - no hypertable)"""
     __tablename__ = "security_master"

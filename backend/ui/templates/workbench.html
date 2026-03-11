@@ -1183,6 +1183,74 @@
                         <div class="tab-btn active" data-tab="latest" onclick="openImportTab('latest')">Latest Data</div>
                         <div class="tab-btn" data-tab="historical" onclick="openImportTab('historical')">Historical Range</div>
                         <div class="tab-btn" data-tab="manual" onclick="openImportTab('manual')">Manual Upload</div>
+                        <div class="tab-btn" data-tab="symbol-master" onclick="openImportTab('symbol-master')">Symbol Master</div>
+                    </div>
+
+                    <!-- SYMBOL MASTER TAB -->
+                    <div id="tab-symbol-master" class="import-tab-content" style="display:none;">
+                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
+                            <h3>Upload Custom Symbol Master (CSV)</h3>
+                            <p style="color: #888; font-size: 13px;">Format: <code>Symbol, Company Name, Broad Index, Sector Index, Derivative Liquidity Tier, Typical Hedge Index</code> (Only Symbol is compulsory)</p>
+                            <div style="display: flex; gap: 10px; align-items: center; margin-top: 15px;">
+                                <input type="file" id="symbol-csv-upload" accept=".csv" style="color: #fff; background: #2a2a2a; border: 1px solid #444; padding: 5px;">
+                                <button id="btn-upload-symbol-csv" class="btn btn-primary">Process CSV</button>
+                            </div>
+                        </div>
+
+                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
+                            <h3>Manual Data Entry</h3>
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Symbol *</label>
+                                    <input type="text" id="sm-input-symbol" class="history-input" placeholder="e.g. RELIANCE" style="width: 120px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Company Name</label>
+                                    <input type="text" id="sm-input-company" class="history-input" placeholder="Reliance Industries" style="width: 180px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Broad Index</label>
+                                    <input type="text" id="sm-input-broad" class="history-input" placeholder="Nifty 50" style="width: 120px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Sector Index</label>
+                                    <input type="text" id="sm-input-sector" class="history-input" placeholder="Nifty Energy" style="width: 120px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Liquidity Tier</label>
+                                    <input type="text" id="sm-input-tier" class="history-input" placeholder="Tier 1" style="width: 80px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Hedge Index</label>
+                                    <input type="text" id="sm-input-hedge" class="history-input" placeholder="NIFTY" style="width: 100px;">
+                                </div>
+                                <button id="btn-add-symbol-manual" class="btn btn-secondary">Add / Update</button>
+                            </div>
+                        </div>
+
+                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 20px; border-radius: 4px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h3 style="margin:0;">Current Symbol Master DB</h3>
+                                <button id="btn-refresh-symbol-db" class="btn btn-secondary" style="padding: 4px 8px; font-size:12px;">Refresh</button>
+                            </div>
+                            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
+                                <table class="data-table" id="symbol-master-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Symbol</th>
+                                            <th>Company Name</th>
+                                            <th>Broad Index</th>
+                                            <th>Sector Index</th>
+                                            <th>Liquidity Tier</th>
+                                            <th>Typical Hedge Index</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="symbol-master-tbody">
+                                        <tr><td colspan="6" style="text-align:center; color:#888;">No data loaded.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Tab: Import Latest -->

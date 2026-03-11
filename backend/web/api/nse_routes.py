@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import Literal, Any
@@ -270,3 +270,67 @@ async def get_participant_heatmap(
     except Exception as e:
         logger.error(f"Heatmap query failed: {e}")
         raise HTTPException(status_code=500, detail={"message": "Query failed", "error": str(e)})
+
+@router.post("/api/v1/symbol-master/upload")
+async def upload_symbol_master(request: Request, db: Session = Depends(get_db)):
+    """Uploads and merges Symbol Master data from CSV or manual entry."""
+    from backend.ingest.nse_models import SymbolMaster
+    from fastapi.concurrency import run_in_threadpool
+
+    try:
+        payload = await request.json()
+        data = payload.get("data", [])
+
+        if not data:
+            return {"success": False, "message": "No data provided."}
+
+        def process_upload():
+            for row in data:
+                symbol = row.get("symbol")
+                if not symbol:
+                    continue
+                symbol = str(symbol).strip().upper()
+
+                # Upsert logic
+                existing = db.query(SymbolMaster).filter(SymbolMaster.symbol == symbol).first()
+                if not existing:
+                    existing = SymbolMaster(symbol=symbol)
+                    db.add(existing)
+
+                existing.company_name = row.get("company_name", existing.company_name)
+                existing.broad_index = row.get("broad_index", existing.broad_index)
+                existing.sector_index = row.get("sector_index", existing.sector_index)
+                existing.derivative_liquidity_tier = row.get("derivative_liquidity_tier", existing.derivative_liquidity_tier)
+                existing.typical_hedge_index = row.get("typical_hedge_index", existing.typical_hedge_index)
+
+            db.commit()
+
+        await run_in_threadpool(process_upload)
+        return {"success": True, "message": f"Successfully processed {len(data)} symbol records."}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to process Symbol Master upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/v1/symbol-master")
+async def get_symbol_master(db: Session = Depends(get_db)):
+    """Fetches all Symbol Master data."""
+    from backend.ingest.nse_models import SymbolMaster
+    from fastapi.concurrency import run_in_threadpool
+
+    def fetch_data():
+        records = db.query(SymbolMaster).order_by(SymbolMaster.symbol).all()
+        return [
+            {
+                "symbol": r.symbol,
+                "company_name": r.company_name,
+                "broad_index": r.broad_index,
+                "sector_index": r.sector_index,
+                "derivative_liquidity_tier": r.derivative_liquidity_tier,
+                "typical_hedge_index": r.typical_hedge_index
+            } for r in records
+        ]
+
+    data = await run_in_threadpool(fetch_data)
+    return {"success": True, "data": data}
