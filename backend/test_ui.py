@@ -13,6 +13,13 @@ def test_ui():
         # Take screenshot of the headers
         page.screenshot(path="/home/jules/verification/derivatives_headers.png", full_page=True)
 
+        # Try loading timeseries explicitly
+        page.locator("#mr-fetch-ts-btn").click()
+        page.wait_for_timeout(2000)
+
+        # Take second screenshot for timeseries view
+        page.screenshot(path="/home/jules/verification/derivatives_ts_headers.png", full_page=True)
+
         browser.close()
 
 if __name__ == "__main__":
