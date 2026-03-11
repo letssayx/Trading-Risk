@@ -380,7 +380,7 @@ async def get_participant_oi(db: Session = Depends(get_db)):
 
     df['net_long'] = df['fut_idx_long'] - df['fut_idx_short']
 
-    pivot = df.pivot(index='date', columns='client_type', values='net_long').fillna(0)
+    pivot = df.pivot_table(index='date', columns='client_type', values='net_long', aggfunc='sum').fillna(0)
     pivot = pivot.reindex(pd.to_datetime(dates)).fillna(0)
 
     return {
@@ -416,7 +416,7 @@ async def get_cash_market_flow(db: Session = Depends(get_db)):
     if df.empty:
          return {"dates": [], "fii_net": [], "dii_net": []}
 
-    pivot = df.pivot(index='date', columns='category', values='net_value').fillna(0)
+    pivot = df.pivot_table(index='date', columns='category', values='net_value', aggfunc='sum').fillna(0)
     pivot = pivot.reindex(pd.to_datetime(dates)).fillna(0)
 
     return {

@@ -319,7 +319,7 @@
                     <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px;">
                         <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Corporate Actions</div>
                         <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Board Meetings</div>
-                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
+                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Public Issues</div>
                     </div>
                 </div>
 
@@ -342,9 +342,14 @@
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Fund Raising" onchange="filterCATable()"> Fund Raising</label>
                     </div>
                     <div class="control-group" id="ca-rights-filters" style="display:none;">
-                        <label style="margin-right:10px;">Stage:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="in-principle" onchange="filterCATable()"> In-Principle</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="listing stage" onchange="filterCATable()"> Listing Stage</label>
+                        <label style="margin-right:10px;">Type:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="rights" onchange="filterCATable()"> Rights</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="ofs" onchange="filterCATable()"> OFS</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
+                        <label style="margin-right:10px; margin-left:10px;">Status:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-rights-status" value="active" checked onchange="filterCATable()"> Active</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-rights-status" value="forthcoming" onchange="filterCATable()"> Forthcoming</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-rights-status" value="past" onchange="filterCATable()"> Past</label>
                     </div>
                     <button onclick="loadCorporateActionsData()" class="btn btn-primary">Refresh Data</button>
                     <button onclick="exportCATableCSV()" class="btn btn-secondary" style="margin-left: auto;">Export CSV</button>
@@ -991,13 +996,13 @@
                 </div>
 
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; overflow: auto; flex-direction: column; align-items: stretch; justify-content: flex-start;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
                         <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
                     </div>
 
-                    <div style="display: flex; gap: 20px; height: 400px; min-height: 400px;">
+                    <div style="display: flex; gap: 20px; height: 400px; min-height: 400px; margin-bottom: 20px;">
                         <!-- Institutional Market Flows (FII/DII) -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
                             <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Market Flows (252 Days)</h3>
@@ -1499,7 +1504,11 @@
 
             let endpoint = '/api/proxy/corporate-actions';
             if (caCurrentTab === 'meetings') endpoint = '/api/proxy/board-meetings';
-            if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
+            if (caCurrentTab === 'rights') {
+                const statusRadio = document.querySelector('input[name="ca-rights-status"]:checked');
+                const status = statusRadio ? statusRadio.value : 'active';
+                endpoint = `/api/proxy/rights?status=${status}`;
+            }
 
             try {
                 const response = await fetch(endpoint);
@@ -1553,13 +1562,13 @@
                     { id: 'bm_date', label: 'Meeting Date' }
                 ];
             } else {
-                // Rights
+                // Rights, OFS, Tender
                 cols = [
                     { id: 'nseSymbol', label: 'Symbol' },
                     { id: 'companyName', label: 'Company' },
-                    { id: 'rightRatio', label: 'Ratio' },
+                    { id: 'issue_type', label: 'Type' },
+                    { id: 'rightRatio', label: 'Details / Ratio' },
                     { id: 'stage', label: 'Stage' },
-                    { id: 'dateOfBrdResIssueApproving', label: 'Board Res. Date' },
                     { id: 'offerPrice', label: 'Offer Price' },
                     { id: 'issueOpenDate', label: 'Open Date' },
                     { id: 'issueCloseDate', label: 'Close Date' },
@@ -1609,10 +1618,10 @@
                 // Advanced Filters
                 if (activeFilters.length > 0) {
                     if (caCurrentTab === 'rights') {
-                        const stage = (item.stage || '').toLowerCase();
+                        const issueType = (item.issue_type || '').toLowerCase();
                         let match = false;
                         for (const f of activeFilters) {
-                            if (stage.includes(f)) { match = true; break; }
+                            if (issueType === f) { match = true; break; }
                         }
                         if (!match) return false;
                     } else {
@@ -1707,14 +1716,20 @@
                         <td>${item.bm_date || '-'}</td>
                     `;
                 } else {
-                    // Rights
+                    // Rights, OFS, Tender
+                    let typeBadge = '';
+                    if (item.issue_type === 'rights') typeBadge = '<span class="badge" style="background:#4CAF50; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Rights</span>';
+                    else if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
+                    else if (item.issue_type === 'tender') typeBadge = '<span class="badge" style="background:#FF9800; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Tender</span>';
+                    else typeBadge = item.issue_type || '-';
+
                      tr.innerHTML = `
                         <td><strong>${item.nseSymbol || '-'}</strong></td>
                         <td style="white-space:normal; max-width:200px;">${item.companyName || '-'}</td>
-                        <td>${item.rightRatio || '-'}</td>
-                        <td>${item.stage || '-'}</td>
-                        <td>${item.dateOfBrdResIssueApproving || item.boardResolutionDt || '-'}</td>
-                        <td>${item.offerPrice || '-'}</td>
+                        <td>${typeBadge}</td>
+                        <td style="white-space:normal; max-width:200px;">${item.rightRatio || item.purpose || item.details || '-'}</td>
+                        <td>${item.stage || item.status || '-'}</td>
+                        <td>${item.offerPrice || item.price || '-'}</td>
                         <td>${item.issueOpenDate || '-'}</td>
                         <td>${item.issueCloseDate || '-'}</td>
                         <td>${item.recordDate || '-'}</td>
