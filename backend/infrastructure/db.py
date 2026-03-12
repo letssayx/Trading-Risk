@@ -25,21 +25,10 @@ Base = declarative_base()
 
 # Configure DB Logging
 db_logger = logging.getLogger("sqlalchemy.engine")
-db_logger.setLevel(logging.INFO)
+# Set to WARNING to prevent Uvicorn from puking massive SQL payloads in the local terminal on every query
+db_logger.setLevel(logging.WARNING)
 
-def log_query(conn, cursor, statement, parameters, context, executemany):
-    """Log executed queries to the audit trail."""
-    # Truncate long statements for readability
-    if len(statement) > 500:
-        stmt_preview = statement[:500] + "..."
-    else:
-        stmt_preview = statement
-
-    # We could log parameters too, but be careful with sensitive data
-    db_logger.info(f"SQL: {stmt_preview}")
-
-# Attach the event listener for Query Logging (Audit Trail)
-event.listen(engine, "before_cursor_execute", log_query)
+# Removed the explicit before_cursor_execute listener to completely silence standard query dumps
 
 def get_db():
     db = SessionLocal()

@@ -91,7 +91,7 @@ class NSEImporter {
                 }
 
                 try {
-                    const response = await fetch('/api/v1/symbol-master/upload', {
+                    const response = await fetch('/api/v1/nse/symbol-master/upload', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ data: data })
@@ -135,7 +135,7 @@ class NSEImporter {
                 btnAddManual.textContent = 'Saving...';
 
                 try {
-                    const response = await fetch('/api/v1/symbol-master/upload', {
+                    const response = await fetch('/api/v1/nse/symbol-master/upload', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ data: [row] })
@@ -172,7 +172,7 @@ class NSEImporter {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
-            const response = await fetch('/api/v1/symbol-master');
+            const response = await fetch('/api/v1/nse/symbol-master');
             const result = await response.json();
 
             if (response.ok && result.data && result.data.length > 0) {

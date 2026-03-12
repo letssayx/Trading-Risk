@@ -271,7 +271,7 @@ async def get_participant_heatmap(
         logger.error(f"Heatmap query failed: {e}")
         raise HTTPException(status_code=500, detail={"message": "Query failed", "error": str(e)})
 
-@router.post("/api/v1/symbol-master/upload")
+@router.post("/symbol-master/upload")
 async def upload_symbol_master(request: Request, db: Session = Depends(get_db)):
     """Uploads and merges Symbol Master data from CSV or manual entry."""
     from backend.ingest.nse_models import SymbolMaster
@@ -313,7 +313,7 @@ async def upload_symbol_master(request: Request, db: Session = Depends(get_db)):
         logger.error(f"Failed to process Symbol Master upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/api/v1/symbol-master")
+@router.get("/symbol-master")
 async def get_symbol_master(db: Session = Depends(get_db)):
     """Fetches all Symbol Master data."""
     from backend.ingest.nse_models import SymbolMaster
