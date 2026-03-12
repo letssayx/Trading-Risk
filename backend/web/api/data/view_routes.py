@@ -63,8 +63,46 @@ def get_model_for_type(data_type: str):
 import requests
 
 @router.get("/api/proxy/rights")
-def proxy_rights(status: str = 'active'):
-    """Fetches Rights, OFS, and Tender Issues from NSE API endpoint."""
+def proxy_rights():
+    """Fetches Rights Issues directly from NSE API endpoint."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    all_data = []
+    seen_ids = set()
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+
+        url_listing = "https://www.nseindia.com/api/corporate-further-issues-ri"
+        res_listing = session.get(url_listing, headers=headers, timeout=10)
+        if res_listing.ok:
+            data = res_listing.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
+
+        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP"
+        res_in_principle = session.get(url_in_principle, headers=headers, timeout=10)
+        if res_in_principle.ok:
+            data = res_in_principle.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
+    except Exception as e:
+        logger.error(f"Failed to fetch Rights. Error: {e}")
+
+    return {"data": all_data}
+
+@router.get("/api/proxy/public-issues")
+def proxy_public_issues(status: str = 'active'):
+    """Fetches OFS and Tender Issues from NSE API endpoints."""
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -75,12 +113,12 @@ def proxy_rights(status: str = 'active'):
     all_data = []
 
     try:
-        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
 
+        # Often these endpoints require specific referers or index params. We will attempt the known standard ones.
         endpoints = {
-            'rights': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
-            'ofs': f"https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities&type={status}",
-            'tender': f"https://www.nseindia.com/api/corporate-further-issues-tender?index=equities&type={status}"
+            'ofs': f"https://www.nseindia.com/api/live-analysis-ofs?type={status}",
+            'tender': f"https://www.nseindia.com/api/corporate-tender-offer?type={status}"
         }
 
         for issue_type, url in endpoints.items():
@@ -89,7 +127,7 @@ def proxy_rights(status: str = 'active'):
                 if res.ok:
                     data = res.json().get('data', [])
                     for item in data:
-                        item['issue_type'] = issue_type # Tag it for frontend filtering
+                        item['issue_type'] = issue_type
                         all_data.append(item)
             except Exception as e:
                 logger.error(f"Failed to fetch {issue_type} ({status}). Error: {e}")
@@ -98,6 +136,50 @@ def proxy_rights(status: str = 'active'):
         logger.error(f"Failed to prime session for Public Issues. Error: {e}")
 
     return {"data": all_data}
+
+@router.get("/api/proxy/announcements")
+def proxy_announcements():
+    """Fetches Corporate Announcements."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        url = "https://www.nseindia.com/api/corporate-announcements?index=equities"
+        res = session.get(url, headers=headers, timeout=10)
+        if res.ok:
+            return res.json()
+    except Exception as e:
+        logger.error(f"Failed to fetch Announcements: {e}")
+    return {"data": []}
+
+@router.get("/api/proxy/event-calendar")
+def proxy_event_calendar():
+    """Fetches Corporate Event Calendar."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        url = "https://www.nseindia.com/api/event-calendar"
+        res = session.get(url, headers=headers, timeout=10)
+        if res.ok:
+            # Event calendar might return raw list
+            data = res.json()
+            if isinstance(data, list):
+                return {"data": data}
+            return data
+    except Exception as e:
+        logger.error(f"Failed to fetch Event Calendar: {e}")
+    return {"data": []}
 
 @router.get("/api/proxy/circulars")
 def proxy_circulars(db: Session = Depends(get_db)):
@@ -138,19 +220,20 @@ def proxy_circulars(db: Session = Depends(get_db)):
         items = json_data.get('data', [])
         for item in items:
             try:
-                dt_str = item.get('circDate')
+                dt_str = item.get('cirDate') or item.get('circDate')
                 from datetime import datetime
                 parsed_date = datetime.strptime(dt_str, "%d-%b-%Y").date() if dt_str else date.today()
 
                 circ = ExchangeCircular(
                     trade_date=parsed_date,
-                    circular_no=item.get('circNo'),
-                    subject=item.get('sub'),
-                    department=item.get('circDepartment'),
-                    link=item.get('circFile')
+                    circular_no=item.get('circNumber') or item.get('circNo') or 'UNKNOWN',
+                    subject=item.get('sub') or item.get('subject'),
+                    department=item.get('circDepartment') or item.get('department'),
+                    link=item.get('circFilelink') or item.get('circFile')
                 )
                 db.add(circ)
             except Exception as e:
+                db.rollback() # reset failed transaction if duplicate
                 pass # skip duplicates or parsing errors
         db.commit()
         return json_data

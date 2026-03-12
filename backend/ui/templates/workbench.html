@@ -316,14 +316,17 @@
         <div id="tab-corporate_actions" class="main-tab-content">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px;">
+                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
                         <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Corporate Actions</div>
-                        <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Board Meetings</div>
-                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Public Issues</div>
+                        <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
+                        <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Event Calendar</div>
+                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights Issues</div>
+                        <div class="wb-tab" id="ca-tab-btn-public" onclick="switchCATab('public')" style="padding: 6px 15px; border-radius: 4px;">Public Issues (OFS/Tender)</div>
+                        <div class="wb-tab" id="ca-tab-btn-circulars" onclick="switchCATab('circulars')" style="padding: 6px 15px; border-radius: 4px;">Circulars</div>
                     </div>
                 </div>
 
-                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px;">
+                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px;" id="ca-controls-wrapper">
                     <div class="control-group">
                         <label>Symbol / Company:</label>
                         <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" onkeyup="filterCATable()">
@@ -341,41 +344,33 @@
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Fund Raising" onchange="filterCATable()"> Fund Raising</label>
                     </div>
-                    <div class="control-group" id="ca-rights-filters" style="display:none;">
+                    <div class="control-group" id="ca-public-filters" style="display:none;">
                         <label style="margin-right:10px;">Type:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="rights" onchange="filterCATable()"> Rights</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="ofs" onchange="filterCATable()"> OFS</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
                         <label style="margin-right:10px; margin-left:10px;">Status:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-rights-status" value="active" checked onchange="filterCATable()"> Active</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-rights-status" value="forthcoming" onchange="filterCATable()"> Forthcoming</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-rights-status" value="past" onchange="filterCATable()"> Past</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-public-status" value="active" checked onchange="filterCATable()"> Active</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-public-status" value="forthcoming" onchange="filterCATable()"> Forthcoming</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-public-status" value="past" onchange="filterCATable()"> Past</label>
                     </div>
-                    <button onclick="loadCorporateActionsData()" class="btn btn-primary">Refresh Data</button>
-                    <button onclick="exportCATableCSV()" class="btn btn-secondary" style="margin-left: auto;">Export CSV</button>
+                    <button onclick="loadCorporateActionsData()" class="btn btn-primary" id="btn-ca-refresh">Refresh Data</button>
+                    <button onclick="exportCATableCSV()" class="btn btn-secondary" style="margin-left: auto;" id="btn-ca-export">Export CSV</button>
                 </div>
 
-                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;">
+                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;" id="ca-table-container">
                     <table class="data-table" id="ca-main-table">
                         <thead id="ca-main-head"></thead>
                         <tbody id="ca-main-body"></tbody>
                     </table>
                 </div>
+
+                <!-- Used specifically for Circulars since it renders differently -->
+                <div id="circulars-container" style="display: none; flex: 1; min-height: 0;"></div>
+
                 <div class="history-status-bar" style="border-radius: 0 0 4px 4px;">
                     <span id="ca-status-msg">Ready</span>
                     <span id="ca-row-count">0 Rows</span>
                 </div>
-            </div>
-        </div>
-
-        <!-- TAB CIRCULARS -->
-        <div id="tab-circulars" class="main-tab-content">
-            <div style="padding: 20px;">
-                <div style="display:flex; align-items:center; gap:15px; margin-bottom: 10px;">
-                    <h2 style="margin: 0;">Exchange Circulars</h2>
-                    <button onclick="loadCirculars()" class="btn btn-secondary">Refresh</button>
-                </div>
-                <div id="circulars-container">Loading...</div>
             </div>
         </div>
 
@@ -1542,12 +1537,27 @@
 
             // UI Toggle
             document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
+            document.getElementById('ca-tab-btn-announcements').classList.toggle('active', tab === 'announcements');
             document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
             document.getElementById('ca-tab-btn-rights').classList.toggle('active', tab === 'rights');
+            document.getElementById('ca-tab-btn-public').classList.toggle('active', tab === 'public');
+            document.getElementById('ca-tab-btn-circulars').classList.toggle('active', tab === 'circulars');
 
             document.getElementById('ca-actions-filters').style.display = tab === 'actions' ? 'flex' : 'none';
             document.getElementById('ca-meetings-filters').style.display = tab === 'meetings' ? 'flex' : 'none';
-            document.getElementById('ca-rights-filters').style.display = tab === 'rights' ? 'flex' : 'none';
+            document.getElementById('ca-public-filters').style.display = tab === 'public' ? 'flex' : 'none';
+
+            // Toggle table containers
+            const isCirculars = tab === 'circulars';
+            document.getElementById('ca-table-container').style.display = isCirculars ? 'none' : 'block';
+            document.getElementById('ca-controls-wrapper').style.display = isCirculars ? 'none' : 'flex';
+            document.querySelector('.history-status-bar').style.display = isCirculars ? 'none' : 'flex';
+            document.getElementById('circulars-container').style.display = isCirculars ? 'block' : 'none';
+
+            if (isCirculars) {
+                loadCirculars();
+                return;
+            }
 
             // Clear current filters
             document.querySelectorAll('.ca-filter-cb').forEach(cb => cb.checked = false);
@@ -1556,8 +1566,9 @@
             // Reset state and load
             caRawData = [];
             if (tab === 'actions') caSortCol = 'exDate';
-            else if (tab === 'meetings') caSortCol = 'bm_date';
-            else caSortCol = 'recordDate'; // Rights
+            else if (tab === 'announcements') caSortCol = 'dt'; // Announcement date
+            else if (tab === 'meetings') caSortCol = 'date'; // Event cal date
+            else caSortCol = 'recordDate'; // Rights & Public
 
             caSortAsc = false; // Descending by default
 
@@ -1575,11 +1586,13 @@
             rowCount.innerText = "0 Rows";
 
             let endpoint = '/api/proxy/corporate-actions';
-            if (caCurrentTab === 'meetings') endpoint = '/api/proxy/board-meetings';
-            if (caCurrentTab === 'rights') {
-                const statusRadio = document.querySelector('input[name="ca-rights-status"]:checked');
+            if (caCurrentTab === 'announcements') endpoint = '/api/proxy/announcements';
+            if (caCurrentTab === 'meetings') endpoint = '/api/proxy/event-calendar';
+            if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
+            if (caCurrentTab === 'public') {
+                const statusRadio = document.querySelector('input[name="ca-public-status"]:checked');
                 const status = statusRadio ? statusRadio.value : 'active';
-                endpoint = `/api/proxy/rights?status=${status}`;
+                endpoint = `/api/proxy/public-issues?status=${status}`;
             }
 
             try {
@@ -1625,16 +1638,35 @@
                     { id: 'exDate', label: 'Ex-Date' },
                     { id: 'recDate', label: 'Record Date' }
                 ];
+            } else if (caCurrentTab === 'announcements') {
+                cols = [
+                    { id: 'symbol', label: 'Symbol' },
+                    { id: 'sm_name', label: 'Company' },
+                    { id: 'desc', label: 'Subject' },
+                    { id: 'dt', label: 'Date' },
+                    { id: 'attchmntFile', label: 'Attachment' }
+                ];
             } else if (caCurrentTab === 'meetings') {
                 cols = [
-                    { id: 'bm_symbol', label: 'Symbol' },
-                    { id: 'sm_name', label: 'Company' },
-                    { id: 'bm_purpose', label: 'Purpose' },
+                    { id: 'symbol', label: 'Symbol' },
+                    { id: 'company', label: 'Company' },
+                    { id: 'purpose', label: 'Purpose' },
                     { id: 'bm_desc', label: 'Details' },
-                    { id: 'bm_date', label: 'Meeting Date' }
+                    { id: 'date', label: 'Meeting Date' }
                 ];
-            } else {
-                // Rights, OFS, Tender
+            } else if (caCurrentTab === 'rights') {
+                cols = [
+                    { id: 'nseSymbol', label: 'Symbol' },
+                    { id: 'companyName', label: 'Company' },
+                    { id: 'rightRatio', label: 'Ratio' },
+                    { id: 'stage', label: 'Stage' },
+                    { id: 'boardResolutionDt', label: 'Board Res. Date' },
+                    { id: 'offerPrice', label: 'Offer Price' },
+                    { id: 'issueOpenDate', label: 'Open Date' },
+                    { id: 'issueCloseDate', label: 'Close Date' },
+                    { id: 'recordDate', label: 'Record Date' }
+                ];
+            } else if (caCurrentTab === 'public') {
                 cols = [
                     { id: 'nseSymbol', label: 'Symbol' },
                     { id: 'companyName', label: 'Company' },
@@ -1779,19 +1811,40 @@
                         <td>${item.exDate || '-'}</td>
                         <td>${item.recDate || '-'}</td>
                     `;
+                } else if (caCurrentTab === 'announcements') {
+                    const linkUrl = item.attchmntFile ? (item.attchmntFile.startsWith('http') ? item.attchmntFile : `https://www.nseindia.com${item.attchmntFile}`) : '#';
+                    const linkHtml = item.attchmntFile ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80;">View PDF</a>` : '-';
+                    tr.innerHTML = `
+                        <td><strong>${item.symbol || '-'}</strong></td>
+                        <td style="white-space:normal; max-width:200px;">${item.sm_name || '-'}</td>
+                        <td style="white-space:normal; max-width:400px;">${item.desc || '-'}</td>
+                        <td>${item.dt || '-'}</td>
+                        <td>${linkHtml}</td>
+                    `;
                 } else if (caCurrentTab === 'meetings') {
                      tr.innerHTML = `
-                        <td><strong>${item.bm_symbol || '-'}</strong></td>
-                        <td style="white-space:normal; max-width:200px;">${item.sm_name || '-'}</td>
-                        <td style="white-space:normal; max-width:150px;">${item.bm_purpose || '-'}</td>
+                        <td><strong>${item.symbol || item.bm_symbol || '-'}</strong></td>
+                        <td style="white-space:normal; max-width:200px;">${item.company || item.sm_name || '-'}</td>
+                        <td style="white-space:normal; max-width:150px;">${item.purpose || item.bm_purpose || '-'}</td>
                         <td style="white-space:normal; max-width:300px;">${item.bm_desc || '-'}</td>
-                        <td>${item.bm_date || '-'}</td>
+                        <td>${item.date || item.bm_date || '-'}</td>
                     `;
-                } else {
-                    // Rights, OFS, Tender
+                } else if (caCurrentTab === 'rights') {
+                    tr.innerHTML = `
+                        <td><strong>${item.nseSymbol || '-'}</strong></td>
+                        <td style="white-space:normal; max-width:200px;">${item.companyName || '-'}</td>
+                        <td>${item.rightRatio || '-'}</td>
+                        <td>${item.stage || '-'}</td>
+                        <td>${item.boardResolutionDt || '-'}</td>
+                        <td>${item.offerPrice || '-'}</td>
+                        <td>${item.issueOpenDate || '-'}</td>
+                        <td>${item.issueCloseDate || '-'}</td>
+                        <td>${item.recordDate || '-'}</td>
+                    `;
+                } else if (caCurrentTab === 'public') {
+                    // OFS, Tender
                     let typeBadge = '';
-                    if (item.issue_type === 'rights') typeBadge = '<span class="badge" style="background:#4CAF50; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Rights</span>';
-                    else if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
+                    if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
                     else if (item.issue_type === 'tender') typeBadge = '<span class="badge" style="background:#FF9800; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Tender</span>';
                     else typeBadge = item.issue_type || '-';
 
