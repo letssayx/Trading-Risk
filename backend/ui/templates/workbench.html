@@ -320,7 +320,7 @@
                         <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
                         <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Event Calendar</div>
                         <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights Issues</div>
-                        <div class="wb-tab" id="ca-tab-btn-public" onclick="switchCATab('public')" style="padding: 6px 15px; border-radius: 4px;">Public Issues (OFS/Tender)</div>
+                        <div class="wb-tab" id="ca-tab-btn-public" onclick="switchCATab('public')" style="padding: 6px 15px; border-radius: 4px;">Public Issues (Rights/OFS/Tender)</div>
                         <div class="wb-tab" id="ca-tab-btn-circulars" onclick="switchCATab('circulars')" style="padding: 6px 15px; border-radius: 4px;">Circulars</div>
                     </div>
                 </div>
@@ -1538,12 +1538,15 @@
             document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
             document.getElementById('ca-tab-btn-announcements').classList.toggle('active', tab === 'announcements');
             document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
+            document.getElementById('ca-tab-btn-rights').classList.toggle('active', tab === 'rights');
             document.getElementById('ca-tab-btn-public').classList.toggle('active', tab === 'public');
             document.getElementById('ca-tab-btn-circulars').classList.toggle('active', tab === 'circulars');
 
             document.getElementById('ca-actions-filters').style.display = tab === 'actions' ? 'flex' : 'none';
             document.getElementById('ca-meetings-filters').style.display = tab === 'meetings' ? 'flex' : 'none';
             document.getElementById('ca-public-filters').style.display = tab === 'public' ? 'flex' : 'none';
+            // Need a filter container for rights to prevent errors if we attempt to read it
+            // but we don't have special filters for it, so nothing to show
 
             // Toggle table containers
             const isCirculars = tab === 'circulars';
@@ -1586,6 +1589,7 @@
             let endpoint = '/api/proxy/corporate-actions';
             if (caCurrentTab === 'announcements') endpoint = '/api/proxy/announcements';
             if (caCurrentTab === 'meetings') endpoint = '/api/proxy/event-calendar';
+            if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
             if (caCurrentTab === 'public') {
                 const statusRadio = document.querySelector('input[name="ca-public-status"]:checked');
                 const status = statusRadio ? statusRadio.value : 'active';
@@ -1641,7 +1645,7 @@
                     { id: 'symbol', label: 'Symbol' },
                     { id: 'sm_name', label: 'Company' },
                     { id: 'desc', label: 'Subject' },
-                    { id: 'dt', label: 'Date' },
+                    { id: 'an_dt', label: 'Date' },
                     { id: 'attchmntFile', label: 'Attachment' }
                 ];
             } else if (caCurrentTab === 'meetings') {
@@ -1852,11 +1856,25 @@
                         <td>${linkHtml}</td>
                     `;
                 } else if (caCurrentTab === 'announcements') {
+                    // Format announcement date
+                    let formattedDate = '-';
+                    if (item.an_dt) {
+                        try {
+                            // "an_dt" is often "2024-11-20 17:34:00"
+                            const dateObj = new Date(item.an_dt.replace(' ', 'T'));
+                            formattedDate = isNaN(dateObj.getTime()) ? item.an_dt.split(' ')[0] : dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                        } catch(e) {
+                            formattedDate = item.an_dt.split(' ')[0] || item.an_dt;
+                        }
+                    } else if (item.dt) {
+                        formattedDate = item.dt;
+                    }
+
                     tr.innerHTML = `
                         <td><strong>${item.symbol || '-'}</strong></td>
                         <td style="white-space:normal; max-width:200px;">${item.sm_name || '-'}</td>
                         <td style="white-space:normal; max-width:400px;">${item.desc || '-'}</td>
-                        <td>${item.dt || '-'}</td>
+                        <td>${formattedDate}</td>
                         <td>${linkHtml}</td>
                     `;
                 } else if (caCurrentTab === 'meetings') {

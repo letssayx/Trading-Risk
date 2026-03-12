@@ -62,7 +62,44 @@ def get_model_for_type(data_type: str):
 
 import requests
 
-# Removed proxy_rights - consolidated into proxy_public_issues below
+@router.get("/api/proxy/rights")
+def proxy_rights():
+    """Fetches Rights Issues directly from NSE API endpoint."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    all_data = []
+    seen_ids = set()
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+
+        url_listing = "https://www.nseindia.com/api/corporate-further-issues-ri"
+        res_listing = session.get(url_listing, headers=headers, timeout=10)
+        if res_listing.ok:
+            data = res_listing.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
+
+        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP"
+        res_in_principle = session.get(url_in_principle, headers=headers, timeout=10)
+        if res_in_principle.ok:
+            data = res_in_principle.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
+    except Exception as e:
+        logger.error(f"Failed to fetch Rights. Error: {e}")
+
+    return {"data": all_data}
+
 
 @router.get("/api/proxy/public-issues")
 def proxy_public_issues(status: str = 'active'):
@@ -80,13 +117,13 @@ def proxy_public_issues(status: str = 'active'):
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10)
 
-        # NSE APIs for OFS and Tender often return 404 depending on the current active list, but Rights usually works.
-        # Use known working rights paths and append status filters
+        # NSE APIs for OFS and Tender often return 404 depending on the current active list, but we must try them.
+        # Fallback to ipo-current-issue to grab generic active issues if others fail
         endpoints = {
-            'rights_listing': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
-            'rights_firiip': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP&type={status}",
+            'rights': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
             'ofs': f"https://www.nseindia.com/api/live-analysis-ofs?type={status}",
-            'tender': f"https://www.nseindia.com/api/corporate-tender-offer?type={status}"
+            'tender': f"https://www.nseindia.com/api/corporate-tender-offer?type={status}",
+            'current_issues': f"https://www.nseindia.com/api/ipo-current-issue"
         }
 
         for endpoint_key, url in endpoints.items():
@@ -94,11 +131,19 @@ def proxy_public_issues(status: str = 'active'):
             try:
                 res = session.get(url, headers=headers, timeout=10)
                 if res.ok:
-                    data = res.json().get('data', [])
-                    for item in data:
+                    data = res.json()
+                    # ipo-current-issue returns a raw list, others return dict with 'data'
+                    items = data if isinstance(data, list) else data.get('data', [])
+                    for item in items:
                         uid = item.get('appId') or f"{item.get('symbol', '')}_{item.get('date', '')}"
                         if uid not in seen_ids:
-                            item['issue_type'] = issue_type
+                            # Try to infer type for generic current issues
+                            if endpoint_key == 'current_issues':
+                                inferred_type = item.get('series', 'tender').lower()
+                                if inferred_type == 'eq': inferred_type = 'ofs'
+                                item['issue_type'] = inferred_type
+                            else:
+                                item['issue_type'] = issue_type
                             all_data.append(item)
                             if uid:
                                 seen_ids.add(uid)
