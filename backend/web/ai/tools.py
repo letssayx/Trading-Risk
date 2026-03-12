@@ -10,51 +10,45 @@ logger = logging.getLogger(__name__)
 
 def search_db_symbol(db: Session, query: str) -> str:
     """
-    Searches SymbolMaster, SecurityMaster, or distinct values in Bhavcopy for a matching NSE symbol using fuzzy matching to correct spelling errors.
+    Searches SymbolMaster, SecurityMaster, or distinct values in Bhavcopy for a matching NSE symbol using Python difflib fuzzy matching for very high accuracy on spelling errors.
     """
+    import difflib
+
     try:
         from backend.ingest.nse_models import SymbolMaster, SecurityMaster, BhavcopyEQ
-        from sqlalchemy import func, or_
 
-        clean_query = query.strip()
-        fuzzy_query = f"%{clean_query}%"
+        clean_query = query.strip().upper()
 
-        # 1. Check Custom SymbolMaster (Both Symbol and Company Name)
-        sym_master_query = select(SymbolMaster.symbol, SymbolMaster.company_name).filter(
-            or_(
-                SymbolMaster.symbol.ilike(fuzzy_query),
-                SymbolMaster.company_name.ilike(fuzzy_query)
-            )
-        ).limit(5)
+        # Pull all possible symbols and names into memory for difflib scoring
+        sm_records = db.query(SymbolMaster.symbol, SymbolMaster.company_name).all()
+        sec_records = db.query(SecurityMaster.ticker_symb, SecurityMaster.instrument_name).all()
 
-        sm_results = db.execute(sym_master_query).all()
-        if sm_results:
-            hits = [f"{r[0]} ({r[1] or 'Unknown Company'})" for r in sm_results]
-            return f"Found potential symbols in Master Data: {', '.join(hits)}"
+        # Build mapping dict: "SYMBOL" or "COMPANY NAME" -> "SYMBOL (COMPANY NAME)"
+        search_corpus = {}
 
-        # 2. Check SecurityMaster
-        sec_query = select(SecurityMaster.ticker_symb, SecurityMaster.instrument_name).filter(
-            or_(
-                SecurityMaster.ticker_symb.ilike(fuzzy_query),
-                SecurityMaster.instrument_name.ilike(fuzzy_query)
-            )
-        ).limit(5)
+        for sym, comp in sm_records:
+            sym_str = str(sym).upper() if sym else ""
+            comp_str = str(comp).upper() if comp else ""
+            val = f"{sym_str} ({comp_str})"
+            if sym_str: search_corpus[sym_str] = val
+            if comp_str: search_corpus[comp_str] = val
 
-        sec_results = db.execute(sec_query).all()
-        if sec_results:
-            hits = [f"{r[0]} ({r[1] or 'Unknown'})" for r in sec_results]
-            return f"Found potential symbols in Security DB: {', '.join(hits)}"
+        for sym, comp in sec_records:
+            sym_str = str(sym).upper() if sym else ""
+            comp_str = str(comp).upper() if comp else ""
+            val = f"{sym_str} ({comp_str})"
+            if sym_str and sym_str not in search_corpus: search_corpus[sym_str] = val
+            if comp_str and comp_str not in search_corpus: search_corpus[comp_str] = val
 
-        # 3. Check distinct Bhavcopy symbols
-        bc_query = select(BhavcopyEQ.symbol).filter(
-            BhavcopyEQ.symbol.ilike(fuzzy_query)
-        ).distinct().limit(5)
+        # Find closest matches
+        words_to_match = list(search_corpus.keys())
+        matches = difflib.get_close_matches(clean_query, words_to_match, n=5, cutoff=0.4)
 
-        bc_results = db.execute(bc_query).scalars().all()
-        if bc_results:
-            return f"Found potential symbols in historical DB: {', '.join(bc_results)}"
+        if matches:
+            unique_hits = list(dict.fromkeys([search_corpus[m] for m in matches]))
+            return f"Found potential symbols based on closest spelling: {', '.join(unique_hits)}"
 
-        return f"No symbols found in local DB matching '{clean_query}'. Could be a spelling error or untracked instrument."
+        return f"No symbols found matching '{clean_query}'. Could be a severe spelling error or untracked instrument."
     except Exception as e:
         logger.error(f"Error querying historical DB for symbol {query}: {e}")
         return f"Error searching database: {e}"

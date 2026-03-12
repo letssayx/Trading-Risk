@@ -237,7 +237,6 @@
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
-        <div class="main-tab" data-target="circulars" onclick="switchMainTab('circulars')" title="Circulars">Circulars</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
     </div>
@@ -346,6 +345,7 @@
                     </div>
                     <div class="control-group" id="ca-public-filters" style="display:none;">
                         <label style="margin-right:10px;">Type:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="rights" onchange="filterCATable()"> Rights</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="ofs" onchange="filterCATable()"> OFS</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
                         <label style="margin-right:10px; margin-left:10px;">Status:</label>
@@ -1451,7 +1451,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'circulars', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -1488,7 +1488,6 @@
             }
 
             // Note: corporate_actions load is handled by the wrapper function below
-            if (tabName === 'circulars') loadCirculars();
         }
 
         // --- Derivatives Sub-Tab Logic ---
@@ -1539,7 +1538,6 @@
             document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
             document.getElementById('ca-tab-btn-announcements').classList.toggle('active', tab === 'announcements');
             document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
-            document.getElementById('ca-tab-btn-rights').classList.toggle('active', tab === 'rights');
             document.getElementById('ca-tab-btn-public').classList.toggle('active', tab === 'public');
             document.getElementById('ca-tab-btn-circulars').classList.toggle('active', tab === 'circulars');
 
@@ -1568,7 +1566,7 @@
             if (tab === 'actions') caSortCol = 'exDate';
             else if (tab === 'announcements') caSortCol = 'dt'; // Announcement date
             else if (tab === 'meetings') caSortCol = 'date'; // Event cal date
-            else caSortCol = 'recordDate'; // Rights & Public
+            else caSortCol = 'recordDate'; // Public
 
             caSortAsc = false; // Descending by default
 
@@ -1588,7 +1586,6 @@
             let endpoint = '/api/proxy/corporate-actions';
             if (caCurrentTab === 'announcements') endpoint = '/api/proxy/announcements';
             if (caCurrentTab === 'meetings') endpoint = '/api/proxy/event-calendar';
-            if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
             if (caCurrentTab === 'public') {
                 const statusRadio = document.querySelector('input[name="ca-public-status"]:checked');
                 const status = statusRadio ? statusRadio.value : 'active';
@@ -1636,7 +1633,8 @@
                     { id: 'subject', label: 'Purpose' },
                     { id: 'faceVal', label: 'Face Value' },
                     { id: 'exDate', label: 'Ex-Date' },
-                    { id: 'recDate', label: 'Record Date' }
+                    { id: 'recDate', label: 'Record Date' },
+                    { id: 'attachment', label: 'Attachment' }
                 ];
             } else if (caCurrentTab === 'announcements') {
                 cols = [
@@ -1652,19 +1650,8 @@
                     { id: 'company', label: 'Company' },
                     { id: 'purpose', label: 'Purpose' },
                     { id: 'bm_desc', label: 'Details' },
-                    { id: 'date', label: 'Meeting Date' }
-                ];
-            } else if (caCurrentTab === 'rights') {
-                cols = [
-                    { id: 'nseSymbol', label: 'Symbol' },
-                    { id: 'companyName', label: 'Company' },
-                    { id: 'rightRatio', label: 'Ratio' },
-                    { id: 'stage', label: 'Stage' },
-                    { id: 'boardResolutionDt', label: 'Board Res. Date' },
-                    { id: 'offerPrice', label: 'Offer Price' },
-                    { id: 'issueOpenDate', label: 'Open Date' },
-                    { id: 'issueCloseDate', label: 'Close Date' },
-                    { id: 'recordDate', label: 'Record Date' }
+                    { id: 'date', label: 'Meeting Date' },
+                    { id: 'attachment', label: 'Attachment' }
                 ];
             } else if (caCurrentTab === 'public') {
                 cols = [
@@ -1676,7 +1663,8 @@
                     { id: 'offerPrice', label: 'Offer Price' },
                     { id: 'issueOpenDate', label: 'Open Date' },
                     { id: 'issueCloseDate', label: 'Close Date' },
-                    { id: 'recordDate', label: 'Record Date' }
+                    { id: 'recordDate', label: 'Record Date' },
+                    { id: 'attachment', label: 'Attachment' }
                 ];
             }
 
@@ -1698,37 +1686,76 @@
             thead.appendChild(tr);
         }
 
+        // Helper function for Levenshtein distance based fuzzy matching in JS
+        function levenshtein(a, b) {
+            if (a.length === 0) return b.length;
+            if (b.length === 0) return a.length;
+            const matrix = [];
+            for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+            for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+            for (let i = 1; i <= b.length; i++) {
+                for (let j = 1; j <= a.length; j++) {
+                    if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+                    }
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        function isFuzzyMatch(query, target) {
+            if (!query) return true;
+            if (!target) return false;
+            // Simple subset match
+            if (target.includes(query)) return true;
+
+            // Fuzzy distance match (allow 1 typo per 4 characters)
+            const threshold = Math.max(1, Math.floor(query.length / 4));
+
+            // Check substrings
+            const words = target.split(/[\s_-]+/);
+            for (let w of words) {
+                if (Math.abs(w.length - query.length) <= threshold) {
+                    if (levenshtein(query, w) <= threshold) return true;
+                }
+            }
+            return false;
+        }
+
         function filterCATable() {
             if (!caRawData || caRawData.length === 0) return;
 
-            const search = document.getElementById('ca-search-input').value.toLowerCase();
+            const search = document.getElementById('ca-search-input').value.toLowerCase().trim();
 
             let activeFilters = [];
             let filterContainerId = '';
             if (caCurrentTab === 'actions') filterContainerId = 'ca-actions-filters';
             else if (caCurrentTab === 'meetings') filterContainerId = 'ca-meetings-filters';
-            else if (caCurrentTab === 'rights') filterContainerId = 'ca-rights-filters';
+            else if (caCurrentTab === 'public') filterContainerId = 'ca-public-filters';
 
             if (filterContainerId) {
                 activeFilters = Array.from(document.querySelectorAll(`#${filterContainerId} .ca-filter-cb:checked`)).map(cb => cb.value.toLowerCase());
             }
 
             let filtered = caRawData.filter(item => {
-                // Search Match
+                // Search Match (Fuzzy)
                 const sym = (item.symbol || item.bm_symbol || item.nseSymbol || '').toLowerCase();
-                const comp = (item.comp || item.sm_name || item.companyName || '').toLowerCase();
-                if (search && !sym.includes(search) && !comp.includes(search)) return false;
+                const comp = (item.comp || item.sm_name || item.companyName || item.company || '').toLowerCase();
+
+                if (search && !isFuzzyMatch(search, sym) && !isFuzzyMatch(search, comp)) return false;
 
                 // Advanced Filters
                 if (activeFilters.length > 0) {
-                    if (caCurrentTab === 'rights') {
+                    if (caCurrentTab === 'public') {
                         const issueType = (item.issue_type || '').toLowerCase();
                         let match = false;
                         for (const f of activeFilters) {
                             if (issueType === f) { match = true; break; }
                         }
                         if (!match) return false;
-                    } else {
+                    } else if (caCurrentTab === 'actions' || caCurrentTab === 'meetings') {
                         const purpose = (item.subject || item.bm_purpose || item.bm_desc || '').toLowerCase();
                         let match = false;
                         for (const f of activeFilters) {
@@ -1802,6 +1829,18 @@
 
                 if (rowColor) tr.style.backgroundColor = rowColor;
 
+                const findLink = (obj) => {
+                    let possibleKeys = ['attchmntFile', 'circFilelink', 'attachment', 'link', 'xmlFileName'];
+                    for (let k of possibleKeys) {
+                        if (obj[k]) return obj[k];
+                    }
+                    return null;
+                };
+
+                const linkVal = findLink(item);
+                const linkUrl = linkVal ? (linkVal.startsWith('http') ? linkVal : `https://www.nseindia.com${linkVal}`) : '#';
+                const linkHtml = linkVal ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80; text-decoration: underline;">View PDF</a>` : '-';
+
                 if (caCurrentTab === 'actions') {
                     tr.innerHTML = `
                         <td><strong>${item.symbol || '-'}</strong></td>
@@ -1810,10 +1849,9 @@
                         <td>${item.faceVal !== undefined && item.faceVal !== null ? item.faceVal : '-'}</td>
                         <td>${item.exDate || '-'}</td>
                         <td>${item.recDate || '-'}</td>
+                        <td>${linkHtml}</td>
                     `;
                 } else if (caCurrentTab === 'announcements') {
-                    const linkUrl = item.attchmntFile ? (item.attchmntFile.startsWith('http') ? item.attchmntFile : `https://www.nseindia.com${item.attchmntFile}`) : '#';
-                    const linkHtml = item.attchmntFile ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80;">View PDF</a>` : '-';
                     tr.innerHTML = `
                         <td><strong>${item.symbol || '-'}</strong></td>
                         <td style="white-space:normal; max-width:200px;">${item.sm_name || '-'}</td>
@@ -1828,6 +1866,7 @@
                         <td style="white-space:normal; max-width:150px;">${item.purpose || item.bm_purpose || '-'}</td>
                         <td style="white-space:normal; max-width:300px;">${item.bm_desc || '-'}</td>
                         <td>${item.date || item.bm_date || '-'}</td>
+                        <td>${linkHtml}</td>
                     `;
                 } else if (caCurrentTab === 'rights') {
                     tr.innerHTML = `
@@ -1840,12 +1879,14 @@
                         <td>${item.issueOpenDate || '-'}</td>
                         <td>${item.issueCloseDate || '-'}</td>
                         <td>${item.recordDate || '-'}</td>
+                        <td>${linkHtml}</td>
                     `;
                 } else if (caCurrentTab === 'public') {
                     // OFS, Tender
                     let typeBadge = '';
                     if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
                     else if (item.issue_type === 'tender') typeBadge = '<span class="badge" style="background:#FF9800; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Tender</span>';
+                    else if (item.issue_type === 'rights') typeBadge = '<span class="badge" style="background:#4CAF50; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Rights</span>';
                     else typeBadge = item.issue_type || '-';
 
                      tr.innerHTML = `
@@ -1858,6 +1899,7 @@
                         <td>${item.issueOpenDate || '-'}</td>
                         <td>${item.issueCloseDate || '-'}</td>
                         <td>${item.recordDate || '-'}</td>
+                        <td>${linkHtml}</td>
                     `;
                 }
                 tbody.appendChild(tr);
@@ -1954,7 +1996,7 @@
 
                 items.forEach(item => {
                     const linkUrl = item.circFile ? (item.circFile.startsWith('http') ? item.circFile : `https://www.nseindia.com${item.circFile}`) : '#';
-                    const linkHtml = item.circFile ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80;">View PDF</a>` : '-';
+                    const linkHtml = item.circFile ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80; text-decoration: underline;">View PDF</a>` : '-';
                     html += `
                             <tr>
                                 <td style="padding: 8px; white-space: nowrap;">${item.circDate || '-'}</td>

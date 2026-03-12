@@ -102,7 +102,7 @@ def proxy_rights():
 
 @router.get("/api/proxy/public-issues")
 def proxy_public_issues(status: str = 'active'):
-    """Fetches OFS and Tender Issues from NSE API endpoints."""
+    """Fetches Rights, OFS, and Tender Issues from NSE API endpoints."""
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -115,10 +115,11 @@ def proxy_public_issues(status: str = 'active'):
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10)
 
-        # Often these endpoints require specific referers or index params. We will attempt the known standard ones.
+        # NSE APIs for these specific paths can be volatile.
         endpoints = {
-            'ofs': f"https://www.nseindia.com/api/live-analysis-ofs?type={status}",
-            'tender': f"https://www.nseindia.com/api/corporate-tender-offer?type={status}"
+            'rights': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
+            'ofs': f"https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities&type={status}",
+            'tender': f"https://www.nseindia.com/api/corporate-further-issues-tender?index=equities&type={status}"
         }
 
         for issue_type, url in endpoints.items():
