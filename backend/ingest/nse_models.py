@@ -377,6 +377,17 @@ class MarginTrading(Base, TimescaleMixin):
     )
 
 
+class ExchangeCircular(Base, TimescaleMixin):
+    """Stores Exchange Circulars metadata (does not store actual PDF blob)"""
+    __tablename__ = "exchange_circulars"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    trade_date = Column(Date, nullable=False, index=True) # Mapped to circular date
+    circular_no = Column(String(100), nullable=False, unique=True, index=True)
+    subject = Column(String(1000), nullable=True)
+    department = Column(String(100), nullable=True)
+    link = Column(String(500), nullable=True)
+
 class CorporateAction(Base, TimescaleMixin):
     """Corporate Actions for Equities"""
     __tablename__ = "corporate_actions"

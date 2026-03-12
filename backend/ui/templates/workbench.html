@@ -1509,7 +1509,11 @@
             const target = document.getElementById(`deriv-tab-${tabName}`);
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
-                target.style.display = target.id === 'deriv-tab-market' || target.id === 'deriv-tab-matrix' ? 'flex' : 'block';
+                if (target.id === 'deriv-tab-market' || target.id === 'deriv-tab-matrix') {
+                    target.style.display = 'flex';
+                } else {
+                    target.style.display = 'block';
+                }
                 target.classList.add('active');
                 btn.classList.add('active');
                 btn.style.borderBottomColor = '#4ade80';
@@ -1869,15 +1873,49 @@
         }
 
         async function loadCirculars() {
-            document.getElementById('circulars-container').innerHTML = '<p>Loading Circulars data from NSE...</p>';
+            const container = document.getElementById('circulars-container');
+            container.innerHTML = '<p>Loading Circulars data from DB/NSE...</p>';
             try {
                 const response = await fetch('/api/proxy/circulars');
                 const data = await response.json();
-
                 const items = Array.isArray(data) ? data : (data.data || []);
-                document.getElementById('circulars-container').innerHTML = renderGenericProxyTable(items);
+
+                if (items.length === 0) {
+                    container.innerHTML = "<p>No circulars found.</p>";
+                    return;
+                }
+
+                let html = `
+                <div class="table-wrapper" style="max-height: 600px; overflow-y: auto; border: 1px solid #333; border-radius: 4px;">
+                    <table class="data-table" style="width: 100%;">
+                        <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                            <tr>
+                                <th style="padding: 8px;">Date</th>
+                                <th style="padding: 8px;">Circular No.</th>
+                                <th style="padding: 8px;">Department</th>
+                                <th style="padding: 8px;">Subject</th>
+                                <th style="padding: 8px;">Link</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                items.forEach(item => {
+                    const linkUrl = item.circFile ? (item.circFile.startsWith('http') ? item.circFile : `https://www.nseindia.com${item.circFile}`) : '#';
+                    const linkHtml = item.circFile ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80;">View PDF</a>` : '-';
+                    html += `
+                            <tr>
+                                <td style="padding: 8px; white-space: nowrap;">${item.circDate || '-'}</td>
+                                <td style="padding: 8px; white-space: nowrap;">${item.circNo || '-'}</td>
+                                <td style="padding: 8px; white-space: nowrap;">${item.circDepartment || '-'}</td>
+                                <td style="padding: 8px; min-width: 300px;">${item.sub || item.subject || '-'}</td>
+                                <td style="padding: 8px;">${linkHtml}</td>
+                            </tr>`;
+                });
+
+                html += `</tbody></table></div>`;
+                container.innerHTML = html;
             } catch(e) {
-                document.getElementById('circulars-container').innerHTML = `<p style="color:red;">Error loading circulars: ${e.message}</p>`;
+                container.innerHTML = `<p style="color:red;">Error loading circulars: ${e.message}</p>`;
             }
         }
 

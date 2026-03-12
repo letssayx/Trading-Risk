@@ -63,8 +63,8 @@ def get_model_for_type(data_type: str):
 import requests
 
 @router.get("/api/proxy/rights")
-def proxy_rights():
-    """Fetches Rights Issues directly from NSE API endpoint."""
+def proxy_rights(status: str = 'active'):
+    """Fetches Rights, OFS, and Tender Issues from NSE API endpoint."""
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -72,43 +72,54 @@ def proxy_rights():
         'Accept-Language': 'en-US,en;q=0.9',
     }
 
-    # The API requires specific index params or separate requests to fetch both stages.
-    # The default `/api/corporate-further-issues-ri` seems to only pull Listing Stage or a mix,
-    # Let's ensure we fetch both explicitly and deduplicate just in case.
     all_data = []
-    seen_ids = set()
 
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
 
-        url_listing = "https://www.nseindia.com/api/corporate-further-issues-ri"
-        res_listing = session.get(url_listing, headers=headers, timeout=10)
-        if res_listing.ok:
-            data = res_listing.json().get('data', [])
-            for item in data:
-                if item.get('appId') not in seen_ids:
-                    all_data.append(item)
-                    seen_ids.add(item.get('appId'))
-    except Exception as e:
-        logger.error(f"Failed to fetch Rights (Listing). Error: {e}")
+        endpoints = {
+            'rights': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
+            'ofs': f"https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities&type={status}",
+            'tender': f"https://www.nseindia.com/api/corporate-further-issues-tender?index=equities&type={status}"
+        }
 
-    try:
-        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP"
-        res_in_principle = session.get(url_in_principle, headers=headers, timeout=10)
-        if res_in_principle.ok:
-            data = res_in_principle.json().get('data', [])
-            for item in data:
-                if item.get('appId') not in seen_ids:
-                    all_data.append(item)
-                    seen_ids.add(item.get('appId'))
+        for issue_type, url in endpoints.items():
+            try:
+                res = session.get(url, headers=headers, timeout=10)
+                if res.ok:
+                    data = res.json().get('data', [])
+                    for item in data:
+                        item['issue_type'] = issue_type # Tag it for frontend filtering
+                        all_data.append(item)
+            except Exception as e:
+                logger.error(f"Failed to fetch {issue_type} ({status}). Error: {e}")
+
     except Exception as e:
-        logger.error(f"Failed to fetch Rights (In-Principle). Error: {e}")
+        logger.error(f"Failed to prime session for Public Issues. Error: {e}")
 
     return {"data": all_data}
 
 @router.get("/api/proxy/circulars")
-def proxy_circulars():
-    """Fetches Exchange Circulars directly from NSE API endpoint."""
+def proxy_circulars(db: Session = Depends(get_db)):
+    """Fetches Exchange Circulars from local DB first, then scrapes if missing and saves."""
+    from backend.ingest.nse_models import ExchangeCircular
+    from datetime import date
+
+    # 1. Fetch from DB
+    db_records = db.query(ExchangeCircular).order_by(ExchangeCircular.trade_date.desc()).limit(100).all()
+    if db_records:
+        data = []
+        for r in db_records:
+            data.append({
+                "circDate": r.trade_date.strftime("%d-%b-%Y"),
+                "circNo": r.circular_no,
+                "sub": r.subject,
+                "circDepartment": r.department,
+                "circFile": r.link
+            })
+        return {"data": data}
+
+    # 2. If DB is empty, proxy and save (Seed Data)
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -121,7 +132,28 @@ def proxy_circulars():
         url = "https://www.nseindia.com/api/circulars"
         response = session.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-        return response.json()
+        json_data = response.json()
+
+        # Save to DB
+        items = json_data.get('data', [])
+        for item in items:
+            try:
+                dt_str = item.get('circDate')
+                from datetime import datetime
+                parsed_date = datetime.strptime(dt_str, "%d-%b-%Y").date() if dt_str else date.today()
+
+                circ = ExchangeCircular(
+                    trade_date=parsed_date,
+                    circular_no=item.get('circNo'),
+                    subject=item.get('sub'),
+                    department=item.get('circDepartment'),
+                    link=item.get('circFile')
+                )
+                db.add(circ)
+            except Exception as e:
+                pass # skip duplicates or parsing errors
+        db.commit()
+        return json_data
     except Exception as e:
         status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
         body = getattr(response, 'text', 'N/A') if response else 'N/A'

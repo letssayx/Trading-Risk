@@ -291,14 +291,27 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         cash_results = db.execute(fo_query, {"sym": symbol}).fetchall()
 
     if not cash_results:
-        raise HTTPException(status_code=404, detail=f"No data found for symbol {symbol}")
+        # User requested fake dummy data to test charts when DB is empty locally
+        from datetime import date, timedelta
+        today = date.today()
+        dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(500, 0, -1)]
+        df = pd.DataFrame({
+            'trade_date': dummy_dates,
+            'open': np.random.uniform(100, 200, 500),
+            'high': np.random.uniform(200, 250, 500),
+            'low': np.random.uniform(50, 100, 500),
+            'close': np.random.uniform(100, 200, 500),
+            'volume': np.random.randint(1000, 10000, 500)
+        })
+        df['trade_date'] = pd.to_datetime(df['trade_date'])
+        df.set_index('trade_date', inplace=True)
+    else:
+        df = pd.DataFrame(cash_results, columns=['trade_date', 'open', 'high', 'low', 'close', 'volume'])
+        df['trade_date'] = pd.to_datetime(df['trade_date'])
 
-    df = pd.DataFrame(cash_results, columns=['trade_date', 'open', 'high', 'low', 'close', 'volume'])
-    df['trade_date'] = pd.to_datetime(df['trade_date'])
-
-    # Handle duplicate dates in fallback data by taking the first (nearest expiry)
-    df = df.sort_values(['trade_date']).groupby('trade_date').first().reset_index()
-    df.set_index('trade_date', inplace=True)
+        # Handle duplicate dates in fallback data by taking the first (nearest expiry)
+        df = df.sort_values(['trade_date']).groupby('trade_date').first().reset_index()
+        df.set_index('trade_date', inplace=True)
 
     # 2. Calculate ATR (14-day Wilder's)
     df['prev_close'] = df['close'].shift(1)
@@ -362,12 +375,23 @@ async def get_participant_oi(db: Session = Depends(get_db)):
     dates = [d[0] for d in dates]
     dates.sort() # chronological
 
+    import pandas as pd
+    import numpy as np
+    from datetime import date, timedelta
+
     if not dates:
-         return {"dates": [], "fii_net_long": [], "pro_net_long": [], "client_net_long": []}
+         # User requested fake dummy data to test charts when DB is empty locally
+         today = date.today()
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         return {
+             "dates": dummy_dates,
+             "fii_net_long": np.random.randint(-50000, 50000, 30).tolist(),
+             "pro_net_long": np.random.randint(-30000, 30000, 30).tolist(),
+             "client_net_long": np.random.randint(-80000, 80000, 30).tolist()
+         }
 
     records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date.in_(dates)).all()
 
-    import pandas as pd
     df = pd.DataFrame([{
         'date': r.trade_date,
         'client_type': r.client_type,
@@ -376,7 +400,14 @@ async def get_participant_oi(db: Session = Depends(get_db)):
     } for r in records])
 
     if df.empty:
-         return {"dates": [], "fii_net_long": [], "pro_net_long": [], "client_net_long": []}
+         today = date.today()
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         return {
+             "dates": dummy_dates,
+             "fii_net_long": np.random.randint(-50000, 50000, 30).tolist(),
+             "pro_net_long": np.random.randint(-30000, 30000, 30).tolist(),
+             "client_net_long": np.random.randint(-80000, 80000, 30).tolist()
+         }
 
     df['net_long'] = df['fut_idx_long'] - df['fut_idx_short']
 
@@ -401,12 +432,21 @@ async def get_cash_market_flow(db: Session = Depends(get_db)):
     dates = [d[0] for d in dates_query]
     dates.sort()
 
+    import pandas as pd
+    import numpy as np
+    from datetime import date, timedelta
+
     if not dates:
-         return {"dates": [], "fii_net": [], "dii_net": []}
+         today = date.today()
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         return {
+             "dates": dummy_dates,
+             "fii_net": np.random.uniform(-5000, 5000, 30).tolist(),
+             "dii_net": np.random.uniform(-5000, 5000, 30).tolist()
+         }
 
     records = db.query(FIIDIICash).filter(FIIDIICash.trade_date.in_(dates)).all()
 
-    import pandas as pd
     df = pd.DataFrame([{
         'date': r.trade_date,
         'category': r.category,
@@ -414,7 +454,13 @@ async def get_cash_market_flow(db: Session = Depends(get_db)):
     } for r in records])
 
     if df.empty:
-         return {"dates": [], "fii_net": [], "dii_net": []}
+         today = date.today()
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         return {
+             "dates": dummy_dates,
+             "fii_net": np.random.uniform(-5000, 5000, 30).tolist(),
+             "dii_net": np.random.uniform(-5000, 5000, 30).tolist()
+         }
 
     pivot = df.pivot_table(index='date', columns='category', values='net_value', aggfunc='sum').fillna(0)
     pivot = pivot.reindex(pd.to_datetime(dates)).fillna(0)
