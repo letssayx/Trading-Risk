@@ -1868,21 +1868,8 @@
                         <td>${item.date || item.bm_date || '-'}</td>
                         <td>${linkHtml}</td>
                     `;
-                } else if (caCurrentTab === 'rights') {
-                    tr.innerHTML = `
-                        <td><strong>${item.nseSymbol || '-'}</strong></td>
-                        <td style="white-space:normal; max-width:200px;">${item.companyName || '-'}</td>
-                        <td>${item.rightRatio || '-'}</td>
-                        <td>${item.stage || '-'}</td>
-                        <td>${item.boardResolutionDt || '-'}</td>
-                        <td>${item.offerPrice || '-'}</td>
-                        <td>${item.issueOpenDate || '-'}</td>
-                        <td>${item.issueCloseDate || '-'}</td>
-                        <td>${item.recordDate || '-'}</td>
-                        <td>${linkHtml}</td>
-                    `;
                 } else if (caCurrentTab === 'public') {
-                    // OFS, Tender
+                    // Rights, OFS, Tender
                     let typeBadge = '';
                     if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
                     else if (item.issue_type === 'tender') typeBadge = '<span class="badge" style="background:#FF9800; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Tender</span>';

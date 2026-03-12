@@ -62,43 +62,7 @@ def get_model_for_type(data_type: str):
 
 import requests
 
-@router.get("/api/proxy/rights")
-def proxy_rights():
-    """Fetches Rights Issues directly from NSE API endpoint."""
-    session = requests.Session()
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-    }
-
-    all_data = []
-    seen_ids = set()
-
-    try:
-        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
-
-        url_listing = "https://www.nseindia.com/api/corporate-further-issues-ri"
-        res_listing = session.get(url_listing, headers=headers, timeout=10)
-        if res_listing.ok:
-            data = res_listing.json().get('data', [])
-            for item in data:
-                if item.get('appId') not in seen_ids:
-                    all_data.append(item)
-                    seen_ids.add(item.get('appId'))
-
-        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP"
-        res_in_principle = session.get(url_in_principle, headers=headers, timeout=10)
-        if res_in_principle.ok:
-            data = res_in_principle.json().get('data', [])
-            for item in data:
-                if item.get('appId') not in seen_ids:
-                    all_data.append(item)
-                    seen_ids.add(item.get('appId'))
-    except Exception as e:
-        logger.error(f"Failed to fetch Rights. Error: {e}")
-
-    return {"data": all_data}
+# Removed proxy_rights - consolidated into proxy_public_issues below
 
 @router.get("/api/proxy/public-issues")
 def proxy_public_issues(status: str = 'active'):
@@ -111,27 +75,35 @@ def proxy_public_issues(status: str = 'active'):
     }
 
     all_data = []
+    seen_ids = set()
 
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10)
 
-        # NSE APIs for these specific paths can be volatile.
+        # NSE APIs for OFS and Tender often return 404 depending on the current active list, but Rights usually works.
+        # Use known working rights paths and append status filters
         endpoints = {
-            'rights': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
-            'ofs': f"https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities&type={status}",
-            'tender': f"https://www.nseindia.com/api/corporate-further-issues-tender?index=equities&type={status}"
+            'rights_listing': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
+            'rights_firiip': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP&type={status}",
+            'ofs': f"https://www.nseindia.com/api/live-analysis-ofs?type={status}",
+            'tender': f"https://www.nseindia.com/api/corporate-tender-offer?type={status}"
         }
 
-        for issue_type, url in endpoints.items():
+        for endpoint_key, url in endpoints.items():
+            issue_type = 'rights' if 'rights' in endpoint_key else endpoint_key
             try:
                 res = session.get(url, headers=headers, timeout=10)
                 if res.ok:
                     data = res.json().get('data', [])
                     for item in data:
-                        item['issue_type'] = issue_type
-                        all_data.append(item)
+                        uid = item.get('appId') or f"{item.get('symbol', '')}_{item.get('date', '')}"
+                        if uid not in seen_ids:
+                            item['issue_type'] = issue_type
+                            all_data.append(item)
+                            if uid:
+                                seen_ids.add(uid)
             except Exception as e:
-                logger.error(f"Failed to fetch {issue_type} ({status}). Error: {e}")
+                logger.warning(f"Failed to fetch {endpoint_key} ({status}): {e}. Ignoring as NSE might not have active issues here.")
 
     except Exception as e:
         logger.error(f"Failed to prime session for Public Issues. Error: {e}")
