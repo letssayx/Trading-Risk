@@ -102,7 +102,7 @@ def proxy_rights():
 
 
 @router.get("/api/proxy/public-issues")
-def proxy_public_issues(status: str = 'active'):
+def proxy_public_issues():
     """Fetches Rights, OFS, and Tender Issues from NSE API endpoints."""
     session = requests.Session()
     headers = {
@@ -117,38 +117,29 @@ def proxy_public_issues(status: str = 'active'):
     try:
         session.get("https://www.nseindia.com", headers=headers, timeout=10)
 
-        # NSE APIs for OFS and Tender often return 404 depending on the current active list, but we must try them.
-        # Fallback to ipo-current-issue to grab generic active issues if others fail
+        # The user requested no fallbacks. They just want the explicit pages.
+        # Since OFS/Tender might be empty, we just query them. If they 404, we return empty.
         endpoints = {
-            'rights': f"https://www.nseindia.com/api/corporate-further-issues-ri?index=equities&type={status}",
-            'ofs': f"https://www.nseindia.com/api/live-analysis-ofs?type={status}",
-            'tender': f"https://www.nseindia.com/api/corporate-tender-offer?type={status}",
-            'current_issues': f"https://www.nseindia.com/api/ipo-current-issue"
+            'rights': "https://www.nseindia.com/api/corporate-further-issues-rits?index=equities",
+            'ofs': "https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities",
+            'tender': "https://www.nseindia.com/api/corporate-further-issues-tender?index=equities"
         }
 
-        for endpoint_key, url in endpoints.items():
-            issue_type = 'rights' if 'rights' in endpoint_key else endpoint_key
+        for issue_type, url in endpoints.items():
             try:
                 res = session.get(url, headers=headers, timeout=10)
                 if res.ok:
                     data = res.json()
-                    # ipo-current-issue returns a raw list, others return dict with 'data'
                     items = data if isinstance(data, list) else data.get('data', [])
                     for item in items:
                         uid = item.get('appId') or f"{item.get('symbol', '')}_{item.get('date', '')}"
                         if uid not in seen_ids:
-                            # Try to infer type for generic current issues
-                            if endpoint_key == 'current_issues':
-                                inferred_type = item.get('series', 'tender').lower()
-                                if inferred_type == 'eq': inferred_type = 'ofs'
-                                item['issue_type'] = inferred_type
-                            else:
-                                item['issue_type'] = issue_type
+                            item['issue_type'] = issue_type
                             all_data.append(item)
                             if uid:
                                 seen_ids.add(uid)
             except Exception as e:
-                logger.warning(f"Failed to fetch {endpoint_key} ({status}): {e}. Ignoring as NSE might not have active issues here.")
+                logger.warning(f"Failed to fetch exact {issue_type}: {e}.")
 
     except Exception as e:
         logger.error(f"Failed to prime session for Public Issues. Error: {e}")

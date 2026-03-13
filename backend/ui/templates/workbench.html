@@ -236,7 +236,7 @@
         <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
-        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
+        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
     </div>
@@ -316,7 +316,7 @@
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
                     <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Corporate Actions</div>
+                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Actions</div>
                         <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
                         <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Event Calendar</div>
                         <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights Issues</div>
@@ -348,10 +348,6 @@
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="rights" onchange="filterCATable()"> Rights</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="ofs" onchange="filterCATable()"> OFS</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
-                        <label style="margin-right:10px; margin-left:10px;">Status:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-public-status" value="active" checked onchange="filterCATable()"> Active</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-public-status" value="forthcoming" onchange="filterCATable()"> Forthcoming</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="radio" name="ca-public-status" value="past" onchange="filterCATable()"> Past</label>
                     </div>
                     <button onclick="loadCorporateActionsData()" class="btn btn-primary" id="btn-ca-refresh">Refresh Data</button>
                     <button onclick="exportCATableCSV()" class="btn btn-secondary" style="margin-left: auto;" id="btn-ca-export">Export CSV</button>
@@ -1590,11 +1586,7 @@
             if (caCurrentTab === 'announcements') endpoint = '/api/proxy/announcements';
             if (caCurrentTab === 'meetings') endpoint = '/api/proxy/event-calendar';
             if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
-            if (caCurrentTab === 'public') {
-                const statusRadio = document.querySelector('input[name="ca-public-status"]:checked');
-                const status = statusRadio ? statusRadio.value : 'active';
-                endpoint = `/api/proxy/public-issues?status=${status}`;
-            }
+            if (caCurrentTab === 'public') endpoint = '/api/proxy/public-issues';
 
             try {
                 const response = await fetch(endpoint);
