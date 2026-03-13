@@ -1940,7 +1940,12 @@
             const a = document.createElement('a');
             a.setAttribute('hidden', '');
             a.setAttribute('href', url);
-            let filename = caCurrentTab === 'actions' ? 'Corporate_Actions' : caCurrentTab === 'meetings' ? 'Board_Meetings' : 'Rights';
+            let filename = 'Corporate_Actions';
+            if (caCurrentTab === 'meetings') filename = 'Board_Meetings';
+            else if (caCurrentTab === 'announcements') filename = 'Announcements';
+            else if (caCurrentTab === 'rights') filename = 'Rights_Issues';
+            else if (caCurrentTab === 'public') filename = 'Public_Issues';
+
             a.setAttribute('download', `NSE_${filename}_${new Date().toISOString().slice(0,10)}.csv`);
             document.body.appendChild(a);
             a.click();

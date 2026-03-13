@@ -23,12 +23,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Configure DB Logging
-db_logger = logging.getLogger("sqlalchemy.engine")
-# Set to WARNING to prevent Uvicorn from puking massive SQL payloads in the local terminal on every query
-db_logger.setLevel(logging.WARNING)
-
-# Removed the explicit before_cursor_execute listener to completely silence standard query dumps
+# Configure DB Logging globally for sqlalchemy to prevent query puking
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.engine.Engine").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
 
 def get_db():
     db = SessionLocal()

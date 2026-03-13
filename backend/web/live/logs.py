@@ -113,7 +113,9 @@ ws_handler.setFormatter(formatter)
 
 # Attach to loggers
 logging.getLogger("backend").addHandler(ws_handler)
-logging.getLogger("sqlalchemy.engine").addHandler(ws_handler)
+# We specifically avoid attaching the websocket handler to sqlalchemy.engine here
+# to prevent the UI websocket (and by extension the root uvicorn logger) from puking SQL.
+# logging.getLogger("sqlalchemy.engine").addHandler(ws_handler)
 logging.getLogger("celery").addHandler(ws_handler)
 
 @router.on_event("startup")
