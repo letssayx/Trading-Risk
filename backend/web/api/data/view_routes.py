@@ -825,3 +825,36 @@ async def export_data(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@router.get("/api/proxy/ofs")
+def get_ofs():
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        res = session.get("https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities", headers=headers, timeout=10)
+        data = res.json()
+        return data if isinstance(data, list) else data.get("data", [])
+    except Exception as e:
+        return []
+
+@router.get("/api/proxy/tender")
+def get_tender():
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        res = session.get("https://www.nseindia.com/api/corporate-further-issues-tender?index=equities", headers=headers, timeout=10)
+        data = res.json()
+        return data if isinstance(data, list) else data.get("data", [])
+    except Exception as e:
+        return []

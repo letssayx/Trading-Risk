@@ -8,6 +8,23 @@
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
+        .main-tab-content {
+            height: 100%;
+            width: 100%;
+            display: none !important;
+            overflow: hidden;
+        }
+        .main-tab-content.active {
+            display: block !important;
+        }
+        #tab-derivatives.active {
+            display: flex !important;
+            flex-direction: column;
+        }
+
+
+
+
         /* Main Tab Navigation */
         body {
             margin: 0;
@@ -65,12 +82,9 @@
             flex-direction: column;
         }
 
-        .main-tab-content {
-            height: 100%;
-            width: 100%;
-            display: none;
-            overflow: hidden; /* Individual tabs manage scrolling */
-        }
+
+
+
 
         .global-status-bar {
             height: 25px;
@@ -91,9 +105,7 @@
             text-decoration: none;
         }
 
-        .main-tab-content.active {
-            display: block;
-        }
+
 
         /* Historical Data Styles (Merged from data_viewer.html) */
         .history-controls {
@@ -319,17 +331,25 @@
                         <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Actions</div>
                         <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
                         <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Event Calendar</div>
-                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights Issues</div>
-                        <div class="wb-tab" id="ca-tab-btn-public" onclick="switchCATab('public')" style="padding: 6px 15px; border-radius: 4px;">Public Issues (Rights/OFS/Tender)</div>
+                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
+                        <div class="wb-tab" id="ca-tab-btn-ofs" onclick="switchCATab('ofs')" style="padding: 6px 15px; border-radius: 4px;">OFS</div>
+                        <div class="wb-tab" id="ca-tab-btn-tender" onclick="switchCATab('tender')" style="padding: 6px 15px; border-radius: 4px;">Tender</div>
                         <div class="wb-tab" id="ca-tab-btn-circulars" onclick="switchCATab('circulars')" style="padding: 6px 15px; border-radius: 4px;">Circulars</div>
                     </div>
                 </div>
 
-                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px;" id="ca-controls-wrapper">
-                    <div class="control-group">
-                        <label>Symbol / Company:</label>
-                        <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" onkeyup="filterCATable()">
+                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; flex-direction: column;" id="ca-controls-wrapper">
+                    <!-- Issue Status Sub-tabs (Only visible for Rights, OFS, Tender) -->
+                    <div id="issue-status-tabs" style="display: none; border-bottom: 1px solid #3f3f46; margin-bottom: 15px;">
+                        <button class="status-tab active" data-status="active" onclick="switchIssueStatus('active')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Active</button>
+                        <button class="status-tab" data-status="forthcoming" onclick="switchIssueStatus('forthcoming')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Forthcoming</button>
+                        <button class="status-tab" data-status="past" onclick="switchIssueStatus('past')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Past</button>
                     </div>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <div class="control-group">
+                            <label>Symbol / Company:</label>
+                            <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" onkeyup="renderCorporateActionsTable()">
+                        </div>
                     <div class="control-group" id="ca-actions-filters">
                         <label style="margin-right:10px;">Filter:</label>
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
@@ -350,7 +370,8 @@
                         <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
                     </div>
                     <button onclick="loadCorporateActionsData()" class="btn btn-primary" id="btn-ca-refresh">Refresh Data</button>
-                    <button onclick="exportCATableCSV()" class="btn btn-secondary" style="margin-left: auto;" id="btn-ca-export">Export CSV</button>
+                        <button class="btn btn-secondary" onclick="exportCAData()" style="margin-left: auto;">Export CSV</button>
+                    </div>
                 </div>
 
                 <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;" id="ca-table-container">
@@ -381,10 +402,10 @@
             </div>
 
             <!-- Sub-tab Contents Container -->
-            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden;">
+            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden; display: flex; flex-direction: row; width: 100%;">
 
                 <!-- SUB-TAB 1: Data Matrix (Original Reports View) -->
-                <div id="deriv-tab-matrix" class="deriv-sub-tab active" style="display: flex; height: 100%;">
+                <div id="deriv-tab-matrix" class="deriv-sub-tab active" style="display: flex; height: 100%; width: 100%;">
 
                 <!-- Left Panel: Controls & Archive -->
                 <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0;">
@@ -987,13 +1008,13 @@
                 </div>
 
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; overflow: auto; flex-direction: column; align-items: stretch; justify-content: flex-start;">
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
                     </div>
 
-                    <div style="display: flex; gap: 20px; height: 400px; min-height: 400px; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 20px; height: 400px; min-height: 400px; margin-bottom: 20px; flex-shrink: 0;">
                         <!-- Institutional Market Flows (FII/DII) -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
                             <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Market Flows (252 Days)</h3>
@@ -1008,7 +1029,7 @@
                     </div>
 
                     <!-- Technical Multi-Axis Chart (ECharts) -->
-                    <div style="flex: 1; min-height: 500px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
+                    <div style="flex: 1; min-height: 500px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; flex-shrink: 0;">
                         <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Price, Volume, OI & ATR (500 Days)</h3>
                         <div id="echart-container" style="flex: 1; width: 100%;"></div>
                     </div>
@@ -1499,10 +1520,12 @@
             const target = document.getElementById(`deriv-tab-${tabName}`);
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
-                if (target.id === 'deriv-tab-market' || target.id === 'deriv-tab-matrix') {
+                if (target.id === 'deriv-tab-market') {
+                    target.style.display = 'flex';
+                } else if (target.id === 'deriv-tab-matrix') {
                     target.style.display = 'flex';
                 } else {
-                    target.style.display = 'block';
+                    target.style.display = tabName === 'market' || tabName === 'matrix' ? 'flex' : 'block';
                 }
                 target.classList.add('active');
                 btn.classList.add('active');
@@ -1523,10 +1546,25 @@
 
         // --- Corporate Actions & Board Meetings UI ---
         let caCurrentTab = 'actions';
+        let issueCurrentStatus = 'active';
         let caRawData = [];
         let caSortCol = 'date';
         let caSortAsc = false;
 
+
+        function switchIssueStatus(status) {
+            issueCurrentStatus = status;
+            document.querySelectorAll('.status-tab').forEach(btn => {
+                btn.style.color = '#a1a1aa';
+                btn.style.borderBottomColor = 'transparent';
+                if(btn.dataset.status === status) {
+                    btn.style.color = '#4ade80';
+                    btn.style.borderBottomColor = '#4ade80';
+                }
+            });
+            renderCorporateActionsTable();
+        }
+        function filterCATable() { renderCorporateActionsTable(); }
         function switchCATab(tab) {
             caCurrentTab = tab;
 
@@ -1535,8 +1573,20 @@
             document.getElementById('ca-tab-btn-announcements').classList.toggle('active', tab === 'announcements');
             document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
             document.getElementById('ca-tab-btn-rights').classList.toggle('active', tab === 'rights');
-            document.getElementById('ca-tab-btn-public').classList.toggle('active', tab === 'public');
+            document.getElementById('ca-tab-btn-ofs').classList.toggle('active', tab === 'ofs');
+            document.getElementById('ca-tab-btn-tender').classList.toggle('active', tab === 'tender');
             document.getElementById('ca-tab-btn-circulars').classList.toggle('active', tab === 'circulars');
+
+            // Show sub-tabs for Rights, OFS, Tender
+            const issueTabs = ['rights', 'ofs', 'tender'];
+            const tabsEl = document.getElementById('issue-status-tabs');
+            if(issueTabs.includes(tab)) {
+                if(tabsEl) tabsEl.style.display = 'flex';
+                // Always reset to active on switch
+                if(issueCurrentStatus !== 'active') switchIssueStatus('active');
+            } else {
+                if(tabsEl) tabsEl.style.display = 'none';
+            }
 
             document.getElementById('ca-actions-filters').style.display = tab === 'actions' ? 'flex' : 'none';
             document.getElementById('ca-meetings-filters').style.display = tab === 'meetings' ? 'flex' : 'none';
@@ -1586,7 +1636,8 @@
             if (caCurrentTab === 'announcements') endpoint = '/api/proxy/announcements';
             if (caCurrentTab === 'meetings') endpoint = '/api/proxy/event-calendar';
             if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
-            if (caCurrentTab === 'public') endpoint = '/api/proxy/public-issues';
+            if (caCurrentTab === 'ofs') endpoint = '/api/proxy/ofs';
+            if (caCurrentTab === 'tender') endpoint = '/api/proxy/tender';
 
             try {
                 const response = await fetch(endpoint);
@@ -1649,7 +1700,7 @@
                     { id: 'date', label: 'Meeting Date' },
                     { id: 'attachment', label: 'Attachment' }
                 ];
-            } else if (caCurrentTab === 'public') {
+            } else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
                 cols = [
                     { id: 'nseSymbol', label: 'Symbol' },
                     { id: 'companyName', label: 'Company' },
@@ -1729,11 +1780,12 @@
             let filterContainerId = '';
             if (caCurrentTab === 'actions') filterContainerId = 'ca-actions-filters';
             else if (caCurrentTab === 'meetings') filterContainerId = 'ca-meetings-filters';
-            else if (caCurrentTab === 'public') filterContainerId = 'ca-public-filters';
+            else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') filterContainerId = 'ca-public-filters';
 
             if (filterContainerId) {
                 activeFilters = Array.from(document.querySelectorAll(`#${filterContainerId} .ca-filter-cb:checked`)).map(cb => cb.value.toLowerCase());
             }
+
 
             let filtered = caRawData.filter(item => {
                 // Search Match (Fuzzy)
@@ -1742,9 +1794,18 @@
 
                 if (search && !isFuzzyMatch(search, sym) && !isFuzzyMatch(search, comp)) return false;
 
+                // Status Filter for Rights, OFS, Tender
+                if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
+                    const status = (item.status || item.stage || '').toLowerCase();
+                    if (issueCurrentStatus && issueCurrentStatus !== 'all' && status !== issueCurrentStatus.toLowerCase()) {
+                        return false;
+                    }
+                }
+
+
                 // Advanced Filters
                 if (activeFilters.length > 0) {
-                    if (caCurrentTab === 'public') {
+                    if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
                         const issueType = (item.issue_type || '').toLowerCase();
                         let match = false;
                         for (const f of activeFilters) {
@@ -1878,7 +1939,7 @@
                         <td>${item.date || item.bm_date || '-'}</td>
                         <td>${linkHtml}</td>
                     `;
-                } else if (caCurrentTab === 'public') {
+                } else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
                     // Rights, OFS, Tender
                     let typeBadge = '';
                     if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
@@ -1936,7 +1997,7 @@
             if (caCurrentTab === 'meetings') filename = 'Board_Meetings';
             else if (caCurrentTab === 'announcements') filename = 'Announcements';
             else if (caCurrentTab === 'rights') filename = 'Rights_Issues';
-            else if (caCurrentTab === 'public') filename = 'Public_Issues';
+            else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') filename = caCurrentTab.charAt(0).toUpperCase() + caCurrentTab.slice(1);
 
             a.setAttribute('download', `NSE_${filename}_${new Date().toISOString().slice(0,10)}.csv`);
             document.body.appendChild(a);

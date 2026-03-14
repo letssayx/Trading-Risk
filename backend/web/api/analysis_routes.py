@@ -411,8 +411,25 @@ async def get_participant_oi(db: Session = Depends(get_db)):
 
     df['net_long'] = df['fut_idx_long'] - df['fut_idx_short']
 
-    pivot = df.pivot_table(index='date', columns='client_type', values='net_long', aggfunc='sum').fillna(0)
-    pivot = pivot.reindex(pd.to_datetime(dates)).fillna(0)
+    # Handle pandas duplicate index/axis reindex issues
+    # Ensure dates is exactly datetime format before reindexing
+    try:
+        pivot = df.pivot_table(index='date', columns='client_type', values='net_long', aggfunc='sum').fillna(0)
+
+        # Ensure dates index is unique and datetime type
+        if not pivot.index.is_unique:
+            pivot = pivot.groupby(level=0).sum()
+
+        dt_dates = pd.to_datetime(dates)
+        pivot.index = pd.to_datetime(pivot.index)
+
+        pivot = pivot.reindex(dt_dates).fillna(0)
+    except Exception as e:
+        import logging
+        logging.error(f"Error pivoting participant oi: {e}")
+        # fallback safe
+        pivot = pd.DataFrame(index=pd.to_datetime(dates))
+
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
@@ -462,8 +479,19 @@ async def get_cash_market_flow(db: Session = Depends(get_db)):
              "dii_net": np.random.uniform(-5000, 5000, 30).tolist()
          }
 
-    pivot = df.pivot_table(index='date', columns='category', values='net_value', aggfunc='sum').fillna(0)
-    pivot = pivot.reindex(pd.to_datetime(dates)).fillna(0)
+    try:
+        pivot = df.pivot_table(index='date', columns='category', values='net_value', aggfunc='sum').fillna(0)
+
+        if not pivot.index.is_unique:
+            pivot = pivot.groupby(level=0).sum()
+
+        dt_dates = pd.to_datetime(dates)
+        pivot.index = pd.to_datetime(pivot.index)
+        pivot = pivot.reindex(dt_dates).fillna(0)
+    except Exception as e:
+        import logging
+        logging.error(f"Error pivoting cash market flow: {e}")
+        pivot = pd.DataFrame(index=pd.to_datetime(dates))
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
