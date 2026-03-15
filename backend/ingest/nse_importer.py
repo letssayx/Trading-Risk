@@ -359,6 +359,8 @@ class NSEDataImporter:
             df = self._deduplicate_mto(df)
 
         format_info = FieldMapper.detect_format(df)
+        if format_info['type'] == 'unknown' and key == 'fii_dii_cash':
+            format_info = {'type': 'fii_dii_cash', 'target_table': 'fii_dii_cash'}
         if format_info['type'] == 'unknown':
             # Fallback based on expected file type
             if key == 'mto':
