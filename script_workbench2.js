@@ -1,10 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Turtle Terminal - Trader Workbench</title>
-    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+// script start
+// script start
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
@@ -516,7 +511,7 @@
                 </div>
 
             </div>
-            <script>
+// script start
                 document.getElementById('mr-target-date').valueAsDate = new Date();
                 let mrPollingInterval;
 
@@ -754,7 +749,7 @@
                                 <td>${ema100}</td>
                                 <td>${ema200}</td>
                             </tr>
-                        `;
+                        \`;
                         return html;
                 }
 
@@ -1046,480 +1041,20 @@
                         console.error('Error polling Gen status', e);
                     }
                 }
-            </script>
+// script end
+// script start
+// script start
+// script start
+// script start
+// script start
+// script start
+// script start
+// script start
+// script start
+// script start
+// script start
 
-                </div> <!-- End deriv-tab-matrix -->
-
-                <!-- SUB-TAB 2: OI Analysis -->
-                <div id="deriv-tab-oi" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; overflow: auto;">
-                    <!-- Content loaded by workbookManager.js / OiTool -->
-                </div>
-
-                <!-- SUB-TAB 3: Rollover Analysis -->
-                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; overflow: auto;">
-                    <!-- Content loaded by workbookManager.js / RolloverTool -->
-                </div>
-
-                <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
-                        <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
-                    </div>
-
-                    <div style="display: flex; gap: 20px; height: 400px; min-height: 400px; margin-bottom: 20px; flex-shrink: 0;">
-                        <!-- Institutional Market Flows (FII/DII) -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Market Flows (252 Days)</h3>
-                            <canvas id="fiiDiiChart"></canvas>
-                        </div>
-
-                        <!-- Participant OI Trend -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI Trend (252 Days)</h3>
-                            <canvas id="participantOiChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Technical Multi-Axis Chart (ECharts) -->
-                    <div style="flex: 1; min-height: 500px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; flex-shrink: 0;">
-                        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Price, Volume, OI & ATR (500 Days)</h3>
-                        <div id="echart-container" style="flex: 1; width: 100%;"></div>
-                    </div>
-                </div>
-
-            </div> <!-- End sub-tabs container -->
-        </div>
-
-        <!-- TAB AI-ANALYZE -->
-        <div id="tab-ai_analyze" class="main-tab-content">
-            <div class="ai-terminal-container" style="display: flex; flex-direction: column; height: 100%;">
-
-                <!-- Active Intelligence Grid (Bonnet) -->
-                <div class="ai-intel-grid">
-                    <div class="intel-card" id="intel-blackswan">
-                        <div class="intel-header">BLACK SWAN</div>
-                        <div class="intel-metric">--</div>
-                        <div class="intel-subtext">--</div>
-                    </div>
-                    <div class="intel-card" id="intel-macro">
-                        <div class="intel-header">MACRO</div>
-                        <div class="intel-metric">--</div>
-                        <div class="intel-subtext">--</div>
-                    </div>
-                    <div class="intel-card" id="intel-corporate">
-                        <div class="intel-header">CORP ACTION</div>
-                        <div class="intel-metric">--</div>
-                        <div class="intel-subtext">--</div>
-                    </div>
-                    <div class="intel-card" id="intel-derivatives">
-                        <div class="intel-header">DERIVATIVES</div>
-                        <div class="intel-metric">--</div>
-                        <div class="intel-subtext">--</div>
-                    </div>
-                    <div class="intel-card" id="intel-earnings">
-                        <div class="intel-header">EARNINGS</div>
-                        <div class="intel-metric">--</div>
-                        <div class="intel-subtext">--</div>
-                    </div>
-                </div>
-
-                <!-- Analysis Log (Center) -->
-                <div id="ai-analysis-feed" class="ai-analysis-feed">
-
-                    <!-- Unified AI Chat Feed -->
-                    <div class="ai-chat-feed" id="ai-chat-feed" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-right: 10px; font-family: monospace;">
-                        <div class="chat-message system-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM] ORCHESTRATOR ONLINE</div>
-                            <div class="log-line text-warning">> All AI Agent nodes initialized and awaiting command.</div>
-                        </div>
-                        <div class="chat-message jules-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #4ade80; font-weight: bold; margin-bottom: 5px;">[JULES / GEMINI 2.5] DISPATCHER</div>
-                            <div class="log-line">> Standing by to classify and structure raw intent.</div>
-                        </div>
-                        <div class="chat-message qwen-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #e6a23c; font-weight: bold; margin-bottom: 5px;">[QWEN 32B] DATA CLERK</div>
-                            <div class="log-line">> Local DB, Timescale, and YFinance conduits active.</div>
-                        </div>
-                        <div class="chat-message deepseek-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #818cf8; font-weight: bold; margin-bottom: 5px;">[DEEPSEEK R1] QUANT ENGINE</div>
-                            <div class="log-line">> Logic streams normalized. Ready to process.</div>
-                        </div>
-                        <div class="chat-message gemini-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[GEMINI 2.5] EXECUTION STRATEGIST</div>
-                            <div class="log-line">> Synthesis models primed.</div>
-                        </div>
-                        <div class="chat-message llama-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[GPT 120B] COMPLIANCE JUDGE</div>
-                            <div class="log-line">> Guardrails and verification protocols engaged.</div>
-                        </div>
-                    </div>
-
-
-                </div>
-
-                <!-- Command Line (Bottom) -->
-                <div class="ai-cmd-bar" style="margin-top: auto; border-top: 1px solid #333; border-bottom: none; position: relative;">
-                    <span class="ai-cmd-prompt" style="align-self: flex-start; margin-top: 8px;">Analyze: &gt;</span>
-                    <textarea id="ai-cmd-input" class="ai-cmd-input" placeholder="Type command or symbol (e.g., NIFTY)..." autocomplete="off" spellcheck="false" onkeydown="handleAiCmd(event)" rows="1" style="resize: none; overflow: hidden; padding-top: 8px; min-height: 20px;"></textarea>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- TAB 2: HISTORICAL DATA -->
-        <div id="tab-history" class="main-tab-content">
-            <div class="history-controls">
-                <div class="control-group">
-                    <label>Data Type:</label>
-                    <select id="data-type" class="history-select" onchange="updateHistoryControls()">
-                        <option value="bhavcopy_eq" selected>Equity Bhavcopy (New)</option>
-                        <option value="bhavcopy_fo">F&O Bhavcopy (New)</option>
-                        <!-- Legacy Removed -->
-                        <option value="fao_participant_oi">Participant OI</option>
-                        <option value="fo_volatility">F&O Volatility</option>
-                        <option value="fii_stats">FII Derivatives Stats</option>
-                                    <option value="fii_dii_cash">FII/DII Cash Flow</option>
-                        <option value="var_stats">VaR Stats</option>
-                        <option value="contract_delta">Contract Delta</option>
-                        <option value="bulk_deals">Bulk Deals</option>
-                        <option value="block_deals">Block Deals</option>
-                        <option value="mto">MTO Delivery</option>
-                        <option value="mwpl">MWPL Position</option>
-                        <option value="pe_ratio">P/E Ratio (Equities)</option>
-                        <option value="pe_ratio_idx">P/E Ratio (Indices)</option>
-                        <option value="india_vix">India VIX</option>
-                        <option value="margin_trading">Margin Trading</option>
-                        <option value="security_master">Security Master</option>
-                        <option value="corporate_actions">Corporate Actions</option>
-                    </select>
-                </div>
-                <div class="control-group" id="symbol-group">
-                    <label>Symbol:</label>
-                    <input type="text" id="symbol-input" class="history-input" placeholder="e.g. RELIANCE">
-                </div>
-                <div class="control-group" id="instrument-group" style="display:none;">
-                    <label>Instrument:</label>
-                    <select id="instrument-input" class="history-select">
-                        <option value="ALL">All</option>
-                        <option value="FUT">Futures</option>
-                        <option value="OPT">Options</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>From:</label>
-                    <input type="date" id="start-date" class="history-input">
-                </div>
-                <div class="control-group">
-                    <label>To:</label>
-                    <input type="date" id="end-date" class="history-input">
-                </div>
-                <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
-                <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
-
-                <div class="control-group" style="display:flex; align-items:center; gap: 5px; margin-left: auto;">
-                    <input type="checkbox" id="all-dates-check" onchange="toggleDateInputs(this)">
-                    <label for="all-dates-check" style="margin:0; font-size:12px;">All Dates</label>
-                </div>
-                <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer;">Delete Data</button>
-            </div>
-
-            <div class="table-wrapper">
-                <table class="data-table">
-                    <thead id="history-head"></thead>
-                    <tbody id="history-body"></tbody>
-                </table>
-            </div>
-
-            <div class="history-status-bar">
-                <span id="history-status-msg">Ready</span>
-                <span id="history-row-count">0 Rows</span>
-            </div>
-        </div>
-
-        <!-- TAB 3: IMPORT DATA -->
-        <div id="tab-import" class="main-tab-content">
-            <div class="import-container">
-                <!-- Content from bhavcopy-upload-modal -->
-                <div id="import-view-container" class="import-left-panel">
-                     <h2 style="margin-top:0;">NSE Data Import</h2>
-
-                     <div class="import-tabs" style="display:flex; border-bottom:1px solid #444; margin-bottom:15px;">
-                        <div class="tab-btn active" data-tab="latest" onclick="openImportTab('latest')">Latest Data</div>
-                        <div class="tab-btn" data-tab="historical" onclick="openImportTab('historical')">Historical Range</div>
-                        <div class="tab-btn" data-tab="manual" onclick="openImportTab('manual')">Manual Upload</div>
-                        <div class="tab-btn" data-tab="symbol-master" onclick="openImportTab('symbol-master')">Symbol Master</div>
-                    </div>
-
-                    <!-- SYMBOL MASTER TAB -->
-                    <div id="tab-symbol-master" class="import-tab-content" style="display:none;">
-                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
-                            <h3>Upload Custom Symbol Master (CSV)</h3>
-                            <p style="color: #888; font-size: 13px;">Format: <code>Symbol, Company Name, Broad Index, Sector Index, Derivative Liquidity Tier, Typical Hedge Index</code> (Only Symbol is compulsory)</p>
-                            <div style="display: flex; gap: 10px; align-items: center; margin-top: 15px;">
-                                <input type="file" id="symbol-csv-upload" accept=".csv" style="color: #fff; background: #2a2a2a; border: 1px solid #444; padding: 5px;">
-                                <button id="btn-upload-symbol-csv" class="btn btn-primary">Process CSV</button>
-                            </div>
-                        </div>
-
-                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
-                            <h3>Manual Data Entry</h3>
-                            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
-                                <div>
-                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Symbol *</label>
-                                    <input type="text" id="sm-input-symbol" class="history-input" placeholder="e.g. RELIANCE" style="width: 120px;">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Company Name</label>
-                                    <input type="text" id="sm-input-company" class="history-input" placeholder="Reliance Industries" style="width: 180px;">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Broad Index</label>
-                                    <input type="text" id="sm-input-broad" class="history-input" placeholder="Nifty 50" style="width: 120px;">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Sector Index</label>
-                                    <input type="text" id="sm-input-sector" class="history-input" placeholder="Nifty Energy" style="width: 120px;">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Liquidity Tier</label>
-                                    <input type="text" id="sm-input-tier" class="history-input" placeholder="Tier 1" style="width: 80px;">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #aaa;">Hedge Index</label>
-                                    <input type="text" id="sm-input-hedge" class="history-input" placeholder="NIFTY" style="width: 100px;">
-                                </div>
-                                <button id="btn-add-symbol-manual" class="btn btn-secondary">Add / Update</button>
-                            </div>
-                        </div>
-
-                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 20px; border-radius: 4px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <h3 style="margin:0;">Current Symbol Master DB</h3>
-                                <button id="btn-refresh-symbol-db" class="btn btn-secondary" style="padding: 4px 8px; font-size:12px;">Refresh</button>
-                            </div>
-                            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
-                                <table class="data-table" id="symbol-master-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Symbol</th>
-                                            <th>Company Name</th>
-                                            <th>Broad Index</th>
-                                            <th>Sector Index</th>
-                                            <th>Liquidity Tier</th>
-                                            <th>Typical Hedge Index</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="symbol-master-tbody">
-                                        <tr><td colspan="6" style="text-align:center; color:#888;">No data loaded.</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tab: Import Latest -->
-                    <div id="tab-latest" class="import-tab-content active">
-                        <div class="import-options">
-                            <h4>Import Data for Latest Trading Day</h4>
-                            <div class="option-row">
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo"> F&O Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fo_volatility"> F&O Volatility</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_derivatives_stats"> FII Stats</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fii_dii_cash"> FII/DII Cash</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="fao_participant_oi"> Participant OI</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="block_deals"> Block Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bulk_deals"> Bulk Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mto"> MTO Delivery</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="mwpl_cli"> MWPL Position</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio"> P/E Ratio (Equities)</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="india_vix"> India VIX</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
-                            </div>
-                            <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
-                            <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-latest" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
-                        </div>
-                    </div>
-
-                    <!-- Tab: Historical Range -->
-                    <div id="tab-historical" class="import-tab-content" style="display:none;">
-                        <div class="import-options">
-                            <h4>Import Date Range</h4>
-                            <div class="option-row" style="margin-bottom: 10px;">
-                                <label>Start:</label> <input type="date" id="range-start" class="history-input">
-                                <label style="margin-left:15px;">End:</label> <input type="date" id="range-end" class="history-input">
-                            </div>
-                            <div class="option-row">
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_fo"> F&O Bhavcopy</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fo_volatility"> F&O Volatility</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_derivatives_stats"> FII Stats</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fii_dii_cash"> FII/DII Cash</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="fao_participant_oi"> Participant OI</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="block_deals"> Block Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="bulk_deals"> Bulk Deals</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="mto"> MTO Delivery</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="mwpl_cli"> MWPL Position</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio"> P/E Ratio (Equities)</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="india_vix"> India VIX</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
-                            </div>
-                            <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
-                            <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-range" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
-                        </div>
-                    </div>
-
-                    <!-- Tab: Manual Upload -->
-                    <div id="tab-manual" class="import-tab-content" style="display:none;">
-                        <div class="import-options">
-                            <h4>Manual File Upload</h4>
-                            <div class="option-row">
-                                <select id="manual-type" class="history-select" style="width:100%">
-                                    <option value="bhavcopy_eq">Equity Bhavcopy</option>
-                                    <option value="bhavcopy_fo">F&O Bhavcopy</option>
-                                    <option value="fo_volatility">F&O Volatility</option>
-                                    <option value="fii_derivatives_stats">FII Stats</option>
-                                    <option value="fao_participant_oi">Participant OI</option>
-                                    <option value="block_deals">Block Deals</option>
-                                    <option value="bulk_deals">Bulk Deals</option>
-                                    <option value="mto">MTO Delivery</option>
-                                    <option value="mwpl_cli">MWPL Position</option>
-                                    <option value="pe_ratio">P/E Ratio (Equities)</option>
-                                    <option value="pe_ratio_idx">P/E Ratio (Indices)</option>
-                                    <option value="india_vix">India VIX</option>
-                                    <option value="nse_security">Security Master</option>
-                                </select>
-                            </div>
-                            <div class="option-row">
-                                <input type="file" id="manual-file" style="margin-top:5px;" />
-                            </div>
-                             <div class="option-row">
-                                <label>Date (Optional):</label>
-                                <input type="date" id="manual-date" class="history-input">
-                            </div>
-                            <button id="btn-manual-upload" class="btn btn-primary" style="margin-top:15px; width:100%;">Upload & Import</button>
-                        </div>
-                    </div>
-
-                    <!-- Progress -->
-                    <div id="import-progress-area" style="margin-top:20px; padding:15px; background:#222; border-radius:4px; display:none; position:relative;">
-                        <button id="btn-cancel-polling" style="position:absolute; top:10px; right:10px; background:#e74c3c; color:white; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:3px;">Stop/Clear Task</button>
-                        <div id="progress-text" style="color:#ccc; font-size:0.9em; width:80%;">Starting...</div>
-                        <div style="width:100%; background:#444; height:10px; border-radius:5px; margin-top:8px;">
-                            <div id="progress-bar" style="width:0%; background:#00bcd4; height:100%; border-radius:5px;"></div>
-                        </div>
-                        <div id="import-details" style="margin-top:10px; font-size:0.85em;"></div>
-                    </div>
-
-                    <!-- Recent History -->
-                    <div style="margin-top:20px;">
-                        <h4>Recent Imports</h4>
-                        <div id="import-history-list"></div>
-                    </div>
-                </div>
-
-                <div class="import-right-panel">
-                    <div class="import-terminal" id="celery-terminal">
-                        <div style="color: #4CAF50; margin-bottom: 5px;">--- Celery Worker Logs ---</div>
-                    </div>
-                    <div class="import-terminal" id="uvicorn-terminal">
-                        <div style="color: #2196F3; margin-bottom: 5px;">--- Uvicorn Backend Logs ---</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB 4: AUDIT TRAIL -->
-        <div id="tab-audit" class="main-tab-content">
-             <div class="import-container" style="max-width:100%; height:100%; display:flex; flex-direction:column; padding:0;">
-                <div style="padding:10px; background:#252526; border-bottom:1px solid #333; display:flex; gap:10px; align-items: center;">
-                    <input type="date" id="audit-start" class="history-input">
-                    <input type="date" id="audit-end" class="history-input">
-                    <select id="audit-level" class="history-select">
-                        <option value="ALL">All Levels</option>
-                        <option value="INFO">INFO</option>
-                        <option value="WARNING">WARNING</option>
-                        <option value="ERROR">ERROR</option>
-                    </select>
-                    <button class="btn btn-secondary" onclick="loadAuditHistory()">Load History</button>
-                    <button class="btn btn-secondary" onclick="downloadLogs()">Download Logs</button>
-                </div>
-                <div class="table-wrapper">
-                    <table class="data-table" id="audit-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 150px;">Timestamp</th>
-                                <th style="width: 120px;">Source</th>
-                                <th style="width: 100px;">Level</th>
-                                <th>Message</th>
-                            </tr>
-                        </thead>
-                        <tbody id="audit-log-body">
-                            <tr><td colspan="4" style="text-align:center; color:#888;">// Waiting for logs...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="history-status-bar">
-                    <span id="log-count">0 Events</span>
-                </div>
-             </div>
-        </div>
-
-        <!-- TAB 5: CONFIG -->
-        <div id="tab-config" class="main-tab-content">
-            <div class="import-container">
-                <h2>API Key Management (Secure Session)</h2>
-                <p style="color:#aaa; font-size:0.9em; margin-top:-10px; margin-bottom:20px;">
-                    Keys are stored securely in your browser's encrypted sessionStorage and injected at runtime.
-                    They are never saved to the server database.
-                </p>
-                <div style="margin-bottom: 15px; max-width: 500px;">
-                    <label>Google API Key (Gemini 1.5 Pro):</label>
-                    <input type="password" id="cfg-google" class="history-input" style="width: 100%; margin-top:5px;" placeholder="AIzaSy...">
-                </div>
-                <div style="margin-bottom: 15px; max-width: 500px;">
-                    <label>Groq API Key (Llama 3.3 & DeepSeek-R1):</label>
-                    <input type="password" id="cfg-groq" class="history-input" style="width: 100%; margin-top:5px;" placeholder="gsk_...">
-                </div>
-                <div style="margin-bottom: 15px; max-width: 500px;">
-                    <label>OpenRouter API Key (Qwen 2.5):</label>
-                    <input type="password" id="cfg-openrouter" class="history-input" style="width: 100%; margin-top:5px;" placeholder="sk-or-v1-...">
-                </div>
-                <button onclick="saveConfig()" class="btn btn-primary">Save Keys to Session</button>
-                <div id="config-status" style="margin-top: 10px; font-weight: bold;"></div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- Global Status Bar -->
-    <div class="global-status-bar">
-        <div id="global-status-left">
-            <span>Turtle Terminal connected</span>
-        </div>
-        <div id="global-status-right" style="display: flex; gap: 15px;">
-            <span id="global-sys-accuracy" title="AI System Accuracy based on previous predictions">SYS_ACCURACY: <span id="accuracy-score">--%</span></span>
-            <span id="global-datetime"></span>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="/static/js/layout.js"></script>
-    <script src="/static/js/chartTabs.js"></script>
-    <script src="/static/js/turtleTab.js"></script>
-    <script src="/static/js/statarbTab.js"></script>
-    <script src="/static/js/oiTool.js"></script>
-    <script src="/static/js/rolloverTool.js"></script>
-    <script src="/static/js/workbookManager.js"></script>
-    <script src="/static/js/toolbox.js"></script>
-    <script src="/static/js/edge.js"></script>
-    <script src="/static/js/uploadModal.js?v=4"></script>
-    <script src="/static/js/config.js"></script>
-
-    <script>
+// script start
         // --- Main Tab Logic ---
         const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'audit', 'config'];
 
@@ -3057,11 +2592,9 @@
                  }
              }, 2000);
         }
-    </script>
-</body>
-</html>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-<script>
+// script end
+// script start
+// script start
     let echartInstance = null;
     let fiiDiiChartInstance = null;
     let participantChartInstance = null;
@@ -3172,4 +2705,4 @@
 
     // Listen for resize
     window.addEventListener('resize', () => { if (echartInstance) echartInstance.resize(); });
-</script>
+// script end

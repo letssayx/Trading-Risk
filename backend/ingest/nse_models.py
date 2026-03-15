@@ -528,4 +528,5 @@ class FIIDIICash(Base, TimescaleMixin):
     __table_args__ = (
         PrimaryKeyConstraint('id', 'trade_date'),
         Index('idx_fii_dii_cash_date', 'trade_date'),
+        UniqueConstraint('trade_date', 'category', name='uq_fii_dii_cash_unique')
     )
