@@ -51,6 +51,7 @@ def get_model_for_type(data_type: str):
         'var_stats': models.VaRStat,
         'contract_delta': models.ContractDelta,
         'margin_trading': models.MarginTrading,
+        'fii_dii_cash': models.FIIDIICash,
         'security_master': models.SecurityMaster,
         'auctions': models.Auction, # Added auctions just in case
     }

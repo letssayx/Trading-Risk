@@ -146,6 +146,10 @@ class FieldMapper:
         if 'QUANTITY FUNDED' in upper_cols:
              return {'type': 'margin_trading', 'name': 'margin_trading'}
 
+        # FII/DII Cash
+        if 'CATEGORY' in upper_cols and 'BUY_VALUE' in upper_cols and 'SELL_VALUE' in upper_cols:
+            return {'type': 'fii_dii_cash', 'name': 'fii_dii_cash'}
+
         return {'type': 'unknown', 'name': 'unknown'}
 
     @classmethod
@@ -188,6 +192,8 @@ class FieldMapper:
             return cls._map_margin_trading(df, trade_date)
         elif format_type == 'corporate_actions':
             return cls._map_corporate_actions(df, trade_date)
+        elif format_type == 'fii_dii_cash':
+            return cls._map_fii_dii_cash(df, trade_date)
 
         return []
 
@@ -376,6 +382,21 @@ class FieldMapper:
                 'total_short_contracts': cls._clean_integer(row.get('Total Short Contracts')),
             }
             if record['client_type']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_fii_dii_cash(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'trade_date': trade_date,
+                'category': str(cls._get_val(row, ['category', 'CATEGORY']) or '').strip(),
+                'buy_value': cls._clean_numeric(cls._get_val(row, ['buy_value', 'BUY_VALUE'])),
+                'sell_value': cls._clean_numeric(cls._get_val(row, ['sell_value', 'SELL_VALUE'])),
+                'net_value': cls._clean_numeric(cls._get_val(row, ['net_value', 'NET_VALUE'])),
+            }
+            if record['category']:
                 records.append(record)
         return records
 

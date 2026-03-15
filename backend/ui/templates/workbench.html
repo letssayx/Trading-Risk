@@ -618,33 +618,33 @@
 
                 // View Data Button Handler (Timeseries / Snapshot)
                 const generateTableHTML = (row, isSnapshot) => {
-                            const close = (row.close_price != null && typeof row.close_price === 'number') ? row.close_price.toFixed(2) : '-';
-                            const vwap = (row.vwap != null && typeof row.vwap === 'number') ? row.vwap.toFixed(2) : '-';
-                            const fVol = (row.futures_total_vol != null && typeof row.futures_total_vol === 'number') ? row.futures_total_vol.toLocaleString() : '-';
-                            const fOi = (row.futures_total_oi != null && typeof row.futures_total_oi === 'number') ? row.futures_total_oi.toLocaleString() : '-';
-                            const pcr = (row.pcr_oi != null && typeof row.pcr_oi === 'number') ? row.pcr_oi.toFixed(2) : '-';
+                            const close = (row.close_price != null && !isNaN(Number(row.close_price))) ? Number(row.close_price).toFixed(2) : '-';
+                            const vwap = (row.vwap != null && !isNaN(Number(row.vwap))) ? Number(row.vwap).toFixed(2) : '-';
+                            const fVol = (row.futures_total_vol != null && !isNaN(Number(row.futures_total_vol))) ? Number(row.futures_total_vol).toLocaleString() : '-';
+                            const fOi = (row.futures_total_oi != null && !isNaN(Number(row.futures_total_oi))) ? Number(row.futures_total_oi).toLocaleString() : '-';
+                            const pcr = (row.pcr_oi != null && !isNaN(Number(row.pcr_oi))) ? Number(row.pcr_oi).toFixed(2) : '-';
 
-                            const hiOiStrikePe = (row.highest_oi_strike_pe != null && typeof row.highest_oi_strike_pe === 'number') ? row.highest_oi_strike_pe.toLocaleString() : '-';
-                            const pctAwayPe = (row.pct_away_highest_pe != null && typeof row.pct_away_highest_pe === 'number') ? (row.pct_away_highest_pe).toFixed(2) + '%' : '-';
-                            const hiOiStrikeCe = (row.highest_oi_strike_ce != null && typeof row.highest_oi_strike_ce === 'number') ? row.highest_oi_strike_ce.toLocaleString() : '-';
-                            const pctAwayCe = (row.pct_away_highest_ce != null && typeof row.pct_away_highest_ce === 'number') ? (row.pct_away_highest_ce).toFixed(2) + '%' : '-';
-                            const chgOiOpt = (row.chg_oi_options != null && typeof row.chg_oi_options === 'number') ? row.chg_oi_options.toLocaleString() : '-';
-                            const chgOiFut = (row.chg_oi_futures != null && typeof row.chg_oi_futures === 'number') ? row.chg_oi_futures.toLocaleString() : '-';
+                            const hiOiStrikePe = (row.highest_oi_strike_pe != null && !isNaN(Number(row.highest_oi_strike_pe))) ? Number(row.highest_oi_strike_pe).toLocaleString() : '-';
+                            const pctAwayPe = (row.pct_away_highest_pe != null && !isNaN(Number(row.pct_away_highest_pe))) ? (Number(row.pct_away_highest_pe)).toFixed(2) + '%' : '-';
+                            const hiOiStrikeCe = (row.highest_oi_strike_ce != null && !isNaN(Number(row.highest_oi_strike_ce))) ? Number(row.highest_oi_strike_ce).toLocaleString() : '-';
+                            const pctAwayCe = (row.pct_away_highest_ce != null && !isNaN(Number(row.pct_away_highest_ce))) ? (Number(row.pct_away_highest_ce)).toFixed(2) + '%' : '-';
+                            const chgOiOpt = (row.chg_oi_options != null && !isNaN(Number(row.chg_oi_options))) ? Number(row.chg_oi_options).toLocaleString() : '-';
+                            const chgOiFut = (row.chg_oi_futures != null && !isNaN(Number(row.chg_oi_futures))) ? Number(row.chg_oi_futures).toLocaleString() : '-';
                             const fut1Exp = row.near_expiry_date !== null ? row.near_expiry_date : '-';
                             const fut2Exp = row.next_expiry_date !== null ? row.next_expiry_date : '-';
                             const fut3Exp = row.far_expiry_date !== null ? row.far_expiry_date : '-';
-                            const totCallOi = (row.total_options_call_oi != null && typeof row.total_options_call_oi === 'number') ? row.total_options_call_oi.toLocaleString() : '-';
-                            const totPutOi = (row.total_options_put_oi != null && typeof row.total_options_put_oi === 'number') ? row.total_options_put_oi.toLocaleString() : '-';
+                            const totCallOi = (row.total_options_call_oi != null && !isNaN(Number(row.total_options_call_oi))) ? Number(row.total_options_call_oi).toLocaleString() : '-';
+                            const totPutOi = (row.total_options_put_oi != null && !isNaN(Number(row.total_options_put_oi))) ? Number(row.total_options_put_oi).toLocaleString() : '-';
 
-                            const atmIvNear = (row.atm_iv_near != null && typeof row.atm_iv_near === 'number') ? (row.atm_iv_near * 100).toFixed(2) + '%' : '-';
-                            const atmIvNext = (row.atm_iv_next != null && typeof row.atm_iv_next === 'number') ? (row.atm_iv_next * 100).toFixed(2) + '%' : '-';
-                            const ivRank = (row.iv_rank_252 != null && typeof row.iv_rank_252 === 'number') ? row.iv_rank_252.toFixed(2) : '-';
-                            const ivPctile = (row.iv_percentile_252 != null && typeof row.iv_percentile_252 === 'number') ? row.iv_percentile_252.toFixed(2) : '-';
-                            const skewNear = (row.skew_25d_near != null && typeof row.skew_25d_near === 'number') ? (row.skew_25d_near * 100).toFixed(2) + '%' : '-';
-                            const skewFar = (row.skew_25d_far != null && typeof row.skew_25d_far === 'number') ? (row.skew_25d_far * 100).toFixed(2) + '%' : '-';
-                            const vol1Sig = (row.daily_volatility != null && typeof row.daily_volatility === 'number') ? (row.daily_volatility * 100).toFixed(2) + '%' : '-';
+                            const atmIvNear = (row.atm_iv_near != null && !isNaN(Number(row.atm_iv_near))) ? (Number(row.atm_iv_near) * 100).toFixed(2) + '%' : '-';
+                            const atmIvNext = (row.atm_iv_next != null && !isNaN(Number(row.atm_iv_next))) ? (Number(row.atm_iv_next) * 100).toFixed(2) + '%' : '-';
+                            const ivRank = (row.iv_rank_252 != null && !isNaN(Number(row.iv_rank_252))) ? Number(row.iv_rank_252).toFixed(2) : '-';
+                            const ivPctile = (row.iv_percentile_252 != null && !isNaN(Number(row.iv_percentile_252))) ? Number(row.iv_percentile_252).toFixed(2) : '-';
+                            const skewNear = (row.skew_25d_near != null && !isNaN(Number(row.skew_25d_near))) ? (Number(row.skew_25d_near) * 100).toFixed(2) + '%' : '-';
+                            const skewFar = (row.skew_25d_far != null && !isNaN(Number(row.skew_25d_far))) ? (Number(row.skew_25d_far) * 100).toFixed(2) + '%' : '-';
+                            const vol1Sig = (row.daily_volatility != null && !isNaN(Number(row.daily_volatility))) ? (Number(row.daily_volatility) * 100).toFixed(2) + '%' : '-';
 
-                            const roll = (row.rollover_pct != null && typeof row.rollover_pct === 'number') ? (row.rollover_pct * 100).toFixed(2) + '%' : '-';
+                            const roll = (row.rollover_pct != null && !isNaN(Number(row.rollover_pct))) ? (Number(row.rollover_pct) * 100).toFixed(2) + '%' : '-';
 
                             let mwpl = '0.00';
                             let maxMwpl = 0;
@@ -678,24 +678,24 @@
                                 }
                             }
 
-                            const basis1 = (row.basis_1_bps != null && typeof row.basis_1_bps === 'number') ? row.basis_1_bps.toFixed(0) : '-';
-                            const basis2 = (row.basis_2_bps != null && typeof row.basis_2_bps === 'number') ? row.basis_2_bps.toFixed(0) : '-';
-                            const cal1 = (row.calendar_spread_1_bps != null && typeof row.calendar_spread_1_bps === 'number') ? row.calendar_spread_1_bps.toFixed(0) : '-';
-                            const cal2 = (row.calendar_spread_2_bps != null && typeof row.calendar_spread_2_bps === 'number') ? row.calendar_spread_2_bps.toFixed(0) : '-';
+                            const basis1 = (row.basis_1_bps != null && !isNaN(Number(row.basis_1_bps))) ? Number(row.basis_1_bps).toFixed(0) : '-';
+                            const basis2 = (row.basis_2_bps != null && !isNaN(Number(row.basis_2_bps))) ? Number(row.basis_2_bps).toFixed(0) : '-';
+                            const cal1 = (row.calendar_spread_1_bps != null && !isNaN(Number(row.calendar_spread_1_bps))) ? Number(row.calendar_spread_1_bps).toFixed(0) : '-';
+                            const cal2 = (row.calendar_spread_2_bps != null && !isNaN(Number(row.calendar_spread_2_bps))) ? Number(row.calendar_spread_2_bps).toFixed(0) : '-';
 
-                            const pe = (row.pe_ratio != null && typeof row.pe_ratio === 'number') ? row.pe_ratio.toFixed(2) : '-';
-                            const b252 = (row.beta_252 != null && typeof row.beta_252 === 'number') ? row.beta_252.toFixed(2) : '-';
-                            const b500 = (row.beta_500 != null && typeof row.beta_500 === 'number') ? row.beta_500.toFixed(2) : '-';
-                            const r252 = (row.r_squared_252 != null && typeof row.r_squared_252 === 'number') ? row.r_squared_252.toFixed(2) : '-';
-                            const r500 = (row.r_squared_500 != null && typeof row.r_squared_500 === 'number') ? row.r_squared_500.toFixed(2) : '-';
-                            const pxPct = (row.price_pct_change != null && typeof row.price_pct_change === 'number') ? (row.price_pct_change).toFixed(2) + '%' : '-';
-                            const relVol = (row.relative_volume_20d != null && typeof row.relative_volume_20d === 'number') ? row.relative_volume_20d.toFixed(2) : '-';
+                            const pe = (row.pe_ratio != null && !isNaN(Number(row.pe_ratio))) ? Number(row.pe_ratio).toFixed(2) : '-';
+                            const b252 = (row.beta_252 != null && !isNaN(Number(row.beta_252))) ? Number(row.beta_252).toFixed(2) : '-';
+                            const b500 = (row.beta_500 != null && !isNaN(Number(row.beta_500))) ? Number(row.beta_500).toFixed(2) : '-';
+                            const r252 = (row.r_squared_252 != null && !isNaN(Number(row.r_squared_252))) ? Number(row.r_squared_252).toFixed(2) : '-';
+                            const r500 = (row.r_squared_500 != null && !isNaN(Number(row.r_squared_500))) ? Number(row.r_squared_500).toFixed(2) : '-';
+                            const pxPct = (row.price_pct_change != null && !isNaN(Number(row.price_pct_change))) ? (Number(row.price_pct_change)).toFixed(2) + '%' : '-';
+                            const relVol = (row.relative_volume_20d != null && !isNaN(Number(row.relative_volume_20d))) ? Number(row.relative_volume_20d).toFixed(2) : '-';
 
-                            const atr = (row.atr_14_cash != null && typeof row.atr_14_cash === 'number') ? row.atr_14_cash.toFixed(2) : '-';
-                            const ema20 = (row.ema_20_cash != null && typeof row.ema_20_cash === 'number') ? row.ema_20_cash.toFixed(2) : '-';
-                            const ema50 = (row.ema_50_cash != null && typeof row.ema_50_cash === 'number') ? row.ema_50_cash.toFixed(2) : '-';
-                            const ema100 = (row.ema_100_cash != null && typeof row.ema_100_cash === 'number') ? row.ema_100_cash.toFixed(2) : '-';
-                            const ema200 = (row.ema_200_cash != null && typeof row.ema_200_cash === 'number') ? row.ema_200_cash.toFixed(2) : '-';
+                            const atr = (row.atr_14_cash != null && !isNaN(Number(row.atr_14_cash))) ? Number(row.atr_14_cash).toFixed(2) : '-';
+                            const ema20 = (row.ema_20_cash != null && !isNaN(Number(row.ema_20_cash))) ? Number(row.ema_20_cash).toFixed(2) : '-';
+                            const ema50 = (row.ema_50_cash != null && !isNaN(Number(row.ema_50_cash))) ? Number(row.ema_50_cash).toFixed(2) : '-';
+                            const ema100 = (row.ema_100_cash != null && !isNaN(Number(row.ema_100_cash))) ? Number(row.ema_100_cash).toFixed(2) : '-';
+                            const ema200 = (row.ema_200_cash != null && !isNaN(Number(row.ema_200_cash))) ? Number(row.ema_200_cash).toFixed(2) : '-';
 
                             // Note: delivery fields don't exist in model, using '-'
                             const del5 = '-';
@@ -921,6 +921,59 @@
                 }
 
                 document.getElementById('mr-fetch-ts-btn').addEventListener('click', () => loadTimeseriesData(false));
+
+                document.getElementById('mr-export-btn').addEventListener('click', async () => {
+                    const btn = document.getElementById('mr-export-btn');
+                    const originalText = btn.innerText;
+                    btn.disabled = true;
+                    btn.innerHTML = '⏳ Downloading...';
+
+                    try {
+                        const thead = document.getElementById('mr-data-head');
+                        const tbody = document.getElementById('mr-data-body');
+
+                        if (tbody.rows.length === 0 || tbody.innerText.includes('Loading') || tbody.innerText.includes('No data')) {
+                            alert("No data to export.");
+                            return;
+                        }
+
+                        let csv = [];
+                        const headers = Array.from(thead.querySelectorAll('th')).map(th => `"${th.innerText.replace(/\n/g, ' ').replace(/"/g, '""').trim()}"`);
+                        csv.push(headers.join(","));
+
+                        Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+                            const row = Array.from(tr.querySelectorAll('td')).map(td => `"${td.innerText.replace(/"/g, '""').trim()}"`);
+                            csv.push(row.join(","));
+                        });
+
+                        const blob = new Blob([csv.join("\n")], { type: 'text/csv' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.setAttribute('hidden', '');
+                        a.setAttribute('href', url);
+
+                        const isSnapshot = thead.querySelectorAll('th')[0].innerText.includes('Symbol');
+                        let filename = 'Derivatives_Analysis';
+                        if (isSnapshot) {
+                            const targetDate = document.getElementById('mr-target-date').value || new Date().toISOString().slice(0,10);
+                            filename = `Derivatives_Analysis_Snapshot_${targetDate}`;
+                        } else {
+                            const symbol = document.getElementById('mr-symbol-input').value.toUpperCase() || 'NIFTY';
+                            filename = `Derivatives_Analysis_Timeseries_${symbol}`;
+                        }
+
+                        a.setAttribute('download', `${filename}.csv`);
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    } catch (e) {
+                        alert("Export failed: " + e.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerText = originalText;
+                    }
+                });
+
 
                 // Generate PDF Button Handler
                 document.getElementById('mr-generate-btn').addEventListener('click', async () => {

@@ -213,9 +213,17 @@ async def get_report_data(target_date: str, db: Session = Depends(get_db)):
     from fastapi.concurrency import run_in_threadpool
 
     def fetch_data():
+        from sqlalchemy import case
         return db.query(DailyDerivativesAnalysis).filter(
             DailyDerivativesAnalysis.trade_date == target_date
-        ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
+        ).order_by(
+            case(
+                (DailyDerivativesAnalysis.symbol == 'NIFTY', 0),
+                (DailyDerivativesAnalysis.symbol == 'BANKNIFTY', 1),
+                else_=2
+            ),
+            DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()
+        ).all()
 
     records = await run_in_threadpool(fetch_data)
 
