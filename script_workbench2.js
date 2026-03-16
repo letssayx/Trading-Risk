@@ -458,7 +458,7 @@
                             <thead id="mr-data-head">
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
@@ -467,8 +467,12 @@
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
@@ -793,7 +797,7 @@
                         if (snapshotMode) {
                             thead.innerHTML = `
                                 <tr>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
@@ -802,8 +806,12 @@
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
@@ -860,7 +868,7 @@
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
@@ -869,8 +877,12 @@
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>

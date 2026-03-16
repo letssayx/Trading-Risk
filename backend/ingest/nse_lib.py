@@ -69,7 +69,7 @@ class NSELib:
 
         logger.error("Failed to prime NSE session after 3 attempts.")
 
-    def get(self, url: str) -> requests.Response:
+    def get(self, url: str) -> Optional[requests.Response]:
         """Execute GET request with session handling."""
         self._ensure_session()
 
@@ -77,17 +77,21 @@ class NSELib:
         if 'api' in url and 'Referer' not in self.session.headers:
             self.session.headers['Referer'] = self.BASE_URL
 
-        resp = self.session.get(url, timeout=30)
-
-        # Retry on 401/403 once
-        if resp.status_code in (401, 403):
-            logger.warning(f"Got {resp.status_code}, re-priming session...")
-            self._cookies_primed = False
-            self.session.cookies.clear()
-            self._ensure_session()
+        try:
             resp = self.session.get(url, timeout=30)
 
-        return resp
+            # Retry on 401/403 once
+            if resp.status_code in (401, 403):
+                logger.warning(f"Got {resp.status_code}, re-priming session...")
+                self._cookies_primed = False
+                self.session.cookies.clear()
+                self._ensure_session()
+                resp = self.session.get(url, timeout=30)
+
+            return resp
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error executing GET {url}: {e}")
+            return None
 
     def _read_local_file(self, filename: str) -> Optional[bytes]:
         """Attempt to read file from local DOWNLOAD_DIR."""
