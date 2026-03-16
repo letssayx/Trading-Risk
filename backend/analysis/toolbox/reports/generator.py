@@ -71,7 +71,8 @@ class MorningReportGenerator:
             <thead>
                 <tr>
                     <th class="text-left">Symbol</th>
-                    <th>Close</th>
+                    <th>Near Fut Close</th>
+                    <th>EQ Close</th>
                     <th>Basis 1 (bps)</th>
                     <th>Rollover %</th>
                     <th>MWPL (Top) %</th>
@@ -88,6 +89,7 @@ class MorningReportGenerator:
                 <tr>
                     <td class="text-left"><strong>{{ row.symbol }}</strong></td>
                     <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
+                    <td>{{ "%.2f"|format(row.eq_close_price or 0) }}</td>
                     <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
                     <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
                     <td>
@@ -125,10 +127,14 @@ class MorningReportGenerator:
             <thead>
                 <tr>
                     <th class="text-left">Symbol</th>
-                    <th>Close</th>
+                    <th>Near Fut Close</th>
+                    <th>EQ Close</th>
                     <th>Total Vol</th>
                     <th>Total OI</th>
                     <th>PCR (OI)</th>
+                    <th>HI OI PE Value</th>
+                    <th>HI OI CE Value</th>
+                    <th>ATM Straddle</th>
                     <th>Basis 1 (bps)</th>
                     <th>MWPL (Top) %</th>
                     <th>ATM IV (Near)</th>
@@ -145,9 +151,13 @@ class MorningReportGenerator:
                 <tr>
                     <td class="text-left">{{ row.symbol }}</td>
                     <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
+                    <td>{{ "%.2f"|format(row.eq_close_price or 0) }}</td>
                     <td>{{ "{:,.0f}".format(row.futures_total_vol or 0) }}</td>
                     <td>{{ "{:,.0f}".format(row.futures_total_oi or 0) }}</td>
                     <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
+                    <td>{{ "%.2f"|format(row.highest_oi_pe_value or 0) }}</td>
+                    <td>{{ "%.2f"|format(row.highest_oi_ce_value or 0) }}</td>
+                    <td>{{ "%.2f"|format(row.atm_straddle_near_month or 0) }}</td>
                     <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
                     <td>
                         {% if row.mwpl_array and row.mwpl_array|length > 0 %}

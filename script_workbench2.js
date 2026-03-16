@@ -459,7 +459,8 @@
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
                                     <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
-                                    <th style="white-space: pre-wrap;">Close<br>Price</th>
+                                    <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
+                                    <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
@@ -503,7 +504,7 @@
                                 </tr>
                             </thead>
                             <tbody id="mr-data-body">
-                                <tr><td colspan="42" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                                <tr><td colspan="47" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
                             </table>
                         </div>
@@ -614,6 +615,7 @@
                 // View Data Button Handler (Timeseries / Snapshot)
                 const generateTableHTML = (row, isSnapshot) => {
                             const close = (row.close_price != null && !isNaN(Number(row.close_price))) ? Number(row.close_price).toFixed(2) : '-';
+                            const eqClose = (row.eq_close_price != null && !isNaN(Number(row.eq_close_price))) ? Number(row.eq_close_price).toFixed(2) : '-';
                             const vwap = (row.vwap != null && !isNaN(Number(row.vwap))) ? Number(row.vwap).toFixed(2) : '-';
                             const fVol = (row.futures_total_vol != null && !isNaN(Number(row.futures_total_vol))) ? Number(row.futures_total_vol).toLocaleString() : '-';
                             const fOi = (row.futures_total_oi != null && !isNaN(Number(row.futures_total_oi))) ? Number(row.futures_total_oi).toLocaleString() : '-';
@@ -623,6 +625,10 @@
                             const pctAwayPe = (row.pct_away_highest_pe != null && !isNaN(Number(row.pct_away_highest_pe))) ? (Number(row.pct_away_highest_pe)).toFixed(2) + '%' : '-';
                             const hiOiStrikeCe = (row.highest_oi_strike_ce != null && !isNaN(Number(row.highest_oi_strike_ce))) ? Number(row.highest_oi_strike_ce).toLocaleString() : '-';
                             const pctAwayCe = (row.pct_away_highest_ce != null && !isNaN(Number(row.pct_away_highest_ce))) ? (Number(row.pct_away_highest_ce)).toFixed(2) + '%' : '-';
+                            const hiOiPeValue = (row.highest_oi_pe_value != null && !isNaN(Number(row.highest_oi_pe_value))) ? Number(row.highest_oi_pe_value).toFixed(2) : '-';
+                            const hiOiCeValue = (row.highest_oi_ce_value != null && !isNaN(Number(row.highest_oi_ce_value))) ? Number(row.highest_oi_ce_value).toFixed(2) : '-';
+                            const atmStraddleNear = (row.atm_straddle_near_month != null && !isNaN(Number(row.atm_straddle_near_month))) ? Number(row.atm_straddle_near_month).toFixed(2) : '-';
+                            const atmStraddleWeekly = (row.atm_straddle_weekly_nifty != null && !isNaN(Number(row.atm_straddle_weekly_nifty))) ? Number(row.atm_straddle_weekly_nifty).toFixed(2) : '-';
                             const chgOiOpt = (row.chg_oi_options != null && !isNaN(Number(row.chg_oi_options))) ? Number(row.chg_oi_options).toLocaleString() : '-';
                             const chgOiFut = (row.chg_oi_futures != null && !isNaN(Number(row.chg_oi_futures))) ? Number(row.chg_oi_futures).toLocaleString() : '-';
                             const fut1Exp = row.near_expiry_date !== null ? row.near_expiry_date : '-';
@@ -708,14 +714,19 @@
 
                             html += `
                                 <td>${close}</td>
+                                <td>${eqClose}</td>
                                 <td>${vwap}</td>
                                 <td>${fVol}</td>
                                 <td>${fOi}</td>
                                 <td>${pcr}</td>
                                 <td>${hiOiStrikePe}</td>
                                 <td>${pctAwayPe}</td>
+                                <td>${hiOiPeValue}</td>
                                 <td>${hiOiStrikeCe}</td>
                                 <td>${pctAwayCe}</td>
+                                <td>${hiOiCeValue}</td>
+                                <td>${atmStraddleNear}</td>
+                                <td>${atmStraddleWeekly}</td>
                                 <td>${chgOiOpt}</td>
                                 <td>${chgOiFut}</td>
                                 <td>${fut1Exp}</td>
@@ -775,7 +786,7 @@
 
                         tbody.innerHTML = '';
                         if(data.length === 0) {
-                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 41 : 42}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
+                            tbody.innerHTML = `<tr><td colspan="${snapshotMode ? 46 : 47}" style="text-align: center; color: #888; padding: 20px;">No data found.</td></tr>`;
                             return;
                         }
 
@@ -783,7 +794,8 @@
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Symbol</th>
-                                    <th style="white-space: pre-wrap;">Close<br>Price</th>
+                                    <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
+                                    <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
@@ -849,7 +861,8 @@
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
                                     <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
-                                    <th style="white-space: pre-wrap;">Close<br>Price</th>
+                                    <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
+                                    <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
@@ -911,7 +924,7 @@
                         }
                     } catch(e) {
                         statusText.innerText = 'Failed to load data.';
-                        tbody.innerHTML = `<tr><td colspan="42" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="47" style="text-align: center; color: red; padding: 20px;">${e.message}</td></tr>`;
                     }
                 }
 

@@ -504,16 +504,39 @@ class NSELib:
         return pd.DataFrame()
 
     def get_fii_dii_cash(self, trade_date: date) -> pd.DataFrame:
-        """Fetch FII/DII Cash Market flow data. Usually uses the daily API endpoint."""
-        # NSE publishes this data in the evening via an API
-        url = "https://www.nseindia.com/api/fiidiiTradeReact"
+        """Fetch FII/DII Cash Market flow data."""
+        # NSE historical API supports fetching FII/DII data for a date range
+        date_str = trade_date.strftime("%d-%m-%Y")
+        url = f"https://www.nseindia.com/api/historical/fiidii?from={date_str}&to={date_str}"
         resp = self.get(url)
+
+        # Fallback to the daily API if historical is empty or fails
+        is_valid_json = False
+        if resp and resp.status_code == 200:
+            try:
+                if resp.json():
+                    is_valid_json = True
+            except Exception:
+                pass
+
+        if not is_valid_json:
+            url = "https://www.nseindia.com/api/fiidiiTradeReact"
+            resp = self.get(url)
+
         if not resp or resp.status_code != 200:
             logger.error(f"Failed to fetch FII/DII Cash Flow for {trade_date}")
             return pd.DataFrame()
 
         try:
             data = resp.json()
+            # If the response has a 'data' array (like the historical endpoint does)
+            if isinstance(data, list) and len(data) == 0:
+                logger.warning(f"No FII/DII records found for {trade_date}")
+                return pd.DataFrame()
+            if isinstance(data, dict) and 'data' in data:
+                data = data['data']
+            elif isinstance(data, list) and len(data) > 0 and 'category' not in data[0] and 'data' in data[0]:
+                 data = data[0]['data']
             records = []
 
             # Validate that the API response actually matches the requested trade_date.
