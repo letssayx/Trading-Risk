@@ -463,7 +463,7 @@
                             <thead id="mr-data-head">
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Close<br>Price</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
@@ -705,8 +705,8 @@
 
                             let html = ``;
                             if(!isSnapshot) {
-                                html += `<td style="position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.trade_date}</td>`;
-                                html += `<td style="position: sticky; left: 90px; background: #1e1e1e; z-index: 2;">${row.symbol}</td>`;
+                                html += `<td style="position: sticky; left: 0; background: #1e1e1e; z-index: 2; min-width: 90px; max-width: 90px; width: 90px;">${row.trade_date}</td>`;
+                                html += `<td style="position: sticky; left: 90px; background: #1e1e1e; z-index: 2; min-width: 90px; max-width: 90px; width: 90px;">${row.symbol}</td>`;
                             } else {
                                 html += `<td style="position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.symbol}</td>`;
                             }
@@ -853,7 +853,7 @@
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
-                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3;">Symbol</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 90px; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Symbol</th>
                                     <th style="white-space: pre-wrap;">Close<br>Price</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
