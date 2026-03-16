@@ -299,6 +299,83 @@ class MorningReportCalculator:
 
         return iv_rank, iv_pctile
 
+
+    def _safe_float(self, val: Any) -> Any:
+        import numpy as np
+        import math
+        if val is None:
+            return None
+        if isinstance(val, (int, float)):
+            if math.isnan(val) or math.isinf(val):
+                return 0.0
+            return float(val)
+        if isinstance(val, (np.floating, np.integer)):
+            v = float(val)
+            if math.isnan(v) or math.isinf(v):
+                return 0.0
+            return v
+        return val
+
+    def _safe_float(self, val):
+        import numpy as np
+        import math
+        if val is None: return None
+        try:
+            v = float(val)
+            if math.isnan(v) or math.isinf(v):
+                return None
+            return v
+        except (ValueError, TypeError):
+            return val
+
+    def _safe_float(self, val):
+        import numpy as np
+        import math
+        if val is None: return None
+        try:
+            v = float(val)
+            if math.isnan(v) or math.isinf(v):
+                return None
+            return v
+        except (ValueError, TypeError):
+            return val
+
+    def _safe_float(self, val):
+        import numpy as np
+        import math
+        if val is None: return None
+        try:
+            v = float(val)
+            if math.isnan(v) or math.isinf(v):
+                return None
+            return v
+        except (ValueError, TypeError):
+            return val
+
+    def _safe_float(self, val):
+        import numpy as np
+        import math
+        if val is None: return None
+        try:
+            v = float(val)
+            if math.isnan(v) or math.isinf(v):
+                return None
+            return v
+        except (ValueError, TypeError):
+            return val
+
+    def _safe_float(self, val):
+        import numpy as np
+        import math
+        if val is None: return None
+        try:
+            v = float(val)
+            if math.isnan(v) or math.isinf(v):
+                return None
+            return v
+        except (ValueError, TypeError):
+            return val
+
     def calculate_for_date(self, target_date: date) -> Dict[str, Any]:
         symbols_query = self.db.query(BhavcopyFO.ticker_symb).filter(
             BhavcopyFO.trade_date == target_date,
@@ -418,50 +495,51 @@ class MorningReportCalculator:
                 record = DailyDerivativesAnalysis(trade_date=target_date, symbol=symbol)
                 self.db.add(record)
 
-            record.close_price = near_fut.close_price
-            record.futures_total_vol = total_vol
-            record.futures_total_oi = total_oi
-            record.pcr_oi = pcr_oi
-            record.highest_oi_strike_pe = highest_pe_strike
-            record.highest_oi_strike_ce = highest_ce_strike
-            record.pct_away_highest_pe = ((highest_pe_strike - cash_close) / cash_close) * 100 if highest_pe_strike and cash_close else None
-            record.pct_away_highest_ce = ((highest_ce_strike - cash_close) / cash_close) * 100 if highest_ce_strike and cash_close else None
-            record.chg_oi_options = chg_oi_opts
-            record.chg_oi_futures = chg_oi_futs
+            record.close_price = self._safe_float(near_fut.close_price)
+            record.vwap = self._safe_float(eq_record.avg_price if eq_record and hasattr(eq_record, 'avg_price') else 0.0)
+            record.futures_total_vol = self._safe_float(total_vol)
+            record.futures_total_oi = self._safe_float(total_oi)
+            record.pcr_oi = self._safe_float(pcr_oi)
+            record.highest_oi_strike_pe = self._safe_float(highest_pe_strike)
+            record.highest_oi_strike_ce = self._safe_float(highest_ce_strike)
+            record.pct_away_highest_pe = self._safe_float(((highest_pe_strike - cash_close) / cash_close) * 100 if highest_pe_strike and cash_close else None)
+            record.pct_away_highest_ce = self._safe_float(((highest_ce_strike - cash_close) / cash_close) * 100 if highest_ce_strike and cash_close else None)
+            record.chg_oi_options = self._safe_float(chg_oi_opts)
+            record.chg_oi_futures = self._safe_float(chg_oi_futs)
             record.near_expiry_date = near_fut.expiry_date if near_fut else None
             record.next_expiry_date = next_fut.expiry_date if next_fut else None
             record.far_expiry_date = far_fut.expiry_date if far_fut else None
-            record.total_options_call_oi = call_oi
-            record.total_options_put_oi = put_oi
-            record.atm_iv_near = atm_iv_near
-            record.atm_iv_next = atm_iv_next
-            record.iv_rank_252 = iv_rank
-            record.iv_percentile_252 = iv_pctile
-            record.skew_25d_near = skew_near
-            record.skew_25d_far = skew_far
-            record.rollover_pct = rollover_pct
-            record.daily_volatility = daily_vol
+            record.total_options_call_oi = self._safe_float(call_oi)
+            record.total_options_put_oi = self._safe_float(put_oi)
+            record.atm_iv_near = self._safe_float(atm_iv_near)
+            record.atm_iv_next = self._safe_float(atm_iv_next)
+            record.iv_rank_252 = self._safe_float(iv_rank)
+            record.iv_percentile_252 = self._safe_float(iv_pctile)
+            record.skew_25d_near = self._safe_float(skew_near)
+            record.skew_25d_far = self._safe_float(skew_far)
+            record.rollover_pct = self._safe_float(rollover_pct)
+            record.daily_volatility = self._safe_float(daily_vol)
             record.mwpl_array = mwpl_arr
-            record.basis_1_bps = basis_1
-            record.basis_2_bps = basis_2
-            record.calendar_spread_1_bps = cal_spread_1
-            record.calendar_spread_2_bps = cal_spread_2
-            record.pe_ratio = pe_val
-            record.beta_252 = betas['beta_252']
-            record.beta_500 = betas['beta_500']
-            record.r_squared_252 = betas['r_squared_252']
-            record.r_squared_500 = betas['r_squared_500']
-            record.price_pct_change = techs.get('price_pct_change', 0.0)
-            record.relative_volume_20d = techs.get('rel_vol_20d', 0.0)
-            record.atr_14_cash = techs['atr_14']
-            record.ema_20_cash = techs['ema_20']
-            record.ema_50_cash = techs['ema_50']
-            record.ema_100_cash = techs['ema_100']
-            record.ema_200_cash = techs['ema_200']
-            record.mavg_delivery_vol_pct_5d = deliv['5d']
-            record.mavg_delivery_vol_pct_10d = deliv['10d']
-            record.mavg_delivery_vol_pct_20d = deliv['20d']
-            record.mavg_delivery_vol_pct_30d = deliv['30d']
+            record.basis_1_bps = self._safe_float(basis_1)
+            record.basis_2_bps = self._safe_float(basis_2)
+            record.calendar_spread_1_bps = self._safe_float(cal_spread_1)
+            record.calendar_spread_2_bps = self._safe_float(cal_spread_2)
+            record.pe_ratio = self._safe_float(pe_val)
+            record.beta_252 = self._safe_float(betas['beta_252'])
+            record.beta_500 = self._safe_float(betas['beta_500'])
+            record.r_squared_252 = self._safe_float(betas['r_squared_252'])
+            record.r_squared_500 = self._safe_float(betas['r_squared_500'])
+            record.price_pct_change = self._safe_float(techs.get('price_pct_change', 0.0))
+            record.relative_volume_20d = self._safe_float(techs.get('rel_vol_20d', 0.0))
+            record.atr_14_cash = self._safe_float(techs['atr_14'])
+            record.ema_20_cash = self._safe_float(techs['ema_20'])
+            record.ema_50_cash = self._safe_float(techs['ema_50'])
+            record.ema_100_cash = self._safe_float(techs['ema_100'])
+            record.ema_200_cash = self._safe_float(techs['ema_200'])
+            record.mavg_delivery_vol_pct_5d = self._safe_float(deliv['5d'])
+            record.mavg_delivery_vol_pct_10d = self._safe_float(deliv['10d'])
+            record.mavg_delivery_vol_pct_20d = self._safe_float(deliv['20d'])
+            record.mavg_delivery_vol_pct_30d = self._safe_float(deliv['30d'])
 
             processed_count += 1
 
