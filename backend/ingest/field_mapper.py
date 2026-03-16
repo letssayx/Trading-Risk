@@ -110,11 +110,14 @@ class FieldMapper:
         if 'SYMBOL' in upper_cols and 'SYMBOL P/E' in upper_cols:
             return {'type': 'pe_ratio', 'name': 'pe_ratio'}
 
-        # P/E Ratio (Index format) / India VIX
+        # Historical Index Data (ind_close_all) includes P/E, P/B, Div Yield and OHLCV
+        if 'INDEX NAME' in upper_cols and 'P/E' in upper_cols and 'OPEN INDEX VALUE' in upper_cols:
+            # We map this to historical_index_data which handles all in one
+            return {'type': 'historical_index_data', 'name': 'historical_index_data'}
+
+        # P/E Ratio (Index format) / India VIX fallback
         if 'INDEX NAME' in upper_cols and 'P/E' in upper_cols:
             # We return pe_ratio_idx by default. The importer caller sets the correct type if it explicitly wants india_vix.
-            # But wait, if someone uploads this file manually, how do we know if they want pe_ratio_idx or india_vix?
-            # We can map both, but typical manual upload would use the key they requested.
             # We will use 'pe_ratio_idx' as the detected type, but `map_to_records` needs to support `india_vix`.
             return {'type': 'pe_ratio_idx', 'name': 'pe_ratio_idx'}
 
@@ -194,6 +197,8 @@ class FieldMapper:
             return cls._map_corporate_actions(df, trade_date)
         elif format_type == 'fii_dii_cash':
             return cls._map_fii_dii_cash(df, trade_date)
+        elif format_type == 'historical_index_data':
+            return cls._map_historical_index_data(df, trade_date)
 
         return []
 
@@ -610,6 +615,39 @@ class FieldMapper:
                 'close_value': cls._clean_numeric(cls._get_val(row, ['Closing Index Value'])),
                 'points_change': cls._clean_numeric(cls._get_val(row, ['Points Change'])),
                 'percent_change': cls._clean_numeric(cls._get_val(row, ['Change(%)']))
+            }
+            records.append(record)
+        return records
+
+    @classmethod
+    def _map_historical_index_data(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            row_date = parse_nse_date(cls._get_val(row, ['Index Date', 'Date']))
+            if not row_date:
+                row_date = trade_date
+            if not row_date:
+                continue
+
+            index_name = str(cls._get_val(row, ['Index Name', 'INDEX NAME']) or '').strip()
+            if not index_name:
+                continue
+
+            # Skip VIX as it's processed separately usually, but we could include it if we wanted.
+            # Actually, let's keep it here in the new table if present.
+
+            record = {
+                'trade_date': row_date,
+                'index_name': index_name,
+                'open_price': cls._clean_numeric(cls._get_val(row, ['Open Index Value', 'OPEN INDEX VALUE'])),
+                'high_price': cls._clean_numeric(cls._get_val(row, ['High Index Value', 'HIGH INDEX VALUE'])),
+                'low_price': cls._clean_numeric(cls._get_val(row, ['Low Index Value', 'LOW INDEX VALUE'])),
+                'close_price': cls._clean_numeric(cls._get_val(row, ['Closing Index Value', 'CLOSING INDEX VALUE'])),
+                'total_traded_qty': cls._clean_integer(cls._get_val(row, ['Volume', 'VOLUME'])),
+                'turnover_cr': cls._clean_numeric(cls._get_val(row, ['Turnover (Rs. Cr)', 'Turnover', 'TURNOVER'])),
+                'pe_ratio': cls._clean_numeric(cls._get_val(row, ['P/E'])),
+                'pb_ratio': cls._clean_numeric(cls._get_val(row, ['P/B'])),
+                'div_yield': cls._clean_numeric(cls._get_val(row, ['Div Yield']))
             }
             records.append(record)
         return records

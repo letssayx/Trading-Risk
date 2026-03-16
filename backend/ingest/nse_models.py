@@ -10,6 +10,31 @@ class TimescaleMixin:
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class HistoricalIndexData(Base, TimescaleMixin):
+    """Historical Index OHLCV Data"""
+    __tablename__ = "historical_index_data"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    index_name = Column(String(100), nullable=False, index=True)
+    trade_date = Column(Date, nullable=False, index=True)
+
+    open_price = Column(Float)
+    high_price = Column(Float)
+    low_price = Column(Float)
+    close_price = Column(Float)
+    total_traded_qty = Column(BigInteger)
+    turnover_cr = Column(Float)
+    pe_ratio = Column(Float)
+    pb_ratio = Column(Float)
+    div_yield = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
+        UniqueConstraint('index_name', 'trade_date', name='uq_historical_index_data_unique'),
+        Index('idx_historical_index_data_name_date', 'index_name', 'trade_date'),
+    )
+
+
 class BhavcopyEQ(Base, TimescaleMixin):
     """Equity Bhavcopy - EQ series only"""
     __tablename__ = "bhavcopy_eq"

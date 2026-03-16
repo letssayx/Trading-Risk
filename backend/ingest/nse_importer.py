@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List
 from contextlib import contextmanager
 
 import pandas as pd
+import io
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy import text, delete
@@ -58,6 +59,7 @@ class NSEDataImporter:
             'contract_delta': models.ContractDelta,
             'margin_trading': models.MarginTrading,
             'fii_dii_cash': models.FIIDIICash,
+            'historical_index_data': models.HistoricalIndexData,
         }
         if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
             return getattr(models, 'CorporateAction')
@@ -85,6 +87,7 @@ class NSEDataImporter:
             'margin_trading': ['date', 'symbol'],
             'corporate_actions': ['date', 'symbol', 'purpose'],
             'fii_dii_cash': ['trade_date', 'category'],
+            'historical_index_data': ['trade_date', 'index_name'],
         }
         return mapping.get(key, [])
 
@@ -113,6 +116,8 @@ class NSEDataImporter:
                 return self.lib.parse_india_vix(content)
             elif key == 'corporate_actions':
                 return self.lib.parse_corporate_actions(content)
+            elif key == 'historical_index_data':
+                return pd.read_csv(io.BytesIO(content), low_memory=False)
 
             # Default CSV Parsing for standard files
             # Check if content is bytes, decode if needed for CSV
@@ -125,7 +130,7 @@ class NSEDataImporter:
 
             # Fallback to CSV
             try:
-                import io
+
                 return pd.read_csv(io.BytesIO(content), low_memory=False)
             except Exception as e:
                 logger.warning(f"Default CSV parse failed for {key}: {e}")
@@ -267,7 +272,7 @@ class NSEDataImporter:
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
             'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions',
-            'nse_security', 'fii_dii_cash'
+            'nse_security', 'fii_dii_cash', 'historical_index_data'
         ]
 
         patterns_to_run = patterns or available_keys
