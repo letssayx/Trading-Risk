@@ -337,6 +337,21 @@ class NSELib:
 
         return pd.DataFrame()
 
+    def get_historical_index_data(self, trade_date: date) -> pd.DataFrame:
+        """Get Historical Index Data (Spot Prices)."""
+        date_str = trade_date.strftime("%d%m%Y")
+        url = f"{self.ARCHIVES_URL}/content/indices/ind_close_all_{date_str}.csv"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            try:
+                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                df.columns = [c.strip() for c in df.columns]
+                return df
+            except Exception as e:
+                logger.error(f"Historical Index Data parse error: {e}")
+        return pd.DataFrame()
+
     def get_india_vix(self, trade_date: date) -> pd.DataFrame:
         """Get India VIX Data (from Indices file)."""
         date_str = trade_date.strftime("%d%m%Y")
@@ -509,20 +524,20 @@ class NSELib:
 
     def get_fii_dii_cash(self, trade_date: date) -> pd.DataFrame:
         """Fetch FII/DII Cash Market flow data."""
-        # NSE historical API supports fetching FII/DII data for a date range
+        # Use the new fiidii-archive API endpoint which works for historical data
         date_str = trade_date.strftime("%d-%m-%Y")
-        url = f"https://www.nseindia.com/api/historical/fiidii?from={date_str}&to={date_str}"
+        url = f"https://www.nseindia.com/api/fiidii-archive?from={date_str}&to={date_str}"
         resp = self.get(url)
 
-        # Fallback to the daily API if historical is empty or fails
         is_valid_json = False
         if resp and resp.status_code == 200:
             try:
-                if resp.json():
-                    is_valid_json = True
+                resp_json = resp.json()
+                is_valid_json = True
             except Exception:
                 pass
 
+        # Fallback to the daily API if historical is empty or fails
         if not is_valid_json:
             url = "https://www.nseindia.com/api/fiidiiTradeReact"
             resp = self.get(url)
@@ -533,38 +548,34 @@ class NSELib:
 
         try:
             data = resp.json()
-            # If the response has a 'data' array (like the historical endpoint does)
-            if isinstance(data, list) and len(data) == 0:
-                logger.warning(f"No FII/DII records found for {trade_date}")
-                return pd.DataFrame()
+            # The archive API returns a list of items directly, each containing a 'category', 'date', 'buyValue', etc.
+            # The daily API sometimes returns a dict with 'data' key or a nested list.
             if isinstance(data, dict) and 'data' in data:
                 data = data['data']
             elif isinstance(data, list) and len(data) > 0 and 'category' not in data[0] and 'data' in data[0]:
                  data = data[0]['data']
+
+            if not isinstance(data, list) or len(data) == 0:
+                logger.warning(f"No FII/DII records found for {trade_date}")
+                return pd.DataFrame()
+
             records = []
 
-            # Validate that the API response actually matches the requested trade_date.
-            # fiidiiTradeReact usually only returns the latest date. Do not ingest today's data for historical dates.
-            api_date_str = None
-            if data and len(data) > 0 and 'date' in data[0]:
-                api_date_str = data[0]['date']
-
-            if not api_date_str:
-                return pd.DataFrame()
-
-            # Parse the API date (e.g. '10-Mar-2026')
             from datetime import datetime
-            try:
-                api_date = datetime.strptime(api_date_str, "%d-%b-%Y").date()
-            except ValueError:
-                return pd.DataFrame()
 
-            if api_date != trade_date:
-                logger.warning(f"FII/DII API returned data for {api_date}, skipping import for requested {trade_date}")
-                return pd.DataFrame()
-
-            # The API returns a list of dictionaries with categories. The main categories are FII/FPI and DII
+            # The API returns a list of dictionaries with categories.
+            # For the archive API, the date might be in a 'date' field in format 'dd-MMM-yyyy'
             for item in data:
+                # Check date match if date field exists
+                item_date_str = item.get('date')
+                if item_date_str:
+                    try:
+                        item_date = datetime.strptime(item_date_str, "%d-%b-%Y").date()
+                        if item_date != trade_date:
+                            continue
+                    except ValueError:
+                        pass
+
                 cat = item.get('category')
                 if not cat: continue
                 if 'FII' in cat or 'FPI' in cat:
@@ -583,7 +594,16 @@ class NSELib:
                 })
 
             if not records:
-                logger.warning(f"No FII/DII records parsed for {trade_date}")
+                # Check if we skipped due to date mismatch
+                if len(data) > 0 and 'date' in data[0]:
+                    api_date_str = data[0]['date']
+                    try:
+                        api_date = datetime.strptime(api_date_str, "%d-%b-%Y").date()
+                        logger.warning(f"FII/DII API returned data for {api_date}, skipping import for requested {trade_date}")
+                    except ValueError:
+                        pass
+                else:
+                    logger.warning(f"No FII/DII records parsed for {trade_date}")
                 return pd.DataFrame()
 
             return pd.DataFrame(records)

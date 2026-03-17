@@ -181,6 +181,8 @@ class NSEDataImporter:
             return self.lib.get_margin_trading(trade_date)
         elif key == 'corporate_actions':
             return self.lib.get_corporate_actions(trade_date)
+        elif key == 'historical_index_data':
+            return self.lib.get_historical_index_data(trade_date)
 
         return pd.DataFrame()
 

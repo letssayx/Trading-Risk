@@ -419,7 +419,22 @@ class MorningReportCalculator:
                 BhavcopyEQ.symbol == symbol,
                 BhavcopyEQ.series == 'EQ'
             ).first()
-            cash_close = eq_record.close_price if eq_record else near_fut.close_price
+
+            cash_close = 0.0
+            if eq_record and eq_record.close_price > 0:
+                cash_close = eq_record.close_price
+            else:
+                # Check for historical index data (for indices)
+                from backend.ingest.nse_models import HistoricalIndexData
+                idx_record = self.db.query(HistoricalIndexData).filter(
+                    HistoricalIndexData.trade_date == target_date,
+                    HistoricalIndexData.index_name == symbol
+                ).first()
+                if idx_record and idx_record.close_price:
+                    cash_close = idx_record.close_price
+                else:
+                    cash_close = near_fut.close_price
+
             if cash_close <= 0: continue
 
             # Spreads & Basis (bps)
@@ -445,18 +460,32 @@ class MorningReportCalculator:
             pcr_oi = (put_oi / call_oi) if call_oi > 0 else 0.0
 
             # Find Highest OI Strikes for PE and CE
-            # Aggregate OI across all expiries per strike
-            strike_oi_pe = {}
-            strike_oi_ce = {}
+            # Exclude today's expiry if today is the expiry day
+            valid_opts = [o for o in all_opts if o.expiry_date != target_date]
+            if not valid_opts:
+                valid_opts = all_opts
 
-            for o in all_opts:
+            # Highest OI requires the actual specific contract (to get its premium and exact OI)
+            # Find the single contract with the highest OI across valid expiries for PE and CE
+            highest_pe_contract = None
+            highest_ce_contract = None
+
+            for o in valid_opts:
                 if o.option_type == 'PE':
-                    strike_oi_pe[o.strike_price] = strike_oi_pe.get(o.strike_price, 0) + o.open_interest
+                    if highest_pe_contract is None or o.open_interest > highest_pe_contract.open_interest:
+                        highest_pe_contract = o
                 elif o.option_type == 'CE':
-                    strike_oi_ce[o.strike_price] = strike_oi_ce.get(o.strike_price, 0) + o.open_interest
+                    if highest_ce_contract is None or o.open_interest > highest_ce_contract.open_interest:
+                        highest_ce_contract = o
 
-            highest_pe_strike = max(strike_oi_pe, key=strike_oi_pe.get) if strike_oi_pe else 0.0
-            highest_ce_strike = max(strike_oi_ce, key=strike_oi_ce.get) if strike_oi_ce else 0.0
+            highest_pe_strike = highest_pe_contract.strike_price if highest_pe_contract else 0.0
+            highest_ce_strike = highest_ce_contract.strike_price if highest_ce_contract else 0.0
+
+            highest_pe_value = highest_pe_contract.close_price if highest_pe_contract else 0.0
+            highest_ce_value = highest_ce_contract.close_price if highest_ce_contract else 0.0
+
+            highest_pe_oi = highest_pe_contract.open_interest if highest_pe_contract else 0
+            highest_ce_oi = highest_ce_contract.open_interest if highest_ce_contract else 0
 
             chg_oi_opts = sum(o.change_in_oi for o in all_opts if o.change_in_oi is not None)
             chg_oi_futs = sum(f.change_in_oi for f in futs if f.change_in_oi is not None)
@@ -471,30 +500,39 @@ class MorningReportCalculator:
             far_opts = [o for o in all_opts if far_fut and o.expiry_date == far_fut.expiry_date]
 
             # Values at highest OI strikes (using near month premium)
-            highest_pe_value = next((o.close_price for o in near_opts if o.strike_price == highest_pe_strike and o.option_type == 'PE'), 0.0)
-            highest_ce_value = next((o.close_price for o in near_opts if o.strike_price == highest_ce_strike and o.option_type == 'CE'), 0.0)
-
             # ATM Straddle calculation (Near Month)
             # Find the closest strike to the cash close (or near fut close if cash not available)
-            atm_strike = 0.0
+            # If today is expiry, use next month for 'Near Month' calculation
             atm_straddle_near_month = 0.0
-            if near_opts and cash_close > 0:
-                unique_strikes = list(set([o.strike_price for o in near_opts]))
+            straddle_near_opts = near_opts
+            if near_fut and near_fut.expiry_date == target_date and next_opts:
+                straddle_near_opts = next_opts
+
+            if straddle_near_opts and cash_close > 0:
+                unique_strikes = list(set([o.strike_price for o in straddle_near_opts]))
                 if unique_strikes:
                     # Closest strike to spot with 0.5 delta logic
                     atm_strike = min(unique_strikes, key=lambda x: abs(x - cash_close))
-                    atm_ce_price = next((o.close_price for o in near_opts if o.strike_price == atm_strike and o.option_type == 'CE'), 0.0)
-                    atm_pe_price = next((o.close_price for o in near_opts if o.strike_price == atm_strike and o.option_type == 'PE'), 0.0)
+                    atm_ce_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type == 'CE'), 0.0)
+                    atm_pe_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type == 'PE'), 0.0)
                     atm_straddle_near_month = atm_ce_price + atm_pe_price
 
             # Weekly NIFTY Straddle
             atm_straddle_weekly_nifty = 0.0
             if symbol == 'NIFTY' and cash_close > 0:
-                # Find all active expiries for NIFTY options
+                # Find all active expiries for NIFTY options strictly after today if today is an expiry
                 nifty_expiries = list(set([o.expiry_date for o in all_opts if o.expiry_date >= target_date]))
                 nifty_expiries.sort()
-                if nifty_expiries:
+
+                # If today is the closest expiry, use the next one (next week)
+                if nifty_expiries and nifty_expiries[0] == target_date and len(nifty_expiries) > 1:
+                    closest_weekly_expiry = nifty_expiries[1]
+                elif nifty_expiries:
                     closest_weekly_expiry = nifty_expiries[0]
+                else:
+                    closest_weekly_expiry = None
+
+                if closest_weekly_expiry:
                     weekly_opts = [o for o in all_opts if o.expiry_date == closest_weekly_expiry]
                     if weekly_opts:
                         weekly_strikes = list(set([o.strike_price for o in weekly_opts]))
@@ -539,6 +577,8 @@ class MorningReportCalculator:
             record.highest_oi_strike_ce = self._safe_float(highest_ce_strike)
             record.highest_oi_pe_value = self._safe_float(highest_pe_value)
             record.highest_oi_ce_value = self._safe_float(highest_ce_value)
+            record.highest_oi_pe_oi = self._safe_float(highest_pe_oi)
+            record.highest_oi_ce_oi = self._safe_float(highest_ce_oi)
             record.atm_straddle_near_month = self._safe_float(atm_straddle_near_month)
             record.atm_straddle_weekly_nifty = self._safe_float(atm_straddle_weekly_nifty)
             record.pct_away_highest_pe = self._safe_float(((highest_pe_strike - cash_close) / cash_close) * 100 if highest_pe_strike and cash_close else None)

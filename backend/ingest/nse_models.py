@@ -452,6 +452,10 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     pcr_oi = Column(Float)                 # Total Put OI / Total Call OI
     highest_oi_strike_pe = Column(Float)   # Highest concentration OI strike price for PE
     highest_oi_strike_ce = Column(Float)   # Highest concentration OI strike price for CE
+    highest_oi_pe_value = Column(Float)
+    highest_oi_ce_value = Column(Float)
+    highest_oi_pe_oi = Column(BigInteger)
+    highest_oi_ce_oi = Column(BigInteger)
     pct_away_highest_pe = Column(Float)    # % Away (Highest PE Strike from Cash Close)
     pct_away_highest_ce = Column(Float)    # % Away (Highest CE Strike from Cash Close)
     chg_oi_options = Column(BigInteger)    # Total change in OI options

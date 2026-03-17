@@ -471,11 +471,13 @@
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Premium (PE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
-                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Premium (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
@@ -636,6 +638,8 @@
                             const pctAwayCe = (row.pct_away_highest_ce != null && !isNaN(Number(row.pct_away_highest_ce))) ? (Number(row.pct_away_highest_ce)).toFixed(2) + '%' : '-';
                             const hiOiPeValue = (row.highest_oi_pe_value != null && !isNaN(Number(row.highest_oi_pe_value))) ? Number(row.highest_oi_pe_value).toFixed(2) : '-';
                             const hiOiCeValue = (row.highest_oi_ce_value != null && !isNaN(Number(row.highest_oi_ce_value))) ? Number(row.highest_oi_ce_value).toFixed(2) : '-';
+                            const hiOiPeOi = (row.highest_oi_pe_oi != null && !isNaN(Number(row.highest_oi_pe_oi))) ? Number(row.highest_oi_pe_oi).toLocaleString() : '-';
+                            const hiOiCeOi = (row.highest_oi_ce_oi != null && !isNaN(Number(row.highest_oi_ce_oi))) ? Number(row.highest_oi_ce_oi).toLocaleString() : '-';
                             const atmStraddleNear = (row.atm_straddle_near_month != null && !isNaN(Number(row.atm_straddle_near_month))) ? Number(row.atm_straddle_near_month).toFixed(2) : '-';
                             const atmStraddleWeekly = (row.atm_straddle_weekly_nifty != null && !isNaN(Number(row.atm_straddle_weekly_nifty))) ? Number(row.atm_straddle_weekly_nifty).toFixed(2) : '-';
                             const chgOiOpt = (row.chg_oi_options != null && !isNaN(Number(row.chg_oi_options))) ? Number(row.chg_oi_options).toLocaleString() : '-';
@@ -729,11 +733,13 @@
                                 <td>${fOi}</td>
                                 <td>${pcr}</td>
                                 <td>${hiOiStrikePe}</td>
-                                <td>${pctAwayPe}</td>
+                                <td>${hiOiPeOi}</td>
                                 <td>${hiOiPeValue}</td>
+                                <td>${pctAwayPe}</td>
                                 <td>${hiOiStrikeCe}</td>
-                                <td>${pctAwayCe}</td>
+                                <td>${hiOiCeOi}</td>
                                 <td>${hiOiCeValue}</td>
+                                <td>${pctAwayCe}</td>
                                 <td>${atmStraddleNear}</td>
                                 <td>${atmStraddleWeekly}</td>
                                 <td>${chgOiOpt}</td>
@@ -810,11 +816,13 @@
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Premium (PE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
-                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Premium (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
@@ -881,11 +889,13 @@
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Premium (PE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
-                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (PE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Premium (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
@@ -1214,6 +1224,8 @@
                         <option value="pe_ratio">P/E Ratio (Equities)</option>
                         <option value="pe_ratio_idx">P/E Ratio (Indices)</option>
                         <option value="india_vix">India VIX</option>
+                                    <option value="historical_index_data">Historical Index Data</option>
+                        <option value="historical_index_data">Historical Index Data</option>
                         <option value="margin_trading">Margin Trading</option>
                         <option value="security_master">Security Master</option>
                         <option value="corporate_actions">Corporate Actions</option>
@@ -1361,6 +1373,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio"> P/E Ratio (Equities)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="india_vix"> India VIX</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="historical_index_data"> Historical Index Data</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
@@ -1390,6 +1403,7 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio"> P/E Ratio (Equities)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="india_vix"> India VIX</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="historical_index_data"> Historical Index Data</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
@@ -1415,6 +1429,8 @@
                                     <option value="pe_ratio">P/E Ratio (Equities)</option>
                                     <option value="pe_ratio_idx">P/E Ratio (Indices)</option>
                                     <option value="india_vix">India VIX</option>
+                                    <option value="historical_index_data">Historical Index Data</option>
+                        <option value="historical_index_data">Historical Index Data</option>
                                     <option value="nse_security">Security Master</option>
                                 </select>
                             </div>
