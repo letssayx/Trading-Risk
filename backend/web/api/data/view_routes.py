@@ -54,6 +54,7 @@ def get_model_for_type(data_type: str):
         'fii_dii_cash': models.FIIDIICash,
         'security_master': models.SecurityMaster,
         'auctions': models.Auction, # Added auctions just in case
+        'historical_index_data': models.HistoricalIndexData
     }
     # Safely get CorporateAction if it exists in models (may be unmerged)
     if data_type == 'corporate_actions' and hasattr(models, 'CorporateAction'):
