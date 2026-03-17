@@ -621,6 +621,8 @@
                             const close = (row.close_price != null && !isNaN(Number(row.close_price))) ? Number(row.close_price).toFixed(2) : '-';
                             const eqClose = (row.eq_close_price != null && !isNaN(Number(row.eq_close_price))) ? Number(row.eq_close_price).toFixed(2) : '-';
                             const vwap = (row.vwap != null && !isNaN(Number(row.vwap))) ? Number(row.vwap).toFixed(2) : '-';
+                            const eqVol = (row.total_eq_volume != null && !isNaN(Number(row.total_eq_volume))) ? Number(row.total_eq_volume).toLocaleString() : '-';
+                            const delPct = (row.delivery_pct != null && !isNaN(Number(row.delivery_pct))) ? Number(row.delivery_pct).toFixed(2) : '-';
                             const fVol = (row.futures_total_vol != null && !isNaN(Number(row.futures_total_vol))) ? Number(row.futures_total_vol).toLocaleString() : '-';
                             const fOi = (row.futures_total_oi != null && !isNaN(Number(row.futures_total_oi))) ? Number(row.futures_total_oi).toLocaleString() : '-';
                             const pcr = (row.pcr_oi != null && !isNaN(Number(row.pcr_oi))) ? Number(row.pcr_oi).toFixed(2) : '-';
