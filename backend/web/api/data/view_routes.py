@@ -53,6 +53,7 @@ def get_model_for_type(data_type: str):
         'margin_trading': models.MarginTrading,
         'fii_dii_cash': models.FIIDIICash,
         'security_master': models.SecurityMaster,
+        'historical_index_data': models.HistoricalIndexData,
         'auctions': models.Auction, # Added auctions just in case
         'historical_index_data': models.HistoricalIndexData
     }

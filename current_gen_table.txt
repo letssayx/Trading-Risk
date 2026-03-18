@@ -1,0 +1,151 @@
+                const generateTableHTML = (row, isSnapshot) => {
+                            const close = (row.close_price != null && !isNaN(Number(row.close_price))) ? Number(row.close_price).toFixed(2) : '-';
+                            const eqClose = (row.eq_close_price != null && !isNaN(Number(row.eq_close_price))) ? Number(row.eq_close_price).toFixed(2) : '-';
+                            const vwap = (row.vwap != null && !isNaN(Number(row.vwap))) ? Number(row.vwap).toFixed(2) : '-';
+                            const eqVol = (row.total_eq_volume != null && !isNaN(Number(row.total_eq_volume))) ? Number(row.total_eq_volume).toLocaleString() : '-';
+                            const delPct = (row.delivery_pct != null && !isNaN(Number(row.delivery_pct))) ? Number(row.delivery_pct).toFixed(2) : '-';
+                            const fVol = (row.futures_total_vol != null && !isNaN(Number(row.futures_total_vol))) ? Number(row.futures_total_vol).toLocaleString() : '-';
+                            const fOi = (row.futures_total_oi != null && !isNaN(Number(row.futures_total_oi))) ? Number(row.futures_total_oi).toLocaleString() : '-';
+                            const pcr = (row.pcr_oi != null && !isNaN(Number(row.pcr_oi))) ? Number(row.pcr_oi).toFixed(2) : '-';
+
+                            const hiOiStrikePe = (row.highest_oi_strike_pe != null && !isNaN(Number(row.highest_oi_strike_pe))) ? Number(row.highest_oi_strike_pe).toLocaleString() : '-';
+                            const pctAwayPe = (row.pct_away_highest_pe != null && !isNaN(Number(row.pct_away_highest_pe))) ? (Number(row.pct_away_highest_pe)).toFixed(2) + '%' : '-';
+                            const hiOiStrikeCe = (row.highest_oi_strike_ce != null && !isNaN(Number(row.highest_oi_strike_ce))) ? Number(row.highest_oi_strike_ce).toLocaleString() : '-';
+                            const pctAwayCe = (row.pct_away_highest_ce != null && !isNaN(Number(row.pct_away_highest_ce))) ? (Number(row.pct_away_highest_ce)).toFixed(2) + '%' : '-';
+                            const hiOiPeValue = (row.highest_oi_pe_value != null && !isNaN(Number(row.highest_oi_pe_value))) ? Number(row.highest_oi_pe_value).toFixed(2) : '-';
+                            const hiOiCeValue = (row.highest_oi_ce_value != null && !isNaN(Number(row.highest_oi_ce_value))) ? Number(row.highest_oi_ce_value).toFixed(2) : '-';
+                            const atmStraddleNear = (row.atm_straddle_near_month != null && !isNaN(Number(row.atm_straddle_near_month))) ? Number(row.atm_straddle_near_month).toFixed(2) : '-';
+                            const atmStraddleWeekly = (row.atm_straddle_weekly_nifty != null && !isNaN(Number(row.atm_straddle_weekly_nifty))) ? Number(row.atm_straddle_weekly_nifty).toFixed(2) : '-';
+                            const chgOiOpt = (row.chg_oi_options != null && !isNaN(Number(row.chg_oi_options))) ? Number(row.chg_oi_options).toLocaleString() : '-';
+                            const chgOiFut = (row.chg_oi_futures != null && !isNaN(Number(row.chg_oi_futures))) ? Number(row.chg_oi_futures).toLocaleString() : '-';
+                            const fut1Exp = row.near_expiry_date !== null ? row.near_expiry_date : '-';
+                            const fut2Exp = row.next_expiry_date !== null ? row.next_expiry_date : '-';
+                            const fut3Exp = row.far_expiry_date !== null ? row.far_expiry_date : '-';
+                            const totCallOi = (row.total_options_call_oi != null && !isNaN(Number(row.total_options_call_oi))) ? Number(row.total_options_call_oi).toLocaleString() : '-';
+                            const totPutOi = (row.total_options_put_oi != null && !isNaN(Number(row.total_options_put_oi))) ? Number(row.total_options_put_oi).toLocaleString() : '-';
+
+                            const atmIvNear = (row.atm_iv_near != null && !isNaN(Number(row.atm_iv_near))) ? (Number(row.atm_iv_near) * 100).toFixed(2) + '%' : '-';
+                            const atmIvNext = (row.atm_iv_next != null && !isNaN(Number(row.atm_iv_next))) ? (Number(row.atm_iv_next) * 100).toFixed(2) + '%' : '-';
+                            const ivRank = (row.iv_rank_252 != null && !isNaN(Number(row.iv_rank_252))) ? Number(row.iv_rank_252).toFixed(2) : '-';
+                            const ivPctile = (row.iv_percentile_252 != null && !isNaN(Number(row.iv_percentile_252))) ? Number(row.iv_percentile_252).toFixed(2) : '-';
+                            const skewNear = (row.skew_25d_near != null && !isNaN(Number(row.skew_25d_near))) ? (Number(row.skew_25d_near) * 100).toFixed(2) + '%' : '-';
+                            const skewFar = (row.skew_25d_far != null && !isNaN(Number(row.skew_25d_far))) ? (Number(row.skew_25d_far) * 100).toFixed(2) + '%' : '-';
+                            const vol1Sig = (row.daily_volatility != null && !isNaN(Number(row.daily_volatility))) ? (Number(row.daily_volatility) * 100).toFixed(2) + '%' : '-';
+
+                            const roll = (row.rollover_pct != null && !isNaN(Number(row.rollover_pct))) ? (Number(row.rollover_pct) * 100).toFixed(2) + '%' : '-';
+
+                            let mwpl = '0.00';
+                            let maxMwpl = 0;
+                            let maxClient = '';
+                            if (row.mwpl_array && Array.isArray(row.mwpl_array) && row.mwpl_array.length > 0) {
+                                // mwpl_array is usually [{"client_name": value}, ...] or [value] or string.
+                                // To be safe, we extract the highest value if it's an array of objects.
+                                try {
+                                    row.mwpl_array.forEach(item => {
+                                        if (typeof item === 'object' && item !== null) {
+                                            for (let key in item) {
+                                                const val = parseFloat(item[key]);
+                                                if (!isNaN(val) && val > maxMwpl) {
+                                                    maxMwpl = val;
+                                                    maxClient = key;
+                                                }
+                                            }
+                                        } else if (typeof item === 'number') {
+                                            if (item > maxMwpl) maxMwpl = item;
+                                        }
+                                    });
+                                    if (maxMwpl > 0) {
+                                        mwpl = maxMwpl.toFixed(2);
+                                    } else {
+                                        // fallback if structure was different
+                                        const firstKey = Object.keys(row.mwpl_array[0])[0];
+                                        if (firstKey) mwpl = parseFloat(row.mwpl_array[0][firstKey]).toFixed(2);
+                                    }
+                                } catch (e) {
+                                    mwpl = '0.00';
+                                }
+                            }
+
+                            const basis1 = (row.basis_1_bps != null && !isNaN(Number(row.basis_1_bps))) ? Number(row.basis_1_bps).toFixed(0) : '-';
+                            const basis2 = (row.basis_2_bps != null && !isNaN(Number(row.basis_2_bps))) ? Number(row.basis_2_bps).toFixed(0) : '-';
+                            const cal1 = (row.calendar_spread_1_bps != null && !isNaN(Number(row.calendar_spread_1_bps))) ? Number(row.calendar_spread_1_bps).toFixed(0) : '-';
+                            const cal2 = (row.calendar_spread_2_bps != null && !isNaN(Number(row.calendar_spread_2_bps))) ? Number(row.calendar_spread_2_bps).toFixed(0) : '-';
+
+                            const pe = (row.pe_ratio != null && !isNaN(Number(row.pe_ratio))) ? Number(row.pe_ratio).toFixed(2) : '-';
+                            const b252 = (row.beta_252 != null && !isNaN(Number(row.beta_252))) ? Number(row.beta_252).toFixed(2) : '-';
+                            const b500 = (row.beta_500 != null && !isNaN(Number(row.beta_500))) ? Number(row.beta_500).toFixed(2) : '-';
+                            const r252 = (row.r_squared_252 != null && !isNaN(Number(row.r_squared_252))) ? Number(row.r_squared_252).toFixed(2) : '-';
+                            const r500 = (row.r_squared_500 != null && !isNaN(Number(row.r_squared_500))) ? Number(row.r_squared_500).toFixed(2) : '-';
+                            const pxPct = (row.price_pct_change != null && !isNaN(Number(row.price_pct_change))) ? (Number(row.price_pct_change)).toFixed(2) + '%' : '-';
+                            const relVol = (row.relative_volume_20d != null && !isNaN(Number(row.relative_volume_20d))) ? Number(row.relative_volume_20d).toFixed(2) : '-';
+
+                            const atr = (row.atr_14_cash != null && !isNaN(Number(row.atr_14_cash))) ? Number(row.atr_14_cash).toFixed(2) : '-';
+                            const ema20 = (row.ema_20_cash != null && !isNaN(Number(row.ema_20_cash))) ? Number(row.ema_20_cash).toFixed(2) : '-';
+                            const ema50 = (row.ema_50_cash != null && !isNaN(Number(row.ema_50_cash))) ? Number(row.ema_50_cash).toFixed(2) : '-';
+                            const ema100 = (row.ema_100_cash != null && !isNaN(Number(row.ema_100_cash))) ? Number(row.ema_100_cash).toFixed(2) : '-';
+                            const ema200 = (row.ema_200_cash != null && !isNaN(Number(row.ema_200_cash))) ? Number(row.ema_200_cash).toFixed(2) : '-';
+
+                            // Note: delivery fields don't exist in model, using '-'
+                            const del5 = '-';
+                            const del10 = '-';
+                            const del20 = '-';
+                            const del30 = '-';
+
+                            let html = ``;
+                            if(!isSnapshot) {
+                                html += `<td style="position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.trade_date}</td>`;
+                                html += `<td style="position: sticky; left: 90px; background: #1e1e1e; z-index: 2;">${row.symbol}</td>`;
+                            } else {
+                                html += `<td style="position: sticky; left: 0; background: #1e1e1e; z-index: 2;">${row.symbol}</td>`;
+                            }
+
+                            html += `
+                                <td>${close}</td>
+                                <td>${eqClose}</td>
+                                <td>${vwap}</td>
+                                <td>${fVol}</td>
+                                <td>${fOi}</td>
+                                <td>${pcr}</td>
+                                <td>${hiOiStrikePe}</td>
+                                <td>${pctAwayPe}</td>
+                                <td>${hiOiPeValue}</td>
+                                <td>${hiOiStrikeCe}</td>
+                                <td>${pctAwayCe}</td>
+                                <td>${hiOiCeValue}</td>
+                                <td>${atmStraddleNear}</td>
+                                <td>${atmStraddleWeekly}</td>
+                                <td>${chgOiOpt}</td>
+                                <td>${chgOiFut}</td>
+                                <td>${fut1Exp}</td>
+                                <td>${fut2Exp}</td>
+                                <td>${fut3Exp}</td>
+                                <td>${totCallOi}</td>
+                                <td>${totPutOi}</td>
+                                <td>${atmIvNear}</td>
+                                <td>${atmIvNext}</td>
+                                <td>${ivRank}</td>
+                                <td>${ivPctile}</td>
+                                <td>${skewNear}</td>
+                                <td>${skewFar}</td>
+                                <td>${vol1Sig}</td>
+                                <td>${roll}</td>
+                                <td style="color: ${parseFloat(mwpl) > 20 ? '#ff4d4d' : 'inherit'};">${mwpl}</td>
+                                <td>${basis1}</td>
+                                <td>${basis2}</td>
+                                <td>${cal1}</td>
+                                <td>${cal2}</td>
+                                <td>${pe}</td>
+                                <td>${b252}</td>
+                                <td>${b500}</td>
+                                <td>${r252}</td>
+                                <td>${r500}</td>
+                                <td>${pxPct}</td>
+                                <td>${relVol}</td>
+                                <td>${atr}</td>
+                                <td>${ema20}</td>
+                                <td>${ema50}</td>
+                                <td>${ema100}</td>
+                                <td>${ema200}</td>
+                            </tr>
+                        \`;
+                        return html;

@@ -446,7 +446,7 @@ class MorningReportCalculator:
             # Volume & OI
             total_vol = sum(f.total_trading_vol for f in futs)
             total_oi = sum(f.open_interest for f in futs)
-            rollover_pct = (sum(f.open_interest for f in futs[1:]) / total_oi * 100) if total_oi > 0 else 0.0
+            rollover_pct = (sum(f.open_interest for f in futs[1:]) / total_oi) if total_oi > 0 else 0.0
 
             # Options (PCR)
             all_opts = self.db.query(BhavcopyFO).filter(
@@ -465,17 +465,30 @@ class MorningReportCalculator:
             if not valid_opts:
                 valid_opts = all_opts
 
+            near_opts = [o for o in all_opts if near_fut and o.expiry_date == near_fut.expiry_date]
+            next_opts = [o for o in all_opts if next_fut and o.expiry_date == next_fut.expiry_date]
+            far_opts = [o for o in all_opts if far_fut and o.expiry_date == far_fut.expiry_date]
+
             # Highest OI requires the actual specific contract (to get its premium and exact OI)
             # Find the single contract with the highest OI across valid expiries for PE and CE
             highest_pe_contract = None
             highest_ce_contract = None
 
-            for o in valid_opts:
+            # To calculate the highest OI strike properly, we should sum the OI across the near/next expiries per strike
+            # or simply find the contract with the absolute highest OI in the entire valid option chain.
+            # Usually, traders look at the near-month option chain. Let's filter to near month if possible.
+            oi_opts = near_opts if near_opts else valid_opts
+
+            highest_pe_contract = None
+            highest_ce_contract = None
+
+            # Find the contract with the maximum OI in the chosen option chain
+            for o in oi_opts:
                 if o.option_type == 'PE':
-                    if highest_pe_contract is None or o.open_interest > highest_pe_contract.open_interest:
+                    if highest_pe_contract is None or (o.open_interest and o.open_interest > highest_pe_contract.open_interest):
                         highest_pe_contract = o
                 elif o.option_type == 'CE':
-                    if highest_ce_contract is None or o.open_interest > highest_ce_contract.open_interest:
+                    if highest_ce_contract is None or (o.open_interest and o.open_interest > highest_ce_contract.open_interest):
                         highest_ce_contract = o
 
             highest_pe_strike = highest_pe_contract.strike_price if highest_pe_contract else 0.0
@@ -495,10 +508,6 @@ class MorningReportCalculator:
             # Proxy annual vol for the root of BS solver (rough approximation using daily_vol * sqrt(365))
             proxy_ann_vol = daily_vol * np.sqrt(365) if daily_vol else 0.20
 
-            near_opts = [o for o in all_opts if o.expiry_date == near_fut.expiry_date]
-            next_opts = [o for o in all_opts if next_fut and o.expiry_date == next_fut.expiry_date]
-            far_opts = [o for o in all_opts if far_fut and o.expiry_date == far_fut.expiry_date]
-
             # Values at highest OI strikes (using near month premium)
             # ATM Straddle calculation (Near Month)
             # Find the closest strike to the cash close (or near fut close if cash not available)
@@ -508,27 +517,29 @@ class MorningReportCalculator:
             if near_fut and near_fut.expiry_date == target_date and next_opts:
                 straddle_near_opts = next_opts
 
-            if straddle_near_opts and cash_close > 0:
+            ref_price = cash_close if cash_close > 0 else (near_fut.close_price if near_fut else 0.0)
+
+            if straddle_near_opts and ref_price > 0:
                 unique_strikes = list(set([o.strike_price for o in straddle_near_opts]))
                 if unique_strikes:
                     # Closest strike to spot with 0.5 delta logic
-                    atm_strike = min(unique_strikes, key=lambda x: abs(x - cash_close))
+                    atm_strike = min(unique_strikes, key=lambda x: abs(x - ref_price))
                     atm_ce_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type == 'CE'), 0.0)
                     atm_pe_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type == 'PE'), 0.0)
                     atm_straddle_near_month = atm_ce_price + atm_pe_price
 
             # Weekly NIFTY Straddle
             atm_straddle_weekly_nifty = 0.0
-            if symbol == 'NIFTY' and cash_close > 0:
-                # Find all active expiries for NIFTY options strictly after today if today is an expiry
-                nifty_expiries = list(set([o.expiry_date for o in all_opts if o.expiry_date >= target_date]))
-                nifty_expiries.sort()
+            if ref_price > 0:
+                # Find all active expiries for options strictly after today if today is an expiry
+                sym_expiries = list(set([o.expiry_date for o in all_opts if o.expiry_date >= target_date]))
+                sym_expiries.sort()
 
                 # If today is the closest expiry, use the next one (next week)
-                if nifty_expiries and nifty_expiries[0] == target_date and len(nifty_expiries) > 1:
-                    closest_weekly_expiry = nifty_expiries[1]
-                elif nifty_expiries:
-                    closest_weekly_expiry = nifty_expiries[0]
+                if sym_expiries and sym_expiries[0] == target_date and len(sym_expiries) > 1:
+                    closest_weekly_expiry = sym_expiries[1]
+                elif sym_expiries:
+                    closest_weekly_expiry = sym_expiries[0]
                 else:
                     closest_weekly_expiry = None
 
@@ -537,14 +548,14 @@ class MorningReportCalculator:
                     if weekly_opts:
                         weekly_strikes = list(set([o.strike_price for o in weekly_opts]))
                         if weekly_strikes:
-                            weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - cash_close))
+                            weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - ref_price))
                             w_ce_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type == 'CE'), 0.0)
                             w_pe_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type == 'PE'), 0.0)
                             atm_straddle_weekly_nifty = w_ce_price + w_pe_price
 
-            atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, cash_close, near_fut.expiry_date, target_date, proxy_ann_vol)
-            atm_iv_next, _ = self.calculate_iv_and_skew(next_opts, cash_close, next_fut.expiry_date, target_date, proxy_ann_vol) if next_fut else (0.0, 0.0)
-            _, skew_far = self.calculate_iv_and_skew(far_opts, cash_close, far_fut.expiry_date, target_date, proxy_ann_vol) if far_fut else (0.0, 0.0)
+            atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, ref_price, near_fut.expiry_date, target_date, proxy_ann_vol)
+            atm_iv_next, _ = self.calculate_iv_and_skew(next_opts, ref_price, next_fut.expiry_date, target_date, proxy_ann_vol) if next_fut else (0.0, 0.0)
+            _, skew_far = self.calculate_iv_and_skew(far_opts, ref_price, far_fut.expiry_date, target_date, proxy_ann_vol) if far_fut else (0.0, 0.0)
 
             # Other Metrics
             mwpl_arr = self._get_mwpl_array(target_date, symbol)
@@ -570,6 +581,15 @@ class MorningReportCalculator:
             record.close_price = self._safe_float(near_fut.close_price)
             record.eq_close_price = self._safe_float(cash_close)
             record.vwap = self._safe_float(eq_record.avg_price if eq_record and hasattr(eq_record, 'avg_price') else 0.0)
+            record.total_eq_volume = self._safe_float(eq_record.total_traded_qty if eq_record and hasattr(eq_record, 'total_traded_qty') else 0)
+
+            # Fetch delivery percentage for the day
+            mto_record = self.db.query(MTODelivery).filter(
+                MTODelivery.trade_date == target_date,
+                MTODelivery.security_name.in_([symbol, getattr(eq_record, 'series', '')])
+            ).first()
+            record.delivery_pct = self._safe_float(mto_record.delivery_to_traded_pct if mto_record else 0.0)
+
             record.futures_total_vol = self._safe_float(total_vol)
             record.futures_total_oi = self._safe_float(total_oi)
             record.pcr_oi = self._safe_float(pcr_oi)
@@ -581,8 +601,8 @@ class MorningReportCalculator:
             record.highest_oi_ce_oi = self._safe_float(highest_ce_oi)
             record.atm_straddle_near_month = self._safe_float(atm_straddle_near_month)
             record.atm_straddle_weekly_nifty = self._safe_float(atm_straddle_weekly_nifty)
-            record.pct_away_highest_pe = self._safe_float(((highest_pe_strike - cash_close) / cash_close) * 100 if highest_pe_strike and cash_close else None)
-            record.pct_away_highest_ce = self._safe_float(((highest_ce_strike - cash_close) / cash_close) * 100 if highest_ce_strike and cash_close else None)
+            record.pct_away_highest_pe = self._safe_float(((highest_pe_strike - ref_price) / ref_price) * 100 if highest_pe_strike and ref_price else None)
+            record.pct_away_highest_ce = self._safe_float(((highest_ce_strike - ref_price) / ref_price) * 100 if highest_ce_strike and ref_price else None)
             record.chg_oi_options = self._safe_float(chg_oi_opts)
             record.chg_oi_futures = self._safe_float(chg_oi_futs)
             record.near_expiry_date = near_fut.expiry_date if near_fut else None
