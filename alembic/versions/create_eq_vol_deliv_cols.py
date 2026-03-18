@@ -1,10 +1,10 @@
-\"\"\"add eq_volume and delivery_pct columns
+"""add eq_volume and delivery_pct columns
 
 Revision ID: 5218b0821c97
 Revises: create_highest_oi_cols
 Create Date: 2026-03-18 10:15:00.000000
 
-\"\"\"
+"""
 from typing import Sequence, Union
 
 from alembic import op
