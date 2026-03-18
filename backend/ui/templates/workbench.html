@@ -1442,6 +1442,8 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="historical_index_data"> Historical Index Data</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="corporate_actions"> Corporate Actions</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="board_meetings"> Board Meetings</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
@@ -1472,6 +1474,8 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="historical_index_data"> Historical Index Data</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="corporate_actions"> Corporate Actions</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="board_meetings"> Board Meetings</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
@@ -3189,54 +3193,71 @@ async function loadDividendsData() {
     try {
         const endDate = new Date().toISOString().split('T')[0];
 
-        // Use proxy for raw latest corporate actions mapped with regex to support DB-less operation initially
-        const resActions = await fetch(`/api/proxy/corporate-actions`);
-        const dataActions = await resActions.json();
+        // Try fetching from our database first to support full history
+        let dbActionsRes = await fetch(`/api/data/view?type=corporate_actions&start_date=2000-01-01&end_date=${endDate}`);
+        let dbActions = await dbActionsRes.json();
 
-        const actionsList = Array.isArray(dataActions) ? dataActions : (dataActions.data || []);
-        if (actionsList.length > 0) {
-            // Replicate map logic on client to ensure display works even if import task hasn't run
-            divRawData = actionsList.map(d => {
-                let amount = null;
-                let type = 'Final';
-                let p = (d.purpose || '').toLowerCase();
+        if (dbActions.data && dbActions.data.length > 0) {
+             divRawData = dbActions.data.filter(d => d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined);
+             divRawData.sort((a, b) => new Date(b.ex_date || b.date) - new Date(a.ex_date || a.date));
+        } else {
+            // Use proxy for raw latest corporate actions mapped with regex to support DB-less operation initially
+            const resActions = await fetch(`/api/proxy/corporate-actions`);
+            const dataActions = await resActions.json();
 
-                if (p.includes('dividend')) {
-                    type = p.includes('interim') ? 'Interim' : (p.includes('special') ? 'Special' : 'Final');
-                    const rsMatch = p.match(/rs\.?\s*(\d+(?:\.\d+)?)/);
-                    if (rsMatch) amount = parseFloat(rsMatch[1]);
-                    else {
-                        const pctMatch = p.match(/(\d+(?:\.\d+)?)\s*%/);
-                        if (pctMatch && d.faceVal) {
-                            amount = (parseFloat(pctMatch[1]) / 100.0) * parseFloat(d.faceVal);
+            const actionsList = Array.isArray(dataActions) ? dataActions : (dataActions.data || []);
+            if (actionsList.length > 0) {
+                // Replicate map logic on client to ensure display works even if import task hasn't run
+                divRawData = actionsList.map(d => {
+                    let amount = null;
+                    let type = 'Final';
+                    let p = (d.purpose || '').toLowerCase();
+
+                    if (p.includes('dividend')) {
+                        type = p.includes('interim') ? 'Interim' : (p.includes('special') ? 'Special' : 'Final');
+                        const rsMatch = p.match(/rs\.?\s*(\d+(?:\.\d+)?)/);
+                        if (rsMatch) amount = parseFloat(rsMatch[1]);
+                        else {
+                            const pctMatch = p.match(/(\d+(?:\.\d+)?)\s*%/);
+                            if (pctMatch && d.faceVal) {
+                                amount = (parseFloat(pctMatch[1]) / 100.0) * parseFloat(d.faceVal);
+                            }
                         }
                     }
-                }
-                return {
-                    ex_date: d.exDate,
-                    symbol: d.symbol,
-                    parsed_dividend_amount: amount,
-                    dividend_type: type,
-                    face_value: d.faceVal,
-                    purpose: d.purpose,
-                    record_date: d.recordDate
-                };
-            }).filter(d => d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined);
+                    return {
+                        ex_date: d.exDate,
+                        symbol: d.symbol,
+                        parsed_dividend_amount: amount,
+                        dividend_type: type,
+                        face_value: d.faceVal,
+                        purpose: d.purpose,
+                        record_date: d.recordDate
+                    };
+                }).filter(d => d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined);
 
-            divRawData.sort((a, b) => new Date(b.ex_date || 0) - new Date(a.ex_date || 0));
+                divRawData.sort((a, b) => new Date(b.ex_date || 0) - new Date(a.ex_date || 0));
+            }
         }
 
-        const resMeetings = await fetch(`/api/proxy/board-meetings`);
-        const dataMeetings = await resMeetings.json();
+        let dbMeetingsRes = await fetch(`/api/data/view?type=board_meetings&start_date=2000-01-01&end_date=${endDate}`);
+        let dbMeetings = await dbMeetingsRes.json();
 
-        const meetingsList = Array.isArray(dataMeetings) ? dataMeetings : (dataMeetings.data || []);
-        if (meetingsList.length > 0) {
-            divMeetingsData = meetingsList.map(d => ({
-                meeting_date: d.boardMeetingDate,
-                symbol: d.symbol,
-                purpose: d.purpose
-            }));
-            divMeetingsData.sort((a, b) => new Date(b.meeting_date || 0) - new Date(a.meeting_date || 0));
+        if (dbMeetings.data && dbMeetings.data.length > 0) {
+             divMeetingsData = dbMeetings.data;
+             divMeetingsData.sort((a, b) => new Date(b.meeting_date || b.date) - new Date(a.meeting_date || a.date));
+        } else {
+            const resMeetings = await fetch(`/api/proxy/board-meetings`);
+            const dataMeetings = await resMeetings.json();
+
+            const meetingsList = Array.isArray(dataMeetings) ? dataMeetings : (dataMeetings.data || []);
+            if (meetingsList.length > 0) {
+                divMeetingsData = meetingsList.map(d => ({
+                    meeting_date: d.boardMeetingDate,
+                    symbol: d.symbol,
+                    purpose: d.purpose
+                }));
+                divMeetingsData.sort((a, b) => new Date(b.meeting_date || 0) - new Date(a.meeting_date || 0));
+            }
         }
 
         renderDividendsData();
