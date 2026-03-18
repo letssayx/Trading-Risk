@@ -588,7 +588,7 @@ class MorningReportCalculator:
                 MTODelivery.trade_date == target_date,
                 MTODelivery.security_name.in_([symbol, getattr(eq_record, 'series', '')])
             ).first()
-            record.delivery_pct = self._safe_float(mto_record.delivery_to_traded_pct if mto_record else 0.0)
+            record.delivery_pct = self._safe_float(mto_record.deliverable_pct if mto_record else 0.0)
 
             record.futures_total_vol = self._safe_float(total_vol)
             record.futures_total_oi = self._safe_float(total_oi)
