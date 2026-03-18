@@ -86,6 +86,7 @@ class NSEDataImporter:
             'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
             'margin_trading': ['date', 'symbol'],
             'corporate_actions': ['date', 'symbol', 'purpose'],
+            'board_meetings': ['date', 'symbol', 'purpose'],
             'fii_dii_cash': ['trade_date', 'category'],
             'historical_index_data': ['trade_date', 'index_name'],
         }

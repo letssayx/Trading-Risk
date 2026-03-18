@@ -250,11 +250,40 @@ class FieldMapper:
         return records
 
     @classmethod
+    def _parse_dividend(cls, purpose: str, face_value: Optional[float]) -> tuple[Optional[float], Optional[str]]:
+        if not purpose:
+            return None, None
+
+        purpose_lower = purpose.lower()
+        if 'dividend' not in purpose_lower:
+            return None, None
+
+        import re
+        dividend_type = 'Interim' if 'interim' in purpose_lower else 'Special' if 'special' in purpose_lower else 'Final'
+
+        # Try Rs format: "Dividend - Rs 5 Per Share"
+        rs_match = re.search(r'rs\.?\s*(\d+(?:\.\d+)?)', purpose_lower)
+        if rs_match:
+            return float(rs_match.group(1)), dividend_type
+
+        # Try percentage format: "Dividend - 50%"
+        pct_match = re.search(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
+        if pct_match and face_value:
+            pct = float(pct_match.group(1))
+            return (pct / 100.0) * face_value, dividend_type
+
+        return None, dividend_type
+
+    @classmethod
     def _map_corporate_actions(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
         # Columns usually: SYMBOL, COMPANY NAME, SERIES, PURPOSE, FACE VALUE, EX-DATE, RECORD DATE, BC START DATE, BC END DATE, ND START DATE, ND END DATE
         for _, row in df.iterrows():
             ex_date_val = parse_nse_date(cls._get_val(row, ['Ex-Date', 'EX-DATE']))
+            purpose = str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip()
+            face_value = cls._clean_numeric(cls._get_val(row, ['FACE VALUE', 'Face Value']))
+
+            parsed_div_amount, div_type = cls._parse_dividend(purpose, face_value)
 
             record = {
                 'date': ex_date_val or trade_date,
@@ -262,13 +291,15 @@ class FieldMapper:
                 'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip(),
                 'company_name': str(cls._get_val(row, ['COMPANY NAME', 'Company Name']) or '').strip(),
                 'series': str(cls._get_val(row, ['SERIES', 'Series']) or '').strip(),
-                'face_value': cls._clean_numeric(cls._get_val(row, ['FACE VALUE', 'Face Value'])),
-                'purpose': str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip(),
+                'face_value': face_value,
+                'purpose': purpose,
                 'record_date': parse_nse_date(cls._get_val(row, ['RECORD DATE', 'Record Date'])),
-                'bc_start_date': parse_nse_date(cls._get_val(row, ['BC START DATE', 'BC Start Date'])),
-                'bc_end_date': parse_nse_date(cls._get_val(row, ['BC END DATE', 'BC End Date'])),
+                'bc_start_date': parse_nse_date(cls._get_val(row, ['BC START DATE', 'BC Start Date', 'BOOK CLOSURE START DATE'])),
+                'bc_end_date': parse_nse_date(cls._get_val(row, ['BC END DATE', 'BC End Date', 'BOOK CLOSURE END DATE'])),
                 'nd_start_date': parse_nse_date(cls._get_val(row, ['ND START DATE', 'ND Start Date'])),
                 'nd_end_date': parse_nse_date(cls._get_val(row, ['ND END DATE', 'ND End Date'])),
+                'parsed_dividend_amount': parsed_div_amount,
+                'dividend_type': div_type,
             }
             if record['symbol'] and record['date']:
                 records.append(record)
