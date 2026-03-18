@@ -149,6 +149,10 @@ class FieldMapper:
         if 'QUANTITY FUNDED' in upper_cols:
              return {'type': 'margin_trading', 'name': 'margin_trading'}
 
+        # Corporate Actions
+        if 'PURPOSE' in upper_cols and 'FACE VALUE' in upper_cols:
+             return {'type': 'corporate_actions', 'name': 'corporate_actions'}
+
         # FII/DII Cash
         if 'CATEGORY' in upper_cols and 'BUY_VALUE' in upper_cols and 'SELL_VALUE' in upper_cols:
             return {'type': 'fii_dii_cash', 'name': 'fii_dii_cash'}

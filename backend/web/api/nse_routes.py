@@ -116,10 +116,16 @@ async def cancel_import_task(task_id: str):
     Cancel/Revoke a running Celery import task.
     """
     try:
+        import redis
+        import os
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        r.setex(f"cancel_task_{task_id}", 3600, "1")  # Expire after 1 hour
+
         from backend.celery_worker import app as celery_app
         # terminate=True forces the worker to kill the task immediately (SIGTERM)
         celery_app.control.revoke(task_id, terminate=True)
-        return {"success": True, "message": f"Task {task_id} cancelled"}
+        return {"success": True, "message": f"Task {task_id} cancellation requested"}
     except Exception as e:
         logger.error(f"Failed to cancel task {task_id}: {e}")
         raise HTTPException(status_code=500, detail={"message": "Failed to cancel task", "error": str(e)})

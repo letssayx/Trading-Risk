@@ -403,6 +403,7 @@
                         <div class="wb-tab" id="div-tab-btn-meetings" onclick="switchDividendsTab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Board Meetings</div>
                     </div>
                     <div style="display: flex; gap: 10px;">
+                        <button onclick="loadDividendsData()" class="import-btn" style="background-color: #28a745;"><i class="fas fa-sync"></i> Load Data</button>
                         <button onclick="downloadDividendsCSV()" class="import-btn" style="background-color: #007bff;"><i class="fas fa-download"></i> Download CSV</button>
                     </div>
                 </div>
@@ -1448,8 +1449,8 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="historical_index_data"> Historical Index Data</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="corporate_actions"> Corporate Actions</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="board_meetings"> Board Meetings</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="corporate_actions" id="latest-ca-cb"> Corporate Actions</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="board_meetings" id="latest-bm-cb"> Board Meetings</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
@@ -1480,8 +1481,8 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="historical_index_data"> Historical Index Data</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="corporate_actions"> Corporate Actions</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="board_meetings"> Board Meetings</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="corporate_actions" id="range-ca-cb"> Corporate Actions</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="board_meetings" id="range-bm-cb"> Board Meetings</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
@@ -3481,4 +3482,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen for resize
     window.addEventListener('resize', () => { if (echartInstance) echartInstance.resize(); });
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Link Latest Checkboxes
+        let latestCa = document.getElementById("latest-ca-cb");
+        let latestBm = document.getElementById("latest-bm-cb");
+        if (latestCa && latestBm) {
+            latestCa.addEventListener("change", function() { latestBm.checked = this.checked; });
+            latestBm.addEventListener("change", function() { latestCa.checked = this.checked; });
+        }
+
+        // Link Range Checkboxes
+        let rangeCa = document.getElementById("range-ca-cb");
+        let rangeBm = document.getElementById("range-bm-cb");
+        if (rangeCa && rangeBm) {
+            rangeCa.addEventListener("change", function() { rangeBm.checked = this.checked; });
+            rangeBm.addEventListener("change", function() { rangeCa.checked = this.checked; });
+        }
+    });
 </script>

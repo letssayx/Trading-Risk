@@ -8,8 +8,18 @@ from backend.ingest.nse_importer import NSEDataImporter
 from backend.ingest.date_utils import NSEHolidayCalendar
 from backend.ingest.nse_models import ImportLog
 from backend.infrastructure.db import SessionLocal
+import redis
+import os
 
 logger = get_task_logger(__name__)
+
+def check_cancel_flag(task_id: str) -> bool:
+    try:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        return r.exists(f"cancel_task_{task_id}") > 0
+    except Exception:
+        return False
 
 # Use shared_task decorator for integration with main Celery app
 @shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_date')
@@ -20,6 +30,9 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
     def progress_callback(progress_dict: dict):
         self.update_state(state='PROGRESS', meta=progress_dict)
         logger.info(f"Task Progress: {progress_dict}")
+
+    def is_cancelled():
+        return check_cancel_flag(self.request.id)
 
     try:
         if isinstance(date_str, str):
@@ -33,8 +46,12 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
             trade_date,
             patterns=patterns,
             force=force,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            check_cancel=is_cancelled
         )
+        if result.get('status') == 'ABORTED':
+            self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+            return {"status": "ABORTED"}
         return result
 
     except Exception as exc:
@@ -92,6 +109,9 @@ def evaluate_ai_predictions(self):
 @shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
+    def is_cancelled():
+        return check_cancel_flag(self.request.id)
+
     try:
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
@@ -137,6 +157,11 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
             db.close()
 
         while current_date <= end_date:
+            if is_cancelled():
+                logger.info("Range import aborted by user request.")
+                self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+                return {"status": "ABORTED", 'range': f"{start_date_str} to {current_date.isoformat()}", 'results': results}
+
             if force or NSEHolidayCalendar.is_trading_day(current_date):
 
                 # OPTIMIZATION: Check if all requested patterns are already done for this date
@@ -172,7 +197,11 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                     })
 
                     # Import for this day (importer will still do file-level checks, but we saved task overhead if fully done)
-                    day_result = importer.import_date(current_date, patterns=patterns, force=force)
+                    day_result = importer.import_date(current_date, patterns=patterns, force=force, check_cancel=is_cancelled)
+                    if day_result.get('status') == 'ABORTED':
+                        self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+                        return {"status": "ABORTED", 'range': f"{start_date_str} to {current_date.isoformat()}", 'results': results}
+
                     results.append(day_result)
 
             current_date += timedelta(days=1)
@@ -197,6 +226,9 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
     def progress_callback(progress_dict: dict):
         self.update_state(state='PROGRESS', meta=progress_dict)
 
+    def is_cancelled():
+        return check_cancel_flag(self.request.id)
+
     try:
         importer = NSEDataImporter()
         # Find last trading day using IST
@@ -219,7 +251,11 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
             target_date = NSEHolidayCalendar.get_previous_trading_day(today)
 
         logger.info(f"Auto-importing for latest trading day: {target_date} (IST: {ist_now})")
-        return importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback)
+        result = importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback, check_cancel=is_cancelled)
+        if result.get('status') == 'ABORTED':
+            self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+            return {"status": "ABORTED"}
+        return result
 
     except Exception as exc:
         if self.request.retries >= self.max_retries:

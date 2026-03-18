@@ -262,7 +262,8 @@ class NSEDataImporter:
         return deduped_records
 
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
-                   force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
+                   force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None,
+                   check_cancel: Callable[[], bool] | None = None) -> dict[str, Any]:
         """Import all configured files for a given date."""
         if not force and not self.holidays.is_trading_day(trade_date):
             return {
@@ -292,6 +293,16 @@ class NSEDataImporter:
 
         try:
             for idx, key in enumerate(patterns_to_run):
+                if check_cancel and check_cancel():
+                    logger.info("Import aborted by user request.")
+                    return {
+                        'status': 'ABORTED',
+                        'date': trade_date.isoformat(),
+                        'files_processed': len(completed_files) + len(failed_files),
+                        'successful': len(completed_files),
+                        'details': results
+                    }
+
                 progress = {
                     'current_file': key,
                     'file_number': idx + 1,
