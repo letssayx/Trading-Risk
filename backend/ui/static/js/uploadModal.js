@@ -229,7 +229,16 @@ class NSEImporter {
         // Cancel Polling
         const btnCancel = document.getElementById('btn-cancel-polling');
         if (btnCancel) {
-            btnCancel.addEventListener('click', () => {
+            btnCancel.addEventListener('click', async () => {
+                const taskId = localStorage.getItem('activeImportTaskId');
+                if (taskId) {
+                    try {
+                        await fetch(`/api/v1/nse/ingest/import/cancel/${taskId}`, { method: 'POST' });
+                        console.log(`Sent cancel request for task ${taskId}`);
+                    } catch (e) {
+                        console.error("Failed to send cancel request", e);
+                    }
+                }
                 this.stopPolling();
                 if (this.progressArea) this.progressArea.style.display = 'none';
                 console.log("Manually stopped tracking task.");

@@ -249,6 +249,7 @@
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
+        <div class="main-tab" data-target="dividends" onclick="switchMainTab('dividends')" title="Alt+D"><u>D</u>ividends Data Bank</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
     </div>
@@ -392,6 +393,66 @@
         </div>
 
         <!-- TAB DERIVATIVES ANALYSIS -->
+
+        <!-- TAB DIVIDENDS DATA BANK -->
+        <div id="tab-dividends" class="main-tab-content">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px;">
+                        <div class="wb-tab active" id="div-tab-btn-actions" onclick="switchDividendsTab('actions')" style="padding: 6px 15px; border-radius: 4px;">Dividends</div>
+                        <div class="wb-tab" id="div-tab-btn-meetings" onclick="switchDividendsTab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Board Meetings</div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="downloadDividendsCSV()" class="import-btn" style="background-color: #007bff;"><i class="fas fa-download"></i> Download CSV</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;">
+                </div>
+
+                <!-- Dividends List -->
+                <div id="div-content-actions" class="div-tab-section active" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
+                        <table class="data-table" id="div-actions-table">
+                            <thead>
+                                <tr>
+                                    <th>Ex-Date</th>
+                                    <th>Symbol</th>
+                                    <th>Amount</th>
+                                    <th>Type</th>
+                                    <th>Face Value</th>
+                                    <th>Purpose</th>
+                                    <th>Record Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Content populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Board Meetings List -->
+                <div id="div-content-meetings" class="div-tab-section" style="flex: 1; overflow: hidden; display: none; flex-direction: column;">
+                    <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
+                        <table class="data-table" id="div-meetings-table">
+                            <thead>
+                                <tr>
+                                    <th>Meeting Date</th>
+                                    <th>Symbol</th>
+                                    <th>Purpose</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Content populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-derivatives" class="main-tab-content">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px;">
@@ -1387,6 +1448,8 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="historical_index_data"> Historical Index Data</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="corporate_actions"> Corporate Actions</label>
+                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="board_meetings"> Board Meetings</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
@@ -1417,6 +1480,8 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="pe_ratio_idx"> P/E Ratio (Indices)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="india_vix"> India VIX</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="historical_index_data"> Historical Index Data</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="corporate_actions"> Corporate Actions</label>
+                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="board_meetings"> Board Meetings</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
@@ -2118,6 +2183,9 @@
             if (tabName === 'corporate_actions' && caRawData.length === 0) {
                 // Initial load
                 switchCATab('actions');
+            }
+            if (tabName === 'dividends' && window.divRawData && window.divRawData.length === 0) {
+                if (typeof loadDividendsData === 'function') loadDividendsData();
             }
         };
 
@@ -3111,7 +3179,195 @@
              }, 2000);
         }
     </script>
+
+<script>
+// --- DIVIDENDS DATA BANK LOGIC ---
+let divRawData = [];
+let divMeetingsData = [];
+let currentDivTab = 'actions';
+
+function switchDividendsTab(tabId) {
+    document.querySelectorAll('[id^="div-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`div-tab-btn-${tabId}`).classList.add('active');
+
+    document.getElementById('div-content-actions').style.display = tabId === 'actions' ? 'flex' : 'none';
+    document.getElementById('div-content-meetings').style.display = tabId === 'meetings' ? 'flex' : 'none';
+    currentDivTab = tabId;
+}
+
+async function loadDividendsData() {
+    try {
+        const endDate = new Date().toISOString().split('T')[0];
+
+        // Try fetching from our database first to support full history
+        let dbActionsRes = await fetch(`/api/data/view?type=corporate_actions&start_date=2000-01-01&end_date=${endDate}`);
+        let dbActions = await dbActionsRes.json();
+
+        if (dbActions.data && dbActions.data.length > 0) {
+             divRawData = dbActions.data.filter(d => d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined);
+             divRawData.sort((a, b) => new Date(b.ex_date || b.date) - new Date(a.ex_date || a.date));
+        } else {
+            // Use proxy for raw latest corporate actions mapped with regex to support DB-less operation initially
+            const resActions = await fetch(`/api/proxy/corporate-actions`);
+            const dataActions = await resActions.json();
+
+            const actionsList = Array.isArray(dataActions) ? dataActions : (dataActions.data || []);
+            if (actionsList.length > 0) {
+                // Replicate map logic on client to ensure display works even if import task hasn't run
+                divRawData = actionsList.map(d => {
+                    let amount = null;
+                    let type = 'Final';
+                    let p = (d.purpose || '').toLowerCase();
+
+                    if (p.includes('dividend')) {
+                        type = p.includes('interim') ? 'Interim' : (p.includes('special') ? 'Special' : 'Final');
+                        const rsMatch = p.match(/rs\.?\s*(\d+(?:\.\d+)?)/);
+                        if (rsMatch) amount = parseFloat(rsMatch[1]);
+                        else {
+                            const pctMatch = p.match(/(\d+(?:\.\d+)?)\s*%/);
+                            if (pctMatch && d.faceVal) {
+                                amount = (parseFloat(pctMatch[1]) / 100.0) * parseFloat(d.faceVal);
+                            }
+                        }
+                    }
+                    return {
+                        ex_date: d.exDate,
+                        symbol: d.symbol,
+                        parsed_dividend_amount: amount,
+                        dividend_type: type,
+                        face_value: d.faceVal,
+                        purpose: d.purpose,
+                        record_date: d.recordDate
+                    };
+                }).filter(d => d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined);
+
+                divRawData.sort((a, b) => new Date(b.ex_date || 0) - new Date(a.ex_date || 0));
+            }
+        }
+
+        let dbMeetingsRes = await fetch(`/api/data/view?type=board_meetings&start_date=2000-01-01&end_date=${endDate}`);
+        let dbMeetings = await dbMeetingsRes.json();
+
+        if (dbMeetings.data && dbMeetings.data.length > 0) {
+             divMeetingsData = dbMeetings.data;
+             divMeetingsData.sort((a, b) => new Date(b.meeting_date || b.date) - new Date(a.meeting_date || a.date));
+        } else {
+            const resMeetings = await fetch(`/api/proxy/board-meetings`);
+            const dataMeetings = await resMeetings.json();
+
+            const meetingsList = Array.isArray(dataMeetings) ? dataMeetings : (dataMeetings.data || []);
+            if (meetingsList.length > 0) {
+                divMeetingsData = meetingsList.map(d => ({
+                    meeting_date: d.boardMeetingDate,
+                    symbol: d.symbol,
+                    purpose: d.purpose
+                }));
+                divMeetingsData.sort((a, b) => new Date(b.meeting_date || 0) - new Date(a.meeting_date || 0));
+            }
+        }
+
+        renderDividendsData();
+    } catch(err) {
+        console.error("Error loading dividends data", err);
+    }
+}
+
+function renderDividendsData() {
+    const searchInput = document.getElementById('div-symbol-search');
+    const searchFilter = searchInput ? searchInput.value.toUpperCase() : '';
+
+    // Actions Table
+    const tbodyActions = document.querySelector('#div-actions-table tbody');
+    if (tbodyActions) {
+        tbodyActions.innerHTML = '';
+        const filteredActions = divRawData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
+
+        filteredActions.forEach(d => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${d.ex_date ? d.ex_date.split('T')[0] : '-'}</td>
+                <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
+                <td style="color: #4CAF50; font-weight:bold;">₹${d.parsed_dividend_amount ? Number(d.parsed_dividend_amount).toFixed(2) : '-'}</td>
+                <td><span style="background: ${d.dividend_type==='Interim'?'#eab308':(d.dividend_type==='Special'?'#8b5cf6':'#10b981')}; color:#fff; padding: 2px 6px; border-radius:3px; font-size:0.8em;">${d.dividend_type || '-'}</span></td>
+                <td>${d.face_value || '-'}</td>
+                <td style="white-space: normal; max-width: 300px;">${d.purpose || '-'}</td>
+                <td>${d.record_date ? d.record_date.split('T')[0] : '-'}</td>
+            `;
+            tbodyActions.appendChild(tr);
+        });
+    }
+
+    // Meetings Table
+    const tbodyMeetings = document.querySelector('#div-meetings-table tbody');
+    if (tbodyMeetings) {
+        tbodyMeetings.innerHTML = '';
+        const filteredMeetings = divMeetingsData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
+
+        filteredMeetings.forEach(d => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${d.meeting_date ? d.meeting_date.split('T')[0] : '-'}</td>
+                <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
+                <td style="white-space: normal; max-width: 400px;">${d.purpose || '-'}</td>
+            `;
+            tbodyMeetings.appendChild(tr);
+        });
+    }
+}
+
+function downloadDividendsCSV() {
+    let dataToExport = currentDivTab === 'actions' ? divRawData : divMeetingsData;
+    let filename = currentDivTab === 'actions' ? 'dividend_history.csv' : 'board_meetings.csv';
+
+    const searchInput = document.getElementById('div-symbol-search');
+    const searchFilter = searchInput ? searchInput.value.toUpperCase() : '';
+
+    if (searchFilter) {
+        dataToExport = dataToExport.filter(d => d.symbol && d.symbol.toUpperCase().includes(searchFilter));
+        filename = `${searchFilter}_${filename}`;
+    }
+
+    if (!dataToExport || dataToExport.length === 0) {
+        alert("No data available to export.");
+        return;
+    }
+
+    const keys = Object.keys(dataToExport[0]);
+    const csvRows = [];
+    csvRows.push(keys.join(','));
+
+    for (const row of dataToExport) {
+        const values = keys.map(k => {
+            let val = row[k] === null || row[k] === undefined ? '' : row[k];
+            if (typeof val === 'string') {
+                val = val.replace(/"/g, '""');
+                if (val.search(/("|,|\n)/g) >= 0) {
+                    val = `"${val}"`;
+                }
+            }
+            return val;
+        });
+        csvRows.push(values.join(','));
+    }
+
+    const csvData = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const csvUrl = URL.createObjectURL(csvData);
+    const hiddenElement = document.createElement('a');
+    hiddenElement.href = csvUrl;
+    hiddenElement.target = '_blank';
+    hiddenElement.download = filename;
+    hiddenElement.click();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('div-symbol-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', renderDividendsData);
+    }
+});
+</script>
 </body>
+
 </html>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>

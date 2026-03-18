@@ -110,6 +110,20 @@ async def get_import_status(task_id: str):
         logger.error(f"Failed to get task status: {e}")
         raise HTTPException(status_code=500, detail={"message": "Failed to get status", "error": str(e)})
 
+@router.post("/ingest/import/cancel/{task_id}")
+async def cancel_import_task(task_id: str):
+    """
+    Cancel/Revoke a running Celery import task.
+    """
+    try:
+        from backend.celery_worker import app as celery_app
+        # terminate=True forces the worker to kill the task immediately (SIGTERM)
+        celery_app.control.revoke(task_id, terminate=True)
+        return {"success": True, "message": f"Task {task_id} cancelled"}
+    except Exception as e:
+        logger.error(f"Failed to cancel task {task_id}: {e}")
+        raise HTTPException(status_code=500, detail={"message": "Failed to cancel task", "error": str(e)})
+
 @router.post("/ingest/import", response_model=dict[str, Any])
 async def trigger_import(
     request: NSEImportRequest,

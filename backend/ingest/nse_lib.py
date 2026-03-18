@@ -494,16 +494,12 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            # We don't have a specific parse_fo_volatility, but parse_pe_ratio just does read_csv and strips columns.
-            # Using parse_pe_ratio for generic CSV parsing is risky if logic changes.
-            # But the bug was FOVOLT data being returned when mapped to models.FOVolatility
-            # (which is fine, if FOVolatility handles it). But we'll just return it using standard CSV reading.
             try:
                 df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-                df.columns = [c.strip() for c in df.columns]
+                df.columns = [str(c).strip().upper() for c in df.columns]
                 return df
             except Exception as e:
-                logger.error(f"FO Volatility parse error: {e}")
+                logger.error(f"Corporate Actions parse error: {e}")
         return pd.DataFrame()
 
     def get_contract_delta(self, trade_date: date) -> pd.DataFrame:
