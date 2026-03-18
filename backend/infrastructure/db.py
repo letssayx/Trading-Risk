@@ -11,14 +11,20 @@ load_dotenv()
 # Default to postgresql local dev if not set
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://jules@localhost/turtle_terminal")
 
-# Add standard connection pooling settings to prevent blocking
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=20,          # Allow 20 concurrent connections
-    max_overflow=10,       # Allow 10 extra temporary connections during bursts
-    pool_timeout=30,       # Time out and drop requests if a connection isn't available after 30s
-    pool_recycle=1800      # Recycle connections after 30 minutes to prevent stale backend states
-)
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+else:
+    # Add standard connection pooling settings to prevent blocking
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=20,          # Allow 20 concurrent connections
+        max_overflow=10,       # Allow 10 extra temporary connections during bursts
+        pool_timeout=30,       # Time out and drop requests if a connection isn't available after 30s
+        pool_recycle=1800      # Recycle connections after 30 minutes to prevent stale backend states
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
