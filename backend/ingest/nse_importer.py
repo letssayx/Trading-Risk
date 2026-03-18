@@ -63,6 +63,8 @@ class NSEDataImporter:
         }
         if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
             return getattr(models, 'CorporateAction')
+        if key == 'board_meetings' and hasattr(models, 'BoardMeeting'):
+            return getattr(models, 'BoardMeeting')
 
         return mapping.get(key)
 
@@ -182,6 +184,8 @@ class NSEDataImporter:
             return self.lib.get_margin_trading(trade_date)
         elif key == 'corporate_actions':
             return self.lib.get_corporate_actions(trade_date)
+        elif key == 'board_meetings':
+            return self.lib.get_board_meetings(trade_date)
         elif key == 'historical_index_data':
             return self.lib.get_historical_index_data(trade_date)
 

@@ -3205,7 +3205,8 @@ async function loadDividendsData() {
         let dbActions = await dbActionsRes.json();
 
         if (dbActions.data && dbActions.data.length > 0) {
-             divRawData = dbActions.data.filter(d => d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined);
+             // Now include Bonus and Split
+             divRawData = dbActions.data.filter(d => (d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined) || d.dividend_type === 'Bonus' || d.dividend_type === 'Split');
              divRawData.sort((a, b) => new Date(b.ex_date || b.date) - new Date(a.ex_date || a.date));
         } else {
             // Use proxy for raw latest corporate actions mapped with regex to support DB-less operation initially
@@ -3220,7 +3221,11 @@ async function loadDividendsData() {
                     let type = 'Final';
                     let p = (d.purpose || '').toLowerCase();
 
-                    if (p.includes('dividend')) {
+                    if (p.includes('bonus')) {
+                        type = 'Bonus';
+                    } else if (p.includes('split') || p.includes('sub-division') || p.includes('sub division')) {
+                        type = 'Split';
+                    } else if (p.includes('dividend')) {
                         type = p.includes('interim') ? 'Interim' : (p.includes('special') ? 'Special' : 'Final');
                         const rsMatch = p.match(/rs\.?\s*(\d+(?:\.\d+)?)/);
                         if (rsMatch) amount = parseFloat(rsMatch[1]);
@@ -3240,7 +3245,7 @@ async function loadDividendsData() {
                         purpose: d.purpose,
                         record_date: d.recordDate
                     };
-                }).filter(d => d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined);
+                }).filter(d => (d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined) || d.dividend_type === 'Bonus' || d.dividend_type === 'Split');
 
                 divRawData.sort((a, b) => new Date(b.ex_date || 0) - new Date(a.ex_date || 0));
             }
@@ -3285,11 +3290,19 @@ function renderDividendsData() {
 
         filteredActions.forEach(d => {
             const tr = document.createElement('tr');
+            let color = '#10b981';
+            if (d.dividend_type === 'Interim') color = '#eab308';
+            else if (d.dividend_type === 'Special') color = '#8b5cf6';
+            else if (d.dividend_type === 'Bonus') color = '#ec4899';
+            else if (d.dividend_type === 'Split') color = '#3b82f6';
+
+            let amountDisp = d.parsed_dividend_amount ? '₹' + Number(d.parsed_dividend_amount).toFixed(2) : '-';
+
             tr.innerHTML = `
                 <td>${d.ex_date ? d.ex_date.split('T')[0] : '-'}</td>
                 <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
-                <td style="color: #4CAF50; font-weight:bold;">₹${d.parsed_dividend_amount ? Number(d.parsed_dividend_amount).toFixed(2) : '-'}</td>
-                <td><span style="background: ${d.dividend_type==='Interim'?'#eab308':(d.dividend_type==='Special'?'#8b5cf6':'#10b981')}; color:#fff; padding: 2px 6px; border-radius:3px; font-size:0.8em;">${d.dividend_type || '-'}</span></td>
+                <td style="color: #4CAF50; font-weight:bold;">${amountDisp}</td>
+                <td><span style="background: ${color}; color:#fff; padding: 2px 6px; border-radius:3px; font-size:0.8em;">${d.dividend_type || '-'}</span></td>
                 <td>${d.face_value || '-'}</td>
                 <td style="white-space: normal; max-width: 300px;">${d.purpose || '-'}</td>
                 <td>${d.record_date ? d.record_date.split('T')[0] : '-'}</td>

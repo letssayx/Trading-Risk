@@ -436,6 +436,22 @@ class CorporateAction(Base, TimescaleMixin):
         UniqueConstraint('date', 'symbol', 'purpose', name='uq_corp_action_unique'),
     )
 
+class BoardMeeting(Base, TimescaleMixin):
+    """Board Meetings for Equities"""
+    __tablename__ = "board_meetings"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True) # Renamed from bm_date for Timescale consistency
+    symbol = Column(String(50), nullable=False, index=True)
+    company_name = Column(String(200))
+    purpose = Column(Text)
+    bm_desc = Column(Text)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('date', 'symbol', 'purpose', name='uq_board_meeting_unique'),
+    )
+
 
 class DailyDerivativesAnalysis(Base, TimescaleMixin):
     """Composite Daily Derivatives Analysis"""

@@ -232,6 +232,16 @@ class NSELib:
             logger.error(f"Corporate Actions parse error: {e}")
             return pd.DataFrame()
 
+    def parse_board_meetings(self, content: bytes) -> pd.DataFrame:
+        """Parse Board Meetings CSV content."""
+        try:
+            df = pd.read_csv(io.BytesIO(content), low_memory=False)
+            df.columns = [c.strip() for c in df.columns]
+            return df
+        except Exception as e:
+            logger.error(f"Board Meetings parse error: {e}")
+            return pd.DataFrame()
+
     def get_bhavcopy_eq(self, trade_date: date) -> pd.DataFrame:
         """Get CM Bhavcopy (Equity) - Uses sec_bhavdata_full for delivery info."""
         date_str = trade_date.strftime("%d%m%Y")
@@ -483,6 +493,21 @@ class NSELib:
                 return df
             except:
                 pass
+        return pd.DataFrame()
+
+    def get_board_meetings(self, trade_date: date) -> pd.DataFrame:
+        """Get Board Meetings."""
+        date_str = trade_date.strftime("%d-%m-%Y")
+        url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from={date_str}&to={date_str}&csv=true"
+
+        resp = self.get(url)
+        if resp.status_code == 200:
+            try:
+                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                df.columns = [str(c).strip().upper() for c in df.columns]
+                return df
+            except Exception as e:
+                logger.error(f"Board Meetings parse error: {e}")
         return pd.DataFrame()
 
     def get_corporate_actions(self, trade_date: date) -> pd.DataFrame:

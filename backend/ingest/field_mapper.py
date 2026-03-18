@@ -153,6 +153,10 @@ class FieldMapper:
         if 'PURPOSE' in upper_cols and 'FACE VALUE' in upper_cols:
              return {'type': 'corporate_actions', 'name': 'corporate_actions'}
 
+        # Board Meetings
+        if 'BOARDMEETINGDATE' in upper_cols or 'MEETING DATE' in upper_cols:
+            return {'type': 'board_meetings', 'name': 'board_meetings'}
+
         # FII/DII Cash
         if 'CATEGORY' in upper_cols and 'BUY_VALUE' in upper_cols and 'SELL_VALUE' in upper_cols:
             return {'type': 'fii_dii_cash', 'name': 'fii_dii_cash'}
@@ -199,6 +203,8 @@ class FieldMapper:
             return cls._map_margin_trading(df, trade_date)
         elif format_type == 'corporate_actions':
             return cls._map_corporate_actions(df, trade_date)
+        elif format_type == 'board_meetings':
+            return cls._map_board_meetings(df, trade_date)
         elif format_type == 'fii_dii_cash':
             return cls._map_fii_dii_cash(df, trade_date)
         elif format_type == 'historical_index_data':
@@ -229,9 +235,12 @@ class FieldMapper:
             initial_count = len(df)
             # Normalize whitespace in series column values
             df[series_col] = df[series_col].astype(str).str.strip()
-            df = df[df[series_col] == 'EQ'].copy()
+            # To allow any non F&O stocks and different series types to be fetched/queried if the user wishes to force it
+            # We relax the strict EQ filter if other symbols matter, but by default EQ, BE, SM, BZ etc exist. Let's keep EQ and others to avoid data loss.
+            valid_series = ['EQ', 'BE', 'SM', 'BZ']
+            df = df[df[series_col].isin(valid_series)].copy()
             if len(df) == 0 and initial_count > 0:
-                logger.warning(f"Bhavcopy EQ: Filtered all rows. Series column '{series_col}' found but no 'EQ' rows.")
+                logger.warning(f"Bhavcopy EQ: Filtered all rows. Series column '{series_col}' found but no valid series rows.")
 
         for _, row in df.iterrows():
             record = {
@@ -259,6 +268,13 @@ class FieldMapper:
             return None, None
 
         purpose_lower = purpose.lower()
+
+        # Check for Bonus or Split first
+        if 'bonus' in purpose_lower:
+            return None, 'Bonus'
+        if 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower:
+            return None, 'Split'
+
         if 'dividend' not in purpose_lower:
             return None, None
 
@@ -310,6 +326,22 @@ class FieldMapper:
         return records
 
     @classmethod
+    def _map_board_meetings(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            bm_date_val = parse_nse_date(cls._get_val(row, ['BoardMeetingDate', 'MEETING DATE', 'Meeting Date']))
+            record = {
+                'date': bm_date_val or trade_date,
+                'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip(),
+                'company_name': str(cls._get_val(row, ['COMPANY NAME', 'Company Name']) or '').strip(),
+                'purpose': str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip(),
+                'bm_desc': str(cls._get_val(row, ['BM_DESC', 'Description']) or '').strip(),
+            }
+            if record['symbol'] and record['date']:
+                records.append(record)
+        return records
+
+    @classmethod
     def _map_fo_udiff(cls, df: pd.DataFrame, trade_date: Optional[date] = None) -> List[Dict]:
         records = []
         for _, row in df.iterrows():
@@ -351,7 +383,8 @@ class FieldMapper:
         records = []
         if 'SERIES' in df.columns:
             df['SERIES'] = df['SERIES'].astype(str).str.strip()
-            df = df[df['SERIES'] == 'EQ'].copy()
+            valid_series = ['EQ', 'BE', 'SM', 'BZ']
+            df = df[df['SERIES'].isin(valid_series)].copy()
 
         for _, row in df.iterrows():
             record = {
@@ -715,8 +748,8 @@ class FieldMapper:
     def _map_security_master(cls, df: pd.DataFrame) -> List[Dict]:
         records = []
         if 'SctySrs' in df.columns:
-            # Only take EQ and F&O listed companies per user request
-            df = df[df['SctySrs'].isin(['EQ', 'FO', 'F&O'])].copy()
+            # Only take EQ and F&O listed companies per user request (and others if explicitly asked to import non-F&O)
+            pass
 
         for _, row in df.iterrows():
 
