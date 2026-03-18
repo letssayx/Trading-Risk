@@ -455,6 +455,7 @@
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
                         <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY">
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
+                        <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;">Clear (All Scrips)</button>
                         <button id="mr-export-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 10px;">Download CSV</button>
                     </div>
 
@@ -964,6 +965,11 @@
                 }
 
                 document.getElementById('mr-fetch-ts-btn').addEventListener('click', () => loadTimeseriesData(false));
+
+                document.getElementById('mr-clear-ts-btn').addEventListener('click', () => {
+                    document.getElementById('mr-symbol-input').value = '';
+                    loadTimeseriesData(true);
+                });
 
                 document.getElementById('mr-export-btn').addEventListener('click', async () => {
                     const btn = document.getElementById('mr-export-btn');

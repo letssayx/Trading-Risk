@@ -469,36 +469,28 @@ class MorningReportCalculator:
             next_opts = [o for o in all_opts if next_fut and o.expiry_date == next_fut.expiry_date]
             far_opts = [o for o in all_opts if far_fut and o.expiry_date == far_fut.expiry_date]
 
-            # Highest OI requires the actual specific contract (to get its premium and exact OI)
-            # Find the single contract with the highest OI across valid expiries for PE and CE
-            highest_pe_contract = None
-            highest_ce_contract = None
+            # Highest OI: Sum open_interest by strike across all valid options (excluding today's expiry).
+            # The true picture of support/resistance is the summation of OI across all active series for a strike.
 
-            # To calculate the highest OI strike properly, we should sum the OI across the near/next expiries per strike
-            # or simply find the contract with the absolute highest OI in the entire valid option chain.
-            # Usually, traders look at the near-month option chain. Let's filter to near month if possible.
-            oi_opts = near_opts if near_opts else valid_opts
+            pe_strike_oi_map = {}
+            ce_strike_oi_map = {}
 
-            highest_pe_contract = None
-            highest_ce_contract = None
+            for o in valid_opts:
+                if o.open_interest is not None:
+                    if o.option_type == 'PE':
+                        pe_strike_oi_map[o.strike_price] = pe_strike_oi_map.get(o.strike_price, 0) + o.open_interest
+                    elif o.option_type == 'CE':
+                        ce_strike_oi_map[o.strike_price] = ce_strike_oi_map.get(o.strike_price, 0) + o.open_interest
 
-            # Find the contract with the maximum OI in the chosen option chain
-            for o in oi_opts:
-                if o.option_type == 'PE':
-                    if highest_pe_contract is None or (o.open_interest and o.open_interest > highest_pe_contract.open_interest):
-                        highest_pe_contract = o
-                elif o.option_type == 'CE':
-                    if highest_ce_contract is None or (o.open_interest and o.open_interest > highest_ce_contract.open_interest):
-                        highest_ce_contract = o
+            highest_pe_strike = max(pe_strike_oi_map, key=pe_strike_oi_map.get) if pe_strike_oi_map else 0.0
+            highest_ce_strike = max(ce_strike_oi_map, key=ce_strike_oi_map.get) if ce_strike_oi_map else 0.0
 
-            highest_pe_strike = highest_pe_contract.strike_price if highest_pe_contract else 0.0
-            highest_ce_strike = highest_ce_contract.strike_price if highest_ce_contract else 0.0
+            highest_pe_oi = pe_strike_oi_map.get(highest_pe_strike, 0)
+            highest_ce_oi = ce_strike_oi_map.get(highest_ce_strike, 0)
 
-            highest_pe_value = highest_pe_contract.close_price if highest_pe_contract else 0.0
-            highest_ce_value = highest_ce_contract.close_price if highest_ce_contract else 0.0
-
-            highest_pe_oi = highest_pe_contract.open_interest if highest_pe_contract else 0
-            highest_ce_oi = highest_ce_contract.open_interest if highest_ce_contract else 0
+            # For premium (Highest OI Value), we look at the near month premium for that strike.
+            highest_pe_value = next((o.close_price for o in near_opts if o.strike_price == highest_pe_strike and o.option_type == 'PE'), 0.0)
+            highest_ce_value = next((o.close_price for o in near_opts if o.strike_price == highest_ce_strike and o.option_type == 'CE'), 0.0)
 
             chg_oi_opts = sum(o.change_in_oi for o in all_opts if o.change_in_oi is not None)
             chg_oi_futs = sum(f.change_in_oi for f in futs if f.change_in_oi is not None)
