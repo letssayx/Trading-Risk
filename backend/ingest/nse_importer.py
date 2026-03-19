@@ -226,8 +226,11 @@ class NSEDataImporter:
             logger.error(f"MTO Deduplication failed: {e}")
             return df
 
-    def _is_already_imported(self, db: Session, trade_date: date, key: str) -> bool:
+    def _is_already_imported(self, db: Session, trade_date: date, key: str, force: bool = False) -> bool:
         """Check if a file type for a date is already successfully imported with data."""
+        if force:
+            return False
+
         from sqlalchemy import or_
         exists = db.query(models.ImportLog).filter(
             models.ImportLog.import_date == trade_date,
@@ -279,7 +282,7 @@ class NSEDataImporter:
         available_keys = [
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
-            'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions',
+            'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions', 'board_meetings',
             'nse_security', 'fii_dii_cash', 'historical_index_data'
         ]
 
@@ -318,7 +321,7 @@ class NSEDataImporter:
                 if progress_callback: progress_callback(progress)
 
                 # SKIP CHECK: If not forced, check if already imported successfully
-                if not force and self._is_already_imported(db, trade_date, key):
+                if self._is_already_imported(db, trade_date, key, force=force):
                     logger.info(f"Skipping {key} for {trade_date} (Already Imported)")
                     results[key] = {'status': 'SKIPPED', 'reason': 'Already Imported'}
                     completed_files.append(key)

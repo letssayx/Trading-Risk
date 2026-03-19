@@ -136,26 +136,29 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         # We can do this efficiently by querying the ImportLog table
         db = SessionLocal()
         from sqlalchemy import or_
-        try:
-             # Find all successful imports in range for requested tables that ACTUALLY have data
-             completed_logs = db.query(ImportLog.import_date, ImportLog.table_name).filter(
-                 ImportLog.import_date >= start_date,
-                 ImportLog.import_date <= end_date,
-                 ImportLog.table_name.in_(target_patterns),
-                 ImportLog.status == 'SUCCESS',
-                 or_(ImportLog.rows_inserted > 0, ImportLog.rows_updated > 0)
-             ).all()
+        completed_map = {}
+        if not force:
+            try:
+                 # Find all successful imports in range for requested tables that ACTUALLY have data
+                 completed_logs = db.query(ImportLog.import_date, ImportLog.table_name).filter(
+                     ImportLog.import_date >= start_date,
+                     ImportLog.import_date <= end_date,
+                     ImportLog.table_name.in_(target_patterns),
+                     ImportLog.status == 'SUCCESS',
+                     or_(ImportLog.rows_inserted > 0, ImportLog.rows_updated > 0)
+                 ).all()
 
-             # Map date -> set of completed tables
-             completed_map = {}
-             for d, t in completed_logs:
-                 if d not in completed_map: completed_map[d] = set()
-                 completed_map[d].add(t)
+                 # Map date -> set of completed tables
+                 for d, t in completed_logs:
+                     if d not in completed_map: completed_map[d] = set()
+                     completed_map[d].add(t)
 
-        except Exception as e:
-            logger.warning(f"Optimization check failed: {e}. Proceeding with standard check.")
-            completed_map = {}
-        finally:
+            except Exception as e:
+                logger.warning(f"Optimization check failed: {e}. Proceeding with standard check.")
+                completed_map = {}
+            finally:
+                db.close()
+        else:
             db.close()
 
         while current_date <= end_date:
