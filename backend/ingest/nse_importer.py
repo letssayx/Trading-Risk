@@ -402,6 +402,10 @@ class NSEDataImporter:
             elif key == 'bhavcopy_fo':
                 if len(df.columns) > 5:
                     format_info = {'type': 'fo_udiff'}
+            elif key == 'board_meetings':
+                format_info = {'type': 'board_meetings'}
+            elif key == 'corporate_actions':
+                format_info = {'type': 'corporate_actions'}
 
         if format_info['type'] == 'unknown':
             cols = df.columns.tolist()[:10] # Log first 10 cols
