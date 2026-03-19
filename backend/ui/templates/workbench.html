@@ -3211,7 +3211,7 @@ async function loadDividendsData() {
         document.getElementById('div-meetings-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
 
         // Try fetching from our database first to support full history
-        let dbActionsRes = await fetch(`/api/data/view/list?type=corporate_actions&limit=1000${symbolQuery}`);
+        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend&limit=1000${symbolQuery}`);
         let dbActions = await dbActionsRes.json();
 
         if (dbActions.data && dbActions.data.length > 0) {
@@ -3262,7 +3262,7 @@ async function loadDividendsData() {
             }
         }
 
-        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meetings&limit=1000${symbolQuery}`);
+        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting&limit=1000${symbolQuery}`);
         let dbMeetings = await dbMeetingsRes.json();
 
         if (dbMeetings.data && dbMeetings.data.length > 0) {
