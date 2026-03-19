@@ -58,11 +58,9 @@ def get_model_for_type(data_type: str):
         'historical_index_data': models.HistoricalIndexData
     }
     # Safely get CorporateAction if it exists in models (may be unmerged)
-    if data_type == 'corporate_actions' and hasattr(models, 'CorporateAction'):
+    if data_type in ['corporate_actions', 'dividend'] and hasattr(models, 'CorporateAction'):
         return getattr(models, 'CorporateAction')
-    if data_type == 'dividend' and hasattr(models, 'Dividend'):
-        return getattr(models, 'Dividend')
-    if data_type == 'board_meeting' and hasattr(models, 'BoardMeeting'):
+    if data_type in ['board_meetings', 'board_meeting'] and hasattr(models, 'BoardMeeting'):
         return getattr(models, 'BoardMeeting')
 
     return mapping.get(data_type)
