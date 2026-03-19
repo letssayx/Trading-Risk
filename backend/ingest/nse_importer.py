@@ -435,7 +435,7 @@ class NSEDataImporter:
                 from backend.ingest.nse_models import BhavcopyFO
 
                 # Fetch distinct underlying symbols that traded in F&O recently or exist historically
-                valid_symbols = set([r[0] for r in db.query(BhavcopyFO.symbol).distinct().all()])
+                valid_symbols = set([r[0] for r in db.query(BhavcopyFO.ticker_symb).distinct().all()])
 
                 if specific_symbol:
                     valid_symbols.add(specific_symbol.upper().strip())
