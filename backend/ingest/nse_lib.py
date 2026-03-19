@@ -1,5 +1,6 @@
 """NSE Library Adapter - Re-implementation of nselib logic"""
 import requests
+from curl_cffi import requests as cffi_requests
 import pandas as pd
 import io
 import zipfile
@@ -36,7 +37,7 @@ class NSELib:
     DOWNLOAD_DIR = "backend/downloads" # Directory to check for local files
 
     def __init__(self):
-        self.session = requests.Session()
+        self.session = cffi_requests.Session(impersonate="chrome120")
         self.session.headers.update(self.HEADERS)
         self._cookies_primed = False
 
@@ -69,7 +70,7 @@ class NSELib:
 
         logger.error("Failed to prime NSE session after 3 attempts.")
 
-    def get(self, url: str) -> Optional[requests.Response]:
+    def get(self, url: str) -> Any:
         """Execute GET request with session handling."""
         self._ensure_session()
 
@@ -89,7 +90,7 @@ class NSELib:
                 resp = self.session.get(url, timeout=30)
 
             return resp
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             logger.error(f"Error executing GET {url}: {e}")
             return None
 
