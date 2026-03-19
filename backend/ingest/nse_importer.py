@@ -430,13 +430,12 @@ class NSEDataImporter:
         if key in ['corporate_actions', 'board_meetings'] and not include_non_fo:
             # Query the database for known F&O symbols to filter
             try:
-                from backend.ingest.nse_models import SecurityMaster
-                # Relaxing the FO only filter. We want FO but not all SecurityMaster entries may be tagged as FO properly.
-                # Let's query FO or EQ as a baseline to prevent over-filtering if DB is empty/incomplete.
-                from sqlalchemy import or_
-                valid_symbols = set([r[0] for r in db.query(SecurityMaster.ticker_symb).filter(
-                    or_(SecurityMaster.security_series == 'FO', SecurityMaster.security_series == 'EQ')
-                ).all()])
+                # Based on user instruction: Only symbols appearing in stock futures (F&O),
+                # or a specific single symbol if requested by the user. Let's keep it simple.
+                from backend.ingest.nse_models import BhavcopyFO
+
+                # Fetch distinct underlying symbols that traded in F&O recently or exist historically
+                valid_symbols = set([r[0] for r in db.query(BhavcopyFO.symbol).distinct().all()])
 
                 if specific_symbol:
                     valid_symbols.add(specific_symbol.upper().strip())
@@ -445,7 +444,7 @@ class NSEDataImporter:
                     # Filter records
                     original_count = len(records)
                     records = [r for r in records if r.get('symbol') in valid_symbols]
-                    logger.info(f"{key}: Filtered by SecurityMaster (FO/EQ). Original: {original_count}, Matched: {len(records)}")
+                    logger.info(f"{key}: Filtered by BhavcopyFO (F&O). Original: {original_count}, Matched: {len(records)}")
             except Exception as e:
                 logger.warning(f"Failed to fetch F&O universe for {key} filtering: {e}")
 
