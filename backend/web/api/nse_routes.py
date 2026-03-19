@@ -152,8 +152,8 @@ async def trigger_import_range(
     end_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
     patterns: list[str] | None = Query(None),
     force: bool = Query(False),
-    include_non_fo: bool = Query(False),
-    specific_symbol: str | None = Query(None)
+    include_non_fo: bool = Query(False), # Kept for signature backwards compatibility
+    specific_symbol: str | None = Query(None) # Kept for signature backwards compatibility
 ):
     """
     Trigger an async import for a date range.
@@ -169,8 +169,8 @@ async def trigger_import_range(
 async def trigger_import_latest(
     patterns: list[str] | None = Query(None),
     force: bool = Query(False),
-    include_non_fo: bool = Query(False),
-    specific_symbol: str | None = Query(None)
+    include_non_fo: bool = Query(False), # Kept for signature backwards compatibility
+    specific_symbol: str | None = Query(None) # Kept for signature backwards compatibility
 ):
     """
     Trigger an async import for the latest trading day.

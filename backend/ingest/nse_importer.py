@@ -433,32 +433,9 @@ class NSEDataImporter:
 
         records = FieldMapper.map_to_records(df, format_info, trade_date)
 
-        # F&O Filtering explicitly for Corporate Actions and Board Meetings
-        if key in ['corporate_actions', 'board_meetings'] and not include_non_fo:
-            # Query the database for known F&O symbols to filter
-            try:
-                # Based on user instruction: Only symbols appearing in stock futures (F&O),
-                # or a specific single symbol if requested by the user. Let's keep it simple.
-                from backend.ingest.nse_models import BhavcopyFO
-
-                # Fetch distinct underlying symbols that traded in F&O recently or exist historically
-                valid_symbols = set([r[0] for r in db.query(BhavcopyFO.ticker_symb).distinct().all()])
-
-                if specific_symbol:
-                    valid_symbols.add(specific_symbol.upper().strip())
-
-                if valid_symbols:
-                    # Filter records
-                    original_count = len(records)
-                    records = [r for r in records if r.get('symbol') in valid_symbols]
-                    logger.info(f"{key}: Filtered by BhavcopyFO (F&O). Original: {original_count}, Matched: {len(records)}")
-            except Exception as e:
-                logger.warning(f"Failed to fetch F&O universe for {key} filtering: {e}")
-
         if not records:
             results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}
-            # If the database filter filtered EVERYTHING out, log it as SUCCESS with 0 rows so it doesn't fail the pipeline loop
-            self._log_import(db, trade_date, key, 'SUCCESS', 0, 0, '0 records matched F&O filters (or parsed empty)')
+            self._log_import(db, trade_date, key, 'SUCCESS', 0, 0, 'Parsed empty')
             return
 
         model_class = self._get_model_class(key)
