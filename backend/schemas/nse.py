@@ -7,6 +7,7 @@ class NSEImportRequest(BaseModel):
     date: str = Field(..., description="Date in YYYY-MM-DD format", example="2026-02-18")
     patterns: list[str] | None = Field(None, description="List of specific file patterns to import (e.g., ['bhavcopy_fo'])")
     force: bool = Field(False, description="Force re-import even if data exists")
+    include_non_fo: bool = Field(False, description="Allow importing Corporate Actions/Board Meetings for all non-F&O equities")
 
 class NSEImportResponse(BaseModel):
     """Response from import operation."""

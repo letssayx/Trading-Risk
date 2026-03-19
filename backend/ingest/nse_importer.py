@@ -267,7 +267,7 @@ class NSEDataImporter:
 
     def import_date(self, trade_date: date, patterns: list[str] | None = None,
                    force: bool = False, progress_callback: Callable[[dict[str, Any]], None] | None = None,
-                   check_cancel: Callable[[], bool] | None = None) -> dict[str, Any]:
+                   check_cancel: Callable[[], bool] | None = None, include_non_fo: bool = False) -> dict[str, Any]:
         """Import all configured files for a given date."""
         if not force and not self.holidays.is_trading_day(trade_date):
             return {
@@ -330,7 +330,7 @@ class NSEDataImporter:
                 # If using pure SQLAlchemy session, we can rely on begin_nested()
                 try:
                     with db.begin_nested():
-                        self._process_file(db, key, trade_date, results, completed_files, force)
+                        self._process_file(db, key, trade_date, results, completed_files, force, include_non_fo)
 
                     # If we reach here, the nested transaction committed successfully.
                     # We commit the outer transaction periodically or at the end to persist logs.
@@ -363,7 +363,7 @@ class NSEDataImporter:
             'details': results
         }
 
-    def _process_file(self, db: Session, key: str, trade_date: date, results: dict, completed_files: list, force: bool = False):
+    def _process_file(self, db: Session, key: str, trade_date: date, results: dict, completed_files: list, force: bool = False, include_non_fo: bool = False):
         df = self._fetch_data(key, trade_date)
 
         if df.empty:
@@ -418,6 +418,20 @@ class NSEDataImporter:
             format_info['type'] = 'india_vix'
 
         records = FieldMapper.map_to_records(df, format_info, trade_date)
+
+        # F&O Filtering explicitly for Corporate Actions and Board Meetings
+        if key in ['corporate_actions', 'board_meetings'] and not include_non_fo:
+            # Query the database for known F&O symbols to filter
+            try:
+                from backend.ingest.nse_models import SecurityMaster
+                fo_symbols = set([r[0] for r in db.query(SecurityMaster.ticker_symb).filter(SecurityMaster.security_series == 'FO').all()])
+                if fo_symbols:
+                    # Filter records
+                    original_count = len(records)
+                    records = [r for r in records if r.get('symbol') in fo_symbols]
+                    logger.info(f"{key}: Filtered F&O only. Original: {original_count}, F&O: {len(records)}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch F&O universe for {key} filtering: {e}")
 
         if not records:
             results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}

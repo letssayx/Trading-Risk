@@ -140,7 +140,7 @@ async def trigger_import(
     Trigger an async import for a specific date.
     """
     try:
-        task = import_nse_date.delay(request.date, request.patterns, request.force)
+        task = import_nse_date.delay(request.date, request.patterns, request.force, request.include_non_fo)
         return {"success": True, "task_id": str(task.id), "message": "Import started in background"}
     except Exception as e:
         logger.error(f"Failed to trigger import task: {e}")
@@ -151,13 +151,14 @@ async def trigger_import_range(
     start_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
     patterns: list[str] | None = Query(None),
-    force: bool = Query(False)
+    force: bool = Query(False),
+    include_non_fo: bool = Query(False)
 ):
     """
     Trigger an async import for a date range.
     """
     try:
-        task = import_nse_range.delay(start_date, end_date, patterns, force=force)
+        task = import_nse_range.delay(start_date, end_date, patterns, force=force, include_non_fo=include_non_fo)
         return {"success": True, "task_id": str(task.id), "message": "Range import started in background"}
     except Exception as e:
         logger.error(f"Failed to trigger range import task: {e}")
@@ -166,13 +167,14 @@ async def trigger_import_range(
 @router.post("/ingest/import/latest")
 async def trigger_import_latest(
     patterns: list[str] | None = Query(None),
-    force: bool = Query(False)
+    force: bool = Query(False),
+    include_non_fo: bool = Query(False)
 ):
     """
     Trigger an async import for the latest trading day.
     """
     try:
-        task = import_nse_latest.delay(patterns, force=force)
+        task = import_nse_latest.delay(patterns, force=force, include_non_fo=include_non_fo)
         return {"success": True, "task_id": str(task.id), "message": "Latest import started in background"}
     except Exception as e:
         logger.error(f"Failed to trigger latest import task: {e}")

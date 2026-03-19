@@ -299,6 +299,10 @@ class NSEImporter {
             if (forceCheckbox && forceCheckbox.checked) {
                 params.append('force', 'true');
             }
+            const nonFoCheckbox = document.getElementById('non-fo-import-latest');
+            if (nonFoCheckbox && nonFoCheckbox.checked) {
+                params.append('include_non_fo', 'true');
+            }
 
             const res = await fetch(`/api/v1/nse/ingest/import/latest?${params.toString()}`, {
                 method: 'POST'
@@ -354,6 +358,10 @@ class NSEImporter {
             const forceCheckbox = document.getElementById('force-import-range');
             if (forceCheckbox && forceCheckbox.checked) {
                 params.append('force', 'true');
+            }
+            const nonFoCheckbox = document.getElementById('non-fo-import-range');
+            if (nonFoCheckbox && nonFoCheckbox.checked) {
+                params.append('include_non_fo', 'true');
             }
 
             const res = await fetch(`/api/v1/nse/ingest/import/range?${params.toString()}`, {
