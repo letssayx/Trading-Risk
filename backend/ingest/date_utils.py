@@ -59,6 +59,8 @@ def parse_nse_date(date_str: str) -> Optional[date]:
         return None
 
     date_str = str(date_str).strip()
+    if date_str in ["", "-"]:
+        return None
 
     # Try all possible NSE formats
     formats = [

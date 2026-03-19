@@ -123,8 +123,9 @@ async def cancel_import_task(task_id: str):
         r.setex(f"cancel_task_{task_id}", 3600, "1")  # Expire after 1 hour
 
         from backend.celery_worker import app as celery_app
-        # terminate=True forces the worker to kill the task immediately (SIGTERM)
-        celery_app.control.revoke(task_id, terminate=True)
+        # We only revoke gracefully so the worker can check the Redis flag and exit cleanly.
+        # DO NOT use terminate=True as it causes unrecoverable Celery ValueError exceptions.
+        celery_app.control.revoke(task_id)
         return {"success": True, "message": f"Task {task_id} cancellation requested"}
     except Exception as e:
         logger.error(f"Failed to cancel task {task_id}: {e}")

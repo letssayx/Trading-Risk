@@ -58,11 +58,11 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
             logger.error(f"Max retries exceeded for date import: {err_msg}")
-            self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+            self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Date Import Failed: {err_msg}"})
             raise Exception(f"Date Import Failed: {err_msg}")
 
         logger.error(f"Import failed: {exc}. Retrying... ({self.request.retries}/3)")
-        self.retry(exc=exc, countdown=60)  # Retry after 1 min on failure
+        self.retry(exc=Exception(str(exc)), countdown=60)  # Convert complex exceptions to string explicitly before retry
 
 from celery import shared_task
 
@@ -213,11 +213,11 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
             logger.error(f"Max retries exceeded for range import: {err_msg}")
-            self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+            self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Range Import Failed: {err_msg}"})
             raise Exception(f"Range Import Failed: {err_msg}")
 
         logger.error(f"Range import failed: {exc}. Retrying... ({self.request.retries}/3)")
-        self.retry(exc=exc, countdown=60)
+        self.retry(exc=Exception(str(exc)), countdown=60)
 
 @shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_latest')
 def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False):
@@ -261,11 +261,11 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
             logger.error(f"Max retries exceeded for latest import: {err_msg}")
-            self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+            self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Latest Import Failed: {err_msg}"})
             raise Exception(f"Latest Import Failed: {err_msg}")
 
         logger.error(f"Latest import failed: {exc}. Retrying... ({self.request.retries}/3)")
-        self.retry(exc=exc, countdown=300)
+        self.retry(exc=Exception(str(exc)), countdown=300)
 
 @shared_task(bind=True, name="prepare_morning_data_task")
 def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = None):
