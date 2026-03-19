@@ -430,6 +430,8 @@ class CorporateAction(Base, TimescaleMixin):
     bc_end_date = Column(Date)
     nd_start_date = Column(Date)
     nd_end_date = Column(Date)
+    parsed_dividend_amount = Column(Float)
+    dividend_type = Column(String(50))
 
     __table_args__ = (
         PrimaryKeyConstraint('date', 'id'),

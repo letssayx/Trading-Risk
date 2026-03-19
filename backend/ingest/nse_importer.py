@@ -424,6 +424,13 @@ class NSEDataImporter:
         if key == 'india_vix' and format_info['type'] != 'india_vix_historical':
             format_info['type'] = 'india_vix'
 
+        # Another override: If the importer requested 'pe_ratio_idx' but FieldMapper natively mapped
+        # it to 'historical_index_data' (because the new ind_close_all has OHLCV), we MUST force the
+        # format_info back to 'pe_ratio_idx' so that map_to_records generates the correct dict keys
+        # (like 'pe', 'pb') that the index_pe_ratio database table expects.
+        if key == 'pe_ratio_idx' and format_info['type'] == 'historical_index_data':
+            format_info['type'] = 'pe_ratio_idx'
+
         records = FieldMapper.map_to_records(df, format_info, trade_date)
 
         # F&O Filtering explicitly for Corporate Actions and Board Meetings
