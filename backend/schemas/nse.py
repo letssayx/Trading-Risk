@@ -8,6 +8,7 @@ class NSEImportRequest(BaseModel):
     patterns: list[str] | None = Field(None, description="List of specific file patterns to import (e.g., ['bhavcopy_fo'])")
     force: bool = Field(False, description="Force re-import even if data exists")
     include_non_fo: bool = Field(False, description="Allow importing Corporate Actions/Board Meetings for all non-F&O equities")
+    specific_symbol: str | None = Field(None, description="Import data for a specific symbol only (overrides FO checks)")
 
 class NSEImportResponse(BaseModel):
     """Response from import operation."""

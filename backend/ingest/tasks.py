@@ -23,7 +23,7 @@ def check_cancel_flag(task_id: str) -> bool:
 
 # Use shared_task decorator for integration with main Celery app
 @shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_date')
-def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False):
+def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a specific date."""
 
     # Progress callback to update Celery state
@@ -48,10 +48,11 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
             force=force,
             progress_callback=progress_callback,
             check_cancel=is_cancelled,
-            include_non_fo=include_non_fo
+            include_non_fo=include_non_fo,
+            specific_symbol=specific_symbol
         )
         if result.get('status') == 'ABORTED':
-            self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+            self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
             return {"status": "ABORTED"}
         return result
 
@@ -108,7 +109,7 @@ def evaluate_ai_predictions(self):
 
 
 @shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_range')
-def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False):
+def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
     def is_cancelled():
         return check_cancel_flag(self.request.id)
@@ -160,7 +161,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         while current_date <= end_date:
             if is_cancelled():
                 logger.info("Range import aborted by user request.")
-                self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+                self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
                 return {"status": "ABORTED", 'range': f"{start_date_str} to {current_date.isoformat()}", 'results': results}
 
             if force or NSEHolidayCalendar.is_trading_day(current_date):
@@ -198,9 +199,9 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                     })
 
                     # Import for this day (importer will still do file-level checks, but we saved task overhead if fully done)
-                    day_result = importer.import_date(current_date, patterns=patterns, force=force, check_cancel=is_cancelled, include_non_fo=include_non_fo)
+                    day_result = importer.import_date(current_date, patterns=patterns, force=force, check_cancel=is_cancelled, include_non_fo=include_non_fo, specific_symbol=specific_symbol)
                     if day_result.get('status') == 'ABORTED':
-                        self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+                        self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
                         return {"status": "ABORTED", 'range': f"{start_date_str} to {current_date.isoformat()}", 'results': results}
 
                     results.append(day_result)
@@ -221,7 +222,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         self.retry(exc=Exception(str(exc)), countdown=60)
 
 @shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_latest')
-def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False):
+def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import data for the most recent trading day."""
 
     def progress_callback(progress_dict: dict):
@@ -252,9 +253,9 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
             target_date = NSEHolidayCalendar.get_previous_trading_day(today)
 
         logger.info(f"Auto-importing for latest trading day: {target_date} (IST: {ist_now})")
-        result = importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback, check_cancel=is_cancelled, include_non_fo=include_non_fo)
+        result = importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback, check_cancel=is_cancelled, include_non_fo=include_non_fo, specific_symbol=specific_symbol)
         if result.get('status') == 'ABORTED':
-            self.update_state(state='REVOKED', meta={'message': 'Aborted by user'})
+            self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
             return {"status": "ABORTED"}
         return result
 

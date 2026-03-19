@@ -1456,6 +1456,7 @@
                             <button id="btn-import-latest" class="btn btn-primary" style="margin-top:10px;">Import Latest</button>
                             <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-latest" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
                             <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="non-fo-import-latest" value="true"> Import Non-F&O Stocks (Corporate Filings)</label>
+                            <input type="text" id="specific-symbol-latest" placeholder="Specific Symbol (e.g. ZYDUSLIFE)" style="margin-left:15px; margin-top:10px; padding:4px; border-radius:3px; border:1px solid #444; background:#222; color:#fff; font-size:12px;">
                         </div>
                     </div>
 
@@ -1489,6 +1490,7 @@
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
                             <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-range" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
                             <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="non-fo-import-range" value="true"> Import Non-F&O Stocks (Corporate Filings)</label>
+                            <input type="text" id="specific-symbol-range" placeholder="Specific Symbol (e.g. ZYDUSLIFE)" style="margin-left:15px; margin-top:10px; padding:4px; border-radius:3px; border:1px solid #444; background:#222; color:#fff; font-size:12px;">
                         </div>
                     </div>
 
@@ -3202,8 +3204,14 @@ async function loadDividendsData() {
     try {
         const endDate = new Date().toISOString().split('T')[0];
 
+        const searchInput = document.getElementById('div-symbol-search');
+        const symbolQuery = searchInput && searchInput.value.trim() ? `&symbol=${searchInput.value.trim().toUpperCase()}` : '';
+
+        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
+        document.getElementById('div-meetings-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
+
         // Try fetching from our database first to support full history
-        let dbActionsRes = await fetch(`/api/data/view?type=corporate_actions&start_date=2000-01-01&end_date=${endDate}`);
+        let dbActionsRes = await fetch(`/api/data/view/list?type=corporate_actions&limit=1000${symbolQuery}`);
         let dbActions = await dbActionsRes.json();
 
         if (dbActions.data && dbActions.data.length > 0) {
@@ -3211,6 +3219,7 @@ async function loadDividendsData() {
              divRawData = dbActions.data.filter(d => (d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined) || d.dividend_type === 'Bonus' || d.dividend_type === 'Split');
              divRawData.sort((a, b) => new Date(b.ex_date || b.date) - new Date(a.ex_date || a.date));
         } else {
+            divRawData = [];
             // Use proxy for raw latest corporate actions mapped with regex to support DB-less operation initially
             const resActions = await fetch(`/api/proxy/corporate-actions`);
             const dataActions = await resActions.json();
@@ -3253,13 +3262,14 @@ async function loadDividendsData() {
             }
         }
 
-        let dbMeetingsRes = await fetch(`/api/data/view?type=board_meetings&start_date=2000-01-01&end_date=${endDate}`);
+        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meetings&limit=1000${symbolQuery}`);
         let dbMeetings = await dbMeetingsRes.json();
 
         if (dbMeetings.data && dbMeetings.data.length > 0) {
              divMeetingsData = dbMeetings.data;
              divMeetingsData.sort((a, b) => new Date(b.meeting_date || b.date) - new Date(a.meeting_date || a.date));
         } else {
+            divMeetingsData = [];
             const resMeetings = await fetch(`/api/proxy/board-meetings`);
             const dataMeetings = await resMeetings.json();
 
@@ -3290,6 +3300,10 @@ function renderDividendsData() {
         tbodyActions.innerHTML = '';
         const filteredActions = divRawData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
 
+        if (filteredActions.length === 0) {
+            tbodyActions.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
+        }
+
         filteredActions.forEach(d => {
             const tr = document.createElement('tr');
             let color = '#10b981';
@@ -3318,6 +3332,10 @@ function renderDividendsData() {
     if (tbodyMeetings) {
         tbodyMeetings.innerHTML = '';
         const filteredMeetings = divMeetingsData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
+
+        if (filteredMeetings.length === 0) {
+            tbodyMeetings.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
+        }
 
         filteredMeetings.forEach(d => {
             const tr = document.createElement('tr');

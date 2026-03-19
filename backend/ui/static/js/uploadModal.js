@@ -303,6 +303,10 @@ class NSEImporter {
             if (nonFoCheckbox && nonFoCheckbox.checked) {
                 params.append('include_non_fo', 'true');
             }
+            const specificSymbol = document.getElementById('specific-symbol-latest');
+            if (specificSymbol && specificSymbol.value.trim()) {
+                params.append('specific_symbol', specificSymbol.value.trim().toUpperCase());
+            }
 
             const res = await fetch(`/api/v1/nse/ingest/import/latest?${params.toString()}`, {
                 method: 'POST'
@@ -362,6 +366,10 @@ class NSEImporter {
             const nonFoCheckbox = document.getElementById('non-fo-import-range');
             if (nonFoCheckbox && nonFoCheckbox.checked) {
                 params.append('include_non_fo', 'true');
+            }
+            const specificSymbol = document.getElementById('specific-symbol-range');
+            if (specificSymbol && specificSymbol.value.trim()) {
+                params.append('specific_symbol', specificSymbol.value.trim().toUpperCase());
             }
 
             const res = await fetch(`/api/v1/nse/ingest/import/range?${params.toString()}`, {
