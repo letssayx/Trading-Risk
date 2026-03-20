@@ -87,8 +87,10 @@ class NSEDataImporter:
             'var_stats': ['date', 'symbol', 'series', 'file_type'],
             'contract_delta': ['date', 'symbol', 'expiry_date', 'strike_price', 'option_type'],
             'margin_trading': ['date', 'symbol'],
-            'corporate_actions': ['date', 'symbol', 'purpose'],
-            'board_meetings': ['date', 'symbol', 'purpose'],
+            # Bulk/Block deals and Corporate Actions/Board Meetings:
+            # No unique fields for upsert anymore (we do delete-insert)
+            'corporate_actions': [],
+            'board_meetings': [],
             'fii_dii_cash': ['trade_date', 'category'],
             'historical_index_data': ['trade_date', 'index_name'],
         }
@@ -452,8 +454,8 @@ class NSEDataImporter:
         if unique_fields:
             records = self._deduplicate_records(records, unique_fields)
 
-        # Special handling for Deals: Delete & Insert
-        if key in ['bulk_deals', 'block_deals']:
+        # Special handling for Deals, Actions, Meetings: Delete & Insert
+        if key in ['bulk_deals', 'block_deals', 'corporate_actions', 'board_meetings']:
             deleted = self._delete_for_date(db, model_class, trade_date)
             inserted = self._insert_batch(db, model_class, records)
             updated = 0
@@ -482,10 +484,13 @@ class NSEDataImporter:
             valid_cols = set(c.name for c in table.columns)
             cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
 
-            # Simple Insert in chunks
+            # Simple Insert in chunks. Use ON CONFLICT DO NOTHING to handle edge cases
+            # where delete_for_date might not have caught unique constraint overlaps from
+            # a different date insertion process.
             for i in range(0, len(cleaned), batch_size):
                 chunk = cleaned[i:i + batch_size]
                 stmt = pg_insert(table).values(chunk)
+                stmt = stmt.on_conflict_do_nothing()
                 result = db.execute(stmt)
                 total_inserted += result.rowcount
             return total_inserted
