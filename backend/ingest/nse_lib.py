@@ -502,6 +502,9 @@ class NSELib:
         url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={date_str}&to_date={date_str}"
 
         resp = self.get(url)
+        if resp is None:
+            return pd.DataFrame()
+
         if resp.status_code == 200:
             try:
                 # The JSON endpoint actually respects historical dates
@@ -531,6 +534,9 @@ class NSELib:
         url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={date_str}&to_date={date_str}"
 
         resp = self.get(url)
+        if resp is None:
+            return pd.DataFrame()
+
         if resp.status_code == 200:
             try:
                 # The JSON endpoint actually respects historical dates

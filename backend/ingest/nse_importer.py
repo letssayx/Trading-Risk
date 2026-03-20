@@ -460,10 +460,16 @@ class NSEDataImporter:
             inserted = self._insert_batch(db, model_class, records)
             updated = 0
             logger.info(f"{key}: Deleted {deleted} old records, Inserted {inserted} new records.")
-        elif key in ['nse_security', 'corporate_actions', 'board_meetings']:
+        elif key == 'nse_security':
             # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.
-            # Corporate Actions and Board Meetings are full snapshots, we upsert on symbol and purpose
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
+        elif key in ['corporate_actions', 'board_meetings']:
+            # Corporate Actions and Board Meetings don't have a unique constraint on date, symbol, purpose
+            # so we must delete and insert them for the date.
+            deleted = self._delete_for_date(db, model_class, trade_date)
+            inserted = self._insert_batch(db, model_class, records)
+            updated = 0
+            logger.info(f"{key}: Deleted {deleted} old records, Inserted {inserted} new records.")
         else:
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
 

@@ -434,10 +434,7 @@
         <div id="tab-dividends" class="main-tab-content">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px;">
-                        <div class="wb-tab active" id="div-tab-btn-actions" onclick="switchDividendsTab('actions')" style="padding: 6px 15px; border-radius: 4px;">Dividends</div>
-                        <div class="wb-tab" id="div-tab-btn-meetings" onclick="switchDividendsTab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Board Meetings</div>
-                    </div>
+                    <div></div>
                     <div style="display: flex; gap: 10px;">
                         <button onclick="loadDividendsData()" class="btn btn-primary"><i class="fas fa-sync"></i> Load Data</button>
                         <button onclick="downloadDividendsCSV()" class="btn btn-secondary"><i class="fas fa-download"></i> Download CSV</button>
@@ -475,24 +472,6 @@
                     </div>
                 </div>
 
-                <!-- Board Meetings List -->
-                <div id="div-content-meetings" class="div-tab-section" style="flex: 1; overflow: hidden; display: none; flex-direction: column;">
-                    <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
-                        <table class="data-table" id="div-meetings-table">
-                            <thead>
-                                <tr>
-                                    <th>Broadcast Date</th>
-                                    <th>Meeting Date</th>
-                                    <th>Symbol</th>
-                                    <th>Purpose</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Content populated via JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -3486,34 +3465,60 @@ function renderDividendsData() {
             const exDateObj = d.ex_date ? new Date(d.ex_date.split('T')[0]) : null;
 
             if (meetingsBySymbol[sym]) {
-                // Find a meeting that happened before or around the ex_date
-                // Alternatively just find the latest meeting if no ex_date
+                // Find a meeting whose board meeting date is closest to the dividend's ex_date, but before or on the ex_date.
+                // We want the most recent meeting prior to the ex_date.
                 let closestMeeting = null;
+                let minDiff = Infinity;
+
                 for (let m of meetingsBySymbol[sym]) {
                     if (exDateObj) {
-                        const meetingDateObj = m.meeting_date ? new Date(m.meeting_date.split('T')[0]) : (m.date ? new Date(m.date.split('T')[0]) : null);
-                        // A dividend is usually announced slightly before the ex_date
+                        // Priority to meeting_date, fallback to broadcast_date or date
+                        const meetingDateObj = m.meeting_date ? new Date(m.meeting_date.split('T')[0]) : null;
+
                         if (meetingDateObj && meetingDateObj <= exDateObj) {
-                            closestMeeting = m;
-                            break;
+                            // Find the minimum difference between Ex-Date and Meeting Date
+                            // The Meeting is usually close to the Ex-Date, but definitely before it.
+                            const diff = exDateObj.getTime() - meetingDateObj.getTime();
+                            if (diff >= 0 && diff < minDiff) {
+                                minDiff = diff;
+                                closestMeeting = m;
+                            }
                         }
                     } else {
-                        closestMeeting = m;
-                        break;
+                        if (!closestMeeting) closestMeeting = m; // fallback if no ex-date
+                    }
+                }
+
+                // If we still didn't find one based on meeting_date, try looking at broadcast_date
+                if (!closestMeeting && exDateObj) {
+                    for (let m of meetingsBySymbol[sym]) {
+                         const bcastDateObj = m.broadcast_date ? new Date(m.broadcast_date.split('T')[0]) : (m.date ? new Date(m.date.split('T')[0]) : null);
+                         if (bcastDateObj && bcastDateObj <= exDateObj) {
+                             const diff = exDateObj.getTime() - bcastDateObj.getTime();
+                             if (diff >= 0 && diff < minDiff) {
+                                 minDiff = diff;
+                                 closestMeeting = m;
+                             }
+                         }
                     }
                 }
 
                 if (closestMeeting) {
-                    broadcastDate = closestMeeting.broadcast_date ? closestMeeting.broadcast_date.replace('T', ' ') : (closestMeeting.date ? closestMeeting.date.split('T')[0] : '');
-                    bmDate = closestMeeting.meeting_date ? closestMeeting.meeting_date.split('T')[0] : '';
+                    // Use the exact fields: broadcast_date is when they announce the meeting, meeting_date is the event
+                    let rawBroadcast = closestMeeting.broadcast_date ? closestMeeting.broadcast_date.replace('T', ' ') : '';
+                    if (!rawBroadcast) rawBroadcast = closestMeeting.date ? closestMeeting.date.replace('T', ' ') : ''; // fallback
+
+                    // Slice to just date if we have time, for cleaner UI
+                    broadcastDate = rawBroadcast ? rawBroadcast.split(' ')[0] : '-';
+                    bmDate = closestMeeting.meeting_date ? closestMeeting.meeting_date.split('T')[0] : '-';
                     bmPurpose = closestMeeting.purpose || '';
                 }
             }
 
             tr.innerHTML = `
-                <td>${broadcastDate}</td>
-                <td>${bmDate}</td>
-                <td style="white-space: normal; max-width: 250px;">${bmPurpose}</td>
+                <td>${broadcastDate || '-'}</td>
+                <td>${bmDate || '-'}</td>
+                <td style="white-space: normal; max-width: 250px;">${bmPurpose || '-'}</td>
                 <td>${d.ex_date ? d.ex_date.split('T')[0] : '-'}</td>
                 <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
                 <td style="color: #4CAF50; font-weight:bold;">${amountDisp}</td>
@@ -3526,30 +3531,6 @@ function renderDividendsData() {
         });
     }
 
-    // Meetings Table
-    const tbodyMeetings = document.querySelector('#div-meetings-table tbody');
-    if (tbodyMeetings) {
-        tbodyMeetings.innerHTML = '';
-        const filteredMeetings = divMeetingsData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
-
-        if (filteredMeetings.length === 0) {
-            tbodyMeetings.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
-        }
-
-        filteredMeetings.forEach(d => {
-            const tr = document.createElement('tr');
-            let mDate = d.meeting_date ? d.meeting_date.split('T')[0] : '-';
-            let bDate = d.broadcast_date ? d.broadcast_date.replace('T', ' ') : (d.date ? d.date.split('T')[0] : '-');
-
-            tr.innerHTML = `
-                <td>${bDate}</td>
-                <td>${mDate}</td>
-                <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
-                <td style="white-space: normal; max-width: 400px;">${d.purpose || '-'}</td>
-            `;
-            tbodyMeetings.appendChild(tr);
-        });
-    }
 }
 
 function downloadDividendsCSV() {
