@@ -516,6 +516,7 @@ class NSELib:
                     'bm_purpose': 'PURPOSE',
                     'bm_desc': 'BM_DESC',
                     'bm_date': 'MEETING DATE',
+                    'bm_timestamp': 'BROADCAST DATE',
                     'ATTACHMENT': 'ATTACHMENT'
                 }
                 df = df.rename(columns=mapping)
@@ -549,7 +550,8 @@ class NSELib:
                     'bcStartDate': 'BC START DATE',
                     'bcEndDate': 'BC END DATE',
                     'ndStartDate': 'ND START DATE',
-                    'ndEndDate': 'ND END DATE'
+                    'ndEndDate': 'ND END DATE',
+                    'caBroadcastDate': 'BROADCAST DATE'
                 }
                 df = df.rename(columns=mapping)
                 return df

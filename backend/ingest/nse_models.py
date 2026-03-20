@@ -432,6 +432,7 @@ class CorporateAction(Base, TimescaleMixin):
     nd_end_date = Column(Date)
     parsed_dividend_amount = Column(Float)
     dividend_type = Column(String(50))
+    broadcast_date = Column(DateTime)
 
     __table_args__ = (
         PrimaryKeyConstraint('date', 'id'),
@@ -444,10 +445,12 @@ class BoardMeeting(Base, TimescaleMixin):
 
     id = Column(Integer, autoincrement=True, nullable=False)
     date = Column(Date, nullable=False, index=True) # Renamed from bm_date for Timescale consistency
+    meeting_date = Column(Date, nullable=True) # Actual meeting date
     symbol = Column(String(50), nullable=False, index=True)
     company_name = Column(String(200))
     purpose = Column(Text)
     bm_desc = Column(Text)
+    broadcast_date = Column(DateTime)
 
     __table_args__ = (
         PrimaryKeyConstraint('date', 'id'),

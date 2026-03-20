@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional
 import pandas as pd
 import logging
 from datetime import date
-from backend.ingest.date_utils import parse_nse_date
+from backend.ingest.date_utils import parse_nse_date, parse_nse_datetime
 import re
 
 logger = logging.getLogger(__name__)
@@ -320,6 +320,7 @@ class FieldMapper:
                 'nd_end_date': parse_nse_date(cls._get_val(row, ['ND END DATE', 'ND End Date'])),
                 'parsed_dividend_amount': parsed_div_amount,
                 'dividend_type': div_type,
+                'broadcast_date': parse_nse_datetime(cls._get_val(row, ['BROADCAST DATE', 'caBroadcastDate']))
             }
             if record['symbol'] and record['date']:
                 records.append(record)
@@ -330,12 +331,20 @@ class FieldMapper:
         records = []
         for _, row in df.iterrows():
             bm_date_val = parse_nse_date(cls._get_val(row, ['BoardMeetingDate', 'MEETING DATE', 'Meeting Date']))
+            broadcast_str = cls._get_val(row, ['BROADCAST DATE', 'bm_timestamp', 'Broadcast Date'])
+            broadcast_dt = parse_nse_datetime(broadcast_str) if broadcast_str else None
+
+            # Use broadcast_date for partition key 'date' (representing when the announcement happened)
+            # Default to trade_date if no broadcast date.
+            record_date = broadcast_dt.date() if broadcast_dt else trade_date
+
             record = {
-                'date': bm_date_val or trade_date,
+                'date': record_date or bm_date_val,
+                'meeting_date': bm_date_val, # explicitly store meeting date
                 'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip(),
                 'company_name': str(cls._get_val(row, ['COMPANY NAME', 'Company Name']) or '').strip(),
                 'purpose': str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip(),
-                'bm_desc': str(cls._get_val(row, ['BM_DESC', 'Description']) or '').strip(),
+                'bm_desc': str(cls._get_val(row, ['BM_DESC', 'Description']) or '').strip()
             }
             if record['symbol'] and record['date']:
                 records.append(record)

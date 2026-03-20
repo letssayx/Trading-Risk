@@ -53,6 +53,31 @@ def format_nse_date(dt: date, format_str: str) -> str:
         logger.error(f"Date formatting error: {e}")
         return dt.strftime("%d%m%Y")
 
+def parse_nse_datetime(date_str: str) -> Optional[datetime]:
+    """Parse NSE datetime strings"""
+    if pd.isna(date_str) or not date_str:
+        return None
+    date_str = str(date_str).strip()
+    if date_str in ["", "-"]:
+        return None
+
+    formats = [
+        "%d-%b-%Y %H:%M:%S",
+        "%d-%m-%Y %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S"
+    ]
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            continue
+
+    # Try just parsing the date and defaulting time
+    d = parse_nse_date(date_str)
+    if d:
+        return datetime.combine(d, datetime.min.time())
+    return None
+
 def parse_nse_date(date_str: str) -> Optional[date]:
     """Parse NSE dates - handles multiple formats"""
     if pd.isna(date_str) or not date_str:

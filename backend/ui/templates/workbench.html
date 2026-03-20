@@ -440,6 +440,7 @@
                         <table class="data-table" id="div-meetings-table">
                             <thead>
                                 <tr>
+                                    <th>Broadcast Date</th>
                                     <th>Meeting Date</th>
                                     <th>Symbol</th>
                                     <th>Purpose</th>
@@ -3206,8 +3207,11 @@ async function loadDividendsData() {
         document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
         document.getElementById('div-meetings-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
 
+        // Increase limit to essentially "fetch all" if no specific symbol is provided to meet "show all scrips at one shot"
+        const limitQuery = symbolQuery ? '&limit=1000' : '&limit=10000';
+
         // Try fetching from our database first to support full history
-        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend&limit=1000${symbolQuery}`);
+        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}`);
         let dbActions = await dbActionsRes.json();
 
         // Always trust the database. If it's empty, we legitimately have no data for that symbol.
@@ -3221,7 +3225,7 @@ async function loadDividendsData() {
              divRawData = [];
         }
 
-        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting&limit=1000${symbolQuery}`);
+        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}`);
         let dbMeetings = await dbMeetingsRes.json();
 
         const meetingsArray = Array.isArray(dbMeetings) ? dbMeetings : (dbMeetings.data || []);
@@ -3287,8 +3291,12 @@ function renderDividendsData() {
 
         filteredMeetings.forEach(d => {
             const tr = document.createElement('tr');
+            let mDate = d.meeting_date ? d.meeting_date.split('T')[0] : '-';
+            let bDate = d.broadcast_date ? d.broadcast_date.replace('T', ' ') : (d.date ? d.date.split('T')[0] : '-');
+
             tr.innerHTML = `
-                <td>${d.meeting_date ? d.meeting_date.split('T')[0] : '-'}</td>
+                <td>${bDate}</td>
+                <td>${mDate}</td>
                 <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
                 <td style="white-space: normal; max-width: 400px;">${d.purpose || '-'}</td>
             `;
