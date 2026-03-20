@@ -499,13 +499,26 @@ class NSELib:
     def get_board_meetings(self, trade_date: date) -> pd.DataFrame:
         """Get Board Meetings."""
         date_str = trade_date.strftime("%d-%m-%Y")
-        url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from={date_str}&to={date_str}&csv=true"
+        url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={date_str}&to_date={date_str}"
 
         resp = self.get(url)
         if resp.status_code == 200:
             try:
-                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-                df.columns = [str(c).strip().upper() for c in df.columns]
+                # The JSON endpoint actually respects historical dates
+                data = resp.json()
+                if not data:
+                     return pd.DataFrame()
+                df = pd.DataFrame(data)
+                # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
+                mapping = {
+                    'bm_symbol': 'SYMBOL',
+                    'sm_name': 'COMPANY NAME',
+                    'bm_purpose': 'PURPOSE',
+                    'bm_desc': 'BM_DESC',
+                    'bm_date': 'MEETING DATE',
+                    'ATTACHMENT': 'ATTACHMENT'
+                }
+                df = df.rename(columns=mapping)
                 return df
             except Exception as e:
                 logger.error(f"Board Meetings parse error: {e}")
@@ -513,16 +526,32 @@ class NSELib:
 
     def get_corporate_actions(self, trade_date: date) -> pd.DataFrame:
         """Get Corporate Actions."""
-        # URL pattern from nselib: https://www.nseindia.com/api/corporates-corporateActions?index=equities&from=dd-mm-yyyy&to=dd-mm-yyyy&csv=true
-        # Note: This often requires full browser headers (cookies).
         date_str = trade_date.strftime("%d-%m-%Y")
-        url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from={date_str}&to={date_str}&csv=true"
+        url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={date_str}&to_date={date_str}"
 
         resp = self.get(url)
         if resp.status_code == 200:
             try:
-                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-                df.columns = [str(c).strip().upper() for c in df.columns]
+                # The JSON endpoint actually respects historical dates
+                data = resp.json()
+                if not data:
+                     return pd.DataFrame()
+                df = pd.DataFrame(data)
+                # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
+                mapping = {
+                    'symbol': 'SYMBOL',
+                    'comp': 'COMPANY NAME',
+                    'series': 'SERIES',
+                    'faceVal': 'FACE VALUE',
+                    'subject': 'PURPOSE',
+                    'exDate': 'EX-DATE',
+                    'recDate': 'RECORD DATE',
+                    'bcStartDate': 'BC START DATE',
+                    'bcEndDate': 'BC END DATE',
+                    'ndStartDate': 'ND START DATE',
+                    'ndEndDate': 'ND END DATE'
+                }
+                df = df.rename(columns=mapping)
                 return df
             except Exception as e:
                 logger.error(f"Corporate Actions parse error: {e}")

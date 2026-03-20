@@ -1,14 +1,18 @@
 import asyncio
-from backend.infrastructure.db import SessionLocal
-from backend.web.api.data.view_routes import get_model_for_type
-from sqlalchemy import text
+from datetime import date
+from backend.ingest.nse_lib import NSELib
 
-db = SessionLocal()
+client = NSELib()
+df = client.get_corporate_actions(date(2025, 1, 1))
+if not df.empty:
+     print("CA Columns:", df.columns.tolist())
+     print(df.head(1).to_dict('records'))
+else:
+     print("CA Empty")
 
-try:
-    print("Trying to execute query with missing DB...")
-    # Just checking syntax of execute_export_query indirectly
-    import backend.web.api.data.view_routes as vr
-    print("Methods:", dir(vr))
-except Exception as e:
-    print("Error:", e)
+df2 = client.get_board_meetings(date(2025, 1, 1))
+if not df2.empty:
+     print("BM Columns:", df2.columns.tolist())
+     print(df2.head(1).to_dict('records'))
+else:
+     print("BM Empty")
