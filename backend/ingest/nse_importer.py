@@ -89,8 +89,8 @@ class NSEDataImporter:
             'margin_trading': ['date', 'symbol'],
             # Bulk/Block deals and Corporate Actions/Board Meetings:
             # No unique fields for upsert anymore (we do delete-insert)
-            'corporate_actions': [],
-            'board_meetings': [],
+            'corporate_actions': ['date', 'symbol', 'purpose'],
+            'board_meetings': ['date', 'symbol', 'purpose'],
             'fii_dii_cash': ['trade_date', 'category'],
             'historical_index_data': ['trade_date', 'index_name'],
         }
@@ -455,13 +455,14 @@ class NSEDataImporter:
             records = self._deduplicate_records(records, unique_fields)
 
         # Special handling for Deals, Actions, Meetings: Delete & Insert
-        if key in ['bulk_deals', 'block_deals', 'corporate_actions', 'board_meetings']:
+        if key in ['bulk_deals', 'block_deals']:
             deleted = self._delete_for_date(db, model_class, trade_date)
             inserted = self._insert_batch(db, model_class, records)
             updated = 0
             logger.info(f"{key}: Deleted {deleted} old records, Inserted {inserted} new records.")
-        elif key == 'nse_security':
+        elif key in ['nse_security', 'corporate_actions', 'board_meetings']:
             # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.
+            # Corporate Actions and Board Meetings are full snapshots, we upsert on symbol and purpose
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
         else:
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)

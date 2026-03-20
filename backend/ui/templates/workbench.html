@@ -410,19 +410,23 @@
 
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;">
+                    <button onclick="document.getElementById('div-symbol-search').value=''; renderDividendsData();" class="btn btn-secondary" style="padding: 8px 15px;">Clear</button>
                 </div>
 
-                <!-- Dividends List -->
+                <!-- Dividends List (Merged View) -->
                 <div id="div-content-actions" class="div-tab-section active" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
                     <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
                         <table class="data-table" id="div-actions-table">
                             <thead>
                                 <tr>
-                                    <th>Ex-Date</th>
-                                    <th>Symbol</th>
+                                    <th>Broadcast Date</th>
+                                    <th>Board Meeting Date</th>
+                                    <th>Purpose</th>
+                                    <th style="cursor: pointer;" onclick="sortDividends('ex_date')">Ex-date <span id="sort-icon-ex_date">▼</span></th>
+                                    <th style="cursor: pointer;" onclick="sortDividends('symbol')">Symbol <span id="sort-icon-symbol"></span></th>
                                     <th>Amount</th>
                                     <th>Type</th>
-                                    <th>Face Value</th>
+                                    <th>Facevalue</th>
                                     <th>Purpose</th>
                                     <th>Record Date</th>
                                 </tr>
@@ -3187,6 +3191,25 @@
 let divRawData = [];
 let divMeetingsData = [];
 let currentDivTab = 'actions';
+let divSortCol = 'ex_date';
+let divSortAsc = false;
+
+function sortDividends(col) {
+    if (divSortCol === col) {
+        divSortAsc = !divSortAsc;
+    } else {
+        divSortCol = col;
+        divSortAsc = true;
+    }
+
+    // Update icons
+    document.getElementById('sort-icon-ex_date').innerText = '';
+    document.getElementById('sort-icon-symbol').innerText = '';
+
+    document.getElementById(`sort-icon-${col}`).innerText = divSortAsc ? '▲' : '▼';
+
+    renderDividendsData();
+}
 
 function switchDividendsTab(tabId) {
     document.querySelectorAll('[id^="div-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
@@ -3246,11 +3269,37 @@ function renderDividendsData() {
     const searchInput = document.getElementById('div-symbol-search');
     const searchFilter = searchInput ? searchInput.value.toUpperCase() : '';
 
+    // Create a map of meetings by symbol sorted by date desc for quick lookup
+    const meetingsBySymbol = {};
+    if (divMeetingsData && divMeetingsData.length > 0) {
+        divMeetingsData.forEach(m => {
+            const sym = (m.symbol || '').toUpperCase();
+            if (!meetingsBySymbol[sym]) meetingsBySymbol[sym] = [];
+            meetingsBySymbol[sym].push(m);
+        });
+    }
+
     // Actions Table
     const tbodyActions = document.querySelector('#div-actions-table tbody');
     if (tbodyActions) {
         tbodyActions.innerHTML = '';
-        const filteredActions = divRawData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
+        let filteredActions = divRawData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
+
+        // Sorting
+        filteredActions.sort((a, b) => {
+            let valA, valB;
+            if (divSortCol === 'ex_date') {
+                valA = a.ex_date ? new Date(a.ex_date).getTime() : 0;
+                valB = b.ex_date ? new Date(b.ex_date).getTime() : 0;
+            } else if (divSortCol === 'symbol') {
+                valA = a.symbol || '';
+                valB = b.symbol || '';
+            }
+
+            if (valA < valB) return divSortAsc ? -1 : 1;
+            if (valA > valB) return divSortAsc ? 1 : -1;
+            return 0;
+        });
 
         if (filteredActions.length === 0) {
             tbodyActions.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
@@ -3266,12 +3315,48 @@ function renderDividendsData() {
 
             let amountDisp = d.parsed_dividend_amount ? '₹' + Number(d.parsed_dividend_amount).toFixed(2) : '-';
 
+            // Find the closest preceding board meeting for the same symbol
+            let broadcastDate = '';
+            let bmDate = '';
+            let bmPurpose = '';
+
+            const sym = (d.symbol || '').toUpperCase();
+            const exDateObj = d.ex_date ? new Date(d.ex_date.split('T')[0]) : null;
+
+            if (meetingsBySymbol[sym]) {
+                // Find a meeting that happened before or around the ex_date
+                // Alternatively just find the latest meeting if no ex_date
+                let closestMeeting = null;
+                for (let m of meetingsBySymbol[sym]) {
+                    if (exDateObj) {
+                        const meetingDateObj = m.meeting_date ? new Date(m.meeting_date.split('T')[0]) : (m.date ? new Date(m.date.split('T')[0]) : null);
+                        // A dividend is usually announced slightly before the ex_date
+                        if (meetingDateObj && meetingDateObj <= exDateObj) {
+                            closestMeeting = m;
+                            break;
+                        }
+                    } else {
+                        closestMeeting = m;
+                        break;
+                    }
+                }
+
+                if (closestMeeting) {
+                    broadcastDate = closestMeeting.broadcast_date ? closestMeeting.broadcast_date.replace('T', ' ') : (closestMeeting.date ? closestMeeting.date.split('T')[0] : '');
+                    bmDate = closestMeeting.meeting_date ? closestMeeting.meeting_date.split('T')[0] : '';
+                    bmPurpose = closestMeeting.purpose || '';
+                }
+            }
+
             tr.innerHTML = `
+                <td>${broadcastDate}</td>
+                <td>${bmDate}</td>
+                <td style="white-space: normal; max-width: 250px;">${bmPurpose}</td>
                 <td>${d.ex_date ? d.ex_date.split('T')[0] : '-'}</td>
                 <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
                 <td style="color: #4CAF50; font-weight:bold;">${amountDisp}</td>
                 <td><span style="background: ${color}; color:#fff; padding: 2px 6px; border-radius:3px; font-size:0.8em;">${d.dividend_type || '-'}</span></td>
-                <td>${d.face_value || '-'}</td>
+                <td>${d.face_value !== null && d.face_value !== undefined ? d.face_value : '-'}</td>
                 <td style="white-space: normal; max-width: 300px;">${d.purpose || '-'}</td>
                 <td>${d.record_date ? d.record_date.split('T')[0] : '-'}</td>
             `;

@@ -438,6 +438,12 @@ async def list_data(
             else:
                 query = query.filter(filters[0])
 
+    if type == 'dividend':
+        query = query.filter(or_(
+            model.parsed_dividend_amount != None,
+            model.dividend_type.in_(['Bonus', 'Split'])
+        ))
+
     # Handle FO Instrument filter
     if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':
         inst_upper = instrument.upper()
