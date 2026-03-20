@@ -3179,6 +3179,9 @@
                 setupAutocomplete('ca-search-input');
                 setupAutocomplete('div-symbol-search');
                 setupAutocomplete('mr-symbol-input');
+                setupAutocomplete('market-activity-symbol');
+                setupAutocomplete('sm-input-symbol');
+                setupAutocomplete('chart-add-input');
             });
 
             // Setup clock
@@ -3354,7 +3357,7 @@ function switchDividendsTab(tabId) {
     document.getElementById(`div-tab-btn-${tabId}`).classList.add('active');
 
     document.getElementById('div-content-actions').style.display = tabId === 'actions' ? 'flex' : 'none';
-    document.getElementById('div-content-meetings').style.display = tabId === 'meetings' ? 'flex' : 'none';
+
     currentDivTab = tabId;
 }
 
@@ -3369,7 +3372,7 @@ async function loadDividendsData() {
         if (searchInput) searchInput.value = '';
 
         document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
-        document.getElementById('div-meetings-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
+
 
         // Increase limit to essentially "fetch all" if no specific symbol is provided to meet "show all scrips at one shot"
         const limitQuery = symbolQuery ? '&limit=1000' : '&limit=10000';
@@ -3403,6 +3406,8 @@ async function loadDividendsData() {
         renderDividendsData();
     } catch(err) {
         console.error("Error loading dividends data", err);
+        // Ensure UI doesn't hang in "Loading..." state on failure
+        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = `<tr><td colspan="10" style="text-align:center; color:red;">Error loading data: ${err.message}</td></tr>`;
     }
 }
 

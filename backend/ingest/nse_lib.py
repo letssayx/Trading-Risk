@@ -37,7 +37,7 @@ class NSELib:
     DOWNLOAD_DIR = "backend/downloads" # Directory to check for local files
 
     def __init__(self):
-        self.session = cffi_requests.Session(impersonate="chrome120")
+        self.session = cffi_requests.Session(impersonate="chrome110")
         self.session.headers.update(self.HEADERS)
         self._cookies_primed = False
 
