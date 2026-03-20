@@ -3211,9 +3211,11 @@ async function loadDividendsData() {
         let dbActions = await dbActionsRes.json();
 
         // Always trust the database. If it's empty, we legitimately have no data for that symbol.
-        if (dbActions.data) {
+        // list_data endpoint returns a raw array `[...]`, not an object `{"data": [...]}`
+        const actionsArray = Array.isArray(dbActions) ? dbActions : (dbActions.data || []);
+        if (actionsArray.length > 0) {
              // Now include Bonus and Split
-             divRawData = dbActions.data.filter(d => (d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined) || d.dividend_type === 'Bonus' || d.dividend_type === 'Split');
+             divRawData = actionsArray.filter(d => (d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined) || d.dividend_type === 'Bonus' || d.dividend_type === 'Split');
              divRawData.sort((a, b) => new Date(b.ex_date || b.date) - new Date(a.ex_date || a.date));
         } else {
              divRawData = [];
@@ -3222,8 +3224,9 @@ async function loadDividendsData() {
         let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting&limit=1000${symbolQuery}`);
         let dbMeetings = await dbMeetingsRes.json();
 
-        if (dbMeetings.data) {
-             divMeetingsData = dbMeetings.data;
+        const meetingsArray = Array.isArray(dbMeetings) ? dbMeetings : (dbMeetings.data || []);
+        if (meetingsArray.length > 0) {
+             divMeetingsData = meetingsArray;
              divMeetingsData.sort((a, b) => new Date(b.meeting_date || b.date) - new Date(a.meeting_date || a.date));
         } else {
              divMeetingsData = [];
