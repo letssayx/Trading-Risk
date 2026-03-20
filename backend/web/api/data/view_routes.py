@@ -601,6 +601,20 @@ def process_results(results, model, skip_instrument_type=False):
         data.append(row_dict)
     return data
 
+@router.get("/api/data/view/symbols/all")
+async def all_symbols(db: Session = Depends(get_db)):
+    """
+    Returns all distinct symbols from bhavcopy_eq for client-side autocomplete.
+    """
+    from backend.ingest.nse_models import BhavcopyEQ
+    from sqlalchemy import select
+
+    query = select(BhavcopyEQ.symbol).distinct()
+    results = db.execute(query).scalars().all()
+
+    return {"symbols": results}
+
+
 @router.get("/api/data/view/symbols/autocomplete")
 async def autocomplete_symbols(
     q: str = Query(..., min_length=2),

@@ -143,6 +143,40 @@
             white-space: nowrap;
             color: #d4d4d4;
         }
+
+        /* Autocomplete Styles */
+        .autocomplete-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #252526;
+            border: 1px solid #333;
+            border-radius: 4px;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: none;
+        }
+        .autocomplete-dropdown div {
+            padding: 8px 10px;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 12px;
+            border-bottom: 1px solid #333;
+        }
+        .autocomplete-dropdown div:hover {
+            background: #3e3e42;
+            color: #fff;
+        }
+        .autocomplete-dropdown div:last-child {
+            border-bottom: none;
+        }
         .data-table th, .data-table td {
             border: 1px solid #3e3e42;
             padding: 4px 8px;
@@ -349,7 +383,9 @@
                     <div style="display: flex; gap: 15px; align-items: center;">
                         <div class="control-group">
                             <label>Symbol / Company:</label>
-                            <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" onkeyup="renderCorporateActionsTable()">
+                            <div class="autocomplete-wrapper">
+                                <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onkeyup="renderCorporateActionsTable()">
+                            </div>
                         </div>
                     <div class="control-group" id="ca-actions-filters">
                         <label style="margin-right:10px;">Filter:</label>
@@ -409,8 +445,9 @@
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;">
-                    <button onclick="document.getElementById('div-symbol-search').value=''; renderDividendsData();" class="btn btn-secondary" style="padding: 8px 15px;">Clear</button>
+                    <div class="autocomplete-wrapper">
+                        <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;" autocomplete="off">
+                    </div>
                 </div>
 
                 <!-- Dividends List (Merged View) -->
@@ -520,7 +557,9 @@
                     <!-- Data Grid Controls -->
                     <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
-                        <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY">
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY" autocomplete="off">
+                        </div>
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
                         <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;">Clear (All Scrips)</button>
                         <button id="mr-export-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 10px;">Download CSV</button>
@@ -853,13 +892,17 @@
 
                 async function loadTimeseriesData(snapshotMode = true) {
                     const targetDate = document.getElementById('mr-target-date').value;
-                    const symbol = document.getElementById('mr-symbol-input').value.toUpperCase() || 'NIFTY';
+                    const symbolInput = document.getElementById('mr-symbol-input');
+                    const symbol = symbolInput.value.toUpperCase() || 'NIFTY';
                     const tbody = document.getElementById('mr-data-body');
                     const thead = document.getElementById('mr-data-head');
                     const statusText = document.getElementById('mr-status-text');
 
                     if(snapshotMode && !targetDate) return;
-                    if(!snapshotMode && !symbol) { alert('Please enter a symbol for Timeseries view.'); return; }
+                    if(!snapshotMode && !symbolInput.value) { alert('Please enter a symbol for Timeseries view.'); return; }
+
+                    // Auto-clear symbol if loading snapshot mode (which implies loading ALL)
+                    if(snapshotMode && symbolInput) symbolInput.value = '';
 
                     try {
                         let url = `/api/morning-report/data/${targetDate}`;
@@ -1313,7 +1356,9 @@
                 </div>
                 <div class="control-group" id="symbol-group">
                     <label>Symbol:</label>
-                    <input type="text" id="symbol-input" class="history-input" placeholder="e.g. RELIANCE">
+                    <div class="autocomplete-wrapper">
+                        <input type="text" id="symbol-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off">
+                    </div>
                 </div>
                 <div class="control-group" id="instrument-group" style="display:none;">
                     <label>Instrument:</label>
@@ -1800,6 +1845,10 @@
         }
 
         async function loadCorporateActionsData() {
+            // Auto-clear symbol per user request
+            const searchInput = document.getElementById('ca-search-input');
+            if (searchInput) searchInput.value = '';
+
             const tbody = document.getElementById('ca-main-body');
             const thead = document.getElementById('ca-main-head');
             const statusMsg = document.getElementById('ca-status-msg');
@@ -2725,10 +2774,14 @@
 
         async function loadHistoryData(sortBy = null, sortOrder = 'asc') {
             const type = document.getElementById('data-type').value;
-            const symbol = document.getElementById('symbol-input').value.trim();
+            const symbolInput = document.getElementById('symbol-input');
+            const symbol = symbolInput ? symbolInput.value.trim() : '';
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
             const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
+
+            // Auto-clear symbol per user request
+            if (symbolInput) symbolInput.value = '';
 
             // Use current sort state if not explicitly passed
             if (!sortBy && currentSortColumn) {
@@ -3036,12 +3089,118 @@
              link.click();
         }
 
+        // --- Global Autocomplete State ---
+        let allGlobalSymbols = [];
+
+        async function fetchAllSymbols() {
+            try {
+                const res = await fetch('/api/data/view/symbols/all');
+                if(res.ok) {
+                    const data = await res.json();
+                    allGlobalSymbols = data.symbols || [];
+                }
+            } catch(e) {
+                console.warn("Failed to load symbols for autocomplete", e);
+            }
+        }
+
+        function setupAutocomplete(inputId) {
+            const input = document.getElementById(inputId);
+            if(!input) return;
+
+            const wrapper = input.parentElement;
+            if (!wrapper.classList.contains('autocomplete-wrapper')) {
+                // If not wrapped yet (in some dynamic cases), wrap it
+                const newWrapper = document.createElement('div');
+                newWrapper.className = 'autocomplete-wrapper';
+                input.parentNode.insertBefore(newWrapper, input);
+                newWrapper.appendChild(input);
+            }
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'autocomplete-dropdown';
+            input.parentElement.appendChild(dropdown);
+
+            input.addEventListener('input', function() {
+                const val = this.value.toUpperCase();
+                dropdown.innerHTML = '';
+
+                if (!val) {
+                    dropdown.style.display = 'none';
+                    if (inputId === 'ca-search-input') {
+                         if (typeof filterCATable === 'function') filterCATable();
+                    } else if (inputId === 'div-symbol-search') {
+                         if (typeof renderDividendsData === 'function') renderDividendsData();
+                    }
+                    return;
+                }
+
+                // If typing, trigger standard filters for some views
+                if (inputId === 'ca-search-input') {
+                     if (typeof filterCATable === 'function') filterCATable();
+                } else if (inputId === 'div-symbol-search') {
+                     if (typeof renderDividendsData === 'function') renderDividendsData();
+                }
+
+                const matches = [];
+                for(let sym of allGlobalSymbols) {
+                    if (sym.startsWith(val)) {
+                        matches.push({sym: sym, dist: 0});
+                    } else if (sym.includes(val)) {
+                        matches.push({sym: sym, dist: 1});
+                    } else if (val.length > 2) {
+                        // Fuzzy search allowing slight differences
+                        const lDist = levenshtein(val, sym);
+                        if(lDist <= 2) {
+                            matches.push({sym: sym, dist: lDist + 2}); // lower priority
+                        }
+                    }
+                }
+
+                matches.sort((a,b) => a.dist - b.dist);
+                const topMatches = matches.slice(0, 10).map(m => m.sym);
+
+                if (topMatches.length > 0) {
+                    topMatches.forEach(sym => {
+                        const div = document.createElement('div');
+                        div.innerText = sym;
+                        div.addEventListener('mousedown', function(e) {
+                            e.preventDefault(); // prevent input blur
+                            input.value = sym;
+                            dropdown.style.display = 'none';
+                            if (inputId === 'ca-search-input' && typeof filterCATable === 'function') filterCATable();
+                            if (inputId === 'div-symbol-search' && typeof renderDividendsData === 'function') renderDividendsData();
+                        });
+                        dropdown.appendChild(div);
+                    });
+                    dropdown.style.display = 'block';
+                } else {
+                    dropdown.style.display = 'none';
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+            });
+            input.addEventListener('focus', () => {
+                if(input.value && dropdown.children.length > 0) {
+                    dropdown.style.display = 'block';
+                }
+            });
+        }
+
         // --- Init ---
         window.onload = () => {
             Layout.init();
             ChartTabs.init();
             WorkbookManager.init();
             connectLiveFeed();
+            fetchAllSymbols().then(() => {
+                setupAutocomplete('symbol-input');
+                setupAutocomplete('ca-search-input');
+                setupAutocomplete('div-symbol-search');
+                setupAutocomplete('mr-symbol-input');
+            });
 
             // Setup clock
             const dtEl = document.getElementById('global-datetime');
@@ -3226,6 +3385,9 @@ async function loadDividendsData() {
 
         const searchInput = document.getElementById('div-symbol-search');
         const symbolQuery = searchInput && searchInput.value.trim() ? `&symbol=${searchInput.value.trim().toUpperCase()}` : '';
+
+        // Auto-clear symbol search on load per user request
+        if (searchInput) searchInput.value = '';
 
         document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
         document.getElementById('div-meetings-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
