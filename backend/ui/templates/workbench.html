@@ -3575,7 +3575,7 @@ async function loadDividendsData() {
         let dbActions = await dbActionsRes.json();
 
         // Always trust the database. If it's empty, we legitimately have no data for that symbol.
-        let actions = dbActions.data || [];
+        let actions = Array.isArray(dbActions) ? dbActions : (dbActions.data || []);
 
         // Fetch board meetings to join
         let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}${foQuery}`);
