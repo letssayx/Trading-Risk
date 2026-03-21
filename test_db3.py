@@ -1,15 +1,9 @@
-from backend.infrastructure.db import SessionLocal
-from backend.ingest import nse_models as models
+import requests
+import time
 
-db = SessionLocal()
-sym = models.SecurityMaster(
-    symbol="RELIANCE",
-    company_name="Reliance Industries",
-    instrument_type="EQ",
-    fin_instrm_id=123,
-    status="Active",
-    listing_date="2020-01-01"
-)
-db.add(sym)
-db.commit()
-print("Added RELIANCE to SecurityMaster")
+try:
+    resp = requests.get("http://localhost:8000/api/data/view/list?type=mwpl&limit=5000&latest=true")
+    print(resp.status_code)
+    print(resp.text)
+except Exception as e:
+    print(e)

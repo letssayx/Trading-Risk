@@ -1378,6 +1378,8 @@
                 <div class="control-group" style="display:flex; align-items:center; gap: 5px; margin-left: auto;">
                     <input type="checkbox" id="all-dates-check" onchange="toggleDateInputs(this)">
                     <label for="all-dates-check" style="margin:0; font-size:12px;">All Dates</label>
+                    <input type="checkbox" id="latest-date-check" onchange="toggleDateInputsLatest(this)" checked>
+                    <label for="latest-date-check" style="margin:0; font-size:12px;">Latest</label>
                 </div>
                 <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer;">Delete Data</button>
             </div>
@@ -2797,7 +2799,11 @@
             if(btn) { btn.disabled = true; btn.innerText = "Loading..."; }
 
             try {
-                let url = `/api/data/view/list?type=${type}&limit=500`; // Removed timestamp for speed, browser cache is usually fine with varying params
+                const latestCheck = document.getElementById("latest-date-check");
+                const isLatest = latestCheck && latestCheck.checked;
+                let limit = type === "mwpl" ? 5000 : 500;
+                let url = `/api/data/view/list?type=${type}&limit=${limit}`;
+                if (isLatest) url += "&latest=true"; // Removed timestamp for speed, browser cache is usually fine with varying params
                 if (symbol) url += `&symbol=${symbol}`;
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
@@ -2952,7 +2958,32 @@
         }
 
         // --- Audit Logic ---
+        function toggleDateInputsLatest(checkbox) {
+            const startInput = document.getElementById("start-date");
+            const endInput = document.getElementById("end-date");
+            const allDates = document.getElementById("all-dates-check");
+            if (checkbox.checked) {
+                startInput.value = "";
+                endInput.value = "";
+                startInput.disabled = true;
+                endInput.disabled = true;
+                if (allDates) {
+                    allDates.checked = false;
+                }
+            } else {
+                if (!allDates || !allDates.checked) {
+                    startInput.disabled = false;
+                    endInput.disabled = false;
+                    setDefaultDates();
+                }
+            }
+        }
+
         function toggleDateInputs(checkbox) {
+            const latestDates = document.getElementById("latest-date-check");
+            if (checkbox.checked) {
+                if (latestDates) latestDates.checked = false;
+            }
             const startInput = document.getElementById('start-date');
             const endInput = document.getElementById('end-date');
             if (checkbox.checked) {
@@ -3285,11 +3316,6 @@
                                 loadBtnFound = true;
                             }
                         }
-                    } else if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
-                            applyMrFilter();
-                        } else if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
-                            fetchMarketActivity();
-                        }
                     }
                 }
             });
@@ -3299,15 +3325,10 @@
                 removeActive(items);
                 if (currentFocus >= items.length) currentFocus = 0;
                 if (currentFocus < 0) currentFocus = (items.length - 1);
-                items[currentFocus].classList.add('autocomplete-active');
-                // Scroll into view if needed
-                items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                items[currentFocus].classList.add("autocomplete-active");
+                items[currentFocus].scrollIntoView({ block: "nearest", behavior: "smooth" });
             }
-
-            function removeActive(items) {
-                for (let i = 0; i < items.length; i++) {
-                    items[i].classList.remove('autocomplete-active');
-                }
+        function removeActive(items) {
             }
 
             input.addEventListener('blur', () => {

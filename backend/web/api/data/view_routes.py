@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, defer
-from sqlalchemy import desc, asc, or_
+from sqlalchemy import desc, asc, or_, func
 from sqlalchemy.exc import ProgrammingError, OperationalError
 import pandas as pd
 import io
@@ -378,6 +378,7 @@ async def list_data(
     instrument: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = Query('asc', pattern='^(asc|desc)$'),
+    latest: bool = Query(False),
     fo_only: Optional[bool] = False,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -404,8 +405,33 @@ async def list_data(
             query = query.join(SymbolMaster, SymbolMaster.symbol == model.ticker_symb)
             query = query.filter(SymbolMaster.is_fo == True)
 
+
+    # Handle Latest Data flag
+    if latest:
+        # Find the max date for this model
+        if hasattr(model, 'date'):
+            date_col = model.date
+        elif hasattr(model, 'trade_date'):
+            date_col = model.trade_date
+        elif hasattr(model, 'board_meeting_date'):
+             date_col = model.board_meeting_date
+        elif hasattr(model, 'meeting_date'):
+             date_col = model.meeting_date
+        elif hasattr(model, 'ex_date'):
+             date_col = model.ex_date
+        else:
+            date_col = None
+
+        if date_col:
+            max_date = db.query(func.max(date_col)).scalar()
+            if max_date:
+                # Override start and end dates
+                start_date = max_date.strftime('%Y-%m-%d')
+                end_date = max_date.strftime('%Y-%m-%d')
+
     # Apply Symbol/Search Filter (if applicable)
     filters = []
+
     if symbol:
         symbol = symbol.upper().strip()
 
@@ -516,7 +542,48 @@ async def list_data(
             else:
                  logger.info(f"Query returned {len(results)} rows for {type}")
 
+            if type == 'mwpl':
+                from collections import defaultdict
+                grouped = defaultdict(dict)
+                max_clients = 0
+
+                for row in results:
+                    # Row is a SQLAlchemy model instance here
+                    date_val = row.date.isoformat() if hasattr(row.date, 'isoformat') else str(row.date)
+                    key = (date_val, row.underlying_stock)
+                    client_num = row.client_position_num
+
+                    grouped[key][f"Client {client_num}"] = row.position_pct
+                    max_clients = max(max_clients, client_num)
+
+                pivoted = []
+                for (date, stock), positions in grouped.items():
+                    row_dict = {
+                        "Date": date,
+                        "Underlying Stock": stock,
+                    }
+                    total = 0
+                    for i in range(1, max_clients + 1):
+                        client_key = f"Client {i}"
+                        val = positions.get(client_key, None)
+                        row_dict[client_key] = val
+                        if val is not None:
+                            total += val
+
+                    row_dict["Total"] = round(total, 2)
+                    pivoted.append(row_dict)
+
+                # Sort by Date descending, then Total descending
+                pivoted.sort(key=lambda x: (x["Date"], x["Total"]), reverse=True)
+
+                # Add Sr No. after sort
+                for idx, r in enumerate(pivoted, start=1):
+                    r["Sr No."] = idx
+
+                return pivoted
+
             return process_results(results, model)
+
 
         except (ProgrammingError, OperationalError) as e:
             # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
@@ -823,7 +890,48 @@ async def export_data(
             else:
                 results = query.limit(50000).all()
             # Process results with potential instrument_type fix
+            if type == 'mwpl':
+                from collections import defaultdict
+                grouped = defaultdict(dict)
+                max_clients = 0
+
+                for row in results:
+                    # Row is a SQLAlchemy model instance here
+                    date_val = row.date.isoformat() if hasattr(row.date, 'isoformat') else str(row.date)
+                    key = (date_val, row.underlying_stock)
+                    client_num = row.client_position_num
+
+                    grouped[key][f"Client {client_num}"] = row.position_pct
+                    max_clients = max(max_clients, client_num)
+
+                pivoted = []
+                for (date, stock), positions in grouped.items():
+                    row_dict = {
+                        "Date": date,
+                        "Underlying Stock": stock,
+                    }
+                    total = 0
+                    for i in range(1, max_clients + 1):
+                        client_key = f"Client {i}"
+                        val = positions.get(client_key, None)
+                        row_dict[client_key] = val
+                        if val is not None:
+                            total += val
+
+                    row_dict["Total"] = round(total, 2)
+                    pivoted.append(row_dict)
+
+                # Sort by Date descending, then Total descending
+                pivoted.sort(key=lambda x: (x["Date"], x["Total"]), reverse=True)
+
+                # Add Sr No. after sort
+                for idx, r in enumerate(pivoted, start=1):
+                    r["Sr No."] = idx
+
+                return pivoted
+
             return process_results(results, model)
+
 
         except (ProgrammingError, OperationalError) as e:
             # Catch missing column errors (e.g. instrument_type in bhavcopy_fo)
