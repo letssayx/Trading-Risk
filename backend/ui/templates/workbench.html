@@ -3689,7 +3689,7 @@ function renderDividendsData() {
 
             let matchType = true;
             if (selectedType !== 'All') {
-                const purpose = (d.purpose || '').toLowerCase();
+                const purpose = ((d.subject || '') + ' ' + (d.purpose || '') + ' ' + (d.dividend_type || '')).toLowerCase();
                 if (selectedType === 'Interim' && !purpose.includes('interim')) matchType = false;
                 else if (selectedType === 'Final' && !(purpose.includes('dividend') && !purpose.includes('interim') && !purpose.includes('special'))) matchType = false;
                 else if (selectedType === 'Special' && !purpose.includes('special')) matchType = false;

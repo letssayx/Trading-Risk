@@ -400,10 +400,10 @@ async def list_data(
         # Assuming the field to join on is symbol in the current model
         if hasattr(model, 'symbol'):
             query = query.join(SymbolMaster, SymbolMaster.symbol == model.symbol)
-            query = query.filter(SymbolMaster.is_fo == True)
+            query = query.filter(SymbolMaster.derivative_liquidity_tier != None)
         elif hasattr(model, 'ticker_symb'):
             query = query.join(SymbolMaster, SymbolMaster.symbol == model.ticker_symb)
-            query = query.filter(SymbolMaster.is_fo == True)
+            query = query.filter(SymbolMaster.derivative_liquidity_tier != None)
 
 
     # Handle Latest Data flag
