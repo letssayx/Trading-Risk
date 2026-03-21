@@ -22,7 +22,7 @@ def check_cancel_flag(task_id: str) -> bool:
         return False
 
 # Use shared_task decorator for integration with main Celery app
-@shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_date')
+@shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_date')
 def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a specific date."""
 
@@ -68,7 +68,7 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
 
 from celery import shared_task
 
-@shared_task(bind=True, name="evaluate_ai_predictions")
+@shared_task(bind=True, acks_late=True, name="evaluate_ai_predictions")
 def evaluate_ai_predictions(self):
     """
     Background worker that runs (e.g., at 9:15 AM) to evaluate all pending AI predictions
@@ -108,7 +108,7 @@ def evaluate_ai_predictions(self):
         db.close()
 
 
-@shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_range')
+@shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
     def is_cancelled():
@@ -224,7 +224,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         logger.error(f"Range import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=Exception(str(exc)), countdown=60)
 
-@shared_task(bind=True, max_retries=3, name='backend.ingest.tasks.import_nse_latest')
+@shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_latest')
 def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import data for the most recent trading day."""
 
@@ -272,7 +272,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         logger.error(f"Latest import failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=Exception(str(exc)), countdown=300)
 
-@shared_task(bind=True, name="prepare_morning_data_task")
+@shared_task(bind=True, acks_late=True, name="prepare_morning_data_task")
 def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = None):
     """
     Celery task to STRICTLY compute the DailyDerivativesAnalysis table.
@@ -318,7 +318,7 @@ def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = No
         self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
         raise Exception(f"Morning Report Preparation Failed: {err_msg}")
 
-@shared_task(bind=True, name="generate_morning_report_task")
+@shared_task(bind=True, acks_late=True, name="generate_morning_report_task")
 def generate_morning_report_task(self, target_date_str: str, author: str = "System", logo_path: str = None):
     """
     Celery task to STRICTLY generate the PDF report (after prepare_morning_data_task is done).

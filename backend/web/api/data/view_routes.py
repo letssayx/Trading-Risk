@@ -604,15 +604,38 @@ def process_results(results, model, skip_instrument_type=False):
 @router.get("/api/data/view/symbols/all")
 async def all_symbols(db: Session = Depends(get_db)):
     """
-    Returns all distinct symbols from bhavcopy_eq for client-side autocomplete.
+    Returns all distinct symbols from SymbolMaster, SecurityMaster, and bhavcopy_eq for client-side autocomplete.
     """
-    from backend.ingest.nse_models import BhavcopyEQ
+    from backend.ingest.nse_models import BhavcopyEQ, SymbolMaster, SecurityMaster
     from sqlalchemy import select
 
-    query = select(BhavcopyEQ.symbol).distinct()
-    results = db.execute(query).scalars().all()
+    symbols = set()
 
-    return {"symbols": results}
+    # Primary Source: User's Symbol Master
+    try:
+        sm_results = db.execute(select(SymbolMaster.symbol)).scalars().all()
+        symbols.update(sm_results)
+    except Exception as e:
+        logger.warning(f"Could not load symbols from SymbolMaster: {e}")
+
+    # Secondary Source: NSE Security Master
+    try:
+        sec_results = db.execute(select(SecurityMaster.ticker_symb)).scalars().all()
+        symbols.update(sec_results)
+    except Exception as e:
+        logger.warning(f"Could not load symbols from SecurityMaster: {e}")
+
+    # Fallback/Tertiary Source: Bhavcopy EQ Distinct Symbols
+    try:
+        eq_results = db.execute(select(BhavcopyEQ.symbol).distinct()).scalars().all()
+        symbols.update(eq_results)
+    except Exception as e:
+        logger.warning(f"Could not load symbols from BhavcopyEQ: {e}")
+
+    # Filter out empty or None values
+    valid_symbols = sorted(list({s for s in symbols if s and str(s).strip()}))
+
+    return {"symbols": valid_symbols}
 
 
 @router.get("/api/data/view/symbols/autocomplete")

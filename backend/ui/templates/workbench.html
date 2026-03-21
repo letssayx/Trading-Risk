@@ -271,6 +271,12 @@
         .btn-secondary { background: #3c3c3c; color: #ccc; }
         .btn-secondary:hover { background: #4e4e50; }
 
+
+        .autocomplete-active {
+            background-color: var(--secondary-color) !important;
+            color: var(--text-color);
+        }
+
     </style>
 </head>
 <body>
@@ -453,16 +459,13 @@
                         <table class="data-table" id="div-actions-table">
                             <thead>
                                 <tr>
-                                    <th>Broadcast Date</th>
-                                    <th>Board Meeting Date</th>
-                                    <th>Purpose</th>
-                                    <th style="cursor: pointer;" onclick="sortDividends('ex_date')">Ex-date <span id="sort-icon-ex_date">▼</span></th>
-                                    <th style="cursor: pointer;" onclick="sortDividends('symbol')">Symbol <span id="sort-icon-symbol"></span></th>
-                                    <th>Amount</th>
-                                    <th>Type</th>
-                                    <th>Facevalue</th>
-                                    <th>Purpose</th>
-                                    <th>Record Date</th>
+                                    <th style="cursor: pointer;" onclick="sortDividends('symbol')">SERIES <span id="sort-icon-symbol"></span></th>
+                                    <th>FACE VALUE</th>
+                                    <th>PURPOSE</th>
+                                    <th style="cursor: pointer;" onclick="sortDividends('ex_date')">EX-DATE <span id="sort-icon-ex_date">▼</span></th>
+                                    <th>RECORD DATE</th>
+                                    <th>BOARD MEETING DATE</th>
+                                    <th>AGM/EGM DATE</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1669,7 +1672,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -1833,7 +1836,7 @@
             const statusMsg = document.getElementById('ca-status-msg');
             const rowCount = document.getElementById('ca-row-count');
 
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">Loading data from NSE...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Loading data from NSE...</td></tr>';
             statusMsg.innerText = "Loading...";
             rowCount.innerText = "0 Rows";
 
@@ -1866,7 +1869,7 @@
                 renderCAHeaders();
                 filterCATable();
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#f44336;">Failed to load data: ${err.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#f44336;">Failed to load data: ${err.message}</td></tr>`;
                 statusMsg.innerText = "Error";
                 rowCount.innerText = "0 Rows";
             }
@@ -2073,7 +2076,7 @@
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
                 document.getElementById('ca-status-msg').innerText = "Ready";
                 document.getElementById('ca-row-count').innerText = "0 Rows";
                 return;
@@ -2684,6 +2687,7 @@
                     'h': 'history',
                     'i': 'import',
                     'a': 'ai_analyze',
+                    'd': 'dividends',
                     'u': 'audit',
                     'c': 'config'
                 };
@@ -3087,22 +3091,29 @@
             const input = document.getElementById(inputId);
             if(!input) return;
 
-            const wrapper = input.parentElement;
-            if (!wrapper.classList.contains('autocomplete-wrapper')) {
-                // If not wrapped yet (in some dynamic cases), wrap it
-                const newWrapper = document.createElement('div');
-                newWrapper.className = 'autocomplete-wrapper';
-                input.parentNode.insertBefore(newWrapper, input);
-                newWrapper.appendChild(input);
+            let dropdown = input.nextElementSibling;
+            if (!dropdown || !dropdown.classList.contains('autocomplete-dropdown')) {
+                dropdown = document.createElement('div');
+                dropdown.className = 'autocomplete-dropdown';
+
+                const wrapper = input.parentElement;
+                if (!wrapper.classList.contains('autocomplete-wrapper')) {
+                    const newWrapper = document.createElement('div');
+                    newWrapper.className = 'autocomplete-wrapper';
+                    input.parentNode.insertBefore(newWrapper, input);
+                    newWrapper.appendChild(input);
+                    newWrapper.appendChild(dropdown);
+                } else {
+                    wrapper.appendChild(dropdown);
+                }
             }
 
-            const dropdown = document.createElement('div');
-            dropdown.className = 'autocomplete-dropdown';
-            input.parentElement.appendChild(dropdown);
+            let currentFocus = -1;
 
             input.addEventListener('input', function() {
                 const val = this.value.toUpperCase();
                 dropdown.innerHTML = '';
+                currentFocus = -1;
 
                 if (!val) {
                     dropdown.style.display = 'none';
@@ -3128,25 +3139,40 @@
                     } else if (sym.includes(val)) {
                         matches.push({sym: sym, dist: 1});
                     } else if (val.length > 2) {
-                        // Fuzzy search allowing slight differences
                         const lDist = levenshtein(val, sym);
                         if(lDist <= 2) {
-                            matches.push({sym: sym, dist: lDist + 2}); // lower priority
+                            matches.push({sym: sym, dist: lDist + 2});
                         }
                     }
                 }
 
                 matches.sort((a,b) => a.dist - b.dist);
-                const topMatches = matches.slice(0, 10).map(m => m.sym);
+                const topMatches = [...new Set(matches.map(m => m.sym))].slice(0, 10);
 
                 if (topMatches.length > 0) {
                     topMatches.forEach(sym => {
                         const div = document.createElement('div');
                         div.innerText = sym;
+
+                        // Highlight matching part
+                        const matchIndex = sym.indexOf(val);
+                        if (matchIndex !== -1) {
+                            div.innerHTML = sym.substring(0, matchIndex) +
+                                            "<strong>" + sym.substring(matchIndex, matchIndex + val.length) + "</strong>" +
+                                            sym.substring(matchIndex + val.length);
+                        }
+
                         div.addEventListener('mousedown', function(e) {
-                            e.preventDefault(); // prevent input blur
+                            e.preventDefault();
                             input.value = sym;
                             dropdown.style.display = 'none';
+
+                            // Auto trigger load button if it exists next to it
+                            const loadBtn = input.parentElement.parentElement.querySelector('button');
+                            if (loadBtn && (loadBtn.innerText.toLowerCase().includes('load') || loadBtn.innerText.toLowerCase().includes('refresh'))) {
+                                loadBtn.click();
+                            }
+
                             if (inputId === 'ca-search-input' && typeof filterCATable === 'function') filterCATable();
                             if (inputId === 'div-symbol-search' && typeof renderDividendsData === 'function') renderDividendsData();
                         });
@@ -3157,6 +3183,118 @@
                     dropdown.style.display = 'none';
                 }
             });
+
+            input.addEventListener('keydown', function(e) {
+                const items = dropdown.getElementsByTagName('div');
+                if (e.key === 'ArrowDown') {
+                    currentFocus++;
+                    addActive(items);
+                    e.preventDefault();
+                } else if (e.key === 'ArrowUp') {
+                    currentFocus--;
+                    addActive(items);
+                    e.preventDefault();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentFocus > -1) {
+                        if (items[currentFocus]) {
+                            input.value = items[currentFocus].innerText;
+                            dropdown.style.display = 'none';
+                        }
+                    }
+
+                    dropdown.style.display = 'none';
+
+                    // Manual filters that trigger on input change for specific tabs
+                    if (inputId === 'ca-search-input' && typeof filterCATable === 'function') filterCATable();
+                    if (inputId === 'div-symbol-search' && typeof renderDividendsData === 'function') renderDividendsData();
+
+                    // Explicit mapping for known input fields to their respective load functions
+                    // This guarantees Enter will work, regardless of DOM structure
+                    if (inputId === 'symbol-input' && typeof loadData === 'function') {
+                        loadData();
+                        return;
+                    }
+                    if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
+                        applyMrFilter();
+                        return;
+                    }
+                    if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
+                        fetchMarketActivity();
+                        return;
+                    }
+                    if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
+                        loadDividendsData();
+                        return;
+                    }
+                    if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
+                        loadCorporateActions();
+                        return;
+                    }
+
+                    // Auto trigger load button more robustly
+                    // 1. Look for a button in the same container or parent container (up to 5 levels)
+                    let currentEl = input;
+                    let loadBtnFound = false;
+                    for (let i = 0; i < 5; i++) {
+                        if (!currentEl || currentEl.tagName === 'BODY') break;
+                        const parent = currentEl.parentElement;
+                        if (parent) {
+                            const btns = Array.from(parent.querySelectorAll('button')).filter(btn =>
+                                btn.innerText.toLowerCase().includes('load') ||
+                                btn.innerText.toLowerCase().includes('refresh') ||
+                                btn.innerText.toLowerCase().includes('get') ||
+                                (btn.onclick && btn.onclick.toString().toLowerCase().includes('load'))
+                            );
+                            if (btns.length > 0) {
+                                btns[0].click();
+                                loadBtnFound = true;
+                                break;
+                            }
+                        }
+                        currentEl = parent;
+                    }
+
+                    // 2. If not found in immediate ancestry, look globally within the *closest active tab*
+                    if (!loadBtnFound) {
+                        const activeTab = input.closest('.main-tab-content') || document.querySelector('.main-tab-content.active');
+                        if (activeTab) {
+                            // Find the first Load/Refresh button inside this tab
+                            const btns = Array.from(activeTab.querySelectorAll('button')).filter(btn =>
+                                btn.innerText.toLowerCase().includes('load') ||
+                                btn.innerText.toLowerCase().includes('refresh') ||
+                                btn.innerText.toLowerCase().includes('get') ||
+                                (btn.onclick && btn.onclick.toString().toLowerCase().includes('load'))
+                            );
+                            if (btns.length > 0) {
+                                btns[0].click();
+                                loadBtnFound = true;
+                            }
+                        }
+                    } else if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
+                            applyMrFilter();
+                        } else if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
+                            fetchMarketActivity();
+                        }
+                    }
+                }
+            });
+
+            function addActive(items) {
+                if (!items) return false;
+                removeActive(items);
+                if (currentFocus >= items.length) currentFocus = 0;
+                if (currentFocus < 0) currentFocus = (items.length - 1);
+                items[currentFocus].classList.add('autocomplete-active');
+                // Scroll into view if needed
+                items[currentFocus].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+
+            function removeActive(items) {
+                for (let i = 0; i < items.length; i++) {
+                    items[i].classList.remove('autocomplete-active');
+                }
+            }
 
             input.addEventListener('blur', () => {
                 setTimeout(() => { dropdown.style.display = 'none'; }, 200);
@@ -3371,27 +3509,20 @@ async function loadDividendsData() {
         // Auto-clear symbol search on load per user request
         if (searchInput) searchInput.value = '';
 
-        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
+        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
 
 
         // Increase limit to essentially "fetch all" if no specific symbol is provided to meet "show all scrips at one shot"
         const limitQuery = symbolQuery ? '&limit=1000' : '&limit=10000';
 
-        // Try fetching from our database first to support full history
+        // Fetch dividends
         let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}`);
         let dbActions = await dbActionsRes.json();
 
         // Always trust the database. If it's empty, we legitimately have no data for that symbol.
-        // list_data endpoint returns a raw array `[...]`, not an object `{"data": [...]}`
-        const actionsArray = Array.isArray(dbActions) ? dbActions : (dbActions.data || []);
-        if (actionsArray.length > 0) {
-             // Now include Bonus and Split
-             divRawData = actionsArray.filter(d => (d.parsed_dividend_amount !== null && d.parsed_dividend_amount !== undefined) || d.dividend_type === 'Bonus' || d.dividend_type === 'Split');
-             divRawData.sort((a, b) => new Date(b.ex_date || b.date) - new Date(a.ex_date || a.date));
-        } else {
-             divRawData = [];
-        }
+        let actions = dbActions.data || [];
 
+        // Fetch board meetings to join
         let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}`);
         let dbMeetings = await dbMeetingsRes.json();
 
@@ -3407,7 +3538,7 @@ async function loadDividendsData() {
     } catch(err) {
         console.error("Error loading dividends data", err);
         // Ensure UI doesn't hang in "Loading..." state on failure
-        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = `<tr><td colspan="10" style="text-align:center; color:red;">Error loading data: ${err.message}</td></tr>`;
+        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Error loading data: ${err.message}</td></tr>`;
     }
 }
 
@@ -3448,89 +3579,61 @@ function renderDividendsData() {
         });
 
         if (filteredActions.length === 0) {
-            tbodyActions.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
+            tbodyActions.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
         }
 
         filteredActions.forEach(d => {
             const tr = document.createElement('tr');
-            let color = '#10b981';
-            if (d.dividend_type === 'Interim') color = '#eab308';
-            else if (d.dividend_type === 'Special') color = '#8b5cf6';
-            else if (d.dividend_type === 'Bonus') color = '#ec4899';
-            else if (d.dividend_type === 'Split') color = '#3b82f6';
 
-            let amountDisp = d.parsed_dividend_amount ? '₹' + Number(d.parsed_dividend_amount).toFixed(2) : '-';
+            let series = d.symbol || '-';
 
-            // Find the closest preceding board meeting for the same symbol
-            let broadcastDate = '';
-            let bmDate = '';
-            let bmPurpose = '';
+            let matchingMeetings = meetingsBySymbol[series.toUpperCase()] || [];
+            let bmd = '-';
+            let agm = '-';
 
-            const sym = (d.symbol || '').toUpperCase();
-            const exDateObj = d.ex_date ? new Date(d.ex_date.split('T')[0]) : null;
+            if (matchingMeetings.length > 0) {
+                let exDateObj = d.ex_date ? new Date(d.ex_date) : null;
 
-            if (meetingsBySymbol[sym]) {
-                // Find a meeting whose board meeting date is closest to the dividend's ex_date, but before or on the ex_date.
-                // We want the most recent meeting prior to the ex_date.
-                let closestMeeting = null;
-                let minDiff = Infinity;
+                matchingMeetings.sort((a,b) => {
+                    let dateA = a.meeting_date ? new Date(a.meeting_date) : new Date(0);
+                    let dateB = b.meeting_date ? new Date(b.meeting_date) : new Date(0);
+                    return dateB - dateA;
+                });
 
-                for (let m of meetingsBySymbol[sym]) {
-                    if (exDateObj) {
-                        // Priority to meeting_date, fallback to broadcast_date or date
-                        const meetingDateObj = m.meeting_date ? new Date(m.meeting_date.split('T')[0]) : null;
-
-                        if (meetingDateObj && meetingDateObj <= exDateObj) {
-                            // Find the minimum difference between Ex-Date and Meeting Date
-                            // The Meeting is usually close to the Ex-Date, but definitely before it.
-                            const diff = exDateObj.getTime() - meetingDateObj.getTime();
-                            if (diff >= 0 && diff < minDiff) {
-                                minDiff = diff;
-                                closestMeeting = m;
-                            }
+                for (let m of matchingMeetings) {
+                    if (!exDateObj || (m.meeting_date && new Date(m.meeting_date) <= exDateObj)) {
+                        bmd = m.meeting_date || '-';
+                        if (m.purpose && m.purpose.toUpperCase().includes('AGM')) {
+                            agm = m.meeting_date || '-';
                         }
-                    } else {
-                        if (!closestMeeting) closestMeeting = m; // fallback if no ex-date
+                        break;
                     }
                 }
 
-                // If we still didn't find one based on meeting_date, try looking at broadcast_date
-                if (!closestMeeting && exDateObj) {
-                    for (let m of meetingsBySymbol[sym]) {
-                         const bcastDateObj = m.broadcast_date ? new Date(m.broadcast_date.split('T')[0]) : (m.date ? new Date(m.date.split('T')[0]) : null);
-                         if (bcastDateObj && bcastDateObj <= exDateObj) {
-                             const diff = exDateObj.getTime() - bcastDateObj.getTime();
-                             if (diff >= 0 && diff < minDiff) {
-                                 minDiff = diff;
-                                 closestMeeting = m;
-                             }
-                         }
+                if (bmd === '-') {
+                    bmd = matchingMeetings[0].meeting_date || '-';
+                    if (matchingMeetings[0].purpose && matchingMeetings[0].purpose.toUpperCase().includes('AGM')) {
+                        agm = matchingMeetings[0].meeting_date || '-';
                     }
-                }
-
-                if (closestMeeting) {
-                    // Use the exact fields: broadcast_date is when they announce the meeting, meeting_date is the event
-                    let rawBroadcast = closestMeeting.broadcast_date ? closestMeeting.broadcast_date.replace('T', ' ') : '';
-                    if (!rawBroadcast) rawBroadcast = closestMeeting.date ? closestMeeting.date.replace('T', ' ') : ''; // fallback
-
-                    // Slice to just date if we have time, for cleaner UI
-                    broadcastDate = rawBroadcast ? rawBroadcast.split(' ')[0] : '-';
-                    bmDate = closestMeeting.meeting_date ? closestMeeting.meeting_date.split('T')[0] : '-';
-                    bmPurpose = closestMeeting.purpose || '';
                 }
             }
 
+            let fullPurpose = d.subject || d.purpose || '-';
+
+            let faceValue = d.face_value || d.faceValue || '-';
+            if (faceValue === '-' && fullPurpose.toUpperCase().includes('FACE VALUE')) {
+                 let match = fullPurpose.match(/FACE VALUE[:\s]+([\d\.]+)/i);
+                 if (match) faceValue = match[1];
+            }
+
             tr.innerHTML = `
-                <td>${broadcastDate || '-'}</td>
-                <td>${bmDate || '-'}</td>
-                <td style="white-space: normal; max-width: 250px;">${bmPurpose || '-'}</td>
-                <td>${d.ex_date ? d.ex_date.split('T')[0] : '-'}</td>
-                <td class="symbol-col" style="color:#007bff; font-weight:bold;">${d.symbol || '-'}</td>
-                <td style="color: #4CAF50; font-weight:bold;">${amountDisp}</td>
-                <td><span style="background: ${color}; color:#fff; padding: 2px 6px; border-radius:3px; font-size:0.8em;">${d.dividend_type || '-'}</span></td>
-                <td>${d.face_value !== null && d.face_value !== undefined ? d.face_value : '-'}</td>
-                <td style="white-space: normal; max-width: 300px;">${d.purpose || '-'}</td>
-                <td>${d.record_date ? d.record_date.split('T')[0] : '-'}</td>
+                <td>${series}</td>
+                <td>${faceValue}</td>
+                <td>${fullPurpose}</td>
+                <td>${d.ex_date || '-'}</td>
+                <td>${d.record_date || '-'}</td>
+                <td>${bmd}</td>
+                <td>${agm}</td>
             `;
             tbodyActions.appendChild(tr);
         });
