@@ -687,33 +687,37 @@ async def all_symbols(db: Session = Depends(get_db)):
     from backend.ingest.nse_models import BhavcopyEQ, SymbolMaster, SecurityMaster
     from sqlalchemy import select
 
-    symbols = set()
+    symbols_list = []
+    seen = set()
+
+    def add_symbols(new_symbols):
+        for s in new_symbols:
+            if s and str(s).strip() and s not in seen:
+                seen.add(s)
+                symbols_list.append(s)
 
     # Primary Source: User's Symbol Master
     try:
         sm_results = db.execute(select(SymbolMaster.symbol)).scalars().all()
-        symbols.update(sm_results)
+        add_symbols(sm_results)
     except Exception as e:
         logger.warning(f"Could not load symbols from SymbolMaster: {e}")
 
-    # Secondary Source: NSE Security Master
-    try:
-        sec_results = db.execute(select(SecurityMaster.ticker_symb)).scalars().all()
-        symbols.update(sec_results)
-    except Exception as e:
-        logger.warning(f"Could not load symbols from SecurityMaster: {e}")
-
-    # Fallback/Tertiary Source: Bhavcopy EQ Distinct Symbols
+    # Primary Source: Bhavcopy EQ Distinct Symbols (Requested priority)
     try:
         eq_results = db.execute(select(BhavcopyEQ.symbol).distinct()).scalars().all()
-        symbols.update(eq_results)
+        add_symbols(eq_results)
     except Exception as e:
         logger.warning(f"Could not load symbols from BhavcopyEQ: {e}")
 
-    # Filter out empty or None values
-    valid_symbols = sorted(list({s for s in symbols if s and str(s).strip()}))
+    # Fallback Source: NSE Security Master
+    try:
+        sec_results = db.execute(select(SecurityMaster.ticker_symb)).scalars().all()
+        add_symbols(sec_results)
+    except Exception as e:
+        logger.warning(f"Could not load symbols from SecurityMaster: {e}")
 
-    return {"symbols": valid_symbols}
+    return {"symbols": symbols_list}
 
 
 @router.get("/api/data/view/symbols/autocomplete")

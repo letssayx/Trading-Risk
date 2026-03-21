@@ -1375,11 +1375,14 @@
                 <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
                 <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
 
+                <div class="control-group" style="display:flex; align-items:center; gap: 5px; margin-left: 15px;">
+                    <input type="checkbox" id="latest-date-check" onchange="toggleDateInputsLatest(this)" checked>
+                    <label for="latest-date-check" style="margin:0; font-size:12px;">Latest Date</label>
+                </div>
+
                 <div class="control-group" style="display:flex; align-items:center; gap: 5px; margin-left: auto;">
                     <input type="checkbox" id="all-dates-check" onchange="toggleDateInputs(this)">
                     <label for="all-dates-check" style="margin:0; font-size:12px;">All Dates</label>
-                    <input type="checkbox" id="latest-date-check" onchange="toggleDateInputsLatest(this)" checked>
-                    <label for="latest-date-check" style="margin:0; font-size:12px;">Latest</label>
                 </div>
                 <button onclick="deleteHistoryData()" class="btn btn-danger" style="background-color: #d9534f; border-color: #d43f3a; color: white; border-radius: 4px; padding: 6px 12px; cursor: pointer;">Delete Data</button>
             </div>
@@ -3212,10 +3215,24 @@
                             input.value = sym;
                             dropdown.style.display = 'none';
 
-                            // Auto trigger load button if it exists next to it
-                            const loadBtn = input.parentElement.parentElement.querySelector('button');
-                            if (loadBtn && (loadBtn.innerText.toLowerCase().includes('load') || loadBtn.innerText.toLowerCase().includes('refresh'))) {
-                                loadBtn.click();
+                            // Explicit mapping for known input fields to their respective load functions
+                            // This ensures correct data loading when selecting an option from autocomplete
+                            if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
+                                loadHistoryData();
+                            } else if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
+                                applyMrFilter();
+                            } else if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
+                                fetchMarketActivity();
+                            } else if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
+                                loadDividendsData();
+                            } else if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
+                                loadCorporateActions();
+                            } else {
+                                // Auto trigger load button if it exists next to it as fallback
+                                const loadBtn = input.parentElement.parentElement.querySelector('button');
+                                if (loadBtn && (loadBtn.innerText.toLowerCase().includes('load') || loadBtn.innerText.toLowerCase().includes('refresh'))) {
+                                    loadBtn.click();
+                                }
                             }
 
                             if (inputId === 'ca-search-input' && typeof filterCATable === 'function') filterCATable();
@@ -3256,8 +3273,8 @@
 
                     // Explicit mapping for known input fields to their respective load functions
                     // This guarantees Enter will work, regardless of DOM structure
-                    if (inputId === 'symbol-input' && typeof loadData === 'function') {
-                        loadData();
+                    if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
+                        loadHistoryData();
                         return;
                     }
                     if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
