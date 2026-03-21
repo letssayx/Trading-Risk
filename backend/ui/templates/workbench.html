@@ -473,13 +473,16 @@
                         <table class="data-table" id="div-actions-table">
                             <thead>
                                 <tr>
-                                    <th style="cursor: pointer;" onclick="sortDividends('symbol')">SERIES <span id="sort-icon-symbol"></span></th>
-                                    <th>FACE VALUE</th>
+                                    <th>BROADCAST DATE</th>
+                                    <th>BOARD MEETING DATE</th>
                                     <th>PURPOSE</th>
                                     <th style="cursor: pointer;" onclick="sortDividends('ex_date')">EX-DATE <span id="sort-icon-ex_date">▼</span></th>
+                                    <th style="cursor: pointer;" onclick="sortDividends('symbol')">SYMBOL <span id="sort-icon-symbol"></span></th>
+                                    <th>AMOUNT</th>
+                                    <th>TYPE</th>
+                                    <th>FACEVALUE</th>
+                                    <th>PURPOSE</th>
                                     <th>RECORD DATE</th>
-                                    <th>BOARD MEETING DATE</th>
-                                    <th>AGM/EGM DATE</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -3181,34 +3184,79 @@
                 }
 
                 const matches = [];
-                for(let sym of allGlobalSymbols) {
-                    if (sym.startsWith(val)) {
-                        matches.push({sym: sym, dist: 0});
-                    } else if (sym.includes(val)) {
-                        matches.push({sym: sym, dist: 1});
+                for(let obj of allGlobalSymbols) {
+                    // obj is {symbol: "RELIANCE", name: "Reliance Industries"}
+                    // handle legacy strings just in case
+                    const sym = typeof obj === 'string' ? obj : obj.symbol;
+                    const name = typeof obj === 'string' ? '' : obj.name;
+
+                    const symMatch = sym.toUpperCase();
+                    const nameMatch = name ? name.toUpperCase() : '';
+
+                    if (symMatch.startsWith(val)) {
+                        matches.push({obj: obj, dist: 0, textMatch: symMatch, isName: false});
+                    } else if (symMatch.includes(val)) {
+                        matches.push({obj: obj, dist: 1, textMatch: symMatch, isName: false});
+                    } else if (nameMatch.startsWith(val)) {
+                        matches.push({obj: obj, dist: 2, textMatch: nameMatch, isName: true});
+                    } else if (nameMatch.includes(val)) {
+                        matches.push({obj: obj, dist: 3, textMatch: nameMatch, isName: true});
                     } else if (val.length > 2) {
-                        const lDist = levenshtein(val, sym);
-                        if(lDist <= 2) {
-                            matches.push({sym: sym, dist: lDist + 2});
+                        const lDistSym = levenshtein(val, symMatch);
+                        const lDistName = nameMatch ? levenshtein(val, nameMatch) : 999;
+
+                        if(lDistSym <= 2) {
+                            matches.push({obj: obj, dist: lDistSym + 4, textMatch: symMatch, isName: false});
+                        } else if(lDistName <= 3) { // allow slightly more typos in long names
+                            matches.push({obj: obj, dist: lDistName + 4, textMatch: nameMatch, isName: true});
                         }
                     }
                 }
 
                 matches.sort((a,b) => a.dist - b.dist);
-                const topMatches = [...new Set(matches.map(m => m.sym))].slice(0, 10);
+
+                // Deduplicate by symbol
+                const topMatches = [];
+                const seenSyms = new Set();
+                for (let m of matches) {
+                    const sym = typeof m.obj === 'string' ? m.obj : m.obj.symbol;
+                    if (!seenSyms.has(sym)) {
+                        seenSyms.add(sym);
+                        topMatches.push(m);
+                        if (topMatches.length >= 10) break;
+                    }
+                }
 
                 if (topMatches.length > 0) {
-                    topMatches.forEach(sym => {
+                    topMatches.forEach(matchInfo => {
+                        const sym = typeof matchInfo.obj === 'string' ? matchInfo.obj : matchInfo.obj.symbol;
+                        const name = typeof matchInfo.obj === 'string' ? '' : matchInfo.obj.name;
+
                         const div = document.createElement('div');
-                        div.innerText = sym;
+                        div.style.display = 'flex';
+                        div.style.justifyContent = 'space-between';
+
+                        let displaySym = sym;
+                        let displayName = name;
 
                         // Highlight matching part
-                        const matchIndex = sym.indexOf(val);
-                        if (matchIndex !== -1) {
-                            div.innerHTML = sym.substring(0, matchIndex) +
-                                            "<strong>" + sym.substring(matchIndex, matchIndex + val.length) + "</strong>" +
-                                            sym.substring(matchIndex + val.length);
+                        if (!matchInfo.isName) {
+                            const matchIndex = sym.toUpperCase().indexOf(val);
+                            if (matchIndex !== -1) {
+                                displaySym = sym.substring(0, matchIndex) +
+                                                "<strong>" + sym.substring(matchIndex, matchIndex + val.length) + "</strong>" +
+                                                sym.substring(matchIndex + val.length);
+                            }
+                        } else if (name) {
+                             const matchIndex = name.toUpperCase().indexOf(val);
+                             if (matchIndex !== -1) {
+                                displayName = name.substring(0, matchIndex) +
+                                                "<strong>" + name.substring(matchIndex, matchIndex + val.length) + "</strong>" +
+                                                name.substring(matchIndex + val.length);
+                             }
                         }
+
+                        div.innerHTML = `<span>${displaySym}</span><span style="color:#888; font-size: 11px; margin-left:10px; text-align:right;">${displayName}</span>`;
 
                         div.addEventListener('mousedown', function(e) {
                             e.preventDefault();
@@ -3333,6 +3381,20 @@
                                 loadBtnFound = true;
                             }
                         }
+                    }
+                }
+            });
+
+            // Add a native enter key listener purely on the input itself in case dropdown is empty
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (dropdown.style.display !== 'block') {
+                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') loadHistoryData();
+                         if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') loadDividendsData();
+                         if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') applyMrFilter();
+                         if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') fetchMarketActivity();
+                         if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') loadCorporateActions();
                     }
                 }
             });
@@ -3665,7 +3727,21 @@ function renderDividendsData() {
 
             let matchingMeetings = meetingsBySymbol[series.toUpperCase()] || [];
             let bmd = '-';
-            let agm = '-';
+            let bmPurpose = '-';
+
+            // Format Broadcast Date
+            let bcd = '-';
+            if (d.broadcast_date) {
+                try {
+                    let dt = new Date(d.broadcast_date);
+                    if (!isNaN(dt.getTime())) {
+                        bcd = dt.toISOString().split('T')[0];
+                    }
+                } catch(e) {}
+            }
+            if (bcd === '-' && d.date) {
+                bcd = d.date; // fallback
+            }
 
             if (matchingMeetings.length > 0) {
                 let exDateObj = d.ex_date ? new Date(d.ex_date) : null;
@@ -3679,18 +3755,14 @@ function renderDividendsData() {
                 for (let m of matchingMeetings) {
                     if (!exDateObj || (m.meeting_date && new Date(m.meeting_date) <= exDateObj)) {
                         bmd = m.meeting_date || '-';
-                        if (m.purpose && m.purpose.toUpperCase().includes('AGM')) {
-                            agm = m.meeting_date || '-';
-                        }
+                        bmPurpose = m.purpose || '-';
                         break;
                     }
                 }
 
                 if (bmd === '-') {
                     bmd = matchingMeetings[0].meeting_date || '-';
-                    if (matchingMeetings[0].purpose && matchingMeetings[0].purpose.toUpperCase().includes('AGM')) {
-                        agm = matchingMeetings[0].meeting_date || '-';
-                    }
+                    bmPurpose = matchingMeetings[0].purpose || '-';
                 }
             }
 
@@ -3702,14 +3774,20 @@ function renderDividendsData() {
                  if (match) faceValue = match[1];
             }
 
+            let amount = d.parsed_dividend_amount != null ? d.parsed_dividend_amount : '-';
+            let divType = d.dividend_type || '-';
+
             tr.innerHTML = `
+                <td>${bcd}</td>
+                <td>${bmd}</td>
+                <td>${bmPurpose}</td>
+                <td>${d.ex_date || '-'}</td>
                 <td>${series}</td>
+                <td>${amount}</td>
+                <td>${divType}</td>
                 <td>${faceValue}</td>
                 <td>${fullPurpose}</td>
-                <td>${d.ex_date || '-'}</td>
                 <td>${d.record_date || '-'}</td>
-                <td>${bmd}</td>
-                <td>${agm}</td>
             `;
             tbodyActions.appendChild(tr);
         });

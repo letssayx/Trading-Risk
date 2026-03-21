@@ -624,6 +624,8 @@ async def list_data(
     return await run_in_threadpool(execute_query)
 
 
+import math
+
 def process_results(results, model, skip_instrument_type=False):
     """Serialize and normalize results."""
     data = []
@@ -641,6 +643,9 @@ def process_results(results, model, skip_instrument_type=False):
                 val = val.isoformat()
             elif hasattr(val, 'isoformat'): # date
                 val = val.isoformat()
+            elif isinstance(val, float):
+                if math.isnan(val) or math.isinf(val):
+                    val = None
             row_dict[col.name] = val
 
         # Normalization for frontend consistency
@@ -682,7 +687,7 @@ def process_results(results, model, skip_instrument_type=False):
 @router.get("/api/data/view/symbols/all")
 async def all_symbols(db: Session = Depends(get_db)):
     """
-    Returns all distinct symbols from SymbolMaster, SecurityMaster, and bhavcopy_eq for client-side autocomplete.
+    Returns all distinct symbols with company names from SymbolMaster, SecurityMaster, and bhavcopy_eq for client-side autocomplete.
     """
     from backend.ingest.nse_models import BhavcopyEQ, SymbolMaster, SecurityMaster
     from sqlalchemy import select
@@ -690,32 +695,34 @@ async def all_symbols(db: Session = Depends(get_db)):
     symbols_list = []
     seen = set()
 
-    def add_symbols(new_symbols):
-        for s in new_symbols:
-            if s and str(s).strip() and s not in seen:
-                seen.add(s)
-                symbols_list.append(s)
+    def add_symbol_obj(sym, name):
+        if sym and str(sym).strip() and sym not in seen:
+            seen.add(sym)
+            symbols_list.append({"symbol": sym, "name": name or ""})
 
     # Primary Source: User's Symbol Master
     try:
-        sm_results = db.execute(select(SymbolMaster.symbol)).scalars().all()
-        add_symbols(sm_results)
+        sm_results = db.execute(select(SymbolMaster.symbol, SymbolMaster.company_name)).all()
+        for row in sm_results:
+            add_symbol_obj(row.symbol, row.company_name)
     except Exception as e:
         logger.warning(f"Could not load symbols from SymbolMaster: {e}")
 
-    # Primary Source: Bhavcopy EQ Distinct Symbols (Requested priority)
-    try:
-        eq_results = db.execute(select(BhavcopyEQ.symbol).distinct()).scalars().all()
-        add_symbols(eq_results)
-    except Exception as e:
-        logger.warning(f"Could not load symbols from BhavcopyEQ: {e}")
-
     # Fallback Source: NSE Security Master
     try:
-        sec_results = db.execute(select(SecurityMaster.ticker_symb)).scalars().all()
-        add_symbols(sec_results)
+        sec_results = db.execute(select(SecurityMaster.ticker_symb, SecurityMaster.instrument_name)).all()
+        for row in sec_results:
+            add_symbol_obj(row.ticker_symb, row.instrument_name)
     except Exception as e:
         logger.warning(f"Could not load symbols from SecurityMaster: {e}")
+
+    # Fallback Source: Bhavcopy EQ Distinct Symbols
+    try:
+        eq_results = db.execute(select(BhavcopyEQ.symbol).distinct()).scalars().all()
+        for sym in eq_results:
+            add_symbol_obj(sym, "")
+    except Exception as e:
+        logger.warning(f"Could not load symbols from BhavcopyEQ: {e}")
 
     return {"symbols": symbols_list}
 
