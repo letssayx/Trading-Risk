@@ -378,13 +378,14 @@ async def list_data(
     instrument: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = Query('asc', pattern='^(asc|desc)$'),
+    fo_only: Optional[bool] = False,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
     """
     List data for a specific type with filters and optional sorting.
     """
-    logger.info(f"View Request: type={type}, symbol={symbol}, instrument={instrument}, date={start_date} to {end_date}, sort={sort_by} {sort_order}")
+    logger.info(f"View Request: type={type}, symbol={symbol}, instrument={instrument}, date={start_date} to {end_date}, sort={sort_by} {sort_order}, fo_only={fo_only}")
 
     model = get_model_for_type(type)
     if not model:
@@ -392,6 +393,16 @@ async def list_data(
         raise HTTPException(status_code=400, detail=f"Invalid data type: {type}")
 
     query = db.query(model)
+
+    if fo_only:
+        from backend.ingest.nse_models import SymbolMaster
+        # Assuming the field to join on is symbol in the current model
+        if hasattr(model, 'symbol'):
+            query = query.join(SymbolMaster, SymbolMaster.symbol == model.symbol)
+            query = query.filter(SymbolMaster.is_fo == True)
+        elif hasattr(model, 'ticker_symb'):
+            query = query.join(SymbolMaster, SymbolMaster.symbol == model.ticker_symb)
+            query = query.filter(SymbolMaster.is_fo == True)
 
     # Apply Symbol/Search Filter (if applicable)
     filters = []

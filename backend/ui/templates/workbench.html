@@ -447,10 +447,24 @@
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
                     <div class="autocomplete-wrapper">
-                        <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;" autocomplete="off">
+                        <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;" autocomplete="off" oninput="renderDividendsData()">
                     </div>
+
+                    <select id="div-type-filter" onchange="renderDividendsData()" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 150px;">
+                        <option value="All">All Types</option>
+                        <option value="Interim">Interim</option>
+                        <option value="Final">Final</option>
+                        <option value="Special">Special</option>
+                        <option value="Bonus">Bonus</option>
+                        <option value="Split">Split</option>
+                    </select>
+
+                    <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;" title="Uses Stock Master to only load F&O stocks">
+                        <input type="checkbox" id="div-fo-only-filter" style="cursor: pointer;">
+                        F&O Stocks Only
+                    </label>
                 </div>
 
                 <!-- Dividends List (Merged View) -->
@@ -3506,8 +3520,8 @@ async function loadDividendsData() {
         const searchInput = document.getElementById('div-symbol-search');
         const symbolQuery = searchInput && searchInput.value.trim() ? `&symbol=${searchInput.value.trim().toUpperCase()}` : '';
 
-        // Auto-clear symbol search on load per user request
-        if (searchInput) searchInput.value = '';
+        // Do NOT auto-clear symbol search so user can see what they filtered
+        // if (searchInput) searchInput.value = '';
 
         document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
 
@@ -3515,15 +3529,18 @@ async function loadDividendsData() {
         // Increase limit to essentially "fetch all" if no specific symbol is provided to meet "show all scrips at one shot"
         const limitQuery = symbolQuery ? '&limit=1000' : '&limit=10000';
 
+        const foCheckbox = document.getElementById('div-fo-only-filter');
+        const foQuery = foCheckbox && foCheckbox.checked ? '&fo_only=true' : '';
+
         // Fetch dividends
-        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}`);
+        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}${foQuery}`);
         let dbActions = await dbActionsRes.json();
 
         // Always trust the database. If it's empty, we legitimately have no data for that symbol.
         let actions = dbActions.data || [];
 
         // Fetch board meetings to join
-        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}`);
+        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}${foQuery}`);
         let dbMeetings = await dbMeetingsRes.json();
 
         const meetingsArray = Array.isArray(dbMeetings) ? dbMeetings : (dbMeetings.data || []);
@@ -3533,6 +3550,9 @@ async function loadDividendsData() {
         } else {
              divMeetingsData = [];
         }
+
+        // Store fetched dividend data globally
+        window.divRawData = actions;
 
         renderDividendsData();
     } catch(err) {
@@ -3560,7 +3580,25 @@ function renderDividendsData() {
     const tbodyActions = document.querySelector('#div-actions-table tbody');
     if (tbodyActions) {
         tbodyActions.innerHTML = '';
-        let filteredActions = divRawData.filter(d => !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter)));
+
+        const typeFilterElem = document.getElementById('div-type-filter');
+        const selectedType = typeFilterElem ? typeFilterElem.value : 'All';
+
+        let filteredActions = divRawData.filter(d => {
+            const matchSymbol = !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter));
+
+            let matchType = true;
+            if (selectedType !== 'All') {
+                const purpose = (d.purpose || '').toLowerCase();
+                if (selectedType === 'Interim' && !purpose.includes('interim')) matchType = false;
+                else if (selectedType === 'Final' && !(purpose.includes('dividend') && !purpose.includes('interim') && !purpose.includes('special'))) matchType = false;
+                else if (selectedType === 'Special' && !purpose.includes('special')) matchType = false;
+                else if (selectedType === 'Bonus' && !purpose.includes('bonus')) matchType = false;
+                else if (selectedType === 'Split' && !(purpose.includes('split') || purpose.includes('sub-division'))) matchType = false;
+            }
+
+            return matchSymbol && matchType;
+        });
 
         // Sorting
         filteredActions.sort((a, b) => {
