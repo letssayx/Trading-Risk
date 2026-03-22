@@ -3305,6 +3305,7 @@
                                 input.value = ''; // Auto clear for market activity
                             } else if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
                                 loadDividendsData();
+                                input.value = '';
                             } else if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
                                 loadCorporateActions();
                             } else {
@@ -3376,6 +3377,7 @@
                     }
                     if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
                         loadDividendsData();
+                        input.value = '';
                         return;
                     }
                     if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
@@ -3432,7 +3434,7 @@
                     e.preventDefault();
                     if (dropdown.style.display !== 'block') {
                          if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') { loadHistoryData(); input.value = ''; }
-                         if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') loadDividendsData();
+                         if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') { loadDividendsData(); input.value = ''; }
                          if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') { applyMrFilter(); input.value = ''; }
                          if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') { fetchMarketActivity(); input.value = ''; }
                          if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') loadCorporateActions();
@@ -3946,20 +3948,6 @@ function downloadDividendsCSV() {
     hiddenElement.click();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Other DOMContentLoaded logic if needed
-    const searchInput = document.getElementById('div-symbol-search');
-    if (searchInput) {
-        searchInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (typeof loadDividendsData === 'function') {
-                    loadDividendsData();
-                }
-            }
-        });
-    }
-});
 </script>
 </body>
 
