@@ -462,7 +462,7 @@
                     </select>
 
                     <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;" title="Uses Stock Master to only load F&O stocks">
-                        <input type="checkbox" id="div-fo-only-filter" style="cursor: pointer;">
+                        <input type="checkbox" id="div-fo-only-filter" onchange="loadDividendsData()" style="cursor: pointer;">
                         F&O Stocks Only
                     </label>
                 </div>
@@ -3284,7 +3284,7 @@
                             }
 
                             if (inputId === 'ca-search-input' && typeof filterCATable === 'function') filterCATable();
-                            if (inputId === 'div-symbol-search' && typeof renderDividendsData === 'function') renderDividendsData();
+                            // if (inputId === 'div-symbol-search' && typeof renderDividendsData === 'function') renderDividendsData();
                         });
                         dropdown.appendChild(div);
                     });
@@ -3317,7 +3317,7 @@
 
                     // Manual filters that trigger on input change for specific tabs
                     if (inputId === 'ca-search-input' && typeof filterCATable === 'function') filterCATable();
-                    if (inputId === 'div-symbol-search' && typeof renderDividendsData === 'function') renderDividendsData();
+                    // if (inputId === 'div-symbol-search' && typeof renderDividendsData === 'function') renderDividendsData();
 
                     // Explicit mapping for known input fields to their respective load functions
                     // This guarantees Enter will work, regardless of DOM structure
@@ -3614,6 +3614,12 @@ function switchDividendsTab(tabId) {
 }
 
 async function loadDividendsData() {
+    const loadBtn = document.querySelector('button[onclick="loadDividendsData()"]');
+    if (loadBtn) {
+        loadBtn.disabled = true;
+        loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    }
+
     try {
         const endDate = new Date().toISOString().split('T')[0];
 
@@ -3623,7 +3629,7 @@ async function loadDividendsData() {
         // Do NOT auto-clear symbol search so user can see what they filtered
         // if (searchInput) searchInput.value = '';
 
-        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
+        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
 
 
         // Increase limit to essentially "fetch all" if no specific symbol is provided to meet "show all scrips at one shot"
@@ -3653,12 +3659,19 @@ async function loadDividendsData() {
 
         // Store fetched dividend data globally
         window.divRawData = actions;
+        divRawData = actions; // Also update the global variable properly
 
         renderDividendsData();
     } catch(err) {
         console.error("Error loading dividends data", err);
         // Ensure UI doesn't hang in "Loading..." state on failure
-        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Error loading data: ${err.message}</td></tr>`;
+        document.getElementById('div-actions-table').querySelector('tbody').innerHTML = `<tr><td colspan="10" style="text-align:center; color:red;">Error loading data: ${err.message}</td></tr>`;
+    } finally {
+        const loadBtn = document.querySelector('button[onclick="loadDividendsData()"]');
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.innerHTML = '<i class="fas fa-sync"></i> Load Data';
+        }
     }
 }
 
@@ -3717,7 +3730,7 @@ function renderDividendsData() {
         });
 
         if (filteredActions.length === 0) {
-            tbodyActions.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
+            tbodyActions.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
         }
 
         filteredActions.forEach(d => {
