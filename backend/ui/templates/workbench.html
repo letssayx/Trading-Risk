@@ -465,6 +465,15 @@
                         <input type="checkbox" id="div-fo-only-filter" onchange="loadDividendsData()" style="cursor: pointer;">
                         F&O Stocks Only
                     </label>
+
+                    <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                        Start:
+                        <input type="date" id="div-start-date" class="history-input" onchange="loadDividendsData()">
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                        End:
+                        <input type="date" id="div-end-date" class="history-input" onchange="loadDividendsData()">
+                    </label>
                 </div>
 
                 <!-- Dividends List (Merged View) -->
@@ -2791,7 +2800,10 @@
             const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
 
             // Auto-clear symbol per user request
-            if (symbolInput) symbolInput.value = '';
+            if (symbolInput) {
+                // We keep the value in the symbol var, so it's safe to clear the UI input
+                symbolInput.value = '';
+            }
 
             // Use current sort state if not explicitly passed
             if (!sortBy && currentSortColumn) {
@@ -3273,10 +3285,13 @@
                             // This ensures correct data loading when selecting an option from autocomplete
                             if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
                                 loadHistoryData();
+                                input.value = '';
                             } else if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
                                 applyMrFilter();
+                                input.value = ''; // Auto clear for mr filter
                             } else if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
                                 fetchMarketActivity();
+                                input.value = ''; // Auto clear for market activity
                             } else if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
                                 loadDividendsData();
                             } else if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
@@ -3312,9 +3327,15 @@
                     e.preventDefault();
                 } else if (e.key === 'Enter') {
                     e.preventDefault();
+                    // If no item is explicitly focused, auto-select the first one (auto-prompt)
+                    if (currentFocus === -1 && items.length > 0) {
+                        currentFocus = 0;
+                    }
                     if (currentFocus > -1) {
                         if (items[currentFocus]) {
-                            input.value = items[currentFocus].innerText;
+                            // Extract just the symbol, ignoring the company name span
+                            const symSpan = items[currentFocus].querySelector('span');
+                            input.value = symSpan ? symSpan.innerText.replace(/<[^>]*>?/gm, '') : items[currentFocus].innerText;
                             dropdown.style.display = 'none';
                         }
                     }
@@ -3329,14 +3350,17 @@
                     // This guarantees Enter will work, regardless of DOM structure
                     if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
                         loadHistoryData();
+                        input.value = '';
                         return;
                     }
                     if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
                         applyMrFilter();
+                        input.value = ''; // Auto clear
                         return;
                     }
                     if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
                         fetchMarketActivity();
+                        input.value = ''; // Auto clear
                         return;
                     }
                     if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
@@ -3396,10 +3420,10 @@
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (dropdown.style.display !== 'block') {
-                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') loadHistoryData();
+                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') { loadHistoryData(); input.value = ''; }
                          if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') loadDividendsData();
-                         if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') applyMrFilter();
-                         if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') fetchMarketActivity();
+                         if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') { applyMrFilter(); input.value = ''; }
+                         if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') { fetchMarketActivity(); input.value = ''; }
                          if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') loadCorporateActions();
                     }
                 }
@@ -3632,27 +3656,32 @@ async function loadDividendsData() {
         const searchInput = document.getElementById('div-symbol-search');
         const symbolQuery = searchInput && searchInput.value.trim() ? `&symbol=${searchInput.value.trim().toUpperCase()}` : '';
 
+        const startInput = document.getElementById('div-start-date');
+        const endInput = document.getElementById('div-end-date');
+        const startDate = startInput && startInput.value ? `&start_date=${startInput.value}` : '';
+        const endQueryDate = endInput && endInput.value ? `&end_date=${endInput.value}` : '';
+
         // Do NOT auto-clear symbol search so user can see what they filtered
         // if (searchInput) searchInput.value = '';
 
         document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
 
-
-        // Increase limit to essentially "fetch all" if no specific symbol is provided to meet "show all scrips at one shot"
-        const limitQuery = symbolQuery ? '&limit=1000' : '&limit=10000';
+        // Set limit to 0 (unlimited) if no date range is provided to fetch all historical data
+        const hasDateRange = startDate || endQueryDate;
+        const limitQuery = hasDateRange ? '&limit=100000' : '&limit=0';
 
         const foCheckbox = document.getElementById('div-fo-only-filter');
         const foQuery = foCheckbox && foCheckbox.checked ? '&fo_only=true' : '';
 
         // Fetch dividends
-        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}${foQuery}`);
+        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}${foQuery}${startDate}${endQueryDate}`);
         let dbActions = await dbActionsRes.json();
 
         // Always trust the database. If it's empty, we legitimately have no data for that symbol.
         let actions = Array.isArray(dbActions) ? dbActions : (dbActions.data || []);
 
         // Fetch board meetings to join
-        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}${foQuery}`);
+        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}${foQuery}${startDate}${endQueryDate}`);
         let dbMeetings = await dbMeetingsRes.json();
 
         const meetingsArray = Array.isArray(dbMeetings) ? dbMeetings : (dbMeetings.data || []);
@@ -3820,7 +3849,7 @@ function renderDividendsData() {
                 let bg = '#555'; // default
                 if (lowerType.includes('interim')) bg = '#FF9800'; // Orange
                 else if (lowerType.includes('final')) bg = '#4CAF50'; // Green
-                else if (lowerType.includes('special')) bg = '#9C27B0'; // Purple
+                else if (lowerType.includes('special')) bg = '#9370DB'; // Subtle Purple
                 else if (lowerType.includes('bonus')) bg = '#E91E63'; // Pink
                 else if (lowerType.includes('split') || lowerType.includes('sub-division')) bg = '#2196F3'; // Blue
 
@@ -3897,7 +3926,7 @@ function downloadDividendsCSV() {
         csvRows.push(values.join(','));
     });
 
-    const csvData = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const csvData = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const csvUrl = URL.createObjectURL(csvData);
     const hiddenElement = document.createElement('a');
     hiddenElement.href = csvUrl;
