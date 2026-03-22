@@ -3789,21 +3789,38 @@ function renderDividendsData() {
                  if (match) faceValue = match[1];
             }
 
-            let amount = d.parsed_dividend_amount != null ? d.parsed_dividend_amount : '-';
+            let amount = d.parsed_dividend_amount != null ? '₹' + parseFloat(d.parsed_dividend_amount).toFixed(2) : '-';
+            if (amount.endsWith('.00')) amount = amount.replace('.00', '');
+
             let divType = d.dividend_type || '-';
+
+            // Re-create the badge styling that was present in the good screenshot
+            let typeBadge = divType;
+            if (divType !== '-') {
+                let lowerType = divType.toLowerCase();
+                let bg = '#555'; // default
+                if (lowerType.includes('interim')) bg = '#FF9800'; // Orange
+                else if (lowerType.includes('final')) bg = '#4CAF50'; // Green
+                else if (lowerType.includes('special')) bg = '#9C27B0'; // Purple
+                else if (lowerType.includes('bonus')) bg = '#E91E63'; // Pink
+                else if (lowerType.includes('split') || lowerType.includes('sub-division')) bg = '#2196F3'; // Blue
+
+                typeBadge = `<span class="badge" style="background:${bg}; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">${divType}</span>`;
+            }
 
             tr.innerHTML = `
                 <td>${bcd}</td>
                 <td>${bmd}</td>
-                <td>${bmPurpose}</td>
+                <td style="white-space:normal; max-width:200px;">${bmPurpose}</td>
                 <td>${d.ex_date || '-'}</td>
-                <td>${series}</td>
-                <td>${amount}</td>
-                <td>${divType}</td>
+                <td><strong style="color: #4da6ff;">${series}</strong></td>
+                <td style="color: #4CAF50;">${amount}</td>
+                <td>${typeBadge}</td>
                 <td>${faceValue}</td>
-                <td>${fullPurpose}</td>
+                <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
                 <td>${d.record_date || '-'}</td>
             `;
+
             tbodyActions.appendChild(tr);
         });
     }
