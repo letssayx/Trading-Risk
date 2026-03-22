@@ -1,0 +1,13 @@
+--- backend/ui/templates/workbench.html
++++ backend/ui/templates/workbench.html
+@@ -3698,7 +3698,9 @@
+         const selectedType = typeFilterElem ? typeFilterElem.value : 'All';
+
+         let filteredActions = divRawData.filter(d => {
+-            const matchSymbol = !searchFilter || (d.symbol && d.symbol.toUpperCase().includes(searchFilter));
++            const matchSymbol = !searchFilter ||
++                (d.symbol && d.symbol.toUpperCase().includes(searchFilter)) ||
++                (d.company_name && d.company_name.toUpperCase().includes(searchFilter));
+
+             let matchType = true;
+             if (selectedType !== 'All') {
