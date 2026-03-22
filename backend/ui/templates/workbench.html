@@ -452,13 +452,27 @@
                         <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;" autocomplete="off" oninput="renderDividendsData()">
                     </div>
 
-                    <select id="div-type-filter" onchange="renderDividendsData()" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 150px;">
-                        <option value="All">All Types</option>
+                    <select id="div-type-filter" multiple onchange="renderDividendsData()" style="padding: 4px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 120px; height: 35px; overflow: hidden; vertical-align: middle;" title="Hold Ctrl/Cmd to select multiple">
                         <option value="Interim">Interim</option>
                         <option value="Final">Final</option>
                         <option value="Special">Special</option>
                         <option value="Bonus">Bonus</option>
                         <option value="Split">Split</option>
+                    </select>
+
+                    <select id="div-month-filter" multiple onchange="renderDividendsData()" style="padding: 4px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 100px; height: 35px; overflow: hidden; vertical-align: middle;" title="Filter by Ex-Date Month (Hold Ctrl/Cmd)">
+                        <option value="1">Jan</option>
+                        <option value="2">Feb</option>
+                        <option value="3">Mar</option>
+                        <option value="4">Apr</option>
+                        <option value="5">May</option>
+                        <option value="6">Jun</option>
+                        <option value="7">Jul</option>
+                        <option value="8">Aug</option>
+                        <option value="9">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
                     </select>
 
                     <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;" title="Uses Stock Master to only load F&O stocks">
@@ -3743,7 +3757,10 @@ function renderDividendsData() {
         tbodyActions.innerHTML = '';
 
         const typeFilterElem = document.getElementById('div-type-filter');
-        const selectedType = typeFilterElem ? typeFilterElem.value : 'All';
+        const selectedTypes = typeFilterElem ? Array.from(typeFilterElem.selectedOptions).map(o => o.value) : [];
+
+        const monthFilterElem = document.getElementById('div-month-filter');
+        const selectedMonths = monthFilterElem ? Array.from(monthFilterElem.selectedOptions).map(o => parseInt(o.value)) : [];
 
         let filteredActions = divRawData.filter(d => {
             const matchSymbol = !searchFilter ||
@@ -3751,16 +3768,31 @@ function renderDividendsData() {
                 (d.company_name && d.company_name.toUpperCase().includes(searchFilter));
 
             let matchType = true;
-            if (selectedType !== 'All') {
+            if (selectedTypes.length > 0) {
                 const purpose = ((d.subject || '') + ' ' + (d.purpose || '') + ' ' + (d.dividend_type || '') + ' ' + (d.series || '')).toLowerCase();
-                if (selectedType === 'Interim' && !purpose.includes('interim')) matchType = false;
-                else if (selectedType === 'Final' && !(purpose.includes('dividend') && !purpose.includes('interim') && !purpose.includes('special'))) matchType = false;
-                else if (selectedType === 'Special' && !purpose.includes('special')) matchType = false;
-                else if (selectedType === 'Bonus' && !purpose.includes('bonus')) matchType = false;
-                else if (selectedType === 'Split' && !(purpose.includes('split') || purpose.includes('sub-division'))) matchType = false;
+
+                // OR logic for multi-select types
+                let typeMatchedAny = false;
+                if (selectedTypes.includes('Interim') && purpose.includes('interim')) typeMatchedAny = true;
+                if (selectedTypes.includes('Final') && (purpose.includes('dividend') && !purpose.includes('interim') && !purpose.includes('special'))) typeMatchedAny = true;
+                if (selectedTypes.includes('Special') && purpose.includes('special')) typeMatchedAny = true;
+                if (selectedTypes.includes('Bonus') && purpose.includes('bonus')) typeMatchedAny = true;
+                if (selectedTypes.includes('Split') && (purpose.includes('split') || purpose.includes('sub-division'))) typeMatchedAny = true;
+
+                if (!typeMatchedAny) matchType = false;
             }
 
-            return matchSymbol && matchType;
+            let matchMonth = true;
+            if (selectedMonths.length > 0) {
+                if (!d.ex_date) {
+                    matchMonth = false;
+                } else {
+                    const exMonth = new Date(d.ex_date).getMonth() + 1; // getMonth is 0-indexed
+                    if (!selectedMonths.includes(exMonth)) matchMonth = false;
+                }
+            }
+
+            return matchSymbol && matchType && matchMonth;
         });
 
         // Sorting
@@ -3807,8 +3839,20 @@ function renderDividendsData() {
                 let matchedMeeting = null;
                 for (let m of matchingMeetings) {
                     if (!exDateObj || (m.meeting_date && new Date(m.meeting_date) <= exDateObj)) {
-                        matchedMeeting = m;
-                        break;
+                        // Check if the purpose loosely matches the action type
+                        // A board meeting might announce 'Bonus' but another might announce 'Dividend' on the same day.
+                        const meetingPurpose = (m.purpose || '').toLowerCase();
+                        const actionPurpose = (d.purpose || d.subject || '').toLowerCase();
+
+                        let isStrongMatch = false;
+                        if (actionPurpose.includes('bonus') && meetingPurpose.includes('bonus')) isStrongMatch = true;
+                        else if (actionPurpose.includes('split') && (meetingPurpose.includes('split') || meetingPurpose.includes('sub-division'))) isStrongMatch = true;
+                        else if ((actionPurpose.includes('dividend') || actionPurpose.includes('interim')) && meetingPurpose.includes('dividend')) isStrongMatch = true;
+
+                        if (isStrongMatch || !matchedMeeting) {
+                            matchedMeeting = m;
+                            if (isStrongMatch) break; // If it's a strong match, lock it in. Otherwise keep looking for a better one
+                        }
                     }
                 }
 
