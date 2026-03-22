@@ -432,9 +432,9 @@ class FieldMapper:
                 'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol', 'Scrip Name']) or '').strip(),
                 'security_name': str(cls._get_val(row, ['SECURITY NAME', 'Security Name']) or '').strip(),
                 'client_name': str(cls._get_val(row, ['CLIENT NAME', 'Client Name']) or '').strip(),
-                'buy_sell': str(cls._get_val(row, ['BUY/SELL', 'Buy/Sell']) or '').strip(),
+                'buy_sell': str(cls._get_val(row, ['BUY/SELL', 'Buy/Sell', 'Buy / Sell']) or '').strip(),
                 'quantity_traded': cls._clean_integer(cls._get_val(row, ['QUANTITY TRADED', 'Quantity Traded'])),
-                'trade_price': cls._clean_numeric(cls._get_val(row, ['TRADE PRICE/ WEIGHTED. AVG. PRICE', 'Trade Price / Wght. Avg. Price'])),
+                'trade_price': cls._clean_numeric(cls._get_val(row, ['TRADE PRICE/ WEIGHTED. AVG. PRICE', 'Trade Price / Wght. Avg. Price', 'Trade Price'])),
                 'remarks': str(cls._get_val(row, ['REMARKS', 'Remarks']) or '').strip(),
             }
             if record['symbol']:

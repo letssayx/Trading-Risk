@@ -277,6 +277,26 @@
             color: var(--text-color);
         }
 
+        /* Custom Checkbox Dropdowns */
+        .custom-dropdown { position: relative; display: inline-block; }
+        .dropdown-toggle {
+            padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; cursor: pointer; user-select: none;
+            display: flex; align-items: center; justify-content: space-between; width: 140px; box-sizing: border-box;
+        }
+        .dropdown-toggle::after { content: '▼'; font-size: 10px; margin-left: 8px; }
+        .dropdown-menu {
+            display: none; position: absolute; background-color: #333; min-width: 140px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 1000;
+            border: 1px solid #555; border-radius: 4px; max-height: 250px; overflow-y: auto; top: 100%; left: 0;
+        }
+        .dropdown-menu label {
+            display: block; padding: 6px 12px; cursor: pointer; color: white; margin: 0; font-size: 13px;
+        }
+        .dropdown-menu label:hover { background-color: #444; }
+        .dropdown-menu input[type="checkbox"] { margin-right: 8px; cursor: pointer; }
+        .custom-dropdown.open .dropdown-menu { display: block; }
+        .custom-dropdown.open .dropdown-toggle { border-color: #666; background: #2a2a2a; }
+
     </style>
 </head>
 <body>
@@ -452,28 +472,34 @@
                         <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;" autocomplete="off" oninput="renderDividendsData()">
                     </div>
 
-                    <select id="div-type-filter" multiple onchange="renderDividendsData()" style="padding: 4px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 120px; height: 35px; overflow: hidden; vertical-align: middle;" title="Hold Ctrl/Cmd to select multiple">
-                        <option value="Interim">Interim</option>
-                        <option value="Final">Final</option>
-                        <option value="Special">Special</option>
-                        <option value="Bonus">Bonus</option>
-                        <option value="Split">Split</option>
-                    </select>
+                    <div class="custom-dropdown" id="div-type-dropdown">
+                        <div class="dropdown-toggle" onclick="toggleDropdown('div-type-dropdown')">Select Types</div>
+                        <div class="dropdown-menu">
+                            <label><input type="checkbox" value="Interim" onchange="renderDividendsData()"> Interim</label>
+                            <label><input type="checkbox" value="Final" onchange="renderDividendsData()"> Final</label>
+                            <label><input type="checkbox" value="Special" onchange="renderDividendsData()"> Special</label>
+                            <label><input type="checkbox" value="Bonus" onchange="renderDividendsData()"> Bonus</label>
+                            <label><input type="checkbox" value="Split" onchange="renderDividendsData()"> Split</label>
+                        </div>
+                    </div>
 
-                    <select id="div-month-filter" multiple onchange="renderDividendsData()" style="padding: 4px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 100px; height: 35px; overflow: hidden; vertical-align: middle;" title="Filter by Ex-Date Month (Hold Ctrl/Cmd)">
-                        <option value="1">Jan</option>
-                        <option value="2">Feb</option>
-                        <option value="3">Mar</option>
-                        <option value="4">Apr</option>
-                        <option value="5">May</option>
-                        <option value="6">Jun</option>
-                        <option value="7">Jul</option>
-                        <option value="8">Aug</option>
-                        <option value="9">Sep</option>
-                        <option value="10">Oct</option>
-                        <option value="11">Nov</option>
-                        <option value="12">Dec</option>
-                    </select>
+                    <div class="custom-dropdown" id="div-month-dropdown">
+                        <div class="dropdown-toggle" onclick="toggleDropdown('div-month-dropdown')">Select Months</div>
+                        <div class="dropdown-menu">
+                            <label><input type="checkbox" value="1" onchange="renderDividendsData()"> Jan</label>
+                            <label><input type="checkbox" value="2" onchange="renderDividendsData()"> Feb</label>
+                            <label><input type="checkbox" value="3" onchange="renderDividendsData()"> Mar</label>
+                            <label><input type="checkbox" value="4" onchange="renderDividendsData()"> Apr</label>
+                            <label><input type="checkbox" value="5" onchange="renderDividendsData()"> May</label>
+                            <label><input type="checkbox" value="6" onchange="renderDividendsData()"> Jun</label>
+                            <label><input type="checkbox" value="7" onchange="renderDividendsData()"> Jul</label>
+                            <label><input type="checkbox" value="8" onchange="renderDividendsData()"> Aug</label>
+                            <label><input type="checkbox" value="9" onchange="renderDividendsData()"> Sep</label>
+                            <label><input type="checkbox" value="10" onchange="renderDividendsData()"> Oct</label>
+                            <label><input type="checkbox" value="11" onchange="renderDividendsData()"> Nov</label>
+                            <label><input type="checkbox" value="12" onchange="renderDividendsData()"> Dec</label>
+                        </div>
+                    </div>
 
                     <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;" title="Uses Stock Master to only load F&O stocks">
                         <input type="checkbox" id="div-fo-only-filter" onchange="loadDividendsData()" style="cursor: pointer;">
@@ -1353,7 +1379,7 @@
             <div class="history-controls">
                 <div class="control-group">
                     <label>Data Type:</label>
-                    <select id="data-type" class="history-select" onchange="updateHistoryControls()">
+                    <select id="data-type" class="history-select" onchange="updateHistoryControls(); loadHistoryData();">
                         <option value="bhavcopy_eq" selected>Equity Bhavcopy (New)</option>
                         <option value="bhavcopy_fo">F&O Bhavcopy (New)</option>
                         <!-- Legacy Removed -->
@@ -2805,10 +2831,10 @@
             currentHistoryData = [];
         }
 
-        async function loadHistoryData(sortBy = null, sortOrder = 'asc') {
+        async function loadHistoryData(sortBy = null, sortOrder = 'asc', forcedSymbol = null) {
             const type = document.getElementById('data-type').value;
             const symbolInput = document.getElementById('symbol-input');
-            const symbol = symbolInput ? symbolInput.value.trim() : '';
+            const symbol = forcedSymbol || (symbolInput ? symbolInput.value.trim() : '');
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
             const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
@@ -3309,7 +3335,7 @@
                             // Explicit mapping for known input fields to their respective load functions
                             // This ensures correct data loading when selecting an option from autocomplete
                             if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
-                                loadHistoryData();
+                                loadHistoryData(null, 'asc', sym);
                                 input.value = '';
                             } else if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
                                 applyMrFilter();
@@ -3318,7 +3344,7 @@
                                 fetchMarketActivity();
                                 input.value = ''; // Auto clear for market activity
                             } else if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
-                                loadDividendsData();
+                                loadDividendsData(sym);
                                 input.value = '';
                             } else if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
                                 loadCorporateActions();
@@ -3375,8 +3401,12 @@
                     // Explicit mapping for known input fields to their respective load functions
                     // This guarantees Enter will work, regardless of DOM structure
                     if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
-                        loadHistoryData();
+                        // For historical data, we need to pass the selected symbol directly if it was just auto-prompted
+                        // because the UI value update might happen milliseconds after this event is dispatched.
+                        const currentSymbol = input.value;
+                        loadHistoryData(null, 'asc', currentSymbol);
                         input.value = '';
+                        // Also trigger if there's an explicit button just in case
                         return;
                     }
                     if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
@@ -3390,7 +3420,8 @@
                         return;
                     }
                     if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
-                        loadDividendsData();
+                        const currentSymbol = input.value;
+                        loadDividendsData(currentSymbol);
                         input.value = '';
                         return;
                     }
@@ -3447,8 +3478,8 @@
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (dropdown.style.display !== 'block') {
-                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') { loadHistoryData(); input.value = ''; }
-                         if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') { loadDividendsData(); input.value = ''; }
+                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') { loadHistoryData(null, 'asc', input.value); input.value = ''; }
+                         if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') { loadDividendsData(input.value); input.value = ''; }
                          if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') { applyMrFilter(); input.value = ''; }
                          if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') { fetchMarketActivity(); input.value = ''; }
                          if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') loadCorporateActions();
@@ -3492,6 +3523,17 @@
                 setupAutocomplete('sm-input-symbol');
                 setupAutocomplete('chart-add-input');
             });
+
+            // Bind Enter key specifically for the data-type dropdown in historical view to auto-load
+            const dataTypeSelect = document.getElementById('data-type');
+            if (dataTypeSelect) {
+                dataTypeSelect.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (typeof loadHistoryData === 'function') loadHistoryData();
+                    }
+                });
+            }
 
             // Setup clock
             const dtEl = document.getElementById('global-datetime');
@@ -3670,7 +3712,7 @@ function switchDividendsTab(tabId) {
     currentDivTab = tabId;
 }
 
-async function loadDividendsData() {
+async function loadDividendsData(forcedSymbol = null) {
     const loadBtn = document.querySelector('button[onclick="loadDividendsData()"]');
     if (loadBtn) {
         loadBtn.disabled = true;
@@ -3681,7 +3723,9 @@ async function loadDividendsData() {
         const endDate = new Date().toISOString().split('T')[0];
 
         const searchInput = document.getElementById('div-symbol-search');
-        const symbolQuery = searchInput && searchInput.value.trim() ? `&symbol=${searchInput.value.trim().toUpperCase()}` : '';
+        let symbolVal = forcedSymbol;
+        if (!symbolVal) symbolVal = searchInput ? searchInput.value.trim() : '';
+        const symbolQuery = symbolVal ? `&symbol=${symbolVal.toUpperCase()}` : '';
 
         const startInput = document.getElementById('div-start-date');
         const endInput = document.getElementById('div-end-date');
@@ -3756,11 +3800,11 @@ function renderDividendsData() {
     if (tbodyActions) {
         tbodyActions.innerHTML = '';
 
-        const typeFilterElem = document.getElementById('div-type-filter');
-        const selectedTypes = typeFilterElem ? Array.from(typeFilterElem.selectedOptions).map(o => o.value) : [];
+        const typeCheckboxes = document.querySelectorAll('#div-type-dropdown input[type="checkbox"]:checked');
+        const selectedTypes = Array.from(typeCheckboxes).map(cb => cb.value);
 
-        const monthFilterElem = document.getElementById('div-month-filter');
-        const selectedMonths = monthFilterElem ? Array.from(monthFilterElem.selectedOptions).map(o => parseInt(o.value)) : [];
+        const monthCheckboxes = document.querySelectorAll('#div-month-dropdown input[type="checkbox"]:checked');
+        const selectedMonths = Array.from(monthCheckboxes).map(cb => parseInt(cb.value));
 
         let filteredActions = divRawData.filter(d => {
             const matchSymbol = !searchFilter ||
@@ -3991,6 +4035,19 @@ function downloadDividendsCSV() {
     hiddenElement.download = filename;
     hiddenElement.click();
 }
+
+function toggleDropdown(id) {
+    document.querySelectorAll('.custom-dropdown').forEach(el => {
+        if (el.id !== id) el.classList.remove('open');
+    });
+    document.getElementById(id).classList.toggle('open');
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-dropdown')) {
+        document.querySelectorAll('.custom-dropdown').forEach(el => el.classList.remove('open'));
+    }
+});
 
 </script>
 </body>

@@ -451,6 +451,9 @@ async def list_data(
         # 4. Security Name (MTO, Bulk/Block Deals descriptive fallback)
         if hasattr(model, 'security_name'):
             filters.append(model.security_name.ilike(f"%{symbol}%"))
+            if type == 'mto':
+                # MTO often stores symbol as security_name or symbol format is mixed
+                filters.append(model.security_name == symbol)
 
         # 5. Client Type (Participant OI) - Exact or Partial
         if hasattr(model, 'client_type'):
@@ -857,7 +860,10 @@ async def export_data(
         if hasattr(model, 'symbol'): filters.append(model.symbol == symbol)
         if hasattr(model, 'ticker_symb'): filters.append(model.ticker_symb == symbol)
         if hasattr(model, 'underlying_stock'): filters.append(model.underlying_stock == symbol)
-        if hasattr(model, 'security_name'): filters.append(model.security_name.ilike(f"%{symbol}%"))
+        if hasattr(model, 'security_name'):
+            filters.append(model.security_name.ilike(f"%{symbol}%"))
+            if type == 'mto':
+                filters.append(model.security_name == symbol)
         if hasattr(model, 'client_type'): filters.append(model.client_type.ilike(f"%{symbol}%"))
         if hasattr(model, 'instrument_type') and type != 'bhavcopy_fo': filters.append(model.instrument_type.ilike(f"%{symbol}%"))
         if hasattr(model, 'isin'): filters.append(model.isin == symbol)
