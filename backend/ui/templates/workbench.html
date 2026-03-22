@@ -1729,6 +1729,11 @@
                      if (typeof loadTimeseriesData === 'function') loadTimeseriesData(false);
                 }
             }
+            if (tabName === 'dividends') {
+                if (typeof loadDividendsData === 'function' && (!window.divRawData || window.divRawData.length === 0)) {
+                    loadDividendsData();
+                }
+            }
 
             // Note: corporate_actions load is handled by the wrapper function below
         }
@@ -3171,7 +3176,7 @@
                     if (inputId === 'ca-search-input') {
                          if (typeof filterCATable === 'function') filterCATable();
                     } else if (inputId === 'div-symbol-search') {
-                         if (typeof renderDividendsData === 'function') renderDividendsData();
+                         if (typeof loadDividendsData === 'function') loadDividendsData();
                     }
                     return;
                 }
@@ -3180,7 +3185,8 @@
                 if (inputId === 'ca-search-input') {
                      if (typeof filterCATable === 'function') filterCATable();
                 } else if (inputId === 'div-symbol-search') {
-                     if (typeof renderDividendsData === 'function') renderDividendsData();
+                     // We don't want to load on every single keystroke, wait for enter
+                     // if (typeof renderDividendsData === 'function') renderDividendsData();
                 }
 
                 const matches = [];
@@ -3744,19 +3750,8 @@ function renderDividendsData() {
             let bmd = '-';
             let bmPurpose = '-';
 
-            // Format Broadcast Date
+            // Board Meeting and Broadcast Date matching logic
             let bcd = '-';
-            if (d.broadcast_date) {
-                try {
-                    let dt = new Date(d.broadcast_date);
-                    if (!isNaN(dt.getTime())) {
-                        bcd = dt.toISOString().split('T')[0];
-                    }
-                } catch(e) {}
-            }
-            if (bcd === '-' && d.date) {
-                bcd = d.date; // fallback
-            }
 
             if (matchingMeetings.length > 0) {
                 let exDateObj = d.ex_date ? new Date(d.ex_date) : null;
@@ -3767,18 +3762,42 @@ function renderDividendsData() {
                     return dateB - dateA;
                 });
 
+                let matchedMeeting = null;
                 for (let m of matchingMeetings) {
                     if (!exDateObj || (m.meeting_date && new Date(m.meeting_date) <= exDateObj)) {
-                        bmd = m.meeting_date || '-';
-                        bmPurpose = m.purpose || '-';
+                        matchedMeeting = m;
                         break;
                     }
                 }
 
-                if (bmd === '-') {
-                    bmd = matchingMeetings[0].meeting_date || '-';
-                    bmPurpose = matchingMeetings[0].purpose || '-';
+                if (!matchedMeeting) {
+                    matchedMeeting = matchingMeetings[0];
                 }
+
+                if (matchedMeeting) {
+                    bmd = matchedMeeting.meeting_date || '-';
+                    bmPurpose = matchedMeeting.purpose || '-';
+
+                    let bcdRaw = matchedMeeting.broadcast_date || matchedMeeting.date;
+                    if (bcdRaw) {
+                        try {
+                            let dt = new Date(bcdRaw);
+                            if (!isNaN(dt.getTime())) {
+                                bcd = dt.toISOString().split('T')[0];
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            // final fallback if no meeting was matched
+            if (bcd === '-' && d.broadcast_date) {
+                try {
+                    let dt = new Date(d.broadcast_date);
+                    if (!isNaN(dt.getTime())) {
+                        bcd = dt.toISOString().split('T')[0];
+                    }
+                } catch(e) {}
             }
 
             let fullPurpose = d.subject || d.purpose || '-';
@@ -3828,39 +3847,55 @@ function renderDividendsData() {
 }
 
 function downloadDividendsCSV() {
-    let dataToExport = currentDivTab === 'actions' ? divRawData : divMeetingsData;
-    let filename = currentDivTab === 'actions' ? 'dividend_history.csv' : 'board_meetings.csv';
-
-    const searchInput = document.getElementById('div-symbol-search');
-    const searchFilter = searchInput ? searchInput.value.toUpperCase() : '';
-
-    if (searchFilter) {
-        dataToExport = dataToExport.filter(d => d.symbol && d.symbol.toUpperCase().includes(searchFilter));
-        filename = `${searchFilter}_${filename}`;
-    }
-
-    if (!dataToExport || dataToExport.length === 0) {
-        alert("No data available to export.");
+    const table = document.getElementById('div-actions-table');
+    if (!table) {
+        alert("No table found to export.");
         return;
     }
 
-    const keys = Object.keys(dataToExport[0]);
-    const csvRows = [];
-    csvRows.push(keys.join(','));
+    const searchInput = document.getElementById('div-symbol-search');
+    const searchFilter = searchInput ? searchInput.value.toUpperCase() : '';
+    let filename = searchFilter ? `${searchFilter}_dividend_history.csv` : 'dividend_history.csv';
 
-    for (const row of dataToExport) {
-        const values = keys.map(k => {
-            let val = row[k] === null || row[k] === undefined ? '' : row[k];
-            if (typeof val === 'string') {
+    const csvRows = [];
+    const headers = [];
+
+    // Extract headers
+    const theadRow = table.querySelector('thead tr');
+    if (theadRow) {
+        theadRow.querySelectorAll('th').forEach(th => {
+            let text = th.innerText.trim();
+            // Remove sort arrows if they exist
+            text = text.replace(/▼|▲/g, '').trim();
+            headers.push(text);
+        });
+        csvRows.push(headers.join(','));
+    }
+
+    // Extract rows from tbody
+    const tbodyRows = table.querySelectorAll('tbody tr');
+    if (!tbodyRows || tbodyRows.length === 0 || tbodyRows[0].innerText.includes('No data')) {
+         alert("No data available to export.");
+         return;
+    }
+
+    tbodyRows.forEach(tr => {
+        const values = [];
+        tr.querySelectorAll('td').forEach(td => {
+            // Get plain text to ignore HTML badges or styling
+            let val = td.innerText.trim();
+            if (val) {
+                // Escape quotes
                 val = val.replace(/"/g, '""');
+                // Quote field if it contains comma, newline, or quotes
                 if (val.search(/("|,|\n)/g) >= 0) {
                     val = `"${val}"`;
                 }
             }
-            return val;
+            values.push(val);
         });
         csvRows.push(values.join(','));
-    }
+    });
 
     const csvData = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const csvUrl = URL.createObjectURL(csvData);
@@ -3872,9 +3907,17 @@ function downloadDividendsCSV() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Other DOMContentLoaded logic if needed
     const searchInput = document.getElementById('div-symbol-search');
     if (searchInput) {
-        searchInput.addEventListener('input', renderDividendsData);
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (typeof loadDividendsData === 'function') {
+                    loadDividendsData();
+                }
+            }
+        });
     }
 });
 </script>
