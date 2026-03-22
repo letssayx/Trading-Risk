@@ -533,7 +533,10 @@ async def list_data(
 
     def execute_query():
         try:
-            results = query.limit(limit).all()
+            if limit > 0:
+                results = query.limit(limit).all()
+            else:
+                results = query.all()
 
             if not results and (start_date or end_date):
                  # Debugging: If no results with date filter, check total count for diagnostics
@@ -607,7 +610,10 @@ async def list_data(
                         retry_query = retry_query.order_by(*order_clauses)
 
                     retry_query = retry_query.options(defer(model.instrument_type))
-                    results = retry_query.limit(limit).all()
+                    if limit > 0:
+                        results = retry_query.limit(limit).all()
+                    else:
+                        results = retry_query.all()
                     return process_results(results, model, skip_instrument_type=True)
                 except Exception as retry_exc:
                     logger.error(f"Retry failed: {retry_exc}")
@@ -899,7 +905,7 @@ async def export_data(
             if has_date_constraint:
                 results = query.all()
             else:
-                results = query.limit(50000).all()
+                results = query.limit(100000).all() # Increase fallback export limit
             # Process results with potential instrument_type fix
             if type == 'mwpl':
                 from collections import defaultdict

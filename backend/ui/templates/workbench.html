@@ -2824,7 +2824,18 @@
             try {
                 const latestCheck = document.getElementById("latest-date-check");
                 const isLatest = latestCheck && latestCheck.checked;
-                let limit = type === "mwpl" ? 5000 : 500;
+
+                const hasDateRange = start || end;
+
+                // If filtering by dates, fetch everything in that range. Otherwise limit heavily to prevent crash
+                let limit = hasDateRange ? 100000 : 0;
+
+                // If no filters are applied and latest is un-checked, it will fetch all historical data and crash browser.
+                // We fallback to a safer number if absolutely NO filters are applied.
+                if (!hasDateRange && !isLatest && !symbol && instrument === 'ALL') {
+                    limit = type === "mwpl" ? 5000 : 500;
+                }
+
                 let url = `/api/data/view/list?type=${type}&limit=${limit}`;
                 if (isLatest) url += "&latest=true"; // Removed timestamp for speed, browser cache is usually fine with varying params
                 if (symbol) url += `&symbol=${symbol}`;
