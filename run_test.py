@@ -10,11 +10,11 @@ def verify_feature(page: Page):
             content_type="application/json",
             body=json.dumps({"data": {
                 "RELIANCE": [
-                    {"date": "2024-03-20", "eq_close": 2900.5, "fut1_close": 2910.0, "mwpl": 45.5, "clients": [{"Client A": 25.0}, {"Client B": 20.5}]},
-                    {"date": "2024-03-19", "eq_close": 2880.0, "fut1_close": 2895.0, "mwpl": 42.0, "clients": [{"Client A": 22.0}, {"Client B": 20.0}]}
+                    {"date": "2024-03-20", "eq_close": 2900.5, "fut1_close": 2910.0, "mwpl": 45.5, "mwpl_array": [{"Client 1": 25.0}, {"Client 2": 20.5}]},
+                    {"date": "2024-03-19", "eq_close": 2880.0, "fut1_close": 2895.0, "mwpl": 42.0, "mwpl_array": [{"Client 1": 22.0}, {"Client 2": 20.0}]}
                 ],
                 "TCS": [
-                    {"date": "2024-03-20", "eq_close": 3950.0, "fut1_close": 3965.0, "mwpl": 35.2, "clients": [{"Client X": 35.2}]}
+                    {"date": "2024-03-20", "eq_close": 3950.0, "fut1_close": 3965.0, "mwpl": 35.2, "mwpl_array": [{"Client 1": 35.2}]}
                 ]
             }})
         )
@@ -35,8 +35,16 @@ def verify_feature(page: Page):
     page.click("text='Refresh MWPL Data'")
     page.wait_for_timeout(1500)
 
-    page.screenshot(path="/home/jules/verification/mwpl.png")
+    # Expand the history for reliance
+    page.click("text='RELIANCE'")
     page.wait_for_timeout(1000)
+
+    page.screenshot(path="/home/jules/verification/mwpl.png")
+
+    # Check that MWPL tab doesn't bleed to market watch
+    page.evaluate("switchMainTab('marketwatch')")
+    page.wait_for_timeout(1000)
+    page.screenshot(path="/home/jules/verification/marketwatch.png")
 
 if __name__ == "__main__":
     with sync_playwright() as p:

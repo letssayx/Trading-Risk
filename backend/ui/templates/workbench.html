@@ -1860,7 +1860,10 @@
 
         // --- Derivatives Sub-Tab Logic ---
         function switchDerivTab(tabName) {
-            document.querySelectorAll('#tab-derivatives .deriv-sub-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#tab-derivatives .deriv-sub-tab').forEach(el => {
+                el.classList.remove('active');
+                el.style.display = 'none'; // Force hide all sub-tabs to prevent bleed
+            });
             document.querySelectorAll('#tab-derivatives .wb-tab').forEach(el => {
                 el.classList.remove('active');
                 el.style.borderBottomColor = 'transparent';
@@ -1871,6 +1874,12 @@
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
                 target.classList.add('active');
+                if (tabName === 'market' || tabName === 'mwpl' || tabName === 'matrix') {
+                    target.style.display = 'flex';
+                } else {
+                    target.style.display = 'block';
+                }
+
                 btn.classList.add('active');
                 btn.style.borderBottomColor = '#4ade80';
                 btn.style.color = '#fff';
@@ -4229,6 +4238,7 @@ document.addEventListener('click', (e) => {
     }
 
     async function loadMWPLAnalysis() {
+        const thead = document.querySelector('#mwpl-analysis-table thead');
         const tbody = document.getElementById('mwpl-analysis-body');
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Loading...</td></tr>';
 
@@ -4239,12 +4249,48 @@ document.addEventListener('click', (e) => {
 
             tbody.innerHTML = '';
 
+            // Clean up old dynamically created tbodies if user refreshes
+            document.querySelectorAll('#mwpl-analysis-table tbody').forEach(tb => {
+                if (tb.id !== 'mwpl-analysis-body') {
+                    tb.remove();
+                }
+            });
+
             if (Object.keys(data).length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No historical MWPL data found.</td></tr>';
                 return;
             }
 
-// Generate rows grouped by symbol
+            // Figure out all distinct client names from mwpl_array to build the dynamic headers
+            const clientKeys = new Set();
+            Object.keys(data).forEach(sym => {
+                data[sym].forEach(r => {
+                    if (r.mwpl_array && Array.isArray(r.mwpl_array)) {
+                        r.mwpl_array.forEach(item => {
+                            Object.keys(item).forEach(k => clientKeys.add(k));
+                        });
+                    }
+                });
+            });
+            const clientNames = Array.from(clientKeys).sort();
+
+            // Rebuild table header
+            let headerHTML = `
+                <tr>
+                    <th style="padding: 8px;">Symbol</th>
+                    <th style="padding: 8px;">Date</th>
+                    <th style="padding: 8px;">EQ Close</th>
+                    <th style="padding: 8px;">Fut1 Close</th>
+                    <th style="padding: 8px;">MWPL %</th>
+            `;
+            clientNames.forEach(c => {
+                headerHTML += `<th style="padding: 8px;">${c} %</th>`;
+            });
+            headerHTML += `</tr>`;
+            thead.innerHTML = headerHTML;
+            const totalCols = 5 + clientNames.length;
+
+            // Generate rows grouped by symbol
             Object.keys(data).sort().forEach(sym => {
                 const rows = data[sym];
                 if (rows.length === 0) return;
@@ -4275,17 +4321,27 @@ document.addEventListener('click', (e) => {
                     }
                 };
 
+                let mainClientTds = '';
+                clientNames.forEach(c => {
+                    let cVal = '-';
+                    if (latest.mwpl_array) {
+                        const found = latest.mwpl_array.find(item => Object.keys(item)[0] === c);
+                        if (found) cVal = Object.values(found)[0].toFixed(2) + '%';
+                    }
+                    mainClientTds += `<td style="color: #aaa;">${cVal}</td>`;
+                });
+
                 mainTr.innerHTML = `
                     <td style="font-weight: bold;"><span class="expand-icon" style="display:inline-block; width:20px; color:#888;">▶</span>${sym}</td>
                     <td>${latest.date} <span style="font-size: 10px; color: #888;">(Latest)</span></td>
                     <td>${latest.eq_close.toFixed(2)}</td>
                     <td>${latest.fut1_close.toFixed(2)}</td>
                     <td style="color: ${color}; font-weight: bold;">${latest.mwpl}%</td>
+                    ${mainClientTds}
                 `;
                 symbolTbody.appendChild(mainTr);
 
-                // History Rows Block (kept within a secondary tbody so we can toggle it, or just a bunch of rows with a class)
-                // Actually, a separate tbody per symbol is cleaner. Let's make the block a separate tbody.
+                // History Rows Block
                 const tbodyBlock = document.createElement('tbody');
                 tbodyBlock.id = blockId;
                 tbodyBlock.style.display = 'none';

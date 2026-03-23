@@ -47,19 +47,26 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         if sym not in result:
             result[sym] = []
 
-        # Parse mwpl_array properly
+        # Parse mwpl_array properly and calculate max mwpl for main row
         parsed_arr = []
+        mwpl_val = 0.0
         try:
             arr = r.mwpl_array
             if isinstance(arr, str):
                 arr = json.loads(arr)
             if isinstance(arr, list):
-                for item in arr:
+                for idx, item in enumerate(arr):
                     if isinstance(item, dict):
                         for k, v in item.items():
-                            parsed_arr.append({k: float(v)})
+                            val = float(v)
+                            parsed_arr.append({k: val})
+                            if val > mwpl_val:
+                                mwpl_val = val
                     elif isinstance(item, (int, float)):
-                        parsed_arr.append({"Client": float(item)})
+                        val = float(item)
+                        parsed_arr.append({f"Client {idx+1}": val})
+                        if val > mwpl_val:
+                            mwpl_val = val
         except Exception:
             pass
 
@@ -68,6 +75,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
                 "date": str(r.trade_date),
                 "eq_close": float(r.eq_close_price) if r.eq_close_price else 0.0,
                 "fut1_close": float(r.close_price) if r.close_price else 0.0,
+                "mwpl": mwpl_val,
                 "mwpl_array": parsed_arr
             })
 
@@ -88,11 +96,17 @@ async def get_marketwatch(db: Session = Depends(get_db)):
     from backend.domain.market.models import Bhavcopy
     import datetime
 
-    # Get latest F&O trading date
-    latest_fo_date = db.query(BhavcopyFO.trade_date).order_by(desc(BhavcopyFO.trade_date)).first()
-    if not latest_fo_date:
+    # Safely query to prevent 500 crashes
+    try:
+        # Get latest F&O trading date
+        latest_fo_date = db.query(BhavcopyFO.trade_date).order_by(desc(BhavcopyFO.trade_date)).first()
+        if not latest_fo_date:
+            return {"data": {}}
+        latest_fo_date = latest_fo_date[0]
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"data": {}}
-    latest_fo_date = latest_fo_date[0]
 
     # 1. Fetch all EQ data for the latest date
     eq_records = db.query(
