@@ -305,6 +305,7 @@
     <div class="main-tabs-bar">
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
         <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
+        <div class="main-tab" data-target="marketwatch" onclick="switchMainTab('marketwatch')" title="Alt+M"><u>M</u>arket Watch</div>
         <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
@@ -544,11 +545,43 @@
             </div>
         </div>
 
+        <!-- TAB MARKET WATCH -->
+        <div id="tab-marketwatch" class="main-tab-content">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0; color: #fff; font-size: 18px;">Market Watch (Derivatives)</h2>
+                    <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                </div>
+                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
+                    <table class="data-table" id="marketwatch-table" style="width: 100%;">
+                        <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                            <tr>
+                                <th style="padding: 8px; min-width: 120px;">Symbol / Expiry</th>
+                                <th style="padding: 8px;">Price</th>
+                                <th style="padding: 8px;">% Change</th>
+                                <th style="padding: 8px;">BPS</th>
+                                <th style="padding: 8px;">Ann. Yield</th>
+                                <th style="padding: 8px;">Volume</th>
+                                <th style="padding: 8px;">ATP</th>
+                                <th style="padding: 8px;">OI</th>
+                                <th style="padding: 8px;">% Chg OI</th>
+                                <th style="padding: 8px;">DTE</th>
+                                <th style="padding: 8px; min-width: 120px;">Corp Action</th>
+                                <th style="padding: 8px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="marketwatch-body">
+                            <tr><td colspan="12" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-derivatives" class="main-tab-content">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto;">
-                <div class="wb-tab active" id="deriv-tab-btn-marketwatch" onclick="switchDerivTab('marketwatch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Watch</div>
-                <div class="wb-tab" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
+                <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
@@ -1292,35 +1325,6 @@
                     </div>
                 </div>
 
-                <!-- SUB-TAB Market Watch -->
-                <div id="deriv-tab-marketwatch" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <button class="btn btn-secondary" onclick="loadMarketWatch()">Refresh Market Watch</button>
-                    </div>
-                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
-                        <table class="data-table" id="marketwatch-table" style="width: 100%;">
-                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
-                                <tr>
-                                    <th style="padding: 8px; min-width: 120px;">Symbol / Expiry</th>
-                                    <th style="padding: 8px;">Price</th>
-                                    <th style="padding: 8px;">% Change</th>
-                                    <th style="padding: 8px;">BPS</th>
-                                    <th style="padding: 8px;">Ann. Yield</th>
-                                    <th style="padding: 8px;">Volume</th>
-                                    <th style="padding: 8px;">ATP</th>
-                                    <th style="padding: 8px;">OI</th>
-                                    <th style="padding: 8px;">% Chg OI</th>
-                                    <th style="padding: 8px;">DTE</th>
-                                    <th style="padding: 8px; min-width: 120px;">Corp Action</th>
-                                    <th style="padding: 8px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="marketwatch-body">
-                                <tr><td colspan="12" style="text-align:center; color:#888;">Click "Refresh Market Watch" to load.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
                 <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
@@ -1798,7 +1802,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'marketwatch', 'derivatives', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -1822,12 +1826,15 @@
             if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
             if (tabName === 'ai_analyze') fetchSystemAccuracy();
+            if (tabName === 'marketwatch') {
+                 if (typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
+                     loadMarketWatch();
+                 }
+            }
             if (tabName === 'derivatives') {
                 // Initialize first sub-tab if none selected
                 if (!document.querySelector('.deriv-sub-tab.active')) {
-                    switchDerivTab('marketwatch');
-                } else if (document.querySelector('#deriv-tab-marketwatch').classList.contains('active')) {
-                    if (typeof loadMarketWatch === 'function') loadMarketWatch();
+                    switchDerivTab('matrix');
                 } else if (document.querySelector('#deriv-tab-market').classList.contains('active')) {
                     if (typeof loadMarketActivity === 'function') loadMarketActivity();
                 } else if (document.querySelector('#deriv-tab-matrix').classList.contains('active') && document.getElementById('mr-data-body').innerHTML.includes('No data')) {
@@ -1857,7 +1864,7 @@
             const target = document.getElementById(`deriv-tab-${tabName}`);
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
-                if (target.id === 'deriv-tab-market' || target.id === 'deriv-tab-mwpl' || target.id === 'deriv-tab-marketwatch') {
+                if (target.id === 'deriv-tab-market' || target.id === 'deriv-tab-mwpl') {
                     target.style.display = 'flex';
                 } else if (target.id === 'deriv-tab-matrix') {
                     target.style.display = 'flex';
@@ -1874,15 +1881,13 @@
                     loadMarketActivity();
                 } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
                     loadMWPLAnalysis();
-                } else if (tabName === 'marketwatch' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
-                    if (typeof loadMarketWatch === 'function') loadMarketWatch();
                 }
             }
         }
 
         // Initialize sub-tabs
         document.addEventListener('DOMContentLoaded', () => {
-            switchDerivTab('marketwatch');
+            switchDerivTab('matrix');
         });
 
         // --- Corporate Actions & Board Meetings UI ---
