@@ -22,10 +22,10 @@
             flex-direction: column;
         }
         .deriv-sub-tab {
-            display: none;
+            display: none !important;
         }
         .deriv-sub-tab.active {
-            display: flex;
+            display: flex !important;
         }
 
 
@@ -556,7 +556,10 @@
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Market Watch (Derivatives)</h2>
-                    <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="date" id="marketwatch-date" class="history-input" style="padding: 4px;">
+                        <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                    </div>
                 </div>
                 <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
                     <table class="data-table" id="marketwatch-table" style="width: 100%; margin: 0; padding: 0;">
@@ -864,32 +867,38 @@
                             let mwpl = '0.00';
                             let maxMwpl = 0;
                             let maxClient = '';
-                            if (row.mwpl_array && Array.isArray(row.mwpl_array) && row.mwpl_array.length > 0) {
-                                // mwpl_array is usually [{"client_name": value}, ...] or [value] or string.
-                                // To be safe, we extract the highest value if it's an array of objects.
-                                try {
-                                    row.mwpl_array.forEach(item => {
-                                        if (typeof item === 'object' && item !== null) {
-                                            for (let key in item) {
-                                                const val = parseFloat(item[key]);
-                                                if (!isNaN(val) && val > maxMwpl) {
-                                                    maxMwpl = val;
-                                                    maxClient = key;
+                            if (row.mwpl_array) {
+                                let arr = row.mwpl_array;
+                                if (typeof arr === 'string') {
+                                    try { arr = JSON.parse(arr); } catch (e) { arr = []; }
+                                }
+                                if (Array.isArray(arr) && arr.length > 0) {
+                                    try {
+                                        arr.forEach(item => {
+                                            if (typeof item === 'object' && item !== null) {
+                                                for (let key in item) {
+                                                    const val = parseFloat(item[key]);
+                                                    if (!isNaN(val) && val > maxMwpl) {
+                                                        maxMwpl = val;
+                                                        maxClient = key;
+                                                    }
                                                 }
+                                            } else if (typeof item === 'number') {
+                                                if (item > maxMwpl) maxMwpl = item;
                                             }
-                                        } else if (typeof item === 'number') {
-                                            if (item > maxMwpl) maxMwpl = item;
+                                        });
+                                        if (maxMwpl > 0) {
+                                            mwpl = maxMwpl.toFixed(2);
+                                        } else {
+                                            // fallback if structure was different
+                                            if (typeof arr[0] === 'object' && arr[0] !== null) {
+                                                const firstKey = Object.keys(arr[0])[0];
+                                                if (firstKey) mwpl = parseFloat(arr[0][firstKey]).toFixed(2);
+                                            }
                                         }
-                                    });
-                                    if (maxMwpl > 0) {
-                                        mwpl = maxMwpl.toFixed(2);
-                                    } else {
-                                        // fallback if structure was different
-                                        const firstKey = Object.keys(row.mwpl_array[0])[0];
-                                        if (firstKey) mwpl = parseFloat(row.mwpl_array[0][firstKey]).toFixed(2);
+                                    } catch (e) {
+                                        mwpl = '0.00';
                                     }
-                                } catch (e) {
-                                    mwpl = '0.00';
                                 }
                             }
 
@@ -1484,11 +1493,11 @@
                 </div>
                 <div class="control-group">
                     <label>From:</label>
-                    <input type="date" id="start-date" class="history-input">
+                    <input type="date" id="start-date" class="history-input" onchange="handleDateRangeChange()">
                 </div>
                 <div class="control-group">
                     <label>To:</label>
-                    <input type="date" id="end-date" class="history-input">
+                    <input type="date" id="end-date" class="history-input" onchange="handleDateRangeChange()">
                 </div>
                 <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
                 <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
@@ -1862,7 +1871,7 @@
         function switchDerivTab(tabName) {
             document.querySelectorAll('#tab-derivatives .deriv-sub-tab').forEach(el => {
                 el.classList.remove('active');
-                el.style.display = 'none'; // Force hide all sub-tabs to prevent bleed
+                el.style.display = ''; // Clear inline styles to let CSS !important handle display
             });
             document.querySelectorAll('#tab-derivatives .wb-tab').forEach(el => {
                 el.classList.remove('active');
@@ -1874,11 +1883,6 @@
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
                 target.classList.add('active');
-                if (tabName === 'market' || tabName === 'mwpl' || tabName === 'matrix') {
-                    target.style.display = 'flex';
-                } else {
-                    target.style.display = 'block';
-                }
 
                 btn.classList.add('active');
                 btn.style.borderBottomColor = '#4ade80';
@@ -3113,35 +3117,35 @@
             if (checkbox.checked) {
                 startInput.value = "";
                 endInput.value = "";
-                startInput.disabled = true;
-                endInput.disabled = true;
-                if (allDates) {
-                    allDates.checked = false;
-                }
+                if (allDates) allDates.checked = false;
             } else {
                 if (!allDates || !allDates.checked) {
-                    startInput.disabled = false;
-                    endInput.disabled = false;
-                    setDefaultDates();
+                    // Try setting default date if unchecked, or leave it blank
+                    // The user requested that picking a date overrides latest
                 }
             }
         }
 
         function toggleDateInputs(checkbox) {
             const latestDates = document.getElementById("latest-date-check");
+            const startInput = document.getElementById("start-date");
+            const endInput = document.getElementById("end-date");
             if (checkbox.checked) {
                 if (latestDates) latestDates.checked = false;
+                startInput.value = "";
+                endInput.value = "";
             }
-            const startInput = document.getElementById('start-date');
-            const endInput = document.getElementById('end-date');
-            if (checkbox.checked) {
-                startInput.value = '';
-                endInput.value = '';
-                startInput.disabled = true;
-                endInput.disabled = true;
-            } else {
-                startInput.disabled = false;
-                endInput.disabled = false;
+        }
+
+        function handleDateRangeChange() {
+            const startInput = document.getElementById("start-date");
+            const endInput = document.getElementById("end-date");
+            const latestDates = document.getElementById("latest-date-check");
+            const allDates = document.getElementById("all-dates-check");
+
+            if (startInput.value || endInput.value) {
+                if (latestDates) latestDates.checked = false;
+                if (allDates) allDates.checked = false;
             }
         }
 
@@ -3409,8 +3413,8 @@
                             // Explicit mapping for known input fields to their respective load functions
                             // This ensures correct data loading when selecting an option from autocomplete
                             if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
-                                loadHistoryData(null, 'asc', sym);
-                                input.value = '';
+                                // Do not auto-load for Historical Data to prevent UI sluggishness
+                                // input.value remains populated. User must click "Load Data"
                             } else if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
                                 applyMrFilter();
                                 input.value = ''; // Auto clear for mr filter
@@ -3475,12 +3479,10 @@
                     // Explicit mapping for known input fields to their respective load functions
                     // This guarantees Enter will work, regardless of DOM structure
                     if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
-                        // For historical data, we need to pass the selected symbol directly if it was just auto-prompted
-                        // because the UI value update might happen milliseconds after this event is dispatched.
-                        const currentSymbol = input.value;
-                        loadHistoryData(null, 'asc', currentSymbol);
-                        input.value = '';
-                        // Also trigger if there's an explicit button just in case
+                        // We do not want to auto-clear the historical data symbol search box or trigger a load immediately upon enter.
+                        // The user complained about the system being too slow because of this auto loading.
+                        // They will press the "Load Data" button explicitly.
+                        // We just update the input value, which is already done above.
                         return;
                     }
                     if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
@@ -3552,7 +3554,9 @@
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (dropdown.style.display !== 'block') {
-                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') { loadHistoryData(null, 'asc', input.value); input.value = ''; }
+                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
+                            // Do not auto trigger data load on Enter
+                         }
                          if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') { loadDividendsData(input.value); input.value = ''; }
                          if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') { applyMrFilter(); input.value = ''; }
                          if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') { fetchMarketActivity(); input.value = ''; }
@@ -4272,7 +4276,12 @@ document.addEventListener('click', (e) => {
                     }
                 });
             });
-            const clientNames = Array.from(clientKeys).sort();
+            // Sort client names numerically by extracting the number suffix
+            const clientNames = Array.from(clientKeys).sort((a, b) => {
+                const numA = parseInt(a.replace(/[^0-9]/g, '')) || 0;
+                const numB = parseInt(b.replace(/[^0-9]/g, '')) || 0;
+                return numA - numB;
+            });
 
             // Rebuild table header
             let headerHTML = `
@@ -4373,12 +4382,15 @@ document.addEventListener('click', (e) => {
 
     async function loadMarketWatch() {
         const tbody = document.getElementById('marketwatch-body');
+        const dateInput = document.getElementById('marketwatch-date');
+        const dateVal = dateInput ? dateInput.value : '';
         tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
-            const res = await fetch('/api/data/derivatives/marketwatch');
+            const url = dateVal ? `/api/data/derivatives/marketwatch?date=${dateVal}` : '/api/data/derivatives/marketwatch';
+            const res = await fetch(url);
             const result = await res.json();
-            const data = result.data;
+            const data = result.data || {};
 
             tbody.innerHTML = '';
 
@@ -4402,7 +4414,7 @@ document.addEventListener('click', (e) => {
 
                 eqTr.innerHTML = `
                     <td style="font-weight: bold; color: #4da6ff;">${sym} EQ</td>
-                    <td style="font-weight: bold;">${eq.price > 0 ? eq.price.toFixed(2) : '-'}</td>
+                    <td style="font-weight: bold;">${eq.price != null && !isNaN(eq.price) && eq.price > 0 ? eq.price.toFixed(2) : '-'}</td>
                     <td>${eqChangeStr}</td>
                     <td>-</td>
                     <td>-</td>
@@ -4428,14 +4440,17 @@ document.addEventListener('click', (e) => {
                     // Simple % change calculation from price/atp? We don't have prev close, using a placeholder for % Change
                     const futChangeStr = '-';
 
-                    const yieldColor = f.yield > 0 ? '#4ade80' : (f.yield < 0 ? '#ff4d4d' : '#ccc');
+                    const yld = (f.yield != null && !isNaN(f.yield)) ? f.yield : 0;
+                    const yieldColor = yld > 0 ? '#4ade80' : (yld < 0 ? '#ff4d4d' : '#ccc');
+                    const bpsVal = (f.bps != null && !isNaN(f.bps)) ? f.bps : 0;
+                    const priceVal = (f.price != null && !isNaN(f.price)) ? f.price : 0;
 
                     futTr.innerHTML = `
-                        <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #666;">(${f.expiry.substring(5)})</span></td>
-                        <td>${f.price.toFixed(2)}</td>
+                        <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #666;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
+                        <td>${priceVal.toFixed(2)}</td>
                         <td>${futChangeStr}</td>
-                        <td style="color: #e6a23c;">${f.bps.toFixed(2)}</td>
-                        <td style="color: ${yieldColor};">${f.yield.toFixed(2)}%</td>
+                        <td style="color: #e6a23c;">${bpsVal.toFixed(2)}</td>
+                        <td style="color: ${yieldColor};">${yld.toFixed(2)}%</td>
                         <td style="color: #ccc;">${(f.vol).toLocaleString()}</td>
                         <td style="color: #ccc;">-</td>
                         <td style="color: #ccc;">${(f.oi).toLocaleString()}</td>

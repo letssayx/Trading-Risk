@@ -86,7 +86,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
     return {"data": result}
 
 @router.get("/api/data/derivatives/marketwatch")
-async def get_marketwatch(db: Session = Depends(get_db)):
+async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
     """
     Fetches Market Watch data for all F&O symbols.
     Returns current EQ price, Corporate Action (Ex-date), and the next 3 unexpired future contracts
@@ -98,11 +98,15 @@ async def get_marketwatch(db: Session = Depends(get_db)):
 
     # Safely query to prevent 500 crashes
     try:
-        # Get latest F&O trading date
-        latest_fo_date = db.query(BhavcopyFO.trade_date).order_by(desc(BhavcopyFO.trade_date)).first()
-        if not latest_fo_date:
-            return {"data": {}}
-        latest_fo_date = latest_fo_date[0]
+        if date:
+            target_date = datetime.datetime.strptime(date, '%Y-%m-%d').date()
+            latest_fo_date = target_date
+        else:
+            # Get latest F&O trading date
+            latest_fo_date = db.query(BhavcopyFO.trade_date).order_by(desc(BhavcopyFO.trade_date)).first()
+            if not latest_fo_date:
+                return {"data": {}}
+            latest_fo_date = latest_fo_date[0]
     except Exception as e:
         import traceback
         traceback.print_exc()
