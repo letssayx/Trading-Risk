@@ -28,66 +28,73 @@ def calculate_greeks(S, K, T, r, sigma, is_call):
     if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
         return {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0, "iv": sigma}
 
-    d1 = bs_d1(S, K, T, r, sigma)
-    d2 = bs_d2(d1, T, sigma)
+    try:
+        d1 = bs_d1(S, K, T, r, sigma)
+        d2 = bs_d2(d1, T, sigma)
 
-    # PDF and CDF
-    pdf_d1 = norm_pdf(d1)
+        # PDF and CDF
+        pdf_d1 = norm_pdf(d1)
 
-    # Greeks
-    delta = norm_cdf(d1) if is_call else norm_cdf(d1) - 1.0
-    gamma = pdf_d1 / (S * sigma * math.sqrt(T))
-    vega = (S * pdf_d1 * math.sqrt(T)) / 100.0
+        # Greeks
+        delta = norm_cdf(d1) if is_call else norm_cdf(d1) - 1.0
+        gamma = pdf_d1 / (S * sigma * math.sqrt(T))
+        vega = (S * pdf_d1 * math.sqrt(T)) / 100.0
 
-    # Theta (per day)
-    term1 = -(S * pdf_d1 * sigma) / (2 * math.sqrt(T))
-    if is_call:
-        theta = (term1 - r * K * math.exp(-r * T) * norm_cdf(d2)) / 365.0
-        rho = (K * T * math.exp(-r * T) * norm_cdf(d2)) / 100.0
-    else:
-        theta = (term1 + r * K * math.exp(-r * T) * norm_cdf(-d2)) / 365.0
-        rho = (-K * T * math.exp(-r * T) * norm_cdf(-d2)) / 100.0
+        # Theta (per day)
+        term1 = -(S * pdf_d1 * sigma) / (2 * math.sqrt(T))
+        if is_call:
+            theta = (term1 - r * K * math.exp(-r * T) * norm_cdf(d2)) / 365.0
+            rho = (K * T * math.exp(-r * T) * norm_cdf(d2)) / 100.0
+        else:
+            theta = (term1 + r * K * math.exp(-r * T) * norm_cdf(-d2)) / 365.0
+            rho = (-K * T * math.exp(-r * T) * norm_cdf(-d2)) / 100.0
 
-    return {
-        "delta": float(delta),
-        "gamma": float(gamma),
-        "theta": float(theta),
-        "vega": float(vega),
-        "rho": float(rho),
-        "iv": float(sigma)
-    }
+        return {
+            "delta": float(delta),
+            "gamma": float(gamma),
+            "theta": float(theta),
+            "vega": float(vega),
+            "rho": float(rho),
+            "iv": float(sigma)
+        }
+    except Exception:
+        return {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0, "iv": float(sigma)}
 
 def calculate_iv(target_price, S, K, T, r, is_call):
     """ Newton-Raphson approximation for Implied Volatility """
     if T <= 0 or target_price <= 0: return 0.0
 
-    # Intrinsic value check
     intrinsic = max(0.0, S - K) if is_call else max(0.0, K - S)
     if target_price < intrinsic:
-        return 0.001 # Option price is below intrinsic, IV is mathematically undefined but approaching zero
+        return 0.001
 
-    sigma = 0.3 # starting guess 30%
+    sigma = 0.3
     for i in range(100):
-        d1 = bs_d1(S, K, T, r, sigma)
-        d2 = bs_d2(d1, T, sigma)
+        try:
+            d1 = bs_d1(S, K, T, r, sigma)
+            d2 = bs_d2(d1, T, sigma)
 
-        if is_call:
-            price = S * norm_cdf(d1) - K * math.exp(-r * T) * norm_cdf(d2)
-        else:
-            price = K * math.exp(-r * T) * norm_cdf(-d2) - S * norm_cdf(-d1)
+            if is_call:
+                price = S * norm_cdf(d1) - K * math.exp(-r * T) * norm_cdf(d2)
+            else:
+                price = K * math.exp(-r * T) * norm_cdf(-d2) - S * norm_cdf(-d1)
 
-        diff = price - target_price
-        if abs(diff) < 1e-4:
-            return float(sigma)
+            diff = price - target_price
+            if abs(diff) < 1e-4:
+                return float(sigma)
 
-        vega = S * norm_pdf(d1) * math.sqrt(T)
-        if vega < 1e-8:
-            break
+            vega = S * norm_pdf(d1) * math.sqrt(T)
+            if vega < 1e-8:
+                return 0.001
 
-        sigma = sigma - diff / vega
-        if sigma <= 0.001:
-            sigma = 0.001
-            break
+            sigma = sigma - diff / vega
+            if sigma <= 0.001:
+                return 0.001
+            elif sigma > 5.0:
+                return 5.0
+
+        except Exception:
+            return 0.001
 
     return float(sigma)
 
@@ -166,7 +173,24 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
         if not valid_expiries:
             return {"data": {}, "expiries": [], "spot_price": spot_price}
 
-        target_expiry = expiry if expiry and expiry in valid_expiries else valid_expiries[0]
+        target_expiry = None
+        if expiry:
+            # Try to find the exact match
+            if expiry in valid_expiries:
+                target_expiry = expiry
+            else:
+                # If the exact expiry doesn't exist for this date, find the closest one that is AFTER the requested expiry
+                req_dt = datetime.strptime(expiry, '%Y-%m-%d').date()
+                for ve in valid_expiries:
+                    ve_dt = datetime.strptime(ve, '%Y-%m-%d').date()
+                    if ve_dt >= req_dt:
+                        target_expiry = ve
+                        break
+
+        # Fallback to the first available expiry
+        if not target_expiry:
+             target_expiry = valid_expiries[0]
+
         target_expiry_date = datetime.strptime(target_expiry, '%Y-%m-%d').date()
 
         # 4. Fetch the Option Chain Data

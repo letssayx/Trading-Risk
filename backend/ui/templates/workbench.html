@@ -4254,7 +4254,7 @@ document.addEventListener('click', (e) => {
                     datasets: [
                         { label: 'FII Net Long', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
                         { label: 'PRO Net Long', data: data.pro_net_long, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', data: data.client_net_long, borderColor: '#4bc0c0', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
+                        { label: 'Client Net Long', data: data.client_net_long, borderColor: '#60a5fa', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
                     ]
                 },
                 options: {
@@ -4446,13 +4446,42 @@ document.addEventListener('click', (e) => {
                     mainClientTds += `<td style="color: #aaa;">${cVal}</td>`;
                 });
 
+
+                // Compare with previous day to determine color
+                let eqColor = '#ddd';
+                let futColor = '#ddd';
+                let totalColor = '#60a5fa'; // default
+                let mwplColor = color;
+                let eqArrow = '';
+                let futArrow = '';
+                let totalArrow = '';
+
+                if (rows.length > 1) {
+                    const prev = rows[1]; // Since rows are sorted descending by date
+
+                    if (latest.eq_close > prev.eq_close) { eqColor = '#60a5fa'; eqArrow = '▲'; }
+                    else if (latest.eq_close < prev.eq_close) { eqColor = '#ff4d4d'; eqArrow = '▼'; }
+
+                    if (latest.fut1_close > prev.fut1_close) { futColor = '#60a5fa'; futArrow = '▲'; }
+                    else if (latest.fut1_close < prev.fut1_close) { futColor = '#ff4d4d'; futArrow = '▼'; }
+
+                    let prevTotal = 0;
+                    if (prev.mwpl_array && Array.isArray(prev.mwpl_array)) {
+                        prev.mwpl_array.forEach(item => {
+                            prevTotal += parseFloat(Object.values(item)[0]) || 0;
+                        });
+                    }
+                    if (total > prevTotal) { totalColor = '#60a5fa'; totalArrow = '▲'; }
+                    else if (total < prevTotal) { totalColor = '#ff4d4d'; totalArrow = '▼'; }
+                }
+
                 mainTr.innerHTML = `
                     <td style="font-weight: bold;"><span class="expand-icon" style="display:inline-block; width:20px; color:#888;">▶</span>${sym}</td>
                     <td>${latest.date} <span style="font-size: 10px; color: #888;">(Latest)</span></td>
-                    <td>${latest.eq_close.toFixed(2)}</td>
-                    <td>${latest.fut1_close.toFixed(2)}</td>
-                    <td style="color: #60a5fa; font-weight: bold;">${total.toFixed(2)}%</td>
-                    <td style="color: ${color}; font-weight: bold;">${latest.mwpl}%</td>
+                    <td style="color: ${eqColor};">${latest.eq_close.toFixed(2)} <span style="font-size:0.8em">${eqArrow}</span></td>
+                    <td style="color: ${futColor};">${latest.fut1_close.toFixed(2)} <span style="font-size:0.8em">${futArrow}</span></td>
+                    <td style="color: ${totalColor}; font-weight: bold;">${total.toFixed(2)}% <span style="font-size:0.8em">${totalArrow}</span></td>
+                    <td style="color: ${mwplColor}; font-weight: bold;">${latest.mwpl}%</td>
                     ${mainClientTds}
                 `;
                 symbolTbody.appendChild(mainTr);
@@ -4484,15 +4513,41 @@ document.addEventListener('click', (e) => {
                             const found = r.mwpl_array.find(item => Object.keys(item)[0] === c);
                             if (found) cVal = Object.values(found)[0].toFixed(2) + '%';
                         }
-                        clientTds += `<td style="color: #555;">${cVal}</td>`;
+                        clientTds += `<td style="color: #aaa;">${cVal}</td>`;
                     });
+
+
+                    let histEqColor = '#ddd';
+                    let histFutColor = '#ddd';
+                    let histTotalColor = '#7dd3fc';
+                    let histEqArrow = '';
+                    let histFutArrow = '';
+                    let histTotalArrow = '';
+
+                    if (idx < rows.length - 1) {
+                        const histPrev = rows[idx + 1];
+                        if (r.eq_close > histPrev.eq_close) { histEqColor = '#60a5fa'; histEqArrow = '▲'; }
+                        else if (r.eq_close < histPrev.eq_close) { histEqColor = '#ff4d4d'; histEqArrow = '▼'; }
+
+                        if (r.fut1_close > histPrev.fut1_close) { histFutColor = '#60a5fa'; histFutArrow = '▲'; }
+                        else if (r.fut1_close < histPrev.fut1_close) { histFutColor = '#ff4d4d'; histFutArrow = '▼'; }
+
+                        let histPrevTotal = 0;
+                        if (histPrev.mwpl_array && Array.isArray(histPrev.mwpl_array)) {
+                            histPrev.mwpl_array.forEach(item => {
+                                histPrevTotal += parseFloat(Object.values(item)[0]) || 0;
+                            });
+                        }
+                        if (rowTotal > histPrevTotal) { histTotalColor = '#60a5fa'; histTotalArrow = '▲'; }
+                        else if (rowTotal < histPrevTotal) { histTotalColor = '#ff4d4d'; histTotalArrow = '▼'; }
+                    }
 
                     historyTr.innerHTML = `
                         <td style="padding-left: 30px; color: #bbb;">└ ${r.date}</td>
                         <td style="color: #ddd;">${r.date}</td>
-                        <td style="color: #ddd;">${r.eq_close.toFixed(2)}</td>
-                        <td style="color: #ddd;">${r.fut1_close.toFixed(2)}</td>
-                        <td style="color: #7dd3fc;">${rowTotal.toFixed(2)}%</td>
+                        <td style="color: ${histEqColor};">${r.eq_close.toFixed(2)} <span style="font-size:0.8em">${histEqArrow}</span></td>
+                        <td style="color: ${histFutColor};">${r.fut1_close.toFixed(2)} <span style="font-size:0.8em">${histFutArrow}</span></td>
+                        <td style="color: ${histTotalColor};">${rowTotal.toFixed(2)}% <span style="font-size:0.8em">${histTotalArrow}</span></td>
                         <td style="color: ${hColor};">${r.mwpl}%</td>
                         ${clientTds}
                     `;
