@@ -546,11 +546,13 @@
 
         <div id="tab-derivatives" class="main-tab-content">
             <!-- Sub-tab Navigation -->
-            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px;">
-                <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Data Matrix</div>
-                <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">OI Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Rollover Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Market Activity</div>
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto;">
+                <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
+                <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-marketwatch" onclick="switchDerivTab('marketwatch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Watch</div>
+                <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
             </div>
 
             <!-- Sub-tab Contents Container -->
@@ -1267,6 +1269,59 @@
                     <!-- Content loaded by workbookManager.js / RolloverTool -->
                 </div>
 
+                <!-- SUB-TAB MWPL Analysis -->
+                <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                        <button class="btn btn-secondary" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
+                    </div>
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
+                        <table class="data-table" id="mwpl-analysis-table" style="width: 100%;">
+                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                <tr>
+                                    <th style="padding: 8px;">Symbol</th>
+                                    <th style="padding: 8px;">Date</th>
+                                    <th style="padding: 8px;">EQ Close</th>
+                                    <th style="padding: 8px;">Fut1 Close</th>
+                                    <th style="padding: 8px;">MWPL %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mwpl-analysis-body">
+                                <tr><td colspan="5" style="text-align:center; color:#888;">Click "Refresh MWPL Data" to load.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB Market Watch -->
+                <div id="deriv-tab-marketwatch" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                        <button class="btn btn-secondary" onclick="loadMarketWatch()">Refresh Market Watch</button>
+                    </div>
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
+                        <table class="data-table" id="marketwatch-table" style="width: 100%;">
+                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                <tr>
+                                    <th style="padding: 8px; min-width: 120px;">Symbol / Expiry</th>
+                                    <th style="padding: 8px;">Price</th>
+                                    <th style="padding: 8px;">% Change</th>
+                                    <th style="padding: 8px;">BPS</th>
+                                    <th style="padding: 8px;">Ann. Yield</th>
+                                    <th style="padding: 8px;">Volume</th>
+                                    <th style="padding: 8px;">ATP</th>
+                                    <th style="padding: 8px;">OI</th>
+                                    <th style="padding: 8px;">% Chg OI</th>
+                                    <th style="padding: 8px;">DTE</th>
+                                    <th style="padding: 8px; min-width: 120px;">Corp Action</th>
+                                    <th style="padding: 8px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="marketwatch-body">
+                                <tr><td colspan="12" style="text-align:center; color:#888;">Click "Refresh Market Watch" to load.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
                 <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
@@ -1800,12 +1855,12 @@
             const target = document.getElementById(`deriv-tab-${tabName}`);
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
-                if (target.id === 'deriv-tab-market') {
+                if (target.id === 'deriv-tab-market' || target.id === 'deriv-tab-mwpl' || target.id === 'deriv-tab-marketwatch') {
                     target.style.display = 'flex';
                 } else if (target.id === 'deriv-tab-matrix') {
                     target.style.display = 'flex';
                 } else {
-                    target.style.display = tabName === 'market' || tabName === 'matrix' ? 'flex' : 'block';
+                    target.style.display = 'block';
                 }
                 target.classList.add('active');
                 btn.classList.add('active');
@@ -1815,6 +1870,10 @@
                 // Trigger chart loading if Market Activity
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
+                } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
+                    loadMWPLAnalysis();
+                } else if (tabName === 'marketwatch' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
+                    if (typeof loadMarketWatch === 'function') loadMarketWatch();
                 }
             }
         }
@@ -2867,8 +2926,8 @@
 
                 const hasDateRange = start || end;
 
-                // If filtering by dates, fetch everything in that range. Otherwise limit heavily to prevent crash
-                let limit = hasDateRange ? 100000 : 0;
+                // If filtering by dates or latest is checked without a symbol, fetch everything in that range. Otherwise limit heavily to prevent crash
+                let limit = (hasDateRange || (isLatest && !symbol)) ? 100000 : 0;
 
                 // If no filters are applied and latest is un-checked, it will fetch all historical data and crash browser.
                 // We fallback to a safer number if absolutely NO filters are applied.
@@ -4160,6 +4219,173 @@ document.addEventListener('click', (e) => {
             container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
         } finally {
             echartInstance?.hideLoading();
+        }
+    }
+
+    async function loadMWPLAnalysis() {
+        const tbody = document.getElementById('mwpl-analysis-body');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        try {
+            const res = await fetch('/api/data/derivatives/mwpl_historical');
+            const result = await res.json();
+            const data = result.data;
+
+            tbody.innerHTML = '';
+
+            if (Object.keys(data).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No historical MWPL data found.</td></tr>';
+                return;
+            }
+
+            // Generate rows grouped by symbol
+            Object.keys(data).sort().forEach(sym => {
+                const rows = data[sym];
+                if (rows.length === 0) return;
+
+                // Latest data for summary row
+                const latest = rows[0];
+                const isHigh = parseFloat(latest.mwpl) > 20;
+                const color = isHigh ? '#ff4d4d' : '#4ade80';
+
+                // Generate unique ID for the sub-rows block
+                const blockId = `mwpl-block-${sym}`;
+
+                // Main Symbol Row
+                const mainTr = document.createElement('tr');
+                mainTr.style.cursor = 'pointer';
+                mainTr.style.borderTop = '1px solid #444';
+                mainTr.onclick = () => {
+                    const block = document.getElementById(blockId);
+                    if (block.style.display === 'none') {
+                        block.style.display = 'table-row-group';
+                        mainTr.querySelector('.expand-icon').innerText = '▼';
+                    } else {
+                        block.style.display = 'none';
+                        mainTr.querySelector('.expand-icon').innerText = '▶';
+                    }
+                };
+
+                mainTr.innerHTML = `
+                    <td style="font-weight: bold;"><span class="expand-icon" style="display:inline-block; width:20px; color:#888;">▶</span>${sym}</td>
+                    <td>${latest.date} <span style="font-size: 10px; color: #888;">(Latest)</span></td>
+                    <td>${latest.eq_close.toFixed(2)}</td>
+                    <td>${latest.fut1_close.toFixed(2)}</td>
+                    <td style="color: ${color}; font-weight: bold;">${latest.mwpl}%</td>
+                `;
+                tbody.appendChild(mainTr);
+
+                // History Rows Block
+                const tbodyBlock = document.createElement('tbody');
+                tbodyBlock.id = blockId;
+                tbodyBlock.style.display = 'none';
+
+                rows.forEach((r, idx) => {
+                    // Skip the very first row since it's the summary? Actually user wanted it like a pivot, so show all 14 underneath
+                    const historyTr = document.createElement('tr');
+                    historyTr.style.backgroundColor = '#1a1a1a';
+                    const hColor = parseFloat(r.mwpl) > 20 ? '#ff4d4d' : '#ccc';
+
+                    historyTr.innerHTML = `
+                        <td style="padding-left: 30px; color: #888;">History [${idx + 1}]</td>
+                        <td style="color: #aaa;">${r.date}</td>
+                        <td style="color: #aaa;">${r.eq_close.toFixed(2)}</td>
+                        <td style="color: #aaa;">${r.fut1_close.toFixed(2)}</td>
+                        <td style="color: ${hColor};">${r.mwpl}%</td>
+                    `;
+                    tbodyBlock.appendChild(historyTr);
+                });
+
+                // We append the tbody block directly into the main table. Modern browsers support multiple tbodys.
+                tbody.parentElement.appendChild(tbodyBlock);
+            });
+
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+        }
+    }
+
+    async function loadMarketWatch() {
+        const tbody = document.getElementById('marketwatch-body');
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        try {
+            const res = await fetch('/api/data/derivatives/marketwatch');
+            const result = await res.json();
+            const data = result.data;
+
+            tbody.innerHTML = '';
+
+            if (Object.keys(data).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; color:#888;">No Market Watch data found.</td></tr>';
+                return;
+            }
+
+            Object.keys(data).sort().forEach(sym => {
+                const item = data[sym];
+                const eq = item.eq;
+                const futs = item.futures;
+
+                // --- EQ Row ---
+                const eqTr = document.createElement('tr');
+                eqTr.style.borderTop = '2px solid #444';
+                eqTr.style.backgroundColor = '#1a1a1a';
+
+                // Calculate EQ change from somewhere? We don't have prev close in this API yet, so we leave it blank for now.
+                const eqChangeStr = '-';
+
+                eqTr.innerHTML = `
+                    <td style="font-weight: bold; color: #4da6ff;">${sym} EQ</td>
+                    <td style="font-weight: bold;">${eq.price > 0 ? eq.price.toFixed(2) : '-'}</td>
+                    <td>${eqChangeStr}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td style="color: #ccc;">${eq.vol > 0 ? (eq.vol).toLocaleString() : '-'}</td>
+                    <td style="color: #ccc;">${eq.atp > 0 ? eq.atp.toFixed(2) : '-'}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td style="color: #FF9800; font-size: 11px;">${eq.ca || ''}</td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${sym}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">AI Analyze</button>
+                    </td>
+                `;
+                tbody.appendChild(eqTr);
+
+                // --- FUT Rows ---
+                futs.forEach((f, idx) => {
+                    const futTr = document.createElement('tr');
+
+                    const oiColor = f.chg_oi > 0 ? '#4ade80' : (f.chg_oi < 0 ? '#ff4d4d' : '#ccc');
+                    const oiSign = f.chg_oi > 0 ? '+' : '';
+
+                    // Simple % change calculation from price/atp? We don't have prev close, using a placeholder for % Change
+                    const futChangeStr = '-';
+
+                    const yieldColor = f.yield > 0 ? '#4ade80' : (f.yield < 0 ? '#ff4d4d' : '#ccc');
+
+                    futTr.innerHTML = `
+                        <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #666;">(${f.expiry.substring(5)})</span></td>
+                        <td>${f.price.toFixed(2)}</td>
+                        <td>${futChangeStr}</td>
+                        <td style="color: #e6a23c;">${f.bps.toFixed(2)}</td>
+                        <td style="color: ${yieldColor};">${f.yield.toFixed(2)}%</td>
+                        <td style="color: #ccc;">${(f.vol).toLocaleString()}</td>
+                        <td style="color: #ccc;">-</td>
+                        <td style="color: #ccc;">${(f.oi).toLocaleString()}</td>
+                        <td style="color: ${oiColor};">${oiSign}${(f.chg_oi).toLocaleString()}</td>
+                        <td style="color: #aaa;">${f.dte}</td>
+                        <td></td>
+                        <td>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="alert('Option chain view not yet connected for ${sym}')">Opt Chain</button>
+                        </td>
+                    `;
+                    tbody.appendChild(futTr);
+                });
+            });
+
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     }
 
