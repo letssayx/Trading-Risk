@@ -155,7 +155,7 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
         BhavcopyFO.change_in_oi
     ).filter(
         BhavcopyFO.trade_date == latest_fo_date,
-        BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
+        BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
     ).all()
 
     # Organize futures by symbol and sort by expiry
