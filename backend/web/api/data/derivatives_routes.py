@@ -86,7 +86,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
     return {"data": result}
 
 @router.get("/api/data/derivatives/marketwatch")
-async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
+async def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = Depends(get_db)):
     """
     Fetches Market Watch data for all F&O symbols.
     Returns current EQ price, Corporate Action (Ex-date), and the next 3 unexpired future contracts
@@ -126,6 +126,7 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
     eq_records = db.query(
         BhavcopyEQ.symbol,
         BhavcopyEQ.close_price,
+        BhavcopyEQ.prev_close,
         BhavcopyEQ.total_traded_qty,
         BhavcopyEQ.avg_price
     ).filter(
@@ -133,11 +134,22 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
         BhavcopyEQ.series == 'EQ'
     ).all()
 
-    eq_map = {r.symbol: {"price": float(r.close_price) if r.close_price else 0.0,
-                         "vol": int(r.total_traded_qty) if r.total_traded_qty else 0,
-                         "atp": float(r.avg_price) if r.avg_price else 0.0} for r in eq_records}
+    eq_map = {}
+    for r in eq_records:
+        cp = float(r.close_price) if r.close_price else 0.0
+        pcp = float(r.prev_close) if r.prev_close else 0.0
+        pct_change = ((cp - pcp) / pcp * 100) if pcp > 0 else 0.0
+
+        eq_map[r.symbol] = {
+            "price": cp,
+            "prev_close": pcp,
+            "pct_change": pct_change,
+            "vol": int(r.total_traded_qty) if r.total_traded_qty else 0,
+            "atp": float(r.avg_price) if r.avg_price else 0.0
+        }
 
     # Also add indices from HistoricalIndexData (match to the EQ date)
+    # Note: HistoricalIndexData doesn't have prev_close. So let's fetch the previous day's close for % change.
     from backend.ingest.nse_models import HistoricalIndexData
     idx_records = db.query(
         HistoricalIndexData.index_name,
@@ -147,10 +159,29 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
         HistoricalIndexData.trade_date == eq_date_to_use
     ).all()
 
+    prev_idx_date = db.query(HistoricalIndexData.trade_date)\
+                        .filter(HistoricalIndexData.trade_date < eq_date_to_use)\
+                        .order_by(desc(HistoricalIndexData.trade_date))\
+                        .first()
+
+    prev_idx_map = {}
+    if prev_idx_date:
+        prev_idx_records = db.query(HistoricalIndexData.index_name, HistoricalIndexData.close_price)\
+                             .filter(HistoricalIndexData.trade_date == prev_idx_date[0]).all()
+        for pr in prev_idx_records:
+            sym = pr.index_name.replace('NIFTY 50', 'NIFTY').replace('NIFTY BANK', 'BANKNIFTY').replace('NIFTY FIN SERVICE', 'FINNIFTY').replace('NIFTY MID SELECT', 'MIDCPNIFTY')
+            prev_idx_map[sym] = float(pr.close_price) if pr.close_price else 0.0
+
     for r in idx_records:
         sym = r.index_name.replace('NIFTY 50', 'NIFTY').replace('NIFTY BANK', 'BANKNIFTY').replace('NIFTY FIN SERVICE', 'FINNIFTY').replace('NIFTY MID SELECT', 'MIDCPNIFTY')
+        cp = float(r.close_price) if r.close_price else 0.0
+        pcp = prev_idx_map.get(sym, 0.0)
+        pct_change = ((cp - pcp) / pcp * 100) if pcp > 0 else 0.0
+
         eq_map[sym] = {
-            "price": float(r.close_price) if r.close_price else 0.0,
+            "price": cp,
+            "prev_close": pcp,
+            "pct_change": pct_change,
             "vol": int(r.total_traded_qty) if r.total_traded_qty else 0,
             "atp": 0.0
         }
@@ -210,12 +241,12 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
         pass
 
     result = {}
-    # Only return symbols that exist in F&O (i.e. they have futures)
+    # 1. Add all F&O symbols
     for sym, futures in fut_map.items():
         if len(futures) == 0:
             continue
 
-        eq_data = eq_map.get(sym, {"price": 0.0, "vol": 0, "atp": 0.0})
+        eq_data = eq_map.get(sym, {"price": 0.0, "prev_close": 0.0, "pct_change": 0.0, "vol": 0, "atp": 0.0})
 
         # Prepare F1, F2, F3
         futs = futures[:3]
@@ -237,11 +268,48 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
         result[sym] = {
             "eq": {
                 "price": eq_data["price"],
+                "prev_close": eq_data.get("prev_close", 0.0),
+                "pct_change": eq_data.get("pct_change", 0.0),
                 "vol": eq_data["vol"],
                 "atp": eq_data["atp"],
                 "ca": ca_map.get(sym, "")
             },
             "futures": futs
         }
+
+    # 2. Support injecting custom non-F&O cash symbols if requested via query param
+    if custom_symbols:
+        custom_list = [s.strip().upper() for s in custom_symbols.split(',') if s.strip()]
+        for csym in custom_list:
+            if csym not in result:
+                # We need to query BhavcopyEQ for this specific custom symbol on the eq_date_to_use
+                # because the initial eq_map might only contain F&O matching EQ records depending on ingestion
+                custom_eq_record = db.query(
+                    BhavcopyEQ.close_price,
+                    BhavcopyEQ.prev_close,
+                    BhavcopyEQ.total_traded_qty,
+                    BhavcopyEQ.avg_price
+                ).filter(
+                    BhavcopyEQ.trade_date == eq_date_to_use,
+                    BhavcopyEQ.symbol == csym,
+                    BhavcopyEQ.series.in_(['EQ', 'BE']) # Also allow BE for custom
+                ).first()
+
+                if custom_eq_record:
+                    cp = float(custom_eq_record.close_price) if custom_eq_record.close_price else 0.0
+                    pcp = float(custom_eq_record.prev_close) if custom_eq_record.prev_close else 0.0
+                    pct_change = ((cp - pcp) / pcp * 100) if pcp > 0 else 0.0
+
+                    result[csym] = {
+                        "eq": {
+                            "price": cp,
+                            "prev_close": pcp,
+                            "pct_change": pct_change,
+                            "vol": int(custom_eq_record.total_traded_qty) if custom_eq_record.total_traded_qty else 0,
+                            "atp": float(custom_eq_record.avg_price) if custom_eq_record.avg_price else 0.0,
+                            "ca": ca_map.get(csym, "")
+                        },
+                        "futures": []  # No futures since it's a cash custom addition
+                    }
 
     return {"data": result}

@@ -553,10 +553,19 @@
 
         <!-- TAB MARKET WATCH -->
         <div id="tab-marketwatch" class="main-tab-content" style="background: #1e1e1e; display: none; height: 100%;">
-            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+            <!-- Sub-tab Navigation for Market Watch -->
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto; flex-shrink: 0;">
+                <div class="wb-tab active" id="mw-tab-btn-watch" onclick="switchMwTab('watch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Watch</div>
+                <div class="wb-tab" id="mw-tab-btn-options" onclick="switchMwTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
+            </div>
+
+            <!-- WATCH TAB CONTENT -->
+            <div id="mw-tab-watch" class="mw-sub-tab" style="padding: 20px; height: calc(100% - 50px); display: flex; flex-direction: column; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Market Watch (Derivatives)</h2>
                     <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="mw-custom-symbol" class="form-control" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
+                        <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
                         <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
                     </div>
                 </div>
@@ -580,6 +589,52 @@
                         </thead>
                         <tbody id="marketwatch-body">
                             <tr><td colspan="12" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- OPTIONS CHAIN TAB CONTENT -->
+            <div id="mw-tab-options" class="mw-sub-tab" style="padding: 20px; height: calc(100% - 50px); display: none; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
+                    <h2 style="margin: 0; color: #fff; font-size: 18px;">Option Chain</h2>
+                    <div style="position: relative; width: 250px;">
+                        <input type="text" id="opt-symbol-input" class="form-control" placeholder="Search Symbol (e.g., NIFTY)..." oninput="optFilterSymbols(this.value)" onkeydown="if(event.key==='Enter') loadOptionChain()" onfocus="optFilterSymbols(this.value)">
+                        <div id="opt-symbol-dropdown" class="autocomplete-items" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 99; max-height: 300px; overflow-y: auto; background-color: #333; border: 1px solid #444; border-radius: 4px;"></div>
+                    </div>
+                    <select id="opt-expiry-select" class="form-control" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
+                    <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
+                    <span id="opt-spot-price" style="margin-left: auto; font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
+                </div>
+
+                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
+                    <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                            <tr>
+                                <th colspan="6" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
+                                <th style="background: #333; color: #ffcc00; font-weight: bold; font-size: 14px; min-width: 80px;">STRIKE</th>
+                                <th colspan="6" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
+                            </tr>
+                            <tr style="font-size: 11px; color: #ccc;">
+                                <th style="padding: 4px;">Vega</th>
+                                <th style="padding: 4px;">Theta</th>
+                                <th style="padding: 4px;">Gamma</th>
+                                <th style="padding: 4px;">Delta</th>
+                                <th style="padding: 4px;">IV</th>
+                                <th style="padding: 4px; border-right: 2px solid #555;">LTP</th>
+
+                                <th style="padding: 4px; background: #333;">Price</th>
+
+                                <th style="padding: 4px; border-left: 2px solid #555;">LTP</th>
+                                <th style="padding: 4px;">IV</th>
+                                <th style="padding: 4px;">Delta</th>
+                                <th style="padding: 4px;">Gamma</th>
+                                <th style="padding: 4px;">Theta</th>
+                                <th style="padding: 4px;">Vega</th>
+                            </tr>
+                        </thead>
+                        <tbody id="option-chain-body">
+                            <tr><td colspan="13" style="text-align:center; color:#888;">Select a symbol to view Option Chain.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1864,6 +1919,27 @@
             // Note: corporate_actions load is handled by the wrapper function below
         }
 
+    // --- Market Watch Sub-Tab Logic ---
+    function switchMwTab(tabName) {
+        document.querySelectorAll('#tab-marketwatch .mw-sub-tab').forEach(el => {
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('#tab-marketwatch .wb-tab').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        const targetTab = document.getElementById(`mw-tab-${tabName}`);
+        const targetBtn = document.getElementById(`mw-tab-btn-${tabName}`);
+
+        if (targetTab) targetTab.style.display = 'flex';
+        if (targetBtn) targetBtn.classList.add('active');
+
+        if (tabName === 'watch') {
+            const tbody = document.getElementById('marketwatch-body');
+            if (tbody.innerHTML.includes('Click')) loadMarketWatch();
+        }
+    }
+
         // --- Derivatives Sub-Tab Logic ---
         function switchDerivTab(tabName) {
             document.querySelectorAll('#tab-derivatives .deriv-sub-tab').forEach(el => {
@@ -2942,13 +3018,14 @@
 
                 const hasDateRange = start || end;
 
-                // If filtering by dates or latest is checked without a symbol, fetch everything in that range. Otherwise limit heavily to prevent crash
-                let limit = (hasDateRange || (isLatest && !symbol)) ? 100000 : 0;
+                // User reported system gets stuck for 10 mins loading 500 rows or specific days.
+                // Limit heavily across the board unless explicitly exporting. Rendering 100,000 DOM nodes freezes the browser.
+                let limit = (hasDateRange || (isLatest && !symbol)) ? 2000 : 500;
 
                 // If no filters are applied and latest is un-checked, it will fetch all historical data and crash browser.
                 // We fallback to a safer number if absolutely NO filters are applied.
                 if (!hasDateRange && !isLatest && !symbol && instrument === 'ALL') {
-                    limit = type === "mwpl" ? 5000 : 500;
+                    limit = 500;
                 }
 
                 let url = `/api/data/view/list?type=${type}&limit=${limit}`;
@@ -3018,33 +3095,37 @@
             });
             thead.appendChild(trHead);
 
-            // Rows
+            // Fast DOM rendering technique
+            let htmlRows = '';
             data.forEach(row => {
-                const tr = document.createElement('tr');
+                let trHtml = '<tr>';
                 keys.forEach(key => {
-                    const td = document.createElement('td');
                     let val = row[key];
                     if (val === null || val === undefined) val = '-';
+
                     if (typeof val === 'number') {
-                         // Smart formatting
                          if (Number.isInteger(val)) {
-                             td.innerText = val.toLocaleString();
+                             trHtml += `<td style="text-align: right;">${val.toLocaleString()}</td>`;
                          } else {
-                             // Check for volatility columns or small numbers
                              if (key.includes('volatility') || key.includes('_vol') || key.includes('iv') || key.includes('rate')) {
-                                 td.innerText = val.toFixed(4);
+                                 trHtml += `<td style="text-align: right;">${val.toFixed(4)}</td>`;
                              } else {
-                                 td.innerText = val.toFixed(2);
+                                 trHtml += `<td style="text-align: right;">${val.toFixed(2)}</td>`;
                              }
                          }
-                         td.style.textAlign = 'right';
+                    } else if (typeof val === 'object') {
+                        let strVal = JSON.stringify(val).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        trHtml += `<td style="font-size:10px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${strVal}</td>`;
                     } else {
-                        td.innerText = val;
+                        // Prevent XSS
+                        let strVal = String(val).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        trHtml += `<td>${strVal}</td>`;
                     }
-                    tr.appendChild(td);
                 });
-                tbody.appendChild(tr);
+                trHtml += '</tr>';
+                htmlRows += trHtml;
             });
+            tbody.innerHTML = htmlRows;
         }
 
         function sortHistoryTable(key) {
@@ -4407,10 +4488,10 @@ document.addEventListener('click', (e) => {
                     });
 
                     historyTr.innerHTML = `
-                        <td style="padding-left: 30px; color: #888;">└ ${r.date}</td>
-                        <td style="color: #aaa;">${r.date}</td>
-                        <td style="color: #aaa;">${r.eq_close.toFixed(2)}</td>
-                        <td style="color: #aaa;">${r.fut1_close.toFixed(2)}</td>
+                        <td style="padding-left: 30px; color: #bbb;">└ ${r.date}</td>
+                        <td style="color: #ddd;">${r.date}</td>
+                        <td style="color: #ddd;">${r.eq_close.toFixed(2)}</td>
+                        <td style="color: #ddd;">${r.fut1_close.toFixed(2)}</td>
                         <td style="color: #7dd3fc;">${rowTotal.toFixed(2)}%</td>
                         <td style="color: ${hColor};">${r.mwpl}%</td>
                         ${clientTds}
@@ -4428,6 +4509,63 @@ document.addEventListener('click', (e) => {
         }
     }
 
+    let marketWatchCustomSymbols = []; // array to store manually added custom symbols
+
+    async function addCustomMarketWatchSymbol() {
+        const input = document.getElementById('mw-custom-symbol');
+        if (!input) return;
+        const sym = input.value.trim().toUpperCase();
+        if (sym && !marketWatchCustomSymbols.includes(sym)) {
+            marketWatchCustomSymbols.push(sym);
+            input.value = '';
+            // Reload the grid immediately with the new custom array
+            await loadMarketWatch();
+        }
+    }
+
+    let searchBuffer = '';
+    let searchTimeout = null;
+    document.addEventListener('keydown', (e) => {
+        // Only run if we are in the marketwatch tab and NOT typing in an input/textarea
+        const isMarketWatchActive = document.getElementById('tab-marketwatch').classList.contains('active');
+        if (!isMarketWatchActive) return;
+
+        const tagName = e.target.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return;
+
+        // Ensure it's a valid alphanumeric character
+        if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+            searchBuffer += e.key.toUpperCase();
+
+            // Look for matching symbol row
+            const rows = document.querySelectorAll('#marketwatch-body tr[data-symbol]');
+            let matchedRow = null;
+            for (let row of rows) {
+                const sym = row.getAttribute('data-symbol');
+                if (sym && sym.startsWith(searchBuffer)) {
+                    matchedRow = row;
+                    break;
+                }
+            }
+
+            if (matchedRow) {
+                // Scroll to it
+                matchedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Briefly flash the row to highlight it
+                const originalBg = matchedRow.style.backgroundColor;
+                matchedRow.style.backgroundColor = '#4ade8055'; // semi-transparent green
+                setTimeout(() => {
+                    matchedRow.style.backgroundColor = originalBg;
+                }, 1000);
+            }
+
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchBuffer = '';
+            }, 1000); // Reset buffer after 1 second of inactivity
+        }
+    });
+
     async function loadMarketWatch() {
         const tbody = document.getElementById('marketwatch-body');
         // The user explicitly requested to remove the date input requirement for marketwatch.
@@ -4435,7 +4573,11 @@ document.addEventListener('click', (e) => {
         tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
-            const res = await fetch('/api/data/derivatives/marketwatch');
+            const url = marketWatchCustomSymbols.length > 0 ?
+                        `/api/data/derivatives/marketwatch?custom_symbols=${marketWatchCustomSymbols.join(',')}` :
+                        '/api/data/derivatives/marketwatch';
+
+            const res = await fetch(url);
             const result = await res.json();
             const data = result.data || {};
 
@@ -4453,16 +4595,19 @@ document.addEventListener('click', (e) => {
 
                 // --- EQ Row ---
                 const eqTr = document.createElement('tr');
+                eqTr.setAttribute('data-symbol', sym);
                 eqTr.style.borderTop = '2px solid #444';
                 eqTr.style.backgroundColor = '#1a1a1a';
 
-                // Calculate EQ change from somewhere? We don't have prev close in this API yet, so we leave it blank for now.
-                const eqChangeStr = '-';
+                // Calculate EQ change using pct_change from API
+                const eqPct = (eq.pct_change != null && !isNaN(eq.pct_change)) ? eq.pct_change : 0;
+                const eqChangeStr = eqPct !== 0 ? `${eqPct > 0 ? '+' : ''}${eqPct.toFixed(2)}%` : '-';
+                const eqChangeColor = eqPct > 0 ? '#4ade80' : (eqPct < 0 ? '#ff4d4d' : '#ccc');
 
                 eqTr.innerHTML = `
                     <td style="font-weight: bold; color: #4da6ff;">${sym} EQ</td>
                     <td style="font-weight: bold;">${eq.price != null && !isNaN(eq.price) && eq.price > 0 ? eq.price.toFixed(2) : '-'}</td>
-                    <td>${eqChangeStr}</td>
+                    <td style="color: ${eqChangeColor}; font-weight: bold;">${eqChangeStr}</td>
                     <td>-</td>
                     <td>-</td>
                     <td style="color: #ccc;">${eq.vol > 0 ? (eq.vol).toLocaleString() : '-'}</td>
@@ -4493,7 +4638,7 @@ document.addEventListener('click', (e) => {
                     const priceVal = (f.price != null && !isNaN(f.price)) ? f.price : 0;
 
                     futTr.innerHTML = `
-                        <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #666;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
+                        <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #aaa;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
                         <td>${priceVal.toFixed(2)}</td>
                         <td>${futChangeStr}</td>
                         <td style="color: #e6a23c;">${bpsVal.toFixed(2)}</td>
@@ -4505,7 +4650,7 @@ document.addEventListener('click', (e) => {
                         <td style="color: #aaa;">${f.dte}</td>
                         <td></td>
                         <td>
-                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="alert('Option chain view not yet connected for ${sym}')">Opt Chain</button>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="openOptionChain('${sym}')">Opt Chain</button>
                         </td>
                     `;
                     tbody.appendChild(futTr);
@@ -4514,6 +4659,139 @@ document.addEventListener('click', (e) => {
 
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+        }
+    }
+
+    function openOptionChain(sym) {
+        switchMwTab('options');
+        document.getElementById('opt-symbol-input').value = sym;
+        loadOptionChain();
+    }
+
+    let optionChainTimeout = null;
+    function optFilterSymbols(val) {
+        const dropdown = document.getElementById('opt-symbol-dropdown');
+        if (!val) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        dropdown.innerHTML = '';
+        const matches = allGlobalSymbols.filter(s => s.symbol.includes(val.toUpperCase()) || s.name.toUpperCase().includes(val.toUpperCase())).slice(0, 15);
+        if (matches.length > 0) {
+            dropdown.style.display = 'block';
+            matches.forEach(item => {
+                const div = document.createElement('div');
+                div.innerHTML = `<strong>${item.symbol}</strong> - <span style="font-size: 11px; color: #888;">${item.name}</span>`;
+                div.onclick = function() {
+                    document.getElementById('opt-symbol-input').value = item.symbol;
+                    dropdown.style.display = 'none';
+                    loadOptionChain();
+                };
+                dropdown.appendChild(div);
+            });
+        } else {
+            dropdown.style.display = 'none';
+        }
+    }
+
+    // Hide dropdown on click outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#opt-symbol-input') && !e.target.closest('#opt-symbol-dropdown')) {
+            const dropdown = document.getElementById('opt-symbol-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        }
+    });
+
+    async function loadOptionChain() {
+        const sym = document.getElementById('opt-symbol-input').value.toUpperCase();
+        if (!sym) return;
+
+        const expirySelect = document.getElementById('opt-expiry-select');
+        const selectedExpiry = expirySelect.value;
+        const tbody = document.getElementById('option-chain-body');
+
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        try {
+            let url = `/api/data/derivatives/option_chain?symbol=${sym}`;
+            if (selectedExpiry) url += `&expiry=${selectedExpiry}`;
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(await res.text());
+
+            const data = await res.json();
+
+            // Populate expiries dropdown if empty or different symbol
+            if (data.expiries && data.expiries.length > 0) {
+                expirySelect.style.display = 'block';
+                // Only rebuild dropdown if we don't have this list already to preserve user selection
+                const currentExpiries = Array.from(expirySelect.options).map(o => o.value);
+                if (currentExpiries.join(',') !== data.expiries.join(',')) {
+                    expirySelect.innerHTML = '';
+                    data.expiries.forEach(exp => {
+                        const opt = document.createElement('option');
+                        opt.value = exp;
+                        opt.innerText = exp;
+                        if (exp === data.selected_expiry) opt.selected = true;
+                        expirySelect.appendChild(opt);
+                    });
+                }
+            } else {
+                expirySelect.style.display = 'none';
+            }
+
+            document.getElementById('opt-spot-price').innerText = `Spot: ${data.spot_price > 0 ? data.spot_price.toFixed(2) : 'N/A'}`;
+
+            tbody.innerHTML = '';
+            if (!data.data || data.data.length === 0) {
+                 tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No Option Chain data found for this symbol.</td></tr>';
+                 return;
+            }
+
+            // Render chain
+            data.data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #333';
+
+                // ATM Highlighting Logic
+                let isATM = false;
+                if (data.spot_price > 0) {
+                    const diff = Math.abs(row.strike - data.spot_price);
+                    // Approximate check to see if it's the closest strike. In a real scenario we'd find the min diff globally first.
+                    // For UI purposes, we'll just check if it's within 0.5%
+                    isATM = (diff / data.spot_price) < 0.005;
+                }
+                const bgStyle = isATM ? 'background-color: #333;' : '';
+
+                const c = row.CE;
+                const p = row.PE;
+
+                // Formatting helpers
+                const fmt = (v) => v ? v.toFixed(2) : '-';
+                const fmtVol = (v) => v ? v.toFixed(2) + '%' : '-';
+
+                tr.innerHTML = `
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.vega)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.theta)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.gamma)}</td>
+                    <td style="color: #4ade80; ${bgStyle}">${fmt(c.delta)}</td>
+                    <td style="color: #e6a23c; ${bgStyle}">${fmtVol(c.iv)}</td>
+                    <td style="font-weight: bold; color: #fff; border-right: 2px solid #555; ${bgStyle}">${c.price > 0 ? c.price.toFixed(2) : '-'}</td>
+
+                    <td style="font-weight: bold; background: ${isATM ? '#444' : '#2a2a2a'}; color: #ffcc00; font-size: 14px;">${row.strike}</td>
+
+                    <td style="font-weight: bold; color: #fff; border-left: 2px solid #555; ${bgStyle}">${p.price > 0 ? p.price.toFixed(2) : '-'}</td>
+                    <td style="color: #e6a23c; ${bgStyle}">${fmtVol(p.iv)}</td>
+                    <td style="color: #ff4d4d; ${bgStyle}">${fmt(p.delta)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.gamma)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.theta)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.vega)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error loading chain: ${e.message}</td></tr>`;
         }
     }
 
