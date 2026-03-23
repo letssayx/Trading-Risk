@@ -102,24 +102,34 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
             target_date = datetime.datetime.strptime(date, '%Y-%m-%d').date()
             latest_fo_date = target_date
         else:
-            # Get latest F&O trading date
-            latest_fo_date = db.query(BhavcopyFO.trade_date).order_by(desc(BhavcopyFO.trade_date)).first()
-            if not latest_fo_date:
+            # Find the latest date where there is actual futures data (prevents returning empty table if only EQ is loaded so far)
+            latest_fo_date_row = db.query(BhavcopyFO.trade_date)\
+                                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+                                   .order_by(desc(BhavcopyFO.trade_date))\
+                                   .first()
+            if not latest_fo_date_row:
                 return {"data": {}}
-            latest_fo_date = latest_fo_date[0]
+            latest_fo_date = latest_fo_date_row[0]
     except Exception as e:
         import traceback
         traceback.print_exc()
         return {"data": {}}
 
-    # 1. Fetch all EQ data for the latest date
+    # Try to find the closest EQ date at or before the FO date to ensure we have data
+    closest_eq_date_row = db.query(BhavcopyEQ.trade_date)\
+                            .filter(BhavcopyEQ.trade_date <= latest_fo_date)\
+                            .order_by(desc(BhavcopyEQ.trade_date))\
+                            .first()
+    eq_date_to_use = closest_eq_date_row[0] if closest_eq_date_row else latest_fo_date
+
+    # 1. Fetch all EQ data for the matched EQ date
     eq_records = db.query(
         BhavcopyEQ.symbol,
         BhavcopyEQ.close_price,
         BhavcopyEQ.total_traded_qty,
         BhavcopyEQ.avg_price
     ).filter(
-        BhavcopyEQ.trade_date == latest_fo_date,
+        BhavcopyEQ.trade_date == eq_date_to_use,
         BhavcopyEQ.series == 'EQ'
     ).all()
 
@@ -127,14 +137,14 @@ async def get_marketwatch(date: str = None, db: Session = Depends(get_db)):
                          "vol": int(r.total_traded_qty) if r.total_traded_qty else 0,
                          "atp": float(r.avg_price) if r.avg_price else 0.0} for r in eq_records}
 
-    # Also add indices from HistoricalIndexData
+    # Also add indices from HistoricalIndexData (match to the EQ date)
     from backend.ingest.nse_models import HistoricalIndexData
     idx_records = db.query(
         HistoricalIndexData.index_name,
         HistoricalIndexData.close_price,
         HistoricalIndexData.total_traded_qty
     ).filter(
-        HistoricalIndexData.trade_date == latest_fo_date
+        HistoricalIndexData.trade_date == eq_date_to_use
     ).all()
 
     for r in idx_records:
