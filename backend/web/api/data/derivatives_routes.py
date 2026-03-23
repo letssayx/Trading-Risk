@@ -16,6 +16,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
     Fetches the last 14 trading days of mwpl_array data from daily_derivatives_analysis.
     Also retrieves the EQ close and calculate the Fut1 close.
     """
+    from backend.ingest.nse_models import BhavcopyEQ
     # Find the last 14 unique trading dates in daily_derivatives_analysis
     dates_query = db.query(DailyDerivativesAnalysis.trade_date).distinct().order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(14).all()
     if not dates_query:
@@ -28,7 +29,13 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         DailyDerivativesAnalysis.trade_date,
         DailyDerivativesAnalysis.symbol,
         DailyDerivativesAnalysis.mwpl_array,
-        DailyDerivativesAnalysis.close_price
+        DailyDerivativesAnalysis.close_price,
+        BhavcopyEQ.close_price.label('eq_close_price')
+    ).outerjoin(
+        BhavcopyEQ,
+        (DailyDerivativesAnalysis.symbol == BhavcopyEQ.symbol) &
+        (DailyDerivativesAnalysis.trade_date == BhavcopyEQ.trade_date) &
+        (BhavcopyEQ.series == 'EQ')
     ).filter(
         DailyDerivativesAnalysis.trade_date.in_(dates),
         DailyDerivativesAnalysis.mwpl_array != None
@@ -40,8 +47,8 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         if sym not in result:
             result[sym] = []
 
-        # Extract max mwpl from mwpl_array
-        mwpl_val = 0.0
+        # Parse mwpl_array properly
+        parsed_arr = []
         try:
             arr = r.mwpl_array
             if isinstance(arr, str):
@@ -50,21 +57,18 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
                 for item in arr:
                     if isinstance(item, dict):
                         for k, v in item.items():
-                            val = float(v)
-                            if val > mwpl_val:
-                                mwpl_val = val
+                            parsed_arr.append({k: float(v)})
                     elif isinstance(item, (int, float)):
-                        if item > mwpl_val:
-                            mwpl_val = float(item)
+                        parsed_arr.append({"Client": float(item)})
         except Exception:
             pass
 
-        if mwpl_val > 0:
+        if parsed_arr:
             result[sym].append({
                 "date": str(r.trade_date),
-                "eq_close": 0.0, # eq_close_price is not available on this model
+                "eq_close": float(r.eq_close_price) if r.eq_close_price else 0.0,
                 "fut1_close": float(r.close_price) if r.close_price else 0.0,
-                "mwpl": mwpl_val
+                "mwpl_array": parsed_arr
             })
 
     # Sort dates descending for each symbol
@@ -159,7 +163,7 @@ async def get_marketwatch(db: Session = Depends(get_db)):
     # 3. Fetch Corporate Actions (Dividends with upcoming ex-dates)
     # Just look for active dividends within next month
     ca_map = {}
-    if hasattr(db.registry._class_registry.get("CorporateAction", None), "__tablename__"):
+    try:
         from backend.ingest.nse_models import CorporateAction
         import datetime
         next_month = latest_fo_date + datetime.timedelta(days=30)
@@ -174,6 +178,8 @@ async def get_marketwatch(db: Session = Depends(get_db)):
         ).all()
         for r in ca_records:
             ca_map[r.symbol] = f"{r.ex_date.strftime('%d-%b')} Div"
+    except Exception:
+        pass
 
     result = {}
     # Only return symbols that exist in F&O (i.e. they have futures)
