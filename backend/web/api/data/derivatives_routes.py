@@ -28,8 +28,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         DailyDerivativesAnalysis.trade_date,
         DailyDerivativesAnalysis.symbol,
         DailyDerivativesAnalysis.mwpl_array,
-        DailyDerivativesAnalysis.eq_close_price,
-        DailyDerivativesAnalysis.near_fut_close_price
+        DailyDerivativesAnalysis.close_price
     ).filter(
         DailyDerivativesAnalysis.trade_date.in_(dates),
         DailyDerivativesAnalysis.mwpl_array != None
@@ -63,8 +62,8 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         if mwpl_val > 0:
             result[sym].append({
                 "date": str(r.trade_date),
-                "eq_close": float(r.eq_close_price) if r.eq_close_price else 0.0,
-                "fut1_close": float(r.near_fut_close_price) if r.near_fut_close_price else 0.0,
+                "eq_close": 0.0, # eq_close_price is not available on this model
+                "fut1_close": float(r.close_price) if r.close_price else 0.0,
                 "mwpl": mwpl_val
             })
 
