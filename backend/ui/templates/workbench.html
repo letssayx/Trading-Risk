@@ -3806,7 +3806,7 @@ async function loadDividendsData(forcedSymbol = null) {
 
         // Set limit to 0 (unlimited) if no date range is provided to fetch all historical data
         const hasDateRange = startDate || endQueryDate;
-        const limitQuery = hasDateRange ? '&limit=100000' : '&limit=0';
+        const limitQuery = hasDateRange ? '&limit=100000' : (symbolVal ? '&limit=0' : '&limit=5000');
 
         const foCheckbox = document.getElementById('div-fo-only-filter');
         const foQuery = foCheckbox && foCheckbox.checked ? '&fo_only=true' : '';
