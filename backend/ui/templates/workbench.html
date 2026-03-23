@@ -547,9 +547,9 @@
         <div id="tab-derivatives" class="main-tab-content">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto;">
-                <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
+                <div class="wb-tab active" id="deriv-tab-btn-marketwatch" onclick="switchDerivTab('marketwatch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Watch</div>
+                <div class="wb-tab" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-marketwatch" onclick="switchDerivTab('marketwatch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Watch</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
@@ -1825,7 +1825,9 @@
             if (tabName === 'derivatives') {
                 // Initialize first sub-tab if none selected
                 if (!document.querySelector('.deriv-sub-tab.active')) {
-                    switchDerivTab('matrix');
+                    switchDerivTab('marketwatch');
+                } else if (document.querySelector('#deriv-tab-marketwatch').classList.contains('active')) {
+                    if (typeof loadMarketWatch === 'function') loadMarketWatch();
                 } else if (document.querySelector('#deriv-tab-market').classList.contains('active')) {
                     if (typeof loadMarketActivity === 'function') loadMarketActivity();
                 } else if (document.querySelector('#deriv-tab-matrix').classList.contains('active') && document.getElementById('mr-data-body').innerHTML.includes('No data')) {
@@ -1880,7 +1882,7 @@
 
         // Initialize sub-tabs
         document.addEventListener('DOMContentLoaded', () => {
-            switchDerivTab('matrix');
+            switchDerivTab('marketwatch');
         });
 
         // --- Corporate Actions & Board Meetings UI ---
