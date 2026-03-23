@@ -110,7 +110,7 @@ async def get_marketwatch(db: Session = Depends(get_db)):
     idx_records = db.query(
         HistoricalIndexData.index_name,
         HistoricalIndexData.close_price,
-        HistoricalIndexData.volume
+        HistoricalIndexData.total_traded_qty
     ).filter(
         HistoricalIndexData.trade_date == latest_fo_date
     ).all()
@@ -119,7 +119,7 @@ async def get_marketwatch(db: Session = Depends(get_db)):
         sym = r.index_name.replace('NIFTY 50', 'NIFTY').replace('NIFTY BANK', 'BANKNIFTY').replace('NIFTY FIN SERVICE', 'FINNIFTY').replace('NIFTY MID SELECT', 'MIDCPNIFTY')
         eq_map[sym] = {
             "price": float(r.close_price) if r.close_price else 0.0,
-            "vol": int(r.volume) if r.volume else 0,
+            "vol": int(r.total_traded_qty) if r.total_traded_qty else 0,
             "atp": 0.0
         }
 
@@ -130,7 +130,7 @@ async def get_marketwatch(db: Session = Depends(get_db)):
         BhavcopyFO.close_price,
         BhavcopyFO.total_trading_vol,
         BhavcopyFO.open_interest,
-        BhavcopyFO.chg_in_oi
+        BhavcopyFO.change_in_oi
     ).filter(
         BhavcopyFO.trade_date == latest_fo_date,
         BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
@@ -149,7 +149,7 @@ async def get_marketwatch(db: Session = Depends(get_db)):
             "price": float(r.close_price) if r.close_price else 0.0,
             "vol": int(r.total_trading_vol) if r.total_trading_vol else 0,
             "oi": int(r.open_interest) if r.open_interest else 0,
-            "chg_oi": int(r.chg_in_oi) if r.chg_in_oi else 0,
+            "chg_oi": int(r.change_in_oi) if r.change_in_oi else 0,
             "dte": dte
         })
 

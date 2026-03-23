@@ -590,7 +590,7 @@
             </div>
 
             <!-- Sub-tab Contents Container -->
-            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden; display: flex; flex-direction: row; width: 100%;">
+            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden; display: flex; flex-direction: column; width: 100%;">
 
                 <!-- SUB-TAB 1: Data Matrix (Original Reports View) -->
                 <div id="deriv-tab-matrix" class="deriv-sub-tab active" style="display: flex; height: 100%; width: 100%;">
@@ -1304,7 +1304,7 @@
                 </div>
 
                 <!-- SUB-TAB MWPL Analysis -->
-                <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <button class="btn btn-secondary" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
                     </div>
@@ -1328,7 +1328,7 @@
 
 
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
@@ -4246,7 +4246,7 @@ document.addEventListener('click', (e) => {
                 return;
             }
 
-            // Generate rows grouped by symbol
+// Generate rows grouped by symbol
             Object.keys(data).sort().forEach(sym => {
                 const rows = data[sym];
                 if (rows.length === 0) return;
@@ -4258,6 +4258,9 @@ document.addEventListener('click', (e) => {
 
                 // Generate unique ID for the sub-rows block
                 const blockId = `mwpl-block-${sym}`;
+
+                // Create a dedicated tbody for this symbol to keep main and history rows together
+                const symbolTbody = document.createElement('tbody');
 
                 // Main Symbol Row
                 const mainTr = document.createElement('tr');
@@ -4281,15 +4284,15 @@ document.addEventListener('click', (e) => {
                     <td>${latest.fut1_close.toFixed(2)}</td>
                     <td style="color: ${color}; font-weight: bold;">${latest.mwpl}%</td>
                 `;
-                tbody.appendChild(mainTr);
+                symbolTbody.appendChild(mainTr);
 
-                // History Rows Block
+                // History Rows Block (kept within a secondary tbody so we can toggle it, or just a bunch of rows with a class)
+                // Actually, a separate tbody per symbol is cleaner. Let's make the block a separate tbody.
                 const tbodyBlock = document.createElement('tbody');
                 tbodyBlock.id = blockId;
                 tbodyBlock.style.display = 'none';
 
                 rows.forEach((r, idx) => {
-                    // Skip the very first row since it's the summary? Actually user wanted it like a pivot, so show all 14 underneath
                     const historyTr = document.createElement('tr');
                     historyTr.style.backgroundColor = '#1a1a1a';
                     const hColor = parseFloat(r.mwpl) > 20 ? '#ff4d4d' : '#ccc';
@@ -4304,7 +4307,8 @@ document.addEventListener('click', (e) => {
                     tbodyBlock.appendChild(historyTr);
                 });
 
-                // We append the tbody block directly into the main table. Modern browsers support multiple tbodys.
+                // Append the main row's tbody, then the history block's tbody immediately after
+                tbody.parentElement.appendChild(symbolTbody);
                 tbody.parentElement.appendChild(tbodyBlock);
             });
 
