@@ -200,8 +200,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             BhavcopyFO.close_price,
             BhavcopyFO.open_interest,
             BhavcopyFO.change_in_oi,
-            BhavcopyFO.total_trading_vol,
-            BhavcopyFO.avg_price
+            BhavcopyFO.total_trading_vol
         ).filter(
             BhavcopyFO.trade_date == latest_fo_date,
             BhavcopyFO.ticker_symb == symbol,
@@ -228,10 +227,6 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
 
             is_call = opt_type == 'CE'
             price = float(r_obj.close_price)
-
-            # If price is 0, use avg_price as fallback
-            if price == 0.0 and r_obj.avg_price:
-                 price = float(r_obj.avg_price)
 
             # Calculate Greeks if we have a spot price and time
             greeks = {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "iv": 0.0}
