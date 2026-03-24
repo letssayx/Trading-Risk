@@ -4625,7 +4625,7 @@ document.addEventListener('click', (e) => {
         const tbody = document.getElementById('marketwatch-body');
         // The user explicitly requested to remove the date input requirement for marketwatch.
         // It will automatically pull the latest F&O data.
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; color:#888;">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
             const url = marketWatchCustomSymbols.length > 0 ?
@@ -4639,7 +4639,7 @@ document.addEventListener('click', (e) => {
             tbody.innerHTML = '';
 
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; color:#888;">No Market Watch data found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No Market Watch data found.</td></tr>';
                 return;
             }
 
