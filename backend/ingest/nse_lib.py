@@ -663,10 +663,89 @@ class NSELib:
                         pass
                 else:
                     logger.warning(f"No FII/DII records parsed for {trade_date}")
-                return pd.DataFrame()
+
+                # If the list is empty, fallback to Arihant
+                return self._fetch_arihant_fii_dii(trade_date)
 
             return pd.DataFrame(records)
 
         except Exception as e:
             logger.error(f"Error parsing FII/DII cash flow data: {e}")
+            # Fallback to Arihant Scraper on exception
+            return self._fetch_arihant_fii_dii(trade_date)
+
+    def _fetch_arihant_fii_dii(self, trade_date: date) -> pd.DataFrame:
+        """Fallback method to fetch FII/DII data from Arihant Capital."""
+        url = "https://www.arihantcapital.com/derivatives/fii-dii-trading-activities"
+        try:
+            from bs4 import BeautifulSoup
+            from io import StringIO
+
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+            }
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code != 200:
+                logger.warning(f"Arihant fallback failed with status {resp.status_code}")
+                return pd.DataFrame()
+
+            soup = BeautifulSoup(resp.content, 'html.parser')
+            tables = soup.find_all('table')
+            if not tables or len(tables) < 2:
+                logger.warning("No expected FII/DII tables found on Arihant FII/DII page.")
+                return pd.DataFrame()
+
+            records = []
+
+            # Parse FII (Table 0)
+            try:
+                fii_df = pd.read_html(StringIO(str(tables[0])), flavor='bs4')[0]
+                for _, row in fii_df.iterrows():
+                    row_date_str = str(row.iloc[0]).strip()
+                    try:
+                        parsed_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
+                        if parsed_date == trade_date:
+                            records.append({
+                                'trade_date': parsed_date,
+                                'category': 'FII',
+                                'buy_value': float(str(row.iloc[1]).replace(',', '')),
+                                'sell_value': float(str(row.iloc[2]).replace(',', '')),
+                                'net_value': float(str(row.iloc[3]).replace(',', ''))
+                            })
+                            break
+                    except Exception:
+                        continue
+            except ValueError:
+                pass
+
+            # Parse DII (Table 1)
+            try:
+                dii_df = pd.read_html(StringIO(str(tables[1])), flavor='bs4')[0]
+                for _, row in dii_df.iterrows():
+                    row_date_str = str(row.iloc[0]).strip()
+                    try:
+                        parsed_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
+                        if parsed_date == trade_date:
+                            records.append({
+                                'trade_date': parsed_date,
+                                'category': 'DII',
+                                'buy_value': float(str(row.iloc[1]).replace(',', '')),
+                                'sell_value': float(str(row.iloc[2]).replace(',', '')),
+                                'net_value': float(str(row.iloc[3]).replace(',', ''))
+                            })
+                            break
+                    except Exception:
+                        continue
+            except ValueError:
+                pass
+
+            if not records:
+                logger.warning(f"No fallback Arihant FII/DII records found for {trade_date}")
+                return pd.DataFrame()
+
+            logger.info(f"Successfully scraped FII/DII fallback data from Arihant for {trade_date}")
+            return pd.DataFrame(records)
+
+        except Exception as e:
+            logger.error(f"Error in Arihant FII/DII fallback: {e}")
             return pd.DataFrame()

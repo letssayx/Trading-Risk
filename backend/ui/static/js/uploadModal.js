@@ -226,6 +226,16 @@ class NSEImporter {
             btnManual.addEventListener('click', () => this.importManual());
         }
 
+        const manualTypeSelect = document.getElementById('manual-type');
+        if (manualTypeSelect) {
+            manualTypeSelect.addEventListener('change', () => {
+                const hint = document.getElementById('manual-format-hint');
+                if (hint) {
+                    hint.style.display = manualTypeSelect.value === 'fii_dii_cash' ? 'block' : 'none';
+                }
+            });
+        }
+
         // Cancel Polling
         const btnCancel = document.getElementById('btn-cancel-polling');
         if (btnCancel) {

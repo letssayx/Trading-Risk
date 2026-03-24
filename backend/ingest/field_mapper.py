@@ -471,14 +471,23 @@ class FieldMapper:
     def _map_fii_dii_cash(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
         for _, row in df.iterrows():
+            # If the dataframe has its own Date column from manual upload, use it instead of the argument trade_date
+            row_date_str = str(cls._get_val(row, ['date', 'Date', 'DATE']) or '').strip()
+            row_trade_date = trade_date
+            if row_date_str and row_date_str != 'None':
+                try:
+                    row_trade_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
+                except:
+                    pass
+
             record = {
-                'trade_date': trade_date,
-                'category': str(cls._get_val(row, ['category', 'CATEGORY']) or '').strip(),
-                'buy_value': cls._clean_numeric(cls._get_val(row, ['buy_value', 'BUY_VALUE'])),
-                'sell_value': cls._clean_numeric(cls._get_val(row, ['sell_value', 'SELL_VALUE'])),
-                'net_value': cls._clean_numeric(cls._get_val(row, ['net_value', 'NET_VALUE'])),
+                'trade_date': row_trade_date,
+                'category': str(cls._get_val(row, ['category', 'Category', 'CATEGORY']) or '').strip(),
+                'buy_value': cls._clean_numeric(cls._get_val(row, ['buy_value', 'Buy Value', 'BUY_VALUE'])),
+                'sell_value': cls._clean_numeric(cls._get_val(row, ['sell_value', 'Sell Value', 'SELL_VALUE'])),
+                'net_value': cls._clean_numeric(cls._get_val(row, ['net_value', 'Net Value', 'NET_VALUE'])),
             }
-            if record['category']:
+            if record['category'] and record['trade_date']:
                 records.append(record)
         return records
 

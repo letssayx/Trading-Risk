@@ -265,6 +265,8 @@ async def upload_generic_file(
             mapping = {
                 'fao_participant_oi': 'participant_oi',
                 'fii_stats': 'fii_stats',
+                'fii_derivatives_stats': 'fii_stats',
+                'fii_dii_cash': 'fii_dii_cash',
                 'fo_volatility': 'volatility',
                 'mto': 'mto',
                 'mwpl_cli': 'mwpl',
@@ -287,14 +289,9 @@ async def upload_generic_file(
         # 4. Map Records
         # We need a trade_date for mapping.
         if not import_date:
-            # Try to get from DF if column exists
-            # Some mappers look for date column.
-            # But FieldMapper map_to_records takes trade_date as arg.
-            # If DF has date, it uses it. If not, it uses arg.
-            # If arg is None and DF has no date, it fails or sets None.
-            # We should require date from user.
-            if not import_date:
-                 # Last resort: today? No.
+            # For some files like fii_dii_cash, they might have multiple dates inside the CSV
+            # so we only enforce a fallback import_date if it's strictly required by the mapper.
+            if file_type not in ['fii_dii_cash']:
                  raise HTTPException(400, "Date is required.")
 
         records = FieldMapper.map_to_records(df, format_info, import_date)
