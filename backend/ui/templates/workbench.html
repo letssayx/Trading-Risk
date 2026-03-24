@@ -4579,49 +4579,6 @@ document.addEventListener('click', (e) => {
         }
     }
 
-    let searchBuffer = '';
-    let searchTimeout = null;
-    document.addEventListener('keydown', (e) => {
-        // Only run if we are in the marketwatch tab and NOT typing in an input/textarea
-        const isMarketWatchActive = document.getElementById('tab-marketwatch').classList.contains('active');
-        if (!isMarketWatchActive) return;
-
-        const tagName = e.target.tagName.toLowerCase();
-        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return;
-
-        // Ensure it's a valid alphanumeric character
-        if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
-            searchBuffer += e.key.toUpperCase();
-
-            // Look for matching symbol row
-            const rows = document.querySelectorAll('#marketwatch-body tr[data-symbol]');
-            let matchedRow = null;
-            for (let row of rows) {
-                const sym = row.getAttribute('data-symbol');
-                if (sym && sym.startsWith(searchBuffer)) {
-                    matchedRow = row;
-                    break;
-                }
-            }
-
-            if (matchedRow) {
-                // Scroll to it
-                matchedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Briefly flash the row to highlight it
-                const originalBg = matchedRow.style.backgroundColor;
-                matchedRow.style.backgroundColor = '#4ade8055'; // semi-transparent green
-                setTimeout(() => {
-                    matchedRow.style.backgroundColor = originalBg;
-                }, 1000);
-            }
-
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                searchBuffer = '';
-            }, 1000); // Reset buffer after 1 second of inactivity
-        }
-    });
-
     async function loadMarketWatch() {
         const tbody = document.getElementById('marketwatch-body');
         // The user explicitly requested to remove the date input requirement for marketwatch.

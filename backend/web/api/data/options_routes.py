@@ -115,7 +115,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             latest_fo_date = target_date
         else:
             latest_fo_date_row = db.query(BhavcopyFO.trade_date)\
-                                   .filter(BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX']))\
+                                   .filter(BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO', 'OPTIRC']))\
                                    .order_by(desc(BhavcopyFO.trade_date))\
                                    .first()
             if not latest_fo_date_row:
@@ -163,7 +163,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
 
         # 3. Get all valid expiries for this symbol on this date
         expiries_query = db.query(BhavcopyFO.expiry_date)\
-                           .filter(BhavcopyFO.trade_date == latest_fo_date, BhavcopyFO.ticker_symb == symbol, BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX']))\
+                           .filter(BhavcopyFO.trade_date == latest_fo_date, BhavcopyFO.ticker_symb == symbol, BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO', 'OPTIRC']))\
                            .distinct()\
                            .order_by(BhavcopyFO.expiry_date)\
                            .all()
@@ -206,7 +206,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             BhavcopyFO.trade_date == latest_fo_date,
             BhavcopyFO.ticker_symb == symbol,
             BhavcopyFO.expiry_date == target_expiry_date,
-            BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX'])
+            BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO', 'OPTIRC'])
         ).all()
 
         # 5. Process and Calculate Greeks
