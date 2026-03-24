@@ -500,7 +500,10 @@ class NSEDataImporter:
 
     def _delete_for_date(self, db: Session, model_class, trade_date: date) -> int:
         try:
-            stmt = delete(model_class).where(model_class.date == trade_date)
+            if hasattr(model_class, 'trade_date'):
+                stmt = delete(model_class).where(model_class.trade_date == trade_date)
+            else:
+                stmt = delete(model_class).where(model_class.date == trade_date)
             result = db.execute(stmt)
             return result.rowcount
         except Exception as e:
