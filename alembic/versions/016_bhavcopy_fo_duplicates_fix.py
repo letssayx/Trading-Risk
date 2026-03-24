@@ -28,19 +28,15 @@ def upgrade() -> None:
         op.drop_constraint('uq_bhavcopy_fo_unique', 'bhavcopy_fo', type_='unique')
 
     # Remove duplicates before adding unique constraint
+    # We use a subquery to find duplicates and delete them.
+    # The syntax works for both PostgreSQL and SQLite.
     op.execute("""
-    DELETE FROM bhavcopy_fo a USING (
-      SELECT MIN(id) as id, trade_date, ticker_symb, instrument_type, expiry_date, strike_price, option_type
+    DELETE FROM bhavcopy_fo
+    WHERE id NOT IN (
+      SELECT MIN(id)
       FROM bhavcopy_fo
-      GROUP BY trade_date, ticker_symb, instrument_type, expiry_date, strike_price, option_type HAVING COUNT(*) > 1
-    ) b
-    WHERE a.trade_date = b.trade_date
-      AND a.ticker_symb = b.ticker_symb
-      AND a.instrument_type = b.instrument_type
-      AND a.expiry_date = b.expiry_date
-      AND a.strike_price = b.strike_price
-      AND a.option_type = b.option_type
-      AND a.id > b.id;
+      GROUP BY trade_date, ticker_symb, instrument_type, expiry_date, strike_price, option_type
+    );
     """)
 
     op.create_unique_constraint(

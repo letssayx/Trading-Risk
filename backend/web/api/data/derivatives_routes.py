@@ -340,4 +340,4 @@ async def get_marketwatch(date: str = None, custom_symbols: str = None, db: Sess
                         "futures": []  # No futures since it's a cash custom addition
                     }
 
-    return {"data": result}
+    return {"data": result, "date": latest_fo_date.strftime('%Y-%m-%d')}

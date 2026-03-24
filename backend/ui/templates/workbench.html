@@ -574,6 +574,7 @@
                         <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                             <tr>
                                 <th style="padding: 8px; min-width: 120px;">Symbol / Expiry</th>
+                                <th style="padding: 8px;">Date</th>
                                 <th style="padding: 8px;">Price</th>
                                 <th style="padding: 8px;">% Change</th>
                                 <th style="padding: 8px;">BPS</th>
@@ -588,7 +589,7 @@
                             </tr>
                         </thead>
                         <tbody id="marketwatch-body">
-                            <tr><td colspan="12" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
+                            <tr><td colspan="13" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -4643,6 +4644,8 @@ document.addEventListener('click', (e) => {
                 return;
             }
 
+            const reportDate = result.date || '-';
+
             Object.keys(data).sort().forEach(sym => {
                 const item = data[sym];
                 const eq = item.eq;
@@ -4661,6 +4664,7 @@ document.addEventListener('click', (e) => {
 
                 eqTr.innerHTML = `
                     <td style="font-weight: bold; color: #4da6ff;">${sym} EQ</td>
+                    <td style="color: #aaa;">${reportDate}</td>
                     <td style="font-weight: bold;">${eq.price != null && !isNaN(eq.price) && eq.price > 0 ? eq.price.toFixed(2) : '-'}</td>
                     <td style="color: ${eqChangeColor}; font-weight: bold;">${eqChangeStr}</td>
                     <td>-</td>
@@ -4694,6 +4698,7 @@ document.addEventListener('click', (e) => {
 
                     futTr.innerHTML = `
                         <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #aaa;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
+                        <td style="color: #aaa;">${reportDate}</td>
                         <td>${priceVal.toFixed(2)}</td>
                         <td>${futChangeStr}</td>
                         <td style="color: #e6a23c;">${bpsVal.toFixed(2)}</td>
@@ -4713,7 +4718,7 @@ document.addEventListener('click', (e) => {
             });
 
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     }
 
