@@ -119,7 +119,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
                                    .order_by(desc(BhavcopyFO.trade_date))\
                                    .first()
             if not latest_fo_date_row:
-                return {"data": {}, "expiries": [], "spot_price": 0.0}
+                return {"data": [], "expiries": [], "spot_price": 0.0}
             latest_fo_date = latest_fo_date_row[0]
 
         # 2. Find Spot Price (EQ or Index)
@@ -171,7 +171,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
         valid_expiries = [e[0].strftime('%Y-%m-%d') for e in expiries_query]
 
         if not valid_expiries:
-            return {"data": {}, "expiries": [], "spot_price": spot_price}
+            return {"data": [], "expiries": [], "spot_price": spot_price}
 
         target_expiry = None
         if expiry:

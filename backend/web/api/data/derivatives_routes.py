@@ -13,69 +13,96 @@ router = APIRouter()
 @router.get("/api/data/derivatives/mwpl_historical")
 async def get_mwpl_historical(db: Session = Depends(get_db)):
     """
-    Fetches the last 14 trading days of mwpl_array data from daily_derivatives_analysis.
+    Fetches the last 14 trading days of mwpl_array data directly from MWPLClientPosition.
     Also retrieves the EQ close and calculate the Fut1 close.
     """
-    from backend.ingest.nse_models import BhavcopyEQ
-    # Find the last 14 unique trading dates in daily_derivatives_analysis
-    dates_query = db.query(DailyDerivativesAnalysis.trade_date).distinct().order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(14).all()
+    from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, MWPLClientPosition
+
+    # Find the last 14 unique trading dates in MWPLClientPosition
+    dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).limit(14).all()
     if not dates_query:
         return {"data": {}}
 
     dates = [d[0] for d in dates_query]
 
-    # Query data for these dates where mwpl_array is not null and not empty
-    # Do not implicitly filter out DDA rows if EQ missing or series='BE'
-    records = db.query(
-        DailyDerivativesAnalysis.trade_date,
-        DailyDerivativesAnalysis.symbol,
-        DailyDerivativesAnalysis.mwpl_array,
-        DailyDerivativesAnalysis.close_price,
-        BhavcopyEQ.close_price.label('eq_close_price')
-    ).outerjoin(
-        BhavcopyEQ,
-        (DailyDerivativesAnalysis.symbol == BhavcopyEQ.symbol) &
-        (DailyDerivativesAnalysis.trade_date == BhavcopyEQ.trade_date) &
-        (BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ']))
+    # Query MWPL data for these dates
+    mwpl_records = db.query(
+        MWPLClientPosition.date,
+        MWPLClientPosition.underlying_stock,
+        MWPLClientPosition.client_position_num,
+        MWPLClientPosition.position_pct
     ).filter(
-        DailyDerivativesAnalysis.trade_date.in_(dates),
-        DailyDerivativesAnalysis.mwpl_array != None
+        MWPLClientPosition.date.in_(dates)
     ).all()
 
-    result = {}
-    for r in records:
-        sym = r.symbol
-        if sym not in result:
-            result[sym] = []
+    # Query BhavcopyEQ for these dates
+    eq_records = db.query(
+        BhavcopyEQ.trade_date,
+        BhavcopyEQ.symbol,
+        BhavcopyEQ.close_price
+    ).filter(
+        BhavcopyEQ.trade_date.in_(dates),
+        BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ'])
+    ).all()
 
-        # Parse mwpl_array properly and calculate max mwpl for main row
+    eq_map = {}
+    for r in eq_records:
+        eq_map[(r.trade_date, r.symbol)] = float(r.close_price) if r.close_price else 0.0
+
+    # Query BhavcopyFO for futures close prices
+    fo_records = db.query(
+        BhavcopyFO.trade_date,
+        BhavcopyFO.ticker_symb,
+        BhavcopyFO.close_price,
+        BhavcopyFO.expiry_date
+    ).filter(
+        BhavcopyFO.trade_date.in_(dates),
+        BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+    ).all()
+
+    # Group futures by date and symbol, find the nearest expiry for "fut1_close"
+    fo_map = {}
+    for r in fo_records:
+        key = (r.trade_date, r.ticker_symb)
+        if key not in fo_map:
+            fo_map[key] = []
+        fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0})
+
+    for key, futs in fo_map.items():
+        futs.sort(key=lambda x: x["expiry"])
+        fo_map[key] = futs[0]["close"] if futs else 0.0
+
+    result = {}
+
+    # Group MWPL records by date and symbol
+    grouped_mwpl = {}
+    for r in mwpl_records:
+        key = (r.date, r.underlying_stock)
+        if key not in grouped_mwpl:
+            grouped_mwpl[key] = []
+        grouped_mwpl[key].append({"client": r.client_position_num, "pct": float(r.position_pct) if r.position_pct else 0.0})
+
+    for (trade_date, symbol), clients in grouped_mwpl.items():
+        if symbol not in result:
+            result[symbol] = []
+
         parsed_arr = []
         mwpl_val = 0.0
-        try:
-            arr = r.mwpl_array
-            if isinstance(arr, str):
-                arr = json.loads(arr)
-            if isinstance(arr, list):
-                for idx, item in enumerate(arr):
-                    if isinstance(item, dict):
-                        for k, v in item.items():
-                            val = float(v)
-                            parsed_arr.append({k: val})
-                            if val > mwpl_val:
-                                mwpl_val = val
-                    elif isinstance(item, (int, float)):
-                        val = float(item)
-                        parsed_arr.append({f"Client {idx+1}": val})
-                        if val > mwpl_val:
-                            mwpl_val = val
-        except Exception:
-            pass
+
+        # Sort clients by pct
+        clients.sort(key=lambda x: x["pct"], reverse=True)
+
+        for idx, client in enumerate(clients):
+            val = client["pct"]
+            parsed_arr.append({f"Client {idx+1}": val})
+            if val > mwpl_val:
+                mwpl_val = val
 
         if parsed_arr:
-            result[sym].append({
-                "date": str(r.trade_date),
-                "eq_close": float(r.eq_close_price) if r.eq_close_price else 0.0,
-                "fut1_close": float(r.close_price) if r.close_price else 0.0,
+            result[symbol].append({
+                "date": str(trade_date),
+                "eq_close": eq_map.get((trade_date, symbol), 0.0),
+                "fut1_close": fo_map.get((trade_date, symbol), 0.0),
                 "mwpl": mwpl_val,
                 "mwpl_array": parsed_arr
             })
