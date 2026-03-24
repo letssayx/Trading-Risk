@@ -4370,6 +4370,7 @@ document.addEventListener('click', (e) => {
                     <th style="padding: 8px;">EQ Close</th>
                     <th style="padding: 8px;">Fut1 Close</th>
                     <th style="padding: 8px;">Total %</th>
+                    <th style="padding: 8px;">% Chg (Total %)</th>
                     <th style="padding: 8px;">MWPL %</th>
             `;
             clientNames.forEach(c => {
@@ -4452,10 +4453,12 @@ document.addEventListener('click', (e) => {
                 let eqColor = '#ddd';
                 let futColor = '#ddd';
                 let totalColor = '#60a5fa'; // default
+                let totalChgColor = '#aaa';
                 let mwplColor = color;
                 let eqArrow = '';
                 let futArrow = '';
                 let totalArrow = '';
+                let totalChgStr = '-';
 
                 if (rows.length > 1) {
                     const prev = rows[1]; // Since rows are sorted descending by date
@@ -4472,6 +4475,17 @@ document.addEventListener('click', (e) => {
                             prevTotal += parseFloat(Object.values(item)[0]) || 0;
                         });
                     }
+
+                    if (prevTotal !== 0) {
+                        const pctChg = ((total - prevTotal) / Math.abs(prevTotal)) * 100;
+                        totalChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
+                        if (pctChg > 0) totalChgColor = '#4ade80';
+                        else if (pctChg < 0) totalChgColor = '#ff4d4d';
+                    } else if (total > 0) {
+                        totalChgStr = '+100.00%';
+                        totalChgColor = '#4ade80';
+                    }
+
                     if (total > prevTotal) { totalColor = '#60a5fa'; totalArrow = '▲'; }
                     else if (total < prevTotal) { totalColor = '#ff4d4d'; totalArrow = '▼'; }
                 }
@@ -4482,6 +4496,7 @@ document.addEventListener('click', (e) => {
                     <td style="color: ${eqColor};">${latest.eq_close.toFixed(2)} <span style="font-size:0.8em">${eqArrow}</span></td>
                     <td style="color: ${futColor};">${latest.fut1_close.toFixed(2)} <span style="font-size:0.8em">${futArrow}</span></td>
                     <td style="color: ${totalColor}; font-weight: bold;">${total.toFixed(2)}% <span style="font-size:0.8em">${totalArrow}</span></td>
+                    <td style="color: ${totalChgColor}; font-weight: bold;">${totalChgStr}</td>
                     <td style="color: ${mwplColor}; font-weight: bold;">${latest.mwpl}%</td>
                     ${mainClientTds}
                 `;
@@ -4521,9 +4536,11 @@ document.addEventListener('click', (e) => {
                     let histEqColor = '#ddd';
                     let histFutColor = '#ddd';
                     let histTotalColor = '#7dd3fc';
+                    let histTotalChgColor = '#aaa';
                     let histEqArrow = '';
                     let histFutArrow = '';
                     let histTotalArrow = '';
+                    let histTotalChgStr = '-';
 
                     if (idx < rows.length - 1) {
                         const histPrev = rows[idx + 1];
@@ -4539,6 +4556,17 @@ document.addEventListener('click', (e) => {
                                 histPrevTotal += parseFloat(Object.values(item)[0]) || 0;
                             });
                         }
+
+                        if (histPrevTotal !== 0) {
+                            const pctChg = ((rowTotal - histPrevTotal) / Math.abs(histPrevTotal)) * 100;
+                            histTotalChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
+                            if (pctChg > 0) histTotalChgColor = '#4ade80';
+                            else if (pctChg < 0) histTotalChgColor = '#ff4d4d';
+                        } else if (rowTotal > 0) {
+                            histTotalChgStr = '+100.00%';
+                            histTotalChgColor = '#4ade80';
+                        }
+
                         if (rowTotal > histPrevTotal) { histTotalColor = '#60a5fa'; histTotalArrow = '▲'; }
                         else if (rowTotal < histPrevTotal) { histTotalColor = '#ff4d4d'; histTotalArrow = '▼'; }
                     }
@@ -4549,6 +4577,7 @@ document.addEventListener('click', (e) => {
                         <td style="color: ${histEqColor};">${r.eq_close.toFixed(2)} <span style="font-size:0.8em">${histEqArrow}</span></td>
                         <td style="color: ${histFutColor};">${r.fut1_close.toFixed(2)} <span style="font-size:0.8em">${histFutArrow}</span></td>
                         <td style="color: ${histTotalColor};">${rowTotal.toFixed(2)}% <span style="font-size:0.8em">${histTotalArrow}</span></td>
+                        <td style="color: ${histTotalChgColor};">${histTotalChgStr}</td>
                         <td style="color: ${hColor};">${r.mwpl}%</td>
                         ${clientTds}
                     `;
