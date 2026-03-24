@@ -16,9 +16,9 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
     Fetches the last 14 trading days of mwpl_array data from daily_derivatives_analysis.
     Also retrieves the EQ close and calculate the Fut1 close.
     """
-    from backend.ingest.nse_models import BhavcopyEQ
-    # Find the last 14 unique trading dates in daily_derivatives_analysis
-    dates_query = db.query(DailyDerivativesAnalysis.trade_date).distinct().order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(14).all()
+    from backend.ingest.nse_models import BhavcopyEQ, MWPLClientPosition
+    # Find the last 14 unique trading dates in MWPLClientPosition
+    dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).limit(14).all()
     if not dates_query:
         return {"data": {}}
 
