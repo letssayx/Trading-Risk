@@ -4772,12 +4772,21 @@ document.addEventListener('click', (e) => {
             if (selectedExpiry) url += `&expiry=${selectedExpiry}`;
 
             const res = await fetch(url);
-            if (!res.ok) throw new Error(await res.text());
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                if (!res.ok) throw new Error(await res.text());
+                throw new Error("Invalid JSON response from server.");
+            }
 
-            const data = await res.json();
+            if (!res.ok) {
+                const errMsg = data.detail || await res.text();
+                throw new Error(errMsg);
+            }
 
             // Populate expiries dropdown if empty or different symbol
-            if (data.expiries && data.expiries.length > 0) {
+            if (data && data.expiries && data.expiries.length > 0) {
                 expirySelect.style.display = 'block';
                 // Only rebuild dropdown if we don't have this list already to preserve user selection
                 const currentExpiries = Array.from(expirySelect.options).map(o => o.value);

@@ -25,6 +25,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
     dates = [d[0] for d in dates_query]
 
     # Query data for these dates where mwpl_array is not null and not empty
+    # Do not implicitly filter out DDA rows if EQ missing or series='BE'
     records = db.query(
         DailyDerivativesAnalysis.trade_date,
         DailyDerivativesAnalysis.symbol,
@@ -35,7 +36,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         BhavcopyEQ,
         (DailyDerivativesAnalysis.symbol == BhavcopyEQ.symbol) &
         (DailyDerivativesAnalysis.trade_date == BhavcopyEQ.trade_date) &
-        (BhavcopyEQ.series == 'EQ')
+        (BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ']))
     ).filter(
         DailyDerivativesAnalysis.trade_date.in_(dates),
         DailyDerivativesAnalysis.mwpl_array != None
