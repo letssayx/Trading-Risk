@@ -21,6 +21,12 @@
             display: flex !important;
             flex-direction: column;
         }
+        .deriv-sub-tab {
+            display: none !important;
+        }
+        .deriv-sub-tab.active {
+            display: flex !important;
+        }
 
 
 
@@ -277,6 +283,26 @@
             color: var(--text-color);
         }
 
+        /* Custom Checkbox Dropdowns */
+        .custom-dropdown { position: relative; display: inline-block; }
+        .dropdown-toggle {
+            padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; cursor: pointer; user-select: none;
+            display: flex; align-items: center; justify-content: space-between; width: 140px; box-sizing: border-box;
+        }
+        .dropdown-toggle::after { content: '▼'; font-size: 10px; margin-left: 8px; }
+        .dropdown-menu {
+            display: none; position: absolute; background-color: #333; min-width: 140px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 1000;
+            border: 1px solid #555; border-radius: 4px; max-height: 250px; overflow-y: auto; top: 100%; left: 0;
+        }
+        .dropdown-menu label {
+            display: block; padding: 6px 12px; cursor: pointer; color: white; margin: 0; font-size: 13px;
+        }
+        .dropdown-menu label:hover { background-color: #444; }
+        .dropdown-menu input[type="checkbox"] { margin-right: 8px; cursor: pointer; }
+        .custom-dropdown.open .dropdown-menu { display: block; }
+        .custom-dropdown.open .dropdown-toggle { border-color: #666; background: #2a2a2a; }
+
     </style>
 </head>
 <body>
@@ -285,6 +311,7 @@
     <div class="main-tabs-bar">
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
         <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
+        <div class="main-tab" data-target="marketwatch" onclick="switchMainTab('marketwatch')" title="Alt+M"><u>M</u>arket Watch</div>
         <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
@@ -452,18 +479,47 @@
                         <input type="text" id="div-symbol-search" placeholder="Search Symbol..." style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 200px;" autocomplete="off" oninput="renderDividendsData()">
                     </div>
 
-                    <select id="div-type-filter" onchange="renderDividendsData()" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; width: 150px;">
-                        <option value="All">All Types</option>
-                        <option value="Interim">Interim</option>
-                        <option value="Final">Final</option>
-                        <option value="Special">Special</option>
-                        <option value="Bonus">Bonus</option>
-                        <option value="Split">Split</option>
-                    </select>
+                    <div class="custom-dropdown" id="div-type-dropdown">
+                        <div class="dropdown-toggle" onclick="toggleDropdown('div-type-dropdown')">Select Types</div>
+                        <div class="dropdown-menu">
+                            <label><input type="checkbox" value="Interim" onchange="renderDividendsData()"> Interim</label>
+                            <label><input type="checkbox" value="Final" onchange="renderDividendsData()"> Final</label>
+                            <label><input type="checkbox" value="Special" onchange="renderDividendsData()"> Special</label>
+                            <label><input type="checkbox" value="Bonus" onchange="renderDividendsData()"> Bonus</label>
+                            <label><input type="checkbox" value="Split" onchange="renderDividendsData()"> Split</label>
+                        </div>
+                    </div>
+
+                    <div class="custom-dropdown" id="div-month-dropdown">
+                        <div class="dropdown-toggle" onclick="toggleDropdown('div-month-dropdown')">Select Months</div>
+                        <div class="dropdown-menu">
+                            <label><input type="checkbox" value="1" onchange="renderDividendsData()"> Jan</label>
+                            <label><input type="checkbox" value="2" onchange="renderDividendsData()"> Feb</label>
+                            <label><input type="checkbox" value="3" onchange="renderDividendsData()"> Mar</label>
+                            <label><input type="checkbox" value="4" onchange="renderDividendsData()"> Apr</label>
+                            <label><input type="checkbox" value="5" onchange="renderDividendsData()"> May</label>
+                            <label><input type="checkbox" value="6" onchange="renderDividendsData()"> Jun</label>
+                            <label><input type="checkbox" value="7" onchange="renderDividendsData()"> Jul</label>
+                            <label><input type="checkbox" value="8" onchange="renderDividendsData()"> Aug</label>
+                            <label><input type="checkbox" value="9" onchange="renderDividendsData()"> Sep</label>
+                            <label><input type="checkbox" value="10" onchange="renderDividendsData()"> Oct</label>
+                            <label><input type="checkbox" value="11" onchange="renderDividendsData()"> Nov</label>
+                            <label><input type="checkbox" value="12" onchange="renderDividendsData()"> Dec</label>
+                        </div>
+                    </div>
 
                     <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;" title="Uses Stock Master to only load F&O stocks">
                         <input type="checkbox" id="div-fo-only-filter" onchange="loadDividendsData()" style="cursor: pointer;">
                         F&O Stocks Only
+                    </label>
+
+                    <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                        Start:
+                        <input type="date" id="div-start-date" class="history-input" onchange="loadDividendsData()">
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                        End:
+                        <input type="date" id="div-end-date" class="history-input" onchange="loadDividendsData()">
                     </label>
                 </div>
 
@@ -495,20 +551,113 @@
             </div>
         </div>
 
-        <div id="tab-derivatives" class="main-tab-content">
+        <!-- TAB MARKET WATCH -->
+        <div id="tab-marketwatch" class="main-tab-content" style="background: #1e1e1e; display: none; height: 100%;">
+            <!-- Sub-tab Navigation for Market Watch -->
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto; flex-shrink: 0;">
+                <div class="wb-tab active" id="mw-tab-btn-watch" onclick="switchMwTab('watch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Watch</div>
+                <div class="wb-tab" id="mw-tab-btn-options" onclick="switchMwTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
+            </div>
+
+            <!-- WATCH TAB CONTENT -->
+            <div id="mw-tab-watch" class="mw-sub-tab" style="padding: 20px; height: calc(100% - 50px); display: flex; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+                    <h2 style="margin: 0; color: #fff; font-size: 18px;">Market Watch (Derivatives)</h2>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="mw-custom-symbol" class="form-control" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
+                        <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
+                        <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                    </div>
+                </div>
+                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
+                    <table class="data-table" id="marketwatch-table" style="width: 100%; margin: 0; padding: 0;">
+                        <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                            <tr>
+                                <th style="padding: 8px; min-width: 120px;">Symbol / Expiry</th>
+                                <th style="padding: 8px;">Date</th>
+                                <th style="padding: 8px;">Price</th>
+                                <th style="padding: 8px;">% Change</th>
+                                <th style="padding: 8px;">BPS</th>
+                                <th style="padding: 8px;">Ann. Yield</th>
+                                <th style="padding: 8px;">Volume</th>
+                                <th style="padding: 8px;">ATP</th>
+                                <th style="padding: 8px;">OI</th>
+                                <th style="padding: 8px;">% Chg OI</th>
+                                <th style="padding: 8px;">DTE</th>
+                                <th style="padding: 8px; min-width: 120px;">Corp Action</th>
+                                <th style="padding: 8px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="marketwatch-body">
+                            <tr><td colspan="13" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- OPTIONS CHAIN TAB CONTENT -->
+            <div id="mw-tab-options" class="mw-sub-tab" style="padding: 20px; height: calc(100% - 50px); display: none; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
+                    <h2 style="margin: 0; color: #fff; font-size: 18px;">Option Chain</h2>
+                    <div style="position: relative; width: 250px;">
+                        <input type="text" id="opt-symbol-input" class="form-control" placeholder="Search Symbol (e.g., NIFTY)..." oninput="optFilterSymbols(this.value)" onkeydown="if(event.key==='Enter') loadOptionChain()" onfocus="optFilterSymbols(this.value)">
+                        <div id="opt-symbol-dropdown" class="autocomplete-items" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 99; max-height: 300px; overflow-y: auto; background-color: #333; border: 1px solid #444; border-radius: 4px;"></div>
+                    </div>
+                    <select id="opt-expiry-select" class="form-control" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
+                    <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
+                    <span id="opt-spot-price" style="margin-left: auto; font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
+                </div>
+
+                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
+                    <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                            <tr>
+                                <th colspan="6" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
+                                <th style="background: #333; color: #ffcc00; font-weight: bold; font-size: 14px; min-width: 80px;">STRIKE</th>
+                                <th colspan="6" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
+                            </tr>
+                            <tr style="font-size: 11px; color: #ccc;">
+                                <th style="padding: 4px;">Vega</th>
+                                <th style="padding: 4px;">Theta</th>
+                                <th style="padding: 4px;">Gamma</th>
+                                <th style="padding: 4px;">Delta</th>
+                                <th style="padding: 4px;">IV</th>
+                                <th style="padding: 4px; border-right: 2px solid #555;">LTP</th>
+
+                                <th style="padding: 4px; background: #333;">Price</th>
+
+                                <th style="padding: 4px; border-left: 2px solid #555;">LTP</th>
+                                <th style="padding: 4px;">IV</th>
+                                <th style="padding: 4px;">Delta</th>
+                                <th style="padding: 4px;">Gamma</th>
+                                <th style="padding: 4px;">Theta</th>
+                                <th style="padding: 4px;">Vega</th>
+                            </tr>
+                        </thead>
+                        <tbody id="option-chain-body">
+                            <tr><td colspan="13" style="text-align:center; color:#888;">Select a symbol to view Option Chain.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB DERIVATIVES ANALYSIS -->
+        <div id="tab-derivatives" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
             <!-- Sub-tab Navigation -->
-            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px;">
-                <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Data Matrix</div>
-                <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">OI Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Rollover Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Market Activity</div>
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto; flex-shrink: 0;">
+                <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
+                <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
             </div>
 
             <!-- Sub-tab Contents Container -->
-            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden; display: flex; flex-direction: row; width: 100%;">
+            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden; display: flex; flex-direction: column; width: 100%;">
 
                 <!-- SUB-TAB 1: Data Matrix (Original Reports View) -->
-                <div id="deriv-tab-matrix" class="deriv-sub-tab active" style="display: flex; height: 100%; width: 100%;">
+                <div id="deriv-tab-matrix" class="deriv-sub-tab active" style="height: 100%; width: 100%;">
 
                 <!-- Left Panel: Controls & Archive -->
                 <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0;">
@@ -625,12 +774,10 @@
                             <tbody id="mr-data-body">
                                 <tr><td colspan="47" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
-                            </table>
-                        </div>
+                        </table>
                     </div>
                 </div>
 
-            </div>
             <script>
                 document.getElementById('mr-target-date').valueAsDate = new Date();
                 let mrPollingInterval;
@@ -773,32 +920,38 @@
                             let mwpl = '0.00';
                             let maxMwpl = 0;
                             let maxClient = '';
-                            if (row.mwpl_array && Array.isArray(row.mwpl_array) && row.mwpl_array.length > 0) {
-                                // mwpl_array is usually [{"client_name": value}, ...] or [value] or string.
-                                // To be safe, we extract the highest value if it's an array of objects.
-                                try {
-                                    row.mwpl_array.forEach(item => {
-                                        if (typeof item === 'object' && item !== null) {
-                                            for (let key in item) {
-                                                const val = parseFloat(item[key]);
-                                                if (!isNaN(val) && val > maxMwpl) {
-                                                    maxMwpl = val;
-                                                    maxClient = key;
+                            if (row.mwpl_array) {
+                                let arr = row.mwpl_array;
+                                if (typeof arr === 'string') {
+                                    try { arr = JSON.parse(arr); } catch (e) { arr = []; }
+                                }
+                                if (Array.isArray(arr) && arr.length > 0) {
+                                    try {
+                                        arr.forEach(item => {
+                                            if (typeof item === 'object' && item !== null) {
+                                                for (let key in item) {
+                                                    const val = parseFloat(item[key]);
+                                                    if (!isNaN(val) && val > maxMwpl) {
+                                                        maxMwpl = val;
+                                                        maxClient = key;
+                                                    }
                                                 }
+                                            } else if (typeof item === 'number') {
+                                                if (item > maxMwpl) maxMwpl = item;
                                             }
-                                        } else if (typeof item === 'number') {
-                                            if (item > maxMwpl) maxMwpl = item;
+                                        });
+                                        if (maxMwpl > 0) {
+                                            // Actually use the TOTAL MWPL or the position?
+                                            // Wait, the prompt says "what is MWPL %, it is actually client 1 position i think".
+                                            // Ah! The original logic is extracting maxMwpl (which is the highest position, maybe Client 1).
+                                            // The true MWPL should be fetched from row.mwpl directly! Let's check if row.mwpl exists.
+                                            mwpl = (row.mwpl != null && !isNaN(parseFloat(row.mwpl))) ? parseFloat(row.mwpl).toFixed(2) : maxMwpl.toFixed(2);
+                                        } else {
+                                            mwpl = (row.mwpl != null && !isNaN(parseFloat(row.mwpl))) ? parseFloat(row.mwpl).toFixed(2) : '0.00';
                                         }
-                                    });
-                                    if (maxMwpl > 0) {
-                                        mwpl = maxMwpl.toFixed(2);
-                                    } else {
-                                        // fallback if structure was different
-                                        const firstKey = Object.keys(row.mwpl_array[0])[0];
-                                        if (firstKey) mwpl = parseFloat(row.mwpl_array[0][firstKey]).toFixed(2);
+                                    } catch (e) {
+                                        mwpl = '0.00';
                                     }
-                                } catch (e) {
-                                    mwpl = '0.00';
                                 }
                             }
 
@@ -1205,21 +1358,45 @@
                     }
                 }
             </script>
-
-                </div> <!-- End deriv-tab-matrix -->
+            </div> <!-- End Right Panel -->
+        </div> <!-- End deriv-tab-matrix -->
 
                 <!-- SUB-TAB 2: OI Analysis -->
-                <div id="deriv-tab-oi" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; overflow: auto;">
+                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
                     <!-- Content loaded by workbookManager.js / OiTool -->
                 </div>
 
                 <!-- SUB-TAB 3: Rollover Analysis -->
-                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; overflow: auto;">
+                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
                     <!-- Content loaded by workbookManager.js / RolloverTool -->
                 </div>
 
+                <!-- SUB-TAB MWPL Analysis -->
+                <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                        <button class="btn btn-secondary" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
+                    </div>
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
+                        <table class="data-table" id="mwpl-analysis-table" style="width: 100%;">
+                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                <tr>
+                                    <th style="padding: 8px;">Symbol</th>
+                                    <th style="padding: 8px;">Date</th>
+                                    <th style="padding: 8px;">EQ Close</th>
+                                    <th style="padding: 8px;">Fut1 Close</th>
+                                    <th style="padding: 8px;">MWPL %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mwpl-analysis-body">
+                                <tr><td colspan="5" style="text-align:center; color:#888;">Click "Refresh MWPL Data" to load.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="display: none; padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
@@ -1330,7 +1507,7 @@
             <div class="history-controls">
                 <div class="control-group">
                     <label>Data Type:</label>
-                    <select id="data-type" class="history-select" onchange="updateHistoryControls()">
+                    <select id="data-type" class="history-select" onchange="updateHistoryControls(); loadHistoryData();">
                         <option value="bhavcopy_eq" selected>Equity Bhavcopy (New)</option>
                         <option value="bhavcopy_fo">F&O Bhavcopy (New)</option>
                         <!-- Legacy Removed -->
@@ -1369,11 +1546,11 @@
                 </div>
                 <div class="control-group">
                     <label>From:</label>
-                    <input type="date" id="start-date" class="history-input">
+                    <input type="date" id="start-date" class="history-input" onchange="handleDateRangeChange()">
                 </div>
                 <div class="control-group">
                     <label>To:</label>
-                    <input type="date" id="end-date" class="history-input">
+                    <input type="date" id="end-date" class="history-input" onchange="handleDateRangeChange()">
                 </div>
                 <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
                 <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
@@ -1554,6 +1731,7 @@
                                     <option value="bhavcopy_fo">F&O Bhavcopy</option>
                                     <option value="fo_volatility">F&O Volatility</option>
                                     <option value="fii_derivatives_stats">FII Stats</option>
+                                    <option value="fii_dii_cash">FII/DII Cash (Manual)</option>
                                     <option value="fao_participant_oi">Participant OI</option>
                                     <option value="block_deals">Block Deals</option>
                                     <option value="bulk_deals">Bulk Deals</option>
@@ -1565,6 +1743,9 @@
                                     <option value="historical_index_data">Historical Index Data</option>
                                     <option value="nse_security">Security Master</option>
                                 </select>
+                            </div>
+                            <div id="manual-format-hint" style="display:none; margin-top:5px; font-size:0.85em; color:#aaa; background:#222; padding:8px; border-radius:4px; border-left:3px solid #60a5fa;">
+                                <strong>Expected CSV Headers:</strong> Date, Category, Buy Value, Sell Value, Net Value
                             </div>
                             <div class="option-row">
                                 <input type="file" id="manual-file" style="margin-top:5px;" />
@@ -1694,7 +1875,7 @@
 
     <script>
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'marketwatch', 'derivatives', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -1718,6 +1899,11 @@
             if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
             if (tabName === 'ai_analyze') fetchSystemAccuracy();
+            if (tabName === 'marketwatch') {
+                 if (typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
+                     loadMarketWatch();
+                 }
+            }
             if (tabName === 'derivatives') {
                 // Initialize first sub-tab if none selected
                 if (!document.querySelector('.deriv-sub-tab.active')) {
@@ -1729,14 +1915,42 @@
                      if (typeof loadTimeseriesData === 'function') loadTimeseriesData(false);
                 }
             }
+            if (tabName === 'dividends') {
+                if (typeof loadDividendsData === 'function' && (!window.divRawData || window.divRawData.length === 0)) {
+                    loadDividendsData();
+                }
+            }
 
             // Note: corporate_actions load is handled by the wrapper function below
         }
 
+    // --- Market Watch Sub-Tab Logic ---
+    function switchMwTab(tabName) {
+        document.querySelectorAll('#tab-marketwatch .mw-sub-tab').forEach(el => {
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('#tab-marketwatch .wb-tab').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        const targetTab = document.getElementById(`mw-tab-${tabName}`);
+        const targetBtn = document.getElementById(`mw-tab-btn-${tabName}`);
+
+        if (targetTab) targetTab.style.display = 'flex';
+        if (targetBtn) targetBtn.classList.add('active');
+
+        if (tabName === 'watch') {
+            const tbody = document.getElementById('marketwatch-body');
+            if (tbody.innerHTML.includes('Click')) loadMarketWatch();
+        }
+    }
+
         // --- Derivatives Sub-Tab Logic ---
         function switchDerivTab(tabName) {
-            document.querySelectorAll('.deriv-sub-tab').forEach(el => el.style.display = 'none');
-            document.querySelectorAll('.deriv-sub-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#tab-derivatives .deriv-sub-tab').forEach(el => {
+                el.classList.remove('active');
+                el.style.display = ''; // Clear inline styles to let CSS !important handle display
+            });
             document.querySelectorAll('#tab-derivatives .wb-tab').forEach(el => {
                 el.classList.remove('active');
                 el.style.borderBottomColor = 'transparent';
@@ -1746,14 +1960,8 @@
             const target = document.getElementById(`deriv-tab-${tabName}`);
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
-                if (target.id === 'deriv-tab-market') {
-                    target.style.display = 'flex';
-                } else if (target.id === 'deriv-tab-matrix') {
-                    target.style.display = 'flex';
-                } else {
-                    target.style.display = tabName === 'market' || tabName === 'matrix' ? 'flex' : 'block';
-                }
                 target.classList.add('active');
+
                 btn.classList.add('active');
                 btn.style.borderBottomColor = '#4ade80';
                 btn.style.color = '#fff';
@@ -1761,6 +1969,8 @@
                 // Trigger chart loading if Market Activity
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
+                } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
+                    loadMWPLAnalysis();
                 }
             }
         }
@@ -2777,16 +2987,19 @@
             currentHistoryData = [];
         }
 
-        async function loadHistoryData(sortBy = null, sortOrder = 'asc') {
+        async function loadHistoryData(sortBy = null, sortOrder = 'asc', forcedSymbol = null) {
             const type = document.getElementById('data-type').value;
             const symbolInput = document.getElementById('symbol-input');
-            const symbol = symbolInput ? symbolInput.value.trim() : '';
+            const symbol = forcedSymbol || (symbolInput ? symbolInput.value.trim() : '');
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
             const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
 
             // Auto-clear symbol per user request
-            if (symbolInput) symbolInput.value = '';
+            if (symbolInput) {
+                // We keep the value in the symbol var, so it's safe to clear the UI input
+                symbolInput.value = '';
+            }
 
             // Use current sort state if not explicitly passed
             if (!sortBy && currentSortColumn) {
@@ -2807,7 +3020,19 @@
             try {
                 const latestCheck = document.getElementById("latest-date-check");
                 const isLatest = latestCheck && latestCheck.checked;
-                let limit = type === "mwpl" ? 5000 : 500;
+
+                const hasDateRange = start || end;
+
+                // User reported system gets stuck for 10 mins loading 500 rows or specific days.
+                // Limit heavily across the board unless explicitly exporting. Rendering 100,000 DOM nodes freezes the browser.
+                let limit = (hasDateRange || (isLatest && !symbol)) ? 2000 : 500;
+
+                // If no filters are applied and latest is un-checked, it will fetch all historical data and crash browser.
+                // We fallback to a safer number if absolutely NO filters are applied.
+                if (!hasDateRange && !isLatest && !symbol && instrument === 'ALL') {
+                    limit = 500;
+                }
+
                 let url = `/api/data/view/list?type=${type}&limit=${limit}`;
                 if (isLatest) url += "&latest=true"; // Removed timestamp for speed, browser cache is usually fine with varying params
                 if (symbol) url += `&symbol=${symbol}`;
@@ -2875,33 +3100,37 @@
             });
             thead.appendChild(trHead);
 
-            // Rows
+            // Fast DOM rendering technique
+            let htmlRows = '';
             data.forEach(row => {
-                const tr = document.createElement('tr');
+                let trHtml = '<tr>';
                 keys.forEach(key => {
-                    const td = document.createElement('td');
                     let val = row[key];
                     if (val === null || val === undefined) val = '-';
+
                     if (typeof val === 'number') {
-                         // Smart formatting
                          if (Number.isInteger(val)) {
-                             td.innerText = val.toLocaleString();
+                             trHtml += `<td style="text-align: right;">${val.toLocaleString()}</td>`;
                          } else {
-                             // Check for volatility columns or small numbers
                              if (key.includes('volatility') || key.includes('_vol') || key.includes('iv') || key.includes('rate')) {
-                                 td.innerText = val.toFixed(4);
+                                 trHtml += `<td style="text-align: right;">${val.toFixed(4)}</td>`;
                              } else {
-                                 td.innerText = val.toFixed(2);
+                                 trHtml += `<td style="text-align: right;">${val.toFixed(2)}</td>`;
                              }
                          }
-                         td.style.textAlign = 'right';
+                    } else if (typeof val === 'object') {
+                        let strVal = JSON.stringify(val).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        trHtml += `<td style="font-size:10px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${strVal}</td>`;
                     } else {
-                        td.innerText = val;
+                        // Prevent XSS
+                        let strVal = String(val).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        trHtml += `<td>${strVal}</td>`;
                     }
-                    tr.appendChild(td);
                 });
-                tbody.appendChild(tr);
+                trHtml += '</tr>';
+                htmlRows += trHtml;
             });
+            tbody.innerHTML = htmlRows;
         }
 
         function sortHistoryTable(key) {
@@ -2971,35 +3200,35 @@
             if (checkbox.checked) {
                 startInput.value = "";
                 endInput.value = "";
-                startInput.disabled = true;
-                endInput.disabled = true;
-                if (allDates) {
-                    allDates.checked = false;
-                }
+                if (allDates) allDates.checked = false;
             } else {
                 if (!allDates || !allDates.checked) {
-                    startInput.disabled = false;
-                    endInput.disabled = false;
-                    setDefaultDates();
+                    // Try setting default date if unchecked, or leave it blank
+                    // The user requested that picking a date overrides latest
                 }
             }
         }
 
         function toggleDateInputs(checkbox) {
             const latestDates = document.getElementById("latest-date-check");
+            const startInput = document.getElementById("start-date");
+            const endInput = document.getElementById("end-date");
             if (checkbox.checked) {
                 if (latestDates) latestDates.checked = false;
+                startInput.value = "";
+                endInput.value = "";
             }
-            const startInput = document.getElementById('start-date');
-            const endInput = document.getElementById('end-date');
-            if (checkbox.checked) {
-                startInput.value = '';
-                endInput.value = '';
-                startInput.disabled = true;
-                endInput.disabled = true;
-            } else {
-                startInput.disabled = false;
-                endInput.disabled = false;
+        }
+
+        function handleDateRangeChange() {
+            const startInput = document.getElementById("start-date");
+            const endInput = document.getElementById("end-date");
+            const latestDates = document.getElementById("latest-date-check");
+            const allDates = document.getElementById("all-dates-check");
+
+            if (startInput.value || endInput.value) {
+                if (latestDates) latestDates.checked = false;
+                if (allDates) allDates.checked = false;
             }
         }
 
@@ -3171,7 +3400,7 @@
                     if (inputId === 'ca-search-input') {
                          if (typeof filterCATable === 'function') filterCATable();
                     } else if (inputId === 'div-symbol-search') {
-                         if (typeof renderDividendsData === 'function') renderDividendsData();
+                         if (typeof loadDividendsData === 'function') loadDividendsData();
                     }
                     return;
                 }
@@ -3180,7 +3409,8 @@
                 if (inputId === 'ca-search-input') {
                      if (typeof filterCATable === 'function') filterCATable();
                 } else if (inputId === 'div-symbol-search') {
-                     if (typeof renderDividendsData === 'function') renderDividendsData();
+                     // We don't want to load on every single keystroke, wait for enter
+                     // if (typeof renderDividendsData === 'function') renderDividendsData();
                 }
 
                 const matches = [];
@@ -3266,13 +3496,17 @@
                             // Explicit mapping for known input fields to their respective load functions
                             // This ensures correct data loading when selecting an option from autocomplete
                             if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
-                                loadHistoryData();
+                                // Do not auto-load for Historical Data to prevent UI sluggishness
+                                // input.value remains populated. User must click "Load Data"
                             } else if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
                                 applyMrFilter();
+                                input.value = ''; // Auto clear for mr filter
                             } else if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
                                 fetchMarketActivity();
+                                input.value = ''; // Auto clear for market activity
                             } else if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
-                                loadDividendsData();
+                                loadDividendsData(sym);
+                                input.value = '';
                             } else if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
                                 loadCorporateActions();
                             } else {
@@ -3306,9 +3540,15 @@
                     e.preventDefault();
                 } else if (e.key === 'Enter') {
                     e.preventDefault();
+                    // If no item is explicitly focused, auto-select the first one (auto-prompt)
+                    if (currentFocus === -1 && items.length > 0) {
+                        currentFocus = 0;
+                    }
                     if (currentFocus > -1) {
                         if (items[currentFocus]) {
-                            input.value = items[currentFocus].innerText;
+                            // Extract just the symbol, ignoring the company name span
+                            const symSpan = items[currentFocus].querySelector('span');
+                            input.value = symSpan ? symSpan.innerText.replace(/<[^>]*>?/gm, '') : items[currentFocus].innerText;
                             dropdown.style.display = 'none';
                         }
                     }
@@ -3322,19 +3562,26 @@
                     // Explicit mapping for known input fields to their respective load functions
                     // This guarantees Enter will work, regardless of DOM structure
                     if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
-                        loadHistoryData();
+                        // We do not want to auto-clear the historical data symbol search box or trigger a load immediately upon enter.
+                        // The user complained about the system being too slow because of this auto loading.
+                        // They will press the "Load Data" button explicitly.
+                        // We just update the input value, which is already done above.
                         return;
                     }
                     if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') {
                         applyMrFilter();
+                        input.value = ''; // Auto clear
                         return;
                     }
                     if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') {
                         fetchMarketActivity();
+                        input.value = ''; // Auto clear
                         return;
                     }
                     if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') {
-                        loadDividendsData();
+                        const currentSymbol = input.value;
+                        loadDividendsData(currentSymbol);
+                        input.value = '';
                         return;
                     }
                     if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') {
@@ -3390,10 +3637,12 @@
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (dropdown.style.display !== 'block') {
-                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') loadHistoryData();
-                         if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') loadDividendsData();
-                         if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') applyMrFilter();
-                         if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') fetchMarketActivity();
+                         if (inputId === 'symbol-input' && typeof loadHistoryData === 'function') {
+                            // Do not auto trigger data load on Enter
+                         }
+                         if (inputId === 'div-symbol-search' && typeof loadDividendsData === 'function') { loadDividendsData(input.value); input.value = ''; }
+                         if (inputId === 'mr-symbol-input' && typeof applyMrFilter === 'function') { applyMrFilter(); input.value = ''; }
+                         if (inputId === 'market-activity-symbol' && typeof fetchMarketActivity === 'function') { fetchMarketActivity(); input.value = ''; }
                          if (inputId === 'ca-search-input' && typeof loadCorporateActions === 'function') loadCorporateActions();
                     }
                 }
@@ -3435,6 +3684,17 @@
                 setupAutocomplete('sm-input-symbol');
                 setupAutocomplete('chart-add-input');
             });
+
+            // Bind Enter key specifically for the data-type dropdown in historical view to auto-load
+            const dataTypeSelect = document.getElementById('data-type');
+            if (dataTypeSelect) {
+                dataTypeSelect.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (typeof loadHistoryData === 'function') loadHistoryData();
+                    }
+                });
+            }
 
             // Setup clock
             const dtEl = document.getElementById('global-datetime');
@@ -3613,7 +3873,7 @@ function switchDividendsTab(tabId) {
     currentDivTab = tabId;
 }
 
-async function loadDividendsData() {
+async function loadDividendsData(forcedSymbol = null) {
     const loadBtn = document.querySelector('button[onclick="loadDividendsData()"]');
     if (loadBtn) {
         loadBtn.disabled = true;
@@ -3624,29 +3884,36 @@ async function loadDividendsData() {
         const endDate = new Date().toISOString().split('T')[0];
 
         const searchInput = document.getElementById('div-symbol-search');
-        const symbolQuery = searchInput && searchInput.value.trim() ? `&symbol=${searchInput.value.trim().toUpperCase()}` : '';
+        let symbolVal = forcedSymbol;
+        if (!symbolVal) symbolVal = searchInput ? searchInput.value.trim() : '';
+        const symbolQuery = symbolVal ? `&symbol=${symbolVal.toUpperCase()}` : '';
+
+        const startInput = document.getElementById('div-start-date');
+        const endInput = document.getElementById('div-end-date');
+        const startDate = startInput && startInput.value ? `&start_date=${startInput.value}` : '';
+        const endQueryDate = endInput && endInput.value ? `&end_date=${endInput.value}` : '';
 
         // Do NOT auto-clear symbol search so user can see what they filtered
         // if (searchInput) searchInput.value = '';
 
         document.getElementById('div-actions-table').querySelector('tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
 
-
-        // Increase limit to essentially "fetch all" if no specific symbol is provided to meet "show all scrips at one shot"
-        const limitQuery = symbolQuery ? '&limit=1000' : '&limit=10000';
+        // Set limit to 0 (unlimited) if no date range is provided to fetch all historical data
+        const hasDateRange = startDate || endQueryDate;
+        const limitQuery = hasDateRange ? '&limit=100000' : (symbolVal ? '&limit=0' : '&limit=5000');
 
         const foCheckbox = document.getElementById('div-fo-only-filter');
         const foQuery = foCheckbox && foCheckbox.checked ? '&fo_only=true' : '';
 
         // Fetch dividends
-        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}${foQuery}`);
+        let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}${foQuery}${startDate}${endQueryDate}`);
         let dbActions = await dbActionsRes.json();
 
         // Always trust the database. If it's empty, we legitimately have no data for that symbol.
         let actions = Array.isArray(dbActions) ? dbActions : (dbActions.data || []);
 
         // Fetch board meetings to join
-        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}${foQuery}`);
+        let dbMeetingsRes = await fetch(`/api/data/view/list?type=board_meeting${limitQuery}${symbolQuery}${foQuery}${startDate}${endQueryDate}`);
         let dbMeetings = await dbMeetingsRes.json();
 
         const meetingsArray = Array.isArray(dbMeetings) ? dbMeetings : (dbMeetings.data || []);
@@ -3694,8 +3961,11 @@ function renderDividendsData() {
     if (tbodyActions) {
         tbodyActions.innerHTML = '';
 
-        const typeFilterElem = document.getElementById('div-type-filter');
-        const selectedType = typeFilterElem ? typeFilterElem.value : 'All';
+        const typeCheckboxes = document.querySelectorAll('#div-type-dropdown input[type="checkbox"]:checked');
+        const selectedTypes = Array.from(typeCheckboxes).map(cb => cb.value);
+
+        const monthCheckboxes = document.querySelectorAll('#div-month-dropdown input[type="checkbox"]:checked');
+        const selectedMonths = Array.from(monthCheckboxes).map(cb => parseInt(cb.value));
 
         let filteredActions = divRawData.filter(d => {
             const matchSymbol = !searchFilter ||
@@ -3703,16 +3973,31 @@ function renderDividendsData() {
                 (d.company_name && d.company_name.toUpperCase().includes(searchFilter));
 
             let matchType = true;
-            if (selectedType !== 'All') {
-                const purpose = ((d.subject || '') + ' ' + (d.purpose || '') + ' ' + (d.dividend_type || '')).toLowerCase();
-                if (selectedType === 'Interim' && !purpose.includes('interim')) matchType = false;
-                else if (selectedType === 'Final' && !(purpose.includes('dividend') && !purpose.includes('interim') && !purpose.includes('special'))) matchType = false;
-                else if (selectedType === 'Special' && !purpose.includes('special')) matchType = false;
-                else if (selectedType === 'Bonus' && !purpose.includes('bonus')) matchType = false;
-                else if (selectedType === 'Split' && !(purpose.includes('split') || purpose.includes('sub-division'))) matchType = false;
+            if (selectedTypes.length > 0) {
+                const purpose = ((d.subject || '') + ' ' + (d.purpose || '') + ' ' + (d.dividend_type || '') + ' ' + (d.series || '')).toLowerCase();
+
+                // OR logic for multi-select types
+                let typeMatchedAny = false;
+                if (selectedTypes.includes('Interim') && purpose.includes('interim')) typeMatchedAny = true;
+                if (selectedTypes.includes('Final') && (purpose.includes('dividend') && !purpose.includes('interim') && !purpose.includes('special'))) typeMatchedAny = true;
+                if (selectedTypes.includes('Special') && purpose.includes('special')) typeMatchedAny = true;
+                if (selectedTypes.includes('Bonus') && purpose.includes('bonus')) typeMatchedAny = true;
+                if (selectedTypes.includes('Split') && (purpose.includes('split') || purpose.includes('sub-division'))) typeMatchedAny = true;
+
+                if (!typeMatchedAny) matchType = false;
             }
 
-            return matchSymbol && matchType;
+            let matchMonth = true;
+            if (selectedMonths.length > 0) {
+                if (!d.ex_date) {
+                    matchMonth = false;
+                } else {
+                    const exMonth = new Date(d.ex_date).getMonth() + 1; // getMonth is 0-indexed
+                    if (!selectedMonths.includes(exMonth)) matchMonth = false;
+                }
+            }
+
+            return matchSymbol && matchType && matchMonth;
         });
 
         // Sorting
@@ -3744,19 +4029,8 @@ function renderDividendsData() {
             let bmd = '-';
             let bmPurpose = '-';
 
-            // Format Broadcast Date
+            // Board Meeting and Broadcast Date matching logic
             let bcd = '-';
-            if (d.broadcast_date) {
-                try {
-                    let dt = new Date(d.broadcast_date);
-                    if (!isNaN(dt.getTime())) {
-                        bcd = dt.toISOString().split('T')[0];
-                    }
-                } catch(e) {}
-            }
-            if (bcd === '-' && d.date) {
-                bcd = d.date; // fallback
-            }
 
             if (matchingMeetings.length > 0) {
                 let exDateObj = d.ex_date ? new Date(d.ex_date) : null;
@@ -3767,18 +4041,54 @@ function renderDividendsData() {
                     return dateB - dateA;
                 });
 
+                let matchedMeeting = null;
                 for (let m of matchingMeetings) {
                     if (!exDateObj || (m.meeting_date && new Date(m.meeting_date) <= exDateObj)) {
-                        bmd = m.meeting_date || '-';
-                        bmPurpose = m.purpose || '-';
-                        break;
+                        // Check if the purpose loosely matches the action type
+                        // A board meeting might announce 'Bonus' but another might announce 'Dividend' on the same day.
+                        const meetingPurpose = (m.purpose || '').toLowerCase();
+                        const actionPurpose = (d.purpose || d.subject || '').toLowerCase();
+
+                        let isStrongMatch = false;
+                        if (actionPurpose.includes('bonus') && meetingPurpose.includes('bonus')) isStrongMatch = true;
+                        else if (actionPurpose.includes('split') && (meetingPurpose.includes('split') || meetingPurpose.includes('sub-division'))) isStrongMatch = true;
+                        else if ((actionPurpose.includes('dividend') || actionPurpose.includes('interim')) && meetingPurpose.includes('dividend')) isStrongMatch = true;
+
+                        if (isStrongMatch || !matchedMeeting) {
+                            matchedMeeting = m;
+                            if (isStrongMatch) break; // If it's a strong match, lock it in. Otherwise keep looking for a better one
+                        }
                     }
                 }
 
-                if (bmd === '-') {
-                    bmd = matchingMeetings[0].meeting_date || '-';
-                    bmPurpose = matchingMeetings[0].purpose || '-';
+                if (!matchedMeeting) {
+                    matchedMeeting = matchingMeetings[0];
                 }
+
+                if (matchedMeeting) {
+                    bmd = matchedMeeting.meeting_date || '-';
+                    bmPurpose = matchedMeeting.purpose || '-';
+
+                    let bcdRaw = matchedMeeting.broadcast_date || matchedMeeting.date;
+                    if (bcdRaw) {
+                        try {
+                            let dt = new Date(bcdRaw);
+                            if (!isNaN(dt.getTime())) {
+                                bcd = dt.toISOString().split('T')[0];
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            // final fallback if no meeting was matched
+            if (bcd === '-' && d.broadcast_date) {
+                try {
+                    let dt = new Date(d.broadcast_date);
+                    if (!isNaN(dt.getTime())) {
+                        bcd = dt.toISOString().split('T')[0];
+                    }
+                } catch(e) {}
             }
 
             let fullPurpose = d.subject || d.purpose || '-';
@@ -3789,21 +4099,38 @@ function renderDividendsData() {
                  if (match) faceValue = match[1];
             }
 
-            let amount = d.parsed_dividend_amount != null ? d.parsed_dividend_amount : '-';
+            let amount = d.parsed_dividend_amount != null ? '₹' + parseFloat(d.parsed_dividend_amount).toFixed(2) : '-';
+            if (amount.endsWith('.00')) amount = amount.replace('.00', '');
+
             let divType = d.dividend_type || '-';
+
+            // Re-create the badge styling that was present in the good screenshot
+            let typeBadge = divType;
+            if (divType !== '-') {
+                let lowerType = divType.toLowerCase();
+                let bg = '#555'; // default
+                if (lowerType.includes('interim')) bg = '#FF9800'; // Orange
+                else if (lowerType.includes('final')) bg = '#4CAF50'; // Green
+                else if (lowerType.includes('special')) bg = '#9370DB'; // Subtle Purple
+                else if (lowerType.includes('bonus')) bg = '#E91E63'; // Pink
+                else if (lowerType.includes('split') || lowerType.includes('sub-division')) bg = '#2196F3'; // Blue
+
+                typeBadge = `<span class="badge" style="background:${bg}; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">${divType}</span>`;
+            }
 
             tr.innerHTML = `
                 <td>${bcd}</td>
                 <td>${bmd}</td>
-                <td>${bmPurpose}</td>
+                <td style="white-space:normal; max-width:200px;">${bmPurpose}</td>
                 <td>${d.ex_date || '-'}</td>
-                <td>${series}</td>
-                <td>${amount}</td>
-                <td>${divType}</td>
+                <td><strong style="color: #4da6ff;">${series}</strong></td>
+                <td style="color: #4CAF50;">${amount}</td>
+                <td>${typeBadge}</td>
                 <td>${faceValue}</td>
-                <td>${fullPurpose}</td>
+                <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
                 <td>${d.record_date || '-'}</td>
             `;
+
             tbodyActions.appendChild(tr);
         });
     }
@@ -3811,41 +4138,57 @@ function renderDividendsData() {
 }
 
 function downloadDividendsCSV() {
-    let dataToExport = currentDivTab === 'actions' ? divRawData : divMeetingsData;
-    let filename = currentDivTab === 'actions' ? 'dividend_history.csv' : 'board_meetings.csv';
-
-    const searchInput = document.getElementById('div-symbol-search');
-    const searchFilter = searchInput ? searchInput.value.toUpperCase() : '';
-
-    if (searchFilter) {
-        dataToExport = dataToExport.filter(d => d.symbol && d.symbol.toUpperCase().includes(searchFilter));
-        filename = `${searchFilter}_${filename}`;
-    }
-
-    if (!dataToExport || dataToExport.length === 0) {
-        alert("No data available to export.");
+    const table = document.getElementById('div-actions-table');
+    if (!table) {
+        alert("No table found to export.");
         return;
     }
 
-    const keys = Object.keys(dataToExport[0]);
-    const csvRows = [];
-    csvRows.push(keys.join(','));
+    const searchInput = document.getElementById('div-symbol-search');
+    const searchFilter = searchInput ? searchInput.value.toUpperCase() : '';
+    let filename = searchFilter ? `${searchFilter}_dividend_history.csv` : 'dividend_history.csv';
 
-    for (const row of dataToExport) {
-        const values = keys.map(k => {
-            let val = row[k] === null || row[k] === undefined ? '' : row[k];
-            if (typeof val === 'string') {
+    const csvRows = [];
+    const headers = [];
+
+    // Extract headers
+    const theadRow = table.querySelector('thead tr');
+    if (theadRow) {
+        theadRow.querySelectorAll('th').forEach(th => {
+            let text = th.innerText.trim();
+            // Remove sort arrows if they exist
+            text = text.replace(/▼|▲/g, '').trim();
+            headers.push(text);
+        });
+        csvRows.push(headers.join(','));
+    }
+
+    // Extract rows from tbody
+    const tbodyRows = table.querySelectorAll('tbody tr');
+    if (!tbodyRows || tbodyRows.length === 0 || tbodyRows[0].innerText.includes('No data')) {
+         alert("No data available to export.");
+         return;
+    }
+
+    tbodyRows.forEach(tr => {
+        const values = [];
+        tr.querySelectorAll('td').forEach(td => {
+            // Get plain text to ignore HTML badges or styling
+            let val = td.innerText.trim();
+            if (val) {
+                // Escape quotes
                 val = val.replace(/"/g, '""');
+                // Quote field if it contains comma, newline, or quotes
                 if (val.search(/("|,|\n)/g) >= 0) {
                     val = `"${val}"`;
                 }
             }
-            return val;
+            values.push(val);
         });
         csvRows.push(values.join(','));
-    }
+    });
 
-    const csvData = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const csvData = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const csvUrl = URL.createObjectURL(csvData);
     const hiddenElement = document.createElement('a');
     hiddenElement.href = csvUrl;
@@ -3854,12 +4197,19 @@ function downloadDividendsCSV() {
     hiddenElement.click();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById('div-symbol-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', renderDividendsData);
+function toggleDropdown(id) {
+    document.querySelectorAll('.custom-dropdown').forEach(el => {
+        if (el.id !== id) el.classList.remove('open');
+    });
+    document.getElementById(id).classList.toggle('open');
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-dropdown')) {
+        document.querySelectorAll('.custom-dropdown').forEach(el => el.classList.remove('open'));
     }
 });
+
 </script>
 </body>
 
@@ -3909,7 +4259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     datasets: [
                         { label: 'FII Net Long', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
                         { label: 'PRO Net Long', data: data.pro_net_long, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', data: data.client_net_long, borderColor: '#4bc0c0', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
+                        { label: 'Client Net Long', data: data.client_net_long, borderColor: '#60a5fa', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
                     ]
                 },
                 options: {
@@ -3971,6 +4321,564 @@ document.addEventListener('DOMContentLoaded', () => {
             container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
         } finally {
             echartInstance?.hideLoading();
+        }
+    }
+
+    async function loadMWPLAnalysis() {
+        const thead = document.querySelector('#mwpl-analysis-table thead');
+        const tbody = document.getElementById('mwpl-analysis-body');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        try {
+            const res = await fetch('/api/data/derivatives/mwpl_historical');
+            const result = await res.json();
+            const data = result.data;
+
+            tbody.innerHTML = '';
+
+            // Clean up old dynamically created tbodies if user refreshes
+            document.querySelectorAll('#mwpl-analysis-table tbody').forEach(tb => {
+                if (tb.id !== 'mwpl-analysis-body') {
+                    tb.remove();
+                }
+            });
+
+            if (Object.keys(data).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No historical MWPL data found.</td></tr>';
+                return;
+            }
+
+            // Figure out all distinct client names from mwpl_array to build the dynamic headers
+            const clientKeys = new Set();
+            Object.keys(data).forEach(sym => {
+                data[sym].forEach(r => {
+                    if (r.mwpl_array && Array.isArray(r.mwpl_array)) {
+                        r.mwpl_array.forEach(item => {
+                            Object.keys(item).forEach(k => clientKeys.add(k));
+                        });
+                    }
+                });
+            });
+            // Sort client names numerically by extracting the number suffix
+            const clientNames = Array.from(clientKeys).sort((a, b) => {
+                const numA = parseInt(a.replace(/[^0-9]/g, '')) || 0;
+                const numB = parseInt(b.replace(/[^0-9]/g, '')) || 0;
+                return numA - numB;
+            });
+
+            // Rebuild table header
+            let headerHTML = `
+                <tr>
+                    <th style="padding: 8px;">Symbol</th>
+                    <th style="padding: 8px;">Date</th>
+                    <th style="padding: 8px;">EQ Close</th>
+                    <th style="padding: 8px;">% Chg (EQ)</th>
+                    <th style="padding: 8px;">Fut1 Close</th>
+                    <th style="padding: 8px;">Total %</th>
+                    <th style="padding: 8px;">% Chg (Total %)</th>
+                    <th style="padding: 8px;">MWPL %</th>
+            `;
+            clientNames.forEach(c => {
+                headerHTML += `<th style="padding: 8px;">${c} %</th>`;
+            });
+            headerHTML += `</tr>`;
+            thead.innerHTML = headerHTML;
+            const totalCols = 6 + clientNames.length;
+
+            // Generate an array of objects to allow sorting by "Total %"
+            const tableRowsData = [];
+
+            Object.keys(data).forEach(sym => {
+                const rows = data[sym];
+                if (rows.length === 0) return;
+
+                const latest = rows[0];
+
+                // Calculate total of client MWPLs
+                let calculatedTotal = 0;
+                if (latest.mwpl_array && Array.isArray(latest.mwpl_array)) {
+                    latest.mwpl_array.forEach(item => {
+                        const val = parseFloat(Object.values(item)[0]) || 0;
+                        calculatedTotal += val;
+                    });
+                }
+
+                tableRowsData.push({
+                    sym,
+                    rows,
+                    latest,
+                    total: calculatedTotal
+                });
+            });
+
+            // Sort by Total % descending
+            tableRowsData.sort((a, b) => b.total - a.total);
+
+            // Generate rows grouped by symbol
+            tableRowsData.forEach(itemData => {
+                const { sym, rows, latest, total } = itemData;
+
+                // Latest data for summary row
+                const isHigh = parseFloat(latest.mwpl) > 20;
+                const mwplColor = isHigh ? '#ff4d4d' : '#4ade80';
+
+                // Generate unique ID for the sub-rows block
+                const blockId = `mwpl-block-${sym}`;
+
+                // Create a dedicated tbody for this symbol to keep main and history rows together
+                const symbolTbody = document.createElement('tbody');
+
+                // Main Symbol Row
+                const mainTr = document.createElement('tr');
+                mainTr.style.cursor = 'pointer';
+                mainTr.style.borderTop = '1px solid #444';
+                mainTr.onclick = () => {
+                    const block = document.getElementById(blockId);
+                    if (block.style.display === 'none') {
+                        block.style.display = 'table-row-group';
+                        mainTr.querySelector('.expand-icon').innerText = '▼';
+                    } else {
+                        block.style.display = 'none';
+                        mainTr.querySelector('.expand-icon').innerText = '▶';
+                    }
+                };
+
+                let mainClientTds = '';
+                clientNames.forEach(c => {
+                    let cVal = '-';
+                    if (latest.mwpl_array) {
+                        const found = latest.mwpl_array.find(item => Object.keys(item)[0] === c);
+                        if (found) cVal = Object.values(found)[0].toFixed(2) + '%';
+                    }
+                    mainClientTds += `<td style="color: #aaa;">${cVal}</td>`;
+                });
+
+
+                // Compare with previous day to determine color
+                let eqColor = '#ddd';
+                let eqChgColor = '#aaa';
+                let futColor = '#ddd';
+                let totalColor = '#60a5fa'; // default
+                let totalChgColor = '#aaa';
+                let mwplColor = parseFloat(latest.mwpl) > 20 ? '#ff4d4d' : '#ccc';
+                let eqArrow = '';
+                let eqChgStr = '-';
+                let futArrow = '';
+                let totalArrow = '';
+                let totalChgStr = '-';
+
+                if (rows.length > 1) {
+                    const prev = rows[1]; // Since rows are sorted descending by date
+
+                    if (prev.eq_close !== 0) {
+                        const pctChg = ((latest.eq_close - prev.eq_close) / Math.abs(prev.eq_close)) * 100;
+                        eqChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
+                        if (pctChg > 0) eqChgColor = '#4ade80';
+                        else if (pctChg < 0) eqChgColor = '#ff4d4d';
+                    } else if (latest.eq_close > 0) {
+                        eqChgStr = '+100.00%';
+                        eqChgColor = '#4ade80';
+                    }
+
+                    if (latest.eq_close > prev.eq_close) { eqColor = '#60a5fa'; eqArrow = '▲'; }
+                    else if (latest.eq_close < prev.eq_close) { eqColor = '#ff4d4d'; eqArrow = '▼'; }
+
+                    if (latest.fut1_close > prev.fut1_close) { futColor = '#60a5fa'; futArrow = '▲'; }
+                    else if (latest.fut1_close < prev.fut1_close) { futColor = '#ff4d4d'; futArrow = '▼'; }
+
+                    let prevTotal = 0;
+                    if (prev.mwpl_array && Array.isArray(prev.mwpl_array)) {
+                        prev.mwpl_array.forEach(item => {
+                            prevTotal += parseFloat(Object.values(item)[0]) || 0;
+                        });
+                    }
+
+                    if (prevTotal !== 0) {
+                        const pctChg = ((total - prevTotal) / Math.abs(prevTotal)) * 100;
+                        totalChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
+                        if (pctChg > 0) totalChgColor = '#4ade80';
+                        else if (pctChg < 0) totalChgColor = '#ff4d4d';
+                    } else if (total > 0) {
+                        totalChgStr = '+100.00%';
+                        totalChgColor = '#4ade80';
+                    }
+
+                    if (total > prevTotal) { totalColor = '#60a5fa'; totalArrow = '▲'; }
+                    else if (total < prevTotal) { totalColor = '#ff4d4d'; totalArrow = '▼'; }
+                }
+
+                mainTr.innerHTML = `
+                    <td style="font-weight: bold;"><span class="expand-icon" style="display:inline-block; width:20px; color:#888;">▶</span>${sym}</td>
+                    <td>${latest.date} <span style="font-size: 10px; color: #888;">(Latest)</span></td>
+                    <td style="color: ${eqColor};">${latest.eq_close.toFixed(2)} <span style="font-size:0.8em">${eqArrow}</span></td>
+                    <td style="color: ${eqChgColor}; font-weight: bold;">${eqChgStr}</td>
+                    <td style="color: ${futColor};">${latest.fut1_close.toFixed(2)} <span style="font-size:0.8em">${futArrow}</span></td>
+                    <td style="color: ${totalColor}; font-weight: bold;">${total.toFixed(2)}% <span style="font-size:0.8em">${totalArrow}</span></td>
+                    <td style="color: ${totalChgColor}; font-weight: bold;">${totalChgStr}</td>
+                    <td style="color: ${mwplColor}; font-weight: bold;">${parseFloat(latest.mwpl).toFixed(2)}%</td>
+                    ${mainClientTds}
+                `;
+                symbolTbody.appendChild(mainTr);
+
+                // History Rows Block
+                const tbodyBlock = document.createElement('tbody');
+                tbodyBlock.id = blockId;
+                tbodyBlock.style.display = 'none';
+
+                rows.forEach((r, idx) => {
+                    if (idx === 0) return; // skip latest since it's above
+
+                    const historyTr = document.createElement('tr');
+                    historyTr.style.backgroundColor = '#1a1a1a';
+                    const hColor = parseFloat(r.mwpl) > 20 ? '#ff4d4d' : '#ccc';
+
+                    let rowTotal = 0;
+                    if (r.mwpl_array && Array.isArray(r.mwpl_array)) {
+                        r.mwpl_array.forEach(item => {
+                            const val = parseFloat(Object.values(item)[0]) || 0;
+                            rowTotal += val;
+                        });
+                    }
+
+                    let clientTds = '';
+                    clientNames.forEach(c => {
+                        let cVal = '-';
+                        if (r.mwpl_array) {
+                            const found = r.mwpl_array.find(item => Object.keys(item)[0] === c);
+                            if (found) cVal = Object.values(found)[0].toFixed(2) + '%';
+                        }
+                        clientTds += `<td style="color: #aaa;">${cVal}</td>`;
+                    });
+
+
+                    let histEqColor = '#ddd';
+                    let histEqChgColor = '#aaa';
+                    let histFutColor = '#ddd';
+                    let histTotalColor = '#7dd3fc';
+                    let histTotalChgColor = '#aaa';
+                    let histEqArrow = '';
+                    let histEqChgStr = '-';
+                    let histFutArrow = '';
+                    let histTotalArrow = '';
+                    let histTotalChgStr = '-';
+
+                    if (idx < rows.length - 1) {
+                        const histPrev = rows[idx + 1];
+
+                        if (histPrev.eq_close !== 0) {
+                            const pctChg = ((r.eq_close - histPrev.eq_close) / Math.abs(histPrev.eq_close)) * 100;
+                            histEqChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
+                            if (pctChg > 0) histEqChgColor = '#4ade80';
+                            else if (pctChg < 0) histEqChgColor = '#ff4d4d';
+                        } else if (r.eq_close > 0) {
+                            histEqChgStr = '+100.00%';
+                            histEqChgColor = '#4ade80';
+                        }
+
+                        if (r.eq_close > histPrev.eq_close) { histEqColor = '#60a5fa'; histEqArrow = '▲'; }
+                        else if (r.eq_close < histPrev.eq_close) { histEqColor = '#ff4d4d'; histEqArrow = '▼'; }
+
+                        if (r.fut1_close > histPrev.fut1_close) { histFutColor = '#60a5fa'; histFutArrow = '▲'; }
+                        else if (r.fut1_close < histPrev.fut1_close) { histFutColor = '#ff4d4d'; histFutArrow = '▼'; }
+
+                        let histPrevTotal = 0;
+                        if (histPrev.mwpl_array && Array.isArray(histPrev.mwpl_array)) {
+                            histPrev.mwpl_array.forEach(item => {
+                                histPrevTotal += parseFloat(Object.values(item)[0]) || 0;
+                            });
+                        }
+
+                        if (histPrevTotal !== 0) {
+                            const pctChg = ((rowTotal - histPrevTotal) / Math.abs(histPrevTotal)) * 100;
+                            histTotalChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
+                            if (pctChg > 0) histTotalChgColor = '#4ade80';
+                            else if (pctChg < 0) histTotalChgColor = '#ff4d4d';
+                        } else if (rowTotal > 0) {
+                            histTotalChgStr = '+100.00%';
+                            histTotalChgColor = '#4ade80';
+                        }
+
+                        if (rowTotal > histPrevTotal) { histTotalColor = '#60a5fa'; histTotalArrow = '▲'; }
+                        else if (rowTotal < histPrevTotal) { histTotalColor = '#ff4d4d'; histTotalArrow = '▼'; }
+                    }
+
+                    historyTr.innerHTML = `
+                        <td style="padding-left: 30px; color: #bbb;">└ ${r.date}</td>
+                        <td style="color: #ddd;">${r.date}</td>
+                        <td style="color: ${histEqColor};">${r.eq_close.toFixed(2)} <span style="font-size:0.8em">${histEqArrow}</span></td>
+                        <td style="color: ${histEqChgColor};">${histEqChgStr}</td>
+                        <td style="color: ${histFutColor};">${r.fut1_close.toFixed(2)} <span style="font-size:0.8em">${histFutArrow}</span></td>
+                        <td style="color: ${histTotalColor};">${rowTotal.toFixed(2)}% <span style="font-size:0.8em">${histTotalArrow}</span></td>
+                        <td style="color: ${histTotalChgColor};">${histTotalChgStr}</td>
+                        <td style="color: ${hColor};">${parseFloat(r.mwpl).toFixed(2)}%</td>
+                        ${clientTds}
+                    `;
+                    tbodyBlock.appendChild(historyTr);
+                });
+
+                // Append the main row's tbody, then the history block's tbody immediately after
+                tbody.parentElement.appendChild(symbolTbody);
+                tbody.parentElement.appendChild(tbodyBlock);
+            });
+
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+        }
+    }
+
+    let marketWatchCustomSymbols = []; // array to store manually added custom symbols
+
+    async function addCustomMarketWatchSymbol() {
+        const input = document.getElementById('mw-custom-symbol');
+        if (!input) return;
+        const sym = input.value.trim().toUpperCase();
+        if (sym && !marketWatchCustomSymbols.includes(sym)) {
+            marketWatchCustomSymbols.push(sym);
+            input.value = '';
+            // Reload the grid immediately with the new custom array
+            await loadMarketWatch();
+        }
+    }
+
+    async function loadMarketWatch() {
+        const tbody = document.getElementById('marketwatch-body');
+        // The user explicitly requested to remove the date input requirement for marketwatch.
+        // It will automatically pull the latest F&O data.
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        try {
+            const url = marketWatchCustomSymbols.length > 0 ?
+                        `/api/data/derivatives/marketwatch?custom_symbols=${marketWatchCustomSymbols.join(',')}` :
+                        '/api/data/derivatives/marketwatch';
+
+            const res = await fetch(url);
+            const result = await res.json();
+            const data = result.data || {};
+
+            tbody.innerHTML = '';
+
+            if (Object.keys(data).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No Market Watch data found.</td></tr>';
+                return;
+            }
+
+            const reportDate = result.date || '-';
+
+            Object.keys(data).sort().forEach(sym => {
+                const item = data[sym];
+                const eq = item.eq;
+                const futs = item.futures;
+
+                // --- EQ Row ---
+                const eqTr = document.createElement('tr');
+                eqTr.setAttribute('data-symbol', sym);
+                eqTr.style.borderTop = '2px solid #444';
+                eqTr.style.backgroundColor = '#1a1a1a';
+
+                // Calculate EQ change using pct_change from API
+                const eqPct = (eq.pct_change != null && !isNaN(eq.pct_change)) ? eq.pct_change : 0;
+                const eqChangeStr = eqPct !== 0 ? `${eqPct > 0 ? '+' : ''}${eqPct.toFixed(2)}%` : '-';
+                const eqChangeColor = eqPct > 0 ? '#4ade80' : (eqPct < 0 ? '#ff4d4d' : '#ccc');
+
+                eqTr.innerHTML = `
+                    <td style="font-weight: bold; color: #4da6ff;">${sym} EQ</td>
+                    <td style="color: #aaa;">${reportDate}</td>
+                    <td style="font-weight: bold;">${eq.price != null && !isNaN(eq.price) && eq.price > 0 ? eq.price.toFixed(2) : '-'}</td>
+                    <td style="color: ${eqChangeColor}; font-weight: bold;">${eqChangeStr}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td style="color: #ccc;">${eq.vol > 0 ? (eq.vol).toLocaleString() : '-'}</td>
+                    <td style="color: #ccc;">${eq.atp > 0 ? eq.atp.toFixed(2) : '-'}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td style="color: #FF9800; font-size: 11px;">${eq.ca || ''}</td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${sym}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">AI Analyze</button>
+                    </td>
+                `;
+                tbody.appendChild(eqTr);
+
+                // --- FUT Rows ---
+                futs.forEach((f, idx) => {
+                    const futTr = document.createElement('tr');
+
+                    const oiColor = f.chg_oi > 0 ? '#4ade80' : (f.chg_oi < 0 ? '#ff4d4d' : '#ccc');
+                    const oiSign = f.chg_oi > 0 ? '+' : '';
+
+                    // Simple % change calculation from price/atp? We don't have prev close, using a placeholder for % Change
+                    const futChangeStr = '-';
+
+                    const yld = (f.yield != null && !isNaN(f.yield)) ? f.yield : 0;
+                    const yieldColor = yld > 0 ? '#4ade80' : (yld < 0 ? '#ff4d4d' : '#ccc');
+                    const bpsVal = (f.bps != null && !isNaN(f.bps)) ? f.bps : 0;
+                    const priceVal = (f.price != null && !isNaN(f.price)) ? f.price : 0;
+
+                    futTr.innerHTML = `
+                        <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #aaa;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
+                        <td style="color: #aaa;">${reportDate}</td>
+                        <td>${priceVal.toFixed(2)}</td>
+                        <td>${futChangeStr}</td>
+                        <td style="color: #e6a23c;">${bpsVal.toFixed(2)}</td>
+                        <td style="color: ${yieldColor};">${yld.toFixed(2)}%</td>
+                        <td style="color: #ccc;">${(f.vol).toLocaleString()}</td>
+                        <td style="color: #ccc;">-</td>
+                        <td style="color: #ccc;">${(f.oi).toLocaleString()}</td>
+                        <td style="color: ${oiColor};">${oiSign}${(f.chg_oi).toLocaleString()}</td>
+                        <td style="color: #aaa;">${f.dte}</td>
+                        <td></td>
+                        <td>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="openOptionChain('${sym}')">Opt Chain</button>
+                        </td>
+                    `;
+                    tbody.appendChild(futTr);
+                });
+            });
+
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+        }
+    }
+
+    function openOptionChain(sym) {
+        switchMwTab('options');
+        document.getElementById('opt-symbol-input').value = sym;
+        loadOptionChain();
+    }
+
+    let optionChainTimeout = null;
+    function optFilterSymbols(val) {
+        const dropdown = document.getElementById('opt-symbol-dropdown');
+        if (!val) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        dropdown.innerHTML = '';
+        const matches = allGlobalSymbols.filter(s => s.symbol.includes(val.toUpperCase()) || s.name.toUpperCase().includes(val.toUpperCase())).slice(0, 15);
+        if (matches.length > 0) {
+            dropdown.style.display = 'block';
+            matches.forEach(item => {
+                const div = document.createElement('div');
+                div.innerHTML = `<strong>${item.symbol}</strong> - <span style="font-size: 11px; color: #888;">${item.name}</span>`;
+                div.onclick = function() {
+                    document.getElementById('opt-symbol-input').value = item.symbol;
+                    dropdown.style.display = 'none';
+                    loadOptionChain();
+                };
+                dropdown.appendChild(div);
+            });
+        } else {
+            dropdown.style.display = 'none';
+        }
+    }
+
+    // Hide dropdown on click outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#opt-symbol-input') && !e.target.closest('#opt-symbol-dropdown')) {
+            const dropdown = document.getElementById('opt-symbol-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        }
+    });
+
+    async function loadOptionChain() {
+        const sym = document.getElementById('opt-symbol-input').value.toUpperCase();
+        if (!sym) return;
+
+        const expirySelect = document.getElementById('opt-expiry-select');
+        const selectedExpiry = expirySelect.value;
+        const tbody = document.getElementById('option-chain-body');
+
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        try {
+            let url = `/api/data/derivatives/option_chain?symbol=${sym}`;
+            if (selectedExpiry) url += `&expiry=${selectedExpiry}`;
+
+            const res = await fetch(url);
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                if (!res.ok) throw new Error(await res.text());
+                throw new Error("Invalid JSON response from server.");
+            }
+
+            if (!res.ok) {
+                const errMsg = data.detail || await res.text();
+                throw new Error(errMsg);
+            }
+
+            // Populate expiries dropdown if empty or different symbol
+            if (data && data.expiries && data.expiries.length > 0) {
+                expirySelect.style.display = 'block';
+                // Only rebuild dropdown if we don't have this list already to preserve user selection
+                const currentExpiries = Array.from(expirySelect.options).map(o => o.value);
+                if (currentExpiries.join(',') !== data.expiries.join(',')) {
+                    expirySelect.innerHTML = '';
+                    data.expiries.forEach(exp => {
+                        const opt = document.createElement('option');
+                        opt.value = exp;
+                        opt.innerText = exp;
+                        if (exp === data.selected_expiry) opt.selected = true;
+                        expirySelect.appendChild(opt);
+                    });
+                }
+            } else {
+                expirySelect.style.display = 'none';
+            }
+
+            document.getElementById('opt-spot-price').innerText = `Spot: ${data.spot_price > 0 ? data.spot_price.toFixed(2) : 'N/A'}`;
+
+            tbody.innerHTML = '';
+            if (!data.data || data.data.length === 0) {
+                 tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No Option Chain data found for this symbol.</td></tr>';
+                 return;
+            }
+
+            // Render chain
+            data.data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #333';
+
+                // ATM Highlighting Logic
+                let isATM = false;
+                if (data.spot_price > 0) {
+                    const diff = Math.abs(row.strike - data.spot_price);
+                    // Approximate check to see if it's the closest strike. In a real scenario we'd find the min diff globally first.
+                    // For UI purposes, we'll just check if it's within 0.5%
+                    isATM = (diff / data.spot_price) < 0.005;
+                }
+                const bgStyle = isATM ? 'background-color: #333;' : '';
+
+                const c = row.CE;
+                const p = row.PE;
+
+                // Formatting helpers
+                const fmt = (v) => v ? v.toFixed(2) : '-';
+                const fmtVol = (v) => v ? v.toFixed(2) + '%' : '-';
+
+                tr.innerHTML = `
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.vega)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.theta)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.gamma)}</td>
+                    <td style="color: #4ade80; ${bgStyle}">${fmt(c.delta)}</td>
+                    <td style="color: #e6a23c; ${bgStyle}">${fmtVol(c.iv)}</td>
+                    <td style="font-weight: bold; color: #fff; border-right: 2px solid #555; ${bgStyle}">${c.price > 0 ? c.price.toFixed(2) : '-'}</td>
+
+                    <td style="font-weight: bold; background: ${isATM ? '#444' : '#2a2a2a'}; color: #ffcc00; font-size: 14px;">${row.strike}</td>
+
+                    <td style="font-weight: bold; color: #fff; border-left: 2px solid #555; ${bgStyle}">${p.price > 0 ? p.price.toFixed(2) : '-'}</td>
+                    <td style="color: #e6a23c; ${bgStyle}">${fmtVol(p.iv)}</td>
+                    <td style="color: #ff4d4d; ${bgStyle}">${fmt(p.delta)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.gamma)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.theta)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.vega)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error loading chain: ${e.message}</td></tr>`;
         }
     }
 

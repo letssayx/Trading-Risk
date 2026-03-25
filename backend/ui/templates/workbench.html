@@ -4420,7 +4420,7 @@ document.addEventListener('click', (e) => {
 
                 // Latest data for summary row
                 const isHigh = parseFloat(latest.mwpl) > 20;
-                const color = isHigh ? '#ff4d4d' : '#4ade80';
+                const mwplColor = isHigh ? '#ff4d4d' : '#4ade80';
 
                 // Generate unique ID for the sub-rows block
                 const blockId = `mwpl-block-${sym}`;
@@ -4460,7 +4460,7 @@ document.addEventListener('click', (e) => {
                 let futColor = '#ddd';
                 let totalColor = '#60a5fa'; // default
                 let totalChgColor = '#aaa';
-                let mwplColor = color;
+                let mwplColor = parseFloat(latest.mwpl) > 20 ? '#ff4d4d' : '#ccc';
                 let eqArrow = '';
                 let eqChgStr = '-';
                 let futArrow = '';
@@ -4515,7 +4515,7 @@ document.addEventListener('click', (e) => {
                     <td style="color: ${futColor};">${latest.fut1_close.toFixed(2)} <span style="font-size:0.8em">${futArrow}</span></td>
                     <td style="color: ${totalColor}; font-weight: bold;">${total.toFixed(2)}% <span style="font-size:0.8em">${totalArrow}</span></td>
                     <td style="color: ${totalChgColor}; font-weight: bold;">${totalChgStr}</td>
-                    <td style="color: ${mwplColor}; font-weight: bold;">${latest.mwpl}%</td>
+                    <td style="color: ${mwplColor}; font-weight: bold;">${parseFloat(latest.mwpl).toFixed(2)}%</td>
                     ${mainClientTds}
                 `;
                 symbolTbody.appendChild(mainTr);
@@ -4532,13 +4532,7 @@ document.addEventListener('click', (e) => {
                     historyTr.style.backgroundColor = '#1a1a1a';
                     const hColor = parseFloat(r.mwpl) > 20 ? '#ff4d4d' : '#ccc';
 
-                    let rowTotal = 0;
-                    if (r.mwpl_array && Array.isArray(r.mwpl_array)) {
-                        r.mwpl_array.forEach(item => {
-                            const val = parseFloat(Object.values(item)[0]) || 0;
-                            rowTotal += val;
-                        });
-                    }
+                    let rowTotal = parseFloat(r.mwpl) || 0;
 
                     let clientTds = '';
                     clientNames.forEach(c => {
@@ -4582,10 +4576,8 @@ document.addEventListener('click', (e) => {
                         else if (r.fut1_close < histPrev.fut1_close) { histFutColor = '#ff4d4d'; histFutArrow = '▼'; }
 
                         let histPrevTotal = 0;
-                        if (histPrev.mwpl_array && Array.isArray(histPrev.mwpl_array)) {
-                            histPrev.mwpl_array.forEach(item => {
-                                histPrevTotal += parseFloat(Object.values(item)[0]) || 0;
-                            });
+                        if (histPrev.mwpl !== null) {
+                            histPrevTotal = parseFloat(histPrev.mwpl) || 0;
                         }
 
                         if (histPrevTotal !== 0) {
@@ -4610,7 +4602,7 @@ document.addEventListener('click', (e) => {
                         <td style="color: ${histFutColor};">${r.fut1_close.toFixed(2)} <span style="font-size:0.8em">${histFutArrow}</span></td>
                         <td style="color: ${histTotalColor};">${rowTotal.toFixed(2)}% <span style="font-size:0.8em">${histTotalArrow}</span></td>
                         <td style="color: ${histTotalChgColor};">${histTotalChgStr}</td>
-                        <td style="color: ${hColor};">${r.mwpl}%</td>
+                        <td style="color: ${hColor};">${parseFloat(r.mwpl).toFixed(2)}%</td>
                         ${clientTds}
                     `;
                     tbodyBlock.appendChild(historyTr);

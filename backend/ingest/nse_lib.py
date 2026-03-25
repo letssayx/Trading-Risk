@@ -718,6 +718,59 @@ class NSELib:
             except ValueError:
                 pass
 
+            # Simulate Arihant 'Go' button postback to fetch DII
+            data = {}
+            for inp in soup.find_all("input"):
+                if inp.has_attr("name") and inp.has_attr("value"):
+                    data[inp["name"]] = inp["value"]
+                elif inp.has_attr("name"):
+                    data[inp["name"]] = ""
+
+            data["ctl00$ScriptManager1"] = "ctl00$ContentPlaceHolder1$UpdatePanelBigSch|ctl00$ContentPlaceHolder1$btnGo"
+            data["ctl00$ContentPlaceHolder1$ddlSubCategory"] = "DII"
+            data["ctl00$ContentPlaceHolder1$btnGo"] = "Go"
+            data["__EVENTTARGET"] = ""
+            data["__EVENTARGUMENT"] = ""
+            data["__ASYNCPOST"] = "true"
+
+            headers.update({
+                "X-MicrosoftAjax": "Delta=true",
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+            })
+
+            try:
+                session = requests.Session()
+                post_resp = session.post(url, headers=headers, data=data, timeout=10)
+                parts = post_resp.text.split('|')
+
+                for i, part in enumerate(parts):
+                    if len(part) > 200 and ("<table" in part.lower() or "tbody" in part.lower()):
+                        start_idx = part.find("<table")
+                        if start_idx != -1:
+                            html_content = part[start_idx:]
+                            df = pd.read_html(StringIO(html_content), flavor='bs4')[0]
+
+                            for _, row in df.iterrows():
+                                row_date_str = str(row.iloc[0]).strip()
+                                try:
+                                    parsed_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
+                                    if parsed_date == trade_date:
+                                        records.append({
+                                            'trade_date': parsed_date,
+                                            'category': 'DII',
+                                            'buy_value': float(str(row.iloc[1]).replace(',', '')),
+                                            'sell_value': float(str(row.iloc[2]).replace(',', '')),
+                                            'net_value': float(str(row.iloc[3]).replace(',', ''))
+                                        })
+                                        break
+                                except Exception:
+                                    continue
+                        break
+            except Exception as e:
+                logger.error(f"Failed to fetch DII Arihant data via postback: {e}")
+
+
             # Parse DII (Table 1)
             try:
                 dii_df = pd.read_html(StringIO(str(tables[1])), flavor='bs4')[0]

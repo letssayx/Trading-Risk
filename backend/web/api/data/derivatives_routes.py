@@ -30,7 +30,8 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         MWPLClientPosition.date,
         MWPLClientPosition.underlying_stock,
         MWPLClientPosition.client_position_num,
-        MWPLClientPosition.position_pct
+        MWPLClientPosition.position_pct,
+        MWPLClientPosition.mwpl_pct
     ).filter(
         MWPLClientPosition.date.in_(dates)
     ).all()
@@ -80,7 +81,8 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         key = (r.date, r.underlying_stock)
         if key not in grouped_mwpl:
             grouped_mwpl[key] = []
-        grouped_mwpl[key].append({"client": r.client_position_num, "pct": float(r.position_pct) if r.position_pct else 0.0})
+        mwpl_pct = float(r.mwpl_pct) if hasattr(r, 'mwpl_pct') and r.mwpl_pct else 0.0
+        grouped_mwpl[key].append({"client": r.client_position_num, "pct": float(r.position_pct) if r.position_pct else 0.0, "mwpl_pct": mwpl_pct})
 
     for (trade_date, symbol), clients in grouped_mwpl.items():
         if symbol not in result:
@@ -95,8 +97,8 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
         for idx, client in enumerate(clients):
             val = client["pct"]
             parsed_arr.append({f"Client {idx+1}": val})
-            if val > mwpl_val:
-                mwpl_val = val
+            if client.get("mwpl_pct", 0.0) > mwpl_val:
+                mwpl_val = client.get("mwpl_pct", 0.0)
 
         if parsed_arr:
             result[symbol].append({
