@@ -27,3 +27,5 @@ uvicorn
 weasyprint
 xlrd
 yfinance
+html5lib
+beautifulsoup4

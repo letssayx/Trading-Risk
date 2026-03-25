@@ -677,11 +677,9 @@
                                         }
                                     });
                                     if (maxMwpl > 0) {
-                                        mwpl = maxMwpl.toFixed(2);
+                                        mwpl = (row.mwpl != null && !isNaN(parseFloat(row.mwpl))) ? parseFloat(row.mwpl).toFixed(2) : maxMwpl.toFixed(2);
                                     } else {
-                                        // fallback if structure was different
-                                        const firstKey = Object.keys(row.mwpl_array[0])[0];
-                                        if (firstKey) mwpl = parseFloat(row.mwpl_array[0][firstKey]).toFixed(2);
+                                        mwpl = (row.mwpl != null && !isNaN(parseFloat(row.mwpl))) ? parseFloat(row.mwpl).toFixed(2) : '0.00';
                                     }
                                 } catch (e) {
                                     mwpl = '0.00';

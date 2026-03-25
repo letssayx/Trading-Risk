@@ -93,12 +93,7 @@ class MorningReportGenerator:
                     <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
                     <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
                     <td>
-                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
-                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
-                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
-                        {% else %}
-                            0.0%
-                        {% endif %}
+                        {% if row.mwpl %}{{ "%.1f"|format(row.mwpl) }}%{% else %}0.0%{% endif %}
                     </td>
                     <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
                     <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
@@ -160,12 +155,7 @@ class MorningReportGenerator:
                     <td>{{ "%.2f"|format(row.atm_straddle_near_month or 0) }}</td>
                     <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
                     <td>
-                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
-                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
-                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
-                        {% else %}
-                            0.0%
-                        {% endif %}
+                        {% if row.mwpl %}{{ "%.1f"|format(row.mwpl) }}%{% else %}0.0%{% endif %}
                     </td>
                     <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
                     <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
@@ -192,9 +182,8 @@ class MorningReportGenerator:
 
             for row in top_10_data:
                 mwpl_str = "0"
-                if row.mwpl_array and len(row.mwpl_array) > 0:
-                    first_key = list(row.mwpl_array[0].keys())[0]
-                    mwpl_str = str(row.mwpl_array[0][first_key])
+                if row.mwpl is not None:
+                    mwpl_str = str(row.mwpl)
                 prompt += f"{row.symbol}: ATM IV={row.atm_iv_near*100 if row.atm_iv_near else 0}%, Skew Near={row.skew_25d_near*100 if row.skew_25d_near else 0}%, Basis BPS={row.basis_1_bps}, PCR={row.pcr_oi}, MWPL={mwpl_str}%\n"
 
             # Using OpenRouter DeepSeek (we'll implement the actual API call logic using litellm or httpx if needed)

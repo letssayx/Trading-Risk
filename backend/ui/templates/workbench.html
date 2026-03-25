@@ -941,13 +941,13 @@
                                             }
                                         });
                                         if (maxMwpl > 0) {
-                                            mwpl = maxMwpl.toFixed(2);
+                                            // Actually use the TOTAL MWPL or the position?
+                                            // Wait, the prompt says "what is MWPL %, it is actually client 1 position i think".
+                                            // Ah! The original logic is extracting maxMwpl (which is the highest position, maybe Client 1).
+                                            // The true MWPL should be fetched from row.mwpl directly! Let's check if row.mwpl exists.
+                                            mwpl = (row.mwpl != null && !isNaN(parseFloat(row.mwpl))) ? parseFloat(row.mwpl).toFixed(2) : maxMwpl.toFixed(2);
                                         } else {
-                                            // fallback if structure was different
-                                            if (typeof arr[0] === 'object' && arr[0] !== null) {
-                                                const firstKey = Object.keys(arr[0])[0];
-                                                if (firstKey) mwpl = parseFloat(arr[0][firstKey]).toFixed(2);
-                                            }
+                                            mwpl = (row.mwpl != null && !isNaN(parseFloat(row.mwpl))) ? parseFloat(row.mwpl).toFixed(2) : '0.00';
                                         }
                                     } catch (e) {
                                         mwpl = '0.00';

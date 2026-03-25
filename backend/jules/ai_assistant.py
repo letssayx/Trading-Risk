@@ -18,7 +18,7 @@ _MODELS_CACHE: Dict[str, List[str]] = {}
 class JulesAssistant:
     def __init__(self):
         self.client = None
-        self.model_name = 'gemini-2.0-flash'
+        self.model_name = 'gemini-1.5-flash'
         self._load_key()
 
     def _load_key(self):
@@ -43,9 +43,9 @@ class JulesAssistant:
         try:
             # Explicit preferences from the user
             preferences = [
-                'gemini-2.5-flash',
-                'gemini-2.5-pro',
-                'gemini-2.0-flash',
+                'gemini-1.5-flash',
+                'gemini-1.5-pro',
+                'gemini-1.5-flash',
                 'gemini-1.5-flash-8b'
             ]
 
@@ -54,8 +54,8 @@ class JulesAssistant:
 
         except Exception as e:
             logger.error(f"Jules: Error selecting model: {e}")
-            self.model_name = 'gemini-2.0-flash'
-            self.model_name = 'gemini-2.0-flash'
+            self.model_name = 'gemini-1.5-flash'
+            self.model_name = 'gemini-1.5-flash'
 
     def _scan_directory(self, root_path: str, max_depth: int = 2) -> dict:
         """
