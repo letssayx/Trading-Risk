@@ -20,6 +20,9 @@ pip install --upgrade pip
 echo ">>> Installing Dependencies from requirements.txt..."
 pip install -r requirements.txt
 
+echo ">>> Installing Playwright Browser binaries..."
+playwright install chromium
+
 # 3. Database Initialization (Assuming Docker is running)
 echo ">>> Waiting for Docker services..."
 # In a real script, we might check `docker ps`. Here we assume user runs run_dev.sh later.
