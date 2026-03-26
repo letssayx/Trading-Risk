@@ -27,3 +27,4 @@ uvicorn
 weasyprint
 xlrd
 yfinance
+curl_cffi==0.7.4

@@ -44,7 +44,6 @@ class JulesAssistant:
             # Explicit preferences from the user
             preferences = [
                 'gemini-1.5-flash',
-                'gemini-1.5-flash',
                 'gemini-2.0-flash',
                 'gemini-1.5-flash-8b'
             ]

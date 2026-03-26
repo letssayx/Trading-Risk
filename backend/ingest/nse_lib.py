@@ -664,142 +664,116 @@ class NSELib:
                 else:
                     logger.warning(f"No FII/DII records parsed for {trade_date}")
 
-                # If the list is empty, fallback to Arihant
-                return self._fetch_arihant_fii_dii(trade_date)
+                # If the list is empty, fallback to Moneycontrol
+                return self._fetch_moneycontrol_fii_dii(trade_date)
 
             return pd.DataFrame(records)
 
         except Exception as e:
             logger.error(f"Error parsing FII/DII cash flow data: {e}")
-            # Fallback to Arihant Scraper on exception
-            return self._fetch_arihant_fii_dii(trade_date)
+            # Fallback to Moneycontrol Scraper on exception
+            return self._fetch_moneycontrol_fii_dii(trade_date)
 
-    def _fetch_arihant_fii_dii(self, trade_date: date) -> pd.DataFrame:
-        """Fallback method to fetch FII/DII data from Arihant Capital via web scraping."""
-        url = "https://www.arihantcapital.com/derivatives/fii-dii-trading-activities"
+    def _fetch_moneycontrol_fii_dii(self, trade_date: date) -> pd.DataFrame:
+        """Fallback method to fetch FII/DII data from Moneycontrol JSON embedded in HTML."""
+        url = "https://www.moneycontrol.com/stocks/marketstats/fii_dii_activity/index.php"
         try:
             from bs4 import BeautifulSoup
-            from io import StringIO
+            import json
             from curl_cffi import requests
 
-            headers = {
+            session = requests.Session(impersonate="chrome110")
+
+            # Fetch the NSE React API first as the primary source
+            nse_headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "none",
-                "Sec-Fetch-User": "?1",
+                "Accept": "*/*",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+                "Referer": "https://www.nseindia.com/reports/fii-dii",
                 "Upgrade-Insecure-Requests": "1"
             }
 
-            # Using curl_cffi for flawless impersonation of Chrome to bypass Cloudflare
-            session = requests.Session(impersonate="chrome110")
-
             # 1. Fetch NSE homepage to set cookies reliably
-            session.get("https://www.nseindia.com", headers=headers, timeout=10)
-
-            # 2. Fetch the React API
-            api_headers = headers.copy()
-            api_headers["Accept"] = "*/*"
-            api_headers["Sec-Fetch-Dest"] = "empty"
-            api_headers["Sec-Fetch-Mode"] = "cors"
-            api_headers["Sec-Fetch-Site"] = "same-origin"
-            api_headers["Referer"] = "https://www.nseindia.com/reports/fii-dii"
+            session.get("https://www.nseindia.com", headers=nse_headers, timeout=10)
 
             api_url = "https://www.nseindia.com/api/fiidiiTradeReact"
-            resp = session.get(api_url, headers=api_headers, timeout=10)
+            resp = session.get(api_url, headers=nse_headers, timeout=10)
 
             if resp.status_code != 200:
-                # If NSE api fails, fallback to the ASP.NET Arihant form
-                logger.warning(f"NSE React API failed with status {resp.status_code}. Falling back to Arihant ASP.NET form.")
+                # Fallback to Moneycontrol
+                logger.warning(f"NSE React API failed with status {resp.status_code}. Falling back to Moneycontrol HTML JSON.")
                 session = requests.Session(impersonate="chrome110")
-                resp = session.get(url, headers=headers, timeout=10)
-                if resp.status_code != 200:
-                    logger.warning(f"Arihant fallback GET failed with status {resp.status_code}")
+                mc_resp = session.get(url, timeout=10)
+                if mc_resp.status_code != 200:
+                    logger.warning(f"Moneycontrol fallback GET failed with status {mc_resp.status_code}")
                     return pd.DataFrame()
 
-                soup = BeautifulSoup(resp.content, 'html.parser')
+                soup = BeautifulSoup(mc_resp.content, 'html.parser')
                 records = []
+                scripts = soup.find_all('script')
 
-                # Parse FII from default page load
-                tables = soup.find_all('table')
-                if tables:
-                    try:
-                        fii_df = pd.read_html(StringIO(str(tables[0])), flavor='bs4')[0]
-                        for _, row in fii_df.iterrows():
-                            row_date_str = str(row.iloc[0]).strip()
-                            try:
-                                parsed_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
-                                if parsed_date == trade_date:
-                                    records.append({
-                                        'trade_date': parsed_date,
-                                        'category': 'FII',
-                                        'buy_value': float(str(row.iloc[1]).replace(',', '')),
-                                        'sell_value': float(str(row.iloc[2]).replace(',', '')),
-                                        'net_value': float(str(row.iloc[3]).replace(',', ''))
-                                    })
-                                    break
-                            except Exception:
-                                continue
-                    except Exception as e:
-                        logger.warning(f"Error parsing Arihant FII table: {e}")
+                for s in scripts:
+                    if s.string and 'FiiDiiData' in s.string:
+                        try:
+                            data = json.loads(s.string)
+                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiData', {}).get('fiiDiiData', [])
 
-                # Extract hidden inputs to simulate form submission for DII
-                inputs = soup.find_all("input")
-                payload = {}
-                for i in inputs:
-                    name = i.get("name")
-                    val = i.get("value", "")
-                    if name:
-                        payload[name] = val
+                            for item in fii_dii_list:
+                                date_str = item.get('date')
+                                if not date_str: continue
 
-                payload["__EVENTTARGET"] = "ctl00$ContentPlaceHolder1$ddlSubCategory"
-                payload["__EVENTARGUMENT"] = ""
-                payload["__LASTFOCUS"] = ""
-                payload["ctl00$ContentPlaceHolder1$fromdate"] = ""
-                payload["ctl00$ContentPlaceHolder1$todate"] = ""
-                payload["ctl00$ContentPlaceHolder1$DrpMobmenu"] = "DM"
-                payload["ctl00$ContentPlaceHolder1$menuDM"] = "/gainers-losers/G/N"
-                payload["ctl00$ContentPlaceHolder1$cattypeid"] = "cash"
-                payload["ctl00$ContentPlaceHolder1$fosubCatid"] = "index"
+                                try:
+                                    parsed_date = pd.to_datetime(date_str, format='mixed').date()
+                                    if parsed_date == trade_date:
+                                        # Historical dates on MC usually only have net values (fiiCM/diiCM)
+                                        # But for the latest day they also have fDVal with buy/sell.
 
-                # Dropdown change
-                payload["ctl00$ContentPlaceHolder1$ddlSubCategory"] = "DII"
+                                        fii_net = float(str(item.get('fiiCM', 0)).replace(',', ''))
+                                        dii_net = float(str(item.get('diiCM', 0)).replace(',', ''))
 
-                post_headers = headers.copy()
-                post_headers["Content-Type"] = "application/x-www-form-urlencoded"
+                                        # Try to extract detailed buy/sell if available
+                                        fii_buy = fii_sell = dii_buy = dii_sell = 0.0
 
-                resp_post = session.post(url, data=payload, headers=post_headers, timeout=10)
-                soup_post = BeautifulSoup(resp_post.content, 'html.parser')
+                                        for sub in item.get('fDVal', []):
+                                            tab = str(sub.get('tabName', '')).upper()
+                                            if "FII" in tab:
+                                                fii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
+                                                fii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
+                                            elif "DII" in tab:
+                                                dii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
+                                                dii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
 
-                tables_post = soup_post.find_all('table')
-                if tables_post:
-                    try:
-                        dii_df = pd.read_html(StringIO(str(tables_post[0])), flavor='bs4')[0]
-                        for _, row in dii_df.iterrows():
-                            row_date_str = str(row.iloc[0]).strip()
-                            try:
-                                parsed_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
-                                if parsed_date == trade_date:
-                                    records.append({
-                                        'trade_date': parsed_date,
-                                        'category': 'DII',
-                                        'buy_value': float(str(row.iloc[1]).replace(',', '')),
-                                        'sell_value': float(str(row.iloc[2]).replace(',', '')),
-                                        'net_value': float(str(row.iloc[3]).replace(',', ''))
-                                    })
-                                    break
-                            except Exception:
-                                continue
-                    except Exception as e:
-                        logger.warning(f"Error parsing Arihant DII table: {e}")
+                                        records.append({
+                                            'trade_date': parsed_date,
+                                            'category': 'FII',
+                                            'buy_value': fii_buy,
+                                            'sell_value': fii_sell,
+                                            'net_value': fii_net
+                                        })
+
+                                        records.append({
+                                            'trade_date': parsed_date,
+                                            'category': 'DII',
+                                            'buy_value': dii_buy,
+                                            'sell_value': dii_sell,
+                                            'net_value': dii_net
+                                        })
+                                        break
+                                except Exception as d_e:
+                                    continue
+                            if records:
+                                break
+                        except Exception as e:
+                            logger.warning(f"Error parsing Moneycontrol JSON: {e}")
+                            pass
 
                 if not records:
-                    logger.warning(f"No fallback Arihant FII/DII records found for {trade_date}")
+                    logger.warning(f"No fallback Moneycontrol FII/DII records found for {trade_date}")
                     return pd.DataFrame()
 
-                logger.info(f"Successfully scraped FII/DII fallback data from Arihant for {trade_date}")
+                logger.info(f"Successfully scraped FII/DII fallback data from Moneycontrol for {trade_date}")
                 return pd.DataFrame(records)
 
             # If NSE api success:
