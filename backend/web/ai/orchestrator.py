@@ -46,7 +46,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro']
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash']
         text = ""
         error_msg = ""
 
@@ -114,7 +114,7 @@ class TerminalOrchestrator:
         Return ONLY the exact category name. Nothing else.
         """
 
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro']
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash']
         engine_type = ""
 
         for model_name in models_to_try:
@@ -363,7 +363,6 @@ class TerminalOrchestrator:
            - "action": string (MUST be strictly one of: "BUY", "SELL", or "HOLD")
            - "target": float (the numerical price target)
            - "stop_loss": float (the numerical stop loss)
-           - "predicted_price": float (your predicted opening price for the next session)
            - "confidence": integer (0 to 100 representing confidence score)
            - "rationale": array of strings (4 to 5 step-by-step logic notes)
 
@@ -400,7 +399,6 @@ class TerminalOrchestrator:
                     "target": 0.0,
                     "stop_loss": 0.0,
                     "confidence": 0,
-                    "predicted_price": 0.0,
                     "rationale": ["Failed to parse DeepSeek JSON.", str(e)]
                 }
 
@@ -438,7 +436,6 @@ class TerminalOrchestrator:
                     "target": 0.0,
                     "stop_loss": 0.0,
                     "confidence": 0,
-                    "predicted_price": 0.0,
                     "rationale": ["Failed to parse GPT-120B JSON.", str(e)]
                 }
 
@@ -550,13 +547,12 @@ class TerminalOrchestrator:
         - "target": float
         - "stop_loss": float
         - "confidence": integer
-        - "predicted_price": float
         - "rationale": array of strings (Rewrite the 4 to 5 strong logical reasons to be short, sharp quant desk notes/bullet points summarizing the logic).
 
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro']
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash']
         text = ""
         error_msg = ""
 

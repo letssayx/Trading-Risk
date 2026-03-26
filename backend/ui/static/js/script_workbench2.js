@@ -489,7 +489,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
-                                    <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
+
                                     <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
@@ -841,7 +841,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
-                                    <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
+
                                     <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
@@ -912,7 +912,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
-                                    <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
+
                                     <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
@@ -2055,7 +2055,7 @@
                         <div class="exec-confidence" title="Calculated based on data completeness and alignment with reasoning." style="font-size: 0.85em; color: #888; margin-bottom: 5px;">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
                         <div class="exec-directive" style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px; ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
                         <div class="exec-details" style="font-size: 0.9em; color: #ccc; line-height: 1.6; border-top: 1px dotted #333; padding-top: 10px;">
-                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br><br>
+                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss}<br><br>
                             <strong>RATIONALE:</strong><br> ${rationaleHtml}
                         </div>
                     </div>`;

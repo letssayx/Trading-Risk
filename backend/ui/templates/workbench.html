@@ -752,7 +752,6 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
-                                    <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
                                     <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
@@ -772,7 +771,7 @@
                                 </tr>
                             </thead>
                             <tbody id="mr-data-body">
-                                <tr><td colspan="47" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                                <tr><td colspan="46" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1109,7 +1108,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
-                                    <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
+
                                     <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
@@ -1184,7 +1183,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
-                                    <th style="white-space: pre-wrap;">MWPL %<br>(Top Client)</th>
+
                                     <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
                                     <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
@@ -1384,11 +1383,10 @@
                                     <th style="padding: 8px;">Date</th>
                                     <th style="padding: 8px;">EQ Close</th>
                                     <th style="padding: 8px;">Fut1 Close</th>
-                                    <th style="padding: 8px;">MWPL %</th>
                                 </tr>
                             </thead>
                             <tbody id="mwpl-analysis-body">
-                                <tr><td colspan="5" style="text-align:center; color:#888;">Click "Refresh MWPL Data" to load.</td></tr>
+                                <tr><td colspan="4" style="text-align:center; color:#888;">Click "Refresh MWPL Data" to load.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -2806,7 +2804,7 @@
                         `;
                     }
                     if(!hasData) {
-                        matrixOutput += `<tr><td colspan="5" style="border: 1px solid #333; padding: 8px; text-align: center;">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
+                        matrixOutput += `<tr><td colspan="4" style="border: 1px solid #333; padding: 8px; text-align: center;">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
                     }
                     matrixOutput += `</tbody></table>`;
 
@@ -2866,7 +2864,7 @@
                         <div class="exec-confidence" title="Calculated based on data completeness and alignment with reasoning." style="font-size: 0.85em; color: #888; margin-bottom: 5px;">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
                         <div class="exec-directive" style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px; ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
                         <div class="exec-details" style="font-size: 0.9em; color: #ccc; line-height: 1.6; border-top: 1px dotted #333; padding-top: 10px;">
-                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss} | PREDICTED_OPEN: ₹${ex.predicted_price}<br><br>
+                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss}<br><br>
                             <strong>RATIONALE:</strong><br> ${rationaleHtml}
                         </div>
                     </div>`;
@@ -4327,7 +4325,7 @@ document.addEventListener('click', (e) => {
     async function loadMWPLAnalysis() {
         const thead = document.querySelector('#mwpl-analysis-table thead');
         const tbody = document.getElementById('mwpl-analysis-body');
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
             const res = await fetch('/api/data/derivatives/mwpl_historical');
@@ -4344,7 +4342,7 @@ document.addEventListener('click', (e) => {
             });
 
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No historical MWPL data found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">No historical MWPL data found.</td></tr>';
                 return;
             }
 
@@ -4376,7 +4374,7 @@ document.addEventListener('click', (e) => {
                     <th style="padding: 8px;">Fut1 Close</th>
                     <th style="padding: 8px;">Total %</th>
                     <th style="padding: 8px;">% Chg (Total %)</th>
-                    <th style="padding: 8px;">MWPL %</th>
+
             `;
             clientNames.forEach(c => {
                 headerHTML += `<th style="padding: 8px;">${c} %</th>`;
@@ -4622,7 +4620,7 @@ document.addEventListener('click', (e) => {
             });
 
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     }
 
