@@ -675,63 +675,109 @@ class NSELib:
             return self._fetch_arihant_fii_dii(trade_date)
 
     def _fetch_arihant_fii_dii(self, trade_date: date) -> pd.DataFrame:
-        """Fallback method to fetch FII/DII data directly from NSE's live React API."""
-        url = "https://www.nseindia.com/api/fiidiiTradeReact"
+        """Fallback method to fetch FII/DII data from Arihant Capital via web scraping."""
+        url = "https://www.arihantcapital.com/derivatives/fii-dii-trading-activities"
         try:
-            import requests
+            from bs4 import BeautifulSoup
+            from io import StringIO
+            import requests as std_requests
 
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-                "Accept-Language": "en-US,en;q=0.9",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             }
 
-            session = requests.Session()
-
-            # 1. Fetch initial page to get cookies
-            session.get("https://www.nseindia.com", headers=headers, timeout=10)
-
-            # 2. Fetch actual JSON data
-            headers["Accept"] = "*/*"
+            session = std_requests.Session()
             resp = session.get(url, headers=headers, timeout=10)
             if resp.status_code != 200:
-                logger.warning(f"NSE React API fallback failed with status {resp.status_code}")
+                logger.warning(f"Arihant fallback GET failed with status {resp.status_code}")
                 return pd.DataFrame()
 
-            data = resp.json()
+            soup = BeautifulSoup(resp.content, 'html.parser')
             records = []
 
-            for item in data:
-                date_str = str(item.get("date", "")).strip()
+            # 1. Parse FII
+            tables = soup.find_all('table')
+            if tables:
                 try:
-                    parsed_date = pd.to_datetime(date_str, format='mixed', dayfirst=True).date()
-                except Exception:
-                    continue
+                    fii_df = pd.read_html(StringIO(str(tables[0])), flavor='bs4')[0]
+                    for _, row in fii_df.iterrows():
+                        row_date_str = str(row.iloc[0]).strip()
+                        try:
+                            parsed_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
+                            if parsed_date == trade_date:
+                                records.append({
+                                    'trade_date': parsed_date,
+                                    'category': 'FII',
+                                    'buy_value': float(str(row.iloc[1]).replace(',', '')),
+                                    'sell_value': float(str(row.iloc[2]).replace(',', '')),
+                                    'net_value': float(str(row.iloc[3]).replace(',', ''))
+                                })
+                                break
+                        except Exception:
+                            continue
+                except Exception as e:
+                    logger.warning(f"Error parsing Arihant FII table: {e}")
 
-                if parsed_date == trade_date:
-                    category_raw = str(item.get("category", "")).strip().upper()
-                    if "FII" in category_raw:
-                        cat = "FII"
-                    elif "DII" in category_raw:
-                        cat = "DII"
-                    else:
-                        continue
+            # 2. Extract hidden inputs to simulate form submission for DII
+            inputs = soup.find_all("input")
+            payload = {}
+            for i in inputs:
+                name = i.get("name")
+                val = i.get("value", "")
+                if name:
+                    payload[name] = val
 
-                    records.append({
-                        'trade_date': parsed_date,
-                        'category': cat,
-                        'buy_value': float(str(item.get("buyValue", "0")).replace(',', '')),
-                        'sell_value': float(str(item.get("sellValue", "0")).replace(',', '')),
-                        'net_value': float(str(item.get("netValue", "0")).replace(',', ''))
-                    })
+            payload["__EVENTTARGET"] = "ctl00$ContentPlaceHolder1$ddlSubCategory"
+            payload["__EVENTARGUMENT"] = ""
+            payload["__LASTFOCUS"] = ""
+            payload["ctl00$ContentPlaceHolder1$fromdate"] = ""
+            payload["ctl00$ContentPlaceHolder1$todate"] = ""
+            payload["ctl00$ContentPlaceHolder1$DrpMobmenu"] = "DM"
+            payload["ctl00$ContentPlaceHolder1$menuDM"] = "/gainers-losers/G/N"
+            payload["ctl00$ContentPlaceHolder1$cattypeid"] = "cash"
+            payload["ctl00$ContentPlaceHolder1$fosubCatid"] = "index"
+
+            # The critical dropdown change
+            payload["ctl00$ContentPlaceHolder1$ddlSubCategory"] = "DII"
+
+            post_headers = headers.copy()
+            post_headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+            resp_post = session.post(url, data=payload, headers=post_headers, timeout=10)
+            soup_post = BeautifulSoup(resp_post.content, 'html.parser')
+
+            tables_post = soup_post.find_all('table')
+            if tables_post:
+                try:
+                    dii_df = pd.read_html(StringIO(str(tables_post[0])), flavor='bs4')[0]
+                    for _, row in dii_df.iterrows():
+                        row_date_str = str(row.iloc[0]).strip()
+                        try:
+                            parsed_date = pd.to_datetime(row_date_str, format='mixed', dayfirst=True).date()
+                            if parsed_date == trade_date:
+                                records.append({
+                                    'trade_date': parsed_date,
+                                    'category': 'DII',
+                                    'buy_value': float(str(row.iloc[1]).replace(',', '')),
+                                    'sell_value': float(str(row.iloc[2]).replace(',', '')),
+                                    'net_value': float(str(row.iloc[3]).replace(',', ''))
+                                })
+                                break
+                        except Exception:
+                            continue
+                except Exception as e:
+                    logger.warning(f"Error parsing Arihant DII table: {e}")
+            else:
+                logger.warning("Could not find Arihant DII tables in POST response.")
 
             if not records:
-                logger.warning(f"No fallback NSE FII/DII records found for {trade_date}")
+                logger.warning(f"No fallback Arihant FII/DII records found for {trade_date}")
                 return pd.DataFrame()
 
-            logger.info(f"Successfully scraped FII/DII fallback data from NSE React API for {trade_date}")
+            logger.info(f"Successfully scraped FII/DII fallback data from Arihant for {trade_date}")
             return pd.DataFrame(records)
 
         except Exception as e:
-            logger.error(f"Error in NSE React API FII/DII fallback: {e}")
+            logger.error(f"Error in Arihant FII/DII fallback: {e}")
             return pd.DataFrame()
