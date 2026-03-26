@@ -664,207 +664,94 @@ class NSELib:
                 else:
                     logger.warning(f"No FII/DII records parsed for {trade_date}")
 
-                # If the list is empty, fallback to Moneycontrol
-                return self._fetch_moneycontrol_fii_dii(trade_date)
+                # If the list is empty, fallback to Arihant
+                return self._fetch_arihant_fii_dii(trade_date)
 
             return pd.DataFrame(records)
 
         except Exception as e:
             logger.error(f"Error parsing FII/DII cash flow data: {e}")
-            # Fallback to Moneycontrol Scraper on exception
-            return self._fetch_moneycontrol_fii_dii(trade_date)
+            # Fallback to Arihant Scraper on exception
+            return self._fetch_arihant_fii_dii(trade_date)
 
-    def _fetch_moneycontrol_fii_dii(self, trade_date: date) -> pd.DataFrame:
-        """Fallback method to fetch FII/DII data from Moneycontrol JSON embedded in HTML."""
-        mc_url = "https://www.moneycontrol.com/markets/fii-dii-data/cash/"
+    def _fetch_arihant_fii_dii(self, trade_date: date) -> pd.DataFrame:
+        """Fallback method to fetch FII/DII data using Playwright against Arihant Capital."""
+        logger.warning(f"Falling back to Arihant Capital Playwright scraper for {trade_date}")
 
+        records = []
         try:
-            from bs4 import BeautifulSoup
-            import json
-            from curl_cffi import requests
+            from playwright.sync_api import sync_playwright
 
-            session = requests.Session(impersonate="chrome110")
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+                    viewport={'width': 1280, 'height': 720}
+                )
+                page = context.new_page()
 
-            # Fetch the NSE React API first as the primary source
-            nse_headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-                "Accept": "*/*",
-                "Sec-Fetch-Dest": "empty",
-                "Sec-Fetch-Mode": "cors",
-                "Sec-Fetch-Site": "same-origin",
-                "Referer": "https://www.nseindia.com/reports/fii-dii",
-                "Upgrade-Insecure-Requests": "1"
-            }
+                url = "https://arihantcapital.com/derivatives/fii-dii-trading-activities"
+                date_str = trade_date.strftime("%Y-%m-%d") # Format for the jQuery UI Datepicker explicitly set via script
 
-            # 1. Fetch NSE homepage to set cookies reliably
-            session.get("https://www.nseindia.com", headers=nse_headers, timeout=10)
+                # We need to fetch both FII and DII.
+                categories = [("FII/FPI", "FII"), ("DII", "DII")]
 
-            api_url = "https://www.nseindia.com/api/fiidiiTradeReact"
-            resp = session.get(api_url, headers=nse_headers, timeout=10)
+                for option_val, cat_name in categories:
+                    try:
+                        page.goto(url, timeout=30000)
+                        page.wait_for_load_state('networkidle', timeout=15000)
 
-            if resp.status_code != 200:
-                # Fallback to Moneycontrol
-                logger.warning(f"NSE React API failed with status {resp.status_code}. Falling back to Moneycontrol HTML JSON.")
-                session = requests.Session(impersonate="chrome110")
-                mc_resp = session.get(mc_url, timeout=10)
-                if mc_resp.status_code != 200:
-                    logger.warning(f"Moneycontrol fallback GET failed with status {mc_resp.status_code}")
-                    return pd.DataFrame()
+                        # Use evaluate to cleanly bypass the datepicker UI
+                        page.evaluate(f"document.getElementById('ctl00_ContentPlaceHolder1_fromdate').value = '{date_str}';")
+                        page.evaluate(f"document.getElementById('ctl00_ContentPlaceHolder1_todate').value = '{date_str}';")
 
-                soup = BeautifulSoup(mc_resp.content, 'html.parser')
-                records = []
-                scripts = soup.find_all('script')
+                        page.select_option('#ctl00_ContentPlaceHolder1_ddlSubCategory', option_val)
 
-                for s in scripts:
-                    if s.string and 'FiiDiiChartData' in s.string:
-                        try:
-                            data = json.loads(s.string)
-                            # FiiDiiChartData is under props.pageProps.FiiDiiChartData.fiiDiiChartData
-                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiChartData', {}).get('fiiDiiChartData', [])
+                        # Click Go and wait for response
+                        page.click('#ctl00_ContentPlaceHolder1_btnGo')
+                        page.wait_for_timeout(3000) # Give AJAX/Postback time to finish
 
-                            for item in fii_dii_list:
-                                date_str = item.get('date')
-                                if not date_str: continue
-
+                        # Extract the table
+                        rows = page.query_selector_all('table tr')
+                        if len(rows) > 1: # Row 0 is header
+                            # The first data row should hopefully match our date.
+                            # If it returns empty data, the row might be empty or missing.
+                            tds = rows[1].query_selector_all('td')
+                            if len(tds) >= 4:
+                                text_vals = [td.inner_text().strip() for td in tds]
+                                # Check if it matches the requested date approximately
+                                parsed_date_str = text_vals[0]
                                 try:
-                                    parsed_date = pd.to_datetime(date_str, format='mixed').date()
-                                    if parsed_date == trade_date:
-
-                                        fii_buy = float(str(item.get('fiiPurchase', 0)).replace(',', ''))
-                                        fii_sell = float(str(item.get('fiiSales', 0)).replace(',', ''))
-                                        fii_net = float(str(item.get('fiiNet', 0)).replace(',', ''))
-
-                                        dii_buy = float(str(item.get('diiPurchase', 0)).replace(',', ''))
-                                        dii_sell = float(str(item.get('diiSale', 0)).replace(',', ''))
-                                        dii_net = float(str(item.get('diiNet', 0)).replace(',', ''))
+                                    row_date = pd.to_datetime(parsed_date_str).date()
+                                    if row_date == trade_date:
+                                        # Success, let's parse the values
+                                        buy_val = float(text_vals[1].replace(',', ''))
+                                        sell_val = float(text_vals[2].replace(',', ''))
+                                        net_val = float(text_vals[3].replace(',', ''))
 
                                         records.append({
-                                            'trade_date': parsed_date,
-                                            'category': 'FII',
-                                            'buy_value': fii_buy,
-                                            'sell_value': fii_sell,
-                                            'net_value': fii_net
+                                            'trade_date': trade_date,
+                                            'category': cat_name,
+                                            'buy_value': buy_val,
+                                            'sell_value': sell_val,
+                                            'net_value': net_val
                                         })
-
-                                        records.append({
-                                            'trade_date': parsed_date,
-                                            'category': 'DII',
-                                            'buy_value': dii_buy,
-                                            'sell_value': dii_sell,
-                                            'net_value': dii_net
-                                        })
-                                        break
+                                    else:
+                                        logger.warning(f"Arihant scraper: Row date {row_date} did not match requested {trade_date} for {cat_name}")
                                 except Exception as d_e:
-                                    continue
-                            if records:
-                                break
-                        except Exception as e:
-                            logger.warning(f"Error parsing Moneycontrol JSON: {e}")
-                            pass
+                                    logger.warning(f"Arihant scraper date parse error for {text_vals[0]}: {d_e}")
+                    except Exception as e_cat:
+                        logger.error(f"Error scraping {cat_name} from Arihant: {e_cat}")
 
-                if not records:
-                    logger.warning(f"No fallback Moneycontrol FII/DII records found for {trade_date}")
-                    return pd.DataFrame()
+                browser.close()
 
-                logger.info(f"Successfully scraped FII/DII fallback data from Moneycontrol for {trade_date}")
+            if records:
+                logger.info(f"Successfully scraped fallback FII/DII data from Arihant Capital for {trade_date}")
                 return pd.DataFrame(records)
-
-            # If NSE api success:
-            data = resp.json()
-            records = []
-
-            for item in data:
-                date_str = str(item.get("date", "")).strip()
-                try:
-                    parsed_date = pd.to_datetime(date_str, format='mixed', dayfirst=True).date()
-                except Exception:
-                    continue
-
-                if parsed_date == trade_date:
-                    category_raw = str(item.get("category", "")).strip().upper()
-                    if "FII" in category_raw:
-                        cat = "FII"
-                    elif "DII" in category_raw:
-                        cat = "DII"
-                    else:
-                        continue
-
-                    records.append({
-                        'trade_date': parsed_date,
-                        'category': cat,
-                        'buy_value': float(str(item.get("buyValue", "0")).replace(',', '')),
-                        'sell_value': float(str(item.get("sellValue", "0")).replace(',', '')),
-                        'net_value': float(str(item.get("netValue", "0")).replace(',', ''))
-                    })
-
-            if not records:
-                logger.warning(f"No records found in NSE React API for {trade_date}. Falling back to Moneycontrol HTML JSON.")
-                # We need to run the Moneycontrol fallback logic here as well since NSE React API succeeded but didn't have the date
-                session = requests.Session(impersonate="chrome110")
-                mc_resp = session.get(mc_url, timeout=10)
-                if mc_resp.status_code != 200:
-                    logger.warning(f"Moneycontrol fallback GET failed with status {mc_resp.status_code}")
-                    return pd.DataFrame()
-
-                soup = BeautifulSoup(mc_resp.content, 'html.parser')
-                records = []
-                scripts = soup.find_all('script')
-
-                for s in scripts:
-                    if s.string and 'FiiDiiChartData' in s.string:
-                        try:
-                            data = json.loads(s.string)
-                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiChartData', {}).get('fiiDiiChartData', [])
-
-                            for item in fii_dii_list:
-                                date_str = item.get('date')
-                                if not date_str: continue
-
-                                try:
-                                    parsed_date = pd.to_datetime(date_str, format='mixed').date()
-                                    if parsed_date == trade_date:
-
-                                        fii_buy = float(str(item.get('fiiPurchase', 0)).replace(',', ''))
-                                        fii_sell = float(str(item.get('fiiSales', 0)).replace(',', ''))
-                                        fii_net = float(str(item.get('fiiNet', 0)).replace(',', ''))
-
-                                        dii_buy = float(str(item.get('diiPurchase', 0)).replace(',', ''))
-                                        dii_sell = float(str(item.get('diiSale', 0)).replace(',', ''))
-                                        dii_net = float(str(item.get('diiNet', 0)).replace(',', ''))
-
-                                        records.append({
-                                            'trade_date': parsed_date,
-                                            'category': 'FII',
-                                            'buy_value': fii_buy,
-                                            'sell_value': fii_sell,
-                                            'net_value': fii_net
-                                        })
-
-                                        records.append({
-                                            'trade_date': parsed_date,
-                                            'category': 'DII',
-                                            'buy_value': dii_buy,
-                                            'sell_value': dii_sell,
-                                            'net_value': dii_net
-                                        })
-                                        break
-                                except Exception:
-                                    continue
-                            if records:
-                                break
-                        except Exception as e:
-                            logger.warning(f"Error parsing Moneycontrol JSON: {e}")
-                            pass
-
-                if not records:
-                    logger.warning(f"No fallback Moneycontrol FII/DII records found for {trade_date}")
-                    return pd.DataFrame()
-
-                logger.info(f"Successfully scraped FII/DII fallback data from Moneycontrol for {trade_date}")
-                return pd.DataFrame(records)
-
-            return pd.DataFrame(records)
+            else:
+                logger.warning(f"No valid records extracted from Arihant Capital for {trade_date}")
+                return pd.DataFrame()
 
         except Exception as e:
-            logger.error(f"Error in Moneycontrol FII/DII fallback: {e}")
+            logger.error(f"Error in Arihant Playwright fallback scraper: {e}")
             return pd.DataFrame()
