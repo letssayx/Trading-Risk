@@ -675,56 +675,94 @@ class NSELib:
             return self._fetch_arihant_fii_dii(trade_date)
 
     def _fetch_arihant_fii_dii(self, trade_date: date) -> pd.DataFrame:
-        """Fallback method to fetch FII/DII data using Playwright against Arihant Capital."""
-        logger.warning(f"Falling back to Arihant Capital Playwright scraper for {trade_date}")
+        """Fallback method to fetch FII/DII data using pure requests against Arihant Capital."""
+        logger.warning(f"Falling back to Arihant Capital pure HTTP scraper for {trade_date}")
 
         records = []
         try:
-            from playwright.sync_api import sync_playwright
+            from bs4 import BeautifulSoup
+            from curl_cffi import requests
+            import re
 
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                context = browser.new_context(
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-                    viewport={'width': 1280, 'height': 720}
-                )
-                page = context.new_page()
+            # Using 'www' subdomain is required to prevent ASP.NET from sending a pageRedirect on POST
+            url = "https://www.arihantcapital.com/derivatives/fii-dii-trading-activities"
+            session = requests.Session(impersonate="chrome110")
 
-                url = "https://arihantcapital.com/derivatives/fii-dii-trading-activities"
-                date_str = trade_date.strftime("%Y-%m-%d") # Format for the jQuery UI Datepicker explicitly set via script
+            # 1. Fetch GET to prime cookies and get ViewState
+            resp = session.get(url, timeout=15)
+            if resp.status_code != 200:
+                logger.error(f"Failed to fetch Arihant GET, status: {resp.status_code}")
+                return pd.DataFrame()
 
-                # We need to fetch both FII and DII.
-                categories = [("FII/FPI", "FII"), ("DII", "DII")]
+            soup = BeautifulSoup(resp.content, "html.parser")
 
-                for option_val, cat_name in categories:
-                    try:
-                        page.goto(url, timeout=30000)
-                        page.wait_for_load_state('networkidle', timeout=15000)
+            # Extract all hidden inputs required for ASP.NET WebForms POST
+            def extract_all_inputs(soup):
+                inputs = {}
+                for i in soup.find_all("input"):
+                    name = i.get("name")
+                    if name:
+                        inputs[name] = i.get("value", "")
+                for s in soup.find_all("select"):
+                    name = s.get("name")
+                    if name:
+                        selected = s.find("option", selected=True)
+                        if selected:
+                            inputs[name] = selected.get("value", "")
+                        else:
+                            first = s.find("option")
+                            inputs[name] = first.get("value", "") if first else ""
+                return inputs
 
-                        # Use evaluate to cleanly bypass the datepicker UI
-                        page.evaluate(f"document.getElementById('ctl00_ContentPlaceHolder1_fromdate').value = '{date_str}';")
-                        page.evaluate(f"document.getElementById('ctl00_ContentPlaceHolder1_todate').value = '{date_str}';")
+            base_data = extract_all_inputs(soup)
+            date_str = trade_date.strftime("%Y-%m-%d")
 
-                        page.select_option('#ctl00_ContentPlaceHolder1_ddlSubCategory', option_val)
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-MicrosoftAjax": "Delta=true",
+                "X-Requested-With": "XMLHttpRequest",
+                "Origin": "https://www.arihantcapital.com",
+                "Referer": url,
+            }
 
-                        # Click Go and wait for response
-                        page.click('#ctl00_ContentPlaceHolder1_btnGo')
-                        page.wait_for_timeout(3000) # Give AJAX/Postback time to finish
+            categories = [("FII/FPI", "FII"), ("DII", "DII")]
 
-                        # Extract the table
-                        rows = page.query_selector_all('table tr')
-                        if len(rows) > 1: # Row 0 is header
-                            # The first data row should hopefully match our date.
-                            # If it returns empty data, the row might be empty or missing.
-                            tds = rows[1].query_selector_all('td')
+            for option_val, cat_name in categories:
+                data = base_data.copy()
+                data.update({
+                    "ctl00$scrptmanagr": "ctl00$ContentPlaceHolder1$UpdatePanelBigSch|ctl00$ContentPlaceHolder1$btnGo",
+                    "__EVENTTARGET": "ctl00$ContentPlaceHolder1$btnGo",
+                    "__EVENTARGUMENT": "",
+                    "ctl00$ContentPlaceHolder1$DrpMobmenu": "DM",
+                    "ctl00$ContentPlaceHolder1$menuDM": "/derivatives/fii-dii-trading-activities",
+                    "ctl00$ContentPlaceHolder1$cattypeid": "cash",
+                    "ctl00$ContentPlaceHolder1$fosubCatid": "index",
+                    "ctl00$ContentPlaceHolder1$ddlSubCategory": option_val,
+                    "ctl00$ContentPlaceHolder1$fromdate": date_str,
+                    "ctl00$ContentPlaceHolder1$todate": date_str,
+                    "__ASYNCPOST": "true"
+                })
+
+                try:
+                    resp_post = session.post(url, data=data, headers=headers, timeout=15)
+                    text = resp_post.content.decode('utf-8')
+
+                    match = re.search(r'(<table.*?</table>)', text, re.IGNORECASE | re.DOTALL)
+                    if match:
+                        table_html = match.group(1)
+                        table_soup = BeautifulSoup(table_html, "html.parser")
+                        rows = table_soup.find_all('tr')
+
+                        if len(rows) > 1:
+                            tds = rows[1].find_all(['td', 'th'])
                             if len(tds) >= 4:
-                                text_vals = [td.inner_text().strip() for td in tds]
-                                # Check if it matches the requested date approximately
+                                text_vals = [c.text.strip() for c in tds]
                                 parsed_date_str = text_vals[0]
+
                                 try:
                                     row_date = pd.to_datetime(parsed_date_str).date()
                                     if row_date == trade_date:
-                                        # Success, let's parse the values
                                         buy_val = float(text_vals[1].replace(',', ''))
                                         sell_val = float(text_vals[2].replace(',', ''))
                                         net_val = float(text_vals[3].replace(',', ''))
@@ -737,21 +775,22 @@ class NSELib:
                                             'net_value': net_val
                                         })
                                     else:
-                                        logger.warning(f"Arihant scraper: Row date {row_date} did not match requested {trade_date} for {cat_name}")
+                                        logger.warning(f"Arihant HTTP scraper: Row date {row_date} did not match requested {trade_date} for {cat_name}")
                                 except Exception as d_e:
-                                    logger.warning(f"Arihant scraper date parse error for {text_vals[0]}: {d_e}")
-                    except Exception as e_cat:
-                        logger.error(f"Error scraping {cat_name} from Arihant: {e_cat}")
+                                    logger.warning(f"Arihant HTTP scraper date parse error for {text_vals[0]}: {d_e}")
+                    else:
+                        logger.warning(f"Arihant HTTP scraper: Table not found in AJAX response for {cat_name}")
 
-                browser.close()
+                except Exception as e_cat:
+                    logger.error(f"Error HTTP scraping {cat_name} from Arihant: {e_cat}")
 
             if records:
                 logger.info(f"Successfully scraped fallback FII/DII data from Arihant Capital for {trade_date}")
                 return pd.DataFrame(records)
             else:
-                logger.warning(f"No valid records extracted from Arihant Capital for {trade_date}")
+                logger.warning(f"No valid records extracted from Arihant Capital HTTP scraper for {trade_date}")
                 return pd.DataFrame()
 
         except Exception as e:
-            logger.error(f"Error in Arihant Playwright fallback scraper: {e}")
+            logger.error(f"Error in Arihant pure HTTP fallback scraper: {e}")
             return pd.DataFrame()
