@@ -46,7 +46,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
         text = ""
         error_msg = ""
 
@@ -64,10 +64,10 @@ class TerminalOrchestrator:
                 continue
 
         if not text:
-            # Fallback to DeepSeek R1 via OpenRouter
+            # Fallback to Llama 3 on Groq
             try:
-                fallback_response = await self.openrouter_client.chat.completions.create(
-                    model="deepseek/deepseek-r1",
+                fallback_response = await self.groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.3
                 )
@@ -76,7 +76,7 @@ class TerminalOrchestrator:
             except Exception as e:
                 return {
                     "task": command,
-                    "reasoning": f"Failed to generate task via Gemini ({error_msg}) AND DeepSeek fallback ({str(e)}). Proceeding with raw command."
+                    "reasoning": f"Failed to generate task via Gemini ({error_msg}) AND Llama 3 fallback ({str(e)}). Proceeding with raw command."
                 }
 
         reasoning = ""
@@ -114,7 +114,7 @@ class TerminalOrchestrator:
         Return ONLY the exact category name. Nothing else.
         """
 
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
         engine_type = ""
 
         for model_name in models_to_try:
@@ -130,10 +130,10 @@ class TerminalOrchestrator:
                 continue
 
         if not engine_type:
-            # Fallback to DeepSeek R1
+            # Fallback to Llama 3
             try:
-                fallback_response = await self.openrouter_client.chat.completions.create(
-                    model="deepseek/deepseek-r1",
+                fallback_response = await self.groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.0
                 )
@@ -552,7 +552,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
         text = ""
         error_msg = ""
 
@@ -569,17 +569,17 @@ class TerminalOrchestrator:
                 continue
 
         if not text:
-            # Fallback to DeepSeek R1
+            # Fallback to Llama 3
             try:
-                fallback_response = await self.openrouter_client.chat.completions.create(
-                    model="deepseek/deepseek-r1",
+                fallback_response = await self.groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.3
                 )
                 if fallback_response and fallback_response.choices and fallback_response.choices[0].message.content:
                     text = fallback_response.choices[0].message.content.strip()
             except Exception as e:
-                exec_card['reasoning'] = f"Gemini rewrite failed ({error_msg}) AND DeepSeek fallback failed ({str(e)}). Proceeding with original strategist output."
+                exec_card['reasoning'] = f"Gemini rewrite failed ({error_msg}) AND Llama 3 fallback failed ({str(e)}). Proceeding with original strategist output."
                 return exec_card
 
         gemini_reasoning = ""

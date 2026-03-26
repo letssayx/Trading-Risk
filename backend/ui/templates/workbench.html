@@ -4513,7 +4513,7 @@ document.addEventListener('click', (e) => {
                     <td style="color: ${futColor};">${latest.fut1_close.toFixed(2)} <span style="font-size:0.8em">${futArrow}</span></td>
                     <td style="color: ${totalColor}; font-weight: bold;">${total.toFixed(2)}% <span style="font-size:0.8em">${totalArrow}</span></td>
                     <td style="color: ${totalChgColor}; font-weight: bold;">${totalChgStr}</td>
-                    <td style="color: ${mwplColor}; font-weight: bold;">${latest.mwpl}%</td>
+
                     ${mainClientTds}
                 `;
                 symbolTbody.appendChild(mainTr);
@@ -4608,7 +4608,7 @@ document.addEventListener('click', (e) => {
                         <td style="color: ${histFutColor};">${r.fut1_close.toFixed(2)} <span style="font-size:0.8em">${histFutArrow}</span></td>
                         <td style="color: ${histTotalColor};">${rowTotal.toFixed(2)}% <span style="font-size:0.8em">${histTotalArrow}</span></td>
                         <td style="color: ${histTotalChgColor};">${histTotalChgStr}</td>
-                        <td style="color: ${hColor};">${r.mwpl}%</td>
+
                         ${clientTds}
                     `;
                     tbodyBlock.appendChild(historyTr);
