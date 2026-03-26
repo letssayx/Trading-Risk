@@ -805,12 +805,78 @@ class NSELib:
                     })
 
             if not records:
-                logger.warning(f"No fallback Arihant FII/DII records found for {trade_date}")
-                return pd.DataFrame()
+                logger.warning(f"No records found in NSE React API for {trade_date}. Falling back to Moneycontrol HTML JSON.")
+                # We need to run the Moneycontrol fallback logic here as well since NSE React API succeeded but didn't have the date
+                session = requests.Session(impersonate="chrome110")
+                mc_resp = session.get(url, timeout=10)
+                if mc_resp.status_code != 200:
+                    logger.warning(f"Moneycontrol fallback GET failed with status {mc_resp.status_code}")
+                    return pd.DataFrame()
 
-            logger.info(f"Successfully scraped FII/DII fallback data from Arihant for {trade_date}")
+                soup = BeautifulSoup(mc_resp.content, 'html.parser')
+                records = []
+                scripts = soup.find_all('script')
+
+                for s in scripts:
+                    if s.string and 'FiiDiiData' in s.string:
+                        try:
+                            data = json.loads(s.string)
+                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiData', {}).get('fiiDiiData', [])
+
+                            for item in fii_dii_list:
+                                date_str = item.get('date')
+                                if not date_str: continue
+
+                                try:
+                                    parsed_date = pd.to_datetime(date_str, format='mixed').date()
+                                    if parsed_date == trade_date:
+                                        fii_net = float(str(item.get('fiiCM', 0)).replace(',', ''))
+                                        dii_net = float(str(item.get('diiCM', 0)).replace(',', ''))
+
+                                        fii_buy = fii_sell = dii_buy = dii_sell = 0.0
+
+                                        for sub in item.get('fDVal', []):
+                                            tab = str(sub.get('tabName', '')).upper()
+                                            if "FII" in tab:
+                                                fii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
+                                                fii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
+                                            elif "DII" in tab:
+                                                dii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
+                                                dii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
+
+                                        records.append({
+                                            'trade_date': parsed_date,
+                                            'category': 'FII',
+                                            'buy_value': fii_buy,
+                                            'sell_value': fii_sell,
+                                            'net_value': fii_net
+                                        })
+
+                                        records.append({
+                                            'trade_date': parsed_date,
+                                            'category': 'DII',
+                                            'buy_value': dii_buy,
+                                            'sell_value': dii_sell,
+                                            'net_value': dii_net
+                                        })
+                                        break
+                                except Exception:
+                                    continue
+                            if records:
+                                break
+                        except Exception as e:
+                            logger.warning(f"Error parsing Moneycontrol JSON: {e}")
+                            pass
+
+                if not records:
+                    logger.warning(f"No fallback Moneycontrol FII/DII records found for {trade_date}")
+                    return pd.DataFrame()
+
+                logger.info(f"Successfully scraped FII/DII fallback data from Moneycontrol for {trade_date}")
+                return pd.DataFrame(records)
+
             return pd.DataFrame(records)
 
         except Exception as e:
-            logger.error(f"Error in Arihant FII/DII fallback: {e}")
+            logger.error(f"Error in Moneycontrol FII/DII fallback: {e}")
             return pd.DataFrame()
