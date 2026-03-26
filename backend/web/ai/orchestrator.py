@@ -114,7 +114,7 @@ class TerminalOrchestrator:
         Return ONLY the exact category name. Nothing else.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash', 'gemini-2.0-flash']
         engine_type = ""
 
         for model_name in models_to_try:
@@ -552,7 +552,7 @@ class TerminalOrchestrator:
         Your final output MUST contain this valid JSON block.
         """
 
-        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash', 'gemini-2.0-flash']
         text = ""
         error_msg = ""
 

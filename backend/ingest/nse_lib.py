@@ -676,7 +676,8 @@ class NSELib:
 
     def _fetch_moneycontrol_fii_dii(self, trade_date: date) -> pd.DataFrame:
         """Fallback method to fetch FII/DII data from Moneycontrol JSON embedded in HTML."""
-        url = "https://www.moneycontrol.com/stocks/marketstats/fii_dii_activity/index.php"
+        mc_url = "https://www.moneycontrol.com/markets/fii-dii-data/cash/"
+
         try:
             from bs4 import BeautifulSoup
             import json
@@ -705,7 +706,7 @@ class NSELib:
                 # Fallback to Moneycontrol
                 logger.warning(f"NSE React API failed with status {resp.status_code}. Falling back to Moneycontrol HTML JSON.")
                 session = requests.Session(impersonate="chrome110")
-                mc_resp = session.get(url, timeout=10)
+                mc_resp = session.get(mc_url, timeout=10)
                 if mc_resp.status_code != 200:
                     logger.warning(f"Moneycontrol fallback GET failed with status {mc_resp.status_code}")
                     return pd.DataFrame()
@@ -715,10 +716,11 @@ class NSELib:
                 scripts = soup.find_all('script')
 
                 for s in scripts:
-                    if s.string and 'FiiDiiData' in s.string:
+                    if s.string and 'FiiDiiChartData' in s.string:
                         try:
                             data = json.loads(s.string)
-                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiData', {}).get('fiiDiiData', [])
+                            # FiiDiiChartData is under props.pageProps.FiiDiiChartData.fiiDiiChartData
+                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiChartData', {}).get('fiiDiiChartData', [])
 
                             for item in fii_dii_list:
                                 date_str = item.get('date')
@@ -727,23 +729,14 @@ class NSELib:
                                 try:
                                     parsed_date = pd.to_datetime(date_str, format='mixed').date()
                                     if parsed_date == trade_date:
-                                        # Historical dates on MC usually only have net values (fiiCM/diiCM)
-                                        # But for the latest day they also have fDVal with buy/sell.
 
-                                        fii_net = float(str(item.get('fiiCM', 0)).replace(',', ''))
-                                        dii_net = float(str(item.get('diiCM', 0)).replace(',', ''))
+                                        fii_buy = float(str(item.get('fiiPurchase', 0)).replace(',', ''))
+                                        fii_sell = float(str(item.get('fiiSales', 0)).replace(',', ''))
+                                        fii_net = float(str(item.get('fiiNet', 0)).replace(',', ''))
 
-                                        # Try to extract detailed buy/sell if available
-                                        fii_buy = fii_sell = dii_buy = dii_sell = 0.0
-
-                                        for sub in item.get('fDVal', []):
-                                            tab = str(sub.get('tabName', '')).upper()
-                                            if "FII" in tab:
-                                                fii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
-                                                fii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
-                                            elif "DII" in tab:
-                                                dii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
-                                                dii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
+                                        dii_buy = float(str(item.get('diiPurchase', 0)).replace(',', ''))
+                                        dii_sell = float(str(item.get('diiSale', 0)).replace(',', ''))
+                                        dii_net = float(str(item.get('diiNet', 0)).replace(',', ''))
 
                                         records.append({
                                             'trade_date': parsed_date,
@@ -808,7 +801,7 @@ class NSELib:
                 logger.warning(f"No records found in NSE React API for {trade_date}. Falling back to Moneycontrol HTML JSON.")
                 # We need to run the Moneycontrol fallback logic here as well since NSE React API succeeded but didn't have the date
                 session = requests.Session(impersonate="chrome110")
-                mc_resp = session.get(url, timeout=10)
+                mc_resp = session.get(mc_url, timeout=10)
                 if mc_resp.status_code != 200:
                     logger.warning(f"Moneycontrol fallback GET failed with status {mc_resp.status_code}")
                     return pd.DataFrame()
@@ -818,10 +811,10 @@ class NSELib:
                 scripts = soup.find_all('script')
 
                 for s in scripts:
-                    if s.string and 'FiiDiiData' in s.string:
+                    if s.string and 'FiiDiiChartData' in s.string:
                         try:
                             data = json.loads(s.string)
-                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiData', {}).get('fiiDiiData', [])
+                            fii_dii_list = data.get('props', {}).get('pageProps', {}).get('FiiDiiChartData', {}).get('fiiDiiChartData', [])
 
                             for item in fii_dii_list:
                                 date_str = item.get('date')
@@ -830,19 +823,14 @@ class NSELib:
                                 try:
                                     parsed_date = pd.to_datetime(date_str, format='mixed').date()
                                     if parsed_date == trade_date:
-                                        fii_net = float(str(item.get('fiiCM', 0)).replace(',', ''))
-                                        dii_net = float(str(item.get('diiCM', 0)).replace(',', ''))
 
-                                        fii_buy = fii_sell = dii_buy = dii_sell = 0.0
+                                        fii_buy = float(str(item.get('fiiPurchase', 0)).replace(',', ''))
+                                        fii_sell = float(str(item.get('fiiSales', 0)).replace(',', ''))
+                                        fii_net = float(str(item.get('fiiNet', 0)).replace(',', ''))
 
-                                        for sub in item.get('fDVal', []):
-                                            tab = str(sub.get('tabName', '')).upper()
-                                            if "FII" in tab:
-                                                fii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
-                                                fii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
-                                            elif "DII" in tab:
-                                                dii_buy = float(str(sub.get('grossPur', 0)).replace(',', ''))
-                                                dii_sell = float(str(sub.get('grossSal', 0)).replace(',', ''))
+                                        dii_buy = float(str(item.get('diiPurchase', 0)).replace(',', ''))
+                                        dii_sell = float(str(item.get('diiSale', 0)).replace(',', ''))
+                                        dii_net = float(str(item.get('diiNet', 0)).replace(',', ''))
 
                                         records.append({
                                             'trade_date': parsed_date,
