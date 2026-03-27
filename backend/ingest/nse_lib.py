@@ -568,17 +568,22 @@ class NSELib:
     def get_contract_delta(self, trade_date: date) -> pd.DataFrame:
         """Get Contract Delta."""
         # Archive URL: https://nsearchives.nseindia.com/archives/nsccl/delta/N_DELTA_TRD_ddmmyyyy.DAT
+        # New URL: https://nsearchives.nseindia.com/archives/nsccl/delta/contract_delta_ddmmyyyy.csv
         date_str = trade_date.strftime("%d%m%Y")
-        url = f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT"
+        urls = [
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/contract_delta_{date_str}.csv",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT"
+        ]
 
-        resp = self.get(url)
-        if resp.status_code == 200:
-            try:
-                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-                df.columns = [str(c).strip() for c in df.columns]
-                return df
-            except:
-                pass
+        for url in urls:
+            resp = self.get(url)
+            if resp and resp.status_code == 200:
+                try:
+                    df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                    df.columns = [str(c).strip() for c in df.columns]
+                    return df
+                except:
+                    pass
         return pd.DataFrame()
 
     def get_fii_dii_cash(self, trade_date: date) -> pd.DataFrame:

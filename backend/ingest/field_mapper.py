@@ -56,7 +56,7 @@ class FieldMapper:
                 return {'type': 'eq_old', 'name': 'bhavcopy_eq'}
 
         # Contract Delta (Check first to avoid confusion with FO Bhavcopy)
-        if 'DELTA' in upper_cols:
+        if 'DELTA' in upper_cols or 'DELTA FACTOR' in upper_cols:
              return {'type': 'contract_delta', 'name': 'contract_delta'}
 
         # Old FO Bhavcopy / Variations
@@ -138,9 +138,9 @@ class FieldMapper:
              return {'type': 'var_stats', 'name': 'var_stats'}
 
         # Contract Delta
-        if 'Delta' in columns and 'Strike Price' in columns:
+        if ('DELTA' in columns or 'Delta Factor' in columns) and 'SYMBOL' in columns:
             return {'type': 'contract_delta', 'name': 'contract_delta'}
-        if 'DELTA' in upper_cols and 'SYMBOL' in upper_cols:
+        if ('DELTA' in upper_cols or 'DELTA FACTOR' in upper_cols) and 'SYMBOL' in upper_cols:
              return {'type': 'contract_delta', 'name': 'contract_delta'}
 
         # Margin Trading
@@ -818,16 +818,20 @@ class FieldMapper:
     @classmethod
     def _map_contract_delta(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
+        # Support both 'Expiry Date' and 'Expiry day', 'Delta' and 'Delta Factor'
         for _, row in df.iterrows():
+            expiry = row.get('Expiry Date') if pd.notna(row.get('Expiry Date')) else row.get('Expiry day')
+            delta = row.get('Delta Factor') if pd.notna(row.get('Delta Factor')) else row.get('Delta')
+
             record = {
                 'date': trade_date,
                 'symbol': str(row.get('Symbol', '')).strip(),
-                'expiry_date': parse_nse_date(row.get('Expiry Date')),
+                'expiry_date': parse_nse_date(expiry),
                 'strike_price': cls._clean_numeric(row.get('Strike Price')),
                 'option_type': str(row.get('Option Type', '')).strip(),
-                'delta': cls._clean_numeric(row.get('Delta')),
+                'delta': cls._clean_numeric(delta),
             }
-            if record['symbol']:
+            if record['symbol'] and record['symbol'].lower() != 'nan':
                 records.append(record)
         return records
 
