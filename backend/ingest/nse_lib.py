@@ -571,16 +571,20 @@ class NSELib:
         # New URL: https://nsearchives.nseindia.com/archives/nsccl/delta/Contract_Delta_ddmmyyyy.csv
         date_str = trade_date.strftime("%d%m%Y")
         urls = [
-            f"{self.ARCHIVES_URL}/archives/nsccl/delta/Contract_Delta_{date_str}.csv",
-            f"{self.ARCHIVES_URL}/archives/nsccl/delta/contract_delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/content/nsccl/Contract_Delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/content/nsccl/contract_delta_{date_str}.csv",
-            f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT"
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/Contract_Delta_{date_str}.csv",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/contract_delta_{date_str}.csv",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.csv",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/n_delta_trd_{date_str}.csv",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/n_delta_trd_{date_str}.DAT"
         ]
 
         for url in urls:
             resp = self.get(url)
-            if resp and resp.status_code == 200:
+            # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
+            if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower():
                 try:
                     df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
                     df.columns = [str(c).strip() for c in df.columns]
