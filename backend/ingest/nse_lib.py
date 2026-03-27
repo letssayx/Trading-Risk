@@ -573,6 +573,8 @@ class NSELib:
         urls = [
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/Contract_Delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/contract_delta_{date_str}.csv",
+            f"{self.ARCHIVES_URL}/content/nsccl/Contract_Delta_{date_str}.csv",
+            f"{self.ARCHIVES_URL}/content/nsccl/contract_delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT"
         ]
 
@@ -582,9 +584,10 @@ class NSELib:
                 try:
                     df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
                     df.columns = [str(c).strip() for c in df.columns]
-                    return df
-                except:
-                    pass
+                    if not df.empty:
+                        return df
+                except Exception as e:
+                    logger.error(f"Error parsing Contract Delta from {url}: {e}")
         return pd.DataFrame()
 
     def get_fii_dii_cash(self, trade_date: date) -> pd.DataFrame:

@@ -833,6 +833,9 @@ class FieldMapper:
             }
             if record['symbol'] and record['symbol'].lower() != 'nan':
                 records.append(record)
+
+        if not records:
+            logger.error(f"Contract delta mapping produced 0 records from {len(df)} rows. Columns: {df.columns.tolist()}")
         return records
 
     @classmethod
