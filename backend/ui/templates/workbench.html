@@ -578,7 +578,7 @@
                                 <th style="padding: 8px;">Price</th>
                                 <th style="padding: 8px;">% Change</th>
                                 <th style="padding: 8px;">BPS</th>
-                                <th style="padding: 8px;">Ann. Yield</th>
+                                <th style="padding: 8px; display: none;">Ann. Yield</th>
                                 <th style="padding: 8px;">Volume</th>
                                 <th style="padding: 8px;">ATP</th>
                                 <th style="padding: 8px;">OI</th>
@@ -606,21 +606,24 @@
                     <select id="opt-expiry-select" class="form-control" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
                     <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
                     <span id="opt-spot-price" style="margin-left: auto; font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
+                    <span id="opt-report-date" style="margin-left: 15px; font-size: 14px; color: #aaa;"></span>
                 </div>
 
                 <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
                     <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
                         <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                             <tr>
-                                <th colspan="6" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
+                                <th colspan="8" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
                                 <th style="background: #333; color: #ffcc00; font-weight: bold; font-size: 14px; min-width: 80px;">STRIKE</th>
-                                <th colspan="6" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
+                                <th colspan="8" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
                             </tr>
                             <tr style="font-size: 11px; color: #ccc;">
                                 <th style="padding: 4px;">Vega</th>
                                 <th style="padding: 4px;">Theta</th>
                                 <th style="padding: 4px;">Gamma</th>
                                 <th style="padding: 4px;">Delta</th>
+                                <th style="padding: 4px;">Vol</th>
+                                <th style="padding: 4px;">OI</th>
                                 <th style="padding: 4px;">IV</th>
                                 <th style="padding: 4px; border-right: 2px solid #555;">LTP</th>
 
@@ -628,6 +631,8 @@
 
                                 <th style="padding: 4px; border-left: 2px solid #555;">LTP</th>
                                 <th style="padding: 4px;">IV</th>
+                                <th style="padding: 4px;">OI</th>
+                                <th style="padding: 4px;">Vol</th>
                                 <th style="padding: 4px;">Delta</th>
                                 <th style="padding: 4px;">Gamma</th>
                                 <th style="padding: 4px;">Theta</th>
@@ -635,7 +640,7 @@
                             </tr>
                         </thead>
                         <tbody id="option-chain-body">
-                            <tr><td colspan="13" style="text-align:center; color:#888;">Select a symbol to view Option Chain.</td></tr>
+                            <tr><td colspan="17" style="text-align:center; color:#888;">Select a symbol and click "Load Chain".</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -4687,7 +4692,7 @@ document.addEventListener('click', (e) => {
                     <td style="font-weight: bold;">${eq.price != null && !isNaN(eq.price) && eq.price > 0 ? eq.price.toFixed(2) : '-'}</td>
                     <td style="color: ${eqChangeColor}; font-weight: bold;">${eqChangeStr}</td>
                     <td>-</td>
-                    <td>-</td>
+                    <td style="display: none;">-</td>
                     <td style="color: #ccc;">${eq.vol > 0 ? (eq.vol).toLocaleString() : '-'}</td>
                     <td style="color: #ccc;">${eq.atp > 0 ? eq.atp.toFixed(2) : '-'}</td>
                     <td>-</td>
@@ -4721,7 +4726,7 @@ document.addEventListener('click', (e) => {
                         <td>${priceVal.toFixed(2)}</td>
                         <td>${futChangeStr}</td>
                         <td style="color: #e6a23c;">${bpsVal.toFixed(2)}</td>
-                        <td style="color: ${yieldColor};">${yld.toFixed(2)}%</td>
+                        <td style="color: ${yieldColor}; display: none;">${yld.toFixed(2)}%</td>
                         <td style="color: #ccc;">${(f.vol).toLocaleString()}</td>
                         <td style="color: #ccc;">-</td>
                         <td style="color: #ccc;">${(f.oi).toLocaleString()}</td>
@@ -4789,7 +4794,7 @@ document.addEventListener('click', (e) => {
         const selectedExpiry = expirySelect.value;
         const tbody = document.getElementById('option-chain-body');
 
-        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
             let url = `/api/data/derivatives/option_chain?symbol=${sym}`;
@@ -4829,10 +4834,11 @@ document.addEventListener('click', (e) => {
             }
 
             document.getElementById('opt-spot-price').innerText = `Spot: ${data.spot_price > 0 ? data.spot_price.toFixed(2) : 'N/A'}`;
+            document.getElementById('opt-report-date').innerText = data.date ? `Date: ${data.date}` : '';
 
             tbody.innerHTML = '';
             if (!data.data || data.data.length === 0) {
-                 tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No Option Chain data found for this symbol.</td></tr>';
+                 tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">No Option Chain data found for this symbol.</td></tr>';
                  return;
             }
 
@@ -4863,6 +4869,8 @@ document.addEventListener('click', (e) => {
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.theta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.gamma)}</td>
                     <td style="color: #4ade80; ${bgStyle}">${fmt(c.delta)}</td>
+                    <td style="color: #ccc; ${bgStyle}">${c.vol > 0 ? (c.vol).toLocaleString() : '-'}</td>
+                    <td style="color: #ccc; ${bgStyle}">${c.oi > 0 ? (c.oi).toLocaleString() : '-'}</td>
                     <td style="color: #e6a23c; ${bgStyle}">${fmtVol(c.iv)}</td>
                     <td style="font-weight: bold; color: #fff; border-right: 2px solid #555; ${bgStyle}">${c.price > 0 ? c.price.toFixed(2) : '-'}</td>
 
@@ -4870,6 +4878,8 @@ document.addEventListener('click', (e) => {
 
                     <td style="font-weight: bold; color: #fff; border-left: 2px solid #555; ${bgStyle}">${p.price > 0 ? p.price.toFixed(2) : '-'}</td>
                     <td style="color: #e6a23c; ${bgStyle}">${fmtVol(p.iv)}</td>
+                    <td style="color: #ccc; ${bgStyle}">${p.oi > 0 ? (p.oi).toLocaleString() : '-'}</td>
+                    <td style="color: #ccc; ${bgStyle}">${p.vol > 0 ? (p.vol).toLocaleString() : '-'}</td>
                     <td style="color: #ff4d4d; ${bgStyle}">${fmt(p.delta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.gamma)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.theta)}</td>
@@ -4879,7 +4889,7 @@ document.addEventListener('click', (e) => {
             });
 
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error loading chain: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     }
 
