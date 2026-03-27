@@ -568,9 +568,10 @@ class NSELib:
     def get_contract_delta(self, trade_date: date) -> pd.DataFrame:
         """Get Contract Delta."""
         # Archive URL: https://nsearchives.nseindia.com/archives/nsccl/delta/N_DELTA_TRD_ddmmyyyy.DAT
-        # New URL: https://nsearchives.nseindia.com/archives/nsccl/delta/contract_delta_ddmmyyyy.csv
+        # New URL: https://nsearchives.nseindia.com/archives/nsccl/delta/Contract_Delta_ddmmyyyy.csv
         date_str = trade_date.strftime("%d%m%Y")
         urls = [
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/Contract_Delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/contract_delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT"
         ]
