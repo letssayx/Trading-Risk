@@ -321,22 +321,33 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         df = df.sort_values(['trade_date']).groupby('trade_date').first().reset_index()
         df.set_index('trade_date', inplace=True)
 
-    # 2. Calculate ATR (14-day Wilder's)
-    df['prev_close'] = df['close'].shift(1)
-    df['tr1'] = df['high'] - df['low']
-    df['tr2'] = (df['high'] - df['prev_close']).abs()
-    df['tr3'] = (df['low'] - df['prev_close']).abs()
-    df['tr'] = df[['tr1', 'tr2', 'tr3']].max(axis=1)
-    df['atr_14'] = df['tr'].ewm(alpha=1/14, adjust=False).mean()
-    # Convert ATR to % of price
-    df['atr_14_pct'] = np.where(df['close'] > 0, (df['atr_14'] / df['close']) * 100, 0)
-
-    # 3. Calculate Donchian Channels (20-day) & MA20
-    df['donchian_upper'] = df['high'].rolling(window=20).max()
-    df['donchian_lower'] = df['low'].rolling(window=20).min()
+    # 2. Technical Indicators
+    # a. SMA 20 & Bollinger Bands (1, 2, 3 Sigma)
     df['ma20'] = df['close'].rolling(window=20).mean()
+    df['std20'] = df['close'].rolling(window=20).std()
 
-    # 4. Fetch 500 days of Total Futures OI
+    df['bb_upper_1'] = df['ma20'] + (df['std20'] * 1)
+    df['bb_lower_1'] = df['ma20'] - (df['std20'] * 1)
+    df['bb_upper_2'] = df['ma20'] + (df['std20'] * 2)
+    df['bb_lower_2'] = df['ma20'] - (df['std20'] * 2)
+    df['bb_upper_3'] = df['ma20'] + (df['std20'] * 3)
+    df['bb_lower_3'] = df['ma20'] - (df['std20'] * 3)
+
+    # b. RSI (14)
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['rsi_14'] = 100 - (100 / (1 + rs))
+
+    # c. MACD (12, 26, 9)
+    exp1 = df['close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['close'].ewm(span=26, adjust=False).mean()
+    df['macd'] = exp1 - exp2
+    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+    df['macd_hist'] = df['macd'] - df['macd_signal']
+
+    # 3. Fetch 500 days of Total Futures OI
     oi_query = text("""
         SELECT trade_date, SUM(open_interest) as total_oi
         FROM bhavcopy_fo
@@ -355,6 +366,18 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     else:
         df['total_oi'] = 0
 
+    # 4. Mocking PCR & IV Data for the scope of the dynamic chart (Institutional View)
+    # Ideally, we would join Option Chain data aggregated by date for true historical PCR and IV.
+    # We will generate correlated random walks or derived metrics based on price/volatility
+    # as a placeholder until historical options aggregation tables are introduced.
+    df['pcr'] = 0.8 + (np.random.randn(len(df)).cumsum() * 0.05) # Simulated bounded PCR walk
+    df['pcr'] = df['pcr'].clip(0.4, 1.8) # Keep it realistic
+
+    # IV inverse correlation to price changes
+    price_pct_change = df['close'].pct_change()
+    df['iv'] = 15.0 - (price_pct_change * 100) + (np.random.randn(len(df)) * 2)
+    df['iv'] = df['iv'].clip(10, 80).rolling(window=3).mean() # Smoothed realistic IV
+
     # Fill NaNs for JSON serialization
     df.fillna(0, inplace=True)
 
@@ -368,10 +391,19 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         "ohlc": ohlc,
         "volume": df['volume'].tolist(),
         "ma20": df['ma20'].tolist(),
-        "donchian_upper": df['donchian_upper'].tolist(),
-        "donchian_lower": df['donchian_lower'].tolist(),
-        "atr": df['atr_14_pct'].tolist(),
-        "oi": df['total_oi'].tolist()
+        "bb_upper_1": df['bb_upper_1'].tolist(),
+        "bb_lower_1": df['bb_lower_1'].tolist(),
+        "bb_upper_2": df['bb_upper_2'].tolist(),
+        "bb_lower_2": df['bb_lower_2'].tolist(),
+        "bb_upper_3": df['bb_upper_3'].tolist(),
+        "bb_lower_3": df['bb_lower_3'].tolist(),
+        "rsi_14": df['rsi_14'].tolist(),
+        "macd": df['macd'].tolist(),
+        "macd_signal": df['macd_signal'].tolist(),
+        "macd_hist": df['macd_hist'].tolist(),
+        "total_oi": df['total_oi'].tolist(),
+        "pcr": df['pcr'].tolist(),
+        "iv": df['iv'].tolist()
     }
 
 @router.get("/api/market-activity/participant-oi")
@@ -395,7 +427,8 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
              "dates": dummy_dates,
              "fii_net_long": np.random.randint(-50000, 50000, days).tolist(),
              "pro_net_long": np.random.randint(-30000, 30000, days).tolist(),
-             "client_net_long": np.random.randint(-80000, 80000, days).tolist()
+             "client_net_long": np.random.randint(-80000, 80000, days).tolist(),
+             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
 
     records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date.in_(dates)).all()
@@ -414,7 +447,8 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
              "dates": dummy_dates,
              "fii_net_long": np.random.randint(-50000, 50000, days).tolist(),
              "pro_net_long": np.random.randint(-30000, 30000, days).tolist(),
-             "client_net_long": np.random.randint(-80000, 80000, days).tolist()
+             "client_net_long": np.random.randint(-80000, 80000, days).tolist(),
+             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
 
     df['net_long'] = df['fut_idx_long'] - df['fut_idx_short']
@@ -438,12 +472,26 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         # fallback safe
         pivot = pd.DataFrame(index=pd.to_datetime(dates))
 
+    # Fetch NIFTY index data for overlay
+    nifty_query = text("""
+        SELECT trade_date, close_price
+        FROM bhavcopy_fo
+        WHERE ticker_symb = 'NIFTY' AND instrument_type = 'FUTIDX'
+        AND trade_date = expiry_date
+        AND trade_date IN :dates
+    """)
+    nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
+
+    # Map NIFTY prices to the same date index
+    nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
+    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
         "fii_net_long": pivot.get('FII', pd.Series(0, index=pivot.index)).tolist(),
         "pro_net_long": pivot.get('PRO', pd.Series(0, index=pivot.index)).tolist(),
-        "client_net_long": pivot.get('Client', pd.Series(0, index=pivot.index)).tolist()
+        "client_net_long": pivot.get('Client', pd.Series(0, index=pivot.index)).tolist(),
+        "nifty_close": nifty_close_list
     }
 
 @router.get("/api/market-activity/cash-flow")
@@ -467,7 +515,8 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
          return {
              "dates": dummy_dates,
              "fii_net": np.random.uniform(-5000, 5000, days).tolist(),
-             "dii_net": np.random.uniform(-5000, 5000, days).tolist()
+             "dii_net": np.random.uniform(-5000, 5000, days).tolist(),
+             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
 
     records = db.query(FIIDIICash).filter(FIIDIICash.trade_date.in_(dates)).all()
@@ -484,7 +533,8 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
          return {
              "dates": dummy_dates,
              "fii_net": np.random.uniform(-5000, 5000, days).tolist(),
-             "dii_net": np.random.uniform(-5000, 5000, days).tolist()
+             "dii_net": np.random.uniform(-5000, 5000, days).tolist(),
+             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
 
     try:
@@ -501,8 +551,23 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
         logging.error(f"Error pivoting cash market flow: {e}")
         pivot = pd.DataFrame(index=pd.to_datetime(dates))
 
+    # Fetch NIFTY index data for overlay
+    nifty_query = text("""
+        SELECT trade_date, close_price
+        FROM bhavcopy_fo
+        WHERE ticker_symb = 'NIFTY' AND instrument_type = 'FUTIDX'
+        AND trade_date = expiry_date
+        AND trade_date IN :dates
+    """)
+    nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
+
+    # Map NIFTY prices to the same date index
+    nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
+    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
+
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
         "fii_net": pivot.get('FII', pd.Series(0, index=pivot.index)).tolist(),
-        "dii_net": pivot.get('DII', pd.Series(0, index=pivot.index)).tolist()
+        "dii_net": pivot.get('DII', pd.Series(0, index=pivot.index)).tolist(),
+        "nifty_close": nifty_close_list
     }

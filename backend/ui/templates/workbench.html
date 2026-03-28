@@ -8,6 +8,22 @@
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
         .main-tab-content {
             height: 100%;
             width: 100%;
@@ -4244,6 +4260,7 @@ document.addEventListener('click', (e) => {
 </body>
 
 </html>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
     let echartInstance = null;
@@ -4274,13 +4291,18 @@ document.addEventListener('click', (e) => {
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net', data: data.fii_net, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 },
-                        { label: 'DII Net', data: data.dii_net, backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1 }
+                        { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 },
+                        { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1 },
+                        { label: 'NIFTY', type: 'line', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0 }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    scales: { x: { stacked: true }, y: { stacked: true } },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, position: 'left', grid: { color: '#333' } },
+                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false } }
+                    },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
             });
@@ -4307,15 +4329,20 @@ document.addEventListener('click', (e) => {
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net Long', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'PRO Net Long', data: data.pro_net_long, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', data: data.client_net_long, borderColor: '#60a5fa', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
+                        { label: 'FII Net Long', yAxisID: 'y', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'PRO Net Long', yAxisID: 'y', data: data.pro_net_long, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#60a5fa', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    scales: { y: { grid: { color: '#333' } }, x: { grid: { display: false } } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { position: 'left', grid: { color: '#333' } },
+                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false } }
+                    },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
             });
@@ -4338,35 +4365,77 @@ document.addEventListener('click', (e) => {
             if (!res.ok) throw new Error("Data fetch failed");
             const data = await res.json();
 
+            // Compute MACD colors (Green > 0, Red < 0)
+            const macdHistColors = data.macd_hist.map(v => v >= 0 ? '#00FF00' : '#FF0000');
+
             const option = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['K-Line', 'MA20', 'Donchian Upper', 'Donchian Lower', 'Volume', 'ATR (14)', 'Future OI'] },
+                backgroundColor: '#1e1e1e', // Bloomberg Dark
+                textStyle: { color: '#FFA500' }, // Amber text
+                tooltip: {
+                    trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#555', type: 'dashed' } },
+                    backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#555', textStyle: { color: '#fff' }
+                },
+                legend: {
+                    data: ['Price', 'SMA(20)', 'BB1+', 'BB1-', 'BB2+', 'BB2-', 'BB3+', 'BB3-', 'Volume', 'RSI(14)', 'MACD', 'MACD Sig', 'Total OI', 'PCR', 'IV'],
+                    textStyle: { color: '#ccc' },
+                    selected: { 'BB1+': false, 'BB1-': false, 'BB3+': false, 'BB3-': false } // Default to showing just 2-Sigma and SMA
+                },
                 grid: [
-                    { left: '5%', right: '5%', height: '50%', top: '5%' }, // Main Chart
-                    { left: '5%', right: '5%', top: '60%', height: '15%' }, // Volume
-                    { left: '5%', right: '5%', top: '80%', height: '15%' }  // ATR / OI
+                    { left: '4%', right: '4%', top: '5%', height: '45%' },     // Grid 1: Price & Bands
+                    { left: '4%', right: '4%', top: '52%', height: '10%' },    // Grid 2: Volume
+                    { left: '4%', right: '4%', top: '64%', height: '15%' },    // Grid 3: RSI & MACD
+                    { left: '4%', right: '4%', top: '81%', height: '15%' }     // Grid 4: OI & PCR & IV
                 ],
                 xAxis: [
-                    { type: 'category', data: data.dates, gridIndex: 0, show: false },
-                    { type: 'category', data: data.dates, gridIndex: 1, show: false },
-                    { type: 'category', data: data.dates, gridIndex: 2 }
+                    { type: 'category', data: data.dates, gridIndex: 0, show: false, boundaryGap: false },
+                    { type: 'category', data: data.dates, gridIndex: 1, show: false, boundaryGap: false },
+                    { type: 'category', data: data.dates, gridIndex: 2, show: false, boundaryGap: false },
+                    { type: 'category', data: data.dates, gridIndex: 3, boundaryGap: false, axisLine: { lineStyle: { color: '#555' } } }
                 ],
                 yAxis: [
-                    { scale: true, gridIndex: 0, splitLine: { show: true, lineStyle: { color: '#333' } } },
-                    { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } },
-                    { scale: true, gridIndex: 2, name: 'ATR %', splitNumber: 2, position: 'left' },
-                    { scale: true, gridIndex: 2, name: 'Total OI', splitNumber: 2, position: 'right', axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } }
+                    // Grid 0: Price (Index 0)
+                    { scale: true, gridIndex: 0, splitLine: { show: true, lineStyle: { color: '#333' } }, position: 'right', axisLine: { lineStyle: { color: '#555' } } },
+                    // Grid 1: Volume (Index 1)
+                    { scale: true, gridIndex: 1, splitNumber: 2, splitLine: { show: false }, axisLabel: { formatter: (v) => (v/1000000).toFixed(0) + 'M' }, position: 'right' },
+                    // Grid 2: RSI & MACD
+                    // Index 2: RSI bounded 0-100 (Right)
+                    { type: 'value', min: 0, max: 100, gridIndex: 2, name: 'RSI', splitNumber: 3, splitLine: { show: true, lineStyle: { color: '#333' } }, position: 'right' },
+                    // Index 3: MACD unbounded (Left)
+                    { type: 'value', scale: true, gridIndex: 2, name: 'MACD', splitNumber: 3, splitLine: { show: false }, position: 'left' },
+                    // Grid 3: Options Data
+                    // Index 4: Total OI (Left, bounded to millions)
+                    { scale: true, gridIndex: 3, name: 'OI', splitNumber: 2, position: 'left', splitLine: { show: false }, axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } },
+                    // Index 5: IV & PCR (Right, percentage scale)
+                    { scale: true, gridIndex: 3, name: 'IV/PCR', splitNumber: 2, position: 'right', splitLine: { show: true, lineStyle: { color: '#333' } }, axisLabel: { formatter: (v) => v.toFixed(1) } }
                 ],
-                dataZoom: [{ type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 }, { show: true, type: 'slider', xAxisIndex: [0, 1, 2], bottom: '0%' }],
+                dataZoom: [
+                    { type: 'inside', xAxisIndex: [0, 1, 2, 3], start: 60, end: 100 },
+                    { show: true, type: 'slider', xAxisIndex: [0, 1, 2, 3], bottom: '0%', height: 20, borderColor: '#333', fillerColor: 'rgba(255, 165, 0, 0.2)', textStyle: { color: '#ccc' } }
+                ],
                 series: [
-                    { name: 'K-Line', type: 'candlestick', data: data.ohlc, itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' } },
-                    { name: 'MA20', type: 'line', data: data.ma20, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#fff' } },
-                    { name: 'Donchian Upper', type: 'line', data: data.donchian_upper, step: 'end', showSymbol: false, lineStyle: { type: 'dashed', color: '#ffeb3b', width: 1 } },
-                    { name: 'Donchian Lower', type: 'line', data: data.donchian_lower, step: 'end', showSymbol: false, lineStyle: { type: 'dashed', color: '#ffeb3b', width: 1 } },
-                    { name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: data.volume, itemStyle: { color: '#5470c6' } },
-                    { name: 'ATR (14)', type: 'line', xAxisIndex: 2, yAxisIndex: 2, data: data.atr, showSymbol: false, lineStyle: { color: '#fac858' } },
-                    { name: 'Future OI', type: 'line', xAxisIndex: 2, yAxisIndex: 3, data: data.oi, showSymbol: false, lineStyle: { color: '#ee6666' } }
+                    // Price Grid (0)
+                    { name: 'Price', type: 'candlestick', data: data.ohlc, itemStyle: { color: '#00FF00', color0: '#FF0000', borderColor: '#00FF00', borderColor0: '#FF0000' } },
+                    { name: 'SMA(20)', type: 'line', data: data.ma20, smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: '#FFFF00' } }, // Yellow
+                    { name: 'BB1+', type: 'line', data: data.bb_upper_1, showSymbol: false, lineStyle: { type: 'dotted', color: '#00FFFF', width: 1, opacity: 0.5 } }, // Cyan
+                    { name: 'BB1-', type: 'line', data: data.bb_lower_1, showSymbol: false, lineStyle: { type: 'dotted', color: '#00FFFF', width: 1, opacity: 0.5 } },
+                    { name: 'BB2+', type: 'line', data: data.bb_upper_2, showSymbol: false, lineStyle: { type: 'dashed', color: '#00FFFF', width: 1.5 } }, // Cyan 2Sigma
+                    { name: 'BB2-', type: 'line', data: data.bb_lower_2, showSymbol: false, lineStyle: { type: 'dashed', color: '#00FFFF', width: 1.5 } },
+                    { name: 'BB3+', type: 'line', data: data.bb_upper_3, showSymbol: false, lineStyle: { type: 'solid', color: '#FF00FF', width: 1, opacity: 0.7 } }, // Magenta 3Sigma
+                    { name: 'BB3-', type: 'line', data: data.bb_lower_3, showSymbol: false, lineStyle: { type: 'solid', color: '#FF00FF', width: 1, opacity: 0.7 } },
+
+                    // Volume Grid (1)
+                    { name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: data.volume, itemStyle: { color: '#5470c6', opacity: 0.8 } },
+
+                    // RSI / MACD Grid (2)
+                    { name: 'RSI(14)', type: 'line', xAxisIndex: 2, yAxisIndex: 2, data: data.rsi_14, showSymbol: false, lineStyle: { color: '#FFFFFF', width: 1.5 } }, // White RSI
+                    { name: 'MACD', type: 'line', xAxisIndex: 2, yAxisIndex: 3, data: data.macd, showSymbol: false, lineStyle: { color: '#00FFFF', width: 1 } },
+                    { name: 'MACD Sig', type: 'line', xAxisIndex: 2, yAxisIndex: 3, data: data.macd_signal, showSymbol: false, lineStyle: { color: '#FF00FF', width: 1 } },
+                    { name: 'MACD Hist', type: 'bar', xAxisIndex: 2, yAxisIndex: 3, data: data.macd_hist, itemStyle: { color: (params) => macdHistColors[params.dataIndex] } },
+
+                    // Options Data Grid (3)
+                    { name: 'Total OI', type: 'line', xAxisIndex: 3, yAxisIndex: 4, data: data.total_oi, showSymbol: false, lineStyle: { color: '#FFFFFF', type: 'dashed' }, areaStyle: { color: 'rgba(255, 255, 255, 0.1)' } }, // White OI
+                    { name: 'IV', type: 'line', xAxisIndex: 3, yAxisIndex: 5, data: data.iv, showSymbol: false, lineStyle: { color: '#FF00FF', width: 2 } }, // Magenta IV
+                    { name: 'PCR', type: 'line', xAxisIndex: 3, yAxisIndex: 5, data: data.pcr, showSymbol: false, lineStyle: { color: '#00FFFF', width: 2 } }  // Cyan PCR
                 ]
             };
 
