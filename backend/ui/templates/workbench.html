@@ -1436,11 +1436,13 @@
 
                         <!-- Participant OI Trend -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI Trend</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; position: absolute; width: calc(100% - 30px); z-index: 10;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">FII OI Trend</h3>
                                 <span id="participant-oi-summary" style="font-size: 12px; color: #aaa;"></span>
                             </div>
-                            <canvas id="participantOiChart"></canvas>
+                            <div style="width: 100%; height: 100%; padding-top: 25px; box-sizing: border-box;">
+                                <canvas id="participantOiChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2015,10 +2017,12 @@
                     loadMWPLAnalysis();
                 } else if (tabName === 'watch' && typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
                     loadMarketWatch();
-                } else if (tabName === 'oi' && window.OiTool) {
-                    window.OiTool.open();
-                } else if (tabName === 'rollover' && window.RolloverTool) {
-                    window.RolloverTool.open();
+                } else if (tabName === 'oi') {
+                    if (window.OiTool) window.OiTool.open();
+                    else if (typeof OiTool !== 'undefined') OiTool.open();
+                } else if (tabName === 'rollover') {
+                    if (window.RolloverTool) window.RolloverTool.open();
+                    else if (typeof RolloverTool !== 'undefined') RolloverTool.open();
                 }
             }
         }
@@ -4325,12 +4329,19 @@ document.addEventListener('click', (e) => {
             const data = await res.json();
 
             // Calculate Math
-            let fiiCurrent = 0; let proCurrent = 0;
-            if (data.fii_net_long && data.fii_net_long.length > 0) fiiCurrent = data.fii_net_long[data.fii_net_long.length - 1];
-            if (data.pro_net_long && data.pro_net_long.length > 0) proCurrent = data.pro_net_long[data.pro_net_long.length - 1];
+            let fiiIdxCurrent = 0; let fiiStkCurrent = 0; let fiiOptIdxCurrent = 0; let fiiOptStkCurrent = 0;
+            if (data.fii_fut_idx && data.fii_fut_idx.length > 0) {
+                fiiIdxCurrent = data.fii_fut_idx[data.fii_fut_idx.length - 1];
+                fiiStkCurrent = data.fii_fut_stk[data.fii_fut_stk.length - 1];
+                fiiOptIdxCurrent = data.fii_opt_idx[data.fii_opt_idx.length - 1];
+                fiiOptStkCurrent = data.fii_opt_stk[data.fii_opt_stk.length - 1];
+            }
 
             document.getElementById('participant-oi-summary').innerHTML =
-                `<span style="color:${fiiCurrent>=0?'#4ade80':'#ff4d4d'}">FII OI: ${fiiCurrent.toLocaleString()}</span> | <span style="color:${proCurrent>=0?'#4ade80':'#ff4d4d'}">PRO OI: ${proCurrent.toLocaleString()}</span>`;
+                `<span style="color:${fiiIdxCurrent>=0?'#4ade80':'#ff4d4d'}">Idx Fut: ${fiiIdxCurrent.toLocaleString()}</span> | ` +
+                `<span style="color:${fiiStkCurrent>=0?'#4ade80':'#ff4d4d'}">Stk Fut: ${fiiStkCurrent.toLocaleString()}</span> | ` +
+                `<span style="color:${fiiOptIdxCurrent>=0?'#4ade80':'#ff4d4d'}">Idx Opt: ${fiiOptIdxCurrent.toLocaleString()}</span> | ` +
+                `<span style="color:${fiiOptStkCurrent>=0?'#4ade80':'#ff4d4d'}">Stk Opt: ${fiiOptStkCurrent.toLocaleString()}</span>`;
 
 
             if (participantChartInstance) participantChartInstance.destroy();
@@ -4340,9 +4351,10 @@ document.addEventListener('click', (e) => {
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net Long', yAxisID: 'y', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'PRO Net Long', yAxisID: 'y', data: data.pro_net_long, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#a855f7', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Changed to purple to distinguish from FII
+                        { label: 'Idx Fut Net', yAxisID: 'y', data: data.fii_fut_idx, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'Stk Fut Net', yAxisID: 'y', data: data.fii_fut_stk, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'Idx Opt Net', yAxisID: 'y', data: data.fii_opt_idx, borderColor: '#a855f7', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'Stk Opt Net', yAxisID: 'y', data: data.fii_opt_stk, borderColor: '#4ade80', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
                         { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
                     ]
                 },
@@ -4352,7 +4364,15 @@ document.addEventListener('click', (e) => {
                     scales: {
                         x: { grid: { display: false } },
                         y: { position: 'left', grid: { color: '#333' } },
-                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false }, beginAtZero: false } // ensure NIFTY scales properly
+                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false }, min: function(context) {
+                             const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1').data;
+                             const minVal = Math.min(...dataArr.filter(v => v > 0));
+                             return minVal * 0.99; // 1% padding below min
+                        }, max: function(context) {
+                             const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1').data;
+                             const maxVal = Math.max(...dataArr.filter(v => v > 0));
+                             return maxVal * 1.01; // 1% padding above max
+                        } } // explicit min/max to ensure NIFTY scales properly
                     },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }

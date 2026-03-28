@@ -26,9 +26,6 @@ def run_cuj(page):
     # Click on "OI Analysis" to check if the plot renders in its dedicated container
     page.get_by_text("OI Analysis", exact=True).click()
     page.wait_for_timeout(1000)
-
-    page.evaluate("if(typeof OiTool !== 'undefined' && OiTool.open) OiTool.open()")
-    page.wait_for_timeout(1000)
     page.locator("#oi-symbol").fill("NIFTY")
     page.get_by_role("button", name="Analyze").click()
     page.wait_for_timeout(2000)
@@ -36,8 +33,6 @@ def run_cuj(page):
 
     # Click on "Rollover Analysis" to check its dedicated container
     page.get_by_text("Rollover Analysis", exact=True).click()
-    page.wait_for_timeout(1000)
-    page.evaluate("if(typeof RolloverTool !== 'undefined' && RolloverTool.open) RolloverTool.open()")
     page.wait_for_timeout(1000)
     page.locator("#rollover-symbol").fill("RELIANCE")
     page.get_by_role("button", name="Analyze").click()
@@ -68,9 +63,12 @@ if __name__ == "__main__":
         def mock_participant_oi(route):
             mock_data = {
                 "dates": ["2023-10-01", "2023-10-02"],
-                "fii_net_long": [50000, 48000],
-                "pro_net_long": [10000, 12000],
-                "client_net_long": [20000, 25000],
+                "fii_fut_idx": [50000, 48000],
+                "fii_fut_stk": [10000, 12000],
+                "fii_opt_idx": [20000, 25000],
+                "fii_opt_stk": [5000, -2000],
+                "pro_fut_idx": [10000, 12000],
+                "client_fut_idx": [20000, 25000],
                 "nifty_close": [19500, 19600]
             }
             route.fulfill(json=mock_data)
