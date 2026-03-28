@@ -375,11 +375,11 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/api/market-activity/participant-oi")
-async def get_participant_oi(db: Session = Depends(get_db)):
+async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import FAOParticipantOI
 
-    # Get the last 252 trading days
-    dates = db.query(FAOParticipantOI.trade_date).distinct().order_by(FAOParticipantOI.trade_date.desc()).limit(252).all()
+    # Get the last X trading days
+    dates = db.query(FAOParticipantOI.trade_date).distinct().order_by(FAOParticipantOI.trade_date.desc()).limit(days).all()
     dates = [d[0] for d in dates]
     dates.sort() # chronological
 
@@ -390,12 +390,12 @@ async def get_participant_oi(db: Session = Depends(get_db)):
     if not dates:
          # User requested fake dummy data to test charts when DB is empty locally
          today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
          return {
              "dates": dummy_dates,
-             "fii_net_long": np.random.randint(-50000, 50000, 30).tolist(),
-             "pro_net_long": np.random.randint(-30000, 30000, 30).tolist(),
-             "client_net_long": np.random.randint(-80000, 80000, 30).tolist()
+             "fii_net_long": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_net_long": np.random.randint(-30000, 30000, days).tolist(),
+             "client_net_long": np.random.randint(-80000, 80000, days).tolist()
          }
 
     records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date.in_(dates)).all()
@@ -409,12 +409,12 @@ async def get_participant_oi(db: Session = Depends(get_db)):
 
     if df.empty:
          today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
          return {
              "dates": dummy_dates,
-             "fii_net_long": np.random.randint(-50000, 50000, 30).tolist(),
-             "pro_net_long": np.random.randint(-30000, 30000, 30).tolist(),
-             "client_net_long": np.random.randint(-80000, 80000, 30).tolist()
+             "fii_net_long": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_net_long": np.random.randint(-30000, 30000, days).tolist(),
+             "client_net_long": np.random.randint(-80000, 80000, days).tolist()
          }
 
     df['net_long'] = df['fut_idx_long'] - df['fut_idx_short']
@@ -447,13 +447,13 @@ async def get_participant_oi(db: Session = Depends(get_db)):
     }
 
 @router.get("/api/market-activity/cash-flow")
-async def get_cash_market_flow(db: Session = Depends(get_db)):
+async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     """
-    Returns real FII/DII Cash Market Flow from the database over the last 252 days.
+    Returns real FII/DII Cash Market Flow from the database over the last X days.
     """
     from backend.ingest.nse_models import FIIDIICash
 
-    dates_query = db.query(FIIDIICash.trade_date).distinct().order_by(FIIDIICash.trade_date.desc()).limit(252).all()
+    dates_query = db.query(FIIDIICash.trade_date).distinct().order_by(FIIDIICash.trade_date.desc()).limit(days).all()
     dates = [d[0] for d in dates_query]
     dates.sort()
 
@@ -463,11 +463,11 @@ async def get_cash_market_flow(db: Session = Depends(get_db)):
 
     if not dates:
          today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
          return {
              "dates": dummy_dates,
-             "fii_net": np.random.uniform(-5000, 5000, 30).tolist(),
-             "dii_net": np.random.uniform(-5000, 5000, 30).tolist()
+             "fii_net": np.random.uniform(-5000, 5000, days).tolist(),
+             "dii_net": np.random.uniform(-5000, 5000, days).tolist()
          }
 
     records = db.query(FIIDIICash).filter(FIIDIICash.trade_date.in_(dates)).all()
@@ -480,11 +480,11 @@ async def get_cash_market_flow(db: Session = Depends(get_db)):
 
     if df.empty:
          today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30, 0, -1)]
+         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
          return {
              "dates": dummy_dates,
-             "fii_net": np.random.uniform(-5000, 5000, 30).tolist(),
-             "dii_net": np.random.uniform(-5000, 5000, 30).tolist()
+             "fii_net": np.random.uniform(-5000, 5000, days).tolist(),
+             "dii_net": np.random.uniform(-5000, 5000, days).tolist()
          }
 
     try:

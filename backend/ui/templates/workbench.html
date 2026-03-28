@@ -656,6 +656,7 @@
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
+                <div class="wb-tab" id="deriv-tab-btn-advtech" onclick="switchDerivTab('advtech')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Adv Technicals</div>
             </div>
 
             <!-- Sub-tab Contents Container -->
@@ -1401,22 +1402,41 @@
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
                 <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
+                        <select id="market-activity-days" class="history-input" style="width: 100px;">
+                            <option value="30" selected>30 Days</option>
+                            <option value="60">60 Days</option>
+                            <option value="90">90 Days</option>
+                            <option value="252">252 Days</option>
+                        </select>
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
                     </div>
 
                     <div style="display: flex; gap: 20px; height: 400px; min-height: 400px; margin-bottom: 20px; flex-shrink: 0;">
                         <!-- Institutional Market Flows (FII/DII) -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Market Flows (252 Days)</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Market Flows</h3>
+                                <span id="fii-dii-summary" style="font-size: 12px; color: #aaa;"></span>
+                            </div>
                             <canvas id="fiiDiiChart"></canvas>
                         </div>
 
                         <!-- Participant OI Trend -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI Trend (252 Days)</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI Trend</h3>
+                                <span id="participant-oi-summary" style="font-size: 12px; color: #aaa;"></span>
+                            </div>
                             <canvas id="participantOiChart"></canvas>
                         </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 5: Adv Technicals -->
+                <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
+                        <button class="btn btn-secondary" onclick="loadDynamicChart()">Load Chart</button>
                     </div>
 
                     <!-- Technical Multi-Axis Chart (ECharts) -->
@@ -1916,6 +1936,8 @@
                     switchDerivTab('matrix');
                 } else if (document.querySelector('#deriv-tab-market').classList.contains('active')) {
                     if (typeof loadMarketActivity === 'function') loadMarketActivity();
+                } else if (document.querySelector('#deriv-tab-advtech').classList.contains('active')) {
+                    if (typeof loadDynamicChart === 'function') loadDynamicChart();
                 } else if (document.querySelector('#deriv-tab-matrix').classList.contains('active') && document.getElementById('mr-data-body').innerHTML.includes('No data')) {
                      // Automatically load NIFTY snapshot if empty
                      if (typeof loadTimeseriesData === 'function') loadTimeseriesData(false);
@@ -1972,9 +1994,11 @@
                 btn.style.borderBottomColor = '#4ade80';
                 btn.style.color = '#fff';
 
-                // Trigger chart loading if Market Activity
+                // Trigger chart loading if Market Activity or Adv Technicals
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
+                } else if (tabName === 'advtech' && typeof loadDynamicChart === 'function') {
+                    loadDynamicChart();
                 } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
                     loadMWPLAnalysis();
                 }
@@ -4227,12 +4251,22 @@ document.addEventListener('click', (e) => {
     let participantChartInstance = null;
 
     async function loadMarketActivity() {
-        const symbol = document.getElementById('market-activity-symbol').value.toUpperCase() || 'NIFTY';
+
+        const days = document.getElementById('market-activity-days').value || 30;
 
         // 1. Load FII/DII Chart
         try {
-            const res = await fetch('/api/market-activity/cash-flow');
+            const res = await fetch(`/api/market-activity/cash-flow?days=${days}`);
             const data = await res.json();
+
+            // Calculate Math
+            let fiiTotal = 0; let diiTotal = 0;
+            if (data.fii_net) data.fii_net.forEach(v => fiiTotal += v);
+            if (data.dii_net) data.dii_net.forEach(v => diiTotal += v);
+
+            document.getElementById('fii-dii-summary').innerHTML =
+                `<span style="color:${fiiTotal>=0?'#4ade80':'#ff4d4d'}">FII: ₹${fiiTotal.toFixed(2)} Cr</span> | <span style="color:${diiTotal>=0?'#4ade80':'#ff4d4d'}">DII: ₹${diiTotal.toFixed(2)} Cr</span>`;
+
             if (fiiDiiChartInstance) fiiDiiChartInstance.destroy();
             const ctx = document.getElementById('fiiDiiChart').getContext('2d');
             fiiDiiChartInstance = new Chart(ctx, {
@@ -4254,8 +4288,18 @@ document.addEventListener('click', (e) => {
 
         // 2. Load Participant OI Chart
         try {
-            const res = await fetch('/api/market-activity/participant-oi');
+            const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
+
+            // Calculate Math
+            let fiiCurrent = 0; let proCurrent = 0;
+            if (data.fii_net_long && data.fii_net_long.length > 0) fiiCurrent = data.fii_net_long[data.fii_net_long.length - 1];
+            if (data.pro_net_long && data.pro_net_long.length > 0) proCurrent = data.pro_net_long[data.pro_net_long.length - 1];
+
+            document.getElementById('participant-oi-summary').innerHTML =
+                `<span style="color:${fiiCurrent>=0?'#4ade80':'#ff4d4d'}">FII OI: ${fiiCurrent.toLocaleString()}</span> | <span style="color:${proCurrent>=0?'#4ade80':'#ff4d4d'}">PRO OI: ${proCurrent.toLocaleString()}</span>`;
+
+
             if (participantChartInstance) participantChartInstance.destroy();
             const ctx = document.getElementById('participantOiChart').getContext('2d');
             participantChartInstance = new Chart(ctx, {
@@ -4276,6 +4320,10 @@ document.addEventListener('click', (e) => {
                 }
             });
         } catch (e) { console.error("Error loading Participant OI", e); }
+    }
+
+    async function loadDynamicChart() {
+        const symbol = document.getElementById('market-activity-symbol').value.toUpperCase() || 'NIFTY';
 
         // 3. Load EChart Multi-Axis
         const container = document.getElementById('echart-container');
