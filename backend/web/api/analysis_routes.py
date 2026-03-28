@@ -501,7 +501,7 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
 
     # Map NIFTY prices to the same date index
     nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
-    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
+    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot_idx.index]
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot_idx.index],

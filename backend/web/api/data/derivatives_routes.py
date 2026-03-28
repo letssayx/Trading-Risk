@@ -10,7 +10,89 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 
 router = APIRouter()
 
-@router.get("/api/analysis/oi/{symbol}")
+@router.get("/api/data/analysis/oi")
+async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
+    """
+    Computes OI vs Price Quadrant Analysis for all F&O symbols on the latest trading day.
+    """
+    try:
+        # 1. Get the latest two trading dates
+        dates_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+                  .distinct()\
+                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .limit(2).all()
+
+        if len(dates_query) < 2:
+            return {"data": []}
+
+        curr_date, prev_date = dates_query[0][0], dates_query[1][0]
+
+        # 2. Get data for both dates
+        query = db.query(
+            BhavcopyFO.ticker_symb,
+            BhavcopyFO.trade_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest
+        ).filter(
+            BhavcopyFO.trade_date.in_([curr_date, prev_date]),
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
+
+        # 3. Aggregate OI and get price per symbol per date
+        sym_data = {}
+        for r in query:
+            sym = r.ticker_symb
+            dt = r.trade_date
+            if sym not in sym_data:
+                sym_data[sym] = {curr_date: {"price": None, "oi": 0}, prev_date: {"price": None, "oi": 0}}
+
+            # Use the first encountered close_price (near month because of order_by expiry_date asc)
+            if sym_data[sym][dt]["price"] is None:
+                sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
+
+            # Sum OI across all expiries
+            sym_data[sym][dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
+
+        # 4. Calculate metrics
+        results = []
+        for sym, dates_dict in sym_data.items():
+            prev = dates_dict[prev_date]
+            curr = dates_dict[curr_date]
+
+            if prev["price"] == 0 or prev["oi"] == 0 or curr["price"] is None or curr["oi"] == 0:
+                continue
+
+            price_chg = ((curr["price"] - prev["price"]) / prev["price"]) * 100
+            oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"]) * 100
+
+            interp = "Neutral"
+            if price_chg > 0 and oi_chg > 0:
+                interp = "Long Build Up"
+            elif price_chg > 0 and oi_chg < 0:
+                interp = "Short Covering"
+            elif price_chg < 0 and oi_chg > 0:
+                interp = "Short Build Up"
+            elif price_chg < 0 and oi_chg < 0:
+                interp = "Long Unwinding"
+
+            results.append({
+                "symbol": sym,
+                "price_chg_pct": round(price_chg, 2),
+                "oi_chg_pct": round(oi_chg, 2),
+                "interpretation": interp,
+                "curr_price": curr["price"],
+                "curr_oi": curr["oi"]
+            })
+
+        return {"date": str(curr_date), "data": results}
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, detail=str(e))
+
+@router.get("/api/data/analysis/oi/{symbol}")
 async def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
     """
     Computes OI vs Price Quadrant Analysis.
@@ -75,7 +157,84 @@ async def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
         traceback.print_exc()
         raise HTTPException(500, detail=str(e))
 
-@router.get("/api/analysis/rollover/{symbol}")
+@router.get("/api/data/analysis/rollover")
+async def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
+    """
+    Computes Rollover Analysis metrics for all F&O symbols on the latest trading day.
+    """
+    try:
+        # Get latest date
+        latest_date_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+                  .distinct()\
+                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .first()
+
+        if not latest_date_query:
+            return {"data": []}
+
+        latest_date = latest_date_query[0]
+
+        # Get all futures for the latest date
+        futs = db.query(
+            BhavcopyFO.ticker_symb,
+            BhavcopyFO.expiry_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest
+        ).filter(
+            BhavcopyFO.trade_date == latest_date,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
+
+        # Group by symbol
+        sym_futs = {}
+        for f in futs:
+            sym = f.ticker_symb
+            if sym not in sym_futs:
+                sym_futs[sym] = []
+            sym_futs[sym].append(f)
+
+        results = []
+        for sym, s_futs in sym_futs.items():
+            if len(s_futs) < 2:
+                continue
+
+            total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in s_futs])
+
+            near = s_futs[0]
+            next_month = s_futs[1]
+
+            near_oi = int(near.open_interest) if near.open_interest else 0
+
+            rollover_pct = 0
+            if total_oi > 0:
+                rollover_pct = ((total_oi - near_oi) / total_oi) * 100
+
+            near_price = float(near.close_price) if near.close_price else 0
+            next_price = float(next_month.close_price) if next_month.close_price else 0
+
+            spread = next_price - near_price
+            spread_pct = (spread / near_price) * 100 if near_price > 0 else 0
+
+            results.append({
+                "symbol": sym,
+                "rollover_pct": round(rollover_pct, 2),
+                "rollover_cost": round(spread, 2),
+                "rollover_cost_pct": round(spread_pct, 2),
+                "near_oi": near_oi,
+                "total_oi": total_oi,
+                "near_price": near_price,
+                "next_price": next_price
+            })
+
+        return {"date": str(latest_date), "data": results}
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, detail=str(e))
+
+@router.get("/api/data/analysis/rollover/{symbol}")
 async def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
     """
     Computes Rollover Analysis metrics.
