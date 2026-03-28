@@ -1,69 +1,48 @@
 const OiTool = {
     active: false,
-    containerId: 'oi-container',
+    containerId: 'deriv-tab-oi',
 
     init: function() {
-        // Create container if not exists, but usually we render into an existing area
+        const container = document.getElementById(this.containerId);
+        if (container && !container.innerHTML.includes('oi-symbol')) {
+            this.render(container);
+        }
     },
 
     open: function() {
         this.active = true;
-
-        // 1. Create a new tab in the strategy workbench if not exists
-        let tab = document.querySelector('.wb-tab[data-type="oi"]');
-        if (!tab) {
-            const header = document.querySelector('.wb-tabs-header');
-            tab = document.createElement('div');
-            tab.className = 'wb-tab';
-            tab.dataset.type = 'oi';
-            tab.innerText = 'OI Analysis';
-            tab.onclick = () => WorkbookManager.switchTab('oi');
-
-            // Add close button
-            const closeBtn = document.createElement('span');
-            closeBtn.innerText = ' ×';
-            closeBtn.style.cursor = 'pointer';
-            closeBtn.style.marginLeft = '5px';
-            closeBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.close();
-            };
-            tab.appendChild(closeBtn);
-
-            header.appendChild(tab);
-        }
-
-        // 2. Switch to it
-        WorkbookManager.switchTab('oi');
+        this.init();
     },
 
     close: function() {
         this.active = false;
-        const tab = document.querySelector('.wb-tab[data-type="oi"]');
-        if (tab) tab.remove();
-
-        // Switch back to default
-        WorkbookManager.switchTab('turtle');
     },
 
     render: function(container) {
         container.innerHTML = `
-            <div style="padding: 10px; color: #ccc; height: 100%; display: flex; flex-direction: column;">
-                <h3>OI Analysis (Quadrant Visualizer)</h3>
-                <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                    <input type="text" id="oi-symbol" placeholder="Symbol (e.g. NIFTY)" style="padding: 5px; background: #333; color: white; border: 1px solid #555;">
+            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
+                    <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
+                    <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Symbol (e.g. NIFTY)" style="width: 150px; padding: 4px;">
                     <button onclick="OiTool.analyze()" class="btn btn-primary">Analyze</button>
                 </div>
-                <div id="oi-chart-area" style="flex: 1; background: #1a1a1a; position: relative;">
-                    <p style="padding: 20px;">Select a symbol to visualize Price vs OI quadrants.</p>
+                <div id="oi-chart-area" style="flex: 1; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative;">
+                    <p style="padding: 20px; text-align: center; color: #888;">Select a symbol to visualize Price vs OI quadrants.</p>
                 </div>
             </div>
         `;
 
         // Add enter key support
-        document.getElementById('oi-symbol').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') OiTool.analyze();
-        });
+        const input = document.getElementById('oi-symbol');
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') OiTool.analyze();
+            });
+            // Try to hook up autocomplete if it's available
+            if (typeof setupAutocomplete === 'function') {
+                setupAutocomplete('oi-symbol');
+            }
+        }
     },
 
     analyze: async function() {

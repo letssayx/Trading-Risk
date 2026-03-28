@@ -10,18 +10,19 @@
     <style>
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #1e1e1e;
+            background: #121212; /* Darker track for Bloomberg theme */
+            border-left: 1px solid #222;
         }
         ::-webkit-scrollbar-thumb {
-            background: #444;
-            border-radius: 5px;
+            background: #333;
+            border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #666;
+            background: #555;
         }
 
         .main-tab-content {
@@ -327,7 +328,6 @@
     <div class="main-tabs-bar">
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
         <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
-        <div class="main-tab" data-target="marketwatch" onclick="switchMainTab('marketwatch')" title="Alt+M"><u>M</u>arket Watch</div>
         <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
@@ -567,111 +567,13 @@
             </div>
         </div>
 
-        <!-- TAB MARKET WATCH -->
-        <div id="tab-marketwatch" class="main-tab-content" style="background: #1e1e1e; display: none; height: 100%;">
-            <!-- Sub-tab Navigation for Market Watch -->
-            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto; flex-shrink: 0;">
-                <div class="wb-tab active" id="mw-tab-btn-watch" onclick="switchMwTab('watch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Watch</div>
-                <div class="wb-tab" id="mw-tab-btn-options" onclick="switchMwTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
-            </div>
-
-            <!-- WATCH TAB CONTENT -->
-            <div id="mw-tab-watch" class="mw-sub-tab" style="padding: 20px; height: calc(100% - 50px); display: flex; flex-direction: column; box-sizing: border-box;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
-                    <h2 style="margin: 0; color: #fff; font-size: 18px;">Market Watch (Derivatives)</h2>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" id="mw-custom-symbol" class="form-control" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
-                        <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
-                        <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
-                    </div>
-                </div>
-                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
-                    <table class="data-table" id="marketwatch-table" style="width: 100%; margin: 0; padding: 0;">
-                        <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
-                            <tr>
-                                <th style="padding: 8px; min-width: 120px;">Symbol / Expiry</th>
-                                <th style="padding: 8px;">Date</th>
-                                <th style="padding: 8px;">Price</th>
-                                <th style="padding: 8px;">% Change</th>
-                                <th style="padding: 8px;">BPS</th>
-                                <th style="padding: 8px; display: none;">Ann. Yield</th>
-                                <th style="padding: 8px;">Volume</th>
-                                <th style="padding: 8px;">ATP</th>
-                                <th style="padding: 8px;">OI</th>
-                                <th style="padding: 8px;">% Chg OI</th>
-                                <th style="padding: 8px;">DTE</th>
-                                <th style="padding: 8px; min-width: 120px;">Corp Action</th>
-                                <th style="padding: 8px;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="marketwatch-body">
-                            <tr><td colspan="13" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- OPTIONS CHAIN TAB CONTENT -->
-            <div id="mw-tab-options" class="mw-sub-tab" style="padding: 20px; height: calc(100% - 50px); display: none; flex-direction: column; box-sizing: border-box;">
-                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
-                    <h2 style="margin: 0; color: #fff; font-size: 18px;">Option Chain</h2>
-                    <div style="position: relative; width: 250px;">
-                        <input type="text" id="opt-symbol-input" class="form-control" placeholder="Search Symbol (e.g., NIFTY)..." oninput="optFilterSymbols(this.value)" onkeydown="if(event.key==='Enter') loadOptionChain()" onfocus="optFilterSymbols(this.value)">
-                        <div id="opt-symbol-dropdown" class="autocomplete-items" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 99; max-height: 300px; overflow-y: auto; background-color: #333; border: 1px solid #444; border-radius: 4px;"></div>
-                    </div>
-                    <select id="opt-expiry-select" class="form-control" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
-                    <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
-                    <span id="opt-spot-price" style="margin-left: auto; font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
-                    <span id="opt-report-date" style="margin-left: 15px; font-size: 14px; color: #aaa;"></span>
-                </div>
-
-                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
-                    <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
-                        <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
-                            <tr>
-                                <th colspan="10" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
-                                <th style="background: #333; color: #ffcc00; font-weight: bold; font-size: 14px; min-width: 80px;">STRIKE</th>
-                                <th colspan="10" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
-                            </tr>
-                            <tr style="font-size: 11px; color: #ccc;">
-                                <th style="padding: 4px;">Vega</th>
-                                <th style="padding: 4px;">Theta</th>
-                                <th style="padding: 4px;">Gamma</th>
-                                <th style="padding: 4px;">Delta</th>
-                                <th style="padding: 4px;">Vol</th>
-                                <th style="padding: 4px;">Chg OI</th>
-                                <th style="padding: 4px;">OI</th>
-                                <th style="padding: 4px;">IV</th>
-                                <th style="padding: 4px;">% Chg</th>
-                                <th style="padding: 4px; border-right: 2px solid #555;">LTP</th>
-
-                                <th style="padding: 4px; background: #333;">Price</th>
-
-                                <th style="padding: 4px; border-left: 2px solid #555;">LTP</th>
-                                <th style="padding: 4px;">% Chg</th>
-                                <th style="padding: 4px;">IV</th>
-                                <th style="padding: 4px;">OI</th>
-                                <th style="padding: 4px;">Chg OI</th>
-                                <th style="padding: 4px;">Vol</th>
-                                <th style="padding: 4px;">Delta</th>
-                                <th style="padding: 4px;">Gamma</th>
-                                <th style="padding: 4px;">Theta</th>
-                                <th style="padding: 4px;">Vega</th>
-                            </tr>
-                        </thead>
-                        <tbody id="option-chain-body">
-                            <tr><td colspan="17" style="text-align:center; color:#888;">Select a symbol and click "Load Chain".</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
         <!-- TAB DERIVATIVES ANALYSIS -->
         <div id="tab-derivatives" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto; flex-shrink: 0;">
                 <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
+                <div class="wb-tab" id="deriv-tab-btn-watch" onclick="switchDerivTab('watch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Basis Watch</div>
+                <div class="wb-tab" id="deriv-tab-btn-options" onclick="switchDerivTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
@@ -1386,6 +1288,97 @@
             </div> <!-- End Right Panel -->
         </div> <!-- End deriv-tab-matrix -->
 
+                <!-- SUB-TAB: Basis Watch -->
+                <div id="deriv-tab-watch" class="deriv-sub-tab" style="padding: 20px; height: calc(100% - 50px); flex-direction: column; box-sizing: border-box; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+                        <h2 style="margin: 0; color: #fff; font-size: 18px;">Basis Watch (Derivatives)</h2>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" id="mw-custom-symbol" class="form-control history-input" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
+                            <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
+                            <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
+                        <table class="data-table" id="marketwatch-table" style="width: 100%; margin: 0; padding: 0;">
+                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                <tr>
+                                    <th style="padding: 8px; min-width: 120px;">Symbol / Expiry</th>
+                                    <th style="padding: 8px;">Date</th>
+                                    <th style="padding: 8px;">Price</th>
+                                    <th style="padding: 8px;">% Change</th>
+                                    <th style="padding: 8px;">BPS</th>
+                                    <th style="padding: 8px; display: none;">Ann. Yield</th>
+                                    <th style="padding: 8px;">Volume</th>
+                                    <th style="padding: 8px;">ATP</th>
+                                    <th style="padding: 8px;">OI</th>
+                                    <th style="padding: 8px;">% Chg OI</th>
+                                    <th style="padding: 8px;">DTE</th>
+                                    <th style="padding: 8px; min-width: 120px;">Corp Action</th>
+                                    <th style="padding: 8px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="marketwatch-body">
+                                <tr><td colspan="13" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: Option Chain -->
+                <div id="deriv-tab-options" class="deriv-sub-tab" style="padding: 20px; height: calc(100% - 50px); flex-direction: column; box-sizing: border-box; display: none;">
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
+                        <h2 style="margin: 0; color: #fff; font-size: 18px;">Option Chain</h2>
+                        <div style="position: relative; width: 250px;">
+                            <input type="text" id="opt-symbol-input" class="form-control history-input" placeholder="Search Symbol (e.g., NIFTY)..." oninput="optFilterSymbols(this.value)" onkeydown="if(event.key==='Enter') loadOptionChain()" onfocus="optFilterSymbols(this.value)">
+                            <div id="opt-symbol-dropdown" class="autocomplete-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 99; max-height: 300px; overflow-y: auto; background-color: #333; border: 1px solid #444; border-radius: 4px;"></div>
+                        </div>
+                        <select id="opt-expiry-select" class="form-control history-select" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
+                        <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
+                        <span id="opt-spot-price" style="margin-left: auto; font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
+                        <span id="opt-report-date" style="margin-left: 15px; font-size: 14px; color: #aaa;"></span>
+                    </div>
+
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
+                        <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                <tr>
+                                    <th colspan="10" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
+                                    <th style="background: #333; color: #ffcc00; font-weight: bold; font-size: 14px; min-width: 80px;">STRIKE</th>
+                                    <th colspan="10" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
+                                </tr>
+                                <tr style="font-size: 11px; color: #ccc;">
+                                    <th style="padding: 4px;">Vega</th>
+                                    <th style="padding: 4px;">Theta</th>
+                                    <th style="padding: 4px;">Gamma</th>
+                                    <th style="padding: 4px;">Delta</th>
+                                    <th style="padding: 4px;">Vol</th>
+                                    <th style="padding: 4px;">Chg OI</th>
+                                    <th style="padding: 4px;">OI</th>
+                                    <th style="padding: 4px;">IV</th>
+                                    <th style="padding: 4px;">% Chg</th>
+                                    <th style="padding: 4px; border-right: 2px solid #555;">LTP</th>
+
+                                    <th style="padding: 4px; background: #333;">Price</th>
+
+                                    <th style="padding: 4px; border-left: 2px solid #555;">LTP</th>
+                                    <th style="padding: 4px;">% Chg</th>
+                                    <th style="padding: 4px;">IV</th>
+                                    <th style="padding: 4px;">OI</th>
+                                    <th style="padding: 4px;">Chg OI</th>
+                                    <th style="padding: 4px;">Vol</th>
+                                    <th style="padding: 4px;">Delta</th>
+                                    <th style="padding: 4px;">Gamma</th>
+                                    <th style="padding: 4px;">Theta</th>
+                                    <th style="padding: 4px;">Vega</th>
+                                </tr>
+                            </thead>
+                            <tbody id="option-chain-body">
+                                <tr><td colspan="17" style="text-align:center; color:#888;">Select a symbol and click "Load Chain".</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- SUB-TAB 2: OI Analysis -->
                 <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
                     <!-- Content loaded by workbookManager.js / OiTool -->
@@ -1453,16 +1446,16 @@
                 </div>
 
                 <!-- SUB-TAB 5: Adv Technicals -->
-                <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
                         <button class="btn btn-secondary" onclick="loadDynamicChart()">Load Chart</button>
                     </div>
 
                     <!-- Technical Multi-Axis Chart (ECharts) -->
-                    <div style="flex: 1; min-height: 500px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; flex-shrink: 0;">
+                    <div style="flex: 1; min-height: 800px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; flex-shrink: 0; margin-bottom: 20px;">
                         <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Price, Volume, OI & ATR (500 Days)</h3>
-                        <div id="echart-container" style="flex: 1; width: 100%;"></div>
+                        <div id="echart-container" style="flex: 1; width: 100%; min-height: 700px;"></div>
                     </div>
                 </div>
 
@@ -1945,11 +1938,6 @@
             if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
             if (tabName === 'ai_analyze') fetchSystemAccuracy();
-            if (tabName === 'marketwatch') {
-                 if (typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
-                     loadMarketWatch();
-                 }
-            }
             if (tabName === 'derivatives') {
                 // Initialize first sub-tab if none selected
                 if (!document.querySelector('.deriv-sub-tab.active')) {
@@ -1958,6 +1946,10 @@
                     if (typeof loadMarketActivity === 'function') loadMarketActivity();
                 } else if (document.querySelector('#deriv-tab-advtech').classList.contains('active')) {
                     if (typeof loadDynamicChart === 'function') loadDynamicChart();
+                } else if (document.querySelector('#deriv-tab-watch').classList.contains('active')) {
+                    if (typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
+                        loadMarketWatch();
+                    }
                 } else if (document.querySelector('#deriv-tab-matrix').classList.contains('active') && document.getElementById('mr-data-body').innerHTML.includes('No data')) {
                      // Automatically load NIFTY snapshot if empty
                      if (typeof loadTimeseriesData === 'function') loadTimeseriesData(false);
@@ -2021,6 +2013,12 @@
                     loadDynamicChart();
                 } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
                     loadMWPLAnalysis();
+                } else if (tabName === 'watch' && typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
+                    loadMarketWatch();
+                } else if (tabName === 'oi' && window.OiTool) {
+                    window.OiTool.open();
+                } else if (tabName === 'rollover' && window.RolloverTool) {
+                    window.RolloverTool.open();
                 }
             }
         }
@@ -2997,6 +2995,14 @@
                 }
             }
         });
+
+        // Add switchMwTab compatibility for external scripts calling it to switch to watch/options
+        function switchMwTab(subTabName) {
+            switchMainTab('derivatives');
+            if (subTabName === 'watch' || subTabName === 'options') {
+                switchDerivTab(subTabName);
+            }
+        }
 
         // --- History Logic (Ported from data_viewer.html) ---
         let currentHistoryData = [];
@@ -4305,7 +4311,8 @@ document.addEventListener('click', (e) => {
                     scales: {
                         x: { stacked: true },
                         y: { stacked: true, position: 'left', grid: { color: '#333' } },
-                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false } }
+                        // Ensure NIFTY doesn't start at 0, which makes it look flat
+                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false }, beginAtZero: false }
                     },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
@@ -4335,7 +4342,7 @@ document.addEventListener('click', (e) => {
                     datasets: [
                         { label: 'FII Net Long', yAxisID: 'y', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
                         { label: 'PRO Net Long', yAxisID: 'y', data: data.pro_net_long, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#60a5fa', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#a855f7', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Changed to purple to distinguish from FII
                         { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
                     ]
                 },
@@ -4345,7 +4352,7 @@ document.addEventListener('click', (e) => {
                     scales: {
                         x: { grid: { display: false } },
                         y: { position: 'left', grid: { color: '#333' } },
-                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false } }
+                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false }, beginAtZero: false } // ensure NIFTY scales properly
                     },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
@@ -4373,8 +4380,8 @@ document.addEventListener('click', (e) => {
             const macdHistColors = data.macd_hist.map(v => v >= 0 ? '#00FF00' : '#FF0000');
 
             const option = {
-                backgroundColor: '#1e1e1e', // Bloomberg Dark
-                textStyle: { color: '#FFA500' }, // Amber text
+                backgroundColor: '#121212', // Bloomberg darker dark theme
+                textStyle: { color: '#FFA500' }, // Amber text for axis/defaults
                 tooltip: {
                     trigger: 'axis', axisPointer: { type: 'cross', lineStyle: { color: '#555', type: 'dashed' } },
                     backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#555', textStyle: { color: '#fff' }
@@ -4385,36 +4392,36 @@ document.addEventListener('click', (e) => {
                     selected: { 'BB1+': false, 'BB1-': false, 'BB3+': false, 'BB3-': false } // Default to showing just 2-Sigma and SMA
                 },
                 grid: [
-                    { left: '4%', right: '4%', top: '5%', height: '45%' },     // Grid 1: Price & Bands
-                    { left: '4%', right: '4%', top: '52%', height: '10%' },    // Grid 2: Volume
-                    { left: '4%', right: '4%', top: '64%', height: '15%' },    // Grid 3: RSI & MACD
-                    { left: '4%', right: '4%', top: '81%', height: '15%' }     // Grid 4: OI & PCR & IV
+                    { left: '4%', right: '4%', top: '5%', height: '40%' },     // Grid 1: Price & Bands
+                    { left: '4%', right: '4%', top: '48%', height: '12%' },    // Grid 2: Volume
+                    { left: '4%', right: '4%', top: '63%', height: '14%' },    // Grid 3: RSI & MACD
+                    { left: '4%', right: '4%', top: '80%', height: '14%' }     // Grid 4: OI & PCR & IV (Leaves room for slider at 95%)
                 ],
                 xAxis: [
                     { type: 'category', data: data.dates, gridIndex: 0, show: false, boundaryGap: false },
                     { type: 'category', data: data.dates, gridIndex: 1, show: false, boundaryGap: false },
                     { type: 'category', data: data.dates, gridIndex: 2, show: false, boundaryGap: false },
-                    { type: 'category', data: data.dates, gridIndex: 3, boundaryGap: false, axisLine: { lineStyle: { color: '#555' } } }
+                    { type: 'category', data: data.dates, gridIndex: 3, boundaryGap: false, axisLine: { lineStyle: { color: '#555' } }, axisLabel: { color: '#FFA500' } }
                 ],
                 yAxis: [
                     // Grid 0: Price (Index 0)
-                    { scale: true, gridIndex: 0, splitLine: { show: true, lineStyle: { color: '#333' } }, position: 'right', axisLine: { lineStyle: { color: '#555' } } },
+                    { scale: true, gridIndex: 0, splitLine: { show: true, lineStyle: { color: '#222' } }, position: 'right', axisLine: { lineStyle: { color: '#555' } }, axisLabel: { color: '#FFA500' } },
                     // Grid 1: Volume (Index 1)
-                    { scale: true, gridIndex: 1, splitNumber: 2, splitLine: { show: false }, axisLabel: { formatter: (v) => (v/1000000).toFixed(0) + 'M' }, position: 'right' },
+                    { scale: true, gridIndex: 1, splitNumber: 2, splitLine: { show: false }, axisLabel: { formatter: (v) => (v/1000000).toFixed(0) + 'M', color: '#FFA500' }, position: 'right', axisLine: { lineStyle: { color: '#555' } } },
                     // Grid 2: RSI & MACD
                     // Index 2: RSI bounded 0-100 (Right)
-                    { type: 'value', min: 0, max: 100, gridIndex: 2, name: 'RSI', splitNumber: 3, splitLine: { show: true, lineStyle: { color: '#333' } }, position: 'right' },
+                    { type: 'value', min: 0, max: 100, gridIndex: 2, name: 'RSI', splitNumber: 3, splitLine: { show: true, lineStyle: { color: '#222', type: 'dashed' } }, position: 'right', axisLabel: { color: '#FFA500' }, nameTextStyle: { color: '#FFA500' } },
                     // Index 3: MACD unbounded (Left)
-                    { type: 'value', scale: true, gridIndex: 2, name: 'MACD', splitNumber: 3, splitLine: { show: false }, position: 'left' },
+                    { type: 'value', scale: true, gridIndex: 2, name: 'MACD', splitNumber: 3, splitLine: { show: false }, position: 'left', axisLabel: { color: '#FFA500' }, nameTextStyle: { color: '#FFA500' } },
                     // Grid 3: Options Data
                     // Index 4: Total OI (Left, bounded to millions)
-                    { scale: true, gridIndex: 3, name: 'OI', splitNumber: 2, position: 'left', splitLine: { show: false }, axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } },
+                    { scale: true, gridIndex: 3, name: 'OI', splitNumber: 2, position: 'left', splitLine: { show: false }, axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M', color: '#FFA500' }, nameTextStyle: { color: '#FFA500' } },
                     // Index 5: IV & PCR (Right, percentage scale)
-                    { scale: true, gridIndex: 3, name: 'IV/PCR', splitNumber: 2, position: 'right', splitLine: { show: true, lineStyle: { color: '#333' } }, axisLabel: { formatter: (v) => v.toFixed(1) } }
+                    { scale: true, gridIndex: 3, name: 'IV/PCR', splitNumber: 2, position: 'right', splitLine: { show: true, lineStyle: { color: '#222', type: 'dashed' } }, axisLabel: { formatter: (v) => v.toFixed(1), color: '#FFA500' }, nameTextStyle: { color: '#FFA500' } }
                 ],
                 dataZoom: [
                     { type: 'inside', xAxisIndex: [0, 1, 2, 3], start: 60, end: 100 },
-                    { show: true, type: 'slider', xAxisIndex: [0, 1, 2, 3], bottom: '0%', height: 20, borderColor: '#333', fillerColor: 'rgba(255, 165, 0, 0.2)', textStyle: { color: '#ccc' } }
+                    { show: true, type: 'slider', xAxisIndex: [0, 1, 2, 3], bottom: '1%', height: 18, borderColor: '#333', fillerColor: 'rgba(255, 165, 0, 0.2)', textStyle: { color: '#ccc' }, handleStyle: { color: '#FFA500' } }
                 ],
                 series: [
                     // Price Grid (0)

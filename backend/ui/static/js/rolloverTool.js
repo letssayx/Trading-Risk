@@ -1,64 +1,46 @@
 const RolloverTool = {
     active: false,
-    containerId: 'rollover-container',
+    containerId: 'deriv-tab-rollover',
 
     init: function() {
-        // Create container if not exists
+        const container = document.getElementById(this.containerId);
+        if (container && !container.innerHTML.includes('rollover-symbol')) {
+            this.render(container);
+        }
     },
 
     open: function() {
         this.active = true;
-
-        let tab = document.querySelector('.wb-tab[data-type="rollover"]');
-        if (!tab) {
-            const header = document.querySelector('.wb-tabs-header');
-            tab = document.createElement('div');
-            tab.className = 'wb-tab';
-            tab.dataset.type = 'rollover';
-            tab.innerText = 'Rollover Analysis';
-            tab.onclick = () => WorkbookManager.switchTab('rollover');
-
-            // Add close button
-            const closeBtn = document.createElement('span');
-            closeBtn.innerText = ' ×';
-            closeBtn.style.cursor = 'pointer';
-            closeBtn.style.marginLeft = '5px';
-            closeBtn.onclick = (e) => {
-                e.stopPropagation();
-                this.close();
-            };
-            tab.appendChild(closeBtn);
-
-            header.appendChild(tab);
-        }
-
-        WorkbookManager.switchTab('rollover');
+        this.init();
     },
 
     close: function() {
         this.active = false;
-        const tab = document.querySelector('.wb-tab[data-type="rollover"]');
-        if (tab) tab.remove();
-        WorkbookManager.switchTab('turtle');
     },
 
     render: function(container) {
         container.innerHTML = `
-            <div style="padding: 10px; color: #ccc;">
-                <h3>Rollover Analysis</h3>
-                <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                    <input type="text" id="rollover-symbol" placeholder="Symbol (e.g. NIFTY)" style="padding: 5px; background: #333; color: white; border: 1px solid #555;">
+            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
+                    <h2 style="margin: 0; color: #fff; font-size: 18px;">Rollover Analysis</h2>
+                    <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Symbol (e.g. NIFTY)" style="width: 150px; padding: 4px;">
                     <button onclick="RolloverTool.analyze()" class="btn btn-primary">Analyze</button>
                 </div>
-                <div id="rollover-results">
-                    <p>Select a symbol to view Rollover % and cost.</p>
+                <div id="rollover-results" style="flex: 1; overflow: auto;">
+                    <p style="text-align: center; color: #888; margin-top: 20px;">Select a symbol to view Rollover % and cost.</p>
                 </div>
             </div>
         `;
 
-        document.getElementById('rollover-symbol').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') RolloverTool.analyze();
-        });
+        const input = document.getElementById('rollover-symbol');
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') RolloverTool.analyze();
+            });
+            if (typeof setupAutocomplete === 'function') {
+                setupAutocomplete('rollover-symbol');
+            }
+        }
     },
 
     analyze: async function() {

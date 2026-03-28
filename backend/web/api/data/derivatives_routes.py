@@ -1,14 +1,153 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, text
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import json
 
 from backend.infrastructure.db import get_db
-from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO
+from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, BhavcopyEQ
 
 router = APIRouter()
+
+@router.get("/api/analysis/oi/{symbol}")
+async def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
+    """
+    Computes OI vs Price Quadrant Analysis.
+    """
+    try:
+        symbol = symbol.upper()
+
+        # Get active futures for this symbol for the last 60 days
+        # We need trade_date, close_price, open_interest
+        # Use only Near Month to avoid aggregating all expiries, or sum them. Sum is better for "Total OI".
+        # We will use BhavcopyFO for futures.
+
+        query = db.query(
+            BhavcopyFO.trade_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest
+        ).filter(
+            BhavcopyFO.ticker_symb == symbol,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
+
+        if not query:
+            return {"symbol": symbol, "history": []}
+
+        # Aggregate OI and get price (usually near month price represents it well)
+        dates = {}
+        for r in query:
+            dt = r.trade_date
+            if dt not in dates:
+                dates[dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
+            # Sum OI across all expiries
+            dates[dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
+
+        sorted_dates = sorted(dates.keys())
+
+        history = []
+        for i in range(1, len(sorted_dates)):
+            prev = dates[sorted_dates[i-1]]
+            curr = dates[sorted_dates[i]]
+
+            p_chg = ((curr["price"] - prev["price"]) / prev["price"] * 100) if prev["price"] > 0 else 0
+            oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"] * 100) if prev["oi"] > 0 else 0
+
+            interpretation = "Indecision"
+            if p_chg > 0 and oi_chg > 0: interpretation = "Long Build Up"
+            elif p_chg < 0 and oi_chg > 0: interpretation = "Short Build Up"
+            elif p_chg > 0 and oi_chg < 0: interpretation = "Short Covering"
+            elif p_chg < 0 and oi_chg < 0: interpretation = "Long Unwinding"
+
+            history.append({
+                "time": sorted_dates[i].strftime('%Y-%m-%d'),
+                "price_chg_pct": p_chg,
+                "oi_chg_pct": oi_chg,
+                "interpretation": interpretation
+            })
+
+        # Return only last 30 days to avoid clutter
+        return {"symbol": symbol, "history": history[-30:]}
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, detail=str(e))
+
+@router.get("/api/analysis/rollover/{symbol}")
+async def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
+    """
+    Computes Rollover Analysis metrics.
+    """
+    try:
+        symbol = symbol.upper()
+
+        # Get latest date
+        latest_date_query = db.query(BhavcopyFO.trade_date).filter(
+            BhavcopyFO.ticker_symb == symbol,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.trade_date.desc()).first()
+
+        if not latest_date_query:
+            return {"error": "No data found"}
+
+        latest_date = latest_date_query[0]
+
+        # Get all futures for the latest date
+        futs = db.query(
+            BhavcopyFO.expiry_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest
+        ).filter(
+            BhavcopyFO.trade_date == latest_date,
+            BhavcopyFO.ticker_symb == symbol,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.expiry_date.asc()).all()
+
+        if not futs or len(futs) < 2:
+            return {"error": "Insufficient futures data to calculate rollover"}
+
+        total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in futs])
+
+        near = futs[0]
+        next_month = futs[1]
+
+        near_oi = int(near.open_interest) if near.open_interest else 0
+        next_oi = int(next_month.open_interest) if next_month.open_interest else 0
+
+        # Calculate rollover
+        # True rollover typically is (Next OI + Far OI) / Total OI * 100
+        non_near_oi = total_oi - near_oi
+        rollover_pct = (non_near_oi / total_oi * 100) if total_oi > 0 else 0.0
+
+        near_price = float(near.close_price) if near.close_price else 0.0
+        next_price = float(next_month.close_price) if next_month.close_price else 0.0
+
+        rollover_cost = next_price - near_price
+        rollover_cost_pct = (rollover_cost / near_price * 100) if near_price > 0 else 0.0
+
+        return {
+            "symbol": symbol,
+            "trade_date": latest_date.strftime('%Y-%m-%d'),
+            "rollover_pct": round(rollover_pct, 2),
+            "rollover_cost": round(rollover_cost, 2),
+            "rollover_cost_pct": round(rollover_cost_pct, 2),
+            "near_month": {
+                "expiry": near.expiry_date.strftime('%Y-%m-%d') if near.expiry_date else "-",
+                "price": round(near_price, 2),
+                "oi": near_oi
+            },
+            "next_month": {
+                "expiry": next_month.expiry_date.strftime('%Y-%m-%d') if next_month.expiry_date else "-",
+                "price": round(next_price, 2),
+                "oi": next_oi
+            }
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/derivatives/mwpl_historical")
 async def get_mwpl_historical(db: Session = Depends(get_db)):
