@@ -472,6 +472,8 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         # fallback safe
         pivot = pd.DataFrame(index=pd.to_datetime(dates))
 
+    from sqlalchemy import text
+
     # Fetch NIFTY index data for overlay
     nifty_query = text("""
         SELECT trade_date, close_price
@@ -550,6 +552,8 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
         import logging
         logging.error(f"Error pivoting cash market flow: {e}")
         pivot = pd.DataFrame(index=pd.to_datetime(dates))
+
+    from sqlalchemy import text
 
     # Fetch NIFTY index data for overlay
     nifty_query = text("""
