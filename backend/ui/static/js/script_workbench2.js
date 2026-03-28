@@ -2657,8 +2657,8 @@
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net', data: data.fii_net, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 },
-                        { label: 'DII Net', data: data.dii_net, backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1 }
+                        { label: 'FII Net', data: data.fii_net, backgroundColor: 'rgba(0, 255, 0, 0.6)', borderColor: '#00FF00', borderWidth: 1 },
+                        { label: 'DII Net', data: data.dii_net, backgroundColor: 'rgba(255, 0, 0, 0.6)', borderColor: '#FF0000', borderWidth: 1 }
                     ]
                 },
                 options: {
@@ -2693,10 +2693,10 @@
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net Long', yAxisID: 'y', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'FII Net Long', yAxisID: 'y', data: data.fii_net_long, borderColor: '#00FF00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
                         { label: 'PRO Net Long', yAxisID: 'y', data: data.pro_net_long, borderColor: '#f59e0b', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#d946ef', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
+                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#FF0000', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#FFCC00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
                     ]
                 },
                 options: {
@@ -2768,3 +2768,202 @@
     // Listen for resize
     window.addEventListener('resize', () => { if (echartInstance) echartInstance.resize(); });
 // script end
+
+let pcrChartInstance = null;
+let highOiChartInstance = null;
+
+async function loadOptionsAnalysis() {
+    const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
+    if (!symbol) return;
+
+    // 1. Load 500-Day PCR Chart
+    try {
+        const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=500`);
+        const data = await res.json();
+
+        const chartDom = document.getElementById('opt-analysis-pcr-chart');
+        if (pcrChartInstance) pcrChartInstance.dispose();
+        pcrChartInstance = echarts.init(chartDom);
+
+        const option = {
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            legend: { data: ['Total OI', 'Price (FUT1)', 'PCR'], textStyle: { color: '#ccc' } },
+            grid: { left: '3%', right: '3%', bottom: '3%', top: '15%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: data.dates,
+                axisLabel: { color: '#888' },
+                axisLine: { lineStyle: { color: '#333' } }
+            },
+            yAxis: [
+                {
+                    type: 'value',
+                    name: 'Total OI',
+                    position: 'left',
+                    splitLine: { show: false },
+                    axisLabel: { color: '#888' },
+                    nameTextStyle: { color: '#888' }
+                },
+                {
+                    type: 'value',
+                    name: 'Price / PCR',
+                    position: 'right',
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLabel: { color: '#888' },
+                    nameTextStyle: { color: '#888' }
+                }
+            ],
+            dataZoom: [
+                { type: 'inside', start: 50, end: 100 },
+                { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
+            ],
+            series: [
+                {
+                    name: 'Total OI',
+                    type: 'bar',
+                    data: data.total_oi,
+                    itemStyle: { color: 'rgba(54, 162, 235, 0.4)' },
+                    yAxisIndex: 0
+                },
+                {
+                    name: 'Price (FUT1)',
+                    type: 'line',
+                    data: data.price,
+                    itemStyle: { color: '#FFCC00' }, // Classic yellow
+                    lineStyle: { width: 2 },
+                    symbol: 'none',
+                    yAxisIndex: 1
+                },
+                {
+                    name: 'PCR',
+                    type: 'line',
+                    data: data.pcr,
+                    itemStyle: { color: '#00FF00' }, // Bright green
+                    lineStyle: { width: 2 },
+                    symbol: 'none',
+                    yAxisIndex: 1
+                }
+            ]
+        };
+        pcrChartInstance.setOption(option);
+    } catch (e) {
+        console.error("Error loading PCR history:", e);
+    }
+
+    // Trigger load High OI Chart (Next step)
+    if (typeof loadHighOI === 'function') {
+        loadHighOI(symbol);
+    }
+}
+
+async function loadHighOI(symbol) {
+    try {
+        const res = await fetch(`/api/data/derivatives/option_chain?symbol=${symbol}`);
+        const data = await res.json();
+
+        if (!data || !data.data || data.data.length === 0) {
+            document.getElementById('opt-analysis-high-oi-chart').innerHTML = '<p style="text-align:center; color:#888;">No Option Chain data found.</p>';
+            return;
+        }
+
+        const strikes = [];
+        const ce_oi = [];
+        const pe_oi = [];
+
+        // Only take ATM +/- 20 strikes to avoid squished charts
+        const sortedData = data.data.sort((a,b) => a.strike - b.strike);
+        let atmIndex = 0;
+        let minDiff = Infinity;
+
+        for (let i = 0; i < sortedData.length; i++) {
+            const diff = Math.abs(sortedData[i].strike - data.spot_price);
+            if (diff < minDiff) {
+                minDiff = diff;
+                atmIndex = i;
+            }
+        }
+
+        const startIdx = Math.max(0, atmIndex - 20);
+        const endIdx = Math.min(sortedData.length, atmIndex + 20);
+        const filteredData = sortedData.slice(startIdx, endIdx);
+
+        filteredData.forEach(row => {
+            strikes.push(row.strike);
+            ce_oi.push(row.CE.oi || 0);
+            pe_oi.push(row.PE.oi || 0);
+        });
+
+        const chartDom = document.getElementById('opt-analysis-high-oi-chart');
+        if (highOiChartInstance) highOiChartInstance.dispose();
+        highOiChartInstance = echarts.init(chartDom);
+
+        const option = {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' }
+            },
+            legend: {
+                data: ['Call OI', 'Put OI'],
+                textStyle: { color: '#ccc' }
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'value',
+                axisLabel: { color: '#888' },
+                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+            },
+            yAxis: {
+                type: 'category',
+                data: strikes,
+                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
+                axisLine: { show: false },
+                axisTick: { show: false },
+                splitLine: { show: true, lineStyle: { color: '#222' } }
+            },
+            series: [
+                {
+                    name: 'Call OI',
+                    type: 'bar',
+                    stack: 'Total',
+                    label: { show: false },
+                    itemStyle: { color: '#FF0000' }, // Classic Red for calls/resistance
+                    data: ce_oi.map(v => -v) // Negative value to make it bar leftwards
+                },
+                {
+                    name: 'Put OI',
+                    type: 'bar',
+                    stack: 'Total',
+                    label: { show: false },
+                    itemStyle: { color: '#00FF00' }, // Classic Green for puts/support
+                    data: pe_oi
+                }
+            ]
+        };
+
+        // Format tooltip to show absolute values for Call OI
+        option.tooltip.formatter = function (params) {
+            let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
+            params.forEach(function (p) {
+                const val = Math.abs(p.value).toLocaleString();
+                res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
+            });
+            return res;
+        };
+
+        // Format xAxis to show absolute values
+        option.xAxis.axisLabel.formatter = function (value) {
+            return Math.abs(value);
+        };
+
+        highOiChartInstance.setOption(option);
+    } catch (e) {
+        console.error("Error loading high OI chart:", e);
+    }
+}

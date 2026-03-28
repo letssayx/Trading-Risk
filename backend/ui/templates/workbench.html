@@ -1328,7 +1328,7 @@
 
                 <!-- SUB-TAB: Option Chain -->
                 <div id="deriv-tab-options" class="deriv-sub-tab" style="padding: 20px; height: calc(100% - 50px); flex-direction: column; box-sizing: border-box; display: none;">
-                    <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                         <h2 style="margin: 0; color: #fff; font-size: 18px;">Option Chain</h2>
                         <div style="position: relative; width: 250px;">
                             <input type="text" id="opt-symbol-input" class="form-control history-input" placeholder="Search Symbol (e.g., NIFTY)..." oninput="optFilterSymbols(this.value)" onkeydown="if(event.key==='Enter') loadOptionChain()" onfocus="optFilterSymbols(this.value)">
@@ -1336,8 +1336,11 @@
                         </div>
                         <select id="opt-expiry-select" class="form-control history-select" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
                         <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
-                        <span id="opt-spot-price" style="margin-left: auto; font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
-                        <span id="opt-report-date" style="margin-left: 15px; font-size: 14px; color: #aaa;"></span>
+
+                        <div style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end;">
+                            <span id="opt-report-date" style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-bottom: 4px;"></span>
+                            <span id="opt-spot-price" style="font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
+                        </div>
                     </div>
 
                     <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
@@ -1386,9 +1389,26 @@
                 </div>
 
                 <!-- SUB-TAB: Options Analysis -->
-                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
-                    <h2 style="color: #fff; margin-top: 0;">Options Analysis</h2>
-                    <p style="color: #888;">Coming Soon: PCR, SKEW, Volatility cone, vanna/charm, IV rank, IV percentile, % Away, ATM straddle, 25-delta Skew, 10-Delta Skew, delta Drift, etc.</p>
+                                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: none;">
+                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px;">Options Analysis</h2>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
+                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
+                        <button class="btn btn-secondary" onclick="loadOptionsAnalysis()">Load Charts</button>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 20px; height: calc(100% - 100px);">
+                        <!-- 4a. 500 Day Price & PCR Overlay -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">500-Day Trend: Price & PCR Overlay vs Open Interest</h3>
+                            <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
+                        </div>
+
+                        <!-- 4c. High Open Interest Chart (Horizontal) -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
+                            <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- SUB-TAB: Option Strategy -->
@@ -4294,6 +4314,7 @@ document.addEventListener('click', (e) => {
 </html>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="/static/js/opt_analysis.js"></script>
 <script>
     let echartInstance = null;
     let fiiDiiChartInstance = null;
@@ -4387,15 +4408,15 @@ document.addEventListener('click', (e) => {
             if (participantChartInstance) participantChartInstance.destroy();
             const ctx = document.getElementById('participantOiChart').getContext('2d');
             participantChartInstance = new Chart(ctx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'Idx Fut Net', yAxisID: 'y', data: futIdxData, borderColor: '#00ffff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Cyan
-                        { label: 'Stk Fut Net', yAxisID: 'y', data: futStkData, borderColor: '#ff00ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Magenta
-                        { label: 'Idx Opt Net', yAxisID: 'y', data: optIdxData, borderColor: '#00ff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Lime Green
-                        { label: 'Stk Opt Net', yAxisID: 'y', data: optStkData, borderColor: '#ff4444', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Red
-                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ff9900', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] } // Amber
+                        { label: 'Idx Fut Net', yAxisID: 'y', data: futIdxData, backgroundColor: futIdxData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
+                        { label: 'Stk Fut Net', yAxisID: 'y', data: futStkData, backgroundColor: futStkData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
+                        { label: 'Idx Opt Net', yAxisID: 'y', data: optIdxData, backgroundColor: optIdxData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
+                        { label: 'Stk Opt Net', yAxisID: 'y', data: optStkData, backgroundColor: optStkData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
+                        { label: 'NIFTY', type: 'line', yAxisID: 'y1', data: data.nifty_close, borderColor: '#FFCC00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
                     ]
                 },
                 options: {
@@ -5032,7 +5053,16 @@ document.addEventListener('click', (e) => {
             }
 
             document.getElementById('opt-spot-price').innerText = `Spot: ${data.spot_price > 0 ? data.spot_price.toFixed(2) : 'N/A'}`;
-            document.getElementById('opt-report-date').innerText = data.date ? `Date: ${data.date}` : '';
+
+            // Format the date specifically for the options chain
+            let dateStr = '';
+            if (data.date) {
+                dateStr = `Bhavcopy Date: ${data.date}`;
+                if (data.selected_expiry) {
+                    dateStr += ` | Expiry: ${data.selected_expiry}`;
+                }
+            }
+            document.getElementById('opt-report-date').innerText = dateStr;
 
             tbody.innerHTML = '';
             if (!data.data || data.data.length === 0) {

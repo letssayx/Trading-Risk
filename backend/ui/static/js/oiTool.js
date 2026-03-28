@@ -295,14 +295,25 @@ const OiTool = {
             y: y,
             mode: 'markers+text',
             type: 'scatter',
-            text: history.map((d, i) => (i + 1).toString()),
-            textposition: 'middle center',
+            text: history.map((d, i) => {
+                if (i === history.length - 1) return (i + 1).toString() + "\n(Latest)";
+                return (i + 1).toString();
+            }),
+            textposition: history.map((d, i) => i === history.length - 1 ? 'top center' : 'middle center'),
             textfont: {
-                color: '#fff',
-                size: 10
+                color: history.map((d, i) => i === history.length - 1 ? '#ffcc00' : '#fff'),
+                size: history.map((d, i) => i === history.length - 1 ? 12 : 10),
+                weight: history.map((d, i) => i === history.length - 1 ? 'bold' : 'normal')
             },
             hovertext: text,
-            marker: { size: 18, color: color }
+            marker: {
+                size: history.map((d, i) => i === history.length - 1 ? 24 : 18),
+                color: history.map((d, i, arr) => i === history.length - 1 ? '#ffffff' : color[i]),
+                line: {
+                    color: history.map((d, i) => i === history.length - 1 ? '#ffcc00' : 'transparent'),
+                    width: history.map((d, i) => i === history.length - 1 ? 2 : 0)
+                }
+            }
         };
 
         const layout = {
