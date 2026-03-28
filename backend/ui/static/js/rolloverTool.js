@@ -60,7 +60,24 @@ const RolloverTool = {
                 setupAutocomplete('rollover-symbol');
             }
             input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') RolloverTool.analyzeSingle();
+                if (e.key === 'Enter') {
+                    if (input.value.trim() === '') {
+                        RolloverTool.loadAggregatedData();
+                    } else {
+                        RolloverTool.analyzeSingle();
+                    }
+                }
+            });
+            input.addEventListener('input', (e) => {
+                if (input.value.trim() === '') {
+                    // Automatically reload the full table view when cleared
+                    RolloverTool.loadAggregatedData();
+                } else {
+                    // Just filter the table locally while typing
+                    if (document.getElementById('rollover-analysis-body')) {
+                        RolloverTool.filterData();
+                    }
+                }
             });
         }
     },
@@ -68,6 +85,12 @@ const RolloverTool = {
     loadAggregatedData: async function() {
         const tbody = document.getElementById('rollover-analysis-body');
         const dateDisplay = document.getElementById('rollover-date-display');
+
+        // Remove single symbol details if present
+        const detailsDiv = document.getElementById('rollover-single-details');
+        if (detailsDiv) {
+            detailsDiv.remove();
+        }
 
         if (!tbody) return;
 
@@ -156,11 +179,18 @@ const RolloverTool = {
 
     analyzeSingle: async function() {
         const symbol = document.getElementById('rollover-symbol').value.toUpperCase().trim();
+        let detailsDiv = document.getElementById('rollover-single-details');
         const resultsDiv = document.getElementById('rollover-results');
 
         if (!symbol) return;
 
-        resultsDiv.innerHTML = '<p style="text-align:center; color:#888; margin-top: 20px;">Loading Single Symbol Details...</p>';
+        if (!detailsDiv) {
+            detailsDiv = document.createElement('div');
+            detailsDiv.id = 'rollover-single-details';
+            resultsDiv.insertBefore(detailsDiv, resultsDiv.firstChild);
+        }
+
+        detailsDiv.innerHTML = '<p style="text-align:center; color:#888; margin-top: 20px;">Loading Single Symbol Details...</p>';
 
         try {
             const res = await fetch(`/api/data/analysis/rollover/${symbol}`);
@@ -209,10 +239,12 @@ const RolloverTool = {
                 <p style="color: #888; font-size: 0.85em; margin-top: 15px;">To return to the all F&O view, clear the search and click "Refresh All".</p>
             </div>`;
 
-            resultsDiv.innerHTML = html;
+            detailsDiv.innerHTML = html;
+            // Also filter the table to just this symbol
+            this.filterData();
 
         } catch (e) {
-            resultsDiv.innerHTML = `<p style="color: red; text-align:center; margin-top: 20px;">Error: ${e.message}</p>`;
+            detailsDiv.innerHTML = `<p style="color: red; text-align:center; margin-top: 20px;">Error: ${e.message}</p>`;
         }
     },
 

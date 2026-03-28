@@ -509,8 +509,18 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         "fii_fut_stk": pivot_stk.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_opt_idx": pivot_opt_idx.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_opt_stk": pivot_opt_stk.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_fut_idx": pivot_idx.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_fut_stk": pivot_stk.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_idx": pivot_opt_idx.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_stk": pivot_opt_stk.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "pro_fut_idx": pivot_idx.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_fut_idx": pivot_idx.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_fut_stk": pivot_stk.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_idx": pivot_opt_idx.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_stk": pivot_opt_stk.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_fut_stk": pivot_stk.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_idx": pivot_opt_idx.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_stk": pivot_opt_stk.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
         "nifty_close": nifty_close_list
     }
 

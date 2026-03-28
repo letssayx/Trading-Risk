@@ -198,7 +198,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             BhavcopyFO.strike_price,
             BhavcopyFO.option_type,
             BhavcopyFO.close_price,
-            BhavcopyFO.prev_close,
+            BhavcopyFO.open_price,
             BhavcopyFO.open_interest,
             BhavcopyFO.change_in_oi,
             BhavcopyFO.total_trading_vol
@@ -228,7 +228,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
 
             is_call = opt_type == 'CE'
             price = float(r_obj.close_price)
-            prev_close = float(r_obj.prev_close) if r_obj.prev_close else 0.0
+            prev_close = float(r_obj.open_price) if r_obj.open_price else 0.0
             pct_change = ((price - prev_close) / prev_close * 100.0) if prev_close > 0 else 0.0
 
             # Calculate Greeks if we have a spot price and time

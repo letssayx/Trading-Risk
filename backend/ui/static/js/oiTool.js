@@ -64,7 +64,22 @@ const OiTool = {
                 setupAutocomplete('oi-symbol');
             }
             input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') OiTool.analyzeSingle();
+                if (e.key === 'Enter') {
+                    if (input.value.trim() === '') {
+                        OiTool.loadAggregatedData();
+                    } else {
+                        OiTool.analyzeSingle();
+                    }
+                }
+            });
+            input.addEventListener('input', (e) => {
+                if (input.value.trim() === '') {
+                    OiTool.loadAggregatedData();
+                } else {
+                    if (document.getElementById('oi-analysis-body')) {
+                        OiTool.filterData();
+                    }
+                }
             });
         }
     },
@@ -227,12 +242,15 @@ const OiTool = {
     analyzeSingle: async function() {
         const symbol = document.getElementById('oi-symbol').value.toUpperCase().trim();
         const chartArea = document.getElementById('oi-chart-area');
-        const tbody = document.getElementById('oi-analysis-body');
 
         if (!symbol) return;
 
-        chartArea.innerHTML = 'Loading Single Symbol Analysis...';
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Viewing Single Symbol History (See Chart Above). To return to F&O view, clear search and click Refresh All.</td></tr>';
+        chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
+
+        // Filter the table to just show this symbol instead of hiding it
+        if (this.allData && this.allData.length > 0) {
+            this.filterData();
+        }
 
         try {
             const res = await fetch(`/api/data/analysis/oi/${symbol}`);
