@@ -574,6 +574,8 @@
                 <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
                 <div class="wb-tab" id="deriv-tab-btn-watch" onclick="switchDerivTab('watch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Basis Watch</div>
                 <div class="wb-tab" id="deriv-tab-btn-options" onclick="switchDerivTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
+                <div class="wb-tab" id="deriv-tab-btn-optanalysis" onclick="switchDerivTab('optanalysis')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Options Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-optstrategy" onclick="switchDerivTab('optstrategy')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Strategy</div>
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
@@ -1342,11 +1344,13 @@
                         <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
-                                    <th colspan="10" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
+                                    <th colspan="12" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
                                     <th style="background: #333; color: #ffcc00; font-weight: bold; font-size: 14px; min-width: 80px;">STRIKE</th>
-                                    <th colspan="10" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
+                                    <th colspan="12" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
                                 </tr>
                                 <tr style="font-size: 11px; color: #ccc;">
+                                    <th style="padding: 4px;">Charm</th>
+                                    <th style="padding: 4px;">Vanna</th>
                                     <th style="padding: 4px;">Vega</th>
                                     <th style="padding: 4px;">Theta</th>
                                     <th style="padding: 4px;">Gamma</th>
@@ -1370,13 +1374,27 @@
                                     <th style="padding: 4px;">Gamma</th>
                                     <th style="padding: 4px;">Theta</th>
                                     <th style="padding: 4px;">Vega</th>
+                                    <th style="padding: 4px;">Vanna</th>
+                                    <th style="padding: 4px;">Charm</th>
                                 </tr>
                             </thead>
                             <tbody id="option-chain-body">
-                                <tr><td colspan="17" style="text-align:center; color:#888;">Select a symbol and click "Load Chain".</td></tr>
+                                <tr><td colspan="25" style="text-align:center; color:#888;">Select a symbol and click "Load Chain".</td></tr>
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+                <!-- SUB-TAB: Options Analysis -->
+                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
+                    <h2 style="color: #fff; margin-top: 0;">Options Analysis</h2>
+                    <p style="color: #888;">Coming Soon: PCR, SKEW, Volatility cone, vanna/charm, IV rank, IV percentile, % Away, ATM straddle, 25-delta Skew, 10-Delta Skew, delta Drift, etc.</p>
+                </div>
+
+                <!-- SUB-TAB: Option Strategy -->
+                <div id="deriv-tab-optstrategy" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
+                    <h2 style="color: #fff; margin-top: 0;">Option Strategy</h2>
+                    <p style="color: #888;">Coming Soon: Option strategies like covered call, Gamma Short, options expiry strategy, etc.</p>
                 </div>
 
                 <!-- SUB-TAB 2: OI Analysis -->
@@ -4305,9 +4323,9 @@ document.addEventListener('click', (e) => {
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 },
-                        { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1 },
-                        { label: 'NIFTY', type: 'line', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0 }
+                        { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: 'rgba(0, 255, 255, 0.7)', borderColor: 'rgba(0, 255, 255, 1)', borderWidth: 1 }, // Bloomberg Cyan
+                        { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: 'rgba(255, 0, 255, 0.7)', borderColor: 'rgba(255, 0, 255, 1)', borderWidth: 1 }, // Bloomberg Magenta
+                        { label: 'NIFTY', type: 'line', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ff9900', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0 } // Bloomberg Amber
                     ]
                 },
                 options: {
@@ -4316,7 +4334,21 @@ document.addEventListener('click', (e) => {
                         x: { stacked: true },
                         y: { stacked: true, position: 'left', grid: { color: '#333' } },
                         // Ensure NIFTY doesn't start at 0, which makes it look flat
-                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false }, min: function(context) { const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1').data; const minVal = Math.min(...dataArr.filter(v => v > 0)); return minVal * 0.99; }, max: function(context) { const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1').data; const maxVal = Math.max(...dataArr.filter(v => v > 0)); return maxVal * 1.01; } }
+                        y1: {
+                            type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false },
+                            min: function(context) {
+                                const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
+                                const validArr = dataArr.filter(v => v > 0);
+                                if (validArr.length === 0) return 0;
+                                return Math.min(...validArr) * 0.99;
+                            },
+                            max: function(context) {
+                                const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
+                                const validArr = dataArr.filter(v => v > 0);
+                                if (validArr.length === 0) return 100;
+                                return Math.max(...validArr) * 1.01;
+                            }
+                        }
                     },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
@@ -4359,11 +4391,11 @@ document.addEventListener('click', (e) => {
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'Idx Fut Net', yAxisID: 'y', data: futIdxData, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Stk Fut Net', yAxisID: 'y', data: futStkData, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Idx Opt Net', yAxisID: 'y', data: optIdxData, borderColor: '#a855f7', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Stk Opt Net', yAxisID: 'y', data: optStkData, borderColor: '#4ade80', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
+                        { label: 'Idx Fut Net', yAxisID: 'y', data: futIdxData, borderColor: '#00ffff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Cyan
+                        { label: 'Stk Fut Net', yAxisID: 'y', data: futStkData, borderColor: '#ff00ff', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Magenta
+                        { label: 'Idx Opt Net', yAxisID: 'y', data: optIdxData, borderColor: '#00ff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Lime Green
+                        { label: 'Stk Opt Net', yAxisID: 'y', data: optStkData, borderColor: '#ff4444', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }, // Red
+                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ff9900', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] } // Amber
                     ]
                 },
                 options: {
@@ -4372,15 +4404,21 @@ document.addEventListener('click', (e) => {
                     scales: {
                         x: { grid: { display: false } },
                         y: { position: 'left', grid: { color: '#333' } },
-                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false }, min: function(context) {
-                             const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1').data;
-                             const minVal = Math.min(...dataArr.filter(v => v > 0));
-                             return minVal * 0.99; // 1% padding below min
-                        }, max: function(context) {
-                             const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1').data;
-                             const maxVal = Math.max(...dataArr.filter(v => v > 0));
-                             return maxVal * 1.01; // 1% padding above max
-                        } } // explicit min/max to ensure NIFTY scales properly
+                        y1: {
+                            type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false },
+                            min: function(context) {
+                                 const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
+                                 const validArr = dataArr.filter(v => v > 0);
+                                 if (validArr.length === 0) return 0;
+                                 return Math.min(...validArr) * 0.99; // 1% padding below min
+                            },
+                            max: function(context) {
+                                 const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
+                                 const validArr = dataArr.filter(v => v > 0);
+                                 if (validArr.length === 0) return 100;
+                                 return Math.max(...validArr) * 1.01; // 1% padding above max
+                            }
+                        } // explicit min/max to ensure NIFTY scales properly
                     },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
@@ -5023,6 +5061,8 @@ document.addEventListener('click', (e) => {
                 const fmtChg = (v) => v ? `<span style="color:${v>=0?'#4ade80':'#f87171'}">${v>0?'+':''}${v.toLocaleString()}</span>` : '-';
 
                 htmlBuffer += `<tr style="border-bottom: 1px solid #333;">
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.charm)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(c.vanna)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.vega)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.theta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.gamma)}</td>
@@ -5046,6 +5086,8 @@ document.addEventListener('click', (e) => {
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.gamma)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.theta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.vega)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.vanna)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmt(p.charm)}</td>
                 </tr>`;
             });
             tbody.innerHTML = htmlBuffer;

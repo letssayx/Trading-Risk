@@ -26,7 +26,7 @@ def bs_d2(d1, T, sigma):
 
 def calculate_greeks(S, K, T, r, sigma, is_call):
     if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
-        return {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0, "iv": sigma}
+        return {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0, "vanna": 0.0, "charm": 0.0, "iv": sigma}
 
     try:
         d1 = bs_d1(S, K, T, r, sigma)
@@ -49,16 +49,31 @@ def calculate_greeks(S, K, T, r, sigma, is_call):
             theta = (term1 + r * K * math.exp(-r * T) * norm_cdf(-d2)) / 365.0
             rho = (-K * T * math.exp(-r * T) * norm_cdf(-d2)) / 100.0
 
+        # Second-order Greeks
+        vanna = (vega / S) * (1 - d1 / (sigma * math.sqrt(T)))
+
+        if is_call:
+            charm = -pdf_d1 * (2 * r * T - d2 * sigma * math.sqrt(T)) / (2 * T * sigma * math.sqrt(T))
+        else:
+            charm = -pdf_d1 * (2 * r * T - d2 * sigma * math.sqrt(T)) / (2 * T * sigma * math.sqrt(T)) + r * math.exp(-r * T)
+
+        # Convert vanna to percentage terms for display consistency
+        vanna = vanna / 100.0
+        # Convert charm to per day for consistency with theta
+        charm = charm / 365.0
+
         return {
             "delta": float(delta),
             "gamma": float(gamma),
             "theta": float(theta),
             "vega": float(vega),
             "rho": float(rho),
+            "vanna": float(vanna),
+            "charm": float(charm),
             "iv": float(sigma)
         }
     except Exception:
-        return {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0, "iv": float(sigma)}
+        return {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0, "vanna": 0.0, "charm": 0.0, "iv": float(sigma)}
 
 def calculate_iv(target_price, S, K, T, r, is_call):
     """ Newton-Raphson approximation for Implied Volatility """
@@ -222,8 +237,8 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             if strike not in chain:
                 chain[strike] = {
                     "strike": strike,
-                    "CE": {"price": 0, "pct_change": 0.0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0},
-                    "PE": {"price": 0, "pct_change": 0.0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0}
+                    "CE": {"price": 0, "pct_change": 0.0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0, "vanna": 0, "charm": 0},
+                    "PE": {"price": 0, "pct_change": 0.0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0, "vanna": 0, "charm": 0}
                 }
 
             is_call = opt_type == 'CE'
@@ -232,7 +247,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             pct_change = ((price - prev_close) / prev_close * 100.0) if prev_close > 0 else 0.0
 
             # Calculate Greeks if we have a spot price and time
-            greeks = {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "iv": 0.0}
+            greeks = {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "vanna": 0.0, "charm": 0.0, "iv": 0.0}
             if spot_price > 0 and T_years > 0 and price > 0:
                 iv = calculate_iv(price, spot_price, strike, T_years, r, is_call)
                 if iv > 0.001 and iv < 5.0: # Cap IV to realistic bounds
@@ -249,7 +264,9 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
                 "delta": greeks.get("delta", 0.0),
                 "gamma": greeks.get("gamma", 0.0),
                 "theta": greeks.get("theta", 0.0),
-                "vega": greeks.get("vega", 0.0)
+                "vega": greeks.get("vega", 0.0),
+                "vanna": greeks.get("vanna", 0.0),
+                "charm": greeks.get("charm", 0.0)
             }
 
         # Return sorted by strike

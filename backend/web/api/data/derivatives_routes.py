@@ -28,7 +28,7 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
         curr_date, prev_date = dates_query[0][0], dates_query[1][0]
 
-        # 2. Get data for both dates
+        # 2. Get data for both dates (Filter out expired contracts to ensure accurate FUT 1 selection)
         query = db.query(
             BhavcopyFO.ticker_symb,
             BhavcopyFO.trade_date,
@@ -36,6 +36,7 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             BhavcopyFO.open_interest
         ).filter(
             BhavcopyFO.trade_date.in_([curr_date, prev_date]),
+            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
 
@@ -47,11 +48,13 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             if sym not in sym_data:
                 sym_data[sym] = {curr_date: {"price": None, "oi": 0}, prev_date: {"price": None, "oi": 0}}
 
-            # Use the first encountered close_price (near month because of order_by expiry_date asc)
+            # Strictly use Near Month Futures (FUT 1) close price for analysis
+            # Due to `expiry_date >= trade_date` and `order_by(expiry_date.asc())`,
+            # the first record is guaranteed to be active FUT 1.
             if sym_data[sym][dt]["price"] is None:
                 sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
 
-            # Sum OI across all expiries
+            # Sum OI across all expiries (FUT 1 + FUT 2 + FUT 3...)
             sym_data[sym][dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
 
         # 4. Calculate metrics
@@ -111,19 +114,21 @@ async def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
             BhavcopyFO.open_interest
         ).filter(
             BhavcopyFO.ticker_symb == symbol,
+            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
 
         if not query:
             return {"symbol": symbol, "history": []}
 
-        # Aggregate OI and get price (usually near month price represents it well)
+        # Aggregate OI and get price (strictly using Near Month Futures / FUT 1 price)
         dates = {}
         for r in query:
             dt = r.trade_date
             if dt not in dates:
+                # First encountered row per trade_date is guaranteed to be active FUT 1
                 dates[dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
-            # Sum OI across all expiries
+            # Sum OI across all expiries (FUT 1 + FUT 2 + FUT 3...)
             dates[dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
 
         sorted_dates = sorted(dates.keys())
@@ -183,6 +188,7 @@ async def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
             BhavcopyFO.open_interest
         ).filter(
             BhavcopyFO.trade_date == latest_date,
+            BhavcopyFO.expiry_date >= latest_date,
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
         ).order_by(BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
 
@@ -261,6 +267,7 @@ async def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
         ).filter(
             BhavcopyFO.trade_date == latest_date,
             BhavcopyFO.ticker_symb == symbol,
+            BhavcopyFO.expiry_date >= latest_date,
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
         ).order_by(BhavcopyFO.expiry_date.asc()).all()
 

@@ -295,10 +295,14 @@ const OiTool = {
             y: y,
             mode: 'markers+text',
             type: 'scatter',
-            text: history.map((d, i) => i === history.length - 1 ? 'Latest' : ''),
-            textposition: 'top center',
+            text: history.map((d, i) => (i + 1).toString()),
+            textposition: 'middle center',
+            textfont: {
+                color: '#fff',
+                size: 10
+            },
             hovertext: text,
-            marker: { size: 12, color: color }
+            marker: { size: 18, color: color }
         };
 
         const layout = {
