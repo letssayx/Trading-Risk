@@ -629,9 +629,9 @@
                     <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
                         <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                             <tr>
-                                <th colspan="8" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
+                                <th colspan="10" style="background: #1e3a5f; color: white; border-right: 2px solid #555;">CALLS</th>
                                 <th style="background: #333; color: #ffcc00; font-weight: bold; font-size: 14px; min-width: 80px;">STRIKE</th>
-                                <th colspan="8" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
+                                <th colspan="10" style="background: #4a2333; color: white; border-left: 2px solid #555;">PUTS</th>
                             </tr>
                             <tr style="font-size: 11px; color: #ccc;">
                                 <th style="padding: 4px;">Vega</th>
@@ -639,15 +639,19 @@
                                 <th style="padding: 4px;">Gamma</th>
                                 <th style="padding: 4px;">Delta</th>
                                 <th style="padding: 4px;">Vol</th>
+                                <th style="padding: 4px;">Chg OI</th>
                                 <th style="padding: 4px;">OI</th>
                                 <th style="padding: 4px;">IV</th>
+                                <th style="padding: 4px;">% Chg</th>
                                 <th style="padding: 4px; border-right: 2px solid #555;">LTP</th>
 
                                 <th style="padding: 4px; background: #333;">Price</th>
 
                                 <th style="padding: 4px; border-left: 2px solid #555;">LTP</th>
+                                <th style="padding: 4px;">% Chg</th>
                                 <th style="padding: 4px;">IV</th>
                                 <th style="padding: 4px;">OI</th>
+                                <th style="padding: 4px;">Chg OI</th>
                                 <th style="padding: 4px;">Vol</th>
                                 <th style="padding: 4px;">Delta</th>
                                 <th style="padding: 4px;">Gamma</th>
@@ -1416,7 +1420,7 @@
 
 
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: auto; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <select id="market-activity-days" class="history-input" style="width: 100px;">
                             <option value="30" selected>30 Days</option>
@@ -4915,7 +4919,7 @@ document.addEventListener('click', (e) => {
         const selectedExpiry = expirySelect.value;
         const tbody = document.getElementById('option-chain-body');
 
-        tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="21" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
             let url = `/api/data/derivatives/option_chain?symbol=${sym}`;
@@ -4959,21 +4963,17 @@ document.addEventListener('click', (e) => {
 
             tbody.innerHTML = '';
             if (!data.data || data.data.length === 0) {
-                 tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">No Option Chain data found for this symbol.</td></tr>';
+                 tbody.innerHTML = '<tr><td colspan="21" style="text-align:center; color:#888;">No Option Chain data found for this symbol.</td></tr>';
                  return;
             }
 
+            let htmlBuffer = '';
             // Render chain
             data.data.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #333';
-
                 // ATM Highlighting Logic
                 let isATM = false;
                 if (data.spot_price > 0) {
                     const diff = Math.abs(row.strike - data.spot_price);
-                    // Approximate check to see if it's the closest strike. In a real scenario we'd find the min diff globally first.
-                    // For UI purposes, we'll just check if it's within 0.5%
                     isATM = (diff / data.spot_price) < 0.005;
                 }
                 const bgStyle = isATM ? 'background-color: #333;' : '';
@@ -4984,33 +4984,39 @@ document.addEventListener('click', (e) => {
                 // Formatting helpers
                 const fmt = (v) => v ? v.toFixed(2) : '-';
                 const fmtVol = (v) => v ? v.toFixed(2) + '%' : '-';
+                const fmtPct = (v) => v ? `<span style="color:${v>=0?'#4ade80':'#f87171'}">${v>0?'+':''}${v.toFixed(2)}%</span>` : '-';
+                const fmtChg = (v) => v ? `<span style="color:${v>=0?'#4ade80':'#f87171'}">${v>0?'+':''}${v.toLocaleString()}</span>` : '-';
 
-                tr.innerHTML = `
+                htmlBuffer += `<tr style="border-bottom: 1px solid #333;">
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.vega)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.theta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.gamma)}</td>
                     <td style="color: #4ade80; ${bgStyle}">${fmt(c.delta)}</td>
                     <td style="color: #ccc; ${bgStyle}">${c.vol > 0 ? (c.vol).toLocaleString() : '-'}</td>
+                    <td style="color: #ccc; ${bgStyle}">${fmtChg(c.chg_oi)}</td>
                     <td style="color: #ccc; ${bgStyle}">${c.oi > 0 ? (c.oi).toLocaleString() : '-'}</td>
                     <td style="color: #e6a23c; ${bgStyle}">${fmtVol(c.iv)}</td>
+                    <td style="color: #ccc; ${bgStyle}">${fmtPct(c.pct_change)}</td>
                     <td style="font-weight: bold; color: #fff; border-right: 2px solid #555; ${bgStyle}">${c.price > 0 ? c.price.toFixed(2) : '-'}</td>
 
                     <td style="font-weight: bold; background: ${isATM ? '#444' : '#2a2a2a'}; color: #ffcc00; font-size: 14px;">${row.strike}</td>
 
                     <td style="font-weight: bold; color: #fff; border-left: 2px solid #555; ${bgStyle}">${p.price > 0 ? p.price.toFixed(2) : '-'}</td>
+                    <td style="color: #ccc; ${bgStyle}">${fmtPct(p.pct_change)}</td>
                     <td style="color: #e6a23c; ${bgStyle}">${fmtVol(p.iv)}</td>
                     <td style="color: #ccc; ${bgStyle}">${p.oi > 0 ? (p.oi).toLocaleString() : '-'}</td>
+                    <td style="color: #ccc; ${bgStyle}">${fmtChg(p.chg_oi)}</td>
                     <td style="color: #ccc; ${bgStyle}">${p.vol > 0 ? (p.vol).toLocaleString() : '-'}</td>
                     <td style="color: #ff4d4d; ${bgStyle}">${fmt(p.delta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.gamma)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.theta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.vega)}</td>
-                `;
-                tbody.appendChild(tr);
+                </tr>`;
             });
+            tbody.innerHTML = htmlBuffer;
 
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="21" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     }
 

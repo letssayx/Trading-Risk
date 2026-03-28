@@ -198,6 +198,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             BhavcopyFO.strike_price,
             BhavcopyFO.option_type,
             BhavcopyFO.close_price,
+            BhavcopyFO.prev_close,
             BhavcopyFO.open_interest,
             BhavcopyFO.change_in_oi,
             BhavcopyFO.total_trading_vol
@@ -221,12 +222,14 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             if strike not in chain:
                 chain[strike] = {
                     "strike": strike,
-                    "CE": {"price": 0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0},
-                    "PE": {"price": 0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0}
+                    "CE": {"price": 0, "pct_change": 0.0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0},
+                    "PE": {"price": 0, "pct_change": 0.0, "oi": 0, "chg_oi": 0, "vol": 0, "iv": 0, "delta": 0, "gamma": 0, "theta": 0, "vega": 0}
                 }
 
             is_call = opt_type == 'CE'
             price = float(r_obj.close_price)
+            prev_close = float(r_obj.prev_close) if r_obj.prev_close else 0.0
+            pct_change = ((price - prev_close) / prev_close * 100.0) if prev_close > 0 else 0.0
 
             # Calculate Greeks if we have a spot price and time
             greeks = {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "iv": 0.0}
@@ -238,6 +241,7 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
 
             chain[strike][opt_type] = {
                 "price": price,
+                "pct_change": pct_change,
                 "oi": int(r_obj.open_interest) if r_obj.open_interest else 0,
                 "chg_oi": int(r_obj.change_in_oi) if r_obj.change_in_oi else 0,
                 "vol": int(r_obj.total_trading_vol) if r_obj.total_trading_vol else 0,

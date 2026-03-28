@@ -2671,8 +2671,21 @@
 
         // 2. Load Participant OI Chart
         try {
-            const res = await fetch('/api/market-activity/participant-oi');
+            const days = document.getElementById('market-activity-days').value || '30';
+            const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
+
+            // Calculate Math
+            let fiiCurrent = 0; let proCurrent = 0;
+            if (data.fii_net_long && data.fii_net_long.length > 0) fiiCurrent = data.fii_net_long[data.fii_net_long.length - 1];
+            if (data.pro_net_long && data.pro_net_long.length > 0) proCurrent = data.pro_net_long[data.pro_net_long.length - 1];
+
+            const summaryEl = document.getElementById('participant-oi-summary');
+            if (summaryEl) {
+                summaryEl.innerHTML =
+                    `<span style="color:${fiiCurrent>=0?'#4ade80':'#ff4d4d'}">FII OI: ${fiiCurrent.toLocaleString()}</span> | <span style="color:${proCurrent>=0?'#4ade80':'#ff4d4d'}">PRO OI: ${proCurrent.toLocaleString()}</span>`;
+            }
+
             if (participantChartInstance) participantChartInstance.destroy();
             const ctx = document.getElementById('participantOiChart').getContext('2d');
             participantChartInstance = new Chart(ctx, {
@@ -2680,15 +2693,20 @@
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net Long', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'PRO Net Long', data: data.pro_net_long, borderColor: '#ffce56', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', data: data.client_net_long, borderColor: '#4bc0c0', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
+                        { label: 'FII Net Long', yAxisID: 'y', data: data.fii_net_long, borderColor: '#36a2eb', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'PRO Net Long', yAxisID: 'y', data: data.pro_net_long, borderColor: '#f59e0b', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#d946ef', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
+                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ffff00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    scales: { y: { grid: { color: '#333' } }, x: { grid: { display: false } } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { position: 'left', grid: { color: '#333' } },
+                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false } }
+                    },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
             });

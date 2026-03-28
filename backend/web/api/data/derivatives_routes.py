@@ -284,8 +284,8 @@ async def get_marketwatch(date: str = None, custom_symbols: str = None, db: Sess
             futs[i]["bps"] = 0.0
             futs[i]["yield"] = 0.0
 
-            base_price = eq_data["price"] if i == 0 else futs[i-1]["price"]
-            days = futs[i]["dte"] if i == 0 else (futs[i]["dte"] - futs[i-1]["dte"])
+            base_price = eq_data["price"]
+            days = futs[i]["dte"]
 
             if base_price > 0:
                 futs[i]["bps"] = ((futs[i]["price"] - base_price) / base_price) * 10000
