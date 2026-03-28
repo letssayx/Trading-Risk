@@ -4720,12 +4720,16 @@ document.addEventListener('click', (e) => {
                     const bpsVal = (f.bps != null && !isNaN(f.bps)) ? f.bps : 0;
                     const priceVal = (f.price != null && !isNaN(f.price)) ? f.price : 0;
 
+                    // We need days for BPS display
+                    const prevDte = idx === 0 ? 0 : futs[idx-1].dte;
+                    const days = idx === 0 ? f.dte : (f.dte - prevDte);
+
                     futTr.innerHTML = `
                         <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #aaa;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
                         <td style="color: #aaa;">${reportDate}</td>
                         <td>${priceVal.toFixed(2)}</td>
                         <td>${futChangeStr}</td>
-                        <td style="color: #e6a23c;">${bpsVal.toFixed(2)}</td>
+                        <td style="color: #e6a23c;">${bpsVal.toFixed(2)} (${days}d)</td>
                         <td style="color: ${yieldColor}; display: none;">${yld.toFixed(2)}%</td>
                         <td style="color: #ccc;">${(f.vol).toLocaleString()}</td>
                         <td style="color: #ccc;">-</td>
