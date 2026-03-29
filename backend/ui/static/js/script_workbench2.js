@@ -2657,8 +2657,8 @@
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net', data: data.fii_net, backgroundColor: 'rgba(0, 255, 0, 0.6)', borderColor: '#00FF00', borderWidth: 1 },
-                        { label: 'DII Net', data: data.dii_net, backgroundColor: 'rgba(255, 0, 0, 0.6)', borderColor: '#FF0000', borderWidth: 1 }
+                        { label: 'FII Net', data: data.fii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1 },
+                        { label: 'DII Net', data: data.dii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1 }
                     ]
                 },
                 options: {
@@ -2675,41 +2675,105 @@
             const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
 
-            // Calculate Math
-            let fiiCurrent = 0; let proCurrent = 0;
-            if (data.fii_net_long && data.fii_net_long.length > 0) fiiCurrent = data.fii_net_long[data.fii_net_long.length - 1];
-            if (data.pro_net_long && data.pro_net_long.length > 0) proCurrent = data.pro_net_long[data.pro_net_long.length - 1];
+            // Build grouped ECharts
+            const container = document.getElementById('participantOiEchart');
+            if (participantChartInstance) participantChartInstance.dispose();
+            participantChartInstance = echarts.init(container);
 
-            const summaryEl = document.getElementById('participant-oi-summary');
-            if (summaryEl) {
-                summaryEl.innerHTML =
-                    `<span style="color:${fiiCurrent>=0?'#4ade80':'#ff4d4d'}">FII OI: ${fiiCurrent.toLocaleString()}</span> | <span style="color:${proCurrent>=0?'#4ade80':'#ff4d4d'}">PRO OI: ${proCurrent.toLocaleString()}</span>`;
+            const dates = data.dates || [];
+            if (dates.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#888;">No Participant OI data found.</p>';
+                return;
             }
 
-            if (participantChartInstance) participantChartInstance.destroy();
-            const ctx = document.getElementById('participantOiChart').getContext('2d');
-            participantChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.dates,
-                    datasets: [
-                        { label: 'FII Net Long', yAxisID: 'y', data: data.fii_net_long, borderColor: '#00FF00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'PRO Net Long', yAxisID: 'y', data: data.pro_net_long, borderColor: '#f59e0b', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'Client Net Long', yAxisID: 'y', data: data.client_net_long, borderColor: '#FF0000', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 },
-                        { label: 'NIFTY', yAxisID: 'y1', data: data.nifty_close, borderColor: '#FFCC00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2, borderDash: [5, 5] }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        x: { grid: { display: false } },
-                        y: { position: 'left', grid: { color: '#333' } },
-                        y1: { type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false } }
-                    },
-                    plugins: { legend: { labels: { color: '#ccc' } } }
-                }
+            // Define metric categories
+            const metrics = [
+                { key: 'opt_idx_ce', label: 'INDEX CALL' },
+                { key: 'fut_idx', label: 'INDEX FUT' },
+                { key: 'opt_idx_pe', label: 'INDEX PUT' },
+                { key: 'fut_stk', label: 'STK FUT' }
+            ];
+
+            // Ensure Pro resolves correctly
+            const participants = [
+                { key: 'fii', label: 'FII' },
+                { key: 'dii', label: 'DII' },
+                { key: 'pro', label: 'PRO' },
+                { key: 'client', label: 'Client' }
+            ];
+
+            const seriesData = [];
+            const xAxisData = [];
+
+            // We only care about the latest two dates: Today and Prev Day.
+            const todayIdx = dates.length - 1;
+            const prevIdx = dates.length > 1 ? dates.length - 2 : todayIdx;
+
+            // X-Axis categories are combinations of Participant + Metric
+            participants.forEach(p => {
+                metrics.forEach(m => {
+                    xAxisData.push(`${p.label}\n${m.label}`);
+                });
             });
+
+            // "Today" Series
+            const todayValues = [];
+            // "Prev Day" Series
+            const prevValues = [];
+
+            participants.forEach(p => {
+                metrics.forEach(m => {
+                    const arrayKey = `${p.key}_${m.key}`;
+                    const arr = data[arrayKey] || [];
+
+                    const todayVal = arr.length > todayIdx ? arr[todayIdx] : 0;
+                    const prevVal = arr.length > prevIdx ? arr[prevIdx] : 0;
+
+                    todayValues.push(todayVal);
+                    prevValues.push(prevVal);
+                });
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: ['Today', 'Prev Day'],
+                    textStyle: { color: '#ccc' }
+                },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: xAxisData,
+                    axisLabel: { color: '#ccc', fontSize: 10, interval: 0, rotate: 45 },
+                    axisLine: { lineStyle: { color: '#333' } },
+                    axisTick: { alignWithLabel: true }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                },
+                series: [
+                    {
+                        name: 'Today',
+                        type: 'bar',
+                        data: todayValues,
+                        itemStyle: { color: '#3176B8' } // Blue
+                    },
+                    {
+                        name: 'Prev Day',
+                        type: 'bar',
+                        data: prevValues,
+                        itemStyle: { color: '#E88B1E' } // Orange
+                    }
+                ]
+            };
+
+            participantChartInstance.setOption(option);
         } catch (e) { console.error("Error loading Participant OI", e); }
 
         // 3. Load EChart Multi-Axis

@@ -410,10 +410,13 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
 async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import FAOParticipantOI
 
-    # Get the last X trading days
-    dates = db.query(FAOParticipantOI.trade_date).distinct().order_by(FAOParticipantOI.trade_date.desc()).limit(days).all()
-    dates = [d[0] for d in dates]
-    dates.sort() # chronological
+    try:
+        # Get the last X trading days
+        dates = db.query(FAOParticipantOI.trade_date).distinct().order_by(FAOParticipantOI.trade_date.desc()).limit(days).all()
+        dates = [d[0] for d in dates]
+        dates.sort() # chronological
+    except Exception as e:
+        dates = []
 
     import pandas as pd
     import numpy as np
@@ -425,9 +428,22 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
          dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
          return {
              "dates": dummy_dates,
-             "fii_net_long": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_net_long": np.random.randint(-30000, 30000, days).tolist(),
-             "client_net_long": np.random.randint(-80000, 80000, days).tolist(),
+             "fii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_fut_idx": np.random.randint(-30000, 30000, days).tolist(),
+             "dii_fut_stk": np.random.randint(-30000, 30000, days).tolist(),
+             "dii_opt_idx_ce": np.random.randint(-30000, 30000, days).tolist(),
+             "dii_opt_idx_pe": np.random.randint(-30000, 30000, days).tolist(),
+             "pro_fut_idx": np.random.randint(-30000, 30000, days).tolist(),
+             "pro_fut_stk": np.random.randint(-30000, 30000, days).tolist(),
+             "pro_opt_idx_ce": np.random.randint(-30000, 30000, days).tolist(),
+             "pro_opt_idx_pe": np.random.randint(-30000, 30000, days).tolist(),
+             "client_fut_idx": np.random.randint(-80000, 80000, days).tolist(),
+             "client_fut_stk": np.random.randint(-80000, 80000, days).tolist(),
+             "client_opt_idx_ce": np.random.randint(-80000, 80000, days).tolist(),
+             "client_opt_idx_pe": np.random.randint(-80000, 80000, days).tolist(),
              "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
 
@@ -438,8 +454,10 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         'client_type': r.client_type,
         'fut_idx_net': r.future_index_long - r.future_index_short,
         'fut_stk_net': r.future_stock_long - r.future_stock_short,
-        'opt_idx_net': (r.option_index_call_long - r.option_index_call_short) + (r.option_index_put_long - r.option_index_put_short),
-        'opt_stk_net': (r.option_stock_call_long - r.option_stock_call_short) + (r.option_stock_put_long - r.option_stock_put_short)
+        'opt_idx_ce_net': r.option_index_call_long - r.option_index_call_short,
+        'opt_idx_pe_net': r.option_index_put_long - r.option_index_put_short,
+        'opt_stk_ce_net': r.option_stock_call_long - r.option_stock_call_short,
+        'opt_stk_pe_net': r.option_stock_put_long - r.option_stock_put_short
     } for r in records])
 
     if df.empty:
@@ -449,10 +467,20 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
              "dates": dummy_dates,
              "fii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
              "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_fut_idx": np.random.randint(-30000, 30000, days).tolist(),
+             "dii_fut_stk": np.random.randint(-30000, 30000, days).tolist(),
+             "dii_opt_idx_ce": np.random.randint(-30000, 30000, days).tolist(),
+             "dii_opt_idx_pe": np.random.randint(-30000, 30000, days).tolist(),
              "pro_fut_idx": np.random.randint(-30000, 30000, days).tolist(),
+             "pro_fut_stk": np.random.randint(-30000, 30000, days).tolist(),
+             "pro_opt_idx_ce": np.random.randint(-30000, 30000, days).tolist(),
+             "pro_opt_idx_pe": np.random.randint(-30000, 30000, days).tolist(),
              "client_fut_idx": np.random.randint(-80000, 80000, days).tolist(),
+             "client_fut_stk": np.random.randint(-80000, 80000, days).tolist(),
+             "client_opt_idx_ce": np.random.randint(-80000, 80000, days).tolist(),
+             "client_opt_idx_pe": np.random.randint(-80000, 80000, days).tolist(),
              "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
 
@@ -460,32 +488,42 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     try:
         pivot_idx = df.pivot_table(index='date', columns='client_type', values='fut_idx_net', aggfunc='sum').fillna(0)
         pivot_stk = df.pivot_table(index='date', columns='client_type', values='fut_stk_net', aggfunc='sum').fillna(0)
-        pivot_opt_idx = df.pivot_table(index='date', columns='client_type', values='opt_idx_net', aggfunc='sum').fillna(0)
-        pivot_opt_stk = df.pivot_table(index='date', columns='client_type', values='opt_stk_net', aggfunc='sum').fillna(0)
+        pivot_opt_idx_ce = df.pivot_table(index='date', columns='client_type', values='opt_idx_ce_net', aggfunc='sum').fillna(0)
+        pivot_opt_idx_pe = df.pivot_table(index='date', columns='client_type', values='opt_idx_pe_net', aggfunc='sum').fillna(0)
+        pivot_opt_stk_ce = df.pivot_table(index='date', columns='client_type', values='opt_stk_ce_net', aggfunc='sum').fillna(0)
+        pivot_opt_stk_pe = df.pivot_table(index='date', columns='client_type', values='opt_stk_pe_net', aggfunc='sum').fillna(0)
 
         if not pivot_idx.index.is_unique:
             pivot_idx = pivot_idx.groupby(level=0).sum()
             pivot_stk = pivot_stk.groupby(level=0).sum()
-            pivot_opt_idx = pivot_opt_idx.groupby(level=0).sum()
-            pivot_opt_stk = pivot_opt_stk.groupby(level=0).sum()
+            pivot_opt_idx_ce = pivot_opt_idx_ce.groupby(level=0).sum()
+            pivot_opt_idx_pe = pivot_opt_idx_pe.groupby(level=0).sum()
+            pivot_opt_stk_ce = pivot_opt_stk_ce.groupby(level=0).sum()
+            pivot_opt_stk_pe = pivot_opt_stk_pe.groupby(level=0).sum()
 
         dt_dates = pd.to_datetime(dates)
         pivot_idx.index = pd.to_datetime(pivot_idx.index)
         pivot_stk.index = pd.to_datetime(pivot_stk.index)
-        pivot_opt_idx.index = pd.to_datetime(pivot_opt_idx.index)
-        pivot_opt_stk.index = pd.to_datetime(pivot_opt_stk.index)
+        pivot_opt_idx_ce.index = pd.to_datetime(pivot_opt_idx_ce.index)
+        pivot_opt_idx_pe.index = pd.to_datetime(pivot_opt_idx_pe.index)
+        pivot_opt_stk_ce.index = pd.to_datetime(pivot_opt_stk_ce.index)
+        pivot_opt_stk_pe.index = pd.to_datetime(pivot_opt_stk_pe.index)
 
         pivot_idx = pivot_idx.reindex(dt_dates).fillna(0)
         pivot_stk = pivot_stk.reindex(dt_dates).fillna(0)
-        pivot_opt_idx = pivot_opt_idx.reindex(dt_dates).fillna(0)
-        pivot_opt_stk = pivot_opt_stk.reindex(dt_dates).fillna(0)
+        pivot_opt_idx_ce = pivot_opt_idx_ce.reindex(dt_dates).fillna(0)
+        pivot_opt_idx_pe = pivot_opt_idx_pe.reindex(dt_dates).fillna(0)
+        pivot_opt_stk_ce = pivot_opt_stk_ce.reindex(dt_dates).fillna(0)
+        pivot_opt_stk_pe = pivot_opt_stk_pe.reindex(dt_dates).fillna(0)
     except Exception as e:
         import logging
         logging.error(f"Error pivoting participant oi: {e}")
         pivot_idx = pd.DataFrame(index=pd.to_datetime(dates))
         pivot_stk = pd.DataFrame(index=pd.to_datetime(dates))
-        pivot_opt_idx = pd.DataFrame(index=pd.to_datetime(dates))
-        pivot_opt_stk = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_idx_ce = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_idx_pe = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_stk_ce = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_stk_pe = pd.DataFrame(index=pd.to_datetime(dates))
 
     from sqlalchemy import text
 
@@ -507,20 +545,20 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         "dates": [d.strftime('%Y-%m-%d') for d in pivot_idx.index],
         "fii_fut_idx": pivot_idx.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_fut_stk": pivot_stk.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "fii_opt_idx": pivot_opt_idx.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "fii_opt_stk": pivot_opt_stk.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_idx_ce": pivot_opt_idx_ce.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_idx_pe": pivot_opt_idx_pe.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_fut_idx": pivot_idx.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_fut_stk": pivot_stk.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "dii_opt_idx": pivot_opt_idx.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "dii_opt_stk": pivot_opt_stk.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "pro_fut_idx": pivot_idx.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_idx_ce": pivot_opt_idx_ce.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_idx_pe": pivot_opt_idx_pe.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_fut_idx": pivot_idx.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_fut_stk": pivot_stk.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_idx_ce": pivot_opt_idx_ce.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_idx_pe": pivot_opt_idx_pe.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_fut_idx": pivot_idx.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_fut_stk": pivot_stk.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "client_opt_idx": pivot_opt_idx.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "client_opt_stk": pivot_opt_stk.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "pro_fut_stk": pivot_stk.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "pro_opt_idx": pivot_opt_idx.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
-        "pro_opt_stk": pivot_opt_stk.get('PRO', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_idx_ce": pivot_opt_idx_ce.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_idx_pe": pivot_opt_idx_pe.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "nifty_close": nifty_close_list
     }
 
@@ -531,9 +569,12 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     """
     from backend.ingest.nse_models import FIIDIICash
 
-    dates_query = db.query(FIIDIICash.trade_date).distinct().order_by(FIIDIICash.trade_date.desc()).limit(days).all()
-    dates = [d[0] for d in dates_query]
-    dates.sort()
+    try:
+        dates_query = db.query(FIIDIICash.trade_date).distinct().order_by(FIIDIICash.trade_date.desc()).limit(days).all()
+        dates = [d[0] for d in dates_query]
+        dates.sort()
+    except Exception as e:
+        dates = []
 
     import pandas as pd
     import numpy as np

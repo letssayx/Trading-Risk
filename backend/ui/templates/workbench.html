@@ -1389,26 +1389,9 @@
                 </div>
 
                 <!-- SUB-TAB: Options Analysis -->
-                                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: none;">
+                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: none;">
                     <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px;">Options Analysis</h2>
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
-                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
-                        <button class="btn btn-secondary" onclick="loadOptionsAnalysis()">Load Charts</button>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 20px; height: calc(100% - 100px);">
-                        <!-- 4a. 500 Day Price & PCR Overlay -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">500-Day Trend: Price & PCR Overlay vs Open Interest</h3>
-                            <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
-                        </div>
-
-                        <!-- 4c. High Open Interest Chart (Horizontal) -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
-                            <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
-                        </div>
-                    </div>
+                    <p style="color: #888;">Charts have been moved to the OI Analysis tab.</p>
                 </div>
 
                 <!-- SUB-TAB: Option Strategy -->
@@ -1418,8 +1401,32 @@
                 </div>
 
                 <!-- SUB-TAB 2: OI Analysis -->
-                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
-                    <!-- Content loaded by workbookManager.js / OiTool -->
+                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; gap: 20px;">
+                    <!-- Left side: Original OI Tool (Table + Scatter Plot) -->
+                    <div id="oi-tool-container" style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                        <!-- Content loaded by workbookManager.js / OiTool -->
+                    </div>
+
+                    <!-- Right side: Options Analysis Charts -->
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0;">
+                            <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
+                            <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;">
+                            <button class="btn btn-secondary" onclick="loadOptionsAnalysis()">Load Charts</button>
+                        </div>
+
+                        <!-- 4a. 500 Day Price & PCR Overlay -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">500-Day Trend: Price & PCR Overlay vs Open Interest</h3>
+                            <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
+                        </div>
+
+                        <!-- 4c. High Open Interest Chart -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
+                            <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- SUB-TAB 3: Rollover Analysis -->
@@ -1454,10 +1461,11 @@
                 <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: auto; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <select id="market-activity-days" class="history-input" style="width: 100px;">
-                            <option value="30" selected>30 Days</option>
+                            <option value="30">30 Days</option>
                             <option value="60">60 Days</option>
                             <option value="90">90 Days</option>
                             <option value="252">252 Days</option>
+                            <option value="500" selected>500 Days</option>
                         </select>
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
                     </div>
@@ -1475,11 +1483,11 @@
                         <!-- Participant OI Trend -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; position: absolute; width: calc(100% - 30px); z-index: 10;">
-                                <div style="display: flex; align-items: center;"><h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI Trend</h3><select id="participant-type-select" onchange="loadMarketActivity()" style="background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 2px 5px; font-size: 12px; margin-left: 10px; margin-bottom: 10px;"><option value="FII">FII</option><option value="DII">DII</option><option value="PRO">PRO</option><option value="Client">Client</option></select></div>
+                                <div style="display: flex; align-items: center;"><h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI Trend</h3></div>
                                 <span id="participant-oi-summary" style="font-size: 12px; color: #aaa;"></span>
                             </div>
                             <div style="width: 100%; height: 100%; padding-top: 25px; box-sizing: border-box;">
-                                <canvas id="participantOiChart"></canvas>
+                                <div id="participantOiEchart" style="width: 100%; height: 100%;"></div>
                             </div>
                         </div>
                     </div>
@@ -4344,16 +4352,16 @@ document.addEventListener('click', (e) => {
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: 'rgba(0, 255, 255, 0.7)', borderColor: 'rgba(0, 255, 255, 1)', borderWidth: 1 }, // Bloomberg Cyan
-                        { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: 'rgba(255, 0, 255, 0.7)', borderColor: 'rgba(255, 0, 255, 1)', borderWidth: 1 }, // Bloomberg Magenta
+                        { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1 }, // Blue
+                        { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1 }, // Orange
                         { label: 'NIFTY', type: 'line', yAxisID: 'y1', data: data.nifty_close, borderColor: '#ff9900', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0 } // Bloomberg Amber
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: {
-                        x: { stacked: true },
-                        y: { stacked: true, position: 'left', grid: { color: '#333' } },
+                        x: { stacked: false },
+                        y: { stacked: false, position: 'left', grid: { color: '#333' } },
                         // Ensure NIFTY doesn't start at 0, which makes it look flat
                         y1: {
                             type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false },
@@ -4381,69 +4389,105 @@ document.addEventListener('click', (e) => {
             const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
 
-            const partType = document.getElementById('participant-type-select') ? document.getElementById('participant-type-select').value : 'FII';
-            const prefix = partType.toLowerCase();
+            // Build grouped ECharts
+            const container = document.getElementById('participantOiEchart');
+            if (participantChartInstance) participantChartInstance.dispose();
+            participantChartInstance = echarts.init(container);
 
-            // Calculate Math
-            let idxCurrent = 0; let stkCurrent = 0; let optIdxCurrent = 0; let optStkCurrent = 0;
-            const futIdxData = data[`${prefix}_fut_idx`] || [];
-            const futStkData = data[`${prefix}_fut_stk`] || [];
-            const optIdxData = data[`${prefix}_opt_idx`] || [];
-            const optStkData = data[`${prefix}_opt_stk`] || [];
-
-            if (futIdxData.length > 0) {
-                idxCurrent = futIdxData[futIdxData.length - 1];
-                stkCurrent = futStkData[futStkData.length - 1];
-                optIdxCurrent = optIdxData[optIdxData.length - 1];
-                optStkCurrent = optStkData[optStkData.length - 1];
+            const dates = data.dates || [];
+            if (dates.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#888;">No Participant OI data found.</p>';
+                return;
             }
 
-            document.getElementById('participant-oi-summary').innerHTML =
-                `<span style="color:${idxCurrent>=0?'#4ade80':'#ff4d4d'}">Idx Fut: ${idxCurrent.toLocaleString()}</span> | ` +
-                `<span style="color:${stkCurrent>=0?'#4ade80':'#ff4d4d'}">Stk Fut: ${stkCurrent.toLocaleString()}</span> | ` +
-                `<span style="color:${optIdxCurrent>=0?'#4ade80':'#ff4d4d'}">Idx Opt: ${optIdxCurrent.toLocaleString()}</span> | ` +
-                `<span style="color:${optStkCurrent>=0?'#4ade80':'#ff4d4d'}">Stk Opt: ${optStkCurrent.toLocaleString()}</span>`;
+            // Define metric categories
+            const metrics = [
+                { key: 'opt_idx_ce', label: 'INDEX CALL' },
+                { key: 'fut_idx', label: 'INDEX FUT' },
+                { key: 'opt_idx_pe', label: 'INDEX PUT' },
+                { key: 'fut_stk', label: 'STK FUT' }
+            ];
 
+            // Ensure Pro resolves correctly
+            const participants = [
+                { key: 'fii', label: 'FII' },
+                { key: 'dii', label: 'DII' },
+                { key: 'pro', label: 'PRO' },
+                { key: 'client', label: 'Client' }
+            ];
 
-            if (participantChartInstance) participantChartInstance.destroy();
-            const ctx = document.getElementById('participantOiChart').getContext('2d');
-            participantChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.dates,
-                    datasets: [
-                        { label: 'Idx Fut Net', yAxisID: 'y', data: futIdxData, backgroundColor: futIdxData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
-                        { label: 'Stk Fut Net', yAxisID: 'y', data: futStkData, backgroundColor: futStkData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
-                        { label: 'Idx Opt Net', yAxisID: 'y', data: optIdxData, backgroundColor: optIdxData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
-                        { label: 'Stk Opt Net', yAxisID: 'y', data: optStkData, backgroundColor: optStkData.map(v => v >= 0 ? '#00FF00' : '#FF0000') },
-                        { label: 'NIFTY', type: 'line', yAxisID: 'y1', data: data.nifty_close, borderColor: '#FFCC00', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        x: { grid: { display: false } },
-                        y: { position: 'left', grid: { color: '#333' } },
-                        y1: {
-                            type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false },
-                            min: function(context) {
-                                 const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
-                                 const validArr = dataArr.filter(v => v > 0);
-                                 if (validArr.length === 0) return 0;
-                                 return Math.min(...validArr) * 0.99; // 1% padding below min
-                            },
-                            max: function(context) {
-                                 const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
-                                 const validArr = dataArr.filter(v => v > 0);
-                                 if (validArr.length === 0) return 100;
-                                 return Math.max(...validArr) * 1.01; // 1% padding above max
-                            }
-                        } // explicit min/max to ensure NIFTY scales properly
-                    },
-                    plugins: { legend: { labels: { color: '#ccc' } } }
-                }
+            const seriesData = [];
+            const xAxisData = [];
+
+            // We only care about the latest two dates: Today and Prev Day.
+            const todayIdx = dates.length - 1;
+            const prevIdx = dates.length > 1 ? dates.length - 2 : todayIdx;
+
+            // X-Axis categories are combinations of Participant + Metric
+            participants.forEach(p => {
+                metrics.forEach(m => {
+                    xAxisData.push(`${p.label}\n${m.label}`);
+                });
             });
+
+            // "Today" Series
+            const todayValues = [];
+            // "Prev Day" Series
+            const prevValues = [];
+
+            participants.forEach(p => {
+                metrics.forEach(m => {
+                    const arrayKey = `${p.key}_${m.key}`;
+                    const arr = data[arrayKey] || [];
+
+                    const todayVal = arr.length > todayIdx ? arr[todayIdx] : 0;
+                    const prevVal = arr.length > prevIdx ? arr[prevIdx] : 0;
+
+                    todayValues.push(todayVal);
+                    prevValues.push(prevVal);
+                });
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: ['Today', 'Prev Day'],
+                    textStyle: { color: '#ccc' }
+                },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: xAxisData,
+                    axisLabel: { color: '#ccc', fontSize: 10, interval: 0, rotate: 45 },
+                    axisLine: { lineStyle: { color: '#333' } },
+                    axisTick: { alignWithLabel: true }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                },
+                series: [
+                    {
+                        name: 'Today',
+                        type: 'bar',
+                        data: todayValues,
+                        itemStyle: { color: '#3176B8' } // Blue
+                    },
+                    {
+                        name: 'Prev Day',
+                        type: 'bar',
+                        data: prevValues,
+                        itemStyle: { color: '#E88B1E' } // Orange
+                    }
+                ]
+            };
+
+            participantChartInstance.setOption(option);
         } catch (e) { console.error("Error loading Participant OI", e); }
     }
 

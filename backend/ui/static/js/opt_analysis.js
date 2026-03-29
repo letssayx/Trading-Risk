@@ -164,7 +164,7 @@ async function loadOptionsAnalysis() {
                     type: 'bar',
                     stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#FF0000' }, // Classic Red for calls/resistance
+                    itemStyle: { color: '#3176B8' }, // Blue
                     data: ce_oi
                 },
                 {
@@ -172,7 +172,7 @@ async function loadOptionsAnalysis() {
                     type: 'bar',
                     stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#00FF00' }, // Classic Green for puts/support
+                    itemStyle: { color: '#E88B1E' }, // Orange
                     data: pe_oi
                 }
             ]

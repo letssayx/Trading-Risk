@@ -22,7 +22,7 @@ const OiTool = {
 
     render: function(container) {
         container.innerHTML = `
-            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column;">
+            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
                     <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="OiTool.filterData()">
