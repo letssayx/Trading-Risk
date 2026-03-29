@@ -1156,8 +1156,10 @@
                     target.style.display = 'flex';
                 } else if (target.id === 'deriv-tab-matrix') {
                     target.style.display = 'flex';
+                } else if (target.id === 'deriv-tab-oi') {
+                    target.style.display = 'flex';
                 } else {
-                    target.style.display = tabName === 'market' || tabName === 'matrix' ? 'flex' : 'block';
+                    target.style.display = 'block';
                 }
                 target.classList.add('active');
                 btn.classList.add('active');
@@ -1167,6 +1169,11 @@
                 // Trigger chart loading if Market Activity
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
+                }
+
+                // Trigger options charts if OI Analysis
+                if (tabName === 'oi' && typeof loadOptionsAnalysis === 'function') {
+                    loadOptionsAnalysis();
                 }
             }
         }
@@ -2646,7 +2653,7 @@
     async function loadMarketActivity() {
         const symbol = document.getElementById('market-activity-symbol').value.toUpperCase() || 'NIFTY';
 
-        // 1. Load FII/DII Chart
+        // 1. Load FII/DII Chart (Side by side bars per user request)
         try {
             const res = await fetch('/api/market-activity/cash-flow');
             const data = await res.json();
@@ -2657,26 +2664,26 @@
                 data: {
                     labels: data.dates,
                     datasets: [
-                        { label: 'FII Net', data: data.fii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1 },
-                        { label: 'DII Net', data: data.dii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1 }
+                        { label: 'FII Net', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1 }, // Orange
+                        { label: 'DII Net', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1 }  // Blue
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    scales: { x: { stacked: true }, y: { stacked: true } },
+                    scales: { x: { stacked: false }, y: { stacked: false } },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
             });
         } catch (e) { console.error("Error loading FII/DII", e); }
 
-        // 2. Load Participant OI Chart
+        // 2. Load Participant OI Chart (Merged Daily Grouped Bar Chart)
         try {
             const days = document.getElementById('market-activity-days').value || '30';
             const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
 
-            // Build grouped ECharts
-            const container = document.getElementById('participantOiEchart');
+            // Build grouped ECharts for daily snapshot
+            const container = document.getElementById('participant-oi-daily-summary');
             if (participantChartInstance) participantChartInstance.dispose();
             participantChartInstance = echarts.init(container);
 
@@ -2686,52 +2693,41 @@
                 return;
             }
 
-            // Define metric categories
+            // Define 6 metric categories per user request
             const metrics = [
-                { key: 'opt_idx_ce', label: 'INDEX CALL' },
-                { key: 'fut_idx', label: 'INDEX FUT' },
-                { key: 'opt_idx_pe', label: 'INDEX PUT' },
-                { key: 'fut_stk', label: 'STK FUT' }
+                { key: 'fut_idx', label: 'Index Futures' },
+                { key: 'fut_stk', label: 'Stock Futures' },
+                { key: 'opt_idx_ce', label: 'Index Calls' },
+                { key: 'opt_idx_pe', label: 'Index Puts' },
+                { key: 'opt_stk_ce', label: 'Stock Calls' },
+                { key: 'opt_stk_pe', label: 'Stock Puts' }
             ];
 
-            // Ensure Pro resolves correctly
             const participants = [
-                { key: 'fii', label: 'FII' },
-                { key: 'dii', label: 'DII' },
-                { key: 'pro', label: 'PRO' },
-                { key: 'client', label: 'Client' }
+                { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
+                { key: 'dii', label: 'DII', color: '#3176B8' },     // Blue
+                { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple (Contrasting distinct color)
+                { key: 'client', label: 'CLI', color: '#00FF00' }  // Green
             ];
 
-            const seriesData = [];
-            const xAxisData = [];
+            const xAxisData = metrics.map(m => m.label);
 
-            // We only care about the latest two dates: Today and Prev Day.
+            // We only care about the latest date (Today)
             const todayIdx = dates.length - 1;
-            const prevIdx = dates.length > 1 ? dates.length - 2 : todayIdx;
 
-            // X-Axis categories are combinations of Participant + Metric
-            participants.forEach(p => {
-                metrics.forEach(m => {
-                    xAxisData.push(`${p.label}\n${m.label}`);
-                });
-            });
-
-            // "Today" Series
-            const todayValues = [];
-            // "Prev Day" Series
-            const prevValues = [];
-
-            participants.forEach(p => {
-                metrics.forEach(m => {
+            const series = participants.map(p => {
+                const pData = metrics.map(m => {
                     const arrayKey = `${p.key}_${m.key}`;
                     const arr = data[arrayKey] || [];
-
-                    const todayVal = arr.length > todayIdx ? arr[todayIdx] : 0;
-                    const prevVal = arr.length > prevIdx ? arr[prevIdx] : 0;
-
-                    todayValues.push(todayVal);
-                    prevValues.push(prevVal);
+                    return arr.length > todayIdx ? arr[todayIdx] : 0;
                 });
+
+                return {
+                    name: p.label,
+                    type: 'bar',
+                    data: pData,
+                    itemStyle: { color: p.color }
+                };
             });
 
             const option = {
@@ -2741,14 +2737,14 @@
                     axisPointer: { type: 'shadow' }
                 },
                 legend: {
-                    data: ['Today', 'Prev Day'],
+                    data: participants.map(p => p.label),
                     textStyle: { color: '#ccc' }
                 },
-                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
                 xAxis: {
                     type: 'category',
                     data: xAxisData,
-                    axisLabel: { color: '#ccc', fontSize: 10, interval: 0, rotate: 45 },
+                    axisLabel: { color: '#ccc', fontWeight: 'bold' },
                     axisLine: { lineStyle: { color: '#333' } },
                     axisTick: { alignWithLabel: true }
                 },
@@ -2757,23 +2753,16 @@
                     axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                series: [
-                    {
-                        name: 'Today',
-                        type: 'bar',
-                        data: todayValues,
-                        itemStyle: { color: '#3176B8' } // Blue
-                    },
-                    {
-                        name: 'Prev Day',
-                        type: 'bar',
-                        data: prevValues,
-                        itemStyle: { color: '#E88B1E' } // Orange
-                    }
-                ]
+                series: series
             };
 
             participantChartInstance.setOption(option);
+
+            // Trigger historical charts rendering next
+            if (typeof renderParticipantHistorical === 'function') {
+                renderParticipantHistorical(data);
+            }
+
         } catch (e) { console.error("Error loading Participant OI", e); }
 
         // 3. Load EChart Multi-Axis
@@ -2966,30 +2955,36 @@ async function loadHighOI(symbol) {
             backgroundColor: 'transparent',
             tooltip: {
                 trigger: 'axis',
-                axisPointer: { type: 'shadow' }
+                axisPointer: { type: 'shadow' },
+                formatter: function (params) {
+                    let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
+                    params.forEach(function (p) {
+                        const val = Math.abs(p.value).toLocaleString();
+                        res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
+                    });
+                    return res;
+                }
             },
             legend: {
                 data: ['Call OI', 'Put OI'],
                 textStyle: { color: '#ccc' }
             },
-            grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '3%',
-                containLabel: true
-            },
+            grid: { left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
             xAxis: {
-                type: 'value',
-                axisLabel: { color: '#888' },
-                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-            },
-            yAxis: {
                 type: 'category',
                 data: strikes,
-                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
-                axisLine: { show: false },
+                axisLabel: { color: '#FFCC00', fontWeight: 'bold', rotate: 45 },
+                axisLine: { show: true, lineStyle: { color: '#333' } },
                 axisTick: { show: false },
                 splitLine: { show: true, lineStyle: { color: '#222' } }
+            },
+            yAxis: {
+                type: 'value',
+                axisLabel: {
+                    color: '#888',
+                    formatter: function (value) { return Math.abs(value); }
+                },
+                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
             },
             series: [
                 {
@@ -3030,4 +3025,149 @@ async function loadHighOI(symbol) {
     } catch (e) {
         console.error("Error loading high OI chart:", e);
     }
+}
+
+let historicalChartInstances = {};
+
+function renderParticipantHistorical(data) {
+    const dates = data.dates || [];
+    if (dates.length === 0) return;
+
+    // We have 6 metrics = 6 charts
+    const metrics = [
+        { key: 'fut_idx', id: 'lsRatioEchart-idx-fut', label: 'Index Futures' },
+        { key: 'fut_stk', id: 'lsRatioEchart-stk-fut', label: 'Stock Futures' },
+        { key: 'opt_idx_ce', id: 'lsRatioEchart-idx-call', label: 'Index Calls' },
+        { key: 'opt_idx_pe', id: 'lsRatioEchart-idx-put', label: 'Index Puts' },
+        { key: 'opt_stk_ce', id: 'lsRatioEchart-stk-call', label: 'Stock Calls' },
+        { key: 'opt_stk_pe', id: 'lsRatioEchart-stk-put', label: 'Stock Puts' }
+    ];
+
+    const participants = [
+        { key: 'fii', label: 'FII', color: '#E88B1E' },
+        { key: 'dii', label: 'DII', color: '#3176B8' },
+        { key: 'pro', label: 'PRO', color: '#9B59B6' },
+        { key: 'client', label: 'CLI', color: '#00FF00' }
+    ];
+
+    metrics.forEach(m => {
+        const dom = document.getElementById(m.id);
+        if (!dom) return;
+
+        if (historicalChartInstances[m.key]) historicalChartInstances[m.key].dispose();
+        const chart = echarts.init(dom);
+        historicalChartInstances[m.key] = chart;
+
+        // Extract series per participant for this specific metric
+        const series = participants.map(p => {
+            const arr = data[`${p.key}_${m.key}`] || [];
+            return {
+                name: p.label,
+                type: 'bar',
+                data: arr,
+                itemStyle: { color: p.color }
+            };
+        });
+
+        const option = {
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            legend: { data: participants.map(p => p.label), textStyle: { color: '#ccc' } },
+            grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: dates,
+                axisLabel: { color: '#888' },
+                axisLine: { lineStyle: { color: '#333' } }
+            },
+            yAxis: [
+                {
+                    type: 'value',
+                    name: 'Ratio',
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    nameTextStyle: { color: '#888' }
+                },
+                {
+                    type: 'value',
+                    name: 'NIFTY',
+                    position: 'right',
+                    axisLabel: { color: '#ccc' },
+                    splitLine: { show: false },
+                    nameTextStyle: { color: '#ccc' },
+                    scale: true
+                }
+            ],
+            dataZoom: [
+                { type: 'inside', start: 50, end: 100 },
+                { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
+            ],
+            series: series.map(s => {
+                return {
+                    ...s,
+                    // Center the datum at 1 for the L/S Ratio so ratios < 1 point downward
+                    markLine: {
+                        data: [{ yAxis: 1 }],
+                        lineStyle: { color: '#444', type: 'solid', width: 2 },
+                        symbol: 'none',
+                        label: { show: false }
+                    }
+                };
+            })
+        };
+
+        // ECharts has a specific property to set the datum line for bars
+        option.series.forEach(s => { s.large = true; s.yAxisIndex = 0; });
+        option.yAxis[0].min = (value) => value.min < 0.5 ? 0 : value.min; // Give bottom room
+
+        // Change datum to 1 instead of 0 for bars (since it's a ratio)
+        option.series.forEach(s => { s.stack = null; });
+
+        // Map the data relative to 1 so that > 1 is up, < 1 is down.
+        // Echarts draws bars from 0. We can fake it by drawing from a baseline if needed, but since
+        // L/S is positive, subtracting 1 lets us draw from a 0 baseline, and we just relabel the Y-axis.
+        const transformedSeries = series.map(s => {
+            return {
+                ...s,
+                data: s.data.map(val => val - 1)
+            };
+        });
+
+        option.series = transformedSeries;
+
+        // Add NIFTY overlay
+        const niftyData = data.nifty_close || [];
+        if (niftyData.length > 0) {
+            option.legend.data.push('NIFTY');
+            option.series.push({
+                name: 'NIFTY',
+                type: 'line',
+                data: niftyData,
+                yAxisIndex: 1,
+                itemStyle: { color: '#FFCC00' }, // Classic yellow line
+                lineStyle: { width: 2 },
+                symbol: 'none'
+            });
+        }
+
+        // Relabel Y-axis to show actual ratios (add 1 back)
+        option.yAxis[0].axisLabel.formatter = function (value) {
+            return (value + 1).toFixed(2);
+        };
+
+        option.tooltip.formatter = function (params) {
+            let res = `<div style="font-weight:bold;">${params[0].axisValue}</div>`;
+            params.forEach(function (p) {
+                if (p.seriesName === 'NIFTY') {
+                    res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
+                } else {
+                    const actualRatio = (p.value + 1).toFixed(2);
+                    res += `<div style="color:${p.color};">${p.seriesName}: ${actualRatio} L/S</div>`;
+                }
+            });
+            return res;
+        };
+
+        chart.setOption(option);
+    });
 }
