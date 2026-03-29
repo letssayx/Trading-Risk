@@ -5293,6 +5293,7 @@ document.addEventListener('click', (e) => {
 
                 // Formatting helpers
                 const fmt = (v) => v ? v.toFixed(2) : '-';
+                const fmtGamma = (v) => v ? v.toFixed(4) : '-';
                 const fmtVol = (v) => v ? v.toFixed(2) + '%' : '-';
                 const fmtPct = (v) => v ? `<span style="color:${v>=0?'#4ade80':'#f87171'}">${v>0?'+':''}${v.toFixed(2)}%</span>` : '-';
                 const fmtChg = (v) => v ? `<span style="color:${v>=0?'#4ade80':'#f87171'}">${v>0?'+':''}${v.toLocaleString()}</span>` : '-';
@@ -5302,7 +5303,7 @@ document.addEventListener('click', (e) => {
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.vanna)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.vega)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.theta)}</td>
-                    <td style="color: #bbb; ${bgStyle}">${fmt(c.gamma)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmtGamma(c.gamma)}</td>
                     <td style="color: #4ade80; ${bgStyle}">${fmt(c.delta)}</td>
                     <td style="color: #ccc; ${bgStyle}">${c.vol > 0 ? (c.vol).toLocaleString() : '-'}</td>
                     <td style="color: #ccc; ${bgStyle}">${fmtChg(c.chg_oi)}</td>
@@ -5320,7 +5321,7 @@ document.addEventListener('click', (e) => {
                     <td style="color: #ccc; ${bgStyle}">${fmtChg(p.chg_oi)}</td>
                     <td style="color: #ccc; ${bgStyle}">${p.vol > 0 ? (p.vol).toLocaleString() : '-'}</td>
                     <td style="color: #ff4d4d; ${bgStyle}">${fmt(p.delta)}</td>
-                    <td style="color: #bbb; ${bgStyle}">${fmt(p.gamma)}</td>
+                    <td style="color: #bbb; ${bgStyle}">${fmtGamma(p.gamma)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.theta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.vega)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(p.vanna)}</td>
