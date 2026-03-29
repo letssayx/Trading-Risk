@@ -141,8 +141,16 @@ async function loadOptionsAnalysis() {
                 data: ['Call OI', 'Put OI'],
                 textStyle: { color: '#ccc' }
             },
-            grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+            grid: { left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
             xAxis: {
+                type: 'category',
+                data: strikes,
+                axisLabel: { color: '#FFCC00', fontWeight: 'bold', rotate: 45 },
+                axisLine: { show: true, lineStyle: { color: '#333' } },
+                axisTick: { show: false },
+                splitLine: { show: true, lineStyle: { color: '#222' } }
+            },
+            yAxis: {
                 type: 'value',
                 axisLabel: {
                     color: '#888',
@@ -150,21 +158,13 @@ async function loadOptionsAnalysis() {
                 },
                 splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
             },
-            yAxis: {
-                type: 'category',
-                data: strikes,
-                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
-                axisLine: { show: false },
-                axisTick: { show: false },
-                splitLine: { show: true, lineStyle: { color: '#222' } }
-            },
             series: [
                 {
                     name: 'Call OI',
                     type: 'bar',
                     stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#3176B8' }, // Blue
+                    itemStyle: { color: '#E88B1E' }, // Orange for Calls (matching user request)
                     data: ce_oi
                 },
                 {
@@ -172,7 +172,7 @@ async function loadOptionsAnalysis() {
                     type: 'bar',
                     stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#E88B1E' }, // Orange
+                    itemStyle: { color: '#3176B8' }, // Blue for Puts
                     data: pe_oi
                 }
             ]

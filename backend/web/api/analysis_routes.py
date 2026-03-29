@@ -484,6 +484,11 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
              "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
 
+    # Normalize client types (e.g. Map 'Pro' -> 'PRO' if necessary to avoid missing data)
+    df['client_type'] = df['client_type'].str.upper()
+    df.loc[df['client_type'] == 'PRO', 'client_type'] = 'Pro'
+    df.loc[df['client_type'] == 'CLIENT', 'client_type'] = 'Client'
+
     # Handle pandas duplicate index/axis reindex issues
     try:
         pivot_idx = df.pivot_table(index='date', columns='client_type', values='fut_idx_net', aggfunc='sum').fillna(0)
@@ -561,6 +566,106 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         "client_opt_idx_pe": pivot_opt_idx_pe.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "nifty_close": nifty_close_list
     }
+
+@router.get("/api/market-activity/long-short-ratio")
+async def get_long_short_ratios(days: int = 30, db: Session = Depends(get_db)):
+    """
+    Returns Historical Long/Short ratios for each participant across each instrument type.
+    Ratio = Long / Short (or Long / (Long+Short)) depending on convention. Here we use Long / Short.
+    If Short is 0, we'll cap it or return Long value.
+    """
+    from backend.ingest.nse_models import FAOParticipantOI
+    import pandas as pd
+
+    try:
+        dates = db.query(FAOParticipantOI.trade_date).distinct().order_by(FAOParticipantOI.trade_date.desc()).limit(days).all()
+        dates = sorted([d[0] for d in dates])
+    except Exception:
+        dates = []
+
+    if not dates:
+        return {}
+
+    records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date.in_(dates)).all()
+
+    df = pd.DataFrame([{
+        'date': r.trade_date,
+        'client_type': r.client_type,
+        'fut_idx_long': r.future_index_long,
+        'fut_idx_short': r.future_index_short,
+        'fut_stk_long': r.future_stock_long,
+        'fut_stk_short': r.future_stock_short,
+        'opt_idx_ce_long': r.option_index_call_long,
+        'opt_idx_ce_short': r.option_index_call_short,
+        'opt_idx_pe_long': r.option_index_put_long,
+        'opt_idx_pe_short': r.option_index_put_short
+    } for r in records])
+
+    if df.empty:
+        return {}
+
+    # Normalize client types
+    df['client_type'] = df['client_type'].str.upper()
+    df.loc[df['client_type'] == 'PRO', 'client_type'] = 'Pro'
+    df.loc[df['client_type'] == 'CLIENT', 'client_type'] = 'Client'
+
+    # Calculate ratios
+    def safe_ratio(l, s):
+        if s == 0 and l == 0: return 1.0
+        if s == 0: return l / 1.0 # arbitrary high number or just raw long if 0 shorts
+        return l / s
+
+    # Vectorized safe division
+    df['fut_idx_ratio'] = df['fut_idx_long'] / df['fut_idx_short'].replace(0, 1)
+    df['fut_stk_ratio'] = df['fut_stk_long'] / df['fut_stk_short'].replace(0, 1)
+    df['opt_idx_ce_ratio'] = df['opt_idx_ce_long'] / df['opt_idx_ce_short'].replace(0, 1)
+    df['opt_idx_pe_ratio'] = df['opt_idx_pe_long'] / df['opt_idx_pe_short'].replace(0, 1)
+
+    result = {"dates": [d.strftime('%Y-%m-%d') for d in pd.to_datetime(dates)]}
+
+    for p in ['FII', 'DII', 'Pro', 'Client']:
+        p_df = df[df['client_type'] == p].set_index('date').reindex(dates).fillna(1.0)
+        result[f"{p.lower()}_fut_idx"] = p_df['fut_idx_ratio'].round(2).tolist()
+        result[f"{p.lower()}_fut_stk"] = p_df['fut_stk_ratio'].round(2).tolist()
+        result[f"{p.lower()}_opt_idx_ce"] = p_df['opt_idx_ce_ratio'].round(2).tolist()
+        result[f"{p.lower()}_opt_idx_pe"] = p_df['opt_idx_pe_ratio'].round(2).tolist()
+
+    return result
+
+@router.get("/api/market-activity/smart-vs-retail")
+async def get_smart_money_vs_retail(db: Session = Depends(get_db)):
+    """
+    Returns the Smart Money (FII+DII+Pro) vs Retail (Client) totals for the latest available date.
+    Calculates net positions (Long - Short) for each instrument.
+    """
+    from backend.ingest.nse_models import FAOParticipantOI
+    from sqlalchemy import func
+
+    latest_date_tuple = db.query(func.max(FAOParticipantOI.trade_date)).first()
+    if not latest_date_tuple or not latest_date_tuple[0]:
+        return {}
+    latest_date = latest_date_tuple[0]
+
+    records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date == latest_date).all()
+
+    smart_money = {'fut_idx': 0, 'fut_stk': 0, 'opt_idx_ce': 0, 'opt_idx_pe': 0}
+    retail = {'fut_idx': 0, 'fut_stk': 0, 'opt_idx_ce': 0, 'opt_idx_pe': 0}
+
+    for r in records:
+        ctype = r.client_type.upper()
+        target = retail if ctype == 'CLIENT' else smart_money
+
+        target['fut_idx'] += (r.future_index_long - r.future_index_short)
+        target['fut_stk'] += (r.future_stock_long - r.future_stock_short)
+        target['opt_idx_ce'] += (r.option_index_call_long - r.option_index_call_short)
+        target['opt_idx_pe'] += (r.option_index_put_long - r.option_index_put_short)
+
+    return {
+        "date": latest_date.strftime('%Y-%m-%d'),
+        "smart_money": smart_money,
+        "retail": retail
+    }
+
 
 @router.get("/api/market-activity/cash-flow")
 async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
