@@ -2706,7 +2706,7 @@
             const participants = [
                 { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
                 { key: 'dii', label: 'DII', color: '#3176B8' },     // Blue
-                { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple (Contrasting distinct color)
+                { key: 'pro', label: 'PRO', color: '#E88B1E' },     // Orange
                 { key: 'client', label: 'CLI', color: '#00FF00' }  // Green
             ];
 
@@ -3046,7 +3046,7 @@ function renderParticipantHistorical(data) {
     const participants = [
         { key: 'fii', label: 'FII', color: '#E88B1E' },
         { key: 'dii', label: 'DII', color: '#3176B8' },
-        { key: 'pro', label: 'PRO', color: '#9B59B6' },
+        { key: 'pro', label: 'PRO', color: '#E88B1E' },
         { key: 'client', label: 'CLI', color: '#00FF00' }
     ];
 

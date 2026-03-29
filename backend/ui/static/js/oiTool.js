@@ -1,6 +1,6 @@
 const OiTool = {
     active: false,
-    containerId: 'deriv-tab-oi',
+    containerId: 'oi-tool-container',
     allData: [],
 
     init: function() {

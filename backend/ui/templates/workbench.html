@@ -590,7 +590,7 @@
                 <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
                 <div class="wb-tab" id="deriv-tab-btn-watch" onclick="switchDerivTab('watch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Basis Watch</div>
                 <div class="wb-tab" id="deriv-tab-btn-options" onclick="switchDerivTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
-                <div class="wb-tab" id="deriv-tab-btn-optanalysis" onclick="switchDerivTab('optanalysis')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Options Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-optanalysis" onclick="switchDerivTab('optanalysis')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Volatility Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-optstrategy" onclick="switchDerivTab('optstrategy')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Strategy</div>
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
@@ -1406,7 +1406,7 @@
 
                 <!-- SUB-TAB: Options Analysis -->
                 <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: none;">
-                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px;">Options Analysis</h2>
+                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px;">Volatility Analysis</h2>
                     <p style="color: #888;">Charts have been moved to the OI Analysis tab.</p>
                 </div>
 
@@ -2114,6 +2114,9 @@
                 } else if (tabName === 'oi') {
                     if (window.OiTool) window.OiTool.open();
                     else if (typeof OiTool !== 'undefined') OiTool.open();
+                    if (typeof loadOptionsAnalysis === 'function') {
+                        loadOptionsAnalysis();
+                    }
                 } else if (tabName === 'rollover') {
                     if (window.RolloverTool) window.RolloverTool.open();
                     else if (typeof RolloverTool !== 'undefined') RolloverTool.open();
