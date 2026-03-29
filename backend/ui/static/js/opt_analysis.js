@@ -7,7 +7,8 @@ async function loadOptionsAnalysis() {
 
     // 1. Load 500-Day PCR Chart
     try {
-        const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=500`);
+        const days = document.getElementById('opt-analysis-lookback')?.value || '500';
+        const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}`);
         const data = await res.json();
 
         const chartDom = document.getElementById('opt-analysis-pcr-chart');
@@ -36,9 +37,18 @@ async function loadOptionsAnalysis() {
                 },
                 {
                     type: 'value',
-                    name: 'Price / PCR',
+                    name: 'Price (FUT1)',
                     position: 'right',
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLabel: { color: '#888' },
+                    nameTextStyle: { color: '#888' }
+                },
+                {
+                    type: 'value',
+                    name: 'PCR',
+                    position: 'right',
+                    offset: 60,
+                    splitLine: { show: false },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' }
                 }
@@ -71,7 +81,7 @@ async function loadOptionsAnalysis() {
                     itemStyle: { color: '#00FF00' },
                     lineStyle: { width: 2 },
                     symbol: 'none',
-                    yAxisIndex: 1
+                    yAxisIndex: 2
                 }
             ]
         };
