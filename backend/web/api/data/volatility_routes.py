@@ -19,7 +19,7 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
             ORDER BY trade_date ASC
         """)
         # If NIFTY/BANKNIFTY, we might need historical_index_data. Handle fallback.
-        if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+        if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]:
             query = text("""
                 SELECT trade_date, close_price
                 FROM historical_index_data
@@ -29,8 +29,18 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
 
         result = db.execute(query, {"symbol": symbol}).fetchall()
 
-        if not result or len(result) < 500:
-            raise HTTPException(status_code=400, detail="Insufficient price history for Volatility Cone")
+        # fallback for Nifty just in case
+        if not result and symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+             query = text("""
+                SELECT trade_date, close_price
+                FROM bhavcopy_eq
+                WHERE ticker_symb = :symbol
+                ORDER BY trade_date ASC
+            """)
+             result = db.execute(query, {"symbol": symbol}).fetchall()
+
+        if not result or len(result) < 5:
+            raise HTTPException(status_code=400, detail=f"Insufficient price history for Volatility Cone ({len(result)} records found, need at least 5 days)")
 
         dates = [r[0] for r in result]
         prices = [float(r[1]) for r in result]
@@ -123,7 +133,7 @@ async def get_pre_expiry_action(
             ORDER BY trade_date DESC
             LIMIT :lookback
         """)
-        if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+        if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]:
             query = text("""
                 SELECT trade_date, close_price
                 FROM historical_index_data
@@ -133,10 +143,21 @@ async def get_pre_expiry_action(
             """)
 
         result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+
+        if not result and symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+             query = text("""
+                SELECT trade_date, close_price
+                FROM bhavcopy_eq
+                WHERE ticker_symb = :symbol
+                ORDER BY trade_date DESC
+                LIMIT :lookback
+            """)
+             result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+
         result.reverse() # Sort ascending
 
         if not result:
-            return {"dates": [], "prices": [], "expiries": [], "rv": [], "boxes": []}
+            return {"detail": "No price data found for the given symbol.", "dates": [], "prices": [], "expiries": [], "rv": [], "boxes": []}
 
         dates = [r[0].strftime('%Y-%m-%d') for r in result]
         prices = [float(r[1]) for r in result]

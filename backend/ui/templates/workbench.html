@@ -1457,6 +1457,9 @@
 
                 <!-- SUB-TAB 2: OI Analysis -->
                 <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <button class="btn btn-secondary" onclick="exportTableToCSV('oi-tool-table', 'OI_Analysis')"><i class="fas fa-download"></i> CSV (OI Tool Table)</button>
+                    </div>
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
                     <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px; overflow-x: auto;">
                         <!-- Content loaded by workbookManager.js / OiTool -->
@@ -1468,6 +1471,8 @@
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
                             <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;">
                             <button class="btn btn-secondary" onclick="loadOptionsAnalysis()">Load Charts</button>
+                            <button class="btn btn-secondary" onclick="if(window.pcrChartInstance) exportChartDataToCSV(window.pcrChartInstance, 'PCR_History'); else exportChartDataToCSV(pcrChartInstance, 'PCR_History')"><i class="fas fa-download"></i> CSV (PCR)</button>
+                            <button class="btn btn-secondary" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV (High OI)</button>
                         </div>
 
                         <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; width: 100%;">
@@ -1504,6 +1509,7 @@
                 <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <button class="btn btn-secondary" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
+                        <button class="btn btn-secondary" onclick="exportTableToCSV('mwpl-analysis-table', 'MWPL_Analysis')"><i class="fas fa-download"></i> CSV</button>
                     </div>
                     <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
                         <table class="data-table" id="mwpl-analysis-table" style="width: 100%;">
@@ -1534,6 +1540,8 @@
                             <option value="500" selected>500 Days</option>
                         </select>
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
+                        <button class="btn btn-secondary" onclick="if(window.fiiDiiChartInstance) exportChartDataToCSV(window.fiiDiiChartInstance, 'FII_DII_Net_Pos'); else exportChartDataToCSV(fiiDiiChartInstance, 'FII_DII_Net_Pos')"><i class="fas fa-download"></i> CSV (FII/DII)</button>
+                        <button class="btn btn-secondary" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Participant_OI'); else exportChartDataToCSV(participantChartInstance, 'Participant_OI')"><i class="fas fa-download"></i> CSV (Participant OI)</button>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px;">

@@ -2693,8 +2693,12 @@
             if (niftyData.length > 0) {
                 const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
                 if (validNifty.length > 0) {
-                    minNifty = Math.floor(Math.min(...validNifty) * 0.99);
-                    maxNifty = Math.ceil(Math.max(...validNifty) * 1.01);
+                    const absMin = Math.min(...validNifty);
+                    const absMax = Math.max(...validNifty);
+                    const diff = absMax - absMin;
+                    const pad = diff * 0.1;
+                    minNifty = Math.floor(absMin - pad);
+                    maxNifty = Math.ceil(absMax + pad);
                 }
             }
 
@@ -3153,9 +3157,7 @@ function renderParticipantHistorical(data) {
                     axisLabel: { color: '#ccc' },
                     splitLine: { show: false },
                     nameTextStyle: { color: '#ccc' },
-                    scale: true,
-                    min: 'dataMin',
-                    max: 'dataMax'
+                    scale: true
                 }
             ],
             dataZoom: [
@@ -3204,7 +3206,7 @@ function renderParticipantHistorical(data) {
         option.yAxis[0].min = null;
 
         // Add NIFTY overlay
-        const niftyData = data.nifty_close || [];
+        const niftyData = data.nifty_prices || data.nifty_close || [];
         if (niftyData.length > 0) {
             option.legend.data.push('NIFTY');
             option.series.push({
@@ -3231,10 +3233,13 @@ function renderParticipantHistorical(data) {
         if (niftyData.length > 0) {
             const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
             if (validNifty.length > 0) {
-                const minNifty = Math.floor(Math.min(...validNifty) * 0.99);
-                const maxNifty = Math.ceil(Math.max(...validNifty) * 1.01);
-                option.yAxis[1].min = minNifty;
-                option.yAxis[1].max = maxNifty;
+                const minNifty = Math.min(...validNifty);
+                const maxNifty = Math.max(...validNifty);
+                const diff = maxNifty - minNifty;
+                const pad = diff * 0.1;
+                option.yAxis[1].min = Math.floor(minNifty - pad);
+                option.yAxis[1].max = Math.ceil(maxNifty + pad);
+                option.yAxis[1].scale = false; // We use strict min/max now
             }
         } else {
             option.yAxis[1].scale = true;
@@ -3282,11 +3287,18 @@ async function loadVolatilityAnalysis() {
         const res = await fetch(`/api/data/derivatives/pre_expiry_action/${symbol}?lookback_days=${lookback}&box_days=${boxDays}&expiry_type=${expiryType}`);
         const data = await res.json();
 
-        const markLines = data.expiries.map(exp => {
+        if (data.detail) {
+            console.error("API Error Pre-Expiry:", data.detail);
+            volPreExpiryChart.hideLoading();
+            alert("Error loading Pre-Expiry Action: " + data.detail);
+            return;
+        }
+
+        const markLines = (data.expiries || []).map(exp => {
             return { xAxis: exp, label: { formatter: 'Exp', position: 'start' } };
         });
 
-        const markAreas = data.boxes.map(box => {
+        const markAreas = (data.boxes || []).map(box => {
             return [
                 { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 204, 0, 0.2)' } },
                 { xAxis: box.end_date }
@@ -3371,6 +3383,13 @@ async function loadVolatilityAnalysis() {
 
         const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}`);
         const data = await res.json();
+
+        if (data.detail) {
+            console.error("API Error Vol Cone:", data.detail);
+            volConeChart.hideLoading();
+            alert("Error loading Volatility Cone: " + data.detail);
+            return;
+        }
 
         const coneOption = {
             backgroundColor: 'transparent',
