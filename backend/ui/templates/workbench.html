@@ -628,7 +628,10 @@
                             <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System" style="width: 100%; box-sizing: border-box;">
                         </div>
 
-                        <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
+                        <div style="display:flex; gap:10px;">
+                            <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
+                            <button class="btn btn-secondary" onclick="exportTableToCSV('mr-data-table', 'Data_Matrix')" style="padding: 8px; margin-bottom: 10px;" title="Download CSV"><i class="fas fa-download"></i></button>
+                        </div>
                         <button id="mr-generate-btn" class="btn btn-primary" style="margin-left: auto;" disabled>2. Generate PDF Report</button>
 
 
@@ -1352,6 +1355,7 @@
                         </div>
                         <select id="opt-expiry-select" class="form-control history-select" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
                         <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
+                        <button class="btn btn-secondary" onclick="exportTableToCSV('option-chain-table', 'Option_Chain')"><i class="fas fa-download"></i> CSV</button>
 
                         <div style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end;">
                             <span id="opt-report-date" style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-bottom: 4px;"></span>
@@ -1405,9 +1409,44 @@
                 </div>
 
                 <!-- SUB-TAB: Options Analysis -->
-                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: none;">
-                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px;">Volatility Analysis</h2>
-                    <p style="color: #888;">Charts have been moved to the OI Analysis tab.</p>
+                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: none; flex-direction: column;">
+                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
+                        Volatility Analysis
+                    </h2>
+
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
+                        <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol">
+                        <select id="vol-analysis-expiry-type" class="history-input">
+                            <option value="monthly">Monthly Expiry</option>
+                            <option value="weekly">Weekly Expiry</option>
+                        </select>
+                        <select id="vol-analysis-lookback" class="history-input">
+                            <option value="30">30 Days</option>
+                            <option value="60">60 Days</option>
+                            <option value="90">90 Days</option>
+                            <option value="252">252 Days</option>
+                            <option value="500" selected>500 Days</option>
+                        </select>
+                        <select id="vol-analysis-box-days" class="history-input">
+                            <option value="3">3 Days Prior</option>
+                            <option value="7" selected>7 Days Prior</option>
+                            <option value="10">10 Days Prior</option>
+                            <option value="15">15 Days Prior</option>
+                            <option value="20">20 Days Prior</option>
+                            <option value="30">30 Days Prior</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="loadVolatilityAnalysis()">Load Volatility</button>
+                    </div>
+
+                    <!-- Chart 1: Pre-Expiry Price Action -->
+                    <div style="width: 100%; height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+                        <div id="vol-pre-expiry-chart" style="width: 100%; height: 100%;"></div>
+                    </div>
+
+                    <!-- Chart 2: Volatility Cone -->
+                    <div style="width: 100%; height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px;">
+                        <div id="vol-cone-chart" style="width: 100%; height: 100%;"></div>
+                    </div>
                 </div>
 
                 <!-- SUB-TAB: Option Strategy -->

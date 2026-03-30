@@ -70,9 +70,10 @@ app.include_router(jules_routes.router)
 app.include_router(config_routes.router)
 app.include_router(view_routes.router)
 app.include_router(derivatives_routes.router)
-from backend.web.api.data import options_routes, opt_analysis_routes
+from backend.web.api.data import options_routes, opt_analysis_routes, volatility_routes
 app.include_router(options_routes.router)
 app.include_router(opt_analysis_routes.router)
+app.include_router(volatility_routes.router)
 app.include_router(nse_routes.router, prefix="/api/v1/nse", tags=["nse"])
 app.include_router(audit_routes.router, prefix="/api/audit", tags=["audit"])
 app.include_router(ai_router)

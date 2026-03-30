@@ -1175,6 +1175,11 @@
                 if (tabName === 'oi' && typeof loadOptionsAnalysis === 'function') {
                     loadOptionsAnalysis();
                 }
+
+                // Trigger Volatility Analysis
+                if (tabName === 'optanalysis' && typeof loadVolatilityAnalysis === 'function') {
+                    loadVolatilityAnalysis();
+                }
             }
         }
 
@@ -2683,6 +2688,16 @@
                 });
             }
 
+            let minNifty = null;
+            let maxNifty = null;
+            if (niftyData.length > 0) {
+                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
+                if (validNifty.length > 0) {
+                    minNifty = Math.floor(Math.min(...validNifty) * 0.99);
+                    maxNifty = Math.ceil(Math.max(...validNifty) * 1.01);
+                }
+            }
+
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -2696,7 +2711,7 @@
                         y: { stacked: false, position: 'left', grid: { color: '#333' } },
                         y1: {
                             type: 'linear', position: 'right', display: niftyData.length > 0, grid: { drawOnChartArea: false },
-                            min: 'dataMin', max: 'dataMax', scale: true
+                            min: minNifty, max: maxNifty
                         }
                     },
                     plugins: { legend: { labels: { color: '#ccc' } } }
@@ -3213,7 +3228,17 @@ function renderParticipantHistorical(data) {
         option.yAxis[0].name = "Net Pos (Qty)";
 
         // Fix the NIFTY line scaling so it isn't flat by forcing axis scale properties explicitly
-        option.yAxis[1].scale = true;
+        if (niftyData.length > 0) {
+            const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
+            if (validNifty.length > 0) {
+                const minNifty = Math.floor(Math.min(...validNifty) * 0.99);
+                const maxNifty = Math.ceil(Math.max(...validNifty) * 1.01);
+                option.yAxis[1].min = minNifty;
+                option.yAxis[1].max = maxNifty;
+            }
+        } else {
+            option.yAxis[1].scale = true;
+        }
 
         // Remove the markline at 1 since Net Pos fluctuates around 0 naturally
         option.series.forEach(s => {
@@ -3236,4 +3261,302 @@ function renderParticipantHistorical(data) {
 
         chart.setOption(option);
     });
+}
+
+let volPreExpiryChart = null;
+let volConeChart = null;
+
+async function loadVolatilityAnalysis() {
+    const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
+    const expiryType = document.getElementById('vol-analysis-expiry-type').value;
+    const lookback = document.getElementById('vol-analysis-lookback').value;
+    const boxDays = document.getElementById('vol-analysis-box-days').value;
+
+    // 1. Load Pre-Expiry Chart
+    try {
+        const preExpiryChartDom = document.getElementById('vol-pre-expiry-chart');
+        if (volPreExpiryChart) volPreExpiryChart.dispose();
+        volPreExpiryChart = echarts.init(preExpiryChartDom, 'dark', { renderer: 'canvas' });
+        volPreExpiryChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
+
+        const res = await fetch(`/api/data/derivatives/pre_expiry_action/${symbol}?lookback_days=${lookback}&box_days=${boxDays}&expiry_type=${expiryType}`);
+        const data = await res.json();
+
+        const markLines = data.expiries.map(exp => {
+            return { xAxis: exp, label: { formatter: 'Exp', position: 'start' } };
+        });
+
+        const markAreas = data.boxes.map(box => {
+            return [
+                { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 204, 0, 0.2)' } },
+                { xAxis: box.end_date }
+            ];
+        });
+
+        const preExpiryOption = {
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            legend: { data: ['Price', `Realized Vol (${boxDays}D)`], textStyle: { color: '#ccc' } },
+            grid: { left: '3%', right: '3%', bottom: '10%', top: '15%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: data.dates,
+                axisLabel: { color: '#888' },
+                axisLine: { lineStyle: { color: '#333' } }
+            },
+            yAxis: [
+                {
+                    type: 'value',
+                    name: 'Price',
+                    position: 'left',
+                    scale: true,
+                    splitLine: { lineStyle: { color: '#333' } },
+                    axisLabel: { color: '#ccc' },
+                    nameTextStyle: { color: '#ccc' }
+                },
+                {
+                    type: 'value',
+                    name: `RV (${boxDays}D) %`,
+                    position: 'right',
+                    scale: true,
+                    splitLine: { show: false },
+                    axisLabel: { color: '#888' },
+                    nameTextStyle: { color: '#888' }
+                }
+            ],
+            dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
+            series: [
+                {
+                    name: 'Price',
+                    type: 'line',
+                    data: data.prices,
+                    yAxisIndex: 0,
+                    itemStyle: { color: '#3176B8' }, // Blue line for price
+                    lineStyle: { width: 2 },
+                    showSymbol: false,
+                    markLine: {
+                        symbol: ['none', 'none'],
+                        lineStyle: { color: '#ff4444', type: 'solid', width: 1 },
+                        data: markLines
+                    },
+                    markArea: {
+                        data: markAreas
+                    }
+                },
+                {
+                    name: `Realized Vol (${boxDays}D)`,
+                    type: 'line',
+                    data: data.rv,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#E88B1E' }, // Orange line for RV
+                    lineStyle: { width: 2 },
+                    showSymbol: false
+                }
+            ]
+        };
+
+        volPreExpiryChart.setOption(preExpiryOption);
+        volPreExpiryChart.hideLoading();
+    } catch (e) {
+        console.error("Error loading Pre-Expiry Action", e);
+        if (volPreExpiryChart) volPreExpiryChart.hideLoading();
+    }
+
+    // 2. Load Volatility Cone Chart
+    try {
+        const coneChartDom = document.getElementById('vol-cone-chart');
+        if (volConeChart) volConeChart.dispose();
+        volConeChart = echarts.init(coneChartDom, 'dark', { renderer: 'canvas' });
+        volConeChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
+
+        const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}`);
+        const data = await res.json();
+
+        const coneOption = {
+            backgroundColor: 'transparent',
+            title: { text: 'Realized Volatility Cone', textStyle: { color: '#ccc', fontSize: 14 } },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            legend: { data: ['Max', '75th Pct', 'Median', '25th Pct', 'Min', 'Current RV'], textStyle: { color: '#ccc' } },
+            grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                boundaryGap: false,
+                data: data.windows.map(w => `${w}D`),
+                axisLabel: { color: '#888' },
+                axisLine: { lineStyle: { color: '#333' } }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'Volatility (%)',
+                scale: true,
+                splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                axisLabel: { color: '#ccc' },
+                nameTextStyle: { color: '#ccc' }
+            },
+            series: [
+                {
+                    name: 'Max',
+                    type: 'line',
+                    data: data.max,
+                    lineStyle: { opacity: 0 },
+                    showSymbol: false
+                },
+                {
+                    name: '75th Pct',
+                    type: 'line',
+                    data: data.p75,
+                    lineStyle: { color: '#4ade80', type: 'dashed' },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                            offset: 0, color: 'rgba(74, 222, 128, 0.2)'
+                        }, {
+                            offset: 1, color: 'rgba(74, 222, 128, 0.05)'
+                        }])
+                    },
+                    showSymbol: false
+                },
+                {
+                    name: 'Median',
+                    type: 'line',
+                    data: data.p50,
+                    lineStyle: { color: '#3176B8', width: 2 }, // Blue median
+                    showSymbol: true
+                },
+                {
+                    name: '25th Pct',
+                    type: 'line',
+                    data: data.p25,
+                    lineStyle: { color: '#E88B1E', type: 'dashed' },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                            offset: 0, color: 'rgba(232, 139, 30, 0.2)'
+                        }, {
+                            offset: 1, color: 'rgba(232, 139, 30, 0.05)'
+                        }])
+                    },
+                    showSymbol: false
+                },
+                {
+                    name: 'Min',
+                    type: 'line',
+                    data: data.min,
+                    lineStyle: { opacity: 0 },
+                    showSymbol: false
+                },
+                {
+                    name: 'Current RV',
+                    type: 'line',
+                    data: data.current_rv,
+                    lineStyle: { color: '#ff4444', width: 3 }, // Red thick line
+                    itemStyle: { color: '#ff4444' },
+                    symbol: 'circle',
+                    symbolSize: 8
+                }
+            ]
+        };
+
+        volConeChart.setOption(coneOption);
+        volConeChart.hideLoading();
+    } catch (e) {
+        console.error("Error loading Volatility Cone", e);
+        if (volConeChart) volConeChart.hideLoading();
+    }
+}
+
+function exportTableToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        let row = [], cols = rows[i].querySelectorAll('td, th');
+
+        for (let j = 0; j < cols.length; j++) {
+            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
+            data = data.replace(/"/g, '""');
+            row.push('"' + data + '"');
+        }
+
+        if (row.length > 0) {
+            csv.push(row.join(','));
+        }
+    }
+
+    const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const downloadLink = document.createElement('a');
+    downloadLink.download = filename + '.csv';
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+}
+
+function exportChartDataToCSV(chartInstance, filename) {
+    if (!chartInstance) {
+        alert("Chart is not loaded or data is empty.");
+        return;
+    }
+
+    const option = chartInstance.getOption();
+    if (!option || !option.series || option.series.length === 0) return;
+
+    // Find xAxis data
+    let xAxisData = [];
+    if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
+        xAxisData = option.xAxis[0].data;
+    }
+
+    let csv = [];
+    let headers = ['Date']; // Assuming x-axis is date or category
+
+    // Build headers from series names
+    option.series.forEach(s => {
+        if (s.name) headers.push(`"${s.name}"`);
+    });
+
+    csv.push(headers.join(','));
+
+    // Build rows
+    const len = xAxisData.length > 0 ? xAxisData.length : (option.series[0].data ? option.series[0].data.length : 0);
+
+    for (let i = 0; i < len; i++) {
+        let row = [];
+        if (xAxisData.length > 0) {
+            row.push(`"${xAxisData[i]}"`);
+        } else {
+            row.push(`"Row_${i}"`);
+        }
+
+        option.series.forEach(s => {
+            let val = '';
+            if (s.data && s.data[i] !== undefined) {
+                // Handle objects if data is complex (like candlesticks)
+                if (typeof s.data[i] === 'object' && s.data[i] !== null) {
+                    if (s.data[i].value !== undefined) {
+                        val = s.data[i].value;
+                    } else if (Array.isArray(s.data[i])) {
+                        // For Candlesticks [open, close, min, max] or [date, val1, val2]
+                        val = s.data[i].join('|');
+                    }
+                } else {
+                    val = s.data[i];
+                }
+            }
+            row.push(`"${val}"`);
+        });
+
+        csv.push(row.join(','));
+    }
+
+    const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const downloadLink = document.createElement('a');
+    downloadLink.download = filename + '.csv';
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
 }
