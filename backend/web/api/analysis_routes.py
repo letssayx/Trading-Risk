@@ -428,24 +428,34 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
          dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
          return {
              "dates": dummy_dates,
-             "fii_fut_idx": np.random.uniform(0.5, 2.0, days).tolist(),
-             "fii_fut_stk": np.random.uniform(0.5, 2.0, days).tolist(),
-             "fii_opt_idx_ce": np.random.uniform(0.5, 2.0, days).tolist(),
-             "fii_opt_idx_pe": np.random.uniform(0.5, 2.0, days).tolist(),
-             "dii_fut_idx": np.random.uniform(0.5, 2.0, days).tolist(),
-             "dii_fut_stk": np.random.uniform(0.5, 2.0, days).tolist(),
-             "dii_opt_idx_ce": np.random.uniform(0.5, 2.0, days).tolist(),
-             "dii_opt_idx_pe": np.random.uniform(0.5, 2.0, days).tolist(),
-             "pro_fut_idx": np.random.uniform(0.5, 2.0, days).tolist(),
-             "pro_fut_stk": np.random.uniform(0.5, 2.0, days).tolist(),
-             "pro_opt_idx_ce": np.random.uniform(0.5, 2.0, days).tolist(),
-             "pro_opt_idx_pe": np.random.uniform(0.5, 2.0, days).tolist(),
-             "client_fut_idx": np.random.uniform(0.5, 2.0, days).tolist(),
-             "client_fut_stk": np.random.uniform(0.5, 2.0, days).tolist(),
-             "client_opt_idx_ce": np.random.uniform(0.5, 2.0, days).tolist(),
-             "client_opt_idx_pe": np.random.uniform(0.5, 2.0, days).tolist(),
+             "fii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "client_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "client_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
              "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
+
+
 
     records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date.in_(dates)).all()
 
@@ -469,20 +479,29 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
              "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
              "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
              "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_fut_idx": np.random.randint(-30000, 30000, days).tolist(),
-             "dii_fut_stk": np.random.randint(-30000, 30000, days).tolist(),
-             "dii_opt_idx_ce": np.random.randint(-30000, 30000, days).tolist(),
-             "dii_opt_idx_pe": np.random.randint(-30000, 30000, days).tolist(),
-             "pro_fut_idx": np.random.randint(-30000, 30000, days).tolist(),
-             "pro_fut_stk": np.random.randint(-30000, 30000, days).tolist(),
-             "pro_opt_idx_ce": np.random.randint(-30000, 30000, days).tolist(),
-             "pro_opt_idx_pe": np.random.randint(-30000, 30000, days).tolist(),
-             "client_fut_idx": np.random.randint(-80000, 80000, days).tolist(),
-             "client_fut_stk": np.random.randint(-80000, 80000, days).tolist(),
-             "client_opt_idx_ce": np.random.randint(-80000, 80000, days).tolist(),
-             "client_opt_idx_pe": np.random.randint(-80000, 80000, days).tolist(),
+             "dii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "client_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "client_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
              "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
+
 
     # Normalize client types (e.g. Map 'Pro' -> 'PRO' if necessary to avoid missing data)
     df['client_type'] = df['client_type'].str.upper()
@@ -564,6 +583,14 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         "client_fut_stk": pivot_stk.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_opt_idx_ce": pivot_opt_idx_ce.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_opt_idx_pe": pivot_opt_idx_pe.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_stk_ce": pivot_opt_stk_ce.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_stk_pe": pivot_opt_stk_pe.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_stk_ce": pivot_opt_stk_ce.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_stk_pe": pivot_opt_stk_pe.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_stk_ce": pivot_opt_stk_ce.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_stk_pe": pivot_opt_stk_pe.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_stk_ce": pivot_opt_stk_ce.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_stk_pe": pivot_opt_stk_pe.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "nifty_close": nifty_close_list
     }
 
@@ -598,7 +625,11 @@ async def get_long_short_ratios(days: int = 30, db: Session = Depends(get_db)):
         'opt_idx_ce_long': r.option_index_call_long,
         'opt_idx_ce_short': r.option_index_call_short,
         'opt_idx_pe_long': r.option_index_put_long,
-        'opt_idx_pe_short': r.option_index_put_short
+        'opt_idx_pe_short': r.option_index_put_short,
+        'opt_stk_ce_long': r.option_stock_call_long,
+        'opt_stk_ce_short': r.option_stock_call_short,
+        'opt_stk_pe_long': r.option_stock_put_long,
+        'opt_stk_pe_short': r.option_stock_put_short
     } for r in records])
 
     if df.empty:
@@ -610,16 +641,18 @@ async def get_long_short_ratios(days: int = 30, db: Session = Depends(get_db)):
     df.loc[df['client_type'] == 'CLIENT', 'client_type'] = 'Client'
 
     # Calculate ratios
-    def safe_ratio(l, s):
-        if s == 0 and l == 0: return 1.0
-        if s == 0: return l / 1.0 # arbitrary high number or just raw long if 0 shorts
-        return l / s
+    import numpy as np
 
-    # Vectorized safe division
-    df['fut_idx_ratio'] = df['fut_idx_long'] / df['fut_idx_short'].replace(0, 1)
-    df['fut_stk_ratio'] = df['fut_stk_long'] / df['fut_stk_short'].replace(0, 1)
-    df['opt_idx_ce_ratio'] = df['opt_idx_ce_long'] / df['opt_idx_ce_short'].replace(0, 1)
-    df['opt_idx_pe_ratio'] = df['opt_idx_pe_long'] / df['opt_idx_pe_short'].replace(0, 1)
+    # Vectorized safe division. If both 0, ratio is 1.0. If short is 0 but long is > 0, we'll cap the ratio at a high sensible number like long * 2 or just raw long.
+    # To keep it simple and mathematically sound: If Short=0 and Long=0 -> 1.0. If Short=0 and Long>0 -> Long.
+    for inst in ['fut_idx', 'fut_stk', 'opt_idx_ce', 'opt_idx_pe', 'opt_stk_ce', 'opt_stk_pe']:
+        df[f'{inst}_ratio'] = np.where(
+            (df[f'{inst}_short'] == 0) & (df[f'{inst}_long'] == 0), 1.0,
+            np.where(
+                df[f'{inst}_short'] == 0, df[f'{inst}_long'],
+                df[f'{inst}_long'] / df[f'{inst}_short']
+            )
+        )
 
     result = {"dates": [d.strftime('%Y-%m-%d') for d in pd.to_datetime(dates)]}
 
@@ -629,6 +662,8 @@ async def get_long_short_ratios(days: int = 30, db: Session = Depends(get_db)):
         result[f"{p.lower()}_fut_stk"] = p_df['fut_stk_ratio'].round(2).tolist()
         result[f"{p.lower()}_opt_idx_ce"] = p_df['opt_idx_ce_ratio'].round(2).tolist()
         result[f"{p.lower()}_opt_idx_pe"] = p_df['opt_idx_pe_ratio'].round(2).tolist()
+        result[f"{p.lower()}_opt_stk_ce"] = p_df['opt_stk_ce_ratio'].round(2).tolist()
+        result[f"{p.lower()}_opt_stk_pe"] = p_df['opt_stk_pe_ratio'].round(2).tolist()
 
     return result
 
@@ -708,10 +743,33 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
          dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
          return {
              "dates": dummy_dates,
-             "fii_net": np.random.uniform(-5000, 5000, days).tolist(),
-             "dii_net": np.random.uniform(-5000, 5000, days).tolist(),
+             "fii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "client_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
+             "client_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "fii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "dii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "pro_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
+             "client_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
              "nifty_close": np.random.uniform(20000, 22000, days).tolist()
          }
+
 
     try:
         pivot = df.pivot_table(index='date', columns='category', values='net_value', aggfunc='sum').fillna(0)

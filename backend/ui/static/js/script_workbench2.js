@@ -3135,22 +3135,30 @@ function renderParticipantHistorical(data) {
 
         // ECharts has a specific property to set the datum line for bars
         option.series.forEach(s => { s.large = true; s.yAxisIndex = 0; });
-        option.yAxis[0].min = (value) => value.min < 0.5 ? 0 : value.min; // Give bottom room
+
+        // Remove the manual min calculation which causes issues for negative numbers
+        // option.yAxis[0].min = (value) => value.min < 0.5 ? 0 : value.min; // Give bottom room
 
         // Change datum to 1 instead of 0 for bars (since it's a ratio)
         option.series.forEach(s => { s.stack = null; });
 
-        // Map the data relative to 1 so that > 1 is up, < 1 is down.
-        // Echarts draws bars from 0. We can fake it by drawing from a baseline if needed, but since
-        // L/S is positive, subtracting 1 lets us draw from a 0 baseline, and we just relabel the Y-axis.
+        // Actually, the previous data arrays might be coming in as just net positions or large absolute numbers, not ratios centered around 1.
+        // Wait, `data[..._fut_idx]` here comes from `/api/market-activity/participant-oi` which returns Net Positions (Long - Short), not ratios.
+        // The net positions can be positive or negative natively.
+        // We do NOT need to subtract 1 from these values.
+
+        // Remove the data mapping since this is a Net Position chart, not an L/S Ratio chart.
         const transformedSeries = series.map(s => {
             return {
                 ...s,
-                data: s.data.map(val => val - 1)
+                data: s.data
             };
         });
 
         option.series = transformedSeries;
+
+        // Let ECharts naturally scale Y-axis for Net Positions (which can be positive/negative)
+        option.yAxis[0].min = null;
 
         // Add NIFTY overlay
         const niftyData = data.nifty_close || [];
@@ -3167,10 +3175,24 @@ function renderParticipantHistorical(data) {
             });
         }
 
-        // Relabel Y-axis to show actual ratios (add 1 back)
+        // Relabel Y-axis to format absolute values for Net Position
         option.yAxis[0].axisLabel.formatter = function (value) {
-            return (value + 1).toFixed(2);
+            if (Math.abs(value) >= 1000) {
+                return (value / 1000).toFixed(1) + 'k';
+            }
+            return value;
         };
+        option.yAxis[0].name = "Net Pos (Qty)";
+
+        // Fix the NIFTY line scaling so it isn't flat by forcing axis scale properties explicitly
+        option.yAxis[1].scale = true;
+
+        // Remove the markline at 1 since Net Pos fluctuates around 0 naturally
+        option.series.forEach(s => {
+            if(s.markLine) {
+                delete s.markLine;
+            }
+        });
 
         option.tooltip.formatter = function (params) {
             let res = `<div style="font-weight:bold;">${params[0].axisValue}</div>`;
@@ -3178,8 +3200,7 @@ function renderParticipantHistorical(data) {
                 if (p.seriesName === 'NIFTY') {
                     res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
                 } else {
-                    const actualRatio = (p.value + 1).toFixed(2);
-                    res += `<div style="color:${p.color};">${p.seriesName}: ${actualRatio} L/S</div>`;
+                    res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
                 }
             });
             return res;

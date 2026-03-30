@@ -51,9 +51,8 @@ async function loadOptionsAnalysis() {
                     name: 'PCR',
                     position: 'right',
                     offset: 60,
-                    scale: true,
-                    min: 'dataMin',
-                    max: 'dataMax',
+                    min: 0,
+                    max: 3,
                     splitLine: { show: false },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' }
