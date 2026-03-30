@@ -2860,9 +2860,24 @@ async function loadOptionsAnalysis() {
                 },
                 {
                     type: 'value',
-                    name: 'Price / PCR',
+                    name: 'Price (FUT1)',
                     position: 'right',
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLabel: { color: '#888' },
+                    nameTextStyle: { color: '#888' },
+                    scale: true,
+                    min: 'dataMin',
+                    max: 'dataMax'
+                },
+                {
+                    type: 'value',
+                    name: 'PCR',
+                    position: 'right',
+                    offset: 60,
+                    scale: true,
+                    min: 'dataMin',
+                    max: 'dataMax',
+                    splitLine: { show: false },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' }
                 }
@@ -2895,7 +2910,7 @@ async function loadOptionsAnalysis() {
                     itemStyle: { color: '#00FF00' }, // Bright green
                     lineStyle: { width: 2 },
                     symbol: 'none',
-                    yAxisIndex: 1
+                    yAxisIndex: 2
                 }
             ]
         };
@@ -3095,7 +3110,9 @@ function renderParticipantHistorical(data) {
                     axisLabel: { color: '#ccc' },
                     splitLine: { show: false },
                     nameTextStyle: { color: '#ccc' },
-                    scale: true
+                    scale: true,
+                    min: 'dataMin',
+                    max: 'dataMax'
                 }
             ],
             dataZoom: [

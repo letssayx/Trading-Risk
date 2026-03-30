@@ -1419,7 +1419,7 @@
                 <!-- SUB-TAB 2: OI Analysis -->
                 <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; gap: 20px;">
                     <!-- Left side: Original OI Tool (Table + Scatter Plot) -->
-                    <div id="oi-tool-container" style="flex: 1 1 50%; max-width: 50%; display: flex; flex-direction: column; min-width: 0; overflow-x: auto;">
+                    <div id="oi-tool-container" style="flex: 1 1 50%; max-width: 50%; display: flex; flex-direction: column; min-width: 0; min-height: 800px; overflow-x: auto;">
                         <!-- Content loaded by workbookManager.js / OiTool -->
                     </div>
 
@@ -4462,8 +4462,10 @@ document.addEventListener('click', (e) => {
             const instruments = [
                 { id: 'idx-fut', metric: 'fut_idx' },
                 { id: 'stk-fut', metric: 'fut_stk' },
-                { id: 'calls', metric: 'opt_idx_ce' },
-                { id: 'puts', metric: 'opt_idx_pe' }
+                { id: 'idx-call', metric: 'opt_idx_ce' },
+                { id: 'idx-put', metric: 'opt_idx_pe' },
+                { id: 'stk-call', metric: 'opt_stk_ce' },
+                { id: 'stk-put', metric: 'opt_stk_pe' }
             ];
 
             const todayIdx = dates.length - 1;
@@ -4543,14 +4545,16 @@ document.addEventListener('click', (e) => {
             const instruments = [
                 { id: 'idx-fut', metric: 'fut_idx' },
                 { id: 'stk-fut', metric: 'fut_stk' },
-                { id: 'calls', metric: 'opt_idx_ce' },
-                { id: 'puts', metric: 'opt_idx_pe' }
+                { id: 'idx-call', metric: 'opt_idx_ce' },
+                { id: 'idx-put', metric: 'opt_idx_pe' },
+                { id: 'stk-call', metric: 'opt_stk_ce' },
+                { id: 'stk-put', metric: 'opt_stk_pe' }
             ];
 
             const participants = [
                 { key: 'fii', label: 'FII', color: '#E88B1E' }, // Orange
                 { key: 'dii', label: 'DII', color: '#3176B8' }, // Blue
-                { key: 'pro', label: 'PRO', color: '#ff9900' }, // Amber
+                { key: 'pro', label: 'PRO', color: '#9B59B6' }, // Purple
                 { key: 'client', label: 'Client', color: '#4ade80' } // Green
             ];
 

@@ -31,14 +31,14 @@ const OiTool = {
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-bottom: 20px;">
                     <!-- Chart Area -->
                     <div id="oi-chart-area" style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0;">
                         <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 300px;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px;">
                         <table class="data-table" id="oi-analysis-table" style="width: 100%;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
