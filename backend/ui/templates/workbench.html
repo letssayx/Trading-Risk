@@ -1417,39 +1417,41 @@
                 </div>
 
                 <!-- SUB-TAB 2: OI Analysis -->
-                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; gap: 20px;">
-                    <!-- Left side: Original OI Tool (Table + Scatter Plot) -->
-                    <div id="oi-tool-container" style="flex: 1 1 50%; max-width: 50%; display: flex; flex-direction: column; min-width: 0; min-height: 800px; overflow-x: auto;">
+                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
+                    <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px; overflow-x: auto;">
                         <!-- Content loaded by workbookManager.js / OiTool -->
                     </div>
 
-                    <!-- Right side: Options Analysis Charts -->
-                    <div style="flex: 1 1 50%; max-width: 50%; display: flex; flex-direction: column; gap: 20px; min-width: 0;">
-                        <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0;">
+                    <!-- Bottom section: Options Analysis Charts -->
+                    <div style="width: 100%; display: flex; flex-direction: column; gap: 20px;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0; margin-top: 20px; border-top: 1px solid #333; padding-top: 20px;">
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
                             <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;">
                             <button class="btn btn-secondary" onclick="loadOptionsAnalysis()">Load Charts</button>
                         </div>
 
-                        <!-- 4c. High Open Interest Chart -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
-                            <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
-                        </div>
-
-                        <!-- 4a. 500 Day Price & PCR Overlay -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 400px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
-                                <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
-                                    <option value="30">30 Days</option>
-                                    <option value="60">60 Days</option>
-                                    <option value="90">90 Days</option>
-                                    <option value="252">252 Days</option>
-                                    <option value="500" selected>500 Days</option>
-                                </select>
+                        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; width: 100%;">
+                            <!-- 4c. High Open Interest Chart -->
+                            <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
+                                <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
                             </div>
-                            <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
+
+                            <!-- 4a. 500 Day Price & PCR Overlay -->
+                            <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
+                                    <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
+                                        <option value="30">30 Days</option>
+                                        <option value="60">60 Days</option>
+                                        <option value="90">90 Days</option>
+                                        <option value="252">252 Days</option>
+                                        <option value="500" selected>500 Days</option>
+                                    </select>
+                                </div>
+                                <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4409,8 +4411,15 @@ document.addEventListener('click', (e) => {
 
             // Calculate NIFTY min/max directly to prevent Chart.js scaling bugs that cause flat lines
             const validNifty = (data.nifty_close || []).filter(v => v > 0);
-            const niftyMin = validNifty.length > 0 ? Math.min(...validNifty) * 0.95 : 0;
-            const niftyMax = validNifty.length > 0 ? Math.max(...validNifty) * 1.05 : 100;
+            let niftyMin = 0;
+            let niftyMax = 100;
+            if (validNifty.length > 0) {
+                const minVal = Math.min(...validNifty);
+                const maxVal = Math.max(...validNifty);
+                const padding = (maxVal - minVal) * 0.1 || minVal * 0.01;
+                niftyMin = minVal - padding;
+                niftyMax = maxVal + padding;
+            }
 
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
@@ -4619,6 +4628,7 @@ document.addEventListener('click', (e) => {
                         {
                             type: 'value',
                             name: 'Net Pos (Qty)',
+                            scale: true,
                             axisLabel: {
                                 color: '#888',
                                 formatter: function (value) {
@@ -4639,8 +4649,14 @@ document.addEventListener('click', (e) => {
                             splitLine: { show: false },
                             nameTextStyle: { color: '#ccc' },
                             scale: true,
-                            min: 'dataMin',
-                            max: 'dataMax'
+                            min: function(value) {
+                                const pad = (value.max - value.min) * 0.1 || value.min * 0.01;
+                                return Math.floor(value.min - pad);
+                            },
+                            max: function(value) {
+                                const pad = (value.max - value.min) * 0.1 || value.min * 0.01;
+                                return Math.ceil(value.max + pad);
+                            }
                         }
                     ],
                     series: series

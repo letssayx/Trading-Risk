@@ -63,8 +63,8 @@ async function loadOptionsAnalysis() {
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' },
                     scale: true,
-                    min: 'dataMin',
-                    max: 'dataMax'
+                    min: function(value) { return Math.floor(value.min * 0.95); },
+                            max: function(value) { return Math.ceil(value.max * 1.05); }
                 },
                 {
                     type: 'value',
@@ -75,8 +75,8 @@ async function loadOptionsAnalysis() {
                     axisLabel: { color: '#888', formatter: (value) => (value/1000000).toFixed(1) + 'M' },
                     nameTextStyle: { color: '#888' },
                     scale: true,
-                    min: 'dataMin',
-                    max: 'dataMax'
+                    min: function(value) { return Math.floor(value.min * 0.95); },
+                            max: function(value) { return Math.ceil(value.max * 1.05); }
                 },
                 {
                     type: 'value',
@@ -84,8 +84,8 @@ async function loadOptionsAnalysis() {
                     position: 'left',
                     gridIndex: 2,
                     scale: true,
-                    min: 'dataMin',
-                    max: 'dataMax',
+                    min: function(value) { return Math.floor(value.min * 0.95); },
+                            max: function(value) { return Math.ceil(value.max * 1.05); },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' }
