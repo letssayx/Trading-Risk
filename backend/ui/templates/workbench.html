@@ -4406,6 +4406,12 @@ document.addEventListener('click', (e) => {
 
             if (fiiDiiChartInstance) fiiDiiChartInstance.destroy();
             const ctx = document.getElementById('fiiDiiChart').getContext('2d');
+
+            // Calculate NIFTY min/max directly to prevent Chart.js scaling bugs that cause flat lines
+            const validNifty = (data.nifty_close || []).filter(v => v > 0);
+            const niftyMin = validNifty.length > 0 ? Math.min(...validNifty) * 0.95 : 0;
+            const niftyMax = validNifty.length > 0 ? Math.max(...validNifty) * 1.05 : 100;
+
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -4421,21 +4427,10 @@ document.addEventListener('click', (e) => {
                     scales: {
                         x: { stacked: false },
                         y: { stacked: false, position: 'left', grid: { color: '#333' } },
-                        // Ensure NIFTY doesn't start at 0, which makes it look flat
                         y1: {
                             type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false },
-                            min: function(context) {
-                                const dataArr = context.chart.data.datasets?.find(d => d.yAxisID === 'y1')?.data || [];
-                                const validArr = dataArr.filter(v => v > 0);
-                                if (validArr.length === 0) return 0;
-                                return Math.min(...validArr) * 0.95;
-                            },
-                            max: function(context) {
-                                const dataArr = context.chart.data.datasets?.find(d => d.yAxisID === 'y1')?.data || [];
-                                const validArr = dataArr.filter(v => v > 0);
-                                if (validArr.length === 0) return 100;
-                                return Math.max(...validArr) * 1.05;
-                            }
+                            min: niftyMin,
+                            max: niftyMax
                         }
                     },
                     plugins: { legend: { labels: { color: '#ccc' } } }

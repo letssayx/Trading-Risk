@@ -15,13 +15,19 @@ async function loadOptionsAnalysis() {
         if (pcrChartInstance) pcrChartInstance.dispose();
         pcrChartInstance = echarts.init(chartDom);
 
+        const oiColors = data.total_oi.map((val, idx) => {
+            if (idx === 0) return '#3176B8';
+            return val > data.total_oi[idx - 1] ? '#E88B1E' : '#3176B8'; // Orange for up, Blue for down
+        });
+
         const option = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Total OI', 'Price (FUT1)', 'PCR'], textStyle: { color: '#ccc' } },
+            legend: { data: ['Price (FUT1)', 'Total OI', 'PCR'], textStyle: { color: '#ccc' } },
             grid: [
-                { left: '8%', right: '8%', top: '10%', height: '50%' }, // Top grid for Price & OI
-                { left: '8%', right: '8%', top: '65%', height: '20%' }  // Bottom grid for PCR
+                { left: '10%', right: '8%', top: '5%', height: '30%' },    // Top pane: Price
+                { left: '10%', right: '8%', top: '45%', height: '20%' },   // Middle pane: OI
+                { left: '10%', right: '8%', top: '75%', height: '15%' }    // Bottom pane: PCR
             ],
             xAxis: [
                 {
@@ -35,6 +41,13 @@ async function loadOptionsAnalysis() {
                     type: 'category',
                     data: data.dates,
                     gridIndex: 1,
+                    axisLabel: { show: false },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                {
+                    type: 'category',
+                    data: data.dates,
+                    gridIndex: 2,
                     axisLabel: { color: '#888' },
                     axisLine: { lineStyle: { color: '#333' } }
                 }
@@ -42,17 +55,8 @@ async function loadOptionsAnalysis() {
             yAxis: [
                 {
                     type: 'value',
-                    name: 'Total OI',
-                    position: 'left',
-                    gridIndex: 0,
-                    splitLine: { show: false },
-                    axisLabel: { color: '#888', formatter: (value) => (value/1000000).toFixed(1) + 'M' },
-                    nameTextStyle: { color: '#888' }
-                },
-                {
-                    type: 'value',
                     name: 'Price (FUT1)',
-                    position: 'right',
+                    position: 'left',
                     gridIndex: 0,
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
                     axisLabel: { color: '#888' },
@@ -63,9 +67,21 @@ async function loadOptionsAnalysis() {
                 },
                 {
                     type: 'value',
-                    name: 'PCR',
+                    name: 'Total OI',
                     position: 'left',
                     gridIndex: 1,
+                    splitLine: { show: false },
+                    axisLabel: { color: '#888', formatter: (value) => (value/1000000).toFixed(1) + 'M' },
+                    nameTextStyle: { color: '#888' },
+                    scale: true,
+                    min: 'dataMin',
+                    max: 'dataMax'
+                },
+                {
+                    type: 'value',
+                    name: 'PCR',
+                    position: 'left',
+                    gridIndex: 2,
                     scale: true,
                     min: 'dataMin',
                     max: 'dataMax',
@@ -75,20 +91,10 @@ async function loadOptionsAnalysis() {
                 }
             ],
             dataZoom: [
-                { type: 'inside', xAxisIndex: [0, 1], start: 50, end: 100 },
-                { type: 'slider', xAxisIndex: [0, 1], start: 50, end: 100, textStyle: { color: '#ccc' }, bottom: '2%' }
+                { type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 },
+                { type: 'slider', xAxisIndex: [0, 1, 2], start: 50, end: 100, textStyle: { color: '#ccc' }, bottom: '2%' }
             ],
             series: [
-                {
-                    name: 'Total OI',
-                    type: 'line', // Use line with areaStyle for a cleaner background overlay
-                    data: data.total_oi,
-                    itemStyle: { color: 'rgba(54, 162, 235, 0.2)' },
-                    lineStyle: { width: 1, color: 'rgba(54, 162, 235, 0.5)' },
-                    areaStyle: { color: 'rgba(54, 162, 235, 0.1)' },
-                    xAxisIndex: 0,
-                    yAxisIndex: 0
-                },
                 {
                     name: 'Price (FUT1)',
                     type: 'line',
@@ -97,6 +103,14 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 0,
+                    yAxisIndex: 0
+                },
+                {
+                    name: 'Total OI',
+                    type: 'bar',
+                    data: data.total_oi,
+                    itemStyle: { color: (params) => oiColors[params.dataIndex] },
+                    xAxisIndex: 1,
                     yAxisIndex: 1
                 },
                 {
@@ -106,7 +120,7 @@ async function loadOptionsAnalysis() {
                     itemStyle: { color: '#00FF00' },
                     lineStyle: { width: 2 },
                     symbol: 'none',
-                    xAxisIndex: 1,
+                    xAxisIndex: 2,
                     yAxisIndex: 2
                 }
             ]
@@ -132,22 +146,24 @@ async function loadOptionsAnalysis() {
         const ce_oi = [];
         const pe_oi = [];
 
-        // Take ATM +/- 20 strikes
-        const sortedData = data.data.sort((a,b) => a.strike - b.strike);
-        let atmIndex = 0;
-        let minDiff = Infinity;
+        // Instead of taking rigid +/- 20 strikes (which includes illiquid intermediate strikes),
+        // we take the top 15 by Call OI and top 15 by Put OI, and union them.
+        const allData = [...data.data];
 
-        for (let i = 0; i < sortedData.length; i++) {
-            const diff = Math.abs(sortedData[i].strike - data.spot_price);
-            if (diff < minDiff) {
-                minDiff = diff;
-                atmIndex = i;
-            }
-        }
+        // Sort by CE OI descending
+        const topCe = [...allData].sort((a, b) => (b.CE.oi || 0) - (a.CE.oi || 0)).slice(0, 15);
+        // Sort by PE OI descending
+        const topPe = [...allData].sort((a, b) => (b.PE.oi || 0) - (a.PE.oi || 0)).slice(0, 15);
 
-        const startIdx = Math.max(0, atmIndex - 20);
-        const endIdx = Math.min(sortedData.length, atmIndex + 20);
-        const filteredData = sortedData.slice(startIdx, endIdx);
+        // Union the strikes using a Set to avoid duplicates
+        const topStrikesSet = new Set();
+        topCe.forEach(row => topStrikesSet.add(row.strike));
+        topPe.forEach(row => topStrikesSet.add(row.strike));
+
+        // Filter the original data to only include these top strikes, then sort by strike price
+        const filteredData = allData
+            .filter(row => topStrikesSet.has(row.strike))
+            .sort((a, b) => a.strike - b.strike);
 
         filteredData.forEach(row => {
             strikes.push(row.strike);
