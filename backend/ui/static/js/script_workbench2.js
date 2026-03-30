@@ -2659,18 +2659,46 @@
             const data = await res.json();
             if (fiiDiiChartInstance) fiiDiiChartInstance.destroy();
             const ctx = document.getElementById('fiiDiiChart').getContext('2d');
+
+            // Extract Nifty prices dynamically if returned
+            const niftyData = data.nifty_close || [];
+
+            // Add NIFTY line overlay dynamically to FII/DII Chart if NIFTY exists
+            const datasets = [
+                { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1 }, // Orange
+                { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1 }  // Blue
+            ];
+
+            if (niftyData.length > 0) {
+                datasets.push({
+                    label: 'NIFTY',
+                    type: 'line',
+                    yAxisID: 'y1',
+                    data: niftyData,
+                    borderColor: '#ff9900',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.1
+                });
+            }
+
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: data.dates,
-                    datasets: [
-                        { label: 'FII Net', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1 }, // Orange
-                        { label: 'DII Net', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1 }  // Blue
-                    ]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    scales: { x: { stacked: false }, y: { stacked: false } },
+                    scales: {
+                        x: { stacked: false },
+                        y: { stacked: false, position: 'left', grid: { color: '#333' } },
+                        y1: {
+                            type: 'linear', position: 'right', display: niftyData.length > 0, grid: { drawOnChartArea: false },
+                            min: 'dataMin', max: 'dataMax', scale: true
+                        }
+                    },
                     plugins: { legend: { labels: { color: '#ccc' } } }
                 }
             });

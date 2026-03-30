@@ -23,12 +23,13 @@ async function loadOptionsAnalysis() {
         const option = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Price (FUT1)', 'Total OI', 'PCR'], textStyle: { color: '#ccc' } },
+            legend: { data: ['Price (FUT1)', 'Total OI', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
             grid: [
-                { left: '10%', right: '8%', top: '5%', height: '30%' },    // Top pane: Price
-                { left: '10%', right: '8%', top: '45%', height: '20%' },   // Middle pane: OI
-                { left: '10%', right: '8%', top: '75%', height: '15%' }    // Bottom pane: PCR
+                { left: '12%', right: '8%', top: '10%', height: '35%' },   // Top pane: Price
+                { left: '12%', right: '8%', top: '48%', height: '22%' },   // Middle pane: OI
+                { left: '12%', right: '8%', top: '72%', height: '15%' }    // Bottom pane: PCR
             ],
+            axisPointer: { link: { xAxisIndex: 'all' }, label: { backgroundColor: '#777' } },
             xAxis: [
                 {
                     type: 'category',

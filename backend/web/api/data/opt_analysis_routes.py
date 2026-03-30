@@ -36,7 +36,8 @@ async def get_pcr_history(symbol: str, days: int = 500, db: Session = Depends(ge
                     SUM(CASE WHEN b.option_type = 'PE' THEN b.open_interest ELSE 0 END) as total_pe_oi,
                     -- Delta weighted OI: Option OI * Absolute Delta
                     -- We use absolute delta for puts as well to represent total exposure magnitude
-                    SUM(b.open_interest * COALESCE(ABS(c.delta), 0.5)) as delta_weighted_opt_oi
+                    -- STRICT MATH: No fallback COALESCE to 0.5. Missing delta = 0 delta-weighted OI.
+                    SUM(b.open_interest * COALESCE(ABS(c.delta), 0)) as delta_weighted_opt_oi
                 FROM bhavcopy_fo b
                 LEFT JOIN contract_delta c ON b.ticker_symb = c.symbol
                     AND b.trade_date = c.date

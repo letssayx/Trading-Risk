@@ -299,20 +299,7 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         cash_results = db.execute(fo_query, {"sym": symbol}).fetchall()
 
     if not cash_results:
-        # User requested fake dummy data to test charts when DB is empty locally
-        from datetime import date, timedelta
-        today = date.today()
-        dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(500, 0, -1)]
-        df = pd.DataFrame({
-            'trade_date': dummy_dates,
-            'open': np.random.uniform(100, 200, 500),
-            'high': np.random.uniform(200, 250, 500),
-            'low': np.random.uniform(50, 100, 500),
-            'close': np.random.uniform(100, 200, 500),
-            'volume': np.random.randint(1000, 10000, 500)
-        })
-        df['trade_date'] = pd.to_datetime(df['trade_date'])
-        df.set_index('trade_date', inplace=True)
+        return {"dates": []}
     else:
         df = pd.DataFrame(cash_results, columns=['trade_date', 'open', 'high', 'low', 'close', 'volume'])
         df['trade_date'] = pd.to_datetime(df['trade_date'])
@@ -366,17 +353,46 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     else:
         df['total_oi'] = 0
 
-    # 4. Mocking PCR & IV Data for the scope of the dynamic chart (Institutional View)
-    # Ideally, we would join Option Chain data aggregated by date for true historical PCR and IV.
-    # We will generate correlated random walks or derived metrics based on price/volatility
-    # as a placeholder until historical options aggregation tables are introduced.
-    df['pcr'] = 0.8 + (np.random.randn(len(df)).cumsum() * 0.05) # Simulated bounded PCR walk
-    df['pcr'] = df['pcr'].clip(0.4, 1.8) # Keep it realistic
+    # 4. Retrieve Actual PCR & IV Data
+    # Fetch historical PCR and IV strictly from the DB instead of simulating
+    # If option data is not present, we default to 0 (no fallback simulation)
+    opt_query = text("""
+        SELECT
+            trade_date,
+            SUM(CASE WHEN option_type = 'CE' THEN open_interest ELSE 0 END) as ce_oi,
+            SUM(CASE WHEN option_type = 'PE' THEN open_interest ELSE 0 END) as pe_oi
+        FROM bhavcopy_fo
+        WHERE ticker_symb = :sym AND instrument_type IN ('OPTIDX', 'OPTSTK')
+        GROUP BY trade_date
+    """)
+    opt_results = db.execute(opt_query, {"sym": symbol}).fetchall()
+    if opt_results:
+        df_opt = pd.DataFrame(opt_results, columns=['trade_date', 'ce_oi', 'pe_oi'])
+        df_opt['trade_date'] = pd.to_datetime(df_opt['trade_date'])
+        df_opt.set_index('trade_date', inplace=True)
+        df_opt['pcr'] = np.where(df_opt['ce_oi'] > 0, df_opt['pe_oi'] / df_opt['ce_oi'], 0)
+        df = df.join(df_opt[['pcr']], how='left')
+    else:
+        df['pcr'] = 0
 
-    # IV inverse correlation to price changes
-    price_pct_change = df['close'].pct_change()
-    df['iv'] = 15.0 - (price_pct_change * 100) + (np.random.randn(len(df)) * 2)
-    df['iv'] = df['iv'].clip(10, 80).rolling(window=3).mean() # Smoothed realistic IV
+    # For true IV, we would fetch from FOVolatility. For now, strictly default to 0 if we don't fetch it,
+    # instead of generating random numbers.
+    vol_query = text("""
+        SELECT trade_date, daily_volatility as iv
+        FROM fo_volatility
+        WHERE symbol = :sym
+    """)
+    try:
+        vol_results = db.execute(vol_query, {"sym": symbol}).fetchall()
+        if vol_results:
+            df_vol = pd.DataFrame(vol_results, columns=['trade_date', 'iv'])
+            df_vol['trade_date'] = pd.to_datetime(df_vol['trade_date'])
+            df_vol.set_index('trade_date', inplace=True)
+            df = df.join(df_vol[['iv']], how='left')
+        else:
+            df['iv'] = 0
+    except Exception:
+        df['iv'] = 0
 
     # Fill NaNs for JSON serialization
     df.fillna(0, inplace=True)
@@ -423,39 +439,7 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     from datetime import date, timedelta
 
     if not dates:
-         # User requested fake dummy data to test charts when DB is empty locally
-         today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
-         return {
-             "dates": dummy_dates,
-             "fii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "client_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "client_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
-         }
-
-
+         return {"dates": []}
 
     records = db.query(FAOParticipantOI).filter(FAOParticipantOI.trade_date.in_(dates)).all()
 
@@ -471,36 +455,7 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     } for r in records])
 
     if df.empty:
-         today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
-         return {
-             "dates": dummy_dates,
-             "fii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "client_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "client_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
-         }
+         return {"dates": []}
 
 
     # Normalize client types (e.g. Map 'Pro' -> 'PRO' if necessary to avoid missing data)
@@ -721,14 +676,7 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     from datetime import date, timedelta
 
     if not dates:
-         today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
-         return {
-             "dates": dummy_dates,
-             "fii_net": np.random.uniform(-5000, 5000, days).tolist(),
-             "dii_net": np.random.uniform(-5000, 5000, days).tolist(),
-             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
-         }
+         return {"dates": []}
 
     records = db.query(FIIDIICash).filter(FIIDIICash.trade_date.in_(dates)).all()
 
@@ -739,36 +687,7 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     } for r in records])
 
     if df.empty:
-         today = date.today()
-         dummy_dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days, 0, -1)]
-         return {
-             "dates": dummy_dates,
-             "fii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "client_fut_idx": np.random.randint(-50000, 50000, days).tolist(),
-             "client_fut_stk": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_idx_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_idx_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "fii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "dii_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "pro_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_stk_ce": np.random.randint(-50000, 50000, days).tolist(),
-             "client_opt_stk_pe": np.random.randint(-50000, 50000, days).tolist(),
-             "nifty_close": np.random.uniform(20000, 22000, days).tolist()
-         }
+         return {"dates": []}
 
 
     try:
