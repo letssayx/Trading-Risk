@@ -19,26 +19,41 @@ async function loadOptionsAnalysis() {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
             legend: { data: ['Total OI', 'Price (FUT1)', 'PCR'], textStyle: { color: '#ccc' } },
-            grid: { left: '3%', right: '3%', bottom: '3%', top: '15%', containLabel: true },
-            xAxis: {
-                type: 'category',
-                data: data.dates,
-                axisLabel: { color: '#888' },
-                axisLine: { lineStyle: { color: '#333' } }
-            },
+            grid: [
+                { left: '8%', right: '8%', top: '10%', height: '50%' }, // Top grid for Price & OI
+                { left: '8%', right: '8%', top: '65%', height: '20%' }  // Bottom grid for PCR
+            ],
+            xAxis: [
+                {
+                    type: 'category',
+                    data: data.dates,
+                    gridIndex: 0,
+                    axisLabel: { show: false },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                {
+                    type: 'category',
+                    data: data.dates,
+                    gridIndex: 1,
+                    axisLabel: { color: '#888' },
+                    axisLine: { lineStyle: { color: '#333' } }
+                }
+            ],
             yAxis: [
                 {
                     type: 'value',
                     name: 'Total OI',
                     position: 'left',
+                    gridIndex: 0,
                     splitLine: { show: false },
-                    axisLabel: { color: '#888' },
+                    axisLabel: { color: '#888', formatter: (value) => (value/1000000).toFixed(1) + 'M' },
                     nameTextStyle: { color: '#888' }
                 },
                 {
                     type: 'value',
                     name: 'Price (FUT1)',
                     position: 'right',
+                    gridIndex: 0,
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' },
@@ -49,25 +64,29 @@ async function loadOptionsAnalysis() {
                 {
                     type: 'value',
                     name: 'PCR',
-                    position: 'right',
-                    offset: 60,
-                    min: 0,
-                    max: 3,
-                    splitLine: { show: false },
+                    position: 'left',
+                    gridIndex: 1,
+                    scale: true,
+                    min: 'dataMin',
+                    max: 'dataMax',
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' }
                 }
             ],
             dataZoom: [
-                { type: 'inside', start: 50, end: 100 },
-                { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
+                { type: 'inside', xAxisIndex: [0, 1], start: 50, end: 100 },
+                { type: 'slider', xAxisIndex: [0, 1], start: 50, end: 100, textStyle: { color: '#ccc' }, bottom: '2%' }
             ],
             series: [
                 {
                     name: 'Total OI',
-                    type: 'bar',
+                    type: 'line', // Use line with areaStyle for a cleaner background overlay
                     data: data.total_oi,
-                    itemStyle: { color: 'rgba(54, 162, 235, 0.4)' },
+                    itemStyle: { color: 'rgba(54, 162, 235, 0.2)' },
+                    lineStyle: { width: 1, color: 'rgba(54, 162, 235, 0.5)' },
+                    areaStyle: { color: 'rgba(54, 162, 235, 0.1)' },
+                    xAxisIndex: 0,
                     yAxisIndex: 0
                 },
                 {
@@ -77,6 +96,7 @@ async function loadOptionsAnalysis() {
                     itemStyle: { color: '#FFCC00' },
                     lineStyle: { width: 2 },
                     symbol: 'none',
+                    xAxisIndex: 0,
                     yAxisIndex: 1
                 },
                 {
@@ -86,6 +106,7 @@ async function loadOptionsAnalysis() {
                     itemStyle: { color: '#00FF00' },
                     lineStyle: { width: 2 },
                     symbol: 'none',
+                    xAxisIndex: 1,
                     yAxisIndex: 2
                 }
             ]

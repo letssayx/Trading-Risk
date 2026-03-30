@@ -4425,16 +4425,16 @@ document.addEventListener('click', (e) => {
                         y1: {
                             type: 'linear', position: 'right', display: true, grid: { drawOnChartArea: false },
                             min: function(context) {
-                                const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
+                                const dataArr = context.chart.data.datasets?.find(d => d.yAxisID === 'y1')?.data || [];
                                 const validArr = dataArr.filter(v => v > 0);
                                 if (validArr.length === 0) return 0;
-                                return Math.min(...validArr) * 0.99;
+                                return Math.min(...validArr) * 0.95;
                             },
                             max: function(context) {
-                                const dataArr = context.chart.data.datasets.find(d => d.yAxisID === 'y1')?.data || [];
+                                const dataArr = context.chart.data.datasets?.find(d => d.yAxisID === 'y1')?.data || [];
                                 const validArr = dataArr.filter(v => v > 0);
                                 if (validArr.length === 0) return 100;
-                                return Math.max(...validArr) * 1.01;
+                                return Math.max(...validArr) * 1.05;
                             }
                         }
                     },
@@ -4535,11 +4535,13 @@ document.addEventListener('click', (e) => {
 
 
 
-        // 6-9. Load Long/Short Ratio Charts
+        // 6-9. Load Long/Short Ratio Charts (Using Net Positions as requested)
         let lsChartInstances = {};
 
         try {
-            const res = await fetch(`/api/market-activity/long-short-ratio?days=${days}`);
+            // Memory: The Daily Snapshot returns true Net Open Interest (Longs - Shorts) for accurate grouped volume representation.
+            // Using `participant-oi` which returns Net Positions instead of Long/Short Ratios to prevent flat lines.
+            const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
             const dates = data.dates || [];
             if (dates.length === 0) return;
@@ -4575,26 +4577,77 @@ document.addEventListener('click', (e) => {
                         data: data[`${p.key}_${inst.metric}`] || [],
                         itemStyle: { color: p.color },
                         showSymbol: false,
-                        smooth: true
+                        smooth: true,
+                        yAxisIndex: 0
                     };
                 });
 
+                // Add NIFTY overlay
+                const niftyData = data.nifty_close || [];
+                const legendData = participants.map(p => p.label);
+
+                if (niftyData.length > 0) {
+                    legendData.push('NIFTY');
+                    series.push({
+                        name: 'NIFTY',
+                        type: 'line',
+                        data: niftyData,
+                        yAxisIndex: 1,
+                        itemStyle: { color: '#FFCC00' }, // Classic yellow line
+                        lineStyle: { width: 2 },
+                        symbol: 'none'
+                    });
+                }
+
                 const option = {
                     backgroundColor: 'transparent',
-                    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                    legend: { data: participants.map(p => p.label), textStyle: { color: '#ccc' } },
-                    grid: { left: '10%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'cross' },
+                        formatter: function (params) {
+                            let res = `<div style="font-weight:bold;">${params[0].axisValue}</div>`;
+                            params.forEach(function (p) {
+                                res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
+                            });
+                            return res;
+                        }
+                    },
+                    legend: { data: legendData, textStyle: { color: '#ccc' } },
+                    grid: { left: '10%', right: '10%', bottom: '10%', top: '15%', containLabel: true },
                     xAxis: {
                         type: 'category',
                         data: dates,
                         axisLabel: { color: '#888' },
                         axisLine: { lineStyle: { color: '#333' } }
                     },
-                    yAxis: {
-                        type: 'value',
-                        axisLabel: { color: '#888' },
-                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                    },
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: 'Net Pos (Qty)',
+                            axisLabel: {
+                                color: '#888',
+                                formatter: function (value) {
+                                    if (Math.abs(value) >= 1000) {
+                                        return (value / 1000).toFixed(1) + 'k';
+                                    }
+                                    return value;
+                                }
+                            },
+                            splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                            nameTextStyle: { color: '#888' }
+                        },
+                        {
+                            type: 'value',
+                            name: 'NIFTY',
+                            position: 'right',
+                            axisLabel: { color: '#ccc' },
+                            splitLine: { show: false },
+                            nameTextStyle: { color: '#ccc' },
+                            scale: true,
+                            min: 'dataMin',
+                            max: 'dataMax'
+                        }
+                    ],
                     series: series
                 };
 
@@ -4602,58 +4655,92 @@ document.addEventListener('click', (e) => {
             });
         } catch(e) { console.error("Error loading L/S ratio charts", e); }
 
-        // 10. Load Smart Money vs Retail Bar Chart
-        let smartMoneyChartInstance = null;
+        // 10. Load Smart Money (FII+DII+PRO+CLI) Latest Daily Position Bar Chart
+        let participantChartInstance = null;
         try {
-            const res = await fetch('/api/market-activity/smart-vs-retail');
+            const res = await fetch(`/api/market-activity/participant-oi?days=1`);
             const data = await res.json();
 
-            const container = document.getElementById('smartMoneyEchart');
-            if (smartMoneyChartInstance) smartMoneyChartInstance.dispose();
-            smartMoneyChartInstance = echarts.init(container);
+            const container = document.getElementById('participant-oi-daily-summary');
+            if (!container) return;
+            if (participantChartInstance) participantChartInstance.dispose();
+            participantChartInstance = echarts.init(container);
 
-            if (!data || !data.smart_money) return;
+            const dates = data.dates || [];
+            if (dates.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#888;">No Participant OI data found.</p>';
+                return;
+            }
 
-            const categories = ['Index Futures', 'Stock Futures', 'Calls', 'Puts'];
-            const metrics = ['fut_idx', 'fut_stk', 'opt_idx_ce', 'opt_idx_pe'];
+            // Define 6 metric categories per user request
+            const metrics = [
+                { key: 'fut_idx', label: 'Index Futures' },
+                { key: 'fut_stk', label: 'Stock Futures' },
+                { key: 'opt_idx_ce', label: 'Index Calls' },
+                { key: 'opt_idx_pe', label: 'Index Puts' },
+                { key: 'opt_stk_ce', label: 'Stock Calls' },
+                { key: 'opt_stk_pe', label: 'Stock Puts' }
+            ];
 
-            const smartValues = metrics.map(m => data.smart_money[m]);
-            const retailValues = metrics.map(m => data.retail[m]);
+            const participants = [
+                { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
+                { key: 'dii', label: 'DII', color: '#3176B8' },     // Blue
+                { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
+                { key: 'client', label: 'CLI', color: '#00FF00' }  // Green
+            ];
+
+            const xAxisData = metrics.map(m => m.label);
+
+            // We only care about the latest date (Today)
+            const todayIdx = dates.length - 1;
+
+            const series = participants.map(p => {
+                const pData = metrics.map(m => {
+                    const arrayKey = `${p.key}_${m.key}`;
+                    const arr = data[arrayKey] || [];
+                    return arr.length > todayIdx ? arr[todayIdx] : 0;
+                });
+
+                return {
+                    name: p.label,
+                    type: 'bar',
+                    data: pData,
+                    itemStyle: { color: p.color }
+                };
+            });
 
             const option = {
                 backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                legend: { data: ['Smart Money', 'Retail'], textStyle: { color: '#ccc' } },
-                grid: { left: '15%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: participants.map(p => p.label),
+                    textStyle: { color: '#ccc' }
+                },
+                grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
                 xAxis: {
                     type: 'category',
-                    data: categories,
-                    axisLabel: { color: '#ccc' },
+                    data: xAxisData,
+                    axisLabel: { color: '#ccc', fontWeight: 'bold' },
                     axisLine: { lineStyle: { color: '#333' } },
                     axisTick: { alignWithLabel: true }
                 },
                 yAxis: {
                     type: 'value',
-                    axisLabel: { color: '#888', formatter: (value) => value.toLocaleString() },
+                    axisLabel: { color: '#888', formatter: (value) => {
+                        if (Math.abs(value) >= 1000) {
+                            return (value / 1000).toFixed(1) + 'k';
+                        }
+                        return value;
+                    } },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                series: [
-                    {
-                        name: 'Smart Money',
-                        type: 'bar',
-                        data: smartValues,
-                        itemStyle: { color: '#E88B1E' } // Orange
-                    },
-                    {
-                        name: 'Retail',
-                        type: 'bar',
-                        data: retailValues,
-                        itemStyle: { color: '#3176B8' } // Blue
-                    }
-                ]
+                series: series
             };
 
-            smartMoneyChartInstance.setOption(option);
+            participantChartInstance.setOption(option);
         } catch(e) { console.error("Error loading Smart Money chart", e); }
     }
 
