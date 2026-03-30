@@ -23,7 +23,7 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
             query = text("""
                 SELECT trade_date, close_price
                 FROM historical_index_data
-                WHERE symbol = :symbol
+                WHERE index_name = :symbol
                 ORDER BY trade_date ASC
             """)
 
@@ -127,7 +127,7 @@ async def get_pre_expiry_action(
             query = text("""
                 SELECT trade_date, close_price
                 FROM historical_index_data
-                WHERE symbol = :symbol
+                WHERE index_name = :symbol
                 ORDER BY trade_date DESC
                 LIMIT :lookback
             """)
