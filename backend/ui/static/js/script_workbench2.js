@@ -3536,7 +3536,7 @@ function exportChartDataToCSV(chartInstance, filename) {
 
     if (isECharts) {
         const option = chartInstance.getOption();
-        if (!option || !option.series || option.series.length === 0) return;
+        if (!option) { alert("Error reading chart option"); return; }
 
         // Find xAxis data
         if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
@@ -3550,11 +3550,29 @@ function exportChartDataToCSV(chartInstance, filename) {
             }
         }
 
-        option.series.forEach(s => {
-            if (s.name) seriesNames.push(s.name);
-            else seriesNames.push('Series');
-            seriesData.push(s.data || []);
-        });
+        if (option.series && option.series.length > 0) {
+            option.series.forEach(s => {
+                if (s.name) seriesNames.push(s.name);
+                else seriesNames.push('Series');
+                seriesData.push(s.data || []);
+            });
+        } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+            const src = option.dataset[0].source;
+            if (Array.isArray(src) && src.length > 0) {
+                // src[0] is headers, ignore [0][0] which is date
+                for (let col = 1; col < src[0].length; col++) {
+                    seriesNames.push(src[0][col] || `Series_${col}`);
+                    let colData = [];
+                    for (let r = 1; r < src.length; r++) {
+                        colData.push(src[r][col]);
+                    }
+                    seriesData.push(colData);
+                }
+            }
+        } else {
+            alert("No series data found in chart");
+            return;
+        }
     } else if (isChartJS) {
         const data = chartInstance.data;
         if (!data || !data.datasets || data.datasets.length === 0) return;
