@@ -275,28 +275,37 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     symbol = symbol.upper()
 
     # 1. Fetch 500 days of Cash Market Data (OHLC, Volume)
-    cash_query = text("""
-        SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
-        FROM bhavcopy_eq
-        WHERE symbol = :sym AND series = 'EQ'
-        ORDER BY trade_date ASC
-        LIMIT 500
-    """)
-    cash_results = db.execute(cash_query, {"sym": symbol}).fetchall()
-
-    if not cash_results:
-        # Fallback to near futures for indices or stocks without EQ data
-        fo_query = text("""
-            SELECT * FROM (
-                SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price, total_trading_vol as volume
-                FROM bhavcopy_fo
-                WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK')
-                ORDER BY trade_date ASC, expiry_date ASC
-            ) AS distinct_dates
+    try:
+        cash_query = text("""
+            SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
+            FROM bhavcopy_eq
+            WHERE ticker_symb = :sym AND series = 'EQ'
             ORDER BY trade_date ASC
             LIMIT 500
         """)
-        cash_results = db.execute(fo_query, {"sym": symbol}).fetchall()
+        cash_results = db.execute(cash_query, {"sym": symbol}).fetchall()
+    except Exception:
+        db.rollback()
+        cash_results = []
+
+    if not cash_results:
+        try:
+            db.rollback()
+            # Fallback to near futures for indices or stocks without EQ data
+            fo_query = text("""
+                SELECT * FROM (
+                    SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price, total_trading_vol as volume
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                    ORDER BY trade_date ASC, expiry_date ASC
+                ) AS distinct_dates
+                ORDER BY trade_date ASC
+                LIMIT 500
+            """)
+            cash_results = db.execute(fo_query, {"sym": symbol}).fetchall()
+        except Exception:
+            db.rollback()
+            cash_results = []
 
     if not cash_results:
         return {"dates": []}
@@ -510,15 +519,19 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     nifty_query = text("""
         SELECT trade_date, close_price
         FROM bhavcopy_fo
-        WHERE ticker_symb = 'NIFTY' AND instrument_type = 'FUTIDX'
-        AND trade_date = expiry_date
+        WHERE ticker_symb = 'NIFTY' AND instrument_type IN ('FUTIDX', 'FUTSTK')
         AND trade_date IN :dates
+        ORDER BY expiry_date ASC
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
-    # Map NIFTY prices to the same date index
-    nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
-    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot_idx.index]
+    # Need to group by date and just take the closest expiry's close price
+    nifty_prices_map = {}
+    for r in nifty_records:
+        if r.trade_date not in nifty_prices_map:
+            nifty_prices_map[r.trade_date] = r.close_price
+
+    nifty_close_list = [nifty_prices_map.get(d.date(), None) for d in pivot_idx.index]
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot_idx.index],

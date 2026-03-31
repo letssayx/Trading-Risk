@@ -3528,7 +3528,7 @@ function exportChartDataToCSV(chartInstance, filename) {
         return;
     }
 
-    let csv = [];
+    let csvRows = [];
     let headers = ['Date'];
     let seriesNames = [];
     let seriesData = [];
@@ -3541,6 +3541,13 @@ function exportChartDataToCSV(chartInstance, filename) {
         // Find xAxis data
         if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
             xAxisData = option.xAxis[0].data;
+        } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+            // dataset fallback
+            const src = option.dataset[0].source;
+            if (Array.isArray(src) && src.length > 0) {
+                // assume first row is headers, first col is dates
+                xAxisData = src.slice(1).map(row => row[0]);
+            }
         }
 
         option.series.forEach(s => {
@@ -3561,14 +3568,12 @@ function exportChartDataToCSV(chartInstance, filename) {
         });
     }
 
-    // Ensure we don't redefine csv and headers
-
     // Build headers from series names
     seriesNames.forEach(name => {
         headers.push(`"${name}"`);
     });
 
-    csv.push(headers.join(','));
+    csvRows.push(headers.join(','));
 
     // Build rows
     const len = xAxisData.length > 0 ? xAxisData.length : (seriesData[0] ? seriesData[0].length : 0);
@@ -3599,10 +3604,10 @@ function exportChartDataToCSV(chartInstance, filename) {
             row.push(`"${val}"`);
         });
 
-        csv.push(row.join(','));
+        csvRows.push(row.join(','));
     }
 
-    const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const csvFile = new Blob([csvRows.join('\n')], { type: 'text/csv' });
     const downloadLink = document.createElement('a');
     downloadLink.download = filename + '.csv';
     downloadLink.href = window.URL.createObjectURL(csvFile);

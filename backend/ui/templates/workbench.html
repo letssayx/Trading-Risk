@@ -1613,7 +1613,10 @@
 
                     <!-- Technical Multi-Axis Chart (ECharts) -->
                     <div style="flex: 1; min-height: 1000px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; flex-shrink: 0; margin-bottom: 20px;">
-                        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Price, Volume, OI & ATR (500 Days)</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="margin: 0; font-size: 14px; color: #ccc;">Price, Volume, OI & ATR (500 Days)</h3>
+                            <button class="btn btn-secondary" onclick="if(window.echartInstance) exportChartDataToCSV(window.echartInstance, 'Adv_Technicals'); else exportChartDataToCSV(echartInstance, 'Adv_Technicals')"><i class="fas fa-download"></i> CSV</button>
+                        </div>
                         <div id="echart-container" style="flex: 1; width: 100%; min-height: 900px; height: 900px;"></div>
                     </div>
                 </div>

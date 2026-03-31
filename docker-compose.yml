@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   timescaledb:
-    image: timescale/timescaledb:latest-pg14
+    image: postgres:14
     container_name: turtle_db
     environment:
       - POSTGRES_USER=turtle_admin
