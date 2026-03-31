@@ -319,7 +319,29 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
             cash_results = []
 
     if not cash_results:
-        return {"dates": []}
+        return {
+            "dates": [],
+            "ohlc": [],
+            "volume": [],
+            "ma20": [],
+            "bb_upper_1": [],
+            "bb_lower_1": [],
+            "bb_upper_2": [],
+            "bb_lower_2": [],
+            "bb_upper_3": [],
+            "bb_lower_3": [],
+            "donchian_upper": [],
+            "donchian_lower": [],
+            "atr": [],
+            "rsi_14": [],
+            "macd": [],
+            "macd_signal": [],
+            "macd_hist": [],
+            "total_oi": [],
+            "pcr": [],
+            "iv": [],
+            "oi": []
+        }
     else:
         df = pd.DataFrame(cash_results, columns=['trade_date', 'open', 'high', 'low', 'close', 'volume'])
         df['trade_date'] = pd.to_datetime(df['trade_date'])

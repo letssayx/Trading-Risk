@@ -33,14 +33,20 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
 
         # fallback to futures if eq/index is empty
         if not result:
-             query = text("""
-                SELECT trade_date, close_price
-                FROM bhavcopy_fo
-                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
-                AND trade_date = expiry_date
-                ORDER BY trade_date ASC
-            """)
-             result = db.execute(query, {"symbol": symbol}).fetchall()
+             try:
+                 query = text("""
+                    SELECT * FROM (
+                        SELECT DISTINCT ON (trade_date) trade_date, close_price
+                        FROM bhavcopy_fo
+                        WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                        ORDER BY trade_date ASC, expiry_date ASC
+                    ) AS distinct_dates
+                    ORDER BY trade_date ASC
+                """)
+                 result = db.execute(query, {"symbol": symbol}).fetchall()
+             except Exception:
+                 db.rollback()
+                 result = []
 
         if not result or len(result) < 5:
             raise HTTPException(status_code=400, detail=f"Insufficient price history for Volatility Cone ({len(result)} records found, need at least 5 days)")
@@ -192,15 +198,21 @@ async def get_pre_expiry_action(
 
         if not result:
              db.rollback()
-             query = text("""
-                SELECT trade_date, close_price
-                FROM bhavcopy_fo
-                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
-                AND trade_date = expiry_date
-                ORDER BY trade_date DESC
-                LIMIT :lookback
-            """)
-             result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+             try:
+                 query = text("""
+                    SELECT * FROM (
+                        SELECT DISTINCT ON (trade_date) trade_date, close_price
+                        FROM bhavcopy_fo
+                        WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                        ORDER BY trade_date DESC, expiry_date ASC
+                    ) AS distinct_dates
+                    ORDER BY trade_date DESC
+                    LIMIT :lookback
+                """)
+                 result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+             except Exception:
+                 db.rollback()
+                 result = []
 
         result.reverse() # Sort ascending
 

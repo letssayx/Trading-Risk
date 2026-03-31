@@ -3606,34 +3606,19 @@ function exportChartDataToCSV(chartInstance, filename) {
 
         seriesData.forEach(d => {
             let val = '';
-            let item = d ? d[i] : undefined;
-            if (item !== undefined && item !== null) {
-                // Handle objects if data is complex (like candlesticks or ECharts objects)
-                if (typeof item === 'object' && !Array.isArray(item)) {
-                    if (item.value !== undefined) {
-                        if (Array.isArray(item.value)) {
-                            // ECharts format for some series: [xAxis, yAxis]
-                            val = item.value.length > 1 ? item.value[1] : item.value[0];
-                        } else {
-                            val = item.value;
-                        }
-                    } else {
-                        // generic fallback
-                        val = JSON.stringify(item);
+            if (d && d[i] !== undefined) {
+                // Handle objects if data is complex (like candlesticks)
+                if (typeof d[i] === 'object' && d[i] !== null) {
+                    if (d[i].value !== undefined) {
+                        val = d[i].value;
+                    } else if (Array.isArray(d[i])) {
+                        // For Candlesticks [open, close, min, max] or [date, val1, val2]
+                        val = d[i].join('|');
                     }
-                } else if (Array.isArray(item)) {
-                    // For Candlesticks [open, close, min, max] or [date, val1, val2]
-                    val = item.join(' | ');
                 } else {
-                    val = item;
+                    val = d[i];
                 }
             }
-
-            // Format string specifically to escape quotes for CSV
-            if (typeof val === 'string') {
-                val = val.replace(/"/g, '""');
-            }
-
             row.push(`"${val}"`);
         });
 

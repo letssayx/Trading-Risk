@@ -4435,6 +4435,176 @@ document.addEventListener('click', (e) => {
 });
 
 </script>
+
+<script>
+function exportTableToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        let row = [], cols = rows[i].querySelectorAll('td, th');
+
+        for (let j = 0; j < cols.length; j++) {
+            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
+            data = data.replace(/"/g, '""');
+            row.push('"' + data + '"');
+        }
+
+        if (row.length > 0) {
+            csv.push(row.join(','));
+        }
+    }
+
+    const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const downloadLink = document.createElement('a');
+    downloadLink.download = filename + '.csv';
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+}
+
+function exportChartDataToCSV(chartInstance, filename) {
+    if (!chartInstance) {
+        alert("Chart is not loaded or data is empty.");
+        return;
+    }
+
+    // Handle Chart.js instances vs ECharts instances
+    let isChartJS = typeof chartInstance.config !== 'undefined';
+    let isECharts = typeof chartInstance.getOption === 'function';
+
+    if (!isChartJS && !isECharts) {
+        alert("Unsupported chart type.");
+        return;
+    }
+
+    let csvRows = [];
+    let headers = ['Date'];
+    let seriesNames = [];
+    let seriesData = [];
+    let xAxisData = [];
+
+    if (isECharts) {
+        const option = chartInstance.getOption();
+        if (!option) { alert("Error reading chart option"); return; }
+
+        // Find xAxis data
+        if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
+            xAxisData = option.xAxis[0].data;
+        } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+            // dataset fallback
+            const src = option.dataset[0].source;
+            if (Array.isArray(src) && src.length > 0) {
+                // assume first row is headers, first col is dates
+                xAxisData = src.slice(1).map(row => row[0]);
+            }
+        }
+
+        if (option.series && option.series.length > 0) {
+            option.series.forEach(s => {
+                if (s.name) seriesNames.push(s.name);
+                else seriesNames.push('Series');
+                seriesData.push(s.data || []);
+            });
+        } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+            const src = option.dataset[0].source;
+            if (Array.isArray(src) && src.length > 0) {
+                // src[0] is headers, ignore [0][0] which is date
+                for (let col = 1; col < src[0].length; col++) {
+                    seriesNames.push(src[0][col] || `Series_${col}`);
+                    let colData = [];
+                    for (let r = 1; r < src.length; r++) {
+                        colData.push(src[r][col]);
+                    }
+                    seriesData.push(colData);
+                }
+            }
+        } else {
+            alert("No series data found in chart");
+            return;
+        }
+    } else if (isChartJS) {
+        const data = chartInstance.data;
+        if (!data || !data.datasets || data.datasets.length === 0) return;
+
+        xAxisData = data.labels || [];
+
+        data.datasets.forEach(s => {
+            if (s.label) seriesNames.push(s.label);
+            else seriesNames.push('Series');
+            seriesData.push(s.data || []);
+        });
+    }
+
+    // Build headers from series names
+    seriesNames.forEach(name => {
+        headers.push(`"${name}"`);
+    });
+
+    csvRows.push(headers.join(','));
+
+    // Build rows
+    const len = xAxisData.length > 0 ? xAxisData.length : (seriesData[0] ? seriesData[0].length : 0);
+
+    for (let i = 0; i < len; i++) {
+        let row = [];
+        if (xAxisData.length > 0) {
+            row.push(`"${xAxisData[i]}"`);
+        } else {
+            row.push(`"Row_${i}"`);
+        }
+
+        seriesData.forEach(d => {
+            let val = '';
+            let item = d ? d[i] : undefined;
+            if (item !== undefined && item !== null) {
+                // Handle objects if data is complex (like candlesticks or ECharts objects)
+                if (typeof item === 'object' && !Array.isArray(item)) {
+                    if (item.value !== undefined) {
+                        if (Array.isArray(item.value)) {
+                            // ECharts format for some series: [xAxis, yAxis]
+                            val = item.value.length > 1 ? item.value[1] : item.value[0];
+                        } else {
+                            val = item.value;
+                        }
+                    } else {
+                        // generic fallback
+                        val = JSON.stringify(item);
+                    }
+                } else if (Array.isArray(item)) {
+                    // For Candlesticks [open, close, min, max] or [date, val1, val2]
+                    val = item.join(' | ');
+                } else {
+                    val = item;
+                }
+            }
+
+            // Format string specifically to escape quotes for CSV
+            if (typeof val === 'string') {
+                val = val.replace(/"/g, '""');
+            }
+
+            row.push(`"${val}"`);
+        });
+
+        csvRows.push(row.join(','));
+    }
+
+    const csvFile = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const downloadLink = document.createElement('a');
+    downloadLink.download = filename + '.csv';
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+}
+</script>
 </body>
 
 </html>
