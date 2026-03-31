@@ -3519,27 +3519,59 @@ function exportChartDataToCSV(chartInstance, filename) {
         return;
     }
 
-    const option = chartInstance.getOption();
-    if (!option || !option.series || option.series.length === 0) return;
+    // Handle Chart.js instances vs ECharts instances
+    let isChartJS = typeof chartInstance.config !== 'undefined';
+    let isECharts = typeof chartInstance.getOption === 'function';
 
-    // Find xAxis data
-    let xAxisData = [];
-    if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
-        xAxisData = option.xAxis[0].data;
+    if (!isChartJS && !isECharts) {
+        alert("Unsupported chart type.");
+        return;
     }
 
     let csv = [];
-    let headers = ['Date']; // Assuming x-axis is date or category
+    let headers = ['Date'];
+    let seriesNames = [];
+    let seriesData = [];
+    let xAxisData = [];
+
+    if (isECharts) {
+        const option = chartInstance.getOption();
+        if (!option || !option.series || option.series.length === 0) return;
+
+        // Find xAxis data
+        if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
+            xAxisData = option.xAxis[0].data;
+        }
+
+        option.series.forEach(s => {
+            if (s.name) seriesNames.push(s.name);
+            else seriesNames.push('Series');
+            seriesData.push(s.data || []);
+        });
+    } else if (isChartJS) {
+        const data = chartInstance.data;
+        if (!data || !data.datasets || data.datasets.length === 0) return;
+
+        xAxisData = data.labels || [];
+
+        data.datasets.forEach(s => {
+            if (s.label) seriesNames.push(s.label);
+            else seriesNames.push('Series');
+            seriesData.push(s.data || []);
+        });
+    }
+
+    // Ensure we don't redefine csv and headers
 
     // Build headers from series names
-    option.series.forEach(s => {
-        if (s.name) headers.push(`"${s.name}"`);
+    seriesNames.forEach(name => {
+        headers.push(`"${name}"`);
     });
 
     csv.push(headers.join(','));
 
     // Build rows
-    const len = xAxisData.length > 0 ? xAxisData.length : (option.series[0].data ? option.series[0].data.length : 0);
+    const len = xAxisData.length > 0 ? xAxisData.length : (seriesData[0] ? seriesData[0].length : 0);
 
     for (let i = 0; i < len; i++) {
         let row = [];
@@ -3549,19 +3581,19 @@ function exportChartDataToCSV(chartInstance, filename) {
             row.push(`"Row_${i}"`);
         }
 
-        option.series.forEach(s => {
+        seriesData.forEach(d => {
             let val = '';
-            if (s.data && s.data[i] !== undefined) {
+            if (d && d[i] !== undefined) {
                 // Handle objects if data is complex (like candlesticks)
-                if (typeof s.data[i] === 'object' && s.data[i] !== null) {
-                    if (s.data[i].value !== undefined) {
-                        val = s.data[i].value;
-                    } else if (Array.isArray(s.data[i])) {
+                if (typeof d[i] === 'object' && d[i] !== null) {
+                    if (d[i].value !== undefined) {
+                        val = d[i].value;
+                    } else if (Array.isArray(d[i])) {
                         // For Candlesticks [open, close, min, max] or [date, val1, val2]
-                        val = s.data[i].join('|');
+                        val = d[i].join('|');
                     }
                 } else {
-                    val = s.data[i];
+                    val = d[i];
                 }
             }
             row.push(`"${val}"`);

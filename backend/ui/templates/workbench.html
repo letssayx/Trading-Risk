@@ -1440,12 +1440,18 @@
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
                     <div style="width: 100%; height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
-                        <div id="vol-pre-expiry-chart" style="width: 100%; height: 100%;"></div>
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                            <button class="btn btn-secondary" onclick="if(window.volPreExpiryChart) exportChartDataToCSV(window.volPreExpiryChart, 'Vol_Pre_Expiry'); else exportChartDataToCSV(volPreExpiryChart, 'Vol_Pre_Expiry')"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div id="vol-pre-expiry-chart" style="width: 100%; height: calc(100% - 35px);"></div>
                     </div>
 
                     <!-- Chart 2: Volatility Cone -->
                     <div style="width: 100%; height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px;">
-                        <div id="vol-cone-chart" style="width: 100%; height: 100%;"></div>
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                            <button class="btn btn-secondary" onclick="if(window.volConeChart) exportChartDataToCSV(window.volConeChart, 'Volatility_Cone'); else exportChartDataToCSV(volConeChart, 'Volatility_Cone')"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div id="vol-cone-chart" style="width: 100%; height: calc(100% - 35px);"></div>
                     </div>
                 </div>
 
