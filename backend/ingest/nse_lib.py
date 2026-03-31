@@ -567,45 +567,34 @@ class NSELib:
 
     def get_contract_delta(self, trade_date: date) -> pd.DataFrame:
         """Get Contract Delta."""
+        # New URL format for NSE Option Delta report (NCL delta file)
+        # Format: https://nsearchives.nseindia.com/archives/nsccl/delta/N_DELTA_TRD_YYYYMMDD.DAT or .csv
         date_str = trade_date.strftime("%d%m%Y")
+        iso_date_str = trade_date.strftime("%Y%m%d")
+
         urls = [
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{iso_date_str}.DAT",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/n_delta_trd_{iso_date_str}.DAT",
+            f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{iso_date_str}.csv",
             f"{self.ARCHIVES_URL}/content/nsccl/Contract_Delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/content/nsccl/contract_delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/Contract_Delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/contract_delta_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.csv",
-            f"{self.ARCHIVES_URL}/archives/nsccl/delta/n_delta_trd_{date_str}.csv",
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/N_DELTA_TRD_{date_str}.DAT",
-            f"{self.ARCHIVES_URL}/archives/nsccl/delta/n_delta_trd_{date_str}.DAT",
-            f"{self.BASE_URL}/api/reports?archives=1&date={date_str}&type=delta",  # Fallback
-            f"https://archives.nseindia.com/content/nsccl/Contract_Delta_{date_str}.csv", # Sometimes they use archives.nseindia.com
         ]
 
-        # Use a fresh, cookie-less session for archives as sending nseindia cookies sometimes triggers WAF 403s on static files
-        temp_session = cffi_requests.Session(impersonate="chrome120")
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
-
         for url in urls:
-            try:
-                # If it's a base URL API, use self.get, otherwise use the cookie-less temp session
-                if 'www.nseindia.com' in url:
-                    resp = self.get(url)
-                else:
-                    resp = temp_session.get(url, headers=headers, timeout=10)
-
-                # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
-                if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower():
+            resp = self.get(url)
+            # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
+            if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
+                try:
                     df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
                     df.columns = [str(c).strip() for c in df.columns]
                     if not df.empty:
                         return df
-            except Exception as e:
-                logger.error(f"Error parsing Contract Delta from {url}: {e}")
-
+                except Exception as e:
+                    logger.error(f"Error parsing Contract Delta from {url}: {e}")
         return pd.DataFrame()
 
     def get_fii_dii_cash(self, trade_date: date) -> pd.DataFrame:

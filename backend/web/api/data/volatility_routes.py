@@ -11,38 +11,33 @@ router = APIRouter()
 async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
     try:
         symbol = symbol.upper()
-        # Fetch historical prices to calculate realized volatility
-        query = text("""
-            SELECT trade_date, close_price
-            FROM bhavcopy_eq
-            WHERE ticker_symb = :symbol
-            ORDER BY trade_date ASC
-        """)
-        # If NIFTY/BANKNIFTY, we might need bhavcopy_eq fallback or check indices
-        # We'll stick to bhavcopy_eq for now as the user mentioned: "No assumption of fake data. use highly accurate data"
-        # Since historical_index_data might not exist or might fail, let's gracefully fallback or just use what we have.
-        try:
-            if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]:
-                idx_query = text("""
-                    SELECT trade_date, close_price
-                    FROM historical_index_data
-                    WHERE index_name = :symbol
-                    ORDER BY trade_date ASC
-                """)
-                result = db.execute(idx_query, {"symbol": symbol}).fetchall()
-            else:
-                result = db.execute(query, {"symbol": symbol}).fetchall()
-        except Exception:
-            db.rollback()
-            result = []
+        is_index = symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]
 
-        # fallback for Nifty just in case
+        # Fetch historical prices to calculate realized volatility
+        if is_index:
+            query = text("""
+                SELECT trade_date, close_price
+                FROM historical_index_data
+                WHERE index_name = :symbol
+                ORDER BY trade_date ASC
+            """)
+        else:
+            query = text("""
+                SELECT trade_date, close_price
+                FROM bhavcopy_eq
+                WHERE ticker_symb = :symbol AND series = 'EQ'
+                ORDER BY trade_date ASC
+            """)
+
+        result = db.execute(query, {"symbol": symbol}).fetchall()
+
+        # fallback to futures if eq/index is empty
         if not result:
              query = text("""
-                SELECT trade_date, MIN(close_price) as close_price
+                SELECT trade_date, close_price
                 FROM bhavcopy_fo
-                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF', 'FUTIVX', 'FUTIRC')
-                GROUP BY trade_date
+                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                AND trade_date = expiry_date
                 ORDER BY trade_date ASC
             """)
              result = db.execute(query, {"symbol": symbol}).fetchall()
@@ -170,9 +165,10 @@ async def get_pre_expiry_action(
             ORDER BY trade_date DESC
             LIMIT :lookback
         """)
-        # Let's wrap in try/except because historical_index_data might not exist
+        is_index = symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]
+
         try:
-            if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]:
+            if is_index:
                 idx_query = text("""
                     SELECT trade_date, close_price
                     FROM historical_index_data
@@ -182,26 +178,25 @@ async def get_pre_expiry_action(
                 """)
                 result = db.execute(idx_query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
             else:
+                query = text("""
+                    SELECT trade_date, close_price
+                    FROM bhavcopy_eq
+                    WHERE ticker_symb = :symbol AND series = 'EQ'
+                    ORDER BY trade_date DESC
+                    LIMIT :lookback
+                """)
                 result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
         except Exception:
-            # Fallback to bhavcopy_eq if index_data table doesn't exist or fails
             db.rollback()
-            query = text("""
-                SELECT trade_date, close_price
-                FROM bhavcopy_eq
-                WHERE ticker_symb = :symbol
-                ORDER BY trade_date DESC
-                LIMIT :lookback
-            """)
-            result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+            result = []
 
         if not result:
              db.rollback()
              query = text("""
-                SELECT trade_date, MIN(close_price) as close_price
+                SELECT trade_date, close_price
                 FROM bhavcopy_fo
-                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF', 'FUTIVX', 'FUTIRC')
-                GROUP BY trade_date
+                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                AND trade_date = expiry_date
                 ORDER BY trade_date DESC
                 LIMIT :lookback
             """)

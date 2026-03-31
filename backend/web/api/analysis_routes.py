@@ -275,23 +275,34 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     symbol = symbol.upper()
 
     # 1. Fetch 500 days of Cash Market Data (OHLC, Volume)
+    is_index = symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']
+
     try:
-        cash_query = text("""
-            SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
-            FROM bhavcopy_eq
-            WHERE ticker_symb = :sym AND series = 'EQ'
-            ORDER BY trade_date ASC
-            LIMIT 500
-        """)
+        if is_index:
+            cash_query = text("""
+                SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
+                FROM historical_index_data
+                WHERE index_name = :sym
+                ORDER BY trade_date ASC
+                LIMIT 500
+            """)
+        else:
+            cash_query = text("""
+                SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
+                FROM bhavcopy_eq
+                WHERE ticker_symb = :sym AND series = 'EQ'
+                ORDER BY trade_date ASC
+                LIMIT 500
+            """)
         cash_results = db.execute(cash_query, {"sym": symbol}).fetchall()
     except Exception:
         db.rollback()
         cash_results = []
 
-    if not cash_results:
+    if not cash_results and not is_index:
         try:
             db.rollback()
-            # Fallback to near futures for indices or stocks without EQ data
+            # Fallback to near futures for stocks without EQ data
             fo_query = text("""
                 SELECT * FROM (
                     SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price, total_trading_vol as volume
@@ -329,6 +340,17 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     df['bb_upper_3'] = df['ma20'] + (df['std20'] * 3)
     df['bb_lower_3'] = df['ma20'] - (df['std20'] * 3)
 
+    # Donchian Channel
+    df['donchian_upper'] = df['high'].rolling(window=20).max()
+    df['donchian_lower'] = df['low'].rolling(window=20).min()
+
+    # ATR
+    df['tr0'] = abs(df['high'] - df['low'])
+    df['tr1'] = abs(df['high'] - df['close'].shift())
+    df['tr2'] = abs(df['low'] - df['close'].shift())
+    df['tr'] = df[['tr0', 'tr1', 'tr2']].max(axis=1)
+    df['atr'] = df['tr'].rolling(window=14).mean()
+
     # b. RSI (14)
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -342,18 +364,6 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     df['macd'] = exp1 - exp2
     df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
     df['macd_hist'] = df['macd'] - df['macd_signal']
-
-    # d. Donchian Channel (20)
-    df['donchian_upper'] = df['high'].rolling(window=20).max()
-    df['donchian_lower'] = df['low'].rolling(window=20).min()
-
-    # e. ATR (14)
-    high_low = df['high'] - df['low']
-    high_close = np.abs(df['high'] - df['close'].shift())
-    low_close = np.abs(df['low'] - df['close'].shift())
-    ranges = pd.concat([high_low, high_close, low_close], axis=1)
-    true_range = np.max(ranges, axis=1)
-    df['atr'] = true_range.rolling(14).mean()
 
     # 3. Fetch 500 days of Total Futures OI
     oi_query = text("""
@@ -434,17 +444,17 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         "bb_lower_2": df['bb_lower_2'].tolist(),
         "bb_upper_3": df['bb_upper_3'].tolist(),
         "bb_lower_3": df['bb_lower_3'].tolist(),
+        "donchian_upper": df['donchian_upper'].tolist(),
+        "donchian_lower": df['donchian_lower'].tolist(),
+        "atr": df['atr'].tolist(),
         "rsi_14": df['rsi_14'].tolist(),
         "macd": df['macd'].tolist(),
         "macd_signal": df['macd_signal'].tolist(),
         "macd_hist": df['macd_hist'].tolist(),
         "total_oi": df['total_oi'].tolist(),
-        "oi": df['total_oi'].tolist(),
         "pcr": df['pcr'].tolist(),
         "iv": df['iv'].tolist(),
-        "donchian_upper": df['donchian_upper'].tolist(),
-        "donchian_lower": df['donchian_lower'].tolist(),
-        "atr": df['atr'].tolist()
+        "oi": df['total_oi'].tolist(), # Add 'oi' alias used by frontend
     }
 
 @router.get("/api/market-activity/participant-oi")
@@ -537,7 +547,7 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         FROM bhavcopy_fo
         WHERE ticker_symb = 'NIFTY' AND instrument_type IN ('FUTIDX', 'FUTSTK')
         AND trade_date IN :dates
-        ORDER BY trade_date ASC, expiry_date ASC
+        ORDER BY expiry_date ASC
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
@@ -739,19 +749,15 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     nifty_query = text("""
         SELECT trade_date, close_price
         FROM bhavcopy_fo
-        WHERE ticker_symb = 'NIFTY' AND instrument_type IN ('FUTIDX', 'FUTSTK')
+        WHERE ticker_symb = 'NIFTY' AND instrument_type = 'FUTIDX'
+        AND trade_date = expiry_date
         AND trade_date IN :dates
-        ORDER BY trade_date ASC, expiry_date ASC
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
-    # Map NIFTY prices to the same date index (get closest expiry's close price)
-    nifty_prices = {}
-    for r in nifty_records:
-        if r.trade_date not in nifty_prices:
-            nifty_prices[r.trade_date] = r.close_price
-
-    nifty_close_list = [nifty_prices.get(d.date(), None) for d in pivot.index]
+    # Map NIFTY prices to the same date index
+    nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
+    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],

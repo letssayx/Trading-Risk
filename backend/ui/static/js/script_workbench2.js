@@ -1,3 +1,524 @@
+// script start
+// script start
+    <link rel="stylesheet" href="/static/css/workbench.css">
+    <link rel="stylesheet" href="/static/css/modal.css">
+    <style>
+        .main-tab-content {
+            height: 100%;
+            width: 100%;
+            display: none !important;
+            overflow: hidden;
+        }
+        .main-tab-content.active {
+            display: block !important;
+        }
+        #tab-derivatives.active {
+            display: flex !important;
+            flex-direction: column;
+        }
+
+
+
+
+        /* Main Tab Navigation */
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1e1e1e;
+            color: #ccc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .main-tabs-bar {
+            height: 35px;
+            background: #252526;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            border-bottom: 1px solid #333;
+            user-select: none;
+        }
+
+        .main-tab {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: #999;
+            border-right: 1px solid #333;
+            background: #2d2d2d;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .main-tab:hover {
+            background: #3e3e42;
+            color: #fff;
+        }
+
+        .main-tab.active {
+            background: #1e1e1e;
+            color: #fff;
+            border-bottom: 2px solid #007acc;
+            font-weight: 500;
+        }
+
+        .tab-content-area {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: #1e1e1e;
+            display: flex;
+            flex-direction: column;
+        }
+
+
+
+
+
+        .global-status-bar {
+            height: 25px;
+            background: #252526;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-top: 1px solid #333;
+            user-select: none;
+            font-size: 12px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .global-status-bar a {
+            color: white;
+            text-decoration: none;
+        }
+
+
+
+        /* Historical Data Styles (Merged from data_viewer.html) */
+        .history-controls {
+            padding: 10px 15px;
+            background: #252526;
+            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group { display: flex; align-items: center; gap: 5px; }
+        .control-group label { font-size: 0.85em; color: #aaa; }
+        .history-input, .history-select {
+            background: #3c3c3c;
+            color: #ccc;
+            border: 1px solid #555;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+        .table-wrapper {
+            height: calc(100% - 45px); /* Adjust based on controls height */
+            overflow: auto;
+            overflow-x: auto;
+            position: relative;
+            background: #1e1e1e;
+        }
+        /* Excel-like Grid */
+        .data-table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: collapse;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 13px;
+            white-space: nowrap;
+            color: #d4d4d4;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #3e3e42;
+            padding: 4px 8px;
+            text-align: left;
+        }
+        .data-table th {
+            background: #252526;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: normal;
+            color: #cccccc;
+            border-bottom: 2px solid #007acc;
+            cursor: pointer;
+            user-select: none;
+        }
+        .data-table th:hover { background: #2d2d30; color: #fff; }
+        .data-table tr { background: #1e1e1e; }
+        .data-table tr:nth-child(even) { background: #1e1e1e; } /* No stripe for clean excel look, or maybe subtle */
+        .data-table tr:hover { background: #2a2d2e; } /* Row selection feel */
+        .data-table td { border-right: 1px solid #333; border-bottom: 1px solid #333; }
+
+        /* Loading/Empty State */
+        .data-table tr.message-row td {
+            padding: 40px;
+            font-size: 1.1em;
+            color: #888;
+            border: none;
+        }
+        .history-status-bar {
+            padding: 5px 15px;
+            background: #007acc;
+            color: white;
+            font-size: 0.8em;
+            display: flex;
+            justify-content: space-between;
+            height: 25px;
+            align-items: center;
+        }
+
+        /* Import Tab Styles */
+        .import-container {
+            padding: 20px;
+            width: 100%;
+            max-width: none;
+            height: 100%;
+            overflow: hidden; /* removed scrollbar per user request */
+            display: flex;
+            gap: 20px;
+        }
+        .import-left-panel {
+            flex: 0 0 auto;
+            width: 1000px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* no scrollbars anywhere in imports view per request */
+        }
+        .import-right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 300px;
+            height: 100%;
+            padding-bottom: 20px;
+        }
+        .import-terminal {
+            flex: 1;
+            background-color: #0c0c0c;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            color: #d4d4d4;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+        }
+        .import-tabs .tab-btn {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        /* Common Utils */
+        .btn { padding: 6px 12px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.9em; }
+        .btn-primary { background: #007acc; color: white; }
+        .btn-primary:hover { background: #0062a3; }
+        .btn-secondary { background: #3c3c3c; color: #ccc; }
+        .btn-secondary:hover { background: #4e4e50; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Main Tab Bar -->
+    <div class="main-tabs-bar">
+        <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
+        <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
+        <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
+        <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
+        <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
+        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
+        <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
+        <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
+    </div>
+
+    <!-- Tab Content Container -->
+    <div class="tab-content-area">
+
+        <!-- TAB 1: TERMINAL (Original Workbench) -->
+        <div id="tab-terminal" class="main-tab-content active">
+            <div id="app-container" style="height:100%;">
+                <!-- Left Panel -->
+                <div id="left-panel">
+                    <div class="lp-section" id="lp-top">
+                        <div class="panel-header">Trading Edge</div>
+                        <div class="panel-content" id="edge-content" style="padding:10px; font-size:0.9em; color:#ccc;"></div>
+                    </div>
+                    <div class="lp-section" id="lp-middle" style="display:none;"></div>
+                    <div class="lp-section" id="lp-bottom">
+                        <div class="tab-header">
+                            <div class="tab-btn active" onclick="switchLeftTab('jules')"><u>J</u>ules Chat</div>
+                            <div class="tab-btn" onclick="switchLeftTab('python')"><u>P</u>ython Code</div>
+                        </div>
+                        <div class="panel-content" id="jules-content" style="padding:10px; flex: 1; overflow-y: auto;">
+                            <div class="msg"><strong>Jules:</strong> Ready to analyze.</div>
+                        </div>
+                        <div class="panel-content" id="python-content" style="display:none; padding:10px;">
+                            <pre style="margin:0; color:#aaa;"># Select a strategy tab to see code</pre>
+                        </div>
+                        <div class="chat-input-area">
+                            <textarea class="chat-input" id="jules-input" placeholder="Ask Jules..."></textarea>
+                        </div>
+                    </div>
+                    <div class="resizer-v" id="resizer-left"></div>
+                </div>
+
+                <!-- Main Panel -->
+                <div id="main-panel">
+                    <div id="chart-workbench">
+                        <div class="chart-tabs-bar" id="chart-tabs-bar">
+                            <!-- Tabs go here -->
+                            <div class="inline-add-container">
+                                <input type="text" id="chart-add-input" class="inline-input" placeholder="+ Symbol">
+                            </div>
+                        </div>
+                        <div class="charts-container" id="charts-container">
+                            <!-- Chart instances go here -->
+                        </div>
+                        <div class="resizer-h" id="resizer-charts"></div>
+                    </div>
+
+                    <div id="strategy-workbench">
+                        <div class="wb-tabs-header">
+                            <div class="wb-tab active" data-type="turtle">Turtle Legacy</div>
+                            <div class="wb-tab" data-type="statarb">Stat Arb</div>
+                        </div>
+                        <div class="wb-content" id="wb-content-area">
+                            <!-- Dynamic Content Loaded by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toolbox -->
+                <div id="toolbox">
+                    <div class="toolbox-group" id="strategy-group">
+                        <div class="toolbox-item" id="strategies-trigger" title="Strategies">♟️</div>
+                        <div class="toolbox-flyout" id="strategies-flyout"></div>
+                    </div>
+                    <div class="toolbox-item" title="Filters" draggable="true" data-type="filter">🔍</div>
+                    <div class="toolbox-item" title="Indicators" draggable="true" data-type="indicator">📊</div>
+                    <div class="toolbox-item" title="Risk Models" draggable="true" data-type="risk">🛡️</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB CORPORATE ACTIONS -->
+        <div id="tab-corporate_actions" class="main-tab-content">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Actions</div>
+                        <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
+                        <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Event Calendar</div>
+                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
+                        <div class="wb-tab" id="ca-tab-btn-ofs" onclick="switchCATab('ofs')" style="padding: 6px 15px; border-radius: 4px;">OFS</div>
+                        <div class="wb-tab" id="ca-tab-btn-tender" onclick="switchCATab('tender')" style="padding: 6px 15px; border-radius: 4px;">Tender</div>
+                        <div class="wb-tab" id="ca-tab-btn-circulars" onclick="switchCATab('circulars')" style="padding: 6px 15px; border-radius: 4px;">Circulars</div>
+                    </div>
+                </div>
+
+                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; flex-direction: column;" id="ca-controls-wrapper">
+                    <!-- Issue Status Sub-tabs (Only visible for Rights, OFS, Tender) -->
+                    <div id="issue-status-tabs" style="display: none; border-bottom: 1px solid #3f3f46; margin-bottom: 15px;">
+                        <button class="status-tab active" data-status="active" onclick="switchIssueStatus('active')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Active</button>
+                        <button class="status-tab" data-status="forthcoming" onclick="switchIssueStatus('forthcoming')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Forthcoming</button>
+                        <button class="status-tab" data-status="past" onclick="switchIssueStatus('past')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Past</button>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <div class="control-group">
+                            <label>Symbol / Company:</label>
+                            <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" onkeyup="renderCorporateActionsTable()">
+                        </div>
+                    <div class="control-group" id="ca-actions-filters">
+                        <label style="margin-right:10px;">Filter:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Bonus" onchange="filterCATable()"> Bonus</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Split" onchange="filterCATable()"> Split</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="AGM" onchange="filterCATable()"> AGM/EGM</label>
+                    </div>
+                    <div class="control-group" id="ca-meetings-filters" style="display:none;">
+                        <label style="margin-right:10px;">Filter:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Financial Results" onchange="filterCATable()"> Financial Results</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Fund Raising" onchange="filterCATable()"> Fund Raising</label>
+                    </div>
+                    <div class="control-group" id="ca-public-filters" style="display:none;">
+                        <label style="margin-right:10px;">Type:</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="rights" onchange="filterCATable()"> Rights</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="ofs" onchange="filterCATable()"> OFS</label>
+                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
+                    </div>
+                    <button onclick="loadCorporateActionsData()" class="btn btn-primary" id="btn-ca-refresh">Refresh Data</button>
+                        <button class="btn btn-secondary" onclick="exportCAData()" style="margin-left: auto;">Export CSV</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;" id="ca-table-container">
+                    <table class="data-table" id="ca-main-table">
+                        <thead id="ca-main-head"></thead>
+                        <tbody id="ca-main-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- Used specifically for Circulars since it renders differently -->
+                <div id="circulars-container" style="display: none; flex: 1; min-height: 0;"></div>
+
+                <div class="history-status-bar" style="border-radius: 0 0 4px 4px;">
+                    <span id="ca-status-msg">Ready</span>
+                    <span id="ca-row-count">0 Rows</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB DERIVATIVES ANALYSIS -->
+        <div id="tab-derivatives" class="main-tab-content">
+            <!-- Sub-tab Navigation -->
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px;">
+                <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Data Matrix</div>
+                <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">OI Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Rollover Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent;">Market Activity</div>
+            </div>
+
+            <!-- Sub-tab Contents Container -->
+            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden; display: flex; flex-direction: row; width: 100%;">
+
+                <!-- SUB-TAB 1: Data Matrix (Original Reports View) -->
+                <div id="deriv-tab-matrix" class="deriv-sub-tab active" style="display: flex; height: 100%; width: 100%;">
+
+                <!-- Left Panel: Controls & Archive -->
+                <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0;">
+
+                    <div style="padding: 20px; border-bottom: 1px solid #333;">
+                        <h2 style="margin: 0 0 5px 0; font-size: 16px; color: #fff;">Data Matrix</h2>
+                        <p style="margin: 0 0 20px 0; font-size: 12px; color: #888;">Synthesize daily PDF reports.</p>
+
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
+                                <label for="mr-target-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">From Date</label>
+                                <input type="date" id="mr-target-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
+                            </div>
+                            <div class="control-group" style="flex: 1; flex-direction: column; align-items: flex-start;">
+                                <label for="mr-end-date" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">To Date (Optional)</label>
+                                <input type="date" id="mr-end-date" class="history-input" style="width: 100%; box-sizing: border-box; padding: 4px;">
+                            </div>
+                        </div>
+
+                        <div class="control-group" style="margin-bottom: 20px; flex-direction: column; align-items: flex-start;">
+                            <label for="mr-author-name" style="color:#ccc; margin-bottom: 5px; font-size: 11px;">Analyst / Author</label>
+                            <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System" style="width: 100%; box-sizing: border-box;">
+                        </div>
+
+                        <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
+                        <button id="mr-generate-btn" class="btn btn-primary" style="margin-left: auto;" disabled>2. Generate PDF Report</button>
+
+
+
+                        <div id="mr-status-text" style="color: #aaa; margin-top: 15px; font-size: 12px; font-style: italic; text-align: center;"></div>
+                        <button id="mr-download-btn" class="btn" style="width: 100%; padding: 8px; background-color: #28a745; display: none; margin-top: 10px; color: white; border: none;">Open PDF</button>
+                    </div>
+
+                    <div style="flex: 1; padding: 20px; overflow-y: auto;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc; border-bottom: 1px solid #444; padding-bottom: 5px;">Report Archive</h3>
+                        <ul id="mr-archive-list" style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
+                            <li style="color: #666; font-style: italic;">Loading archive...</li>
+                        </ul>
+                    </div>
+
+                </div>
+
+                <!-- Right Panel: Data View Area -->
+                <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e; max-width: calc(100vw - 300px);">
+                    <!-- Data Grid Controls -->
+                    <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
+                        <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
+                        <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY">
+                        <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
+                        <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;">Clear (All Scrips)</button>
+                        <button id="mr-export-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 10px;">Download CSV</button>
+                    </div>
+
+                    <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0; overflow-x: auto; max-width: 100%;">
+                        <table class="data-table" id="mr-data-table">
+                            <thead id="mr-data-head">
+                                <tr>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
+                                    <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Symbol</th>
+                                    <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
+                                    <th style="white-space: pre-wrap;">EQ<br>Close</th>
+                                    <th style="white-space: pre-wrap;">VWAP</th>
+                                    <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
+                                    <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
+                                    <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Strike (PE)</th>
+                                    <th style="white-space: pre-wrap;">% Away<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (PE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Strike (CE)</th>
+                                    <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 2<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
+                                    <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
+                                    <th style="white-space: pre-wrap;">ATM IV<br>(Next)</th>
+                                    <th style="white-space: pre-wrap;">IV Rank<br>(252d)</th>
+                                    <th style="white-space: pre-wrap;">IV Percentile<br>(252d)</th>
+                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
+                                    <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
+                                    <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
+                                    <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
+
+                                    <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
+                                    <th style="white-space: pre-wrap;">Basis 2<br>(bps)</th>
+                                    <th style="white-space: pre-wrap;">Calendar Spread 1<br>(bps)</th>
+                                    <th style="white-space: pre-wrap;">Calendar Spread 2<br>(bps)</th>
+                                    <th style="white-space: pre-wrap;">P/E<br>Ratio</th>
+                                    <th style="white-space: pre-wrap;">&beta;<br>(252d)</th>
+                                    <th style="white-space: pre-wrap;">&beta;<br>(500d)</th>
+                                    <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
+                                    <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
+                                    <th style="white-space: pre-wrap;">Price %<br>Change</th>
+                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
+                                    <th style="white-space: pre-wrap;">14-Day<br>ATR %</th>
+                                    <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
+                                    <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
+                                    <th style="white-space: pre-wrap;">100-Day<br>EMA</th>
+                                    <th style="white-space: pre-wrap;">200-Day<br>EMA</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mr-data-body">
+                                <tr><td colspan="47" style="text-align: center; color: #666; padding: 20px;">Enter a symbol, then click 'Load Timeseries' to view historical data.</td></tr>
+                            </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+// script start
+                document.getElementById('mr-target-date').valueAsDate = new Date();
                 let mrPollingInterval;
 
                 // Load Archive
@@ -252,7 +773,7 @@
                                 <td>${ema100}</td>
                                 <td>${ema200}</td>
                             </tr>
-                        `;
+                        \`;
                         return html;
                 }
 
@@ -2170,7 +2691,7 @@
             let minNifty = null;
             let maxNifty = null;
             if (niftyData.length > 0) {
-                const validNifty = niftyData.filter(v => v !== null && !isNaN(v) && v > 0);
+                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
                 if (validNifty.length > 0) {
                     const absMin = Math.min(...validNifty);
                     const absMax = Math.max(...validNifty);
@@ -2710,15 +3231,15 @@ function renderParticipantHistorical(data) {
 
         // Fix the NIFTY line scaling so it isn't flat by forcing axis scale properties explicitly
         if (niftyData.length > 0) {
-            const validNifty = niftyData.filter(v => v !== null && !isNaN(v) && v > 0);
+            const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
             if (validNifty.length > 0) {
                 const minNifty = Math.min(...validNifty);
                 const maxNifty = Math.max(...validNifty);
                 const diff = maxNifty - minNifty;
-                const pad = diff * 0.1;
+                const pad = diff > 0 ? diff * 0.1 : minNifty * 0.05; // Fix for identical values
                 option.yAxis[1].min = Math.floor(minNifty - pad);
                 option.yAxis[1].max = Math.ceil(maxNifty + pad);
-                option.yAxis[1].scale = false; // We use strict min/max now
+                option.yAxis[1].scale = true; // Use ECharts scale but strictly bounded
             }
         } else {
             option.yAxis[1].scale = true;
@@ -2751,9 +3272,7 @@ let volPreExpiryChart = null;
 let volConeChart = null;
 
 async function loadVolatilityAnalysis() {
-    console.log("Loading Volatility Analysis...");
-    try {
-        const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
+    const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
     const expiryType = document.getElementById('vol-analysis-expiry-type').value;
     const lookback = document.getElementById('vol-analysis-lookback').value;
     const boxDays = document.getElementById('vol-analysis-box-days').value;
@@ -2961,12 +3480,11 @@ async function loadVolatilityAnalysis() {
         console.error("Error loading Volatility Cone", e);
         if (volConeChart) volConeChart.hideLoading();
     }
-    } catch (e) { console.error('Error in loadVolatilityAnalysis:', e); alert('Error loading Volatility Analysis: ' + e.message); }
 }
 
 function exportTableToCSV(tableId, filename) {
     const table = document.getElementById(tableId);
-    if (!table) { alert("Table data not loaded yet."); return; }
+    if (!table) return;
 
     let csv = [];
     const rows = table.querySelectorAll('tr');
@@ -3023,8 +3541,6 @@ function exportChartDataToCSV(chartInstance, filename) {
         // Find xAxis data
         if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
             xAxisData = option.xAxis[0].data;
-        } else if (option.xAxis && option.xAxis.length > 1 && option.xAxis[1].data) {
-            xAxisData = option.xAxis[1].data;
         } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             // dataset fallback
             const src = option.dataset[0].source;
@@ -3040,10 +3556,7 @@ function exportChartDataToCSV(chartInstance, filename) {
                 else seriesNames.push('Series');
                 seriesData.push(s.data || []);
             });
-        }
-
-        // Sometimes dataset source is used alongside series (or exclusively)
-        if (seriesData.length === 0 && option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+        } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             const src = option.dataset[0].source;
             if (Array.isArray(src) && src.length > 0) {
                 // src[0] is headers, ignore [0][0] which is date
@@ -3056,19 +3569,9 @@ function exportChartDataToCSV(chartInstance, filename) {
                     seriesData.push(colData);
                 }
             }
-        }
-
-        if (seriesData.length === 0) {
+        } else {
             alert("No series data found in chart");
             return;
-        }
-
-        // If still no xAxisData but we have seriesData, just make dummy rows
-        if ((!xAxisData || xAxisData.length === 0) && seriesData.length > 0) {
-            xAxisData = xAxisData || [];
-            let maxLen = 0;
-            seriesData.forEach(sd => { if (sd.length > maxLen) maxLen = sd.length; });
-            for (let i = 0; i < maxLen; i++) xAxisData.push(`Row_${i}`);
         }
     } else if (isChartJS) {
         const data = chartInstance.data;
@@ -3103,19 +3606,34 @@ function exportChartDataToCSV(chartInstance, filename) {
 
         seriesData.forEach(d => {
             let val = '';
-            if (d && d[i] !== undefined) {
-                // Handle objects if data is complex (like candlesticks)
-                if (typeof d[i] === 'object' && d[i] !== null) {
-                    if (d[i].value !== undefined) {
-                        val = d[i].value;
-                    } else if (Array.isArray(d[i])) {
-                        // For Candlesticks [open, close, min, max] or [date, val1, val2]
-                        val = d[i].join('|');
+            let item = d ? d[i] : undefined;
+            if (item !== undefined && item !== null) {
+                // Handle objects if data is complex (like candlesticks or ECharts objects)
+                if (typeof item === 'object' && !Array.isArray(item)) {
+                    if (item.value !== undefined) {
+                        if (Array.isArray(item.value)) {
+                            // ECharts format for some series: [xAxis, yAxis]
+                            val = item.value.length > 1 ? item.value[1] : item.value[0];
+                        } else {
+                            val = item.value;
+                        }
+                    } else {
+                        // generic fallback
+                        val = JSON.stringify(item);
                     }
+                } else if (Array.isArray(item)) {
+                    // For Candlesticks [open, close, min, max] or [date, val1, val2]
+                    val = item.join(' | ');
                 } else {
-                    val = d[i];
+                    val = item;
                 }
             }
+
+            // Format string specifically to escape quotes for CSV
+            if (typeof val === 'string') {
+                val = val.replace(/"/g, '""');
+            }
+
             row.push(`"${val}"`);
         });
 

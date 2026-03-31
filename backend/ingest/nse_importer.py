@@ -462,7 +462,7 @@ class NSEDataImporter:
             # To strictly prevent duplicates in any time-series import (FO Bhavcopy, etc.),
             # use a delete-and-insert strategy for the specific trade_date instead of upserting.
             deleted = self._delete_for_date(db, model_class, trade_date)
-            inserted = self._insert_batch(db, model_class, records, batch_size=1000)
+            inserted = self._insert_batch(db, model_class, records, batch_size=2000)
             updated = 0
             logger.info(f"{key}: Deleted {deleted} old records, Inserted {inserted} new records.")
 

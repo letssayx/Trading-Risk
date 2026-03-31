@@ -818,20 +818,20 @@ class FieldMapper:
     @classmethod
     def _map_contract_delta(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
-        # Support both 'Expiry Date' and 'Expiry day', 'Delta' and 'Delta Factor'
+        # Support both 'Expiry Date' and 'Expiry day', 'Delta' and 'Delta Factor' (case insensitive using _get_val)
         for _, row in df.iterrows():
-            expiry = row.get('Expiry Date') if pd.notna(row.get('Expiry Date')) else row.get('Expiry day')
-            delta = row.get('Delta Factor') if pd.notna(row.get('Delta Factor')) else row.get('Delta')
+            expiry = cls._get_val(row, ['Expiry Date', 'Expiry day', 'EXPIRY DATE', 'EXPIRY DAY'])
+            delta = cls._get_val(row, ['Delta Factor', 'Delta', 'DELTA FACTOR', 'DELTA'])
 
             record = {
                 'date': trade_date,
-                'symbol': str(row.get('Symbol', '')).strip(),
+                'symbol': str(cls._get_val(row, ['Symbol', 'SYMBOL']) or '').strip(),
                 'expiry_date': parse_nse_date(expiry),
-                'strike_price': cls._clean_numeric(row.get('Strike Price')),
-                'option_type': str(row.get('Option Type', '')).strip(),
+                'strike_price': cls._clean_numeric(cls._get_val(row, ['Strike Price', 'STRIKE PRICE'])),
+                'option_type': str(cls._get_val(row, ['Option Type', 'OPTION TYPE']) or '').strip(),
                 'delta': cls._clean_numeric(delta),
             }
-            if record['symbol'] and record['symbol'].lower() != 'nan':
+            if record['symbol'] and record['symbol'].lower() != 'nan' and record['symbol'] != 'None':
                 records.append(record)
 
         if not records:
