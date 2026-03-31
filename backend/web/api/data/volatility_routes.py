@@ -37,12 +37,13 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
             result = []
 
         # fallback for Nifty just in case
-        if not result and symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+        if not result:
              query = text("""
-                SELECT DISTINCT ON (trade_date) trade_date, close_price
+                SELECT trade_date, MIN(close_price) as close_price
                 FROM bhavcopy_fo
-                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
-                ORDER BY trade_date ASC, expiry_date ASC
+                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF', 'FUTIVX', 'FUTIRC')
+                GROUP BY trade_date
+                ORDER BY trade_date ASC
             """)
              result = db.execute(query, {"symbol": symbol}).fetchall()
 
@@ -194,13 +195,14 @@ async def get_pre_expiry_action(
             """)
             result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
 
-        if not result and symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
+        if not result:
              db.rollback()
              query = text("""
-                SELECT DISTINCT ON (trade_date) trade_date, close_price
+                SELECT trade_date, MIN(close_price) as close_price
                 FROM bhavcopy_fo
-                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
-                ORDER BY trade_date DESC, expiry_date ASC
+                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF', 'FUTIVX', 'FUTIRC')
+                GROUP BY trade_date
+                ORDER BY trade_date DESC
                 LIMIT :lookback
             """)
              result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()

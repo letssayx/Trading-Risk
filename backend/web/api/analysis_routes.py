@@ -751,7 +751,7 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
         if r.trade_date not in nifty_prices:
             nifty_prices[r.trade_date] = r.close_price
 
-    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
+    nifty_close_list = [nifty_prices.get(d.date(), None) for d in pivot.index]
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],

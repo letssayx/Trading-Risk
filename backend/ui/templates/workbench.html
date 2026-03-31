@@ -603,7 +603,7 @@
             <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: hidden; display: flex; flex-direction: column; width: 100%;">
 
                 <!-- SUB-TAB 1: Data Matrix (Original Reports View) -->
-                <div id="deriv-tab-matrix" class="deriv-sub-tab active" style="height: 100%; width: 100%;">
+                <div id="deriv-tab-matrix" style="position:relative;" class="deriv-sub-tab active" style="height: 100%; width: 100%;">
 
                 <!-- Left Panel: Controls & Archive -->
                 <div style="width: 300px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0;">
@@ -1317,6 +1317,7 @@
                             <input type="text" id="mw-custom-symbol" class="form-control history-input" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
                             <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
                             <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                            <button class="btn btn-secondary" onclick="exportTableToCSV('marketwatch-table', 'Basis_Watch')"><i class="fas fa-download"></i> CSV</button>
                         </div>
                     </div>
                     <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
@@ -1464,7 +1465,7 @@
                 <!-- SUB-TAB 2: OI Analysis -->
                 <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                        <button class="btn btn-secondary" onclick="exportTableToCSV('oi-tool-table', 'OI_Analysis')"><i class="fas fa-download"></i> CSV (OI Tool Table)</button>
+                        <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis')"><i class="fas fa-download"></i> CSV (OI Tool Table)</button>
                     </div>
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
                     <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px; overflow-x: auto;">
@@ -1500,19 +1501,22 @@
                                         <option value="500" selected>500 Days</option>
                                     </select>
                                 </div>
-                                <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
+                                <div id="opt-analysis-pcr-chart"
+<button class="btn btn-secondary" onclick="exportChartDataToCSV(window.pcrChartInstance || pcrChartInstance, 'PCR_Chart')"><i class="fas fa-download"></i> CSV</button> style="flex: 1; width: 100%;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- SUB-TAB 3: Rollover Analysis -->
-                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
+                <div id="deriv-tab-rollover" style="position:relative;" class="deriv-sub-tab"
+<button class="btn btn-secondary" style="position:absolute; right:15px; top:15px;" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button> style="padding: 20px; height: 100%; overflow: auto;">
                     <!-- Content loaded by workbookManager.js / RolloverTool -->
                 </div>
 
                 <!-- SUB-TAB MWPL Analysis -->
-                <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-mwpl" style="position:relative;" class="deriv-sub-tab"
+<button class="btn btn-secondary" style="position:absolute; right:15px; top:15px;" onclick="exportTableToCSV('mwpl-analysis-table', 'MWPL_Analysis')"><i class="fas fa-download"></i> CSV</button> style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <button class="btn btn-secondary" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
                         <button class="btn btn-secondary" onclick="exportTableToCSV('mwpl-analysis-table', 'MWPL_Analysis')"><i class="fas fa-download"></i> CSV</button>
@@ -4848,8 +4852,14 @@ document.addEventListener('click', (e) => {
             if (!res.ok) throw new Error("Data fetch failed");
             const data = await res.json();
 
+            if (!data || !data.dates || data.dates.length === 0) {
+                echartInstance.hideLoading();
+                echartInstance.clear();
+                return;
+            }
+
             // Compute MACD colors (Orange > 0, Blue < 0 per requested theme)
-            const macdHistColors = data.macd_hist.map(v => v >= 0 ? '#E88B1E' : '#3176B8');
+            const macdHistColors = (data.macd_hist || []).map(v => v >= 0 ? '#E88B1E' : '#3176B8');
 
             const option = {
                 backgroundColor: '#121212', // Bloomberg darker dark theme
