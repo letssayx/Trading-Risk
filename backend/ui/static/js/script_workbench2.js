@@ -3541,6 +3541,8 @@ function exportChartDataToCSV(chartInstance, filename) {
         // Find xAxis data
         if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
             xAxisData = option.xAxis[0].data;
+        } else if (option.xAxis && option.xAxis.length > 1 && option.xAxis[1].data) {
+            xAxisData = option.xAxis[1].data;
         } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             // dataset fallback
             const src = option.dataset[0].source;
@@ -3556,7 +3558,10 @@ function exportChartDataToCSV(chartInstance, filename) {
                 else seriesNames.push('Series');
                 seriesData.push(s.data || []);
             });
-        } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+        }
+
+        // Sometimes dataset source is used alongside series (or exclusively)
+        if (seriesData.length === 0 && option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             const src = option.dataset[0].source;
             if (Array.isArray(src) && src.length > 0) {
                 // src[0] is headers, ignore [0][0] which is date
@@ -3569,9 +3574,19 @@ function exportChartDataToCSV(chartInstance, filename) {
                     seriesData.push(colData);
                 }
             }
-        } else {
+        }
+
+        if (seriesData.length === 0) {
             alert("No series data found in chart");
             return;
+        }
+
+        // If still no xAxisData but we have seriesData, just make dummy rows
+        if ((!xAxisData || xAxisData.length === 0) && seriesData.length > 0) {
+            xAxisData = xAxisData || [];
+            let maxLen = 0;
+            seriesData.forEach(sd => { if (sd.length > maxLen) maxLen = sd.length; });
+            for (let i = 0; i < maxLen; i++) xAxisData.push(`Row_${i}`);
         }
     } else if (isChartJS) {
         const data = chartInstance.data;

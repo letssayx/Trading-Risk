@@ -21,16 +21,28 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
         # If NIFTY/BANKNIFTY, we might need bhavcopy_eq fallback or check indices
         # We'll stick to bhavcopy_eq for now as the user mentioned: "No assumption of fake data. use highly accurate data"
         # Since historical_index_data might not exist or might fail, let's gracefully fallback or just use what we have.
-
-        result = db.execute(query, {"symbol": symbol}).fetchall()
+        try:
+            if symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]:
+                idx_query = text("""
+                    SELECT trade_date, close_price
+                    FROM historical_index_data
+                    WHERE index_name = :symbol
+                    ORDER BY trade_date ASC
+                """)
+                result = db.execute(idx_query, {"symbol": symbol}).fetchall()
+            else:
+                result = db.execute(query, {"symbol": symbol}).fetchall()
+        except Exception:
+            db.rollback()
+            result = []
 
         # fallback for Nifty just in case
         if not result and symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
              query = text("""
-                SELECT trade_date, close_price
-                FROM bhavcopy_eq
-                WHERE ticker_symb = :symbol
-                ORDER BY trade_date ASC
+                SELECT DISTINCT ON (trade_date) trade_date, close_price
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                ORDER BY trade_date ASC, expiry_date ASC
             """)
              result = db.execute(query, {"symbol": symbol}).fetchall()
 
@@ -185,10 +197,10 @@ async def get_pre_expiry_action(
         if not result and symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"]:
              db.rollback()
              query = text("""
-                SELECT trade_date, close_price
-                FROM bhavcopy_eq
-                WHERE ticker_symb = :symbol
-                ORDER BY trade_date DESC
+                SELECT DISTINCT ON (trade_date) trade_date, close_price
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                ORDER BY trade_date DESC, expiry_date ASC
                 LIMIT :lookback
             """)
              result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()

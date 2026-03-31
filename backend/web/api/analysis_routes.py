@@ -343,6 +343,18 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
     df['macd_hist'] = df['macd'] - df['macd_signal']
 
+    # d. Donchian Channel (20)
+    df['donchian_upper'] = df['high'].rolling(window=20).max()
+    df['donchian_lower'] = df['low'].rolling(window=20).min()
+
+    # e. ATR (14)
+    high_low = df['high'] - df['low']
+    high_close = np.abs(df['high'] - df['close'].shift())
+    low_close = np.abs(df['low'] - df['close'].shift())
+    ranges = pd.concat([high_low, high_close, low_close], axis=1)
+    true_range = np.max(ranges, axis=1)
+    df['atr'] = true_range.rolling(14).mean()
+
     # 3. Fetch 500 days of Total Futures OI
     oi_query = text("""
         SELECT trade_date, SUM(open_interest) as total_oi
@@ -427,8 +439,12 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         "macd_signal": df['macd_signal'].tolist(),
         "macd_hist": df['macd_hist'].tolist(),
         "total_oi": df['total_oi'].tolist(),
+        "oi": df['total_oi'].tolist(),
         "pcr": df['pcr'].tolist(),
-        "iv": df['iv'].tolist()
+        "iv": df['iv'].tolist(),
+        "donchian_upper": df['donchian_upper'].tolist(),
+        "donchian_lower": df['donchian_lower'].tolist(),
+        "atr": df['atr'].tolist()
     }
 
 @router.get("/api/market-activity/participant-oi")
@@ -521,7 +537,7 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         FROM bhavcopy_fo
         WHERE ticker_symb = 'NIFTY' AND instrument_type IN ('FUTIDX', 'FUTSTK')
         AND trade_date IN :dates
-        ORDER BY expiry_date ASC
+        ORDER BY trade_date ASC, expiry_date ASC
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
@@ -723,14 +739,18 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     nifty_query = text("""
         SELECT trade_date, close_price
         FROM bhavcopy_fo
-        WHERE ticker_symb = 'NIFTY' AND instrument_type = 'FUTIDX'
-        AND trade_date = expiry_date
+        WHERE ticker_symb = 'NIFTY' AND instrument_type IN ('FUTIDX', 'FUTSTK')
         AND trade_date IN :dates
+        ORDER BY trade_date ASC, expiry_date ASC
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
-    # Map NIFTY prices to the same date index
-    nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
+    # Map NIFTY prices to the same date index (get closest expiry's close price)
+    nifty_prices = {}
+    for r in nifty_records:
+        if r.trade_date not in nifty_prices:
+            nifty_prices[r.trade_date] = r.close_price
+
     nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
 
     return {
