@@ -574,6 +574,24 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
 
     nifty_prices_map = {r.trade_date: r.close_price for r in nifty_records}
 
+    # Fallback to bhavcopy_fo for NIFTY if historical_index_data is missing
+    missing_dates = [d.date() for d in pivot_idx.index if d.date() not in nifty_prices_map]
+    if missing_dates:
+        fallback_query = text("""
+            SELECT trade_date, close_price
+            FROM bhavcopy_fo
+            WHERE ticker_symb = 'NIFTY'
+            AND instrument_type IN ('FUTIDX', 'STF')
+            AND trade_date IN :dates
+            ORDER BY trade_date, expiry_date
+        """)
+        fallback_records = db.execute(fallback_query, {"dates": tuple(missing_dates)}).fetchall()
+
+        # Take the first available expiry close_price for each missing date
+        for r in fallback_records:
+            if r.trade_date not in nifty_prices_map:
+                nifty_prices_map[r.trade_date] = r.close_price
+
     nifty_close_list = [nifty_prices_map.get(d.date(), None) for d in pivot_idx.index]
 
     return {
@@ -774,6 +792,23 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
 
     # Map NIFTY prices to the same date index
     nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
+
+    # Fallback to bhavcopy_fo for missing NIFTY dates
+    missing_dates = [d.date() for d in pivot.index if d.date() not in nifty_prices]
+    if missing_dates:
+        fallback_query = text("""
+            SELECT trade_date, close_price
+            FROM bhavcopy_fo
+            WHERE ticker_symb = 'NIFTY'
+            AND instrument_type IN ('FUTIDX', 'STF')
+            AND trade_date IN :dates
+            ORDER BY trade_date, expiry_date
+        """)
+        fallback_records = db.execute(fallback_query, {"dates": tuple(missing_dates)}).fetchall()
+        for r in fallback_records:
+            if r.trade_date not in nifty_prices:
+                nifty_prices[r.trade_date] = r.close_price
+
     nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
 
     return {

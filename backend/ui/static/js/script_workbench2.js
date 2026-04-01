@@ -3494,7 +3494,8 @@ function exportTableToCSV(tableId, filename) {
 
         for (let j = 0; j < cols.length; j++) {
             let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
-            data = data.replace(/[▼▲↕]/g, '').trim(); // Remove sort arrows
+            // Explicitly remove all variations of sorting arrows/junk characters that might exist
+            data = data.replace(/[▼▲↕]/g, '').replace(/[\u25B2\u25BC\u2195]/g, '').trim();
             data = data.replace(/"/g, '""');
             row.push('"' + data + '"');
         }
@@ -3540,7 +3541,11 @@ function exportChartDataToCSV(chartInstance, filename) {
         if (!option) { alert("Error reading chart option"); return; }
 
         // ECharts Horizontal Bar charts store categories in yAxis
-        const isHorizontal = option.yAxis && option.yAxis.length > 0 && option.yAxis[0].type === 'category' && option.yAxis[0].data;
+        // Need to check both yAxis array or single object format
+        let yAxisObj = Array.isArray(option.yAxis) ? option.yAxis[0] : option.yAxis;
+        let xAxisObj = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+
+        const isHorizontal = yAxisObj && yAxisObj.type === 'category' && yAxisObj.data;
 
         if (isHorizontal) {
             headers = ['Category'];
@@ -3548,9 +3553,9 @@ function exportChartDataToCSV(chartInstance, filename) {
 
         // Find xAxis data
         if (isHorizontal) {
-            xAxisData = option.yAxis[0].data;
-        } else if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
-            xAxisData = option.xAxis[0].data;
+            xAxisData = yAxisObj.data;
+        } else if (xAxisObj && xAxisObj.data) {
+            xAxisData = xAxisObj.data;
         } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             // dataset fallback
             const src = option.dataset[0].source;

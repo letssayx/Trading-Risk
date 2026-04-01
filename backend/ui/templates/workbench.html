@@ -1547,8 +1547,6 @@
                             <option value="500" selected>500 Days</option>
                         </select>
                         <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
-                        <button class="btn btn-secondary" onclick="if(window.fiiDiiChartInstance) exportChartDataToCSV(window.fiiDiiChartInstance, 'FII_DII_Net_Pos'); else exportChartDataToCSV(fiiDiiChartInstance, 'FII_DII_Net_Pos')"><i class="fas fa-download"></i> CSV (FII/DII)</button>
-                        <button class="btn btn-secondary" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Participant_OI'); else exportChartDataToCSV(participantChartInstance, 'Participant_OI')"><i class="fas fa-download"></i> CSV (Participant OI)</button>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px;">
@@ -2189,11 +2187,13 @@
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
                 target.classList.add('active');
-                // Temporarily force display so offsetWidth is > 0, letting ECharts initialize without a 0x0 container size
-                // Then rely on the .active class defined in CSS which handles flex/block visibility
+
+                // For ECharts embedded in flex containers, display:none to display:flex transitions
+                // often cause 0x0 canvas sizes. We force the flex layout immediately before loading.
                 if (tabName === 'advtech' || tabName === 'optanalysis') {
                     target.style.display = 'flex';
-                    setTimeout(() => { target.style.display = ''; }, 100);
+                } else {
+                    target.style.display = 'block';
                 }
 
                 btn.classList.add('active');
@@ -2204,9 +2204,21 @@
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
                 } else if (tabName === 'advtech' && typeof loadDynamicChart === 'function') {
-                    // Ensure the container is resized if already loaded, or load it
-                    if (window.echartInstance) { setTimeout(() => window.echartInstance.resize(), 10); }
-                    else { setTimeout(loadDynamicChart, 50); }
+                    // Force resize after the container actually has a size rendered by the browser layout engine
+                    if (window.echartInstance) {
+                        setTimeout(() => window.echartInstance.resize(), 50);
+                    } else {
+                        setTimeout(loadDynamicChart, 50);
+                    }
+                } else if (tabName === 'optanalysis') {
+                    if (typeof loadVolatilityAnalysis === 'function' && document.getElementById('vol-pre-expiry-chart').innerHTML === '') {
+                        setTimeout(loadVolatilityAnalysis, 50);
+                    } else if (window.volPreExpiryChart || window.volConeChart) {
+                        setTimeout(() => {
+                            if(window.volPreExpiryChart) window.volPreExpiryChart.resize();
+                            if(window.volConeChart) window.volConeChart.resize();
+                        }, 50);
+                    }
                 } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
                     loadMWPLAnalysis();
                 } else if (tabName === 'watch' && typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
@@ -4493,7 +4505,8 @@ function exportTableToCSV(tableId, filename) {
 
         for (let j = 0; j < cols.length; j++) {
             let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
-            data = data.replace(/[▼▲↕]/g, '').trim(); // Remove sort arrows
+            // Explicitly remove all variations of sorting arrows/junk characters that might exist
+            data = data.replace(/[▼▲↕]/g, '').replace(/[\u25B2\u25BC\u2195]/g, '').trim();
             data = data.replace(/"/g, '""');
             row.push('"' + data + '"');
         }
@@ -4539,7 +4552,11 @@ function exportChartDataToCSV(chartInstance, filename) {
         if (!option) { alert("Error reading chart option"); return; }
 
         // ECharts Horizontal Bar charts store categories in yAxis
-        const isHorizontal = option.yAxis && option.yAxis.length > 0 && option.yAxis[0].type === 'category' && option.yAxis[0].data;
+        // Need to check both yAxis array or single object format
+        let yAxisObj = Array.isArray(option.yAxis) ? option.yAxis[0] : option.yAxis;
+        let xAxisObj = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+
+        const isHorizontal = yAxisObj && yAxisObj.type === 'category' && yAxisObj.data;
 
         if (isHorizontal) {
             headers = ['Category'];
@@ -4547,9 +4564,9 @@ function exportChartDataToCSV(chartInstance, filename) {
 
         // Find xAxis data
         if (isHorizontal) {
-            xAxisData = option.yAxis[0].data;
-        } else if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
-            xAxisData = option.xAxis[0].data;
+            xAxisData = yAxisObj.data;
+        } else if (xAxisObj && xAxisObj.data) {
+            xAxisData = xAxisObj.data;
         } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             // dataset fallback
             const src = option.dataset[0].source;

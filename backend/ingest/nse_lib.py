@@ -82,6 +82,7 @@ class NSELib:
 
         self._ensure_session()
 
+
         # Ensure Referer is set for API calls
         if 'api' in url and 'Referer' not in self.session.headers:
             self.session.headers['Referer'] = self.BASE_URL
@@ -596,7 +597,8 @@ class NSELib:
         ]
 
         for url in urls:
-            resp = self.get(url, use_curl=True)  # Using curl_cffi for bot mitigation
+            # First try with curl_cffi
+            resp = self.get(url, use_curl=True)
             # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
             if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
                 try:
@@ -606,6 +608,18 @@ class NSELib:
                         return df
                 except Exception as e:
                     logger.error(f"Error parsing Contract Delta from {url}: {e}")
+
+            # If it failed with curl, try with regular python requests session (which FO bhavcopy uses successfully)
+            resp = self.get(url, use_curl=False)
+            if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
+                try:
+                    df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                    df.columns = [str(c).strip() for c in df.columns]
+                    if not df.empty:
+                        return df
+                except Exception as e:
+                    logger.error(f"Error parsing Contract Delta from {url} (regular session): {e}")
+
         return pd.DataFrame()
 
     def get_fii_dii_cash(self, trade_date: date) -> pd.DataFrame:
