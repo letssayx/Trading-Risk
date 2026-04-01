@@ -565,19 +565,14 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
 
     # Fetch NIFTY index data for overlay
     nifty_query = text("""
-        SELECT trade_date, close_price
-        FROM bhavcopy_fo
-        WHERE ticker_symb = 'NIFTY' AND instrument_type IN ('FUTIDX', 'FUTSTK')
+        SELECT trade_date, close
+        FROM historical_index_data
+        WHERE index_name = 'NIFTY 50'
         AND trade_date IN :dates
-        ORDER BY expiry_date ASC
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
-    # Need to group by date and just take the closest expiry's close price
-    nifty_prices_map = {}
-    for r in nifty_records:
-        if r.trade_date not in nifty_prices_map:
-            nifty_prices_map[r.trade_date] = r.close_price
+    nifty_prices_map = {r.trade_date: r.close for r in nifty_records}
 
     nifty_close_list = [nifty_prices_map.get(d.date(), None) for d in pivot_idx.index]
 
@@ -768,17 +763,17 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     from sqlalchemy import text
 
     # Fetch NIFTY index data for overlay
+    # Prefer historical_index_data over bhavcopy_fo to avoid zeroing out when expiry_date condition fails
     nifty_query = text("""
-        SELECT trade_date, close_price
-        FROM bhavcopy_fo
-        WHERE ticker_symb = 'NIFTY' AND instrument_type = 'FUTIDX'
-        AND trade_date = expiry_date
+        SELECT trade_date, close
+        FROM historical_index_data
+        WHERE index_name = 'NIFTY 50'
         AND trade_date IN :dates
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
     # Map NIFTY prices to the same date index
-    nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
+    nifty_prices = {r.trade_date: r.close for r in nifty_records}
     nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
 
     return {

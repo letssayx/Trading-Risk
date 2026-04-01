@@ -3494,6 +3494,7 @@ function exportTableToCSV(tableId, filename) {
 
         for (let j = 0; j < cols.length; j++) {
             let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
+            data = data.replace(/[▼▲↕]/g, '').trim(); // Remove sort arrows
             data = data.replace(/"/g, '""');
             row.push('"' + data + '"');
         }
@@ -3538,8 +3539,17 @@ function exportChartDataToCSV(chartInstance, filename) {
         const option = chartInstance.getOption();
         if (!option) { alert("Error reading chart option"); return; }
 
+        // ECharts Horizontal Bar charts store categories in yAxis
+        const isHorizontal = option.yAxis && option.yAxis.length > 0 && option.yAxis[0].type === 'category' && option.yAxis[0].data;
+
+        if (isHorizontal) {
+            headers = ['Category'];
+        }
+
         // Find xAxis data
-        if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
+        if (isHorizontal) {
+            xAxisData = option.yAxis[0].data;
+        } else if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
             xAxisData = option.xAxis[0].data;
         } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             // dataset fallback

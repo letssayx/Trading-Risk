@@ -28,6 +28,7 @@ const RolloverTool = {
                     <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
                     <button onclick="RolloverTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
+                    <button class="btn btn-secondary" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 

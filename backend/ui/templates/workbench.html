@@ -1317,6 +1317,7 @@
                             <input type="text" id="mw-custom-symbol" class="form-control history-input" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
                             <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
                             <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                            <button class="btn btn-secondary" onclick="exportTableToCSV('marketwatch-table', 'Basis_Watch')"><i class="fas fa-download"></i> CSV</button>
                         </div>
                     </div>
                     <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
@@ -1575,29 +1576,47 @@
                         <!-- 6 Historical Bar Charts with Index Overlay (2 per row) -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Futures</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Futures</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartIdxFut) exportChartDataToCSV(window.lsRatioEchartIdxFut, 'Smart_Money_Index_Futures'); else if(typeof lsRatioEchartIdxFut !== 'undefined') exportChartDataToCSV(lsRatioEchartIdxFut, 'Smart_Money_Index_Futures')"><i class="fas fa-download"></i> CSV</button>
+                                </div>
                                 <div id="lsRatioEchart-idx-fut" style="flex: 1; width: 100%;"></div>
                             </div>
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Futures</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Futures</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartStkFut) exportChartDataToCSV(window.lsRatioEchartStkFut, 'Smart_Money_Stock_Futures'); else if(typeof lsRatioEchartStkFut !== 'undefined') exportChartDataToCSV(lsRatioEchartStkFut, 'Smart_Money_Stock_Futures')"><i class="fas fa-download"></i> CSV</button>
+                                </div>
                                 <div id="lsRatioEchart-stk-fut" style="flex: 1; width: 100%;"></div>
                             </div>
 
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Calls</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Calls</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartIdxCall) exportChartDataToCSV(window.lsRatioEchartIdxCall, 'Smart_Money_Index_Calls'); else if(typeof lsRatioEchartIdxCall !== 'undefined') exportChartDataToCSV(lsRatioEchartIdxCall, 'Smart_Money_Index_Calls')"><i class="fas fa-download"></i> CSV</button>
+                                </div>
                                 <div id="lsRatioEchart-idx-call" style="flex: 1; width: 100%;"></div>
                             </div>
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Calls</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Calls</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartStkCall) exportChartDataToCSV(window.lsRatioEchartStkCall, 'Smart_Money_Stock_Calls'); else if(typeof lsRatioEchartStkCall !== 'undefined') exportChartDataToCSV(lsRatioEchartStkCall, 'Smart_Money_Stock_Calls')"><i class="fas fa-download"></i> CSV</button>
+                                </div>
                                 <div id="lsRatioEchart-stk-call" style="flex: 1; width: 100%;"></div>
                             </div>
 
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Puts</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Puts</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartIdxPut) exportChartDataToCSV(window.lsRatioEchartIdxPut, 'Smart_Money_Index_Puts'); else if(typeof lsRatioEchartIdxPut !== 'undefined') exportChartDataToCSV(lsRatioEchartIdxPut, 'Smart_Money_Index_Puts')"><i class="fas fa-download"></i> CSV</button>
+                                </div>
                                 <div id="lsRatioEchart-idx-put" style="flex: 1; width: 100%;"></div>
                             </div>
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Puts</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Puts</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartStkPut) exportChartDataToCSV(window.lsRatioEchartStkPut, 'Smart_Money_Stock_Puts'); else if(typeof lsRatioEchartStkPut !== 'undefined') exportChartDataToCSV(lsRatioEchartStkPut, 'Smart_Money_Stock_Puts')"><i class="fas fa-download"></i> CSV</button>
+                                </div>
                                 <div id="lsRatioEchart-stk-put" style="flex: 1; width: 100%;"></div>
                             </div>
                         </div>
@@ -2173,7 +2192,8 @@
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
                 } else if (tabName === 'advtech' && typeof loadDynamicChart === 'function') {
-                    loadDynamicChart();
+                    // Slight delay to ensure DOM is visible before echarts init
+                    setTimeout(loadDynamicChart, 50);
                 } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
                     loadMWPLAnalysis();
                 } else if (tabName === 'watch' && typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
@@ -2182,7 +2202,13 @@
                     if (window.OiTool) window.OiTool.open();
                     else if (typeof OiTool !== 'undefined') OiTool.open();
                     if (typeof loadOptionsAnalysis === 'function') {
-                        loadOptionsAnalysis();
+                        // Slight delay to ensure DOM is visible
+                        setTimeout(loadOptionsAnalysis, 50);
+                    }
+                } else if (tabName === 'optanalysis') {
+                    if (typeof loadVolatilityAnalysis === 'function') {
+                        // Slight delay to ensure DOM is visible
+                        setTimeout(loadVolatilityAnalysis, 50);
                     }
                 } else if (tabName === 'rollover') {
                     if (window.RolloverTool) window.RolloverTool.open();
@@ -4449,6 +4475,7 @@ function exportTableToCSV(tableId, filename) {
 
         for (let j = 0; j < cols.length; j++) {
             let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
+            data = data.replace(/[▼▲↕]/g, '').trim(); // Remove sort arrows
             data = data.replace(/"/g, '""');
             row.push('"' + data + '"');
         }
@@ -4493,8 +4520,17 @@ function exportChartDataToCSV(chartInstance, filename) {
         const option = chartInstance.getOption();
         if (!option) { alert("Error reading chart option"); return; }
 
+        // ECharts Horizontal Bar charts store categories in yAxis
+        const isHorizontal = option.yAxis && option.yAxis.length > 0 && option.yAxis[0].type === 'category' && option.yAxis[0].data;
+
+        if (isHorizontal) {
+            headers = ['Category'];
+        }
+
         // Find xAxis data
-        if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
+        if (isHorizontal) {
+            xAxisData = option.yAxis[0].data;
+        } else if (option.xAxis && option.xAxis.length > 0 && option.xAxis[0].data) {
             xAxisData = option.xAxis[0].data;
         } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             // dataset fallback
