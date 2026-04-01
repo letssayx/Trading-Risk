@@ -70,8 +70,16 @@ class NSELib:
 
         logger.error("Failed to prime NSE session after 3 attempts.")
 
-    def get(self, url: str) -> Any:
+    def get(self, url: str, use_curl: bool = False) -> Any:
         """Execute GET request with session handling."""
+        if use_curl:
+            try:
+                # Use curl_cffi to bypass Bot protections (e.g. for archives and static CSVs)
+                return cffi_requests.get(url, impersonate="chrome110", timeout=30, headers=self.HEADERS)
+            except Exception as e:
+                logger.error(f"curl_cffi get failed for {url}: {e}")
+                return None
+
         self._ensure_session()
 
         # Ensure Referer is set for API calls

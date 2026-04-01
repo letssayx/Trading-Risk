@@ -1559,7 +1559,10 @@
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Flows</h3>
-                                    <span id="fii-dii-summary" style="font-size: 12px; color: #aaa;"></span>
+                                    <div style="display: flex; gap: 10px; align-items: baseline;">
+                                        <span id="fii-dii-summary" style="font-size: 12px; color: #aaa;"></span>
+                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiChartInstance) exportChartDataToCSV(window.fiiDiiChartInstance, 'FII_DII_Net_Pos'); else if(typeof fiiDiiChartInstance !== 'undefined') exportChartDataToCSV(fiiDiiChartInstance, 'FII_DII_Net_Pos')"><i class="fas fa-download"></i> CSV</button>
+                                    </div>
                                 </div>
                                 <div style="flex: 1; position: relative;">
                                     <canvas id="fiiDiiChart"></canvas>
@@ -1568,7 +1571,10 @@
 
                             <!-- Chart 2: Daily Snapshot Grouped Bar Chart -->
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Daily_Position'); else if(typeof participantChartInstance !== 'undefined') exportChartDataToCSV(participantChartInstance, 'Smart_Money_Daily_Position')"><i class="fas fa-download"></i> CSV</button>
+                                </div>
                                 <div id="participant-oi-daily-summary" style="flex: 1; width: 100%;"></div>
                             </div>
                         </div>
@@ -2183,6 +2189,12 @@
             const btn = document.getElementById(`deriv-tab-btn-${tabName}`);
             if (target && btn) {
                 target.classList.add('active');
+                // Temporarily force display so offsetWidth is > 0, letting ECharts initialize without a 0x0 container size
+                // Then rely on the .active class defined in CSS which handles flex/block visibility
+                if (tabName === 'advtech' || tabName === 'optanalysis') {
+                    target.style.display = 'flex';
+                    setTimeout(() => { target.style.display = ''; }, 100);
+                }
 
                 btn.classList.add('active');
                 btn.style.borderBottomColor = '#4ade80';
@@ -2192,8 +2204,9 @@
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
                 } else if (tabName === 'advtech' && typeof loadDynamicChart === 'function') {
-                    // Slight delay to ensure DOM is visible before echarts init
-                    setTimeout(loadDynamicChart, 50);
+                    // Ensure the container is resized if already loaded, or load it
+                    if (window.echartInstance) { setTimeout(() => window.echartInstance.resize(), 10); }
+                    else { setTimeout(loadDynamicChart, 50); }
                 } else if (tabName === 'mwpl' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click')) {
                     loadMWPLAnalysis();
                 } else if (tabName === 'watch' && typeof loadMarketWatch === 'function' && document.getElementById('marketwatch-body').innerHTML.includes('Click')) {
@@ -2201,11 +2214,16 @@
                 } else if (tabName === 'oi') {
                     if (window.OiTool) window.OiTool.open();
                     else if (typeof OiTool !== 'undefined') OiTool.open();
+
+                    if (window.highOiChartInstance) { setTimeout(() => window.highOiChartInstance.resize(), 10); }
                     if (typeof loadOptionsAnalysis === 'function') {
                         // Slight delay to ensure DOM is visible
                         setTimeout(loadOptionsAnalysis, 50);
                     }
                 } else if (tabName === 'optanalysis') {
+                    if (window.volPreExpiryChart) { setTimeout(() => window.volPreExpiryChart.resize(), 10); }
+                    if (window.volConeChart) { setTimeout(() => window.volConeChart.resize(), 10); }
+
                     if (typeof loadVolatilityAnalysis === 'function') {
                         // Slight delay to ensure DOM is visible
                         setTimeout(loadVolatilityAnalysis, 50);

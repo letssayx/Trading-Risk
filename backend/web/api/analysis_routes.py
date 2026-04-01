@@ -565,14 +565,14 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
 
     # Fetch NIFTY index data for overlay
     nifty_query = text("""
-        SELECT trade_date, close
+        SELECT trade_date, close_price
         FROM historical_index_data
         WHERE index_name = 'NIFTY 50'
         AND trade_date IN :dates
     """)
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
-    nifty_prices_map = {r.trade_date: r.close for r in nifty_records}
+    nifty_prices_map = {r.trade_date: r.close_price for r in nifty_records}
 
     nifty_close_list = [nifty_prices_map.get(d.date(), None) for d in pivot_idx.index]
 
@@ -765,7 +765,7 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     # Fetch NIFTY index data for overlay
     # Prefer historical_index_data over bhavcopy_fo to avoid zeroing out when expiry_date condition fails
     nifty_query = text("""
-        SELECT trade_date, close
+        SELECT trade_date, close_price
         FROM historical_index_data
         WHERE index_name = 'NIFTY 50'
         AND trade_date IN :dates
@@ -773,7 +773,7 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     nifty_records = db.execute(nifty_query, {"dates": tuple(dates)}).fetchall()
 
     # Map NIFTY prices to the same date index
-    nifty_prices = {r.trade_date: r.close for r in nifty_records}
+    nifty_prices = {r.trade_date: r.close_price for r in nifty_records}
     nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
 
     return {
