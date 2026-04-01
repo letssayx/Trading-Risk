@@ -1,0 +1,38 @@
+--- backend/ingest/nse_lib.py
++++ backend/ingest/nse_lib.py
+@@ -597,25 +597,26 @@
+         ]
+
+         for url in urls:
+-            # First try with curl_cffi
+-            resp = self.get(url, use_curl=True)
+-            # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
++            # First try with regular python requests session (which FO bhavcopy uses successfully)
++            # as curl_cffi often fails when session isn't persisted properly
++            resp = self.get(url, use_curl=False)
+             if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
+                 try:
+                     df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                     df.columns = [str(c).strip() for c in df.columns]
+                     if not df.empty:
+                         return df
+                 except Exception as e:
+-                    logger.error(f"Error parsing Contract Delta from {url}: {e}")
++                    logger.error(f"Error parsing Contract Delta from {url} (regular session): {e}")
+
+-            # If it failed with curl, try with regular python requests session (which FO bhavcopy uses successfully)
+-            resp = self.get(url, use_curl=False)
++            # Fallback to curl_cffi
++            resp = self.get(url, use_curl=True)
++            # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
+             if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
+                 try:
+                     df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                     df.columns = [str(c).strip() for c in df.columns]
+                     if not df.empty:
+                         return df
+                 except Exception as e:
+-                    logger.error(f"Error parsing Contract Delta from {url} (regular session): {e}")
++                    logger.error(f"Error parsing Contract Delta from {url}: {e}")
+
+         return pd.DataFrame()

@@ -592,7 +592,7 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
             if r.trade_date not in nifty_prices_map:
                 nifty_prices_map[r.trade_date] = r.close_price
 
-    nifty_close_list = [nifty_prices_map.get(d.date(), None) for d in pivot_idx.index]
+    nifty_close_list = [float(nifty_prices_map.get(d.date(), 0.0)) if nifty_prices_map.get(d.date()) is not None else None for d in pivot_idx.index]
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot_idx.index],
@@ -809,7 +809,7 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
             if r.trade_date not in nifty_prices:
                 nifty_prices[r.trade_date] = r.close_price
 
-    nifty_close_list = [nifty_prices.get(d.date(), 0.0) for d in pivot.index]
+    nifty_close_list = [float(nifty_prices.get(d.date(), 0.0)) if nifty_prices.get(d.date()) is not None else None for d in pivot.index]
 
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
