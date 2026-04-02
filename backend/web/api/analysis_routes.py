@@ -299,15 +299,15 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         db.rollback()
         cash_results = []
 
-    if not cash_results and not is_index:
+    if not cash_results:
         try:
             db.rollback()
-            # Fallback to near futures for stocks without EQ data
+            # Fallback to near futures for stocks without EQ data or indices without Historical Index Data
             fo_query = text("""
                 SELECT * FROM (
                     SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price, total_trading_vol as volume
                     FROM bhavcopy_fo
-                    WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                    WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK', 'STF', 'IDF')
                     ORDER BY trade_date ASC, expiry_date ASC
                 ) AS distinct_dates
                 ORDER BY trade_date ASC
@@ -578,10 +578,10 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     missing_dates = [d.date() for d in pivot_idx.index if d.date() not in nifty_prices_map]
     if missing_dates:
         fallback_query = text("""
-            SELECT trade_date, close_price
+            SELECT DISTINCT ON (trade_date) trade_date, close_price
             FROM bhavcopy_fo
             WHERE ticker_symb = 'NIFTY'
-            AND instrument_type IN ('FUTIDX', 'STF')
+            AND instrument_type IN ('FUTIDX', 'STF', 'IDF')
             AND trade_date IN :dates
             ORDER BY trade_date, expiry_date
         """)
@@ -797,10 +797,10 @@ async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     missing_dates = [d.date() for d in pivot.index if d.date() not in nifty_prices]
     if missing_dates:
         fallback_query = text("""
-            SELECT trade_date, close_price
+            SELECT DISTINCT ON (trade_date) trade_date, close_price
             FROM bhavcopy_fo
             WHERE ticker_symb = 'NIFTY'
-            AND instrument_type IN ('FUTIDX', 'STF')
+            AND instrument_type IN ('FUTIDX', 'STF', 'IDF')
             AND trade_date IN :dates
             ORDER BY trade_date, expiry_date
         """)
