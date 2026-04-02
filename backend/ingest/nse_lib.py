@@ -596,30 +596,33 @@ class NSELib:
             f"{self.ARCHIVES_URL}/archives/nsccl/delta/n_delta_trd_{date_str}.DAT",
         ]
 
-        for url in urls:
-            # First try with regular python requests session (which FO bhavcopy uses successfully)
-            # as curl_cffi often fails when session isn't persisted properly
-            resp = self.get(url, use_curl=False)
-            if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
-                try:
-                    df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-                    df.columns = [str(c).strip() for c in df.columns]
-                    if not df.empty:
-                        return df
-                except Exception as e:
-                    logger.error(f"Error parsing Contract Delta from {url} (regular session): {e}")
+        try:
+            for url in urls:
+                # First try with regular python requests session (which FO bhavcopy uses successfully)
+                # as curl_cffi often fails when session isn't persisted properly
+                resp = self.get(url, use_curl=False)
+                if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
+                    try:
+                        df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                        df.columns = [str(c).strip() for c in df.columns]
+                        if not df.empty:
+                            return df
+                    except Exception as e:
+                        logger.error(f"Error parsing Contract Delta from {url} (regular session): {e}")
 
-            # Fallback to curl_cffi
-            resp = self.get(url, use_curl=True)
-            # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
-            if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
-                try:
-                    df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-                    df.columns = [str(c).strip() for c in df.columns]
-                    if not df.empty:
-                        return df
-                except Exception as e:
-                    logger.error(f"Error parsing Contract Delta from {url}: {e}")
+                # Fallback to curl_cffi
+                resp = self.get(url, use_curl=True)
+                # Check for 200 OK and explicitly ignore NSE's custom 404 HTML payloads
+                if resp and resp.status_code == 200 and b'<!doctype html>' not in resp.content[:1024].lower() and b'<!DOCTYPE html>' not in resp.content[:1024]:
+                    try:
+                        df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+                        df.columns = [str(c).strip() for c in df.columns]
+                        if not df.empty:
+                            return df
+                    except Exception as e:
+                        logger.error(f"Error parsing Contract Delta from {url}: {e}")
+        except Exception as outer_e:
+            logger.error(f"Unexpected error in get_contract_delta for {trade_date}: {outer_e}")
 
         return pd.DataFrame()
 
