@@ -1419,27 +1419,28 @@
                     </h2>
 
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
-                        <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol">
-                        <select id="vol-analysis-expiry-type" class="history-input">
+                        <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol" onkeydown="if(event.key === 'Enter') loadVolatilityAnalysis()">
+                        <select id="vol-analysis-expiry-type" class="history-input" onchange="loadVolatilityAnalysis()">
                             <option value="monthly">Monthly Expiry</option>
                             <option value="weekly">Weekly Expiry</option>
                         </select>
-                        <select id="vol-analysis-lookback" class="history-input">
+                        <select id="vol-analysis-lookback" class="history-input" onchange="loadVolatilityAnalysis()">
                             <option value="30">30 Days</option>
                             <option value="60">60 Days</option>
                             <option value="90">90 Days</option>
                             <option value="252">252 Days</option>
                             <option value="500" selected>500 Days</option>
                         </select>
-                        <select id="vol-analysis-box-days" class="history-input">
-                            <option value="3">3 Days Prior</option>
-                            <option value="7" selected>7 Days Prior</option>
-                            <option value="10">10 Days Prior</option>
-                            <option value="15">15 Days Prior</option>
-                            <option value="20">20 Days Prior</option>
-                            <option value="30">30 Days Prior</option>
+                        <select id="vol-analysis-box-days" class="history-input" onchange="loadVolatilityAnalysis()">
+                            <option value="3">3 DTE</option>
+                            <option value="7" selected>7 DTE</option>
+                            <option value="10">10 DTE</option>
+                            <option value="15">15 DTE</option>
+                            <option value="20">20 DTE</option>
+                            <option value="30">30 DTE</option>
                         </select>
                         <button class="btn btn-primary" onclick="loadVolatilityAnalysis()">Load Volatility</button>
+                        <span style="color: #888; font-size: 11px; margin-left: auto;">*DTE - Days to Expiry</span>
                     </div>
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
@@ -1467,31 +1468,22 @@
 
                 <!-- SUB-TAB 2: OI Analysis -->
                 <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                        <button class="btn btn-secondary" onclick="exportTableToCSV('oi-tool-table', 'OI_Analysis')"><i class="fas fa-download"></i> CSV (OI Tool Table)</button>
-                    </div>
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
                     <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px; overflow-x: auto;">
                         <!-- Content loaded by workbookManager.js / OiTool -->
                     </div>
 
                     <!-- Bottom section: Options Analysis Charts -->
-                    <div style="width: 100%; display: flex; flex-direction: column; gap: 20px;">
+                    <div id="oi-options-charts-container" style="width: 100%; display: flex; flex-direction: column; gap: 20px;">
                         <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0; margin-top: 20px; border-top: 1px solid #333; padding-top: 20px;">
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
-                            <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;">
+                            <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                             <button class="btn btn-secondary" onclick="loadOptionsAnalysis()">Load Charts</button>
                             <button class="btn btn-secondary" onclick="if(window.pcrChartInstance) exportChartDataToCSV(window.pcrChartInstance, 'PCR_History'); else exportChartDataToCSV(pcrChartInstance, 'PCR_History')"><i class="fas fa-download"></i> CSV (PCR)</button>
                             <button class="btn btn-secondary" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV (High OI)</button>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; width: 100%;">
-                            <!-- 4c. High Open Interest Chart -->
-                            <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
-                                <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
-                            </div>
-
+                        <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
                             <!-- 4a. 500 Day Price & PCR Overlay -->
                             <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -1505,6 +1497,12 @@
                                     </select>
                                 </div>
                                 <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
+                            </div>
+
+                            <!-- 4c. High Open Interest Chart -->
+                            <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
+                                <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
                             </div>
                         </div>
                     </div>

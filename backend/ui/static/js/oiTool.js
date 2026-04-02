@@ -33,25 +33,35 @@ const OiTool = {
 
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-bottom: 20px;">
                     <!-- Chart Area -->
-                    <div id="oi-chart-area" style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0;">
-                        <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
+                    <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
+                            <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div id="oi-chart-area" style="flex: 1;">
+                            <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
+                        </div>
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px;">
-                        <table class="data-table" id="oi-analysis-table" style="width: 100%;">
-                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
-                                <tr>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
-                                </tr>
-                            </thead>
-                            <tbody id="oi-analysis-body">
-                                <tr><td colspan="4" style="text-align:center; color:#888;">Loading...</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
+                            <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div style="flex: 1; overflow: auto;">
+                            <table class="data-table" id="oi-analysis-table" style="width: 100%;">
+                                <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="oi-analysis-body">
+                                    <tr><td colspan="4" style="text-align:center; color:#888;">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -343,6 +353,31 @@ const OiTool = {
         };
 
         Plotly.newPlot(container, [tracePath, traceMarkers], layout, {responsive: true});
+    },
+
+    exportScatterCSV: function() {
+        const symbolFilter = document.getElementById('oi-symbol').value.toUpperCase().trim();
+        let displayData = this.allData;
+
+        if (symbolFilter) {
+            displayData = this.allData.filter(d => d.symbol.includes(symbolFilter));
+        }
+
+        if (!displayData || displayData.length === 0) {
+            alert("No data to export.");
+            return;
+        }
+
+        let csv = "Symbol,Price Change %,OI Change %,Quadrant\n";
+        displayData.forEach(d => {
+            csv += `"${d.symbol}","${d.price_chg_pct}","${d.oi_chg_pct}","${d.interpretation}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `OI_Scatter_Data_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
     },
 
     handleTick: function(tick) {

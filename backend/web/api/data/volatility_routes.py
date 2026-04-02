@@ -38,7 +38,7 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
                     SELECT * FROM (
                         SELECT DISTINCT ON (trade_date) trade_date, close_price
                         FROM bhavcopy_fo
-                        WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                        WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF')
                         ORDER BY trade_date ASC, expiry_date ASC
                     ) AS distinct_dates
                     ORDER BY trade_date ASC

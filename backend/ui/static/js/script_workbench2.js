@@ -1092,6 +1092,7 @@
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
             const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
+            const isLatest = document.getElementById('latest-date-check').checked;
 
             // Use current sort state if not explicitly passed
             if (!sortBy && currentSortColumn) {
@@ -1110,11 +1111,13 @@
             if(btn) { btn.disabled = true; btn.innerText = "Loading..."; }
 
             try {
-                let url = `/api/data/view/list?type=${type}&limit=500`; // Removed timestamp for speed, browser cache is usually fine with varying params
+                let limit = isLatest ? 1 : 500;
+                let url = `/api/data/view/list?type=${type}&limit=${limit}`; // Removed timestamp for speed, browser cache is usually fine with varying params
                 if (symbol) url += `&symbol=${symbol}`;
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
                 if (type === 'bhavcopy_fo' && instrument !== 'ALL') url += `&instrument=${instrument}`;
+                if (isLatest) url += `&latest=true`;
 
                 // Add Server-Side Sorting Params
                 if (sortBy) {
@@ -1273,6 +1276,22 @@
                 endInput.value = '';
                 startInput.disabled = true;
                 endInput.disabled = true;
+                document.getElementById('latest-date-check').checked = false;
+            } else {
+                startInput.disabled = false;
+                endInput.disabled = false;
+            }
+        }
+
+        function toggleDateInputsLatest(checkbox) {
+            const startInput = document.getElementById('start-date');
+            const endInput = document.getElementById('end-date');
+            if (checkbox.checked) {
+                startInput.value = '';
+                endInput.value = '';
+                startInput.disabled = true;
+                endInput.disabled = true;
+                document.getElementById('all-dates-check').checked = false;
             } else {
                 startInput.disabled = false;
                 endInput.disabled = false;
@@ -2468,24 +2487,39 @@ function exportChartDataToCSV(chartInstance, filename) {
             option.series.forEach(s => {
                 if (s.name) seriesNames.push(s.name);
                 else seriesNames.push('Series');
-                seriesData.push(s.data || []);
+                // Some charts might put data in dataset instead of directly in series
+                if (s.data && s.data.length > 0) {
+                    seriesData.push(s.data);
+                } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+                    // Handled below, we'll wait for the dataset fallback
+                } else {
+                    seriesData.push([]);
+                }
             });
-        } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+        }
+
+        // If series data is empty but we have a dataset source
+        if (seriesData.length > 0 && seriesData[0].length === 0 && option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             const src = option.dataset[0].source;
             if (Array.isArray(src) && src.length > 0) {
                 // src[0] is headers, ignore [0][0] which is date
                 for (let col = 1; col < src[0].length; col++) {
-                    seriesNames.push(src[0][col] || `Series_${col}`);
+                    seriesNames[col - 1] = src[0][col] || `Series_${col}`;
                     let colData = [];
                     for (let r = 1; r < src.length; r++) {
                         colData.push(src[r][col]);
                     }
-                    seriesData.push(colData);
+                    seriesData[col - 1] = colData;
                 }
             }
-        } else {
-            alert("No series data found in chart");
-            return;
+        } else if (seriesData.length === 0 || (seriesData.length > 0 && seriesData[0].length === 0)) {
+            // Check if there is data inside options.series regardless
+            if (option.series && option.series.some(s => s.data && s.data.length > 0)) {
+                // Proceed, data was successfully pushed
+            } else {
+                alert("No series data found in chart");
+                return;
+            }
         }
     } else if (isChartJS) {
         const data = chartInstance.data;

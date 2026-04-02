@@ -25,7 +25,7 @@ const WorkbookManager = {
         this.switchTab('turtle');
 
         // Render standalone main tabs directly into their containers
-        const oiContainer = document.getElementById('deriv-tab-oi');
+        const oiContainer = document.getElementById('oi-tool-container');
         if (oiContainer) {
             this.modules['oi_analysis'].render(oiContainer);
         }
