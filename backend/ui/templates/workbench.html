@@ -4676,9 +4676,7 @@ function exportChartDataToCSV(chartInstance, filename) {
     document.body.removeChild(downloadLink);
 }
 </script>
-</body>
 
-</html>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
@@ -4836,132 +4834,16 @@ function exportChartDataToCSV(chartInstance, filename) {
 
 
 
-        // 6-9. Load Long/Short Ratio Charts (Using Net Positions as requested)
-        let lsChartInstances = {};
-
+        // 6-9. Load Participant Historical Charts
         try {
-            // Memory: The Daily Snapshot returns true Net Open Interest (Longs - Shorts) for accurate grouped volume representation.
-            // Using `participant-oi` which returns Net Positions instead of Long/Short Ratios to prevent flat lines.
             const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
-            const dates = data.dates || [];
-            if (dates.length === 0) return;
-
-            const instruments = [
-                { id: 'idx-fut', metric: 'fut_idx' },
-                { id: 'stk-fut', metric: 'fut_stk' },
-                { id: 'idx-call', metric: 'opt_idx_ce' },
-                { id: 'idx-put', metric: 'opt_idx_pe' },
-                { id: 'stk-call', metric: 'opt_stk_ce' },
-                { id: 'stk-put', metric: 'opt_stk_pe' }
-            ];
-
-            const participants = [
-                { key: 'fii', label: 'FII', color: '#E88B1E' }, // Orange
-                { key: 'dii', label: 'DII', color: '#3176B8' }, // Blue
-                { key: 'pro', label: 'PRO', color: '#9B59B6' }, // Purple
-                { key: 'client', label: 'Client', color: '#00FF00' } // Green
-            ];
-
-            instruments.forEach(inst => {
-                const containerId = `lsRatioEchart-${inst.id}`;
-                const container = document.getElementById(containerId);
-                if (!container) return;
-
-                if (lsChartInstances[inst.id]) lsChartInstances[inst.id].dispose();
-                lsChartInstances[inst.id] = echarts.init(container);
-
-                const series = participants.map(p => {
-                    return {
-                        name: p.label,
-                        type: 'line',
-                        data: data[`${p.key}_${inst.metric}`] || [],
-                        itemStyle: { color: p.color },
-                        showSymbol: false,
-                        smooth: true,
-                        yAxisIndex: 0
-                    };
-                });
-
-                // Add NIFTY overlay
-                const niftyData = data.nifty_close || [];
-                const legendData = participants.map(p => p.label);
-
-                if (niftyData.length > 0) {
-                    legendData.push('NIFTY');
-                    series.push({
-                        name: 'NIFTY',
-                        type: 'line',
-                        data: niftyData,
-                        yAxisIndex: 1,
-                        itemStyle: { color: '#FFCC00' }, // Classic yellow line
-                        lineStyle: { width: 2 },
-                        symbol: 'none'
-                    });
-                }
-
-                const option = {
-                    backgroundColor: 'transparent',
-                    tooltip: {
-                        trigger: 'axis',
-                        axisPointer: { type: 'cross' },
-                        formatter: function (params) {
-                            let res = `<div style="font-weight:bold;">${params[0].axisValue}</div>`;
-                            params.forEach(function (p) {
-                                res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
-                            });
-                            return res;
-                        }
-                    },
-                    legend: { data: legendData, textStyle: { color: '#ccc' } },
-                    grid: { left: '10%', right: '10%', bottom: '10%', top: '15%', containLabel: true },
-                    xAxis: {
-                        type: 'category',
-                        data: dates,
-                        axisLabel: { color: '#888' },
-                        axisLine: { lineStyle: { color: '#333' } }
-                    },
-                    yAxis: [
-                        {
-                            type: 'value',
-                            name: 'Net Pos (Qty)',
-                            scale: true,
-                            axisLabel: {
-                                color: '#888',
-                                formatter: function (value) {
-                                    if (Math.abs(value) >= 1000) {
-                                        return (value / 1000).toFixed(1) + 'k';
-                                    }
-                                    return value;
-                                }
-                            },
-                            splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                            nameTextStyle: { color: '#888' }
-                        },
-                        {
-                            type: 'value',
-                            name: 'NIFTY',
-                            position: 'right',
-                            axisLabel: { color: '#ccc' },
-                            splitLine: { show: false },
-                            nameTextStyle: { color: '#ccc' },
-                            scale: true,
-                            min: function(value) {
-                                const pad = (value.max - value.min) * 0.1 || value.min * 0.01;
-                                return Math.floor(value.min - pad);
-                            },
-                            max: function(value) {
-                                const pad = (value.max - value.min) * 0.1 || value.min * 0.01;
-                                return Math.ceil(value.max + pad);
-                            }
-                        }
-                    ],
-                    series: series
-                };
-
-                lsChartInstances[inst.id].setOption(option);
-            });
-        } catch(e) { console.error("Error loading L/S ratio charts", e); }
+            if (typeof renderParticipantHistorical === 'function') {
+                renderParticipantHistorical(data);
+            }
+        } catch (e) {
+            console.error("Error loading Participant OI Historical", e);
+        }
 
         // 10. Load Smart Money (FII+DII+PRO+CLI) Latest Daily Position Bar Chart
         let participantChartInstance = null;
@@ -6172,6 +6054,172 @@ function exportChartDataToCSV(chartInstance, filename) {
     }
 
 
+    let historicalChartInstances = {};
+
+    function renderParticipantHistorical(data) {
+        const dates = data.dates || [];
+        if (dates.length === 0) return;
+
+        // We have 6 metrics = 6 charts
+        const metrics = [
+            { key: 'fut_idx', id: 'lsRatioEchart-idx-fut', label: 'Index Futures' },
+            { key: 'fut_stk', id: 'lsRatioEchart-stk-fut', label: 'Stock Futures' },
+            { key: 'opt_idx_ce', id: 'lsRatioEchart-idx-call', label: 'Index Calls' },
+            { key: 'opt_idx_pe', id: 'lsRatioEchart-idx-put', label: 'Index Puts' },
+            { key: 'opt_stk_ce', id: 'lsRatioEchart-stk-call', label: 'Stock Calls' },
+            { key: 'opt_stk_pe', id: 'lsRatioEchart-stk-put', label: 'Stock Puts' }
+        ];
+
+        const participants = [
+            { key: 'fii', label: 'FII', color: '#E88B1E' },
+            { key: 'dii', label: 'DII', color: '#3176B8' },
+            { key: 'pro', label: 'PRO', color: '#9B59B6' },
+            { key: 'client', label: 'CLI', color: '#00FF00' }
+        ];
+
+        metrics.forEach(m => {
+            const dom = document.getElementById(m.id);
+            if (!dom) return;
+
+            if (historicalChartInstances[m.key]) historicalChartInstances[m.key].dispose();
+            const chart = echarts.init(dom);
+            historicalChartInstances[m.key] = chart;
+
+            // Extract series per participant for this specific metric
+            const series = participants.map(p => {
+                const arr = data[`${p.key}_${m.key}`] || [];
+                return {
+                    name: p.label,
+                    type: 'bar',
+                    data: arr,
+                    itemStyle: { color: p.color }
+                };
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: participants.map(p => p.label), textStyle: { color: '#ccc' } },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: dates,
+                    axisLabel: { color: '#888' },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Ratio',
+                        axisLabel: { color: '#888' },
+                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                        nameTextStyle: { color: '#888' }
+                    },
+                    {
+                        type: 'value',
+                        name: 'NIFTY',
+                        position: 'right',
+                        axisLabel: { color: '#ccc' },
+                        splitLine: { show: false },
+                        nameTextStyle: { color: '#ccc' },
+                        scale: true
+                    }
+                ],
+                dataZoom: [
+                    { type: 'inside', start: 50, end: 100 },
+                    { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
+                ],
+                series: series.map(s => {
+                    return {
+                        ...s,
+                        // Center the datum at 1 for the L/S Ratio so ratios < 1 point downward
+                        markLine: {
+                            data: [{ yAxis: 1 }],
+                            lineStyle: { color: '#444', type: 'solid', width: 2 },
+                            symbol: 'none',
+                            label: { show: false }
+                        }
+                    };
+                })
+            };
+
+            // ECharts has a specific property to set the datum line for bars
+            option.series.forEach(s => { s.large = true; s.yAxisIndex = 0; });
+
+            // Remove the data mapping since this is a Net Position chart, not an L/S Ratio chart.
+            const transformedSeries = series.map(s => {
+                return {
+                    ...s,
+                    data: s.data
+                };
+            });
+
+            option.series = transformedSeries;
+            option.yAxis[0].min = null;
+
+            // Add NIFTY overlay
+            const niftyData = data.nifty_prices || data.nifty_close || [];
+            if (niftyData.length > 0) {
+                option.legend.data.push('NIFTY');
+                option.series.push({
+                    name: 'NIFTY',
+                    type: 'line',
+                    data: niftyData,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#FFCC00' }, // Classic yellow line
+                    lineStyle: { width: 2 },
+                    symbol: 'none'
+                });
+            }
+
+            // Relabel Y-axis to format absolute values for Net Position
+            option.yAxis[0].axisLabel.formatter = function (value) {
+                if (Math.abs(value) >= 1000) {
+                    return (value / 1000).toFixed(1) + 'k';
+                }
+                return value;
+            };
+            option.yAxis[0].name = "Net Pos (Qty)";
+
+            // Fix the NIFTY line scaling so it isn't flat by forcing axis scale properties explicitly
+            if (niftyData.length > 0) {
+                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
+                if (validNifty.length > 0) {
+                    const minNifty = Math.min(...validNifty);
+                    const maxNifty = Math.max(...validNifty);
+                    const diff = maxNifty - minNifty;
+                    const pad = diff > 0 ? diff * 0.1 : minNifty * 0.05; // Fix for identical values
+                    option.yAxis[1].min = Math.floor(minNifty - pad);
+                    option.yAxis[1].max = Math.ceil(maxNifty + pad);
+                    option.yAxis[1].scale = true; // Use ECharts scale but strictly bounded
+                }
+            } else {
+                option.yAxis[1].scale = true;
+            }
+
+            // Remove the markline at 1 since Net Pos fluctuates around 0 naturally
+            option.series.forEach(s => {
+                if(s.markLine) {
+                    delete s.markLine;
+                }
+            });
+
+            option.tooltip.formatter = function (params) {
+                let res = `<div style="font-weight:bold;">${params[0].axisValue}</div>`;
+                params.forEach(function (p) {
+                    if (p.seriesName === 'NIFTY') {
+                        res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
+                    } else {
+                        res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
+                    }
+                });
+                return res;
+            };
+
+            chart.setOption(option);
+        });
+    }
+
     // Listen for resize
     window.addEventListener('resize', () => {
         if (echartInstance) echartInstance.resize();
@@ -6200,3 +6248,5 @@ function exportChartDataToCSV(chartInstance, filename) {
         }
     });
 </script>
+</body>
+</html>
