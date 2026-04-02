@@ -4680,7 +4680,610 @@ function exportChartDataToCSV(chartInstance, filename) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
-    let echartInstance = null;
+    let pcrChartInstance = null;
+    let highOiChartInstance = null;
+
+    async function loadOptionsAnalysis() {
+        const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
+        if (!symbol) return;
+
+        // 1. Load 500-Day PCR Chart
+        try {
+            const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=500`);
+            const data = await res.json();
+
+            const chartDom = document.getElementById('opt-analysis-pcr-chart');
+            if (pcrChartInstance) pcrChartInstance.dispose();
+            pcrChartInstance = echarts.init(chartDom);
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { data: ['Total OI', 'Price (FUT1)', 'PCR'], textStyle: { color: '#ccc' } },
+                grid: { left: '3%', right: '3%', bottom: '3%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: data.dates,
+                    axisLabel: { color: '#888' },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Total OI',
+                        position: 'left',
+                        splitLine: { show: false },
+                        axisLabel: { color: '#888' },
+                        nameTextStyle: { color: '#888' }
+                    },
+                    {
+                        type: 'value',
+                        name: 'Price (FUT1)',
+                        position: 'right',
+                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                        axisLabel: { color: '#888' },
+                        nameTextStyle: { color: '#888' },
+                        scale: true,
+                        min: 'dataMin',
+                        max: 'dataMax'
+                    },
+                    {
+                        type: 'value',
+                        name: 'PCR',
+                        position: 'right',
+                        offset: 60,
+                        scale: true,
+                        min: 'dataMin',
+                        max: 'dataMax',
+                        splitLine: { show: false },
+                        axisLabel: { color: '#888' },
+                        nameTextStyle: { color: '#888' }
+                    }
+                ],
+                dataZoom: [
+                    { type: 'inside', start: 50, end: 100 },
+                    { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
+                ],
+                series: [
+                    {
+                        name: 'Total OI',
+                        type: 'bar',
+                        data: data.total_oi,
+                        itemStyle: { color: 'rgba(54, 162, 235, 0.4)' },
+                        yAxisIndex: 0
+                    },
+                    {
+                        name: 'Price (FUT1)',
+                        type: 'line',
+                        data: data.price,
+                        itemStyle: { color: '#FFCC00' }, // Classic yellow
+                        lineStyle: { width: 2 },
+                        symbol: 'none',
+                        yAxisIndex: 1
+                    },
+                    {
+                        name: 'PCR',
+                        type: 'line',
+                        data: data.pcr,
+                        itemStyle: { color: '#00FF00' }, // Bright green
+                        lineStyle: { width: 2 },
+                        symbol: 'none',
+                        yAxisIndex: 2
+                    }
+                ]
+            };
+            pcrChartInstance.setOption(option);
+        } catch (e) {
+            console.error("Error loading PCR history:", e);
+        }
+
+        // Trigger load High OI Chart (Next step)
+        if (typeof loadHighOI === 'function') {
+            loadHighOI(symbol);
+        }
+    }
+
+    async function loadHighOI(symbol) {
+        try {
+            const res = await fetch(`/api/data/derivatives/option_chain?symbol=${symbol}`);
+            const data = await res.json();
+
+            if (!data || !data.data || data.data.length === 0) {
+                document.getElementById('opt-analysis-high-oi-chart').innerHTML = '<p style="text-align:center; color:#888;">No Option Chain data found.</p>';
+                return;
+            }
+
+            const strikes = [];
+            const ce_oi = [];
+            const pe_oi = [];
+
+            // Only take ATM +/- 20 strikes to avoid squished charts
+            const sortedData = data.data.sort((a,b) => a.strike - b.strike);
+            let atmIndex = 0;
+            let minDiff = Infinity;
+
+            for (let i = 0; i < sortedData.length; i++) {
+                const diff = Math.abs(sortedData[i].strike - data.spot_price);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    atmIndex = i;
+                }
+            }
+
+            const startIdx = Math.max(0, atmIndex - 20);
+            const endIdx = Math.min(sortedData.length, atmIndex + 20);
+            const filteredData = sortedData.slice(startIdx, endIdx);
+
+            filteredData.forEach(row => {
+                strikes.push(row.strike);
+                ce_oi.push(row.CE.oi || 0);
+                pe_oi.push(row.PE.oi || 0);
+            });
+
+            const chartDom = document.getElementById('opt-analysis-high-oi-chart');
+            if (highOiChartInstance) highOiChartInstance.dispose();
+            highOiChartInstance = echarts.init(chartDom);
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    formatter: function (params) {
+                        let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
+                        params.forEach(function (p) {
+                            const val = Math.abs(p.value).toLocaleString();
+                            res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
+                        });
+                        return res;
+                    }
+                },
+                legend: {
+                    data: ['Call OI', 'Put OI'],
+                    textStyle: { color: '#ccc' }
+                },
+                grid: { left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: strikes,
+                    axisLabel: { color: '#FFCC00', fontWeight: 'bold', rotate: 45 },
+                    axisLine: { show: true, lineStyle: { color: '#333' } },
+                    axisTick: { show: false },
+                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (value) { return Math.abs(value); }
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                },
+                series: [
+                    {
+                        name: 'Call OI',
+                        type: 'bar',
+                        stack: 'Total',
+                        label: { show: false },
+                        itemStyle: { color: '#FF0000' }, // Classic Red for calls/resistance
+                        data: ce_oi.map(v => -v) // Negative value to make it bar leftwards
+                    },
+                    {
+                        name: 'Put OI',
+                        type: 'bar',
+                        stack: 'Total',
+                        label: { show: false },
+                        itemStyle: { color: '#00FF00' }, // Classic Green for puts/support
+                        data: pe_oi
+                    }
+                ]
+            };
+
+            // Format tooltip to show absolute values for Call OI
+            option.tooltip.formatter = function (params) {
+                let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
+                params.forEach(function (p) {
+                    const val = Math.abs(p.value).toLocaleString();
+                    res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
+                });
+                return res;
+            };
+
+            // Format xAxis to show absolute values
+            option.xAxis.axisLabel.formatter = function (value) {
+                return Math.abs(value);
+            };
+
+            highOiChartInstance.setOption(option);
+        } catch (e) {
+            console.error("Error loading high OI chart:", e);
+        }
+    }
+
+
+    let volPreExpiryChart = null;
+    let volConeChart = null;
+
+    async function loadVolatilityAnalysis() {
+        const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
+        const expiryType = document.getElementById('vol-analysis-expiry-type').value;
+        const lookback = document.getElementById('vol-analysis-lookback').value;
+        const boxDays = document.getElementById('vol-analysis-box-days').value;
+
+        // 1. Load Pre-Expiry Chart
+        try {
+            const preExpiryChartDom = document.getElementById('vol-pre-expiry-chart');
+            if (volPreExpiryChart) volPreExpiryChart.dispose();
+            volPreExpiryChart = echarts.init(preExpiryChartDom, 'dark', { renderer: 'canvas' });
+            volPreExpiryChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
+
+            const res = await fetch(`/api/data/derivatives/pre_expiry_action/${symbol}?lookback_days=${lookback}&box_days=${boxDays}&expiry_type=${expiryType}`);
+            const data = await res.json();
+
+            if (data.detail) {
+                console.error("API Error Pre-Expiry:", data.detail);
+                volPreExpiryChart.hideLoading();
+                alert("Error loading Pre-Expiry Action: " + data.detail);
+                return;
+            }
+
+            const markLines = (data.expiries || []).map(exp => {
+                return { xAxis: exp, label: { formatter: 'Exp', position: 'start' } };
+            });
+
+            const markAreas = (data.boxes || []).map(box => {
+                return [
+                    { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 204, 0, 0.2)' } },
+                    { xAxis: box.end_date }
+                ];
+            });
+
+            const preExpiryOption = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { data: ['Price', `Realized Vol (${boxDays}D)`], textStyle: { color: '#ccc' } },
+                grid: { left: '3%', right: '3%', bottom: '10%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: data.dates,
+                    axisLabel: { color: '#888' },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Price',
+                        position: 'left',
+                        scale: true,
+                        splitLine: { lineStyle: { color: '#333' } },
+                        axisLabel: { color: '#ccc' },
+                        nameTextStyle: { color: '#ccc' }
+                    },
+                    {
+                        type: 'value',
+                        name: `RV (${boxDays}D) %`,
+                        position: 'right',
+                        scale: true,
+                        splitLine: { show: false },
+                        axisLabel: { color: '#888' },
+                        nameTextStyle: { color: '#888' }
+                    }
+                ],
+                dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
+                series: [
+                    {
+                        name: 'Price',
+                        type: 'line',
+                        data: data.prices,
+                        yAxisIndex: 0,
+                        itemStyle: { color: '#3176B8' }, // Blue line for price
+                        lineStyle: { width: 2 },
+                        showSymbol: false,
+                        markLine: {
+                            symbol: ['none', 'none'],
+                            lineStyle: { color: '#ff4444', type: 'solid', width: 1 },
+                            data: markLines
+                        },
+                        markArea: {
+                            data: markAreas
+                        }
+                    },
+                    {
+                        name: `Realized Vol (${boxDays}D)`,
+                        type: 'line',
+                        data: data.rv,
+                        yAxisIndex: 1,
+                        itemStyle: { color: '#E88B1E' }, // Orange line for RV
+                        lineStyle: { width: 2 },
+                        showSymbol: false
+                    }
+                ]
+            };
+
+            volPreExpiryChart.setOption(preExpiryOption);
+            volPreExpiryChart.hideLoading();
+        } catch (e) {
+            console.error("Error loading Pre-Expiry Action", e);
+            if (volPreExpiryChart) volPreExpiryChart.hideLoading();
+        }
+
+        // 2. Load Volatility Cone Chart
+        try {
+            const coneChartDom = document.getElementById('vol-cone-chart');
+            if (volConeChart) volConeChart.dispose();
+            volConeChart = echarts.init(coneChartDom, 'dark', { renderer: 'canvas' });
+            volConeChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
+
+            const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}`);
+            const data = await res.json();
+
+            if (data.detail) {
+                console.error("API Error Vol Cone:", data.detail);
+                volConeChart.hideLoading();
+                alert("Error loading Volatility Cone: " + data.detail);
+                return;
+            }
+
+            const coneOption = {
+                backgroundColor: 'transparent',
+                title: { text: 'Realized Volatility Cone', textStyle: { color: '#ccc', fontSize: 14 } },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { data: ['Max', '75th Pct', 'Median', '25th Pct', 'Min', 'Current RV'], textStyle: { color: '#ccc' } },
+                grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: data.windows.map(w => `${w}D`),
+                    axisLabel: { color: '#888' },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'Volatility (%)',
+                    scale: true,
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLabel: { color: '#ccc' },
+                    nameTextStyle: { color: '#ccc' }
+                },
+                series: [
+                    {
+                        name: 'Max',
+                        type: 'line',
+                        data: data.max,
+                        lineStyle: { opacity: 0 },
+                        showSymbol: false
+                    },
+                    {
+                        name: '75th Pct',
+                        type: 'line',
+                        data: data.p75,
+                        lineStyle: { color: '#4ade80', type: 'dashed' },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                                offset: 0, color: 'rgba(74, 222, 128, 0.2)'
+                            }, {
+                                offset: 1, color: 'rgba(74, 222, 128, 0.05)'
+                            }])
+                        },
+                        showSymbol: false
+                    },
+                    {
+                        name: 'Median',
+                        type: 'line',
+                        data: data.p50,
+                        lineStyle: { color: '#3176B8', width: 2 }, // Blue median
+                        showSymbol: true
+                    },
+                    {
+                        name: '25th Pct',
+                        type: 'line',
+                        data: data.p25,
+                        lineStyle: { color: '#E88B1E', type: 'dashed' },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                                offset: 0, color: 'rgba(232, 139, 30, 0.2)'
+                            }, {
+                                offset: 1, color: 'rgba(232, 139, 30, 0.05)'
+                            }])
+                        },
+                        showSymbol: false
+                    },
+                    {
+                        name: 'Min',
+                        type: 'line',
+                        data: data.min,
+                        lineStyle: { opacity: 0 },
+                        showSymbol: false
+                    },
+                    {
+                        name: 'Current RV',
+                        type: 'line',
+                        data: data.current_rv,
+                        lineStyle: { color: '#ff4444', width: 3 }, // Red thick line
+                        itemStyle: { color: '#ff4444' },
+                        symbol: 'circle',
+                        symbolSize: 8
+                    }
+                ]
+            };
+
+            volConeChart.setOption(coneOption);
+            volConeChart.hideLoading();
+        } catch (e) {
+            console.error("Error loading Volatility Cone", e);
+            if (volConeChart) volConeChart.hideLoading();
+        }
+    }
+
+
+    let historicalChartInstances = {};
+
+    function renderParticipantHistorical(data) {
+        const dates = data.dates || [];
+        if (dates.length === 0) return;
+
+        // We have 6 metrics = 6 charts
+        const metrics = [
+            { key: 'fut_idx', id: 'lsRatioEchart-idx-fut', label: 'Index Futures' },
+            { key: 'fut_stk', id: 'lsRatioEchart-stk-fut', label: 'Stock Futures' },
+            { key: 'opt_idx_ce', id: 'lsRatioEchart-idx-call', label: 'Index Calls' },
+            { key: 'opt_idx_pe', id: 'lsRatioEchart-idx-put', label: 'Index Puts' },
+            { key: 'opt_stk_ce', id: 'lsRatioEchart-stk-call', label: 'Stock Calls' },
+            { key: 'opt_stk_pe', id: 'lsRatioEchart-stk-put', label: 'Stock Puts' }
+        ];
+
+        const participants = [
+            { key: 'fii', label: 'FII', color: '#E88B1E' },
+            { key: 'dii', label: 'DII', color: '#3176B8' },
+            { key: 'pro', label: 'PRO', color: '#9B59B6' },
+            { key: 'client', label: 'CLI', color: '#00FF00' }
+        ];
+
+        metrics.forEach(m => {
+            const dom = document.getElementById(m.id);
+            if (!dom) return;
+
+            if (historicalChartInstances[m.key]) historicalChartInstances[m.key].dispose();
+            const chart = echarts.init(dom);
+            historicalChartInstances[m.key] = chart;
+
+            // Extract series per participant for this specific metric
+            const series = participants.map(p => {
+                const arr = data[`${p.key}_${m.key}`] || [];
+                return {
+                    name: p.label,
+                    type: 'bar',
+                    data: arr,
+                    itemStyle: { color: p.color }
+                };
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: participants.map(p => p.label), textStyle: { color: '#ccc' } },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: dates,
+                    axisLabel: { color: '#888' },
+                    axisLine: { lineStyle: { color: '#333' } }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Ratio',
+                        axisLabel: { color: '#888' },
+                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                        nameTextStyle: { color: '#888' }
+                    },
+                    {
+                        type: 'value',
+                        name: 'NIFTY',
+                        position: 'right',
+                        axisLabel: { color: '#ccc' },
+                        splitLine: { show: false },
+                        nameTextStyle: { color: '#ccc' },
+                        scale: true
+                    }
+                ],
+                dataZoom: [
+                    { type: 'inside', start: 50, end: 100 },
+                    { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
+                ],
+                series: series.map(s => {
+                    return {
+                        ...s,
+                        // Center the datum at 1 for the L/S Ratio so ratios < 1 point downward
+                        markLine: {
+                            data: [{ yAxis: 1 }],
+                            lineStyle: { color: '#444', type: 'solid', width: 2 },
+                            symbol: 'none',
+                            label: { show: false }
+                        }
+                    };
+                })
+            };
+
+            // ECharts has a specific property to set the datum line for bars
+            option.series.forEach(s => { s.large = true; s.yAxisIndex = 0; });
+
+            // Remove the data mapping since this is a Net Position chart, not an L/S Ratio chart.
+            const transformedSeries = series.map(s => {
+                return {
+                    ...s,
+                    data: s.data
+                };
+            });
+
+            option.series = transformedSeries;
+            option.yAxis[0].min = null;
+
+            // Add NIFTY overlay
+            const niftyData = data.nifty_prices || data.nifty_close || [];
+            if (niftyData.length > 0) {
+                option.legend.data.push('NIFTY');
+                option.series.push({
+                    name: 'NIFTY',
+                    type: 'line',
+                    data: niftyData,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#FFCC00' }, // Classic yellow line
+                    lineStyle: { width: 2 },
+                    symbol: 'none'
+                });
+            }
+
+            // Relabel Y-axis to format absolute values for Net Position
+            option.yAxis[0].axisLabel.formatter = function (value) {
+                if (Math.abs(value) >= 1000) {
+                    return (value / 1000).toFixed(1) + 'k';
+                }
+                return value;
+            };
+            option.yAxis[0].name = "Net Pos (Qty)";
+
+            // Fix the NIFTY line scaling so it isn't flat by forcing axis scale properties explicitly
+            if (niftyData.length > 0) {
+                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
+                if (validNifty.length > 0) {
+                    const minNifty = Math.min(...validNifty);
+                    const maxNifty = Math.max(...validNifty);
+                    const diff = maxNifty - minNifty;
+                    const pad = diff > 0 ? diff * 0.1 : minNifty * 0.05; // Fix for identical values
+                    option.yAxis[1].min = Math.floor(minNifty - pad);
+                    option.yAxis[1].max = Math.ceil(maxNifty + pad);
+                    option.yAxis[1].scale = true; // Use ECharts scale but strictly bounded
+                }
+            } else {
+                option.yAxis[1].scale = true;
+            }
+
+            // Remove the markline at 1 since Net Pos fluctuates around 0 naturally
+            option.series.forEach(s => {
+                if(s.markLine) {
+                    delete s.markLine;
+                }
+            });
+
+            option.tooltip.formatter = function (params) {
+                let res = `<div style="font-weight:bold;">${params[0].axisValue}</div>`;
+                params.forEach(function (p) {
+                    if (p.seriesName === 'NIFTY') {
+                        res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
+                    } else {
+                        res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
+                    }
+                });
+                return res;
+            };
+
+            chart.setOption(option);
+        });
+    }
+
+
+let echartInstance = null;
     let fiiDiiChartInstance = null;
     let participantChartInstance = null;
 
@@ -5616,608 +6219,6 @@ function exportChartDataToCSV(chartInstance, filename) {
         } catch(e) {
             tbody.innerHTML = `<tr><td colspan="21" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
-    }
-
-    let pcrChartInstance = null;
-    let highOiChartInstance = null;
-
-    async function loadOptionsAnalysis() {
-        const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
-        if (!symbol) return;
-
-        // 1. Load 500-Day PCR Chart
-        try {
-            const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=500`);
-            const data = await res.json();
-
-            const chartDom = document.getElementById('opt-analysis-pcr-chart');
-            if (pcrChartInstance) pcrChartInstance.dispose();
-            pcrChartInstance = echarts.init(chartDom);
-
-            const option = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['Total OI', 'Price (FUT1)', 'PCR'], textStyle: { color: '#ccc' } },
-                grid: { left: '3%', right: '3%', bottom: '3%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: data.dates,
-                    axisLabel: { color: '#888' },
-                    axisLine: { lineStyle: { color: '#333' } }
-                },
-                yAxis: [
-                    {
-                        type: 'value',
-                        name: 'Total OI',
-                        position: 'left',
-                        splitLine: { show: false },
-                        axisLabel: { color: '#888' },
-                        nameTextStyle: { color: '#888' }
-                    },
-                    {
-                        type: 'value',
-                        name: 'Price (FUT1)',
-                        position: 'right',
-                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                        axisLabel: { color: '#888' },
-                        nameTextStyle: { color: '#888' },
-                        scale: true,
-                        min: 'dataMin',
-                        max: 'dataMax'
-                    },
-                    {
-                        type: 'value',
-                        name: 'PCR',
-                        position: 'right',
-                        offset: 60,
-                        scale: true,
-                        min: 'dataMin',
-                        max: 'dataMax',
-                        splitLine: { show: false },
-                        axisLabel: { color: '#888' },
-                        nameTextStyle: { color: '#888' }
-                    }
-                ],
-                dataZoom: [
-                    { type: 'inside', start: 50, end: 100 },
-                    { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
-                ],
-                series: [
-                    {
-                        name: 'Total OI',
-                        type: 'bar',
-                        data: data.total_oi,
-                        itemStyle: { color: 'rgba(54, 162, 235, 0.4)' },
-                        yAxisIndex: 0
-                    },
-                    {
-                        name: 'Price (FUT1)',
-                        type: 'line',
-                        data: data.price,
-                        itemStyle: { color: '#FFCC00' }, // Classic yellow
-                        lineStyle: { width: 2 },
-                        symbol: 'none',
-                        yAxisIndex: 1
-                    },
-                    {
-                        name: 'PCR',
-                        type: 'line',
-                        data: data.pcr,
-                        itemStyle: { color: '#00FF00' }, // Bright green
-                        lineStyle: { width: 2 },
-                        symbol: 'none',
-                        yAxisIndex: 2
-                    }
-                ]
-            };
-            pcrChartInstance.setOption(option);
-        } catch (e) {
-            console.error("Error loading PCR history:", e);
-        }
-
-        // Trigger load High OI Chart (Next step)
-        if (typeof loadHighOI === 'function') {
-            loadHighOI(symbol);
-        }
-    }
-
-    async function loadHighOI(symbol) {
-        try {
-            const res = await fetch(`/api/data/derivatives/option_chain?symbol=${symbol}`);
-            const data = await res.json();
-
-            if (!data || !data.data || data.data.length === 0) {
-                document.getElementById('opt-analysis-high-oi-chart').innerHTML = '<p style="text-align:center; color:#888;">No Option Chain data found.</p>';
-                return;
-            }
-
-            const strikes = [];
-            const ce_oi = [];
-            const pe_oi = [];
-
-            // Only take ATM +/- 20 strikes to avoid squished charts
-            const sortedData = data.data.sort((a,b) => a.strike - b.strike);
-            let atmIndex = 0;
-            let minDiff = Infinity;
-
-            for (let i = 0; i < sortedData.length; i++) {
-                const diff = Math.abs(sortedData[i].strike - data.spot_price);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    atmIndex = i;
-                }
-            }
-
-            const startIdx = Math.max(0, atmIndex - 20);
-            const endIdx = Math.min(sortedData.length, atmIndex + 20);
-            const filteredData = sortedData.slice(startIdx, endIdx);
-
-            filteredData.forEach(row => {
-                strikes.push(row.strike);
-                ce_oi.push(row.CE.oi || 0);
-                pe_oi.push(row.PE.oi || 0);
-            });
-
-            const chartDom = document.getElementById('opt-analysis-high-oi-chart');
-            if (highOiChartInstance) highOiChartInstance.dispose();
-            highOiChartInstance = echarts.init(chartDom);
-
-            const option = {
-                backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: { type: 'shadow' },
-                    formatter: function (params) {
-                        let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
-                        params.forEach(function (p) {
-                            const val = Math.abs(p.value).toLocaleString();
-                            res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
-                        });
-                        return res;
-                    }
-                },
-                legend: {
-                    data: ['Call OI', 'Put OI'],
-                    textStyle: { color: '#ccc' }
-                },
-                grid: { left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: strikes,
-                    axisLabel: { color: '#FFCC00', fontWeight: 'bold', rotate: 45 },
-                    axisLine: { show: true, lineStyle: { color: '#333' } },
-                    axisTick: { show: false },
-                    splitLine: { show: true, lineStyle: { color: '#222' } }
-                },
-                yAxis: {
-                    type: 'value',
-                    axisLabel: {
-                        color: '#888',
-                        formatter: function (value) { return Math.abs(value); }
-                    },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                },
-                series: [
-                    {
-                        name: 'Call OI',
-                        type: 'bar',
-                        stack: 'Total',
-                        label: { show: false },
-                        itemStyle: { color: '#FF0000' }, // Classic Red for calls/resistance
-                        data: ce_oi.map(v => -v) // Negative value to make it bar leftwards
-                    },
-                    {
-                        name: 'Put OI',
-                        type: 'bar',
-                        stack: 'Total',
-                        label: { show: false },
-                        itemStyle: { color: '#00FF00' }, // Classic Green for puts/support
-                        data: pe_oi
-                    }
-                ]
-            };
-
-            // Format tooltip to show absolute values for Call OI
-            option.tooltip.formatter = function (params) {
-                let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
-                params.forEach(function (p) {
-                    const val = Math.abs(p.value).toLocaleString();
-                    res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
-                });
-                return res;
-            };
-
-            // Format xAxis to show absolute values
-            option.xAxis.axisLabel.formatter = function (value) {
-                return Math.abs(value);
-            };
-
-            highOiChartInstance.setOption(option);
-        } catch (e) {
-            console.error("Error loading high OI chart:", e);
-        }
-    }
-
-
-    let volPreExpiryChart = null;
-    let volConeChart = null;
-
-    async function loadVolatilityAnalysis() {
-        const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
-        const expiryType = document.getElementById('vol-analysis-expiry-type').value;
-        const lookback = document.getElementById('vol-analysis-lookback').value;
-        const boxDays = document.getElementById('vol-analysis-box-days').value;
-
-        // 1. Load Pre-Expiry Chart
-        try {
-            const preExpiryChartDom = document.getElementById('vol-pre-expiry-chart');
-            if (volPreExpiryChart) volPreExpiryChart.dispose();
-            volPreExpiryChart = echarts.init(preExpiryChartDom, 'dark', { renderer: 'canvas' });
-            volPreExpiryChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
-
-            const res = await fetch(`/api/data/derivatives/pre_expiry_action/${symbol}?lookback_days=${lookback}&box_days=${boxDays}&expiry_type=${expiryType}`);
-            const data = await res.json();
-
-            if (data.detail) {
-                console.error("API Error Pre-Expiry:", data.detail);
-                volPreExpiryChart.hideLoading();
-                alert("Error loading Pre-Expiry Action: " + data.detail);
-                return;
-            }
-
-            const markLines = (data.expiries || []).map(exp => {
-                return { xAxis: exp, label: { formatter: 'Exp', position: 'start' } };
-            });
-
-            const markAreas = (data.boxes || []).map(box => {
-                return [
-                    { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 204, 0, 0.2)' } },
-                    { xAxis: box.end_date }
-                ];
-            });
-
-            const preExpiryOption = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['Price', `Realized Vol (${boxDays}D)`], textStyle: { color: '#ccc' } },
-                grid: { left: '3%', right: '3%', bottom: '10%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: data.dates,
-                    axisLabel: { color: '#888' },
-                    axisLine: { lineStyle: { color: '#333' } }
-                },
-                yAxis: [
-                    {
-                        type: 'value',
-                        name: 'Price',
-                        position: 'left',
-                        scale: true,
-                        splitLine: { lineStyle: { color: '#333' } },
-                        axisLabel: { color: '#ccc' },
-                        nameTextStyle: { color: '#ccc' }
-                    },
-                    {
-                        type: 'value',
-                        name: `RV (${boxDays}D) %`,
-                        position: 'right',
-                        scale: true,
-                        splitLine: { show: false },
-                        axisLabel: { color: '#888' },
-                        nameTextStyle: { color: '#888' }
-                    }
-                ],
-                dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
-                series: [
-                    {
-                        name: 'Price',
-                        type: 'line',
-                        data: data.prices,
-                        yAxisIndex: 0,
-                        itemStyle: { color: '#3176B8' }, // Blue line for price
-                        lineStyle: { width: 2 },
-                        showSymbol: false,
-                        markLine: {
-                            symbol: ['none', 'none'],
-                            lineStyle: { color: '#ff4444', type: 'solid', width: 1 },
-                            data: markLines
-                        },
-                        markArea: {
-                            data: markAreas
-                        }
-                    },
-                    {
-                        name: `Realized Vol (${boxDays}D)`,
-                        type: 'line',
-                        data: data.rv,
-                        yAxisIndex: 1,
-                        itemStyle: { color: '#E88B1E' }, // Orange line for RV
-                        lineStyle: { width: 2 },
-                        showSymbol: false
-                    }
-                ]
-            };
-
-            volPreExpiryChart.setOption(preExpiryOption);
-            volPreExpiryChart.hideLoading();
-        } catch (e) {
-            console.error("Error loading Pre-Expiry Action", e);
-            if (volPreExpiryChart) volPreExpiryChart.hideLoading();
-        }
-
-        // 2. Load Volatility Cone Chart
-        try {
-            const coneChartDom = document.getElementById('vol-cone-chart');
-            if (volConeChart) volConeChart.dispose();
-            volConeChart = echarts.init(coneChartDom, 'dark', { renderer: 'canvas' });
-            volConeChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
-
-            const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}`);
-            const data = await res.json();
-
-            if (data.detail) {
-                console.error("API Error Vol Cone:", data.detail);
-                volConeChart.hideLoading();
-                alert("Error loading Volatility Cone: " + data.detail);
-                return;
-            }
-
-            const coneOption = {
-                backgroundColor: 'transparent',
-                title: { text: 'Realized Volatility Cone', textStyle: { color: '#ccc', fontSize: 14 } },
-                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['Max', '75th Pct', 'Median', '25th Pct', 'Min', 'Current RV'], textStyle: { color: '#ccc' } },
-                grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    boundaryGap: false,
-                    data: data.windows.map(w => `${w}D`),
-                    axisLabel: { color: '#888' },
-                    axisLine: { lineStyle: { color: '#333' } }
-                },
-                yAxis: {
-                    type: 'value',
-                    name: 'Volatility (%)',
-                    scale: true,
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLabel: { color: '#ccc' },
-                    nameTextStyle: { color: '#ccc' }
-                },
-                series: [
-                    {
-                        name: 'Max',
-                        type: 'line',
-                        data: data.max,
-                        lineStyle: { opacity: 0 },
-                        showSymbol: false
-                    },
-                    {
-                        name: '75th Pct',
-                        type: 'line',
-                        data: data.p75,
-                        lineStyle: { color: '#4ade80', type: 'dashed' },
-                        areaStyle: {
-                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
-                                offset: 0, color: 'rgba(74, 222, 128, 0.2)'
-                            }, {
-                                offset: 1, color: 'rgba(74, 222, 128, 0.05)'
-                            }])
-                        },
-                        showSymbol: false
-                    },
-                    {
-                        name: 'Median',
-                        type: 'line',
-                        data: data.p50,
-                        lineStyle: { color: '#3176B8', width: 2 }, // Blue median
-                        showSymbol: true
-                    },
-                    {
-                        name: '25th Pct',
-                        type: 'line',
-                        data: data.p25,
-                        lineStyle: { color: '#E88B1E', type: 'dashed' },
-                        areaStyle: {
-                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
-                                offset: 0, color: 'rgba(232, 139, 30, 0.2)'
-                            }, {
-                                offset: 1, color: 'rgba(232, 139, 30, 0.05)'
-                            }])
-                        },
-                        showSymbol: false
-                    },
-                    {
-                        name: 'Min',
-                        type: 'line',
-                        data: data.min,
-                        lineStyle: { opacity: 0 },
-                        showSymbol: false
-                    },
-                    {
-                        name: 'Current RV',
-                        type: 'line',
-                        data: data.current_rv,
-                        lineStyle: { color: '#ff4444', width: 3 }, // Red thick line
-                        itemStyle: { color: '#ff4444' },
-                        symbol: 'circle',
-                        symbolSize: 8
-                    }
-                ]
-            };
-
-            volConeChart.setOption(coneOption);
-            volConeChart.hideLoading();
-        } catch (e) {
-            console.error("Error loading Volatility Cone", e);
-            if (volConeChart) volConeChart.hideLoading();
-        }
-    }
-
-
-    let historicalChartInstances = {};
-
-    function renderParticipantHistorical(data) {
-        const dates = data.dates || [];
-        if (dates.length === 0) return;
-
-        // We have 6 metrics = 6 charts
-        const metrics = [
-            { key: 'fut_idx', id: 'lsRatioEchart-idx-fut', label: 'Index Futures' },
-            { key: 'fut_stk', id: 'lsRatioEchart-stk-fut', label: 'Stock Futures' },
-            { key: 'opt_idx_ce', id: 'lsRatioEchart-idx-call', label: 'Index Calls' },
-            { key: 'opt_idx_pe', id: 'lsRatioEchart-idx-put', label: 'Index Puts' },
-            { key: 'opt_stk_ce', id: 'lsRatioEchart-stk-call', label: 'Stock Calls' },
-            { key: 'opt_stk_pe', id: 'lsRatioEchart-stk-put', label: 'Stock Puts' }
-        ];
-
-        const participants = [
-            { key: 'fii', label: 'FII', color: '#E88B1E' },
-            { key: 'dii', label: 'DII', color: '#3176B8' },
-            { key: 'pro', label: 'PRO', color: '#9B59B6' },
-            { key: 'client', label: 'CLI', color: '#00FF00' }
-        ];
-
-        metrics.forEach(m => {
-            const dom = document.getElementById(m.id);
-            if (!dom) return;
-
-            if (historicalChartInstances[m.key]) historicalChartInstances[m.key].dispose();
-            const chart = echarts.init(dom);
-            historicalChartInstances[m.key] = chart;
-
-            // Extract series per participant for this specific metric
-            const series = participants.map(p => {
-                const arr = data[`${p.key}_${m.key}`] || [];
-                return {
-                    name: p.label,
-                    type: 'bar',
-                    data: arr,
-                    itemStyle: { color: p.color }
-                };
-            });
-
-            const option = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                legend: { data: participants.map(p => p.label), textStyle: { color: '#ccc' } },
-                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: dates,
-                    axisLabel: { color: '#888' },
-                    axisLine: { lineStyle: { color: '#333' } }
-                },
-                yAxis: [
-                    {
-                        type: 'value',
-                        name: 'Ratio',
-                        axisLabel: { color: '#888' },
-                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                        nameTextStyle: { color: '#888' }
-                    },
-                    {
-                        type: 'value',
-                        name: 'NIFTY',
-                        position: 'right',
-                        axisLabel: { color: '#ccc' },
-                        splitLine: { show: false },
-                        nameTextStyle: { color: '#ccc' },
-                        scale: true
-                    }
-                ],
-                dataZoom: [
-                    { type: 'inside', start: 50, end: 100 },
-                    { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
-                ],
-                series: series.map(s => {
-                    return {
-                        ...s,
-                        // Center the datum at 1 for the L/S Ratio so ratios < 1 point downward
-                        markLine: {
-                            data: [{ yAxis: 1 }],
-                            lineStyle: { color: '#444', type: 'solid', width: 2 },
-                            symbol: 'none',
-                            label: { show: false }
-                        }
-                    };
-                })
-            };
-
-            // ECharts has a specific property to set the datum line for bars
-            option.series.forEach(s => { s.large = true; s.yAxisIndex = 0; });
-
-            // Remove the data mapping since this is a Net Position chart, not an L/S Ratio chart.
-            const transformedSeries = series.map(s => {
-                return {
-                    ...s,
-                    data: s.data
-                };
-            });
-
-            option.series = transformedSeries;
-            option.yAxis[0].min = null;
-
-            // Add NIFTY overlay
-            const niftyData = data.nifty_prices || data.nifty_close || [];
-            if (niftyData.length > 0) {
-                option.legend.data.push('NIFTY');
-                option.series.push({
-                    name: 'NIFTY',
-                    type: 'line',
-                    data: niftyData,
-                    yAxisIndex: 1,
-                    itemStyle: { color: '#FFCC00' }, // Classic yellow line
-                    lineStyle: { width: 2 },
-                    symbol: 'none'
-                });
-            }
-
-            // Relabel Y-axis to format absolute values for Net Position
-            option.yAxis[0].axisLabel.formatter = function (value) {
-                if (Math.abs(value) >= 1000) {
-                    return (value / 1000).toFixed(1) + 'k';
-                }
-                return value;
-            };
-            option.yAxis[0].name = "Net Pos (Qty)";
-
-            // Fix the NIFTY line scaling so it isn't flat by forcing axis scale properties explicitly
-            if (niftyData.length > 0) {
-                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
-                if (validNifty.length > 0) {
-                    const minNifty = Math.min(...validNifty);
-                    const maxNifty = Math.max(...validNifty);
-                    const diff = maxNifty - minNifty;
-                    const pad = diff > 0 ? diff * 0.1 : minNifty * 0.05; // Fix for identical values
-                    option.yAxis[1].min = Math.floor(minNifty - pad);
-                    option.yAxis[1].max = Math.ceil(maxNifty + pad);
-                    option.yAxis[1].scale = true; // Use ECharts scale but strictly bounded
-                }
-            } else {
-                option.yAxis[1].scale = true;
-            }
-
-            // Remove the markline at 1 since Net Pos fluctuates around 0 naturally
-            option.series.forEach(s => {
-                if(s.markLine) {
-                    delete s.markLine;
-                }
-            });
-
-            option.tooltip.formatter = function (params) {
-                let res = `<div style="font-weight:bold;">${params[0].axisValue}</div>`;
-                params.forEach(function (p) {
-                    if (p.seriesName === 'NIFTY') {
-                        res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
-                    } else {
-                        res += `<div style="color:${p.color};">${p.seriesName}: ${p.value.toLocaleString()}</div>`;
-                    }
-                });
-                return res;
-            };
-
-            chart.setOption(option);
-        });
     }
 
     // Listen for resize
