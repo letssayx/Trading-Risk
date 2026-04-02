@@ -1312,13 +1312,16 @@
                 <!-- SUB-TAB: Basis Watch -->
                 <div id="deriv-tab-watch" class="deriv-sub-tab" style="padding: 20px; height: calc(100% - 50px); flex-direction: column; box-sizing: border-box; display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
-                        <h2 style="margin: 0; color: #fff; font-size: 18px;">Basis Watch (Derivatives)</h2>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <input type="text" id="mw-custom-symbol" class="form-control history-input" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
-                            <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
-                            <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
-                            <button class="btn btn-secondary" onclick="exportTableToCSV('marketwatch-table', 'Basis_Watch')"><i class="fas fa-download"></i> CSV</button>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <h2 style="margin: 0; color: #fff; font-size: 18px;">Basis Watch (Derivatives)</h2>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="text" id="mw-custom-symbol" class="form-control history-input" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
+                                <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
+                                <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                                <button class="btn btn-secondary" onclick="exportTableToCSV('marketwatch-table', 'Basis_Watch')"><i class="fas fa-download"></i> CSV</button>
+                            </div>
                         </div>
+                        <div></div>
                     </div>
                     <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
                         <table class="data-table" id="marketwatch-table" style="width: 100%; margin: 0; padding: 0;">
@@ -4680,8 +4683,13 @@ function exportChartDataToCSV(chartInstance, filename) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
-    let pcrChartInstance = null;
-    let highOiChartInstance = null;
+    // Managed in opt_analysis.js to prevent duplicate declarations
+    if (typeof pcrChartInstance === 'undefined') {
+        window.pcrChartInstance = null;
+    }
+    if (typeof highOiChartInstance === 'undefined') {
+        window.highOiChartInstance = null;
+    }
 
     async function loadOptionsAnalysis() {
         const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
