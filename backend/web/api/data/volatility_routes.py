@@ -203,7 +203,7 @@ async def get_pre_expiry_action(
                     SELECT * FROM (
                         SELECT DISTINCT ON (trade_date) trade_date, close_price
                         FROM bhavcopy_fo
-                        WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK')
+                        WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF')
                         ORDER BY trade_date DESC, expiry_date ASC
                     ) AS distinct_dates
                     ORDER BY trade_date DESC

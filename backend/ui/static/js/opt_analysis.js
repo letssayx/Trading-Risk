@@ -1,5 +1,3 @@
-let pcrChartInstance = null;
-let highOiChartInstance = null;
 
 async function loadOptionsAnalysis() {
     const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();

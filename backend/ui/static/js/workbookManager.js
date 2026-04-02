@@ -25,8 +25,15 @@ const WorkbookManager = {
         this.switchTab('turtle');
 
         // Render standalone main tabs directly into their containers
-        this.modules['oi_analysis'].render(document.getElementById('tab-oi_analysis'));
-        this.modules['rollover'].render(document.getElementById('tab-rollover'));
+        const oiContainer = document.getElementById('deriv-tab-oi');
+        if (oiContainer) {
+            this.modules['oi_analysis'].render(oiContainer);
+        }
+
+        const rolloverContainer = document.getElementById('deriv-tab-rollover');
+        if (rolloverContainer) {
+            this.modules['rollover'].render(rolloverContainer);
+        }
     },
 
     switchTab: function(type) {
