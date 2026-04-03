@@ -63,15 +63,17 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
                 log_returns.append(0.0)
 
         # Windows to calculate
-        windows = [3, 7, 10, 20, 30, 60, 90, 252, 500]
+        windows = [3, 7, 10, 15, 20, 30]
 
         cone_data = {
             "windows": windows,
             "min": [],
             "max": [],
-            "p25": [],
-            "p50": [],
-            "p75": [],
+            "sd_minus_2": [],
+            "sd_minus_1": [],
+            "mean": [],
+            "sd_1": [],
+            "sd_2": [],
             "current_rv": [], # Current realized vol for that window ending today
             "atm_iv": [],     # Singular value, but structured as array for plotting overlay if desired
             "india_vix": []   # Singular value
@@ -162,9 +164,11 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
             if w > len(log_returns_np):
                 cone_data["min"].append(None)
                 cone_data["max"].append(None)
-                cone_data["p25"].append(None)
-                cone_data["p50"].append(None)
-                cone_data["p75"].append(None)
+                cone_data["sd_minus_2"].append(None)
+                cone_data["sd_minus_1"].append(None)
+                cone_data["mean"].append(None)
+                cone_data["sd_1"].append(None)
+                cone_data["sd_2"].append(None)
                 cone_data["current_rv"].append(None)
                 continue
 
@@ -183,25 +187,34 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
                 rv_arr = rv_arr[~np.isnan(rv_arr)]
 
                 if len(rv_arr) > 0:
+                    mean_rv = float(np.mean(rv_arr))
+                    std_rv = float(np.std(rv_arr, ddof=1))
+
                     cone_data["min"].append(round(float(np.min(rv_arr)), 2))
                     cone_data["max"].append(round(float(np.max(rv_arr)), 2))
-                    cone_data["p25"].append(round(float(np.percentile(rv_arr, 25)), 2))
-                    cone_data["p50"].append(round(float(np.percentile(rv_arr, 50)), 2))
-                    cone_data["p75"].append(round(float(np.percentile(rv_arr, 75)), 2))
+                    cone_data["sd_minus_2"].append(round(max(0, mean_rv - 2 * std_rv), 2))
+                    cone_data["sd_minus_1"].append(round(max(0, mean_rv - std_rv), 2))
+                    cone_data["mean"].append(round(mean_rv, 2))
+                    cone_data["sd_1"].append(round(mean_rv + std_rv, 2))
+                    cone_data["sd_2"].append(round(mean_rv + 2 * std_rv, 2))
                     cone_data["current_rv"].append(round(float(rv_arr[-1]), 2))
                 else:
                     cone_data["min"].append(None)
                     cone_data["max"].append(None)
-                    cone_data["p25"].append(None)
-                    cone_data["p50"].append(None)
-                    cone_data["p75"].append(None)
+                    cone_data["sd_minus_2"].append(None)
+                    cone_data["sd_minus_1"].append(None)
+                    cone_data["mean"].append(None)
+                    cone_data["sd_1"].append(None)
+                    cone_data["sd_2"].append(None)
                     cone_data["current_rv"].append(None)
             else:
                 cone_data["min"].append(None)
                 cone_data["max"].append(None)
-                cone_data["p25"].append(None)
-                cone_data["p50"].append(None)
-                cone_data["p75"].append(None)
+                cone_data["sd_minus_2"].append(None)
+                cone_data["sd_minus_1"].append(None)
+                cone_data["mean"].append(None)
+                cone_data["sd_1"].append(None)
+                cone_data["sd_2"].append(None)
                 cone_data["current_rv"].append(None)
 
         # To display horizontal overlays across all windows, we copy the singular values

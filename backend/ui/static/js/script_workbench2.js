@@ -1608,8 +1608,8 @@
 
             // Add NIFTY line overlay dynamically to FII/DII Chart if NIFTY exists
             const datasets = [
-                { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1 }, // Orange
-                { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1 }  // Blue
+                { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1, barPercentage: 1.0, categoryPercentage: 0.8 }, // Orange
+                { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1, barPercentage: 1.0, categoryPercentage: 0.8 }  // Blue
             ];
 
             if (niftyData.length > 0) {
@@ -1710,6 +1710,7 @@
                 return {
                     name: p.label,
                     type: 'bar',
+                    barGap: '0%', // Combine bars for each instrument
                     data: pData,
                     itemStyle: { color: p.color }
                 };
@@ -1719,7 +1720,10 @@
                 backgroundColor: 'transparent',
                 tooltip: {
                     trigger: 'axis',
-                    axisPointer: { type: 'shadow' }
+                    axisPointer: {
+                        type: 'shadow',
+                        shadowStyle: { color: 'rgba(255, 255, 255, 0.05)' } // Hover highlight
+                    }
                 },
                 legend: {
                     data: participants.map(p => p.label),
@@ -1736,7 +1740,11 @@
                 yAxis: {
                     type: 'value',
                     axisLabel: { color: '#888' },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    splitArea: {
+                        show: true,
+                        areaStyle: { color: ['rgba(250,250,250,0.03)', 'rgba(250,250,250,0.0)'] } // Zebra striping
+                    }
                 },
                 series: series
             };
@@ -2368,81 +2376,82 @@ async function loadVolatilityAnalysis() {
             backgroundColor: 'transparent',
             title: { text: 'Realized Volatility Cone', textStyle: { color: '#ccc', fontSize: 14 } },
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Max', '75th Pct', 'Median', '25th Pct', 'Min', 'Current RV', 'ATM IV', 'India VIX'], textStyle: { color: '#ccc' } },
+            legend: { data: ['Max', 'SD 2', 'SD 1', 'Mean', 'SD -1', 'SD -2', 'Min', 'Current RV', 'ATM IV', 'India VIX'], textStyle: { color: '#ccc' } },
             grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
-                data: data.windows.map(w => `${w}D`),
+                data: data.windows.map(w => `${w}`), // Just the number
+                name: 'Expiry Days',
+                nameLocation: 'middle',
+                nameGap: 30,
                 axisLabel: { color: '#888' },
                 axisLine: { lineStyle: { color: '#333' } }
             },
             yAxis: {
                 type: 'value',
-                name: 'Volatility (%)',
                 scale: true,
-                splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                axisLabel: { color: '#ccc' },
-                nameTextStyle: { color: '#ccc' }
+                axisLabel: { formatter: '{value}%', color: '#ccc' },
+                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
             },
             series: [
                 {
                     name: 'Max',
                     type: 'line',
                     data: data.max,
-                    lineStyle: { opacity: 0 },
+                    lineStyle: { color: '#3176B8', width: 2 }, // Dark Blue
                     showSymbol: false
                 },
                 {
-                    name: '75th Pct',
+                    name: 'SD 2',
                     type: 'line',
-                    data: data.p75,
-                    lineStyle: { color: '#4ade80', type: 'dashed' },
-                    areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
-                            offset: 0, color: 'rgba(74, 222, 128, 0.2)'
-                        }, {
-                            offset: 1, color: 'rgba(74, 222, 128, 0.05)'
-                        }])
-                    },
+                    data: data.sd_2,
+                    lineStyle: { color: '#d32f2f', width: 2 }, // Red
                     showSymbol: false
                 },
                 {
-                    name: 'Median',
+                    name: 'SD 1',
                     type: 'line',
-                    data: data.p50,
-                    lineStyle: { color: '#3176B8', width: 2 }, // Blue median
-                    showSymbol: true
+                    data: data.sd_1,
+                    lineStyle: { color: '#7cb342', width: 2 }, // Green
+                    showSymbol: false
                 },
                 {
-                    name: '25th Pct',
+                    name: 'Mean',
                     type: 'line',
-                    data: data.p25,
-                    lineStyle: { color: '#E88B1E', type: 'dashed' },
-                    areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
-                            offset: 0, color: 'rgba(232, 139, 30, 0.2)'
-                        }, {
-                            offset: 1, color: 'rgba(232, 139, 30, 0.05)'
-                        }])
-                    },
+                    data: data.mean,
+                    lineStyle: { color: '#7b1fa2', width: 2 }, // Purple
+                    showSymbol: false
+                },
+                {
+                    name: 'SD -1',
+                    type: 'line',
+                    data: data.sd_minus_1,
+                    lineStyle: { color: '#00acc1', width: 2 }, // Cyan
+                    showSymbol: false
+                },
+                {
+                    name: 'SD -2',
+                    type: 'line',
+                    data: data.sd_minus_2,
+                    lineStyle: { color: '#f57c00', width: 2 }, // Orange
                     showSymbol: false
                 },
                 {
                     name: 'Min',
                     type: 'line',
                     data: data.min,
-                    lineStyle: { opacity: 0 },
+                    lineStyle: { color: '#8c9eff', width: 2 }, // Light Blue
                     showSymbol: false
                 },
                 {
                     name: 'Current RV',
                     type: 'line',
                     data: data.current_rv,
-                    lineStyle: { color: '#ff4444', width: 3 }, // Red thick line
-                    itemStyle: { color: '#ff4444' },
+                    lineStyle: { color: '#ffea00', width: 3, type: 'dashed' }, // Bright Yellow
+                    itemStyle: { color: '#ffea00' },
                     symbol: 'circle',
-                    symbolSize: 8
+                    symbolSize: 6
                 }
             ]
         };
@@ -2453,6 +2462,16 @@ async function loadVolatilityAnalysis() {
                 type: 'line',
                 data: data.atm_iv,
                 lineStyle: { color: '#FF00FF', width: 2, type: 'dashed' }, // Magenta
+                showSymbol: false
+            });
+        }
+
+        if (data.atm_iv && data.atm_iv.length > 0) {
+            coneOption.series.push({
+                name: 'ATM IV',
+                type: 'line',
+                data: data.atm_iv,
+                lineStyle: { color: '#4ade80', width: 2, type: 'dotted' }, // Green
                 showSymbol: false
             });
         }
