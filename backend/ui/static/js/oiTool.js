@@ -195,6 +195,10 @@ const OiTool = {
             return '#888';
         });
 
+        // Ensure axes are symmetric around 0 so the quadrants are mathematically correct relative to paper corners
+        let maxAbsX = Math.max(...x.map(Math.abs), 1) * 1.1; // fallback to 1 to avoid 0 range
+        let maxAbsY = Math.max(...y.map(Math.abs), 1) * 1.1;
+
         const trace = {
             x: x,
             y: y,
@@ -215,14 +219,18 @@ const OiTool = {
             xaxis: {
                 title: 'OI Change %',
                 zeroline: true,
-                zerolinecolor: '#888',
-                gridcolor: '#333'
+                zerolinewidth: 2,
+                zerolinecolor: '#ccc',
+                gridcolor: '#333',
+                range: [-maxAbsX, maxAbsX]
             },
             yaxis: {
                 title: 'Price Change %',
                 zeroline: true,
-                zerolinecolor: '#888',
-                gridcolor: '#333'
+                zerolinewidth: 2,
+                zerolinecolor: '#ccc',
+                gridcolor: '#333',
+                range: [-maxAbsY, maxAbsY]
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },

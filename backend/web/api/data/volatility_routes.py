@@ -360,12 +360,38 @@ async def get_pre_expiry_action(
                     "end_date": dates[exp_idx]
                 })
 
+        # Append ATM IV and India VIX overlay logic for the Pre-Expiry chart
+        # This gives a single constant line across the chart for current values
+        atm_iv_line = []
+        india_vix_line = []
+        try:
+            # We fetch today's Cone endpoint to reuse the atm_iv and india_vix values
+            cone_data = await get_volatility_cone(symbol, db)
+            atm_iv_val = cone_data.get("atm_iv", [None])[0]
+            vix_val = cone_data.get("india_vix", [None])[0]
+            atm_iv_line = [atm_iv_val] * len(dates)
+            india_vix_line = [vix_val] * len(dates)
+        except Exception as e:
+            atm_iv_line = [None] * len(dates)
+            india_vix_line = [None] * len(dates)
+
+        # Precalculate price change percentages
+        price_chg_pct_line = [0]
+        for i in range(1, len(prices)):
+            if prices[i-1] > 0:
+                price_chg_pct_line.append(round(((prices[i] - prices[i-1]) / prices[i-1]) * 100, 2))
+            else:
+                price_chg_pct_line.append(0)
+
         return {
             "dates": dates,
             "prices": prices,
             "rv": rv_line,
             "expiries": sorted_expiries,
-            "boxes": boxes
+            "boxes": boxes,
+            "atm_iv_line": atm_iv_line,
+            "india_vix_line": india_vix_line,
+            "price_chg_pct_line": price_chg_pct_line
         }
     except Exception as e:
         import traceback

@@ -2245,8 +2245,25 @@ async function loadVolatilityAnalysis() {
 
         const preExpiryOption = {
             backgroundColor: 'transparent',
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Price', `Realized Vol (${boxDays}D)`], textStyle: { color: '#ccc' } },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross' },
+                formatter: function (params) {
+                    let tooltipHtml = `<b>${params[0].axisValue}</b><br/>`;
+                    let pChg = 0;
+                    if(data.price_chg_pct_line && data.price_chg_pct_line[params[0].dataIndex] !== undefined) {
+                         pChg = data.price_chg_pct_line[params[0].dataIndex];
+                         tooltipHtml += `Price Change: <span style="color: ${pChg >= 0 ? '#4caf50' : '#f44336'}">${pChg}%</span><br/>`;
+                    }
+
+                    params.forEach(param => {
+                        let val = param.value !== undefined && param.value !== null ? parseFloat(param.value).toFixed(2) : 'N/A';
+                        tooltipHtml += `${param.marker} ${param.seriesName}: <b>${val}</b><br/>`;
+                    });
+                    return tooltipHtml;
+                }
+            },
+            legend: { data: ['Price', `Realized Vol (${boxDays}D)`, 'ATM IV', 'India VIX'], textStyle: { color: '#ccc' } },
             grid: { left: '3%', right: '3%', bottom: '10%', top: '15%', containLabel: true },
             xAxis: {
                 type: 'category',
@@ -2266,7 +2283,7 @@ async function loadVolatilityAnalysis() {
                 },
                 {
                     type: 'value',
-                    name: `RV (${boxDays}D) %`,
+                    name: `Vol / %`,
                     position: 'right',
                     scale: true,
                     splitLine: { show: false },
@@ -2300,6 +2317,24 @@ async function loadVolatilityAnalysis() {
                     yAxisIndex: 1,
                     itemStyle: { color: '#E88B1E' }, // Orange line for RV
                     lineStyle: { width: 2 },
+                    showSymbol: false
+                },
+                {
+                    name: `ATM IV`,
+                    type: 'line',
+                    data: data.atm_iv_line,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#00FF00' }, // Green line for ATM IV
+                    lineStyle: { width: 1, type: 'dashed' },
+                    showSymbol: false
+                },
+                {
+                    name: `India VIX`,
+                    type: 'line',
+                    data: data.india_vix_line,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#FF00FF' }, // Magenta line for VIX
+                    lineStyle: { width: 1, type: 'dotted' },
                     showSymbol: false
                 }
             ]
