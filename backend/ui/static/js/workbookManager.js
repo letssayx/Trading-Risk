@@ -45,10 +45,37 @@ const WorkbookManager = {
             const tab = document.querySelector(`.wb-tab[data-type="${type}"]`);
             if (tab) tab.classList.add('active');
 
-            // Content Update
+            // Content Update - toggle visibility instead of clearing innerHTML
+            // We assume there are sub-containers for each strategy
             const container = document.getElementById('wb-content-area');
-            container.innerHTML = '';
-            this.modules[type].render(container);
+
+            // Check if strategy containers exist, create if not
+            let turtleContainer = document.getElementById('turtle-strategy-container');
+            let statarbContainer = document.getElementById('statarb-strategy-container');
+
+            if (!turtleContainer) {
+                turtleContainer = document.createElement('div');
+                turtleContainer.id = 'turtle-strategy-container';
+                turtleContainer.style.height = '100%';
+                container.appendChild(turtleContainer);
+                this.modules['turtle'].render(turtleContainer);
+            }
+            if (!statarbContainer) {
+                statarbContainer = document.createElement('div');
+                statarbContainer.id = 'statarb-strategy-container';
+                statarbContainer.style.height = '100%';
+                container.appendChild(statarbContainer);
+                this.modules['statarb'].render(statarbContainer);
+            }
+
+            // Toggle Display
+            if (type === 'turtle') {
+                turtleContainer.style.display = 'block';
+                statarbContainer.style.display = 'none';
+            } else if (type === 'statarb') {
+                turtleContainer.style.display = 'none';
+                statarbContainer.style.display = 'block';
+            }
         }
     },
 

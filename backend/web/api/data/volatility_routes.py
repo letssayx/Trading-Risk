@@ -75,32 +75,75 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
             "current_rv": [] # Current realized vol for that window ending today
         }
 
-        # For Current RV, we want to fetch the real Implied Volatility (IV) from options data,
-        # but since calculating a true IV index (like VIX) requires complex math over a full chain,
-        # we will fetch the nearest expiry ATM option's IV as a proxy for current implied volatility,
-        # or fall back to realized volatility if it doesn't exist.
-        # But wait, the user strictly said "no fake data, no hallucination, use real options data, no assumptions".
-        # Let's see if we have ATM IV stored. In the database, `bhavcopy_fo` stores `implied_volatility`.
-        # We can find today's ATM options and average their IVs.
-
+        # Fetch the underlying price for the current date to determine ATM strikes
         current_date = dates[-1]
-        iv_query = text("""
-            SELECT implied_volatility, strike_price
-            FROM bhavcopy_fo
-            WHERE ticker_symb = :symbol
-              AND trade_date = :current_date
-              AND implied_volatility IS NOT NULL
-              AND implied_volatility > 0
-              AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
-            ORDER BY open_interest DESC
-            LIMIT 10
-        """)
-        iv_result = db.execute(iv_query, {"symbol": symbol, "current_date": current_date}).fetchall()
+        underlying_price = prices[-1]
 
+        # Fetch options data for the current date to calculate ATM IV dynamically
         real_iv = None
-        if iv_result:
-            # Simple average of the top 10 most liquid options' IVs as proxy for current Implied Volatility
-            real_iv = sum(r[0] for r in iv_result) / len(iv_result)
+        try:
+            from backend.risk.greeks import calculate_implied_volatility
+
+            # 1. Find the nearest valid expiry date
+            expiry_query = text("""
+                SELECT MIN(expiry_date)
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol
+                  AND trade_date = :current_date
+                  AND expiry_date > :current_date
+                  AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
+            """)
+            nearest_expiry = db.execute(expiry_query, {"symbol": symbol, "current_date": current_date}).scalar()
+
+            if nearest_expiry and underlying_price > 0:
+                dte = (nearest_expiry - current_date).days
+                if dte > 0:
+                    t_years = dte / 365.0
+                    risk_free_rate = 0.05
+
+                    # 2. Get options for this expiry
+                    opts_query = text("""
+                        SELECT strike_price, option_type, close_price
+                        FROM bhavcopy_fo
+                        WHERE ticker_symb = :symbol
+                          AND trade_date = :current_date
+                          AND expiry_date = :nearest_expiry
+                          AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
+                    """)
+                    opts_result = db.execute(opts_query, {
+                        "symbol": symbol,
+                        "current_date": current_date,
+                        "nearest_expiry": nearest_expiry
+                    }).fetchall()
+
+                    if opts_result:
+                        # Find nearest ATM strike
+                        strikes = sorted(list(set([r[0] for r in opts_result])))
+                        atm_strike = min(strikes, key=lambda x: abs(x - underlying_price))
+
+                        atm_call_px = None
+                        atm_put_px = None
+
+                        for r in opts_result:
+                            if r[0] == atm_strike:
+                                if r[1] == 'CE': atm_call_px = float(r[2])
+                                elif r[1] == 'PE': atm_put_px = float(r[2])
+
+                        ivs = []
+                        if atm_call_px and atm_call_px > 0:
+                            call_iv = calculate_implied_volatility(atm_call_px, underlying_price, atm_strike, t_years, risk_free_rate, 'c')
+                            if call_iv: ivs.append(call_iv * 100) # convert to percentage
+
+                        if atm_put_px and atm_put_px > 0:
+                            put_iv = calculate_implied_volatility(atm_put_px, underlying_price, atm_strike, t_years, risk_free_rate, 'p')
+                            if put_iv: ivs.append(put_iv * 100)
+
+                        if ivs:
+                            real_iv = sum(ivs) / len(ivs)
+
+        except Exception as e:
+            print(f"Failed to calculate dynamic IV for cone: {e}")
+            real_iv = None
 
         for w in windows:
             if w > len(log_returns):

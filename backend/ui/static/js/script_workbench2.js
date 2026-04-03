@@ -1111,9 +1111,17 @@
             if(btn) { btn.disabled = true; btn.innerText = "Loading..."; }
 
             try {
-                let limit = isLatest ? 1 : 500;
-                let url = `/api/data/view/list?type=${type}&limit=${limit}`; // Removed timestamp for speed, browser cache is usually fine with varying params
-                if (symbol) url += `&symbol=${symbol}`;
+                // If "Latest" is checked but symbol is provided, we still want the timeseries for that symbol,
+                // otherwise we just want the cross-section of all symbols for the latest date.
+                // User requirement: "Latest Date check box has stopped working in Historical" -> "in the historical data section"
+                // The 'latest' flag on the backend gets the max date. If we force limit=1, we only get ONE row (one symbol).
+                // We should pass limit=0 (unlimited) or a high number like 5000 if we want all symbols for that latest date.
+                let limit = isLatest ? 5000 : 500;
+                if (symbol && isLatest) limit = 1; // if symbol is specified and latest is checked, we only need 1 row
+                let url = `/api/data/view/list?type=${type}&limit=${limit}`;
+                if (symbol) {
+                    url += `&symbol=${symbol}`;
+                }
                 if (start) url += `&start_date=${start}`;
                 if (end) url += `&end_date=${end}`;
                 if (type === 'bhavcopy_fo' && instrument !== 'ALL') url += `&instrument=${instrument}`;
