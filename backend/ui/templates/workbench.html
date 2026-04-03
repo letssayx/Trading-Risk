@@ -1413,7 +1413,7 @@
                 </div>
 
                 <!-- SUB-TAB: Options Analysis -->
-                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: none; flex-direction: column;">
+                <div id="deriv-tab-optanalysis" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; display: none; flex-direction: column;">
                     <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
                         Volatility Analysis
                     </h2>
@@ -1446,7 +1446,7 @@
                     </div>
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
-                    <div style="width: 100%; height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+                    <div style="width: 100%; height: 600px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
                             <button class="btn btn-secondary" onclick="if(window.volPreExpiryChart) exportChartDataToCSV(window.volPreExpiryChart, 'Vol_Pre_Expiry'); else exportChartDataToCSV(volPreExpiryChart, 'Vol_Pre_Expiry')"><i class="fas fa-download"></i> CSV</button>
                         </div>
@@ -1454,7 +1454,7 @@
                     </div>
 
                     <!-- Chart 2: Volatility Cone -->
-                    <div style="width: 100%; height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px;">
+                    <div style="width: 100%; height: 600px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
                             <button class="btn btn-secondary" onclick="if(window.volConeChart) exportChartDataToCSV(window.volConeChart, 'Volatility_Cone'); else exportChartDataToCSV(volConeChart, 'Volatility_Cone')"><i class="fas fa-download"></i> CSV</button>
                         </div>
