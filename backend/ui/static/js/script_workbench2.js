@@ -1716,6 +1716,25 @@
                 };
             });
 
+            // Add Smart Money (FII+DII+PRO+CLI)
+            const smartMoneyData = metrics.map(m => {
+                let sum = 0;
+                participants.forEach(p => {
+                    const arrayKey = `${p.key}_${m.key}`;
+                    const arr = data[arrayKey] || [];
+                    sum += arr.length > todayIdx ? arr[todayIdx] : 0;
+                });
+                return sum;
+            });
+
+            series.push({
+                name: 'Smart Money',
+                type: 'bar',
+                barGap: '0%',
+                data: smartMoneyData,
+                itemStyle: { color: '#ffeb3b' } // Yellow
+            });
+
             const option = {
                 backgroundColor: 'transparent',
                 tooltip: {
@@ -1726,7 +1745,7 @@
                     }
                 },
                 legend: {
-                    data: participants.map(p => p.label),
+                    data: [...participants.map(p => p.label), 'Smart Money'],
                     textStyle: { color: '#ccc' }
                 },
                 grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
@@ -1743,7 +1762,7 @@
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
                     splitArea: {
                         show: true,
-                        areaStyle: { color: ['rgba(250,250,250,0.03)', 'rgba(250,250,250,0.0)'] } // Zebra striping
+                        areaStyle: { color: ['rgba(250,250,250,0.05)', 'rgba(250,250,250,0.01)'] } // Pronounced Zebra striping
                     }
                 },
                 series: series
@@ -1833,81 +1852,115 @@ async function loadOptionsAnalysis() {
 
         const option = {
             backgroundColor: 'transparent',
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Total OI', 'Price (FUT1)', 'PCR'], textStyle: { color: '#ccc' } },
-            grid: { left: '3%', right: '3%', bottom: '3%', top: '15%', containLabel: true },
-            xAxis: {
-                type: 'category',
-                data: data.dates,
-                axisLabel: { color: '#888' },
-                axisLine: { lineStyle: { color: '#333' } }
-            },
-            yAxis: [
-                {
-                    type: 'value',
-                    name: 'Total OI',
-                    position: 'left',
-                    splitLine: { show: false },
-                    axisLabel: { color: '#888' },
-                    nameTextStyle: { color: '#888' }
-                },
-                {
-                    type: 'value',
-                    name: 'Price (FUT1)',
-                    position: 'right',
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLabel: { color: '#888' },
-                    nameTextStyle: { color: '#888' },
-                    scale: true,
-                    min: 'dataMin',
-                    max: 'dataMax'
-                },
-                {
-                    type: 'value',
-                    name: 'PCR',
-                    position: 'right',
-                    offset: 60,
-                    scale: true,
-                    min: 'dataMin',
-                    max: 'dataMax',
-                    splitLine: { show: false },
-                    axisLabel: { color: '#888' },
-                    nameTextStyle: { color: '#888' }
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross' },
+                formatter: function(params) {
+                    let tooltipHtml = `<b>${params[0].axisValue}</b><br/>`;
+                    params.forEach(param => {
+                        let val = param.value !== undefined && param.value !== null ? parseFloat(param.value).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : 'N/A';
+                        if (param.seriesName.includes('%')) val += '%';
+                        tooltipHtml += `${param.marker} ${param.seriesName}: <b>${val}</b><br/>`;
+                    });
+                    return tooltipHtml;
                 }
+            },
+            legend: {
+                data: ['Total OI', 'Price (FUT1)', 'PCR', 'OI Chg %', 'Price Chg %', 'ATM IV'],
+                textStyle: { color: '#ccc' }
+            },
+            grid: [
+                { left: '3%', right: '8%', height: '35%', top: '10%', containLabel: true }, // Main Chart
+                { left: '3%', right: '8%', height: '15%', top: '50%', containLabel: true }, // % Changes
+                { left: '3%', right: '8%', height: '15%', top: '70%', containLabel: true }  // ATM IV
+            ],
+            xAxis: [
+                { type: 'category', data: data.dates, gridIndex: 0, show: false, axisPointer: {label: {show: false}} },
+                { type: 'category', data: data.dates, gridIndex: 1, show: false, axisPointer: {label: {show: false}} },
+                { type: 'category', data: data.dates, gridIndex: 2, axisLabel: { color: '#888' }, axisLine: { lineStyle: { color: '#333' } } }
+            ],
+            yAxis: [
+                { type: 'value', name: 'Total OI', position: 'left', gridIndex: 0, splitLine: { show: false }, axisLabel: { color: '#888' } },
+                { type: 'value', name: 'Price', position: 'right', gridIndex: 0, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, scale: true, axisLabel: { color: '#888' } },
+                { type: 'value', name: 'PCR', position: 'right', offset: 60, gridIndex: 0, scale: true, splitLine: { show: false }, axisLabel: { color: '#888' } },
+                { type: 'value', name: 'OI/Price %', gridIndex: 1, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, axisLabel: { color: '#888', formatter: '{value}%' } },
+                { type: 'value', name: 'ATM IV', gridIndex: 2, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, axisLabel: { color: '#888', formatter: '{value}%' } }
             ],
             dataZoom: [
-                { type: 'inside', start: 50, end: 100 },
-                { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
+                { type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 },
+                { type: 'slider', xAxisIndex: [0, 1, 2], start: 50, end: 100, bottom: '2%', textStyle: { color: '#ccc' } }
             ],
             series: [
-                {
-                    name: 'Total OI',
-                    type: 'bar',
-                    data: data.total_oi,
-                    itemStyle: { color: 'rgba(54, 162, 235, 0.4)' },
-                    yAxisIndex: 0
-                },
-                {
-                    name: 'Price (FUT1)',
-                    type: 'line',
-                    data: data.price,
-                    itemStyle: { color: '#FFCC00' }, // Classic yellow
-                    lineStyle: { width: 2 },
-                    symbol: 'none',
-                    yAxisIndex: 1
-                },
-                {
-                    name: 'PCR',
-                    type: 'line',
-                    data: data.pcr,
-                    itemStyle: { color: '#00FF00' }, // Bright green
-                    lineStyle: { width: 2 },
-                    symbol: 'none',
-                    yAxisIndex: 2
-                }
+                { name: 'Total OI', type: 'bar', data: data.total_oi, itemStyle: { color: 'rgba(54, 162, 235, 0.4)' }, xAxisIndex: 0, yAxisIndex: 0 },
+                { name: 'Price (FUT1)', type: 'line', data: data.price, itemStyle: { color: '#FFCC00' }, lineStyle: { width: 2 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 1 },
+                { name: 'PCR', type: 'line', data: data.pcr, itemStyle: { color: '#00FF00' }, lineStyle: { width: 2 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 2 },
+                { name: 'OI Chg %', type: 'bar', data: data.oi_chg_pct || [], itemStyle: { color: '#2196F3' }, xAxisIndex: 1, yAxisIndex: 3 },
+                { name: 'Price Chg %', type: 'bar', data: data.price_chg_pct || [], itemStyle: { color: '#E88B1E' }, xAxisIndex: 1, yAxisIndex: 3 },
+                { name: 'ATM IV', type: 'line', data: data.atm_iv || [], itemStyle: { color: '#e040fb' }, lineStyle: { width: 2, type: 'dashed' }, symbol: 'none', xAxisIndex: 2, yAxisIndex: 4 }
             ]
         };
+
+        // Custom min/max to prevent flat lines
+        if (data.price && data.price.length > 0) {
+            const valid = data.price.filter(v => v !== null && !isNaN(v));
+            if (valid.length > 0) {
+                const min = Math.min(...valid);
+                const max = Math.max(...valid);
+                const pad = (max - min) * 0.1;
+                option.yAxis[1].min = Math.floor(min - pad);
+                option.yAxis[1].max = Math.ceil(max + pad);
+            }
+        }
+        if (data.pcr && data.pcr.length > 0) {
+            const valid = data.pcr.filter(v => v !== null && !isNaN(v));
+            if (valid.length > 0) {
+                const min = Math.min(...valid);
+                const max = Math.max(...valid);
+                const pad = (max - min) * 0.1;
+                option.yAxis[2].min = (min - pad).toFixed(2);
+                option.yAxis[2].max = (max + pad).toFixed(2);
+            }
+        }
+
         pcrChartInstance.setOption(option);
+
+        // Render 10-day history table below the chart
+        const tbody = document.getElementById('opt-analysis-history-body');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (data.dates && data.dates.length > 0) {
+                const latestDataPoints = Math.min(10, data.dates.length);
+                const startIdx = data.dates.length - latestDataPoints;
+
+                for (let i = data.dates.length - 1; i >= startIdx; i--) {
+                    const tr = document.createElement('tr');
+                    const d = data.dates[i];
+                    const p = data.price[i];
+                    const oi = data.total_oi[i];
+                    const pcr = data.pcr[i];
+                    const pChg = data.price_chg_pct ? data.price_chg_pct[i] : 0;
+                    const oiChg = data.oi_chg_pct ? data.oi_chg_pct[i] : 0;
+                    const iv = data.atm_iv ? data.atm_iv[i] : 0;
+
+                    let pColor = pChg >= 0 ? '#4caf50' : '#f44336';
+                    let oColor = oiChg >= 0 ? '#4caf50' : '#f44336';
+
+                    tr.innerHTML = `
+                        <td style="padding: 6px;">${d}</td>
+                        <td style="padding: 6px;">${p ? p.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined ? pChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${oi ? oi.toLocaleString() : '-'}</td>
+                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined ? oiChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${pcr ? pcr.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px;">${iv ? iv.toFixed(2) + '%' : '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } else {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No historical data available.</td></tr>';
+            }
+        }
+
     } catch (e) {
         console.error("Error loading PCR history:", e);
     }
@@ -2271,7 +2324,7 @@ async function loadVolatilityAnalysis() {
                     return tooltipHtml;
                 }
             },
-            legend: { data: ['Price', `Realized Vol (${boxDays}D)`, 'ATM IV', 'India VIX'], textStyle: { color: '#ccc' } },
+            legend: { data: ['Price', `Realized Vol (${boxDays}D)`, 'ATM IV', 'India VIX', 'Price Change %'], textStyle: { color: '#ccc' } },
             grid: { left: '3%', right: '3%', bottom: '10%', top: '15%', containLabel: true },
             xAxis: {
                 type: 'category',
@@ -2301,6 +2354,17 @@ async function loadVolatilityAnalysis() {
             ],
             dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
             series: [
+                {
+                    name: 'Price Change %',
+                    type: 'bar',
+                    data: data.price_chg_pct_line,
+                    yAxisIndex: 1,
+                    itemStyle: {
+                        color: function(params) {
+                            return params.value >= 0 ? 'rgba(76, 175, 80, 0.5)' : 'rgba(244, 67, 54, 0.5)';
+                        }
+                    }
+                },
                 {
                     name: 'Price',
                     type: 'line',
@@ -2344,6 +2408,24 @@ async function loadVolatilityAnalysis() {
                     itemStyle: { color: '#FF00FF' }, // Magenta line for VIX
                     lineStyle: { width: 1, type: 'dotted' },
                     showSymbol: false
+                },
+                {
+                    name: 'ATM IV',
+                    type: 'line',
+                    data: data.atm_iv_line,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#4caf50' }, // Green line for ATM IV
+                    lineStyle: { width: 1, type: 'dashed' },
+                    showSymbol: false
+                },
+                {
+                    name: 'India VIX',
+                    type: 'line',
+                    data: data.india_vix_line,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#e040fb' }, // Purple line for India VIX
+                    lineStyle: { width: 1, type: 'dotted' },
+                    showSymbol: false
                 }
             ]
         };
@@ -2362,7 +2444,9 @@ async function loadVolatilityAnalysis() {
         volConeChart = echarts.init(coneChartDom, 'dark', { renderer: 'canvas' });
         volConeChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
-        const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}`);
+        const lookbackDays = document.getElementById('vol-lookback').value.replace(' Days', '');
+
+        const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}?lookback_days=${lookbackDays}`);
         const data = await res.json();
 
         if (data.detail) {
@@ -2391,6 +2475,12 @@ async function loadVolatilityAnalysis() {
             yAxis: {
                 type: 'value',
                 scale: true,
+                min: function (value) {
+                    return Math.max(0, Math.floor(value.min - 2));
+                },
+                max: function (value) {
+                    return Math.ceil(value.max + 2);
+                },
                 axisLabel: { formatter: '{value}%', color: '#ccc' },
                 splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
             },
@@ -2615,6 +2705,12 @@ function exportChartDataToCSV(chartInstance, filename) {
                 return;
             }
         }
+
+        // For scatter plots, X axis data might be inside the series data objects
+        if (xAxisData.length === 0 && option.series && option.series[0].type === 'scatter') {
+             xAxisData = option.series[0].text || option.series[0].data.map((_, i) => i);
+        }
+
     } else if (isChartJS) {
         const data = chartInstance.data;
         if (!data || !data.datasets || data.datasets.length === 0) return;

@@ -57,7 +57,53 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             # Sum OI across all expiries (FUT 1 + FUT 2 + FUT 3...)
             sym_data[sym][dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
 
-        # 4. Calculate metrics
+        # 4. Get historical data for the last 10 days for MWPL-style collapsible rows
+        from backend.ingest.nse_models import SymbolMaster
+        symbols_list = list(sym_data.keys())
+
+        # Get sector info
+        sector_query = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).filter(SymbolMaster.symbol.in_(symbols_list)).all()
+        sector_map = {r.symbol: r.sector_index for r in sector_query}
+
+        # Get last 500 dates for extended advanced filters
+        all_hist_dates_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+                  .distinct()\
+                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .limit(500).all()
+
+        all_hist_dates = [d[0] for d in all_hist_dates_query]
+
+        # We need the last 10 days for the table, and the dates exactly 30, 60, 90, 252, 500 days ago for advanced filters
+        target_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 29, 59, 89, 251, 499]
+        target_dates = []
+        for idx in target_indices:
+            if idx < len(all_hist_dates):
+                target_dates.append(all_hist_dates[idx])
+
+        # Query history for these specific target dates
+        hist_query = db.query(
+            BhavcopyFO.ticker_symb,
+            BhavcopyFO.trade_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest
+        ).filter(
+            BhavcopyFO.trade_date.in_(target_dates),
+            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
+
+        hist_data = {}
+        for r in hist_query:
+            sym = r.ticker_symb
+            dt = r.trade_date
+            if sym not in hist_data:
+                hist_data[sym] = {}
+            if dt not in hist_data[sym]:
+                hist_data[sym][dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
+            hist_data[sym][dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
+
+        # 5. Calculate metrics
         results = []
         for sym, dates_dict in sym_data.items():
             prev = dates_dict[prev_date]
@@ -79,13 +125,67 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             elif price_chg < 0 and oi_chg < 0:
                 interp = "Long Unwinding"
 
+            # Build history array
+            hist_arr = []
+            if sym in hist_data:
+                sorted_hist_dates = sorted(hist_data[sym].keys(), reverse=True)
+                for i in range(len(sorted_hist_dates)):
+                    dt = sorted_hist_dates[i]
+                    curr_h = hist_data[sym][dt]
+
+                    prev_h = None
+                    if i + 1 < len(sorted_hist_dates):
+                        prev_h = hist_data[sym][sorted_hist_dates[i+1]]
+
+                    h_price_chg = 0
+                    h_oi_chg = 0
+                    if prev_h and prev_h["price"] > 0 and prev_h["oi"] > 0:
+                        h_price_chg = ((curr_h["price"] - prev_h["price"]) / prev_h["price"]) * 100
+                        h_oi_chg = ((curr_h["oi"] - prev_h["oi"]) / prev_h["oi"]) * 100
+
+                    # Only append to 10-day history array if it's within the top 10 recent dates
+                    if dt in target_dates[:10]:
+                        hist_arr.append({
+                            "date": str(dt),
+                            "price": curr_h["price"],
+                            "oi": curr_h["oi"],
+                            "price_chg_pct": round(h_price_chg, 2),
+                            "oi_chg_pct": round(h_oi_chg, 2)
+                        })
+
+            # Calculate multi-timeframe derived metrics (30d, 60d, 90d, 252d, 500d)
+            adv_metrics = {
+                "oi_chg_30d": 0, "price_chg_30d": 0,
+                "oi_chg_60d": 0, "price_chg_60d": 0,
+                "oi_chg_90d": 0, "price_chg_90d": 0,
+                "oi_chg_252d": 0, "price_chg_252d": 0,
+                "oi_chg_500d": 0, "price_chg_500d": 0
+            }
+
+            if sym in hist_data and curr_date in hist_data[sym]:
+                c_data = hist_data[sym][curr_date]
+
+                timeframes = [(30, 29), (60, 59), (90, 89), (252, 251), (500, 499)]
+                for label, idx in timeframes:
+                    if idx < len(all_hist_dates):
+                        past_dt = all_hist_dates[idx]
+                        if past_dt in hist_data[sym]:
+                            p_data = hist_data[sym][past_dt]
+                            if p_data["price"] > 0:
+                                adv_metrics[f"price_chg_{label}d"] = ((c_data["price"] - p_data["price"]) / p_data["price"]) * 100
+                            if p_data["oi"] > 0:
+                                adv_metrics[f"oi_chg_{label}d"] = ((c_data["oi"] - p_data["oi"]) / p_data["oi"]) * 100
+
             results.append({
                 "symbol": sym,
+                "sector": sector_map.get(sym, "Unknown"),
                 "price_chg_pct": round(price_chg, 2),
                 "oi_chg_pct": round(oi_chg, 2),
                 "interpretation": interp,
                 "curr_price": curr["price"],
-                "curr_oi": curr["oi"]
+                "curr_oi": curr["oi"],
+                "history": hist_arr[:10],
+                **{k: round(v, 2) for k, v in adv_metrics.items()}
             })
 
         return {"date": str(curr_date), "data": results}

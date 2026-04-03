@@ -8,28 +8,31 @@ import numpy as np
 router = APIRouter()
 
 @router.get("/api/data/derivatives/volatility_cone/{symbol}")
-async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
+async def get_volatility_cone(symbol: str, lookback_days: int = 500, db: Session = Depends(get_db)):
     try:
         symbol = symbol.upper()
         is_index = symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]
 
         # Fetch historical prices to calculate realized volatility
+        # We fetch DESC with LIMIT, then reverse to ASC
         if is_index:
             query = text("""
                 SELECT trade_date, close_price
                 FROM historical_index_data
                 WHERE index_name = :symbol
-                ORDER BY trade_date ASC
+                ORDER BY trade_date DESC
+                LIMIT :lookback
             """)
         else:
             query = text("""
                 SELECT trade_date, close_price
                 FROM bhavcopy_eq
                 WHERE ticker_symb = :symbol AND series = 'EQ'
-                ORDER BY trade_date ASC
+                ORDER BY trade_date DESC
+                LIMIT :lookback
             """)
 
-        result = db.execute(query, {"symbol": symbol}).fetchall()
+        result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
 
         # fallback to futures if eq/index is empty
         if not result:
@@ -39,14 +42,17 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
                         SELECT DISTINCT ON (trade_date) trade_date, close_price
                         FROM bhavcopy_fo
                         WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF')
-                        ORDER BY trade_date ASC, expiry_date ASC
+                        ORDER BY trade_date DESC, expiry_date ASC
                     ) AS distinct_dates
-                    ORDER BY trade_date ASC
+                    ORDER BY trade_date DESC
+                    LIMIT :lookback
                 """)
-                 result = db.execute(query, {"symbol": symbol}).fetchall()
+                 result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
              except Exception:
                  db.rollback()
                  result = []
+
+        result.reverse() # Sort ascending after applying limit
 
         if not result or len(result) < 5:
             raise HTTPException(status_code=400, detail=f"Insufficient price history for Volatility Cone ({len(result)} records found, need at least 5 days)")
