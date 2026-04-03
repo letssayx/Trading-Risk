@@ -1420,12 +1420,12 @@
 
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
                         <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol">
-                        <select id="vol-analysis-expiry-type" class="history-input" onchange="loadVolatilityAnalysis()">
+                        <select id="vol-analysis-expiry-type" class="history-input" >
                             <option value="monthly">Monthly Expiry</option>
                             <option value="weekly">Weekly Expiry</option>
                         </select>
                         <label style="color: #ccc; margin: 0; font-size: 14px;">Lookback Period:</label>
-                        <select id="vol-analysis-lookback" class="history-input" onchange="loadVolatilityAnalysis()">
+                        <select id="vol-analysis-lookback" class="history-input" >
                             <option value="5">5 Days</option>
                             <option value="30">30 Days</option>
                             <option value="60">60 Days</option>
@@ -1433,7 +1433,7 @@
                             <option value="252">252 Days</option>
                             <option value="500" selected>500 Days</option>
                         </select>
-                        <select id="vol-analysis-box-days" class="history-input" onchange="loadVolatilityAnalysis()">
+                        <select id="vol-analysis-box-days" class="history-input" >
                             <option value="3">3 DTE</option>
                             <option value="7" selected>7 DTE</option>
                             <option value="10">10 DTE</option>
