@@ -72,82 +72,94 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
             "p25": [],
             "p50": [],
             "p75": [],
-            "current_rv": [] # Current realized vol for that window ending today
+            "current_rv": [], # Current realized vol for that window ending today
+            "atm_iv": [],     # Singular value, but structured as array for plotting overlay if desired
+            "india_vix": []   # Singular value
         }
 
         # Fetch the underlying price for the current date to determine ATM strikes
         current_date = dates[-1]
         underlying_price = prices[-1]
 
-        # Fetch options data for the current date to calculate ATM IV dynamically
+        # Fetch options data for the current date to calculate ATM IV dynamically (Optimized)
         real_iv = None
         try:
             from backend.risk.greeks import calculate_implied_volatility
 
-            # 1. Find the nearest valid expiry date
-            expiry_query = text("""
-                SELECT MIN(expiry_date)
+            # Use CTE to find nearest expiry and its options in one go to reduce db roundtrips
+            combined_query = text("""
+                WITH NearExpiry AS (
+                    SELECT MIN(expiry_date) as nearest_date
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :symbol
+                      AND trade_date = :current_date
+                      AND expiry_date > :current_date
+                      AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
+                )
+                SELECT strike_price, option_type, close_price, (SELECT nearest_date FROM NearExpiry)
                 FROM bhavcopy_fo
                 WHERE ticker_symb = :symbol
                   AND trade_date = :current_date
-                  AND expiry_date > :current_date
+                  AND expiry_date = (SELECT nearest_date FROM NearExpiry)
                   AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
             """)
-            nearest_expiry = db.execute(expiry_query, {"symbol": symbol, "current_date": current_date}).scalar()
+            opts_result = db.execute(combined_query, {"symbol": symbol, "current_date": current_date}).fetchall()
 
-            if nearest_expiry and underlying_price > 0:
+            if opts_result and opts_result[0][3] and underlying_price > 0:
+                nearest_expiry = opts_result[0][3]
                 dte = (nearest_expiry - current_date).days
                 if dte > 0:
                     t_years = dte / 365.0
                     risk_free_rate = 0.05
 
-                    # 2. Get options for this expiry
-                    opts_query = text("""
-                        SELECT strike_price, option_type, close_price
-                        FROM bhavcopy_fo
-                        WHERE ticker_symb = :symbol
-                          AND trade_date = :current_date
-                          AND expiry_date = :nearest_expiry
-                          AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
-                    """)
-                    opts_result = db.execute(opts_query, {
-                        "symbol": symbol,
-                        "current_date": current_date,
-                        "nearest_expiry": nearest_expiry
-                    }).fetchall()
+                    # Find nearest ATM strike
+                    strikes = sorted(list(set([r[0] for r in opts_result])))
+                    atm_strike = min(strikes, key=lambda x: abs(x - underlying_price))
 
-                    if opts_result:
-                        # Find nearest ATM strike
-                        strikes = sorted(list(set([r[0] for r in opts_result])))
-                        atm_strike = min(strikes, key=lambda x: abs(x - underlying_price))
+                    atm_call_px = None
+                    atm_put_px = None
 
-                        atm_call_px = None
-                        atm_put_px = None
+                    for r in opts_result:
+                        if r[0] == atm_strike:
+                            if r[1] == 'CE': atm_call_px = float(r[2])
+                            elif r[1] == 'PE': atm_put_px = float(r[2])
 
-                        for r in opts_result:
-                            if r[0] == atm_strike:
-                                if r[1] == 'CE': atm_call_px = float(r[2])
-                                elif r[1] == 'PE': atm_put_px = float(r[2])
+                    ivs = []
+                    if atm_call_px and atm_call_px > 0:
+                        call_iv = calculate_implied_volatility(atm_call_px, underlying_price, atm_strike, t_years, risk_free_rate, 'c')
+                        if call_iv: ivs.append(call_iv * 100) # convert to percentage
 
-                        ivs = []
-                        if atm_call_px and atm_call_px > 0:
-                            call_iv = calculate_implied_volatility(atm_call_px, underlying_price, atm_strike, t_years, risk_free_rate, 'c')
-                            if call_iv: ivs.append(call_iv * 100) # convert to percentage
+                    if atm_put_px and atm_put_px > 0:
+                        put_iv = calculate_implied_volatility(atm_put_px, underlying_price, atm_strike, t_years, risk_free_rate, 'p')
+                        if put_iv: ivs.append(put_iv * 100)
 
-                        if atm_put_px and atm_put_px > 0:
-                            put_iv = calculate_implied_volatility(atm_put_px, underlying_price, atm_strike, t_years, risk_free_rate, 'p')
-                            if put_iv: ivs.append(put_iv * 100)
-
-                        if ivs:
-                            real_iv = sum(ivs) / len(ivs)
+                    if ivs:
+                        real_iv = sum(ivs) / len(ivs)
 
         except Exception as e:
             print(f"Failed to calculate dynamic IV for cone: {e}")
             real_iv = None
 
+        # Fetch India VIX
+        current_vix = None
+        try:
+            vix_query = text("""
+                SELECT close_price FROM historical_index_data
+                WHERE index_name = 'INDIA VIX' AND trade_date <= :current_date
+                ORDER BY trade_date DESC LIMIT 1
+            """)
+            vix_result = db.execute(vix_query, {"current_date": current_date}).scalar()
+            if vix_result:
+                current_vix = float(vix_result)
+        except Exception as e:
+            print(f"Failed to fetch VIX for cone: {e}")
+
+        # Compute rolling window Realized Volatilities
+        log_returns_np = np.array(log_returns)
+        ann_factor = math.sqrt(252) * 100
+
         for w in windows:
-            if w > len(log_returns):
-                # Fill with none or 0
+            if w > len(log_returns_np):
                 cone_data["min"].append(None)
                 cone_data["max"].append(None)
                 cone_data["p25"].append(None)
@@ -156,29 +168,34 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
                 cone_data["current_rv"].append(None)
                 continue
 
-            # Calculate rolling RV for window w
+            # Vectorized rolling standard deviation
+            # We want ddof=1 for sample standard dev
             rolling_rv = []
-            # Annualization factor = sqrt(252)
-            ann_factor = math.sqrt(252)
-
-            for i in range(len(log_returns) - w + 1):
-                window_returns = log_returns[i:i+w]
-                # Sample standard deviation
-                if len(window_returns) > 1:
-                    mean_r = sum(window_returns) / len(window_returns)
-                    var_r = sum((r - mean_r)**2 for r in window_returns) / (len(window_returns) - 1)
-                    rv = math.sqrt(var_r) * ann_factor * 100 # percentage
-                    rolling_rv.append(rv)
+            for i in range(len(log_returns_np) - w + 1):
+                window = log_returns_np[i:i+w]
+                # ddof=1 matches pandas/standard sample stdev
+                rv = np.std(window, ddof=1) * ann_factor
+                rolling_rv.append(rv)
 
             if rolling_rv:
-                cone_data["min"].append(round(min(rolling_rv), 2))
-                cone_data["max"].append(round(max(rolling_rv), 2))
-                cone_data["p25"].append(round(float(np.percentile(rolling_rv, 25)), 2))
-                cone_data["p50"].append(round(float(np.percentile(rolling_rv, 50)), 2))
-                cone_data["p75"].append(round(float(np.percentile(rolling_rv, 75)), 2))
+                rv_arr = np.array(rolling_rv)
+                # Ignore NaNs
+                rv_arr = rv_arr[~np.isnan(rv_arr)]
 
-                # Use real options IV if available, otherwise fallback to the most recent RV to avoid hallucinating fake values.
-                cone_data["current_rv"].append(round(real_iv, 2) if real_iv else round(rolling_rv[-1], 2))
+                if len(rv_arr) > 0:
+                    cone_data["min"].append(round(float(np.min(rv_arr)), 2))
+                    cone_data["max"].append(round(float(np.max(rv_arr)), 2))
+                    cone_data["p25"].append(round(float(np.percentile(rv_arr, 25)), 2))
+                    cone_data["p50"].append(round(float(np.percentile(rv_arr, 50)), 2))
+                    cone_data["p75"].append(round(float(np.percentile(rv_arr, 75)), 2))
+                    cone_data["current_rv"].append(round(float(rv_arr[-1]), 2))
+                else:
+                    cone_data["min"].append(None)
+                    cone_data["max"].append(None)
+                    cone_data["p25"].append(None)
+                    cone_data["p50"].append(None)
+                    cone_data["p75"].append(None)
+                    cone_data["current_rv"].append(None)
             else:
                 cone_data["min"].append(None)
                 cone_data["max"].append(None)
@@ -186,6 +203,13 @@ async def get_volatility_cone(symbol: str, db: Session = Depends(get_db)):
                 cone_data["p50"].append(None)
                 cone_data["p75"].append(None)
                 cone_data["current_rv"].append(None)
+
+        # To display horizontal overlays across all windows, we copy the singular values
+        if real_iv is not None:
+            cone_data["atm_iv"] = [round(real_iv, 2)] * len(windows)
+
+        if current_vix is not None:
+            cone_data["india_vix"] = [round(current_vix, 2)] * len(windows)
 
         return cone_data
     except HTTPException as e:

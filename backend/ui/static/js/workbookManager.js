@@ -76,6 +76,11 @@ const WorkbookManager = {
                 turtleContainer.style.display = 'none';
                 statarbContainer.style.display = 'block';
             }
+
+            // Re-render ECharts or resize them since they might have collapsed while hidden
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 10);
         }
     },
 

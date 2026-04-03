@@ -36,6 +36,11 @@
             }
 
             // Note: corporate_actions load is handled by the wrapper function below
+
+            // Re-render ECharts or resize them since they might have collapsed while hidden
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 10);
         }
 
         // --- Derivatives Sub-Tab Logic ---
@@ -79,6 +84,11 @@
                 if (tabName === 'optanalysis' && typeof loadVolatilityAnalysis === 'function') {
                     loadVolatilityAnalysis();
                 }
+
+                // Re-render ECharts or resize them since they might have collapsed while hidden
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 10);
             }
         }
 
@@ -1238,12 +1248,14 @@
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
             const instrument = document.getElementById('instrument-input') ? document.getElementById('instrument-input').value : 'ALL';
+            const isLatest = document.getElementById('latest-date-check').checked;
 
             let url = `/api/data/view/export?type=${type}`;
             if (symbol) url += `&symbol=${symbol}`;
             if (start) url += `&start_date=${start}`;
             if (end) url += `&end_date=${end}`;
             if (type === 'bhavcopy_fo' && instrument !== 'ALL') url += `&instrument=${instrument}`;
+            if (isLatest) url += `&latest=true`;
 
             try {
                 const response = await fetch(url);
@@ -2015,7 +2027,7 @@ async function loadHighOI(symbol) {
     }
 }
 
-let historicalChartInstances = {};
+window.historicalChartInstances = window.historicalChartInstances || {};
 
 function renderParticipantHistorical(data) {
     const dates = data.dates || [];
@@ -2042,9 +2054,9 @@ function renderParticipantHistorical(data) {
         const dom = document.getElementById(m.id);
         if (!dom) return;
 
-        if (historicalChartInstances[m.key]) historicalChartInstances[m.key].dispose();
+        if (window.historicalChartInstances[m.key]) window.historicalChartInstances[m.key].dispose();
         const chart = echarts.init(dom);
-        historicalChartInstances[m.key] = chart;
+        window.historicalChartInstances[m.key] = chart;
 
         // Extract series per participant for this specific metric
         const series = participants.map(p => {
@@ -2321,7 +2333,7 @@ async function loadVolatilityAnalysis() {
             backgroundColor: 'transparent',
             title: { text: 'Realized Volatility Cone', textStyle: { color: '#ccc', fontSize: 14 } },
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Max', '75th Pct', 'Median', '25th Pct', 'Min', 'Current RV'], textStyle: { color: '#ccc' } },
+            legend: { data: ['Max', '75th Pct', 'Median', '25th Pct', 'Min', 'Current RV', 'ATM IV', 'India VIX'], textStyle: { color: '#ccc' } },
             grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
             xAxis: {
                 type: 'category',
@@ -2399,6 +2411,26 @@ async function loadVolatilityAnalysis() {
                 }
             ]
         };
+
+        if (data.atm_iv && data.atm_iv.length > 0) {
+            coneOption.series.push({
+                name: 'ATM IV',
+                type: 'line',
+                data: data.atm_iv,
+                lineStyle: { color: '#FF00FF', width: 2, type: 'dashed' }, // Magenta
+                showSymbol: false
+            });
+        }
+
+        if (data.india_vix && data.india_vix.length > 0) {
+            coneOption.series.push({
+                name: 'India VIX',
+                type: 'line',
+                data: data.india_vix,
+                lineStyle: { color: '#FFFF00', width: 2, type: 'dotted' }, // Yellow
+                showSymbol: false
+            });
+        }
 
         volConeChart.setOption(coneOption);
         volConeChart.hideLoading();

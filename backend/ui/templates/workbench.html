@@ -1440,7 +1440,7 @@
                             <option value="20">20 DTE</option>
                             <option value="30">30 DTE</option>
                         </select>
-                        <button class="btn btn-primary" onclick="loadVolatilityAnalysis()">Load Volatility</button>
+                        <!-- Removed manual Load button as per user request to auto-load on change -->
                         <span style="color: #888; font-size: 11px; margin-left: auto;">*DTE - Days to Expiry</span>
                     </div>
 
@@ -1490,13 +1490,14 @@
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.pcrChartInstance) exportChartDataToCSV(window.pcrChartInstance, 'PCR_History'); else exportChartDataToCSV(pcrChartInstance, 'PCR_History')"><i class="fas fa-download"></i> CSV</button>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
-                                        <option value="5">5 Days</option>
-                                        <option value="30">30 Days</option>
-                                        <option value="60">60 Days</option>
-                                        <option value="90">90 Days</option>
-                                        <option value="252">252 Days</option>
-                                        <option value="500" selected>500 Days</option>
-                                    </select>
+                                            <option value="5">5 Days</option>
+                                            <option value="30">30 Days</option>
+                                            <option value="60">60 Days</option>
+                                            <option value="90">90 Days</option>
+                                            <option value="252">252 Days</option>
+                                            <option value="500" selected>500 Days</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
                             </div>
@@ -1591,14 +1592,14 @@
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Futures</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartIdxFut) exportChartDataToCSV(window.lsRatioEchartIdxFut, 'Smart_Money_Index_Futures'); else if(typeof lsRatioEchartIdxFut !== 'undefined') exportChartDataToCSV(lsRatioEchartIdxFut, 'Smart_Money_Index_Futures')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.historicalChartInstances && window.historicalChartInstances['fut_idx']) exportChartDataToCSV(window.historicalChartInstances['fut_idx'], 'Smart_Money_Index_Futures')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="lsRatioEchart-idx-fut" style="flex: 1; width: 100%;"></div>
                             </div>
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Futures</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartStkFut) exportChartDataToCSV(window.lsRatioEchartStkFut, 'Smart_Money_Stock_Futures'); else if(typeof lsRatioEchartStkFut !== 'undefined') exportChartDataToCSV(lsRatioEchartStkFut, 'Smart_Money_Stock_Futures')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.historicalChartInstances && window.historicalChartInstances['fut_stk']) exportChartDataToCSV(window.historicalChartInstances['fut_stk'], 'Smart_Money_Stock_Futures')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="lsRatioEchart-stk-fut" style="flex: 1; width: 100%;"></div>
                             </div>
@@ -1606,14 +1607,14 @@
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Calls</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartIdxCall) exportChartDataToCSV(window.lsRatioEchartIdxCall, 'Smart_Money_Index_Calls'); else if(typeof lsRatioEchartIdxCall !== 'undefined') exportChartDataToCSV(lsRatioEchartIdxCall, 'Smart_Money_Index_Calls')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.historicalChartInstances && window.historicalChartInstances['opt_idx_ce']) exportChartDataToCSV(window.historicalChartInstances['opt_idx_ce'], 'Smart_Money_Index_Calls')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="lsRatioEchart-idx-call" style="flex: 1; width: 100%;"></div>
                             </div>
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Calls</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartStkCall) exportChartDataToCSV(window.lsRatioEchartStkCall, 'Smart_Money_Stock_Calls'); else if(typeof lsRatioEchartStkCall !== 'undefined') exportChartDataToCSV(lsRatioEchartStkCall, 'Smart_Money_Stock_Calls')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.historicalChartInstances && window.historicalChartInstances['opt_stk_ce']) exportChartDataToCSV(window.historicalChartInstances['opt_stk_ce'], 'Smart_Money_Stock_Calls')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="lsRatioEchart-stk-call" style="flex: 1; width: 100%;"></div>
                             </div>
@@ -1621,14 +1622,14 @@
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Index Puts</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartIdxPut) exportChartDataToCSV(window.lsRatioEchartIdxPut, 'Smart_Money_Index_Puts'); else if(typeof lsRatioEchartIdxPut !== 'undefined') exportChartDataToCSV(lsRatioEchartIdxPut, 'Smart_Money_Index_Puts')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.historicalChartInstances && window.historicalChartInstances['opt_idx_pe']) exportChartDataToCSV(window.historicalChartInstances['opt_idx_pe'], 'Smart_Money_Index_Puts')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="lsRatioEchart-idx-put" style="flex: 1; width: 100%;"></div>
                             </div>
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S): Stock Puts</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.lsRatioEchartStkPut) exportChartDataToCSV(window.lsRatioEchartStkPut, 'Smart_Money_Stock_Puts'); else if(typeof lsRatioEchartStkPut !== 'undefined') exportChartDataToCSV(lsRatioEchartStkPut, 'Smart_Money_Stock_Puts')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.historicalChartInstances && window.historicalChartInstances['opt_stk_pe']) exportChartDataToCSV(window.historicalChartInstances['opt_stk_pe'], 'Smart_Money_Stock_Puts')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="lsRatioEchart-stk-put" style="flex: 1; width: 100%;"></div>
                             </div>

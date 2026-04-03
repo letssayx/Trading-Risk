@@ -498,8 +498,16 @@ async def list_data(
 
     # Apply Date Filter
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
+    # Add support for other date columns that were checked for max_date
+    if date_col is None:
+        if hasattr(model, 'board_meeting_date'):
+            date_col = model.board_meeting_date
+        elif hasattr(model, 'meeting_date'):
+            date_col = model.meeting_date
+        elif hasattr(model, 'ex_date'):
+            date_col = model.ex_date
 
-    if date_col:
+    if date_col is not None:
         if start_date:
             query = query.filter(date_col >= start_date)
         if end_date:
@@ -515,7 +523,7 @@ async def list_data(
             order_clauses.append(desc(col) if sort_order == 'desc' else asc(col))
     else:
         # Default Sorting: Date DESC, then Symbol ASC
-        if date_col:
+        if date_col is not None:
             order_clauses.append(desc(date_col))
 
         # Determine symbol column for secondary sort
@@ -839,6 +847,7 @@ async def export_data(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     instrument: Optional[str] = None,
+    latest: bool = Query(False),
     db: Session = Depends(get_db)
 ):
     """
@@ -851,6 +860,29 @@ async def export_data(
         raise HTTPException(status_code=400, detail=f"Invalid data type: {type}")
 
     query = db.query(model)
+
+    # Handle Latest Data flag
+    if latest:
+        # Find the max date for this model
+        if hasattr(model, 'date'):
+            date_col = model.date
+        elif hasattr(model, 'trade_date'):
+            date_col = model.trade_date
+        elif hasattr(model, 'board_meeting_date'):
+             date_col = model.board_meeting_date
+        elif hasattr(model, 'meeting_date'):
+             date_col = model.meeting_date
+        elif hasattr(model, 'ex_date'):
+             date_col = model.ex_date
+        else:
+            date_col = None
+
+        if date_col:
+            max_date = db.query(func.max(date_col)).scalar()
+            if max_date:
+                # Override start and end dates
+                start_date = max_date.strftime('%Y-%m-%d')
+                end_date = max_date.strftime('%Y-%m-%d')
 
     # Re-use filtering logic (copied from list_data for now to keep independent)
     filters = []
@@ -883,7 +915,15 @@ async def export_data(
             query = query.filter(model.instrument_type.like(f"%{inst_upper}%"))
 
     date_col = getattr(model, 'trade_date', getattr(model, 'date', None))
-    if date_col:
+    if date_col is None:
+        if hasattr(model, 'board_meeting_date'):
+            date_col = model.board_meeting_date
+        elif hasattr(model, 'meeting_date'):
+            date_col = model.meeting_date
+        elif hasattr(model, 'ex_date'):
+            date_col = model.ex_date
+
+    if date_col is not None:
         if start_date: query = query.filter(date_col >= start_date)
         if end_date: query = query.filter(date_col <= end_date)
 
