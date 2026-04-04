@@ -479,6 +479,59 @@ def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         "oi": df['total_oi'].tolist(), # Add 'oi' alias used by frontend
     }
 
+@router.get("/api/market-activity/fii-stats-money")
+def get_fii_stats_money(days: int = 30, db: Session = Depends(get_db)):
+    """
+    Returns the net money position (buy_amt_crores - sell_amt_crores) of FIIs across derivatives.
+    """
+    from backend.ingest.nse_models import FIIDerivativesStat
+    import pandas as pd
+    from sqlalchemy import func
+
+    try:
+        # Get the last X trading days
+        dates_query = db.query(FIIDerivativesStat.date).distinct().order_by(FIIDerivativesStat.date.desc()).limit(days).all()
+        dates = sorted([d[0] for d in dates_query])
+    except Exception as e:
+        dates = []
+
+    if not dates:
+        return {"dates": []}
+
+    records = db.query(FIIDerivativesStat).filter(FIIDerivativesStat.date.in_(dates)).all()
+
+    df = pd.DataFrame([{
+        'date': r.date,
+        'instrument_type': r.instrument_type,
+        'net_money': (r.buy_amt_crores or 0) - (r.sell_amt_crores or 0)
+    } for r in records])
+
+    if df.empty:
+         return {"dates": []}
+
+    try:
+        pivot = df.pivot_table(index='date', columns='instrument_type', values='net_money', aggfunc='sum').fillna(0)
+
+        if not pivot.index.is_unique:
+            pivot = pivot.groupby(level=0).sum()
+
+        dt_dates = pd.to_datetime(dates)
+        pivot.index = pd.to_datetime(pivot.index)
+        pivot = pivot.reindex(dt_dates).fillna(0)
+    except Exception as e:
+        import logging
+        logging.error(f"Error pivoting FII stats money: {e}")
+        pivot = pd.DataFrame(index=pd.to_datetime(dates))
+
+    return {
+        "dates": [d.strftime('%Y-%m-%d') for d in pivot.index],
+        "fut_idx": pivot.get('INDEX FUTURES', pd.Series(0, index=pivot.index)).tolist(),
+        "fut_stk": pivot.get('STOCK FUTURES', pd.Series(0, index=pivot.index)).tolist(),
+        "opt_idx": pivot.get('INDEX OPTIONS', pd.Series(0, index=pivot.index)).tolist(),
+        "opt_stk": pivot.get('STOCK OPTIONS', pd.Series(0, index=pivot.index)).tolist()
+    }
+
+
 @router.get("/api/market-activity/participant-oi")
 def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import FAOParticipantOI

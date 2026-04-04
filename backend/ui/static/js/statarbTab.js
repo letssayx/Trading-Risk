@@ -105,7 +105,7 @@ const StatArbTab = {
     },
 
     getColor: function(sig) {
-        if (sig.includes('LONG')) return '#4caf50';
+        if (sig.includes('LONG')) return '#3176B8';
         if (sig.includes('SHORT')) return '#f44336';
         return '#ccc';
     },

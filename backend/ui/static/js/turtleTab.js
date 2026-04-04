@@ -199,7 +199,7 @@ const TurtleTab = {
     },
 
     getColor: function(sig) {
-        if (sig === 'BUY') return '#4caf50';
+        if (sig === 'BUY') return '#3176B8';
         if (sig === 'SELL' || sig === 'STOP LOSS') return '#f44336';
         return '#ccc';
     },

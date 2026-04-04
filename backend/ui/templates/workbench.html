@@ -1581,31 +1581,40 @@
 
                     <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px;">
 
-                        <!-- Top Row: Inst Flows & Summary Daily Grouped Bar Chart -->
-                        <div style="display: flex; gap: 20px; height: 450px;">
-                            <!-- Chart 1: Institutional Market Flows (FII/DII) -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative; display: flex; flex-direction: column;">
-                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Flows</h3>
-                                    <div style="display: flex; gap: 10px; align-items: baseline;">
-                                        <span id="fii-dii-summary" style="font-size: 12px; color: #aaa;"></span>
-                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiChartInstance) exportChartDataToCSV(window.fiiDiiChartInstance, 'FII_DII_Net_Pos'); else if(typeof fiiDiiChartInstance !== 'undefined') exportChartDataToCSV(fiiDiiChartInstance, 'FII_DII_Net_Pos')"><i class="fas fa-download"></i> CSV</button>
-                                    </div>
-                                </div>
-                                <div style="flex: 1; position: relative; overflow-x: auto; overflow-y: hidden;">
-                                    <div style="min-width: 800px; height: 100%;">
-                                        <canvas id="fiiDiiChart"></canvas>
-                                    </div>
+                        <!-- Institutional Flows (Full Length Horizontal) -->
+                        <div style="height: 450px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Flows</h3>
+                                <div style="display: flex; gap: 10px; align-items: baseline;">
+                                    <span id="fii-dii-summary" style="font-size: 12px; color: #aaa;"></span>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiChartInstance) exportChartDataToCSV(window.fiiDiiChartInstance, 'FII_DII_Net_Pos'); else if(typeof fiiDiiChartInstance !== 'undefined') exportChartDataToCSV(fiiDiiChartInstance, 'FII_DII_Net_Pos')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                             </div>
+                            <div style="flex: 1; position: relative; overflow-x: auto; overflow-y: hidden;">
+                                <div style="min-width: 800px; height: 100%;">
+                                    <canvas id="fiiDiiChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
 
-                            <!-- Chart 2: Daily Snapshot Grouped Bar Chart -->
+                        <!-- Smart Money Row (Contracts & Money Terms) -->
+                        <div style="display: flex; gap: 20px; height: 450px;">
+                            <!-- Chart 2: Daily Snapshot Grouped Bar Chart (Contracts) -->
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Daily_Position'); else if(typeof participantChartInstance !== 'undefined') exportChartDataToCSV(participantChartInstance, 'Smart_Money_Daily_Position')"><i class="fas fa-download"></i> CSV</button>
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position contracts</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Daily_Position_Contracts'); else if(typeof participantChartInstance !== 'undefined') exportChartDataToCSV(participantChartInstance, 'Smart_Money_Daily_Position_Contracts')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="participant-oi-daily-summary" style="flex: 1; width: 100%;"></div>
+                            </div>
+
+                            <!-- Chart 3: FII Derivatives Statistics (Money Terms) -->
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">FII Latest Daily Position in money terms</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiMoneyChartInstance) exportChartDataToCSV(window.fiiMoneyChartInstance, 'FII_Daily_Position_Money');"><i class="fas fa-download"></i> CSV</button>
+                                </div>
+                                <div id="fii-money-daily-summary" style="flex: 1; width: 100%;"></div>
                             </div>
                         </div>
 
@@ -1722,7 +1731,7 @@
                             <div class="log-line text-warning">> All AI Agent nodes initialized and awaiting command.</div>
                         </div>
                         <div class="chat-message jules-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #4ade80; font-weight: bold; margin-bottom: 5px;">[JULES / GEMINI 2.5] DISPATCHER</div>
+                            <div style="color: #60a5fa; font-weight: bold; margin-bottom: 5px;">[JULES / GEMINI 2.5] DISPATCHER</div>
                             <div class="log-line">> Standing by to classify and structure raw intent.</div>
                         </div>
                         <div class="chat-message qwen-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
@@ -2033,7 +2042,7 @@
 
                 <div class="import-right-panel">
                     <div class="import-terminal" id="celery-terminal">
-                        <div style="color: #4CAF50; margin-bottom: 5px;">--- Celery Worker Logs ---</div>
+                        <div style="color: #3176B8; margin-bottom: 5px;">--- Celery Worker Logs ---</div>
                     </div>
                     <div class="import-terminal" id="uvicorn-terminal">
                         <div style="color: #2196F3; margin-bottom: 5px;">--- Uvicorn Backend Logs ---</div>
@@ -2403,7 +2412,7 @@ function renderDividendsData() {
                 let lowerType = divType.toLowerCase();
                 let bg = '#555'; // default
                 if (lowerType.includes('interim')) bg = '#FF9800'; // Orange
-                else if (lowerType.includes('final')) bg = '#4CAF50'; // Green
+                else if (lowerType.includes('final')) bg = '#3176B8'; // Green
                 else if (lowerType.includes('special')) bg = '#9370DB'; // Subtle Purple
                 else if (lowerType.includes('bonus')) bg = '#E91E63'; // Pink
                 else if (lowerType.includes('split') || lowerType.includes('sub-division')) bg = '#2196F3'; // Blue
@@ -2417,7 +2426,7 @@ function renderDividendsData() {
                 <td style="white-space:normal; max-width:200px;">${bmPurpose}</td>
                 <td>${d.ex_date || '-'}</td>
                 <td><strong style="color: #4da6ff;">${series}</strong></td>
-                <td style="color: #4CAF50;">${amount}</td>
+                <td style="color: #3176B8;">${amount}</td>
                 <td>${typeBadge}</td>
                 <td>${faceValue}</td>
                 <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
@@ -2788,7 +2797,7 @@ function exportChartDataToCSV(chartInstance, filename) {
                         name: 'PCR',
                         type: 'line',
                         data: data.pcr,
-                        itemStyle: { color: '#00FF00' }, // Bright green
+                        itemStyle: { color: '#00bcd4' }, // Bright green
                         lineStyle: { width: 2 },
                         symbol: 'none',
                         yAxisIndex: 2
@@ -2933,7 +2942,7 @@ function exportChartDataToCSV(chartInstance, filename) {
             echartInstance = echarts.init(container, 'dark', { renderer: 'canvas' });
         }
 
-        echartInstance.showLoading({ text: 'Loading Data...', color: '#4ade80', textColor: '#fff', maskColor: 'rgba(30, 30, 30, 0.8)' });
+        echartInstance.showLoading({ text: 'Loading Data...', color: '#60a5fa', textColor: '#fff', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
         try {
             const res = await fetch(`/api/market-activity/dynamic-chart/${symbol}`);
@@ -3121,7 +3130,7 @@ function exportChartDataToCSV(chartInstance, filename) {
 
                 // Latest data for summary row
                 const isHigh = parseFloat(latest.mwpl) > 20;
-                const color = isHigh ? '#ff4d4d' : '#4ade80';
+                const color = isHigh ? '#ff4d4d' : '#60a5fa';
 
                 // Generate unique ID for the sub-rows block
                 const blockId = `mwpl-block-${sym}`;
@@ -3174,11 +3183,11 @@ function exportChartDataToCSV(chartInstance, filename) {
                     if (prev.eq_close !== 0) {
                         const pctChg = ((latest.eq_close - prev.eq_close) / Math.abs(prev.eq_close)) * 100;
                         eqChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
-                        if (pctChg > 0) eqChgColor = '#4ade80';
+                        if (pctChg > 0) eqChgColor = '#60a5fa';
                         else if (pctChg < 0) eqChgColor = '#ff4d4d';
                     } else if (latest.eq_close > 0) {
                         eqChgStr = '+100.00%';
-                        eqChgColor = '#4ade80';
+                        eqChgColor = '#60a5fa';
                     }
 
                     if (latest.eq_close > prev.eq_close) { eqColor = '#60a5fa'; eqArrow = '▲'; }
@@ -3197,11 +3206,11 @@ function exportChartDataToCSV(chartInstance, filename) {
                     if (prevTotal !== 0) {
                         const pctChg = ((total - prevTotal) / Math.abs(prevTotal)) * 100;
                         totalChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
-                        if (pctChg > 0) totalChgColor = '#4ade80';
+                        if (pctChg > 0) totalChgColor = '#60a5fa';
                         else if (pctChg < 0) totalChgColor = '#ff4d4d';
                     } else if (total > 0) {
                         totalChgStr = '+100.00%';
-                        totalChgColor = '#4ade80';
+                        totalChgColor = '#60a5fa';
                     }
 
                     if (total > prevTotal) { totalColor = '#60a5fa'; totalArrow = '▲'; }
@@ -3269,11 +3278,11 @@ function exportChartDataToCSV(chartInstance, filename) {
                         if (histPrev.eq_close !== 0) {
                             const pctChg = ((r.eq_close - histPrev.eq_close) / Math.abs(histPrev.eq_close)) * 100;
                             histEqChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
-                            if (pctChg > 0) histEqChgColor = '#4ade80';
+                            if (pctChg > 0) histEqChgColor = '#60a5fa';
                             else if (pctChg < 0) histEqChgColor = '#ff4d4d';
                         } else if (r.eq_close > 0) {
                             histEqChgStr = '+100.00%';
-                            histEqChgColor = '#4ade80';
+                            histEqChgColor = '#60a5fa';
                         }
 
                         if (r.eq_close > histPrev.eq_close) { histEqColor = '#60a5fa'; histEqArrow = '▲'; }
@@ -3292,11 +3301,11 @@ function exportChartDataToCSV(chartInstance, filename) {
                         if (histPrevTotal !== 0) {
                             const pctChg = ((rowTotal - histPrevTotal) / Math.abs(histPrevTotal)) * 100;
                             histTotalChgStr = pctChg > 0 ? '+' + pctChg.toFixed(2) + '%' : pctChg.toFixed(2) + '%';
-                            if (pctChg > 0) histTotalChgColor = '#4ade80';
+                            if (pctChg > 0) histTotalChgColor = '#60a5fa';
                             else if (pctChg < 0) histTotalChgColor = '#ff4d4d';
                         } else if (rowTotal > 0) {
                             histTotalChgStr = '+100.00%';
-                            histTotalChgColor = '#4ade80';
+                            histTotalChgColor = '#60a5fa';
                         }
 
                         if (rowTotal > histPrevTotal) { histTotalColor = '#60a5fa'; histTotalArrow = '▲'; }
@@ -3379,7 +3388,7 @@ function exportChartDataToCSV(chartInstance, filename) {
                 // Calculate EQ change using pct_change from API
                 const eqPct = (eq.pct_change != null && !isNaN(eq.pct_change)) ? eq.pct_change : 0;
                 const eqChangeStr = eqPct !== 0 ? `${eqPct > 0 ? '+' : ''}${eqPct.toFixed(2)}%` : '-';
-                const eqChangeColor = eqPct > 0 ? '#4ade80' : (eqPct < 0 ? '#ff4d4d' : '#ccc');
+                const eqChangeColor = eqPct > 0 ? '#60a5fa' : (eqPct < 0 ? '#ff4d4d' : '#ccc');
 
                 eqTr.innerHTML = `
                     <td style="font-weight: bold; color: #4da6ff;">${sym} EQ</td>
@@ -3404,14 +3413,14 @@ function exportChartDataToCSV(chartInstance, filename) {
                 futs.forEach((f, idx) => {
                     const futTr = document.createElement('tr');
 
-                    const oiColor = f.chg_oi > 0 ? '#4ade80' : (f.chg_oi < 0 ? '#ff4d4d' : '#ccc');
+                    const oiColor = f.chg_oi > 0 ? '#60a5fa' : (f.chg_oi < 0 ? '#ff4d4d' : '#ccc');
                     const oiSign = f.chg_oi > 0 ? '+' : '';
 
                     // Simple % change calculation from price/atp? We don't have prev close, using a placeholder for % Change
                     const futChangeStr = '-';
 
                     const yld = (f.yield != null && !isNaN(f.yield)) ? f.yield : 0;
-                    const yieldColor = yld > 0 ? '#4ade80' : (yld < 0 ? '#ff4d4d' : '#ccc');
+                    const yieldColor = yld > 0 ? '#60a5fa' : (yld < 0 ? '#ff4d4d' : '#ccc');
                     const bpsVal = (f.bps != null && !isNaN(f.bps)) ? f.bps : 0;
                     const priceVal = (f.price != null && !isNaN(f.price)) ? f.price : 0;
 
@@ -3568,8 +3577,8 @@ function exportChartDataToCSV(chartInstance, filename) {
                 const fmt = (v) => v ? v.toFixed(2) : '-';
                 const fmtGamma = (v) => v ? v.toFixed(4) : '-';
                 const fmtVol = (v) => v ? v.toFixed(2) + '%' : '-';
-                const fmtPct = (v) => v ? `<span style="color:${v>=0?'#4ade80':'#f87171'}">${v>0?'+':''}${v.toFixed(2)}%</span>` : '-';
-                const fmtChg = (v) => v ? `<span style="color:${v>=0?'#4ade80':'#f87171'}">${v>0?'+':''}${v.toLocaleString()}</span>` : '-';
+                const fmtPct = (v) => v ? `<span style="color:${v>=0?'#60a5fa':'#f87171'}">${v>0?'+':''}${v.toFixed(2)}%</span>` : '-';
+                const fmtChg = (v) => v ? `<span style="color:${v>=0?'#60a5fa':'#f87171'}">${v>0?'+':''}${v.toLocaleString()}</span>` : '-';
 
                 htmlBuffer += `<tr style="border-bottom: 1px solid #333;">
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.charm)}</td>
@@ -3577,7 +3586,7 @@ function exportChartDataToCSV(chartInstance, filename) {
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.vega)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmt(c.theta)}</td>
                     <td style="color: #bbb; ${bgStyle}">${fmtGamma(c.gamma)}</td>
-                    <td style="color: #4ade80; ${bgStyle}">${fmt(c.delta)}</td>
+                    <td style="color: #60a5fa; ${bgStyle}">${fmt(c.delta)}</td>
                     <td style="color: #ccc; ${bgStyle}">${c.vol > 0 ? (c.vol).toLocaleString() : '-'}</td>
                     <td style="color: #ccc; ${bgStyle}">${fmtChg(c.chg_oi)}</td>
                     <td style="color: #ccc; ${bgStyle}">${c.oi > 0 ? (c.oi).toLocaleString() : '-'}</td>

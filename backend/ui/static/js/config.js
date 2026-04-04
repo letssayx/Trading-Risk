@@ -49,7 +49,7 @@ function saveConfig() {
         }
 
         status.innerText = "Keys saved to Secure Session Storage ✅";
-        status.style.color = "#4caf50";
+        status.style.color = "#3176B8";
 
         setTimeout(() => {
             status.innerText = '';

@@ -526,7 +526,7 @@ class NSEImporter {
     successProgress(msg) {
         if (this.progressBar) {
             this.progressBar.style.width = '100%';
-            this.progressBar.style.backgroundColor = '#4caf50'; // Green
+            this.progressBar.style.backgroundColor = '#3176B8'; // Green
         }
         if (this.progressText) this.progressText.textContent = msg || "Import Completed Successfully";
         this.fetchHistory();
@@ -601,7 +601,7 @@ class NSEImporter {
             let info = res.error || 'Unknown error';
 
             if (res.status === 'SUCCESS') {
-                color = '#4caf50'; // Green
+                color = '#3176B8'; // Green
                 icon = '✓';
                 info = `${res.rows_processed} rows`;
             } else if (res.status === 'EMPTY' || res.status === 'SKIPPED') {
@@ -649,7 +649,7 @@ class NSEImporter {
                         const badges = items.map(item => {
                             let color = '#d4d4d4';
 
-                            if (item.status === 'SUCCESS') color = '#4caf50';
+                            if (item.status === 'SUCCESS') color = '#3176B8';
                             else if (item.status === 'FAILED' || item.status === 'ERROR') color = '#f44336';
                             else if (item.status === 'EMPTY' || item.status === 'SKIPPED') color = '#ff9800';
 
@@ -705,7 +705,7 @@ class NSEImporter {
                                 const dlTime = new Date(lastDownloadTime);
                                 if (!isNaN(dlTime.getTime())) { // Check if valid date
                                     const diffHours = (now - dlTime) / (1000 * 60 * 60);
-                                    let barColor = '#4caf50';
+                                    let barColor = '#3176B8';
                                     let barWidth = '100%';
 
                                     // Decay bar based on age (e.g. 24h)

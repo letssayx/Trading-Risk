@@ -67,7 +67,7 @@
                 }
                 target.classList.add('active');
                 btn.classList.add('active');
-                btn.style.borderBottomColor = '#4ade80';
+                btn.style.borderBottomColor = '#60a5fa';
                 btn.style.color = '#fff';
 
                 // Trigger chart loading if Market Activity
@@ -116,8 +116,8 @@
                 btn.style.color = '#a1a1aa';
                 btn.style.borderBottomColor = 'transparent';
                 if(btn.dataset.status === status) {
-                    btn.style.color = '#4ade80';
-                    btn.style.borderBottomColor = '#4ade80';
+                    btn.style.color = '#60a5fa';
+                    btn.style.borderBottomColor = '#60a5fa';
                 }
             });
             renderCorporateActionsTable();
@@ -438,7 +438,7 @@
                 // Highlighting logic
                 let rowColor = '';
                 const purpose = (item.subject || item.bm_purpose || item.bm_desc || '').toLowerCase();
-                if (purpose.includes('dividend')) rowColor = 'rgba(76, 175, 80, 0.15)'; // Soft green
+                if (purpose.includes('dividend')) rowColor = 'rgba(49, 118, 184, 0.15)'; // Soft green
                 else if (purpose.includes('bonus') || purpose.includes('split')) rowColor = 'rgba(0, 188, 212, 0.15)'; // Soft cyan
                 else if (purpose.includes('financial results')) rowColor = 'rgba(255, 152, 0, 0.15)'; // Soft orange
 
@@ -454,7 +454,7 @@
 
                 const linkVal = findLink(item);
                 const linkUrl = linkVal ? (linkVal.startsWith('http') ? linkVal : `https://www.nseindia.com${linkVal}`) : '#';
-                const linkHtml = linkVal ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80; text-decoration: underline;">View PDF</a>` : '-';
+                const linkHtml = linkVal ? `<a href="${linkUrl}" target="_blank" style="color: #60a5fa; text-decoration: underline;">View PDF</a>` : '-';
 
                 if (caCurrentTab === 'actions') {
                     tr.innerHTML = `
@@ -502,7 +502,7 @@
                     let typeBadge = '';
                     if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
                     else if (item.issue_type === 'tender') typeBadge = '<span class="badge" style="background:#FF9800; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Tender</span>';
-                    else if (item.issue_type === 'rights') typeBadge = '<span class="badge" style="background:#4CAF50; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Rights</span>';
+                    else if (item.issue_type === 'rights') typeBadge = '<span class="badge" style="background:#3176B8; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Rights</span>';
                     else typeBadge = item.issue_type || '-';
 
                      tr.innerHTML = `
@@ -617,7 +617,7 @@
 
                 items.forEach(item => {
                     const linkUrl = item.circFile ? (item.circFile.startsWith('http') ? item.circFile : `https://www.nseindia.com${item.circFile}`) : '#';
-                    const linkHtml = item.circFile ? `<a href="${linkUrl}" target="_blank" style="color: #4ade80; text-decoration: underline;">View PDF</a>` : '-';
+                    const linkHtml = item.circFile ? `<a href="${linkUrl}" target="_blank" style="color: #60a5fa; text-decoration: underline;">View PDF</a>` : '-';
                     html += `
                             <tr>
                                 <td style="padding: 8px; white-space: nowrap;">${item.circDate || '-'}</td>
@@ -908,7 +908,7 @@
                     }
                     if(d.futures && d.futures.close_price) {
                         hasData = true;
-                        let oiColor = (d.futures.change_in_oi > 0) ? 'color: #10b981;' : 'color: #f59e0b;';
+                        let oiColor = (d.futures.change_in_oi > 0) ? 'color: #3176B8;' : 'color: #f59e0b;';
                         let oiSign = (d.futures.change_in_oi > 0) ? '+' : '';
                         matrixOutput += `
                             <tr>
@@ -929,7 +929,7 @@
                         matrixOutput += `<div style="margin-top: 10px; font-size: 0.85em; color: #a0a0a0;">`;
                         if (d.local_db_history && d.local_db_history.ticker) {
                             matrixOutput += `<details style="margin-bottom: 5px;">
-                                <summary style="cursor: pointer; color: #4ade80;">[View Local DB Context: Volatility, P/E, Corp Actions]</summary>
+                                <summary style="cursor: pointer; color: #60a5fa;">[View Local DB Context: Volatility, P/E, Corp Actions]</summary>
                                 <pre style="background: #111; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px; color: #888;">${JSON.stringify(d.local_db_history, null, 2)}</pre>
                             </details>`;
                         }
@@ -955,7 +955,7 @@
                     </div>`;
                 } else if (msg.type === "execution") {
                     const ex = msg.data;
-                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'color: #f59e0b;' : 'color: #10b981;';
+                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'color: #f59e0b;' : 'color: #3176B8;';
                     let rationaleHtml = "";
                     if (Array.isArray(ex.rationale)) {
                         rationaleHtml = "<ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px; color: #ccc;'>" + ex.rationale.map(r => `<li>${r}</li>`).join('') + "</ul>";
@@ -1666,9 +1666,9 @@
             });
         } catch (e) { console.error("Error loading FII/DII", e); }
 
-        // 2. Load Participant OI Chart (Merged Daily Grouped Bar Chart)
+        // 2. Load Participant OI Chart (Merged Daily Grouped Bar Chart - Contracts)
+        const days = document.getElementById('market-activity-days').value || '30';
         try {
-            const days = document.getElementById('market-activity-days').value || '30';
             const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
 
@@ -1697,7 +1697,7 @@
                 { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
                 { key: 'dii', label: 'DII', color: '#3176B8' },     // Blue
                 { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
-                { key: 'client', label: 'CLI', color: '#00FF00' },  // Green
+                { key: 'client', label: 'CLI', color: '#00bcd4' },  // Green
                 { key: 'smart_money', label: 'Smart Money', color: '#FFD700' } // Yellow
             ];
 
@@ -1772,13 +1772,76 @@
 
         } catch (e) { console.error("Error loading Participant OI", e); }
 
+        // 2b. Load FII Money Terms Chart
+        try {
+            const res = await fetch(`/api/market-activity/fii-stats-money?days=${days}`);
+            const data = await res.json();
+
+            const container = document.getElementById('fii-money-daily-summary');
+            if (window.fiiMoneyChartInstance) window.fiiMoneyChartInstance.dispose();
+            window.fiiMoneyChartInstance = echarts.init(container);
+
+            const dates = data.dates || [];
+            if (dates.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#888;">No FII Statistics data found.</p>';
+            } else {
+                const xAxisData = ['Index Futures', 'Stock Futures', 'Index Options', 'Stock Options'];
+
+                // Latest date data
+                const todayIdx = dates.length - 1;
+                const pData = [
+                    data.fut_idx[todayIdx] || 0,
+                    data.fut_stk[todayIdx] || 0,
+                    data.opt_idx[todayIdx] || 0,
+                    data.opt_stk[todayIdx] || 0
+                ];
+
+                const option = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'shadow' },
+                        formatter: function (params) {
+                            let res = `<b>${params[0].axisValue}</b><br/>`;
+                            res += `${params[0].marker} Net Money: ₹ ${params[0].value.toLocaleString()} Cr`;
+                            return res;
+                        }
+                    },
+                    grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+                    xAxis: {
+                        type: 'category',
+                        data: xAxisData,
+                        axisLabel: { color: '#ccc', fontWeight: 'bold' },
+                        axisLine: { lineStyle: { color: '#333' } },
+                        axisTick: { alignWithLabel: true }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { color: '#888', formatter: '₹ {value} Cr' },
+                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                    },
+                    series: [{
+                        name: 'Net Money',
+                        type: 'bar',
+                        data: pData,
+                        itemStyle: {
+                            color: function(params) {
+                                return params.value >= 0 ? '#3176B8' : '#f44336';
+                            }
+                        }
+                    }]
+                };
+                window.fiiMoneyChartInstance.setOption(option);
+            }
+        } catch (e) { console.error("Error loading FII Money Terms", e); }
+
         // 3. Load EChart Multi-Axis
         const container = document.getElementById('echart-container');
         if (!echartInstance) {
             echartInstance = echarts.init(container, 'dark', { renderer: 'canvas' });
         }
 
-        echartInstance.showLoading({ text: 'Loading Data...', color: '#4ade80', textColor: '#fff', maskColor: 'rgba(30, 30, 30, 0.8)' });
+        echartInstance.showLoading({ text: 'Loading Data...', color: '#60a5fa', textColor: '#fff', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
         try {
             const res = await fetch(`/api/market-activity/dynamic-chart/${symbol}`);
@@ -1826,7 +1889,11 @@
     }
 
     // Listen for resize
-    window.addEventListener('resize', () => { if (echartInstance) echartInstance.resize(); });
+    window.addEventListener('resize', () => {
+        if (echartInstance) echartInstance.resize();
+        if (window.fiiMoneyChartInstance) window.fiiMoneyChartInstance.resize();
+        if (participantChartInstance) participantChartInstance.resize();
+    });
 // script end
 
 let pcrChartInstance = null;
@@ -1885,7 +1952,7 @@ async function loadOptionsAnalysis() {
             ],
             series: [
                 { name: 'Total OI', type: 'bar', barGap: '0%', data: data.total_oi, itemStyle: { color: 'rgba(54, 162, 235, 0.4)' }, xAxisIndex: 0, yAxisIndex: 0 },
-                { name: 'PCR', type: 'bar', barGap: '0%', data: data.pcr, itemStyle: { color: '#00FF00' }, xAxisIndex: 0, yAxisIndex: 2 },
+                { name: 'PCR', type: 'bar', barGap: '0%', data: data.pcr, itemStyle: { color: '#00bcd4' }, xAxisIndex: 0, yAxisIndex: 2 },
                 { name: 'OI Chg %', type: 'bar', barGap: '0%', data: data.oi_chg_pct || [], itemStyle: { color: '#2196F3' }, xAxisIndex: 0, yAxisIndex: 3 },
                 { name: 'Price Chg %', type: 'bar', barGap: '0%', data: data.price_chg_pct || [], itemStyle: { color: '#E88B1E' }, xAxisIndex: 0, yAxisIndex: 3 },
                 { name: 'Price (FUT1)', type: 'line', data: data.price, itemStyle: { color: '#FFCC00' }, lineStyle: { width: 2 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 1 },
@@ -1935,8 +2002,8 @@ async function loadOptionsAnalysis() {
                     const oiChg = data.oi_chg_pct ? data.oi_chg_pct[i] : 0;
                     const iv = data.atm_iv ? data.atm_iv[i] : 0;
 
-                    let pColor = pChg >= 0 ? '#4caf50' : '#f44336';
-                    let oColor = oiChg >= 0 ? '#4caf50' : '#f44336';
+                    let pColor = pChg >= 0 ? '#3176B8' : '#f44336';
+                    let oColor = oiChg >= 0 ? '#3176B8' : '#f44336';
 
                     tr.innerHTML = `
                         <td style="padding: 6px;">${d}</td>
@@ -2054,7 +2121,7 @@ async function loadHighOI(symbol) {
                     type: 'bar',
                     stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#00FF00' }, // Classic Green for puts/support
+                    itemStyle: { color: '#00bcd4' }, // Classic Green for puts/support
                     data: pe_oi
                 }
             ]
@@ -2101,7 +2168,7 @@ function renderParticipantHistorical(data) {
         { key: 'fii', label: 'FII', color: '#E88B1E' },
         { key: 'dii', label: 'DII', color: '#3176B8' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
-        { key: 'client', label: 'CLI', color: '#00FF00' }
+        { key: 'client', label: 'CLI', color: '#00bcd4' }
     ];
 
     metrics.forEach(m => {
@@ -2274,7 +2341,7 @@ async function loadVolatilityAnalysis() {
         const preExpiryChartDom = document.getElementById('vol-pre-expiry-chart');
         if (volPreExpiryChart) volPreExpiryChart.dispose();
         volPreExpiryChart = echarts.init(preExpiryChartDom, 'dark', { renderer: 'canvas' });
-        volPreExpiryChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
+        volPreExpiryChart.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
         const res = await fetch(`/api/data/derivatives/pre_expiry_action/${symbol}?lookback_days=${lookback}&box_days=${boxDays}&expiry_type=${expiryType}`);
         const data = await res.json();
@@ -2307,7 +2374,7 @@ async function loadVolatilityAnalysis() {
                     let pChg = 0;
                     if(data.price_chg_pct_line && data.price_chg_pct_line[params[0].dataIndex] !== undefined) {
                          pChg = data.price_chg_pct_line[params[0].dataIndex];
-                         tooltipHtml += `Price Change: <span style="color: ${pChg >= 0 ? '#4caf50' : '#f44336'}">${pChg}%</span><br/>`;
+                         tooltipHtml += `Price Change: <span style="color: ${pChg >= 0 ? '#3176B8' : '#f44336'}">${pChg}%</span><br/>`;
                     }
 
                     params.forEach(param => {
@@ -2354,7 +2421,7 @@ async function loadVolatilityAnalysis() {
                     yAxisIndex: 1,
                     itemStyle: {
                         color: function(params) {
-                            return params.value >= 0 ? 'rgba(76, 175, 80, 0.5)' : 'rgba(244, 67, 54, 0.5)';
+                            return params.value >= 0 ? 'rgba(49, 118, 184, 0.5)' : 'rgba(244, 67, 54, 0.5)';
                         }
                     }
                 },
@@ -2423,7 +2490,7 @@ async function loadVolatilityAnalysis() {
         const coneChartDom = document.getElementById('vol-cone-chart');
         if (volConeChart) volConeChart.dispose();
         volConeChart = echarts.init(coneChartDom, 'dark', { renderer: 'canvas' });
-        volConeChart.showLoading({ text: 'Loading...', color: '#4ade80', maskColor: 'rgba(30, 30, 30, 0.8)' });
+        volConeChart.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
         const lookbackDays = document.getElementById('vol-analysis-lookback').value;
         const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}?lookback_days=${lookbackDays}`);

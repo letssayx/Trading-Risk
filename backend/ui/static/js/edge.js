@@ -33,7 +33,7 @@ const Edge = {
 
         // Determine Sentiment Color
         let sentColor = '#888';
-        if (data.sentiment === 'Bullish') sentColor = '#4caf50';
+        if (data.sentiment === 'Bullish') sentColor = '#3176B8';
         else if (data.sentiment === 'Bearish') sentColor = '#f44336';
 
         container.innerHTML = `

@@ -62,7 +62,7 @@ const ChartTabs = {
             series = chart.addLineSeries({ color: '#2962FF', lineWidth: 2 });
         } else {
             series = chart.addCandlestickSeries({
-                upColor: '#4caf50', downColor: '#f44336', borderVisible: false, wickUpColor: '#4caf50', wickDownColor: '#f44336'
+                upColor: '#3176B8', downColor: '#f44336', borderVisible: false, wickUpColor: '#3176B8', wickDownColor: '#f44336'
             });
         }
 

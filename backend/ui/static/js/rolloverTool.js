@@ -32,10 +32,34 @@ const RolloverTool = {
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-                <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
+                <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
+                    <!-- Charts Area -->
+                    <div style="display: flex; gap: 20px; height: 300px; flex-shrink: 0; width: 100%;">
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
+                            <div style="display:flex; justify-content:flex-end; margin-bottom:5px;">
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverSectorChartInstance) exportChartDataToCSV(window.rolloverSectorChartInstance, 'Sectoral_Rollover')"><i class="fas fa-download"></i> CSV</button>
+                            </div>
+                            <div id="rollover-sector-chart" style="width: 100%; height: calc(100% - 30px);"></div>
+                        </div>
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                <div style="display:flex; gap:10px;">
+                                    <select id="rollover-chart-sector-filter" class="form-control history-input" style="padding: 2px 5px;" onchange="RolloverTool.updateDynamicChart()">
+                                        <option value="ALL">All Sectors Avg</option>
+                                    </select>
+                                    <select id="rollover-chart-stock-filter" class="form-control history-input" style="padding: 2px 5px; display:none;" onchange="RolloverTool.updateDynamicChart()">
+                                        <option value="">Select Stock</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverDynamicChartInstance) exportChartDataToCSV(window.rolloverDynamicChartInstance, 'Dynamic_Rollover')"><i class="fas fa-download"></i> CSV</button>
+                            </div>
+                            <div id="rollover-dynamic-chart" style="width: 100%; height: calc(100% - 30px);"></div>
+                        </div>
+                    </div>
+
                     <!-- Table Area -->
                     <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1;">
-                        <table class="data-table" id="rollover-analysis-table" style="width: 100%;">
+                        <table class="data-table" id="rollover-analysis-table" style="width: 100%; table-layout: fixed;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
                                     <th style="padding: 8px; width: 30px;"></th>
@@ -50,7 +74,7 @@ const RolloverTool = {
                                 </tr>
                             </thead>
                             <tbody id="rollover-analysis-body">
-                                <tr><td colspan="6" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
+                                <tr><td colspan="9" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -111,10 +135,32 @@ const RolloverTool = {
             this.currentSortCol = 'rollover_pct';
             this.currentSortAsc = false;
 
+            // Populate sector filter for the dynamic chart
+            const sectors = new Set();
+            this.allData.forEach(d => {
+                if (d.sector && d.sector !== "Unknown") sectors.add(d.sector);
+            });
+            const sectorSelect = document.getElementById('rollover-chart-sector-filter');
+            if (sectorSelect) {
+                const currentVal = sectorSelect.value;
+                sectorSelect.innerHTML = '<option value="ALL">All Sectors Avg</option>';
+                Array.from(sectors).sort().forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s;
+                    sectorSelect.appendChild(opt);
+                });
+                sectorSelect.value = currentVal;
+            }
+
             this.renderAggregatedView();
 
+            // Also load the charts since data is refreshed
+            this.loadSectoralChart();
+            this.updateDynamicChart();
+
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     },
 
@@ -149,32 +195,32 @@ const RolloverTool = {
         } else {
             let html = '';
             displayData.forEach(d => {
-                let costColor = d.rollover_cost >= 0 ? '#4caf50' : '#f44336';
+                let costColor = d.rollover_cost >= 0 ? '#3176B8' : '#f44336';
                 let rollColor = d.rollover_pct >= 80 ? '#00bcd4' : '#ccc';
-                let pColor = d.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
-                let oColor = d.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                let pColor = d.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
 
                 let histHtml = '';
                 if (d.history && d.history.length > 0) {
                     histHtml = `
-                        <div style="padding: 10px 40px; background: #151515; border-bottom: 1px solid #333;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left; color: #bbb;">
+                        <div style="background: #151515; border-bottom: 1px solid #333;">
+                            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.85em; text-align: left; color: #bbb;">
                                 <tbody>
                     `;
                     d.history.forEach((h, idx) => {
-                        let hpColor = h.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
-                        let hoColor = h.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                        let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
+                        let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let rowBg = idx % 2 === 0 ? '#1f1f1f' : '#1a1a1a';
                         histHtml += `<tr style="background: ${rowBg}; border-bottom: 1px solid #222;">
-                            <td style="padding: 6px 10px;"></td>
-                            <td style="padding: 6px 10px; color: #888;">${h.date}</td>
-                            <td style="padding: 6px 10px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 10px; color: #555;">-</td>
-                            <td style="padding: 6px 10px; color: #555;">-</td>
-                            <td style="padding: 6px 10px;">${(h.price || 0).toFixed(2)}</td>
-                            <td style="padding: 6px 10px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 10px;">${(h.oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 10px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; width: 30px;"></td>
+                            <td style="padding: 6px 8px; color: #888;">${h.date}</td>
+                            <td style="padding: 6px 8px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #555;">-</td>
+                            <td style="padding: 6px 8px; color: #555;">-</td>
+                            <td style="padding: 6px 8px;">${(h.price || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px;">${(h.oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                         </tr>`;
                     });
                     histHtml += `</tbody></table></div>`;
@@ -184,7 +230,7 @@ const RolloverTool = {
 
                 html += `
                 <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
-                    <td style="padding: 10px 8px; text-align: center;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▶</span></td>
+                    <td style="padding: 10px 8px; text-align: center; width: 30px;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▶</span></td>
                     <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
                     <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
                     <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost||0).toFixed(2)}</td>
@@ -457,7 +503,7 @@ const RolloverTool = {
                     </div>
                     <div>
                         <div style="font-size: 0.9em; color: #888;">Rollover Cost (Spread)</div>
-                        <div style="font-size: 1.5em; color: ${data.rollover_cost >= 0 ? '#4caf50' : '#f44336'};">${data.rollover_cost} (${data.rollover_cost_pct}%)</div>
+                        <div style="font-size: 1.5em; color: ${data.rollover_cost >= 0 ? '#3176B8' : '#f44336'};">${data.rollover_cost} (${data.rollover_cost_pct}%)</div>
                     </div>
                 </div>
 

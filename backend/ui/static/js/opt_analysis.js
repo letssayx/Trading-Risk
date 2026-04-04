@@ -116,7 +116,7 @@ async function loadOptionsAnalysis() {
                     name: 'PCR',
                     type: 'line',
                     data: data.pcr,
-                    itemStyle: { color: '#00FF00' },
+                    itemStyle: { color: '#00bcd4' },
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,

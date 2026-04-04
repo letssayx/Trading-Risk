@@ -89,7 +89,7 @@ class SpreadBuilder {
                 this.spreadValue.style.color = "#f44336";
             } else {
                 this.spreadValue.innerText = result.toFixed(2);
-                this.spreadValue.style.color = result >= 0 ? "#4CAF50" : "#f44336";
+                this.spreadValue.style.color = result >= 0 ? "#3176B8" : "#f44336";
             }
 
         } catch (e) {
