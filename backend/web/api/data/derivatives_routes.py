@@ -236,7 +236,7 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 "curr_price": curr["price"],
                 "curr_oi": curr["oi"],
                 "history": hist_arr[:10],
-                **{k: round(v, 2) for k, v in adv_metrics.items()}
+                **{k: round(v, 2) if v is not None else 0 for k, v in adv_metrics.items()}
             })
 
         return {"date": str(curr_date), "data": results}
@@ -588,9 +588,8 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             latest_fo_date = target_date
         else:
             # Find the latest date where there is actual futures data (prevents returning empty table if only EQ is loaded so far)
-            latest_fo_date_row = db.query(BhavcopyEQ.trade_date)\
-                                   .filter(BhavcopyEQ.series == 'EQ')\
-                                   .order_by(desc(BhavcopyEQ.trade_date))\
+            latest_fo_date_row = db.query(BhavcopyFO.trade_date)\
+                                   .order_by(desc(BhavcopyFO.trade_date))\
                                    .first()
             if not latest_fo_date_row:
                 return {"data": {}}

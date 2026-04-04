@@ -2391,6 +2391,8 @@ async function loadVolatilityAnalysis() {
                     yAxisIndex: 1,
                     itemStyle: { color: '#FF00FF' }, // Magenta line for ATM IV
                     lineStyle: { width: 1, type: 'dashed' },
+                    symbol: 'circle',
+                    symbolSize: 6,
                     showSymbol: true,
                     connectNulls: true
                 },
@@ -2401,6 +2403,8 @@ async function loadVolatilityAnalysis() {
                     yAxisIndex: 1,
                     itemStyle: { color: '#FFFF00' }, // Yellow line for VIX
                     lineStyle: { width: 1, type: 'dotted' },
+                    symbol: 'circle',
+                    symbolSize: 6,
                     showSymbol: true,
                     connectNulls: true
                 }
@@ -2516,24 +2520,47 @@ async function loadVolatilityAnalysis() {
             ]
         };
 
+        // Find the closest index mathematically because exact DTE might not match the fixed lookback array `[3, 7, 10...]`
+        let dteIdx = -1;
+        if (data.current_dte !== undefined && data.current_dte !== null) {
+            let minDiff = Infinity;
+            data.windows.forEach((w, idx) => {
+                let diff = Math.abs(w - data.current_dte);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    dteIdx = idx;
+                }
+            });
+        }
+
+        let atm_iv_data = data.atm_iv;
         if (data.atm_iv && data.atm_iv.length > 0) {
             coneOption.series.push({
                 name: 'ATM IV',
                 type: 'line',
-                data: data.atm_iv,
-                lineStyle: { color: '#FF00FF', width: 2, type: 'dashed' }, // Magenta
+                data: atm_iv_data,
+                lineStyle: { color: '#FF00FF', width: 2, type: 'dashed' },
                 itemStyle: { color: '#FF00FF' },
+                symbol: 'circle',
+                symbolSize: function(val, params) {
+                    return params.dataIndex === dteIdx ? 10 : 0; // Only show prominent dot at DTE
+                },
                 showSymbol: true
             });
         }
 
+        let vix_data = data.india_vix;
         if (data.india_vix && data.india_vix.length > 0) {
             coneOption.series.push({
                 name: 'India VIX',
                 type: 'line',
-                data: data.india_vix,
-                lineStyle: { color: '#FFFF00', width: 2, type: 'dotted' }, // Yellow
+                data: vix_data,
+                lineStyle: { color: '#FFFF00', width: 2, type: 'dotted' },
                 itemStyle: { color: '#FFFF00' },
+                symbol: 'circle',
+                symbolSize: function(val, params) {
+                    return params.dataIndex === dteIdx ? 10 : 0; // Only show prominent dot at DTE
+                },
                 showSymbol: true
             });
         }

@@ -91,6 +91,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, db: Session = Dep
 
         # Fetch options data for the current date to calculate ATM IV dynamically (Optimized)
         real_iv = None
+        current_dte = None
         try:
             from backend.risk.greeks import calculate_implied_volatility
 
@@ -115,9 +116,9 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, db: Session = Dep
 
             if opts_result and opts_result[0][3] and underlying_price > 0:
                 nearest_expiry = opts_result[0][3]
-                dte = (nearest_expiry - current_date).days
-                if dte > 0:
-                    t_years = dte / 365.0
+                current_dte = (nearest_expiry - current_date).days
+                if current_dte > 0:
+                    t_years = current_dte / 365.0
                     risk_free_rate = 0.05
 
                     # Find nearest ATM strike
@@ -229,6 +230,9 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, db: Session = Dep
 
         if current_vix is not None:
             cone_data["india_vix"] = [round(current_vix, 2)] * len(windows)
+
+        # Add current_dte to data so the frontend can locate the dot
+        cone_data["current_dte"] = current_dte
 
         return cone_data
     except HTTPException as e:
