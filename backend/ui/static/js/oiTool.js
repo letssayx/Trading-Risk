@@ -73,7 +73,7 @@ const OiTool = {
                     <!-- Chart Area -->
                     <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
-                            <span style="color: #888; font-size: 12px; align-self: center;">OI Analysis</span>
+                            <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
                             <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
                         </div>
                         <div id="oi-chart-area" style="flex: 1;">
@@ -262,7 +262,6 @@ const OiTool = {
         if (displayData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
         } else {
-
             let html = '';
             displayData.forEach(d => {
                 let color = '#888';
@@ -276,45 +275,328 @@ const OiTool = {
 
                 let histHtml = '';
                 if (d.history && d.history.length > 0) {
-                    histHtml = `
-                        <div style="padding: 10px 40px; background: #1a1a1a; border-bottom: 1px solid #333;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; color: #aaa;">
-                            <tbody>
+                    histHtml = `<table class="oi-history-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>FUT Price</th>
+                                <th>Price Chg %</th>
+                                <th>OI</th>
+                                <th>OI Chg %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                     `;
-                    d.history.forEach((h, idx) => {
+                    d.history.forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
-                        let rowBg = idx % 2 === 0 ? '#1f1f1f' : '#1a1a1a';
-                        histHtml += `<tr style="background: ${rowBg}; border-bottom: 1px solid #2a2a2a;">
-                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">Date:</span> ${h.date}</td>
-                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">Price:</span> ${(h.price || 0).toFixed(2)}</td>
-                            <td style="padding: 6px 10px; width: 20%; color: ${hpColor}"><span style="color:#666;">P Chg:</span> ${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">OI:</span> ${(h.oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 10px; width: 20%; color: ${hoColor}"><span style="color:#666;">OI Chg:</span> ${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                        histHtml += `<tr>
+                            <td>${h.date}</td>
+                            <td>${(h.price || 0).toFixed(2)}</td>
+                            <td style="color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td>${(h.oi || 0).toLocaleString()}</td>
+                            <td style="color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                         </tr>`;
                     });
-                    histHtml += `</tbody></table></div>`;
+                    histHtml += `</tbody></table>`;
                 } else {
-                    histHtml = `<div style="padding: 10px 40px; color: #888; background: #1a1a1a;">No historical data available</div>`;
+                    histHtml = `<div style="padding: 10px; color: #888; margin-left: 30px;">No historical data available</div>`;
                 }
 
-                html += `
-                <tr class="deriv-row" onclick="OiTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333;">
-                    <td style="padding: 10px 8px; text-align: center;"><span id="oi-icon-${d.symbol}" style="font-size: 14px; color: #E88B1E; font-weight: bold;">+</span></td>
-                    <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
-                    <td style="padding: 10px 8px; color: #aaa;">${d.sector || ''}</td>
-                    <td style="padding: 10px 8px;">${(d.price||0).toFixed(2)}</td>
-                    <td style="padding: 10px 8px; color: ${pColor};">${(d.price_chg_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px;">${(d.oi||0).toLocaleString()}</td>
-                    <td style="padding: 10px 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px; color: #ccc;">${(d.total_oi||0).toLocaleString()}</td>
-                    <td style="padding: 10px 8px; color: #ccc;">${(d.pcr||0).toFixed(2)}</td>
-                    <td style="padding: 10px 8px; color: #ccc;">${(d.atm_iv||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
+                html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
+                    <td style="padding: 8px; text-align: center;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
+                    <td style="padding: 8px;"><b>${d.symbol}</b></td>
+                    <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
+                    <td style="padding: 8px;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
+                    <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
+                    <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
                 </tr>
-                <tr id="oi-history-${d.symbol}" class="deriv-history-row" style="display: none;">
-                    <td colspan="11" style="padding: 0;">${histHtml}</td>
+                <tr id="oi-history-${d.symbol}" class="oi-history-row">
+                    <td colspan="11">${histHtml}</td>
                 </tr>`;
             });
             tbody.innerHTML = html;
+        }
 
+        // 2. Render Scatter Plot
+        this.renderAggregatedChart(displayData);
+    },
+
+    renderDerivedPanels: function(universe) {
+        let sortedByOI = [...universe].sort((a,b) => b.oi_chg_pct - a.oi_chg_pct);
+        const top5Add = sortedByOI.slice(0, 5);
+        const top5Red = sortedByOI.slice().reverse().slice(0, 5);
+
+        const addDom = document.getElementById('oi-top-add-chart');
+        const redDom = document.getElementById('oi-top-red-chart');
+
+        if (!addDom || !redDom) return;
+
+        const buildTableHTML = (dataSubset) => {
+            let html = `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #333; color: #888;">
+                        <th style="padding: 4px;">Symbol</th>
+                        <th style="padding: 4px;">OI Chg %</th>
+                        <th style="padding: 4px;">Price</th>
+                        <th style="padding: 4px;">Price Chg %</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            dataSubset.forEach(d => {
+                let oColor = d.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                let pColor = d.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                html += `<tr style="border-bottom: 1px solid #222;">
+                    <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
+                    <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
+                    <td style="padding: 4px; color: #aaa;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table>`;
+            return html;
+        };
+
+        // Dispose previous charts to prevent memory leaks if they existed
+        if (window.oiAddChart) { window.oiAddChart.dispose(); window.oiAddChart = null; }
+        if (window.oiRedChart) { window.oiRedChart.dispose(); window.oiRedChart = null; }
+
+        addDom.innerHTML = buildTableHTML(top5Add);
+        redDom.innerHTML = buildTableHTML(top5Red);
+    },
+
+    renderAggregatedChart: function(data) {
+        const container = document.getElementById('oi-chart-area');
+        if (!container) return;
+
+        if (data.length === 0) {
+            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">No data for scatter plot.</p>';
+            return;
+        }
+
+        const x = data.map(d => d.oi_chg_pct);
+        const y = data.map(d => d.price_chg_pct);
+        const text = data.map(d => d.symbol);
+        const color = data.map(d => {
+            if (d.interpretation === 'Long Build Up') return '#4caf50'; // Green
+            if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
+            if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
+            if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
+            return '#888';
+        });
+
+        // Ensure axes are symmetric around 0 so the quadrants are mathematically correct relative to paper corners
+        let maxAbsX = Math.max(...x.map(Math.abs), 1) * 1.1; // fallback to 1 to avoid 0 range
+        let maxAbsY = Math.max(...y.map(Math.abs), 1) * 1.1;
+
+        const trace = {
+            x: x,
+            y: y,
+            mode: 'markers+text',
+            type: 'scatter',
+            text: text,
+            textposition: 'top center',
+            hovertext: data.map(d => `${d.symbol}<br>Price: ${d.price_chg_pct}%<br>OI: ${d.oi_chg_pct}%`),
+            marker: { size: 10, color: color, opacity: 0.8 }
+        };
+
+        const layout = {
+            title: `OI vs Price Change Quadrant Analysis`,
+            paper_bgcolor: '#1e1e1e',
+            plot_bgcolor: '#1e1e1e',
+            font: { color: '#ccc' },
+            margin: { t: 40, b: 40, l: 40, r: 40 },
+            xaxis: {
+                title: 'OI Change %',
+                zeroline: true,
+                zerolinewidth: 2,
+                zerolinecolor: '#ccc',
+                gridcolor: '#333',
+                range: [-maxAbsX, maxAbsX]
+            },
+            yaxis: {
+                title: 'Price Change %',
+                zeroline: true,
+                zerolinewidth: 2,
+                zerolinecolor: '#ccc',
+                gridcolor: '#333',
+                range: [-maxAbsY, maxAbsY]
+            },
+            annotations: [
+                { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#4caf50', size: 16} },
+                { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
+                { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
+            ]
+        };
+
+        Plotly.newPlot(container, [trace], layout, {responsive: true});
+    },
+
+    filterData: function() {
+        this.renderAggregatedView();
+    },
+
+    sortData: function(col) {
+        if (this.currentSortCol === col) {
+            this.currentSortAsc = !this.currentSortAsc;
+        } else {
+            this.currentSortCol = col;
+            this.currentSortAsc = false;
+        }
+        this.renderAggregatedView();
+    },
+
+    analyzeSingle: async function() {
+        const symbol = document.getElementById('oi-symbol').value.toUpperCase().trim();
+        const chartArea = document.getElementById('oi-chart-area');
+
+        if (!symbol) return;
+
+        chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
+
+        // Filter the table to just show this symbol instead of hiding it
+        if (this.allData && this.allData.length > 0) {
+            this.filterData();
+        }
+
+        try {
+            const res = await fetch(`/api/data/analysis/oi/${symbol}`);
+            if (!res.ok) throw new Error("Analysis failed");
+            const data = await res.json();
+
+            // Render Single History Plotly Chart
+            this.renderSingleChart(chartArea, data);
+
+        } catch (e) {
+            chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        }
+    },
+
+    renderSingleChart: function(container, data) {
+        container.innerHTML = '';
+
+        const history = data.history || [];
+        const x = history.map(d => d.oi_chg_pct);
+        const y = history.map(d => d.price_chg_pct);
+        const text = history.map(d => `${d.time}<br>${d.interpretation}`);
+        const color = history.map(d => {
+            if (d.interpretation === 'Long Build Up') return '#4caf50'; // Green
+            if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
+            if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
+            if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
+            return '#888';
+        });
+
+        // Create a line tracing the path chronologically
+        const tracePath = {
+            x: x,
+            y: y,
+            mode: 'lines',
+            type: 'scatter',
+            line: {color: '#555', width: 1, dash: 'dot'},
+            hoverinfo: 'none'
+        };
+
+        const traceMarkers = {
+            x: x,
+            y: y,
+            mode: 'markers+text',
+            type: 'scatter',
+            text: history.map((d, i) => {
+                if (i === history.length - 1) return (i + 1).toString() + "\n(Latest)";
+                return (i + 1).toString();
+            }),
+            textposition: history.map((d, i) => i === history.length - 1 ? 'top center' : 'middle center'),
+            textfont: {
+                color: history.map((d, i) => i === history.length - 1 ? '#ffcc00' : '#fff'),
+                size: history.map((d, i) => i === history.length - 1 ? 12 : 10),
+                weight: history.map((d, i) => i === history.length - 1 ? 'bold' : 'normal')
+            },
+            hovertext: text,
+            marker: {
+                size: history.map((d, i) => i === history.length - 1 ? 24 : 18),
+                color: history.map((d, i, arr) => i === history.length - 1 ? '#ffffff' : color[i]),
+                line: {
+                    color: history.map((d, i) => i === history.length - 1 ? '#ffcc00' : 'transparent'),
+                    width: history.map((d, i) => i === history.length - 1 ? 2 : 0)
+                }
+            }
+        };
+
+        const layout = {
+            title: `Single Symbol History (30d): ${data.symbol}`,
+            paper_bgcolor: '#1e1e1e',
+            plot_bgcolor: '#1e1e1e',
+            font: { color: '#ccc' },
+            margin: { t: 40, b: 40, l: 40, r: 40 },
+            xaxis: {
+                title: 'OI Change %',
+                zeroline: true,
+                zerolinecolor: '#888',
+                gridcolor: '#333'
+            },
+            yaxis: {
+                title: 'Price Change %',
+                zeroline: true,
+                zerolinecolor: '#888',
+                gridcolor: '#333'
+            },
+            annotations: [
+                { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#4caf50', size: 16} },
+                { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
+                { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
+            ]
+        };
+
+        Plotly.newPlot(container, [tracePath, traceMarkers], layout, {responsive: true});
+    },
+
+    exportScatterCSV: function() {
+        const symbolFilter = document.getElementById('oi-symbol').value.toUpperCase().trim();
+        const sectorFilter = document.getElementById('oi-sector-filter').value;
+        let displayData = this.allData;
+
+        if (symbolFilter) {
+            displayData = displayData.filter(d => d.symbol.includes(symbolFilter));
+        }
+        if (sectorFilter) {
+            displayData = displayData.filter(d => d.sector === sectorFilter);
+        }
+
+        if (!displayData || displayData.length === 0) {
+            alert("No data to export.");
+            return;
+        }
+
+        let csv = "Symbol,Sector,Price Change %,OI Change %,Quadrant\n";
+        displayData.forEach(d => {
+            csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.oi_chg_pct}","${d.interpretation}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `OI_Scatter_Data_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+    },
+
+    handleTick: function(tick) {
+        // Update if active
+    }
+};
+
+// Register with WorkbookManager
+window.addEventListener('load', () => {
+   if (window.WorkbookManager) {
+       window.WorkbookManager.modules['oi'] = OiTool;
+   }
+});

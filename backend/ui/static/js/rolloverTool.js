@@ -25,9 +25,6 @@ const RolloverTool = {
             <div style="color: #ccc; height: 100%; display: flex; flex-direction: column;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Rollover Analysis</h2>
-                    <select id="rollover-sector-filter" class="form-control history-input" style="width: 150px; padding: 4px;" onchange="RolloverTool.filterData()">
-                        <option value="">All Sectors</option>
-                    </select>
                     <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
                     <button onclick="RolloverTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
@@ -36,35 +33,13 @@ const RolloverTool = {
                 </div>
 
                 <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
-                    <div style="display: flex; gap: 20px; height: 350px;">
-                        <div style="flex: 1; border: 1px solid #333; background: #1e1e1e;">
-                            <div id="rollover-sector-chart" style="width: 100%; height: 100%;"></div>
-                        </div>
-                        <div style="flex: 1; border: 1px solid #333; background: #1e1e1e; display: flex; flex-direction: column;">
-                            <div style="padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 10px;">
-                                <select id="rollover-chart-sector-filter" onchange="RolloverTool.updateDynamicChart()" class="form-control" style="width: 150px;">
-                                    <option value="ALL">ALL (Sectors)</option>
-                                </select>
-                                <select id="rollover-chart-stock-filter" onchange="RolloverTool.updateDynamicChart()" class="form-control" style="width: 150px; display: none;">
-                                    <option value="">Select Stock</option>
-                                </select>
-                            </div>
-                            <div id="rollover-dynamic-chart" style="flex: 1; width: 100%;"></div>
-                        </div>
-                    </div>
-
                     <!-- Table Area -->
                     <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1;">
                         <table class="data-table" id="rollover-analysis-table" style="width: 100%;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
-                                    <th style="padding: 8px; width: 40px;"></th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('sector')">Sector ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Change % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price')">FUT Price ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('near_oi')">Near OI ↕</th>
@@ -72,7 +47,7 @@ const RolloverTool = {
                                 </tr>
                             </thead>
                             <tbody id="rollover-analysis-body">
-                                <tr><td colspan="11" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
+                                <tr><td colspan="6" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -120,7 +95,7 @@ const RolloverTool = {
 
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
 
         try {
             const res = await fetch('/api/data/analysis/rollover');
@@ -130,25 +105,6 @@ const RolloverTool = {
             if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
 
             this.allData = json.data || [];
-
-            // Populate Sector Filter
-            const sectors = [...new Set(this.allData.map(d => d.sector))].filter(s => s && s !== 'Unknown').sort();
-            const sectorFilter = document.getElementById('rollover-sector-filter');
-            const chartSectorFilter = document.getElementById('rollover-chart-sector-filter');
-            if (sectorFilter && sectorFilter.options.length <= 1) {
-                sectors.forEach(s => {
-                    sectorFilter.innerHTML += `<option value="${s}">${s}</option>`;
-                });
-            }
-            if (chartSectorFilter && chartSectorFilter.options.length <= 1) {
-                sectors.forEach(s => {
-                    chartSectorFilter.innerHTML += `<option value="${s}">${s}</option>`;
-                });
-            }
-
-            this.loadSectoralChart();
-            this.updateDynamicChart();
-
             this.currentSortCol = 'rollover_pct';
             this.currentSortAsc = false;
 
@@ -159,17 +115,9 @@ const RolloverTool = {
         }
     },
 
-
     renderAggregatedView: function() {
-        const symbolEl = document.getElementById('rollover-symbol');
-        const sectorEl = document.getElementById('rollover-sector-filter');
-        const symbolFilter = symbolEl ? symbolEl.value.toUpperCase().trim() : '';
-        const sectorFilter = sectorEl ? sectorEl.value : '';
+        const symbolFilter = document.getElementById('rollover-symbol').value.toUpperCase().trim();
         let displayData = this.allData;
-
-        if (sectorFilter) {
-            displayData = displayData.filter(d => d.sector === sectorFilter);
-        }
 
         if (symbolFilter) {
             displayData = this.allData.filter(d => d.symbol.includes(symbolFilter));
@@ -190,31 +138,47 @@ const RolloverTool = {
 
         // Render Table
         const tbody = document.getElementById('rollover-analysis-body');
-        if (tbody) {
+        tbody.innerHTML = '';
+
+
+        if (displayData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#888;">No F&O stocks found.</td></tr>';
+        } else {
             let html = '';
             displayData.forEach(d => {
-                let rollColor = d.rollover_pct > 80 ? '#4caf50' : (d.rollover_pct < 50 ? '#f44336' : '#ccc');
-                let costColor = d.rollover_cost_pct > 0 ? '#4caf50' : '#f44336';
+                let costColor = d.rollover_cost >= 0 ? '#4caf50' : '#f44336';
+                let rollColor = d.rollover_pct >= 80 ? '#00bcd4' : '#ccc';
                 let pColor = d.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
 
                 let histHtml = '';
                 if (d.history && d.history.length > 0) {
                     histHtml = `
-                        <div style="padding: 10px 40px; background: #1a1a1a; border-bottom: 1px solid #333;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; color: #aaa;">
-                            <tbody>
+                        <div style="padding: 10px 40px; background: #151515; border-bottom: 1px solid #333;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left; color: #bbb;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #444;">
+                                        <th style="padding: 6px 10px; font-weight: normal; color: #888;">Date</th>
+                                        <th style="padding: 6px 10px; font-weight: normal; color: #888;">Rollover %</th>
+                                        <th style="padding: 6px 10px; font-weight: normal; color: #888;">FUT Price</th>
+                                        <th style="padding: 6px 10px; font-weight: normal; color: #888;">Price Chg %</th>
+                                        <th style="padding: 6px 10px; font-weight: normal; color: #888;">Total OI</th>
+                                        <th style="padding: 6px 10px; font-weight: normal; color: #888;">OI Chg %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                     `;
                     d.history.forEach((h, idx) => {
                         let hpColor = h.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
                         let rowBg = idx % 2 === 0 ? '#1f1f1f' : '#1a1a1a';
-                        histHtml += `<tr style="background: ${rowBg}; border-bottom: 1px solid #2a2a2a;">
-                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">Date:</span> ${h.date}</td>
-                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">Price:</span> ${(h.price || 0).toFixed(2)}</td>
-                            <td style="padding: 6px 10px; width: 20%; color: ${hpColor}"><span style="color:#666;">P Chg:</span> ${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">OI:</span> ${(h.oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 10px; width: 20%; color: ${hoColor}"><span style="color:#666;">OI Chg:</span> ${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                        histHtml += `<tr style="background: ${rowBg};">
+                            <td style="padding: 6px 10px;">${h.date}</td>
+                            <td style="padding: 6px 10px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 10px;">${(h.price || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 10px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 10px;">${(h.oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 10px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                         </tr>`;
                     });
                     histHtml += `</tbody></table></div>`;
@@ -222,49 +186,256 @@ const RolloverTool = {
                     histHtml = `<div style="padding: 10px 40px; color: #888; background: #1a1a1a;">No historical data available</div>`;
                 }
 
-                html += `<tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333;">
-                    <td style="padding: 10px 8px; text-align: center;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">+</span></td>
+                html += `
+                <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
+                    <td style="padding: 10px 8px; text-align: center;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▶</span></td>
                     <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
-                    <td style="padding: 10px 8px; color: #aaa;">${d.sector || ''}</td>
-                    <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${d.rollover_pct}%</td>
-                    <td style="padding: 10px 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px;">${(d.price||0).toFixed(2)}</td>
+                    <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost||0).toFixed(2)}</td>
+                    <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px;">${(d.fut_close||0).toFixed(2)}</td>
                     <td style="padding: 10px 8px; color: ${pColor};">${(d.price_chg_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px; color: ${costColor};">${d.rollover_cost}</td>
-                    <td style="padding: 10px 8px; color: ${costColor};">${d.rollover_cost_pct}%</td>
-                    <td style="padding: 10px 8px; color: #888;">${d.near_oi}</td>
-                    <td style="padding: 10px 8px; color: #888;">${d.total_oi}</td>
+                    <td style="padding: 10px 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px; color: #ccc;">${(d.total_oi||0).toLocaleString()}</td>
                 </tr>
                 <tr id="roll-history-${d.symbol}" class="roll-history-row" style="display: none;">
-                    <td colspan="11" style="padding: 0;">${histHtml}</td>
+                    <td colspan="9" style="padding: 0;">${histHtml}</td>
                 </tr>`;
             });
             tbody.innerHTML = html;
         }
+
     },
+
+        sortData: function(col) {
+        if (this.currentSortCol === col) {
+            this.currentSortAsc = !this.currentSortAsc;
+        } else {
+            this.currentSortCol = col;
+            this.currentSortAsc = true;
+        }
+        this.renderAggregatedView();
+    },
+
+    loadSectoralChart: async function() {
+        const chartDom = document.getElementById('rollover-sector-chart');
+        if (!chartDom) return;
+
+        try {
+            const res = await fetch('/api/data/analysis/rollover/sectors');
+            if (!res.ok) throw new Error("Failed");
+            const data = await res.json();
+
+            if (window.rolloverSectorChartInstance) {
+                window.rolloverSectorChartInstance.dispose();
+            }
+            window.rolloverSectorChartInstance = echarts.init(chartDom);
+
+            // Expected data format: { sectors: [], exp1_name: '', exp1_data: [], exp2_name: '', exp2_data: [] }
+            // Let's ensure robust fallback
+            const sectors = data.sectors || [];
+            const exp1 = data.exp1_name || 'Exp 1';
+            const exp2 = data.exp2_name || 'Exp 2';
+            const exp1Data = data.exp1_data || [];
+            const exp2Data = data.exp2_data || [];
+
+            const option = {
+                title: { text: 'Sectoral Rollover (Prev 2 Expiries)', textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: [exp1, exp2], textStyle: { color: '#ccc' }, bottom: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '20%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: sectors,
+                    axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 10 }
+                },
+                yAxis: { type: 'value', axisLabel: { color: '#ccc', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
+                series: [
+                    {
+                        name: exp1,
+                        type: 'bar',
+                        barGap: '0%',
+                        itemStyle: { color: '#00838f' }, // Darker cyan
+                        data: exp1Data
+                    },
+                    {
+                        name: exp2,
+                        type: 'bar',
+                        itemStyle: { color: '#00bcd4' }, // Lighter cyan
+                        data: exp2Data
+                    }
+                ]
+            };
+            window.rolloverSectorChartInstance.setOption(option);
+            window.addEventListener('resize', () => window.rolloverSectorChartInstance.resize());
+        } catch (e) {
+            chartDom.innerHTML = `<p style="color:red; text-align:center; padding-top:50px;">Error loading chart: ${e.message}</p>`;
+        }
+    },
+
+    updateDynamicChart: async function() {
+        const sectorSelector = document.getElementById('rollover-chart-sector-filter');
+        const stockSelector = document.getElementById('rollover-chart-stock-filter');
+        const chartDom = document.getElementById('rollover-dynamic-chart');
+
+        if (!sectorSelector || !stockSelector || !chartDom) return;
+
+        const selectedSector = sectorSelector.value;
+        const selectedStock = stockSelector.value;
+
+        if (window.rolloverDynamicChartInstance) {
+            window.rolloverDynamicChartInstance.dispose();
+        }
+        window.rolloverDynamicChartInstance = echarts.init(chartDom);
+
+        try {
+            if (selectedSector === 'ALL') {
+                // Show current expiry rollover for all sectors
+                stockSelector.style.display = 'none';
+
+                // We can calculate this from this.allData locally
+                const sectorAverages = {};
+                this.allData.forEach(d => {
+                    if (d.sector && d.sector !== 'Unknown') {
+                        if (!sectorAverages[d.sector]) sectorAverages[d.sector] = { sum: 0, count: 0 };
+                        sectorAverages[d.sector].sum += d.rollover_pct;
+                        sectorAverages[d.sector].count += 1;
+                    }
+                });
+
+                const sectors = Object.keys(sectorAverages).sort();
+                const values = sectors.map(s => (sectorAverages[s].sum / sectorAverages[s].count).toFixed(2));
+
+                const option = {
+                    title: { text: 'Current Avg Rollover by Sector', textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
+                    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                    grid: { left: '3%', right: '4%', bottom: '15%', top: '20%', containLabel: true },
+                    xAxis: { type: 'category', data: sectors, axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 10 } },
+                    yAxis: { type: 'value', axisLabel: { color: '#ccc', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
+                    series: [{
+                        name: 'Avg Rollover',
+                        type: 'bar',
+                        itemStyle: { color: '#00bcd4' },
+                        data: values,
+                        label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                    }]
+                };
+                window.rolloverDynamicChartInstance.setOption(option);
+
+            } else {
+                // A specific sector is selected. Populate stock dropdown.
+                stockSelector.style.display = 'inline-block';
+
+                const sectorStocks = this.allData.filter(d => d.sector === selectedSector).sort((a,b) => a.symbol.localeCompare(b.symbol));
+
+                // Repopulate stock dropdown if it doesn't match current sector
+                if (stockSelector.getAttribute('data-sector') !== selectedSector) {
+                    stockSelector.innerHTML = '<option value="">Select Stock</option>';
+                    sectorStocks.forEach(s => {
+                        stockSelector.innerHTML += `<option value="${s.symbol}">${s.symbol}</option>`;
+                    });
+                    stockSelector.setAttribute('data-sector', selectedSector);
+                    stockSelector.value = ''; // Reset stock selection
+                }
+
+                if (!selectedStock) {
+                    // Show stocks in the sector
+                    const symbols = sectorStocks.map(s => s.symbol);
+                    const values = sectorStocks.map(s => s.rollover_pct);
+
+                    const option = {
+                        title: { text: `${selectedSector} Stocks Rollover`, textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: '3%', right: '4%', bottom: '15%', top: '20%', containLabel: true },
+                        xAxis: { type: 'category', data: symbols, axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 10 } },
+                        yAxis: { type: 'value', axisLabel: { color: '#ccc', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
+                        series: [{
+                            name: 'Rollover',
+                            type: 'bar',
+                            itemStyle: { color: '#00bcd4' },
+                            data: values,
+                            label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                        }]
+                    };
+                    window.rolloverDynamicChartInstance.setOption(option);
+                } else {
+                    // Fetch 12-month history for the stock
+                    window.rolloverDynamicChartInstance.showLoading({ text: 'Loading 12M History...', color: '#00bcd4', textColor: '#ccc', maskColor: 'rgba(0, 0, 0, 0.5)' });
+
+                    const res = await fetch(`/api/data/analysis/rollover/history/${selectedStock}`);
+                    if (!res.ok) throw new Error("Failed to load history");
+                    const data = await res.json();
+
+                    window.rolloverDynamicChartInstance.hideLoading();
+
+                    const expiries = data.map(d => d.expiry).reverse();
+                    const values = data.map(d => d.rollover_pct).reverse();
+
+                    const option = {
+                        title: { text: `${selectedStock} - 12 Month Rollover History`, textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
+                        tooltip: { trigger: 'axis', formatter: '{b}<br/>Rollover: {c}%' },
+                        grid: { left: '3%', right: '4%', bottom: '15%', top: '20%', containLabel: true },
+                        xAxis: { type: 'category', data: expiries, axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 10 } },
+                        yAxis: { type: 'value', axisLabel: { color: '#ccc', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
+                        series: [{
+                            name: 'Rollover',
+                            type: 'line',
+                            symbol: 'circle',
+                            symbolSize: 8,
+                            itemStyle: { color: '#00bcd4' },
+                            lineStyle: { width: 3 },
+                            data: values,
+                            label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                        }]
+                    };
+                    window.rolloverDynamicChartInstance.setOption(option);
+                }
+            }
+            window.addEventListener('resize', () => window.rolloverDynamicChartInstance.resize());
+        } catch (e) {
+             if (window.rolloverDynamicChartInstance) window.rolloverDynamicChartInstance.hideLoading();
+             chartDom.innerHTML = `<p style="color:red; text-align:center; padding-top:50px;">Error: ${e.message}</p>`;
+        }
+    },
+
 
     toggleHistory: function(symbol) {
         const row = document.getElementById(`roll-history-${symbol}`);
         const icon = document.getElementById(`roll-icon-${symbol}`);
-        if (row && icon) {
-            if (row.style.display === 'none') {
+        if (row) {
+            if (row.style.display === 'none' || row.style.display === '') {
                 row.style.display = 'table-row';
-                icon.textContent = '-';
+                if (icon) icon.innerHTML = '▼';
             } else {
                 row.style.display = 'none';
-                icon.textContent = '+';
+                if (icon) icon.innerHTML = '▶';
             }
         }
     },
 
+    filterData: function() {
+        if (!document.getElementById('rollover-analysis-body')) return;
+        this.renderAggregatedView();
+    },
+
+    sortData: function(col) {
+        if (!document.getElementById('rollover-analysis-body')) return;
+
+        if (this.currentSortCol === col) {
+            this.currentSortAsc = !this.currentSortAsc;
+        } else {
+            this.currentSortCol = col;
+            this.currentSortAsc = false;
+        }
+        this.renderAggregatedView();
+    },
+
     analyzeSingle: async function() {
-        const symbolEl = document.getElementById('rollover-symbol');
-        if (!symbolEl) return;
-        const symbol = symbolEl.value.toUpperCase().trim();
+        const symbol = document.getElementById('rollover-symbol').value.toUpperCase().trim();
         let detailsDiv = document.getElementById('rollover-single-details');
         const resultsDiv = document.getElementById('rollover-results');
 
-        if (!symbol || !resultsDiv) return;
+        if (!symbol) return;
 
         if (!detailsDiv) {
             detailsDiv = document.createElement('div');
@@ -295,14 +466,21 @@ const RolloverTool = {
                 </div>
 
                 <table style="width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 0.9em; text-align: left;">
-                    <thead>
-                        <tr style="background: #333;">
-                            <th style="padding: 8px; border: 1px solid #444;">Contract</th>
-                            <th style="padding: 8px; border: 1px solid #444;">Expiry</th>
-                            <th style="padding: 8px; border: 1px solid #444;">Price</th>
-                            <th style="padding: 8px; border: 1px solid #444;">OI</th>
-                        </tr>
-                    </thead>
+
+                                <thead>
+                                    <tr style="position: sticky; top: 0; background: #222; z-index: 10; border-bottom: 2px solid #00bcd4;">
+                                        <th style="padding: 8px; width: 30px;"></th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('fut_close')">FUT Price ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('total_oi')">Total OI ↕</th>
+                                    </tr>
+                                </thead>
+
                     <tbody>
                         <tr>
                             <td style="padding: 8px; border: 1px solid #444; color: #ccc;">Near Month</td>
