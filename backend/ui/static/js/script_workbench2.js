@@ -1729,7 +1729,21 @@
                     type: 'bar',
                     barGap: '0%', // Combine bars closely together per instrument (no gap)
                     data: pData,
-                    itemStyle: { color: p.color }
+                    itemStyle: { color: p.color },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: function(params) {
+                            let val = params.value;
+                            if (val === 0) return '';
+                            let absVal = Math.abs(val);
+                            if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
+                            if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                            return val;
+                        },
+                        color: '#ccc',
+                        fontSize: 9
+                    }
                 };
             });
 
@@ -1765,6 +1779,97 @@
 
             participantChartInstance.setOption(option);
 
+            // Granular Collective Chart (Today vs Previous Day)
+            const granularContainer = document.getElementById('participant-oi-granular-summary');
+            if (window.participantGranularChartInstance) window.participantGranularChartInstance.dispose();
+            window.participantGranularChartInstance = echarts.init(granularContainer);
+
+            const prevIdx = todayIdx > 0 ? todayIdx - 1 : 0;
+
+            // Re-map the same participants for granular
+            const granularSeries = participants.map(p => {
+                const todayDataArr = metrics.map(m => {
+                    if (p.key === 'smart_money') {
+                        let sum = 0;
+                        ['fii', 'dii', 'pro', 'client'].forEach(participantKey => {
+                            const arr = data[`${participantKey}_${m.key}`] || [];
+                            sum += arr.length > todayIdx ? arr[todayIdx] : 0;
+                        });
+                        return sum;
+                    } else {
+                        const arr = data[`${p.key}_${m.key}`] || [];
+                        return arr.length > todayIdx ? arr[todayIdx] : 0;
+                    }
+                });
+
+                const prevDataArr = metrics.map(m => {
+                    if (p.key === 'smart_money') {
+                        let sum = 0;
+                        ['fii', 'dii', 'pro', 'client'].forEach(participantKey => {
+                            const arr = data[`${participantKey}_${m.key}`] || [];
+                            sum += arr.length > prevIdx ? arr[prevIdx] : 0;
+                        });
+                        return sum;
+                    } else {
+                        const arr = data[`${p.key}_${m.key}`] || [];
+                        return arr.length > prevIdx ? arr[prevIdx] : 0;
+                    }
+                });
+
+                return [
+                    {
+                        name: `${p.label} (Prev)`,
+                        type: 'bar',
+                        stack: p.label, // Stack Prev and Today for visual pairing if needed, or group
+                        data: prevDataArr,
+                        itemStyle: { color: p.key === 'smart_money' ? '#8B8000' : p.color, opacity: 0.5 }, // Dimmer for previous
+                        label: { show: false }
+                    },
+                    {
+                        name: `${p.label} (Today)`,
+                        type: 'bar',
+                        stack: p.label,
+                        data: todayDataArr,
+                        itemStyle: { color: p.color },
+                        label: {
+                            show: true,
+                            position: 'top',
+                            formatter: function(params) {
+                                let val = params.value;
+                                if (!val || val === 0) return '';
+                                let absVal = Math.abs(val);
+                                if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
+                                if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                                return val;
+                            },
+                            color: '#ccc',
+                            fontSize: 9
+                        }
+                    }
+                ];
+            }).flat();
+
+            const granularOption = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { type: 'scroll', textStyle: { color: '#ccc' }, bottom: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: xAxisData,
+                    axisLabel: { color: '#ccc', fontWeight: 'bold' }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                },
+                series: granularSeries
+            };
+
+            window.participantGranularChartInstance.setOption(granularOption);
+
+
             // Trigger historical charts rendering next
             if (typeof renderParticipantHistorical === 'function') {
                 renderParticipantHistorical(data);
@@ -1789,23 +1894,31 @@
 
                 // Latest date data
                 const todayIdx = dates.length - 1;
-                const pData = [
+                const prevIdx = todayIdx > 0 ? todayIdx - 1 : 0;
+
+                const todayData = [
                     data.fut_idx[todayIdx] || 0,
                     data.fut_stk[todayIdx] || 0,
                     data.opt_idx[todayIdx] || 0,
                     data.opt_stk[todayIdx] || 0
                 ];
 
+                const prevData = [
+                    data.fut_idx[prevIdx] || 0,
+                    data.fut_stk[prevIdx] || 0,
+                    data.opt_idx[prevIdx] || 0,
+                    data.opt_stk[prevIdx] || 0
+                ];
+
                 const option = {
                     backgroundColor: 'transparent',
                     tooltip: {
                         trigger: 'axis',
-                        axisPointer: { type: 'shadow' },
-                        formatter: function (params) {
-                            let res = `<b>${params[0].axisValue}</b><br/>`;
-                            res += `${params[0].marker} Net Money: ₹ ${params[0].value.toLocaleString()} Cr`;
-                            return res;
-                        }
+                        axisPointer: { type: 'shadow' }
+                    },
+                    legend: {
+                        data: ['Previous Day', 'Today'],
+                        textStyle: { color: '#ccc' }
                     },
                     grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
                     xAxis: {
@@ -1820,16 +1933,22 @@
                         axisLabel: { color: '#888', formatter: '₹ {value} Cr' },
                         splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                     },
-                    series: [{
-                        name: 'Net Money',
-                        type: 'bar',
-                        data: pData,
-                        itemStyle: {
-                            color: function(params) {
-                                return params.value >= 0 ? '#3176B8' : '#f44336';
-                            }
+                    series: [
+                        {
+                            name: 'Previous Day',
+                            type: 'bar',
+                            data: prevData,
+                            itemStyle: { color: '#3176B8' }, // Blue
+                            label: { show: true, position: 'top', formatter: '₹{c}Cr', color: '#ccc', fontSize: 10 }
+                        },
+                        {
+                            name: 'Today',
+                            type: 'bar',
+                            data: todayData,
+                            itemStyle: { color: '#FFD700' }, // Yellow
+                            label: { show: true, position: 'top', formatter: '₹{c}Cr', color: '#ccc', fontSize: 10 }
                         }
-                    }]
+                    ]
                 };
                 window.fiiMoneyChartInstance.setOption(option);
             }
@@ -2224,11 +2343,28 @@ function renderParticipantHistorical(data) {
                 { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
             ],
             series: series.map(s => {
+                let sObj = { ...s };
+                if (s.type === 'bar') {
+                    sObj.label = {
+                        show: true,
+                        position: 'top',
+                        formatter: function(params) {
+                            let val = params.value;
+                            if (!val || val === 0) return '';
+                            let absVal = Math.abs(val);
+                            if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
+                            if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                            return val;
+                        },
+                        color: '#ccc',
+                        fontSize: 9
+                    };
+                }
                 return {
-                    ...s,
+                    ...sObj,
                     // Center the datum at 1 for the L/S Ratio so ratios < 1 point downward
                     markLine: {
-                        data: [{ yAxis: 1 }],
+                        data: [{ yAxis: 0 }], // Adjusted back to 0 as we use net positions now, not ratios
                         lineStyle: { color: '#444', type: 'solid', width: 2 },
                         symbol: 'none',
                         label: { show: false }

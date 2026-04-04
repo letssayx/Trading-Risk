@@ -386,11 +386,15 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
             total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in latest_futs])
             near = latest_futs[0]
             next_month = latest_futs[1]
+            far_month = latest_futs[2] if len(latest_futs) > 2 else None
+
             near_oi = int(near.open_interest) if near.open_interest else 0
+            next_oi = int(next_month.open_interest) if next_month.open_interest else 0
+            far_oi = int(far_month.open_interest) if far_month and far_month.open_interest else 0
 
             rollover_pct = 0
             if total_oi > 0:
-                rollover_pct = ((total_oi - near_oi) / total_oi) * 100
+                rollover_pct = ((next_oi + far_oi) / total_oi) * 100
 
             near_price = float(near.close_price) if near.close_price else 0
             next_price = float(next_month.close_price) if next_month.close_price else 0
@@ -507,13 +511,15 @@ def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
         near = futs[0]
         next_month = futs[1]
 
+        far_month = futs[2] if len(futs) > 2 else None
+
         near_oi = int(near.open_interest) if near.open_interest else 0
         next_oi = int(next_month.open_interest) if next_month.open_interest else 0
+        far_oi = int(far_month.open_interest) if far_month and far_month.open_interest else 0
 
         # Calculate rollover
         # True rollover typically is (Next OI + Far OI) / Total OI * 100
-        non_near_oi = total_oi - near_oi
-        rollover_pct = (non_near_oi / total_oi * 100) if total_oi > 0 else 0.0
+        rollover_pct = ((next_oi + far_oi) / total_oi * 100) if total_oi > 0 else 0.0
 
         near_price = float(near.close_price) if near.close_price else 0.0
         next_price = float(next_month.close_price) if next_month.close_price else 0.0
@@ -973,18 +979,25 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
             results[sector][str(dt)] = round(rollover_pct, 2)
 
     # Format the response
-    formatted = []
     exp_strs = [str(d) for d in target_dates]
-    for sector, vals in results.items():
-        formatted.append({
-            "sector": sector,
-            "exp1": exp_strs[0],
-            "exp1_roll": vals.get(exp_strs[0], 0),
-            "exp2": exp_strs[1] if len(exp_strs) > 1 else "",
-            "exp2_roll": vals.get(exp_strs[1], 0) if len(exp_strs) > 1 else 0
-        })
+    sectors = sorted(list(results.keys()))
 
-    return {"data": formatted, "expiries": exp_strs}
+    exp1_data = []
+    exp2_data = []
+
+    for sector in sectors:
+        vals = results[sector]
+        exp1_data.append(vals.get(exp_strs[0], 0))
+        if len(exp_strs) > 1:
+            exp2_data.append(vals.get(exp_strs[1], 0))
+
+    return {
+        "sectors": sectors,
+        "exp1_name": exp_strs[0] if exp_strs else "Exp 1",
+        "exp2_name": exp_strs[1] if len(exp_strs) > 1 else "Exp 2",
+        "exp1_data": exp1_data,
+        "exp2_data": exp2_data
+    }
 
 
 @router.get("/api/data/analysis/rollover/history/{symbol}")

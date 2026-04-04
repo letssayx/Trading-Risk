@@ -189,16 +189,18 @@ const OiTool = {
     },
 
     toggleHistory: function(symbol) {
-        const row = document.getElementById(`oi-history-${symbol}`);
+        const histRows = document.querySelectorAll(`.oi-history-row-${symbol}`);
         const icon = document.getElementById(`oi-icon-${symbol}`);
-        if (row) {
-            if (row.style.display === 'none' || row.style.display === '') {
-                row.style.display = 'table-row';
-                if (icon) icon.innerHTML = '▼';
-            } else {
-                row.style.display = 'none';
-                if (icon) icon.innerHTML = '▶';
-            }
+        if (!histRows || histRows.length === 0) return;
+
+        let isHidden = histRows[0].style.display === 'none' || histRows[0].style.display === '';
+
+        histRows.forEach(row => {
+            row.style.display = isHidden ? 'table-row' : 'none';
+        });
+
+        if (icon) {
+            icon.innerText = isHidden ? '▲' : '▼';
         }
     },
 
@@ -278,15 +280,25 @@ const OiTool = {
                 let pColor = d.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
 
-                let histHtml = '';
+                html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
+                    <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▼</span></td>
+                    <td style="padding: 8px;"><b>${d.symbol}</b></td>
+                    <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
+                    <td style="padding: 8px;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
+                    <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
+                    <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
+                </tr>`;
+
                 if (d.history && d.history.length > 0) {
-                    histHtml = `<div style="background: #151515; border-bottom: 1px solid #333;"><table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; color: #aaa;">
-                        <tbody>
-                    `;
-                    d.history.forEach(h => {
+                    d.history.slice(0, 7).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
-                        histHtml += `<tr style="border-bottom: 1px solid #222;">
+                        html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.9em; display: none;">
                             <td style="padding: 6px 8px; width: 30px;"></td>
                             <td style="padding: 6px 8px; color: #888;">${h.date}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
@@ -300,27 +312,7 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: #555;">-</td>
                         </tr>`;
                     });
-                    histHtml += `</tbody></table></div>`;
-                } else {
-                    histHtml = `<div style="padding: 10px; color: #888; margin-left: 30px;">No historical data available</div>`;
                 }
-
-                html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
-                    <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
-                    <td style="padding: 8px;"><b>${d.symbol}</b></td>
-                    <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
-                    <td style="padding: 8px;">${(d.price || 0).toFixed(2)}</td>
-                    <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
-                    <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
-                    <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
-                </tr>
-                <tr id="oi-history-${d.symbol}" class="oi-history-row">
-                    <td colspan="11" style="padding: 0;">${histHtml}</td>
-                </tr>`;
             });
             tbody.innerHTML = html;
         }
@@ -398,6 +390,15 @@ const OiTool = {
         let maxAbsX = Math.max(...x.map(Math.abs), 1) * 1.1; // fallback to 1 to avoid 0 range
         let maxAbsY = Math.max(...y.map(Math.abs), 1) * 1.1;
 
+        // Clip extreme outliers for better default zoom scale (e.g. 95th percentile)
+        let sortedAbsX = [...x.map(Math.abs)].sort((a, b) => a - b);
+        let sortedAbsY = [...y.map(Math.abs)].sort((a, b) => a - b);
+        let perc95X = sortedAbsX[Math.floor(sortedAbsX.length * 0.95)] || maxAbsX;
+        let perc95Y = sortedAbsY[Math.floor(sortedAbsY.length * 0.95)] || maxAbsY;
+
+        let zoomRangeX = Math.max(perc95X * 1.2, 5);
+        let zoomRangeY = Math.max(perc95Y * 1.2, 2);
+
         const trace = {
             x: x,
             y: y,
@@ -421,7 +422,7 @@ const OiTool = {
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
                 gridcolor: '#333',
-                range: [-maxAbsX, maxAbsX]
+                range: [-zoomRangeX, zoomRangeX]
             },
             yaxis: {
                 title: 'Price Change %',
@@ -429,17 +430,25 @@ const OiTool = {
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
                 gridcolor: '#333',
-                range: [-maxAbsY, maxAbsY]
+                range: [-zoomRangeY, zoomRangeY]
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
                 { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#3176B8', size: 16} },
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
-            ]
+            ],
+            dragmode: 'pan'
         };
 
-        Plotly.newPlot(container, [trace], layout, {responsive: true});
+        const config = {
+            responsive: true,
+            scrollZoom: true,
+            displayModeBar: true,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+        };
+
+        Plotly.newPlot(container, [trace], layout, config);
     },
 
     filterData: function() {

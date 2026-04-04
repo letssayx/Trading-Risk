@@ -28,7 +28,6 @@ const RolloverTool = {
                     <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
                     <button onclick="RolloverTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
-                    <button class="btn btn-secondary" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
@@ -58,6 +57,9 @@ const RolloverTool = {
                     </div>
 
                     <!-- Table Area -->
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 5px;">
+                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
+                    </div>
                     <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1;">
                         <table class="data-table" id="rollover-analysis-table" style="width: 100%; table-layout: fixed;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
@@ -122,7 +124,7 @@ const RolloverTool = {
 
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
 
         try {
             const res = await fetch('/api/data/analysis/rollover');
@@ -200,18 +202,25 @@ const RolloverTool = {
                 let pColor = d.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
 
-                let histHtml = '';
+                html += `
+                <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
+                    <td style="padding: 10px 8px; text-align: center; width: 30px;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▼</span></td>
+                    <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
+                    <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost||0).toFixed(2)}</td>
+                    <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px;">${(d.fut_close||0).toFixed(2)}</td>
+                    <td style="padding: 10px 8px; color: ${pColor};">${(d.price_chg_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px; color: #ccc;">${(d.total_oi||0).toLocaleString()}</td>
+                    <td style="padding: 10px 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
+                </tr>`;
+
                 if (d.history && d.history.length > 0) {
-                    histHtml = `
-                        <div style="background: #151515; border-bottom: 1px solid #333;">
-                            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.85em; text-align: left; color: #bbb;">
-                                <tbody>
-                    `;
-                    d.history.forEach((h, idx) => {
+                    d.history.slice(0, 7).forEach((h, idx) => {
                         let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
-                        let rowBg = idx % 2 === 0 ? '#1f1f1f' : '#1a1a1a';
-                        histHtml += `<tr style="background: ${rowBg}; border-bottom: 1px solid #222;">
+                        let rowBg = '#151515';
+                        html += `<tr class="roll-history-row-${d.symbol}" style="background: ${rowBg}; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px;"></td>
                             <td style="padding: 6px 8px; color: #888;">${h.date}</td>
                             <td style="padding: 6px 8px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
@@ -223,26 +232,7 @@ const RolloverTool = {
                             <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                         </tr>`;
                     });
-                    histHtml += `</tbody></table></div>`;
-                } else {
-                    histHtml = `<div style="padding: 10px 40px; color: #888; background: #1a1a1a;">No historical data available</div>`;
                 }
-
-                html += `
-                <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
-                    <td style="padding: 10px 8px; text-align: center; width: 30px;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▶</span></td>
-                    <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
-                    <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost||0).toFixed(2)}</td>
-                    <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px;">${(d.fut_close||0).toFixed(2)}</td>
-                    <td style="padding: 10px 8px; color: ${pColor};">${(d.price_chg_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 10px 8px; color: #ccc;">${(d.total_oi||0).toLocaleString()}</td>
-                    <td style="padding: 10px 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
-                </tr>
-                <tr id="roll-history-${d.symbol}" class="roll-history-row" style="display: none;">
-                    <td colspan="9" style="padding: 0;">${histHtml}</td>
-                </tr>`;
             });
             tbody.innerHTML = html;
         }
@@ -298,12 +288,14 @@ const RolloverTool = {
                         type: 'bar',
                         barGap: '0%',
                         itemStyle: { color: '#00838f' }, // Darker cyan
+                        label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
                         data: exp1Data
                     },
                     {
                         name: exp2,
                         type: 'bar',
                         itemStyle: { color: '#00bcd4' }, // Lighter cyan
+                        label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
                         data: exp2Data
                     }
                 ]
@@ -442,16 +434,18 @@ const RolloverTool = {
 
 
     toggleHistory: function(symbol) {
-        const row = document.getElementById(`roll-history-${symbol}`);
+        const histRows = document.querySelectorAll(`.roll-history-row-${symbol}`);
         const icon = document.getElementById(`roll-icon-${symbol}`);
-        if (row) {
-            if (row.style.display === 'none' || row.style.display === '') {
-                row.style.display = 'table-row';
-                if (icon) icon.innerHTML = '▼';
-            } else {
-                row.style.display = 'none';
-                if (icon) icon.innerHTML = '▶';
-            }
+        if (!histRows || histRows.length === 0) return;
+
+        let isHidden = histRows[0].style.display === 'none' || histRows[0].style.display === '';
+
+        histRows.forEach(row => {
+            row.style.display = isHidden ? 'table-row' : 'none';
+        });
+
+        if (icon) {
+            icon.innerText = isHidden ? '▲' : '▼';
         }
     },
 

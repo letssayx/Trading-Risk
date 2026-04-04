@@ -1618,6 +1618,15 @@
                             </div>
                         </div>
 
+                        <!-- Granular Collective Chart: Today vs Previous -->
+                        <div style="height: 450px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI - Granular Bifurcation (Prev vs Today)</h3>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Granular_OI');"><i class="fas fa-download"></i> CSV</button>
+                            </div>
+                            <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
+                        </div>
+
                         <!-- 6 Historical Bar Charts with Index Overlay (2 per row) -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
