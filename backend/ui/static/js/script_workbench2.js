@@ -85,6 +85,11 @@
                     loadVolatilityAnalysis();
                 }
 
+                // Trigger Advanced Technicals
+                if (tabName === 'advtech' && typeof loadDynamicChart === 'function') {
+                    loadDynamicChart();
+                }
+
                 // Re-render ECharts or resize them since they might have collapsed while hidden
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
@@ -1608,8 +1613,8 @@
 
             // Add NIFTY line overlay dynamically to FII/DII Chart if NIFTY exists
             const datasets = [
-                { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 1, barPercentage: 1.0, categoryPercentage: 0.8 }, // Orange
-                { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 1, barPercentage: 1.0, categoryPercentage: 0.8 }  // Blue
+                { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 0, barPercentage: 1.0, categoryPercentage: 0.8 }, // Orange
+                { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 0, barPercentage: 1.0, categoryPercentage: 0.8 }  // Blue
             ];
 
             if (niftyData.length > 0) {
@@ -2384,18 +2389,18 @@ async function loadVolatilityAnalysis() {
                     type: 'line',
                     data: data.atm_iv_line,
                     yAxisIndex: 1,
-                    itemStyle: { color: '#00FF00' }, // Green line for ATM IV
+                    itemStyle: { color: '#FF00FF' }, // Magenta line for ATM IV
                     lineStyle: { width: 1, type: 'dashed' },
-                    showSymbol: false
+                    showSymbol: true
                 },
                 {
                     name: `India VIX`,
                     type: 'line',
                     data: data.india_vix_line,
                     yAxisIndex: 1,
-                    itemStyle: { color: '#FF00FF' }, // Magenta line for VIX
+                    itemStyle: { color: '#FFFF00' }, // Yellow line for VIX
                     lineStyle: { width: 1, type: 'dotted' },
-                    showSymbol: false
+                    showSymbol: true
                 }
             ]
         };
@@ -2501,8 +2506,8 @@ async function loadVolatilityAnalysis() {
                     name: 'Current RV',
                     type: 'line',
                     data: data.current_rv,
-                    lineStyle: { color: '#ffea00', width: 3, type: 'dashed' }, // Bright Yellow
-                    itemStyle: { color: '#ffea00' },
+                    lineStyle: { color: '#E88B1E', width: 3, type: 'dashed' }, // Orange
+                    itemStyle: { color: '#E88B1E' },
                     symbol: 'circle',
                     symbolSize: 6
                 }
@@ -2515,7 +2520,8 @@ async function loadVolatilityAnalysis() {
                 type: 'line',
                 data: data.atm_iv,
                 lineStyle: { color: '#FF00FF', width: 2, type: 'dashed' }, // Magenta
-                showSymbol: false
+                itemStyle: { color: '#FF00FF' },
+                showSymbol: true
             });
         }
 
@@ -2525,7 +2531,8 @@ async function loadVolatilityAnalysis() {
                 type: 'line',
                 data: data.india_vix,
                 lineStyle: { color: '#FFFF00', width: 2, type: 'dotted' }, // Yellow
-                showSymbol: false
+                itemStyle: { color: '#FFFF00' },
+                showSymbol: true
             });
         }
 

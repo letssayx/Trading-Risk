@@ -28,6 +28,9 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
         curr_date, prev_date = dates_query[0][0], dates_query[1][0]
 
+        if not curr_date or not prev_date:
+            return {"data": []}
+
         # 2. Get data for both dates (Filter out expired contracts to ensure accurate FUT 1 selection)
         query = db.query(
             BhavcopyFO.ticker_symb,
@@ -133,10 +136,10 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         # 5. Calculate metrics
         results = []
         for sym, dates_dict in sym_data.items():
-            prev = dates_dict[prev_date]
-            curr = dates_dict[curr_date]
+            prev = dates_dict.get(prev_date, {"price": 0, "oi": 0})
+            curr = dates_dict.get(curr_date, {"price": 0, "oi": 0})
 
-            if prev["price"] == 0 or prev["oi"] == 0 or curr["price"] is None or curr["oi"] == 0:
+            if prev["price"] == 0 or prev["oi"] == 0 or curr["price"] is None or curr["price"] == 0 or curr["oi"] == 0:
                 continue
 
             price_chg = ((curr["price"] - prev["price"]) / prev["price"]) * 100
