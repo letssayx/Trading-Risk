@@ -20,25 +20,12 @@ const RolloverTool = {
         this.active = false;
     },
 
-
     render: function(container) {
         container.innerHTML = `
-            <style>
-                .roll-row { border-bottom: 1px solid #333; }
-                .roll-row:hover { background-color: #2a2a2a; cursor: pointer; }
-                .roll-history-row { display: none; background-color: #1a1a1a; }
-                .roll-history-row td { padding: 0 !important; border: none; }
-                .roll-history-table { width: 100%; border-collapse: collapse; margin-left: 30px; font-size: 0.9em; color: #aaa; }
-                .roll-history-table th, .roll-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
-                .roll-history-table th { background: #111; color: #888; }
-            </style>
             <div style="color: #ccc; height: 100%; display: flex; flex-direction: column;">
-                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Rollover Analysis</h2>
-                    <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
-                    <select id="rollover-sector-filter" class="form-control history-input" style="width: 150px; padding: 4px;" onchange="RolloverTool.filterData()">
-                        <option value="">All Sectors</option>
-                    </select>
+                    <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
                     <button onclick="RolloverTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
                     <button class="btn btn-secondary" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
@@ -46,39 +33,13 @@ const RolloverTool = {
                 </div>
 
                 <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
-
-                    <!-- Chart Area -->
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 400px; height: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px; display: flex; flex-direction: column;">
-                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Sectoral Rollover (Previous 2 Expiries)</h4>
-                            <div id="rollover-sector-chart" style="flex: 1;"></div>
-                        </div>
-                        <div style="flex: 1; min-width: 400px; height: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px; display: flex; flex-direction: column;">
-                            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 10px;">
-                                <h4 style="margin: 0; color: #ccc; font-size: 14px;">Historical Rollover</h4>
-                                <select id="rollover-chart-sector-filter" class="form-control history-input" style="width: 130px; padding: 2px; font-size: 12px;" onchange="RolloverTool.updateDynamicChart()">
-                                    <option value="ALL">All Sectors</option>
-                                </select>
-                                <select id="rollover-chart-stock-filter" class="form-control history-input" style="width: 130px; padding: 2px; font-size: 12px; display:none;" onchange="RolloverTool.updateDynamicChart()">
-                                    <option value="">Select Stock</option>
-                                </select>
-                            </div>
-                            <div id="rollover-dynamic-chart" style="flex: 1;"></div>
-                        </div>
-                    </div>
-
                     <!-- Table Area -->
                     <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1;">
                         <table class="data-table" id="rollover-analysis-table" style="width: 100%;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
-                                    <th style="padding: 8px; width: 30px;"></th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('sector')">Sector ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price')">FUT Price ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('near_oi')">Near OI ↕</th>
@@ -86,7 +47,7 @@ const RolloverTool = {
                                 </tr>
                             </thead>
                             <tbody id="rollover-analysis-body">
-                                <tr><td colspan="11" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
+                                <tr><td colspan="6" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -110,8 +71,10 @@ const RolloverTool = {
             });
             input.addEventListener('input', (e) => {
                 if (input.value.trim() === '') {
+                    // Automatically reload the full table view when cleared
                     RolloverTool.loadAggregatedData();
                 } else {
+                    // Just filter the table locally while typing
                     if (document.getElementById('rollover-analysis-body')) {
                         RolloverTool.filterData();
                     }
@@ -119,7 +82,8 @@ const RolloverTool = {
             });
         }
     },
-loadAggregatedData: async function() {
+
+    loadAggregatedData: async function() {
         const tbody = document.getElementById('rollover-analysis-body');
         const dateDisplay = document.getElementById('rollover-date-display');
 
@@ -141,60 +105,35 @@ loadAggregatedData: async function() {
             if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
 
             this.allData = json.data || [];
+
+            // Populate Sector Filter
+            const sectors = [...new Set(this.allData.map(d => d.sector))].filter(s => s && s !== 'Unknown').sort();
+            const sectorFilter = document.getElementById('rollover-sector-filter');
+            const chartSectorFilter = document.getElementById('rollover-chart-sector-filter');
+            if (sectorFilter && sectorFilter.options.length <= 1) {
+                sectors.forEach(s => {
+                    sectorFilter.innerHTML += `<option value="${s}">${s}</option>`;
+                });
+            }
+            if (chartSectorFilter && chartSectorFilter.options.length <= 1) {
+                sectors.forEach(s => {
+                    chartSectorFilter.innerHTML += `<option value="${s}">${s}</option>`;
+                });
+            }
+
+            this.loadSectoralChart();
+            this.updateDynamicChart();
+
             this.currentSortCol = 'rollover_pct';
             this.currentSortAsc = false;
 
-                        // Populate sector filters
-            const sectors = new Set();
-            this.allData.forEach(d => {
-                if (d.sector && d.sector !== "Unknown") {
-                    sectors.add(d.sector);
-                }
-            });
-            const sectorSelect = document.getElementById('rollover-sector-filter');
-            const chartSectorSelect = document.getElementById('rollover-chart-sector-filter');
-            if (sectorSelect && chartSectorSelect) {
-                const currentVal = sectorSelect.value;
-                const cCurrentVal = chartSectorSelect.value;
-
-                let opts = '<option value="">All Sectors</option>';
-                let cOpts = '<option value="ALL">All Sectors</option>';
-
-                Array.from(sectors).sort().forEach(s => {
-                    opts += `<option value="${s}">${s}</option>`;
-                    cOpts += `<option value="${s}">${s}</option>`;
-                });
-
-                sectorSelect.innerHTML = opts;
-                sectorSelect.value = currentVal;
-
-                chartSectorSelect.innerHTML = cOpts;
-                if(cCurrentVal) chartSectorSelect.value = cCurrentVal;
-            }
-
             this.renderAggregatedView();
-            this.loadSectoralChart();
-            this.updateDynamicChart();
 
         } catch(e) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     },
 
-
-    toggleHistory: function(symbol) {
-        const row = document.getElementById(`roll-history-${symbol}`);
-        const icon = document.getElementById(`roll-icon-${symbol}`);
-        if (row) {
-            if (row.style.display === 'none' || row.style.display === '') {
-                row.style.display = 'table-row';
-                if (icon) icon.innerHTML = '▼';
-            } else {
-                row.style.display = 'none';
-                if (icon) icon.innerHTML = '▶';
-            }
-        }
-    },
     renderAggregatedView: function() {
         const symbolFilter = document.getElementById('rollover-symbol').value.toUpperCase().trim();
         const sectorFilter = document.getElementById('rollover-sector-filter').value;
@@ -221,31 +160,27 @@ loadAggregatedData: async function() {
             return 0;
         });
 
-
         // Render Table
         const tbody = document.getElementById('rollover-analysis-body');
-        tbody.innerHTML = '';
-
-        if (displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found.</td></tr>';
-        } else {
+        if (tbody) {
             let html = '';
             displayData.forEach(d => {
-                let costColor = d.rollover_cost >= 0 ? '#4caf50' : '#f44336';
-                let rollColor = d.rollover_pct >= 80 ? '#00bcd4' : '#ccc';
-                let oColor = d.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                let rollColor = d.rollover_pct > 80 ? '#4caf50' : (d.rollover_pct < 50 ? '#f44336' : '#ccc');
+                let costColor = d.rollover_cost_pct > 0 ? '#4caf50' : '#f44336';
                 let pColor = d.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
 
                 let histHtml = '';
                 if (d.history && d.history.length > 0) {
-                    histHtml = `<table class="roll-history-table">
+                    histHtml = `
+                        <table class="data-table" style="width: 95%; margin: 10px auto; background: #222; border: 1px solid #444;">
                         <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>FUT Price</th>
-                                <th>Price Chg %</th>
-                                <th>Total OI</th>
-                                <th>OI Chg %</th>
+                            <tr style="background: #333;">
+                                <th style="padding: 4px;">Date</th>
+                                <th style="padding: 4px;">Price</th>
+                                <th style="padding: 4px;">Price Chg %</th>
+                                <th style="padding: 4px;">OI</th>
+                                <th style="padding: 4px;">OI Chg %</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -287,6 +222,18 @@ loadAggregatedData: async function() {
         }
     },
 
+
+    toggleHistory: function(symbol) {
+        const row = document.getElementById(`roll-history-${symbol}`);
+        const icon = document.getElementById(`roll-icon-${symbol}`);
+        if (row.style.display === 'table-row') {
+            row.style.display = 'none';
+            icon.innerText = '▶';
+        } else {
+            row.style.display = 'table-row';
+            icon.innerText = '▼';
+        }
+    },
 
     loadSectoralChart: async function() {
         try {
@@ -343,12 +290,9 @@ loadAggregatedData: async function() {
 
         if (!sector) return;
 
-        // If ALL or Sector selected but NO stock
         if (sector === 'ALL' || (!stockSelect.value && sector !== 'ALL')) {
-            // Hide stock dropdown if ALL
             stockSelect.style.display = sector === 'ALL' ? 'none' : 'inline-block';
 
-            // Populate stock dropdown if sector selected
             if (sector !== 'ALL') {
                 const sectorStocks = this.allData.filter(d => d.sector === sector).map(d => d.symbol).sort();
                 let opts = '<option value="">Select Stock</option>';
@@ -356,13 +300,11 @@ loadAggregatedData: async function() {
                 stockSelect.innerHTML = opts;
             }
 
-            // Render Bar Chart for Current Selection (Sectors or Stocks in Sector)
             let xData = [];
             let yData = [];
             let title = '';
 
             if (sector === 'ALL') {
-                // Avg Rollover per sector current
                 const sectors = [...new Set(this.allData.filter(d=>d.sector && d.sector !== "Unknown").map(d => d.sector))].sort();
                 xData = sectors;
                 yData = sectors.map(sec => {
@@ -373,7 +315,6 @@ loadAggregatedData: async function() {
                 });
                 title = 'Current Avg Rollover by Sector';
             } else {
-                // Rollover per stock in sector current
                 const stocks = this.allData.filter(d => d.sector === sector).sort((a,b) => b.rollover_pct - a.rollover_pct);
                 xData = stocks.map(s => s.symbol);
                 yData = stocks.map(s => s.rollover_pct);
@@ -402,7 +343,6 @@ loadAggregatedData: async function() {
             Plotly.newPlot(container, [trace], layout, {responsive: true});
 
         } else if (stockSelect.value) {
-            // Fetch 12 mo history for stock
             const symbol = stockSelect.value;
             try {
                 const res = await fetch(`/api/data/analysis/rollover/history/${symbol}`);
@@ -437,37 +377,7 @@ loadAggregatedData: async function() {
     },
     filterData: function() {
         if (!document.getElementById('rollover-analysis-body')) return;
-                    // Populate sector filters
-            const sectors = new Set();
-            this.allData.forEach(d => {
-                if (d.sector && d.sector !== "Unknown") {
-                    sectors.add(d.sector);
-                }
-            });
-            const sectorSelect = document.getElementById('rollover-sector-filter');
-            const chartSectorSelect = document.getElementById('rollover-chart-sector-filter');
-            if (sectorSelect && chartSectorSelect) {
-                const currentVal = sectorSelect.value;
-                const cCurrentVal = chartSectorSelect.value;
-
-                let opts = '<option value="">All Sectors</option>';
-                let cOpts = '<option value="ALL">All Sectors</option>';
-
-                Array.from(sectors).sort().forEach(s => {
-                    opts += `<option value="${s}">${s}</option>`;
-                    cOpts += `<option value="${s}">${s}</option>`;
-                });
-
-                sectorSelect.innerHTML = opts;
-                sectorSelect.value = currentVal;
-
-                chartSectorSelect.innerHTML = cOpts;
-                if(cCurrentVal) chartSectorSelect.value = cCurrentVal;
-            }
-
-            this.renderAggregatedView();
-            this.loadSectoralChart();
-            this.updateDynamicChart();
+        this.renderAggregatedView();
     },
 
     sortData: function(col) {
@@ -479,37 +389,7 @@ loadAggregatedData: async function() {
             this.currentSortCol = col;
             this.currentSortAsc = false;
         }
-                    // Populate sector filters
-            const sectors = new Set();
-            this.allData.forEach(d => {
-                if (d.sector && d.sector !== "Unknown") {
-                    sectors.add(d.sector);
-                }
-            });
-            const sectorSelect = document.getElementById('rollover-sector-filter');
-            const chartSectorSelect = document.getElementById('rollover-chart-sector-filter');
-            if (sectorSelect && chartSectorSelect) {
-                const currentVal = sectorSelect.value;
-                const cCurrentVal = chartSectorSelect.value;
-
-                let opts = '<option value="">All Sectors</option>';
-                let cOpts = '<option value="ALL">All Sectors</option>';
-
-                Array.from(sectors).sort().forEach(s => {
-                    opts += `<option value="${s}">${s}</option>`;
-                    cOpts += `<option value="${s}">${s}</option>`;
-                });
-
-                sectorSelect.innerHTML = opts;
-                sectorSelect.value = currentVal;
-
-                chartSectorSelect.innerHTML = cOpts;
-                if(cCurrentVal) chartSectorSelect.value = cCurrentVal;
-            }
-
-            this.renderAggregatedView();
-            this.loadSectoralChart();
-            this.updateDynamicChart();
+        this.renderAggregatedView();
     },
 
     analyzeSingle: async function() {
