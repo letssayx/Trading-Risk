@@ -159,6 +159,7 @@ const RolloverTool = {
         }
     },
 
+
     renderAggregatedView: function() {
         const symbolEl = document.getElementById('rollover-symbol');
         const sectorEl = document.getElementById('rollover-sector-filter');
@@ -200,225 +201,60 @@ const RolloverTool = {
                 let histHtml = '';
                 if (d.history && d.history.length > 0) {
                     histHtml = `
-                        <table class="data-table" style="width: 95%; margin: 10px auto; background: #222; border: 1px solid #444;">
-                        <thead>
-                            <tr style="background: #333;">
-                                <th style="padding: 4px;">Date</th>
-                                <th style="padding: 4px;">Price</th>
-                                <th style="padding: 4px;">Price Chg %</th>
-                                <th style="padding: 4px;">OI</th>
-                                <th style="padding: 4px;">OI Chg %</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                        <div style="padding: 10px 40px; background: #1a1a1a; border-bottom: 1px solid #333;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; color: #aaa;">
+                            <tbody>
                     `;
-                    d.history.forEach(h => {
+                    d.history.forEach((h, idx) => {
                         let hpColor = h.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
-                        histHtml += `<tr>
-                            <td>${h.date}</td>
-                            <td>${(h.price || 0).toFixed(2)}</td>
-                            <td style="color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td>${(h.oi || 0).toLocaleString()}</td>
-                            <td style="color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                        let rowBg = idx % 2 === 0 ? '#1f1f1f' : '#1a1a1a';
+                        histHtml += `<tr style="background: ${rowBg}; border-bottom: 1px solid #2a2a2a;">
+                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">Date:</span> ${h.date}</td>
+                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">Price:</span> ${(h.price || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 10px; width: 20%; color: ${hpColor}"><span style="color:#666;">P Chg:</span> ${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 10px; width: 20%;"><span style="color:#666;">OI:</span> ${(h.oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 10px; width: 20%; color: ${hoColor}"><span style="color:#666;">OI Chg:</span> ${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                         </tr>`;
                     });
-                    histHtml += `</tbody></table>`;
+                    histHtml += `</tbody></table></div>`;
                 } else {
-                    histHtml = `<div style="padding: 10px; color: #888; margin-left: 30px;">No historical data available</div>`;
+                    histHtml = `<div style="padding: 10px 40px; color: #888; background: #1a1a1a;">No historical data available</div>`;
                 }
 
-                html += `<tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')">
-                    <td style="padding: 8px; text-align: center;"><span id="roll-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
-                    <td style="padding: 8px;"><b>${d.symbol}</b></td>
-                    <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
-                    <td style="padding: 8px; color: ${rollColor}; font-weight: bold;">${d.rollover_pct}%</td>
-                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.price||0).toFixed(2)}</td>
-                    <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct||0).toFixed(2)}%</td>
-                    <td style="padding: 8px; color: ${costColor};">${d.rollover_cost}</td>
-                    <td style="padding: 8px; color: ${costColor};">${d.rollover_cost_pct}%</td>
-                    <td style="padding: 8px; color: #888;">${d.near_oi}</td>
-                    <td style="padding: 8px; color: #888;">${d.total_oi}</td>
+                html += `<tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333;">
+                    <td style="padding: 10px 8px; text-align: center;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">+</span></td>
+                    <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
+                    <td style="padding: 10px 8px; color: #aaa;">${d.sector || ''}</td>
+                    <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${d.rollover_pct}%</td>
+                    <td style="padding: 10px 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px;">${(d.price||0).toFixed(2)}</td>
+                    <td style="padding: 10px 8px; color: ${pColor};">${(d.price_chg_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px; color: ${costColor};">${d.rollover_cost}</td>
+                    <td style="padding: 10px 8px; color: ${costColor};">${d.rollover_cost_pct}%</td>
+                    <td style="padding: 10px 8px; color: #888;">${d.near_oi}</td>
+                    <td style="padding: 10px 8px; color: #888;">${d.total_oi}</td>
                 </tr>
-                <tr id="roll-history-${d.symbol}" class="roll-history-row">
-                    <td colspan="11">${histHtml}</td>
+                <tr id="roll-history-${d.symbol}" class="roll-history-row" style="display: none;">
+                    <td colspan="11" style="padding: 0;">${histHtml}</td>
                 </tr>`;
             });
             tbody.innerHTML = html;
         }
     },
 
-
     toggleHistory: function(symbol) {
         const row = document.getElementById(`roll-history-${symbol}`);
         const icon = document.getElementById(`roll-icon-${symbol}`);
-        if (row.style.display === 'table-row') {
-            row.style.display = 'none';
-            icon.innerText = '▶';
-        } else {
-            row.style.display = 'table-row';
-            icon.innerText = '▼';
-        }
-    },
-
-    loadSectoralChart: async function() {
-        try {
-            const res = await fetch('/api/data/analysis/rollover/sectors');
-            if (!res.ok) return;
-            const json = await res.json();
-
-            const data = json.data || [];
-            if (data.length === 0) return;
-
-            // Organize by date
-            const dates = [...new Set(data.map(d => d.date))].sort();
-            const sectors = [...new Set(data.map(d => d.sector))].sort();
-
-            const traces = dates.map(dt => {
-                const yVals = sectors.map(sec => {
-                    const match = data.find(d => d.date === dt && d.sector === sec);
-                    return match ? match.avg_rollover_pct : 0;
-                });
-                return {
-                    x: sectors,
-                    y: yVals,
-                    name: `Expiry ${dt}`,
-                    type: 'bar',
-                    text: yVals.map(v => v.toFixed(1) + '%'),
-                    textposition: 'auto'
-                };
-            });
-
-            const layout = {
-                barmode: 'group',
-                bargap: 0.1,
-                bargroupgap: 0.0,
-                paper_bgcolor: '#1e1e1e',
-                plot_bgcolor: '#1e1e1e',
-                font: { color: '#ccc' },
-                margin: { t: 10, b: 60, l: 40, r: 10 },
-                xaxis: { tickangle: -45 },
-                yaxis: { title: 'Avg Rollover %' },
-                legend: { orientation: 'h', y: 1.1 }
-            };
-
-            Plotly.newPlot('rollover-sector-chart', traces, layout, {responsive: true});
-
-        } catch(e) {
-            console.error("Failed to load sectoral chart", e);
-        }
-    },
-
-    updateDynamicChart: async function() {
-        const sectorEl = document.getElementById('rollover-chart-sector-filter');
-        const stockSelect = document.getElementById('rollover-chart-stock-filter');
-        const container = document.getElementById('rollover-dynamic-chart');
-
-        if (!sectorEl || !stockSelect || !container) return;
-        const sector = sectorEl.value;
-        if (!sector) return;
-
-        if (sector === 'ALL' || (!stockSelect.value && sector !== 'ALL')) {
-            stockSelect.style.display = sector === 'ALL' ? 'none' : 'inline-block';
-
-            if (sector !== 'ALL') {
-                const sectorStocks = this.allData.filter(d => d.sector === sector).map(d => d.symbol).sort();
-                let opts = '<option value="">Select Stock</option>';
-                sectorStocks.forEach(s => opts += `<option value="${s}">${s}</option>`);
-                stockSelect.innerHTML = opts;
-            }
-
-            let xData = [];
-            let yData = [];
-            let title = '';
-
-            if (sector === 'ALL') {
-                const sectors = [...new Set(this.allData.filter(d=>d.sector && d.sector !== "Unknown").map(d => d.sector))].sort();
-                xData = sectors;
-                yData = sectors.map(sec => {
-                    const stocks = this.allData.filter(d => d.sector === sec);
-                    if(stocks.length===0) return 0;
-                    const avg = stocks.reduce((sum, s) => sum + s.rollover_pct, 0) / stocks.length;
-                    return avg;
-                });
-                title = 'Current Avg Rollover by Sector';
+        if (row && icon) {
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+                icon.textContent = '-';
             } else {
-                const stocks = this.allData.filter(d => d.sector === sector).sort((a,b) => b.rollover_pct - a.rollover_pct);
-                xData = stocks.map(s => s.symbol);
-                yData = stocks.map(s => s.rollover_pct);
-                title = `Current Rollover: ${sector} Stocks`;
-            }
-
-            const trace = {
-                x: xData,
-                y: yData,
-                type: 'bar',
-                marker: { color: '#00bcd4' },
-                text: yData.map(v => v.toFixed(1) + '%'),
-                textposition: 'auto'
-            };
-
-            const layout = {
-                title: { text: title, font: {size: 12} },
-                paper_bgcolor: '#1e1e1e',
-                plot_bgcolor: '#1e1e1e',
-                font: { color: '#ccc' },
-                margin: { t: 30, b: 60, l: 40, r: 10 },
-                xaxis: { tickangle: -45 },
-                yaxis: { title: 'Rollover %' }
-            };
-
-            Plotly.newPlot(container, [trace], layout, {responsive: true});
-
-        } else if (stockSelect.value) {
-            const symbol = stockSelect.value;
-            try {
-                const res = await fetch(`/api/data/analysis/rollover/history/${symbol}`);
-                if (!res.ok) return;
-                const json = await res.json();
-
-                const data = json.data || [];
-                const trace = {
-                    x: data.map(d => d.date),
-                    y: data.map(d => d.rollover_pct),
-                    type: 'bar',
-                    marker: { color: '#4caf50' },
-                    text: data.map(d => d.rollover_pct.toFixed(1) + '%'),
-                    textposition: 'auto'
-                };
-
-                const layout = {
-                    title: { text: `12-Month Rollover History: ${symbol}`, font: {size: 12} },
-                    paper_bgcolor: '#1e1e1e',
-                    plot_bgcolor: '#1e1e1e',
-                    font: { color: '#ccc' },
-                    margin: { t: 30, b: 60, l: 40, r: 10 },
-                    xaxis: { type: 'category' },
-                    yaxis: { title: 'Rollover %' }
-                };
-
-                Plotly.newPlot(container, [trace], layout, {responsive: true});
-            } catch(e) {
-                console.error("Failed to load stock rollover history", e);
+                row.style.display = 'none';
+                icon.textContent = '+';
             }
         }
-    },
-    filterData: function() {
-        if (!document.getElementById('rollover-analysis-body')) return;
-        this.renderAggregatedView();
-    },
-
-    sortData: function(col) {
-        if (!document.getElementById('rollover-analysis-body')) return;
-
-        if (this.currentSortCol === col) {
-            this.currentSortAsc = !this.currentSortAsc;
-        } else {
-            this.currentSortCol = col;
-            this.currentSortAsc = false;
-        }
-        this.renderAggregatedView();
     },
 
     analyzeSingle: async function() {
