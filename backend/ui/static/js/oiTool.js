@@ -260,7 +260,7 @@ const OiTool = {
         tbody.innerHTML = '';
 
         if (displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
         } else {
             let html = '';
             displayData.forEach(d => {
@@ -292,10 +292,10 @@ const OiTool = {
                         let hoColor = h.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
                         histHtml += `<tr>
                             <td>${h.date}</td>
-                            <td>${h.price.toFixed(2)}</td>
-                            <td style="color: ${hpColor}">${h.price_chg_pct}%</td>
-                            <td>${h.oi.toLocaleString()}</td>
-                            <td style="color: ${hoColor}">${h.oi_chg_pct}%</td>
+                            <td>${(h.price || 0).toFixed(2)}</td>
+                            <td style="color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td>${(h.oi || 0).toLocaleString()}</td>
+                            <td style="color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                         </tr>`;
                     });
                     histHtml += `</tbody></table>`;
@@ -307,12 +307,17 @@ const OiTool = {
                     <td style="padding: 8px; text-align: center;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
                     <td style="padding: 8px;"><b>${d.symbol}</b></td>
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
-                    <td style="padding: 8px; color: ${pColor};">${d.price_chg_pct}%</td>
-                    <td style="padding: 8px; color: ${oColor};">${d.oi_chg_pct}%</td>
+                    <td style="padding: 8px;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
+                    <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
                     <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
                 </tr>
                 <tr id="oi-history-${d.symbol}" class="oi-history-row">
-                    <td colspan="6">${histHtml}</td>
+                    <td colspan="11">${histHtml}</td>
                 </tr>`;
             });
             tbody.innerHTML = html;
@@ -332,34 +337,39 @@ const OiTool = {
 
         if (!addDom || !redDom) return;
 
-        if (window.oiAddChart) window.oiAddChart.dispose();
-        if (window.oiRedChart) window.oiRedChart.dispose();
+        const buildTableHTML = (dataSubset) => {
+            let html = `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #333; color: #888;">
+                        <th style="padding: 4px;">Symbol</th>
+                        <th style="padding: 4px;">OI Chg %</th>
+                        <th style="padding: 4px;">Price</th>
+                        <th style="padding: 4px;">Price Chg %</th>
+                    </tr>
+                </thead>
+                <tbody>`;
 
-        window.oiAddChart = echarts.init(addDom);
-        window.oiRedChart = echarts.init(redDom);
+            dataSubset.forEach(d => {
+                let oColor = d.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                let pColor = d.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
+                html += `<tr style="border-bottom: 1px solid #222;">
+                    <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
+                    <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
+                    <td style="padding: 4px; color: #aaa;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                </tr>`;
+            });
 
-        const buildOpt = (dataSubset, isRed) => ({
-            backgroundColor: 'transparent',
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-            grid: { left: '3%', right: '3%', bottom: '5%', top: '5%', containLabel: true },
-            xAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333' } } },
-            yAxis: { type: 'category', data: dataSubset.map(d => d.symbol).reverse(), axisLabel: { color: '#ccc' } },
-            series: [{
-                name: 'OI Chg %',
-                type: 'bar',
-                data: dataSubset.map(d => {
-                    const val = d.oi_chg_pct;
-                    return {
-                        value: val,
-                        itemStyle: { color: val >= 0 ? '#4caf50' : '#f44336' }
-                    }
-                }).reverse(),
-                label: { show: true, position: isRed ? 'left' : 'right', color: '#fff', formatter: '{c}%' }
-            }]
-        });
+            html += `</tbody></table>`;
+            return html;
+        };
 
-        window.oiAddChart.setOption(buildOpt(top5Add, false));
-        window.oiRedChart.setOption(buildOpt(top5Red, true));
+        // Dispose previous charts to prevent memory leaks if they existed
+        if (window.oiAddChart) { window.oiAddChart.dispose(); window.oiAddChart = null; }
+        if (window.oiRedChart) { window.oiRedChart.dispose(); window.oiRedChart = null; }
+
+        addDom.innerHTML = buildTableHTML(top5Add);
+        redDom.innerHTML = buildTableHTML(top5Red);
     },
 
     renderAggregatedChart: function(data) {

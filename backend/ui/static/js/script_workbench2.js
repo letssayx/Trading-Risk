@@ -1691,8 +1691,9 @@
             const participants = [
                 { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
                 { key: 'dii', label: 'DII', color: '#3176B8' },     // Blue
-                { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Orange
-                { key: 'client', label: 'CLI', color: '#00FF00' }  // Green
+                { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
+                { key: 'client', label: 'CLI', color: '#00FF00' },  // Green
+                { key: 'smart_money', label: 'Smart Money', color: '#FFD700' } // Yellow
             ];
 
             const xAxisData = metrics.map(m => m.label);
@@ -1702,15 +1703,26 @@
 
             const series = participants.map(p => {
                 const pData = metrics.map(m => {
-                    const arrayKey = `${p.key}_${m.key}`;
-                    const arr = data[arrayKey] || [];
-                    return arr.length > todayIdx ? arr[todayIdx] : 0;
+                    if (p.key === 'smart_money') {
+                        // Calculate Smart Money: FII + DII + PRO + CLI
+                        let sum = 0;
+                        ['fii', 'dii', 'pro', 'client'].forEach(participantKey => {
+                            const arrayKey = `${participantKey}_${m.key}`;
+                            const arr = data[arrayKey] || [];
+                            sum += arr.length > todayIdx ? arr[todayIdx] : 0;
+                        });
+                        return sum;
+                    } else {
+                        const arrayKey = `${p.key}_${m.key}`;
+                        const arr = data[arrayKey] || [];
+                        return arr.length > todayIdx ? arr[todayIdx] : 0;
+                    }
                 });
 
                 return {
                     name: p.label,
                     type: 'bar',
-                    barGap: '0%', // Combine bars for each instrument
+                    barGap: '0%', // Combine bars closely together per instrument (no gap)
                     data: pData,
                     itemStyle: { color: p.color }
                 };
@@ -1722,7 +1734,7 @@
                     trigger: 'axis',
                     axisPointer: {
                         type: 'shadow',
-                        shadowStyle: { color: 'rgba(255, 255, 255, 0.05)' } // Hover highlight
+                        shadowStyle: { color: 'rgba(255, 255, 255, 0.05)' } // Hover highlight per user request
                     }
                 },
                 legend: {
@@ -1740,11 +1752,8 @@
                 yAxis: {
                     type: 'value',
                     axisLabel: { color: '#888' },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    splitArea: {
-                        show: true,
-                        areaStyle: { color: ['rgba(250,250,250,0.03)', 'rgba(250,250,250,0.0)'] } // Zebra striping
-                    }
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                    // Removed zebra striping splitArea per user request
                 },
                 series: series
             };
@@ -1847,37 +1856,35 @@ async function loadOptionsAnalysis() {
                 }
             },
             legend: {
-                data: ['Total OI', 'Price (FUT1)', 'PCR', 'OI Chg %', 'Price Chg %', 'ATM IV'],
+                data: ['Total OI', 'PCR', 'OI Chg %', 'Price Chg %', 'Price (FUT1)', 'ATM IV'],
                 textStyle: { color: '#ccc' }
             },
             grid: [
-                { left: '3%', right: '8%', height: '35%', top: '10%', containLabel: true }, // Main Chart
-                { left: '3%', right: '8%', height: '15%', top: '50%', containLabel: true }, // % Changes
+                { left: '3%', right: '8%', height: '55%', top: '10%', containLabel: true }, // Main Chart
                 { left: '3%', right: '8%', height: '15%', top: '70%', containLabel: true }  // ATM IV
             ],
             xAxis: [
                 { type: 'category', data: data.dates, gridIndex: 0, show: false, axisPointer: {label: {show: false}} },
-                { type: 'category', data: data.dates, gridIndex: 1, show: false, axisPointer: {label: {show: false}} },
-                { type: 'category', data: data.dates, gridIndex: 2, axisLabel: { color: '#888' }, axisLine: { lineStyle: { color: '#333' } } }
+                { type: 'category', data: data.dates, gridIndex: 1, axisLabel: { color: '#888' }, axisLine: { lineStyle: { color: '#333' } } }
             ],
             yAxis: [
                 { type: 'value', name: 'Total OI', position: 'left', gridIndex: 0, splitLine: { show: false }, axisLabel: { color: '#888' } },
                 { type: 'value', name: 'Price', position: 'right', gridIndex: 0, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, scale: true, axisLabel: { color: '#888' } },
                 { type: 'value', name: 'PCR', position: 'right', offset: 60, gridIndex: 0, scale: true, splitLine: { show: false }, axisLabel: { color: '#888' } },
-                { type: 'value', name: 'OI/Price %', gridIndex: 1, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, axisLabel: { color: '#888', formatter: '{value}%' } },
-                { type: 'value', name: 'ATM IV', gridIndex: 2, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, axisLabel: { color: '#888', formatter: '{value}%' } }
+                { type: 'value', name: '% Chg', position: 'right', offset: 120, gridIndex: 0, splitLine: { show: false }, axisLabel: { color: '#888', formatter: '{value}%' } },
+                { type: 'value', name: 'ATM IV', gridIndex: 1, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, axisLabel: { color: '#888', formatter: '{value}%' } }
             ],
             dataZoom: [
-                { type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 },
-                { type: 'slider', xAxisIndex: [0, 1, 2], start: 50, end: 100, bottom: '2%', textStyle: { color: '#ccc' } }
+                { type: 'inside', xAxisIndex: [0, 1], start: 50, end: 100 },
+                { type: 'slider', xAxisIndex: [0, 1], start: 50, end: 100, bottom: '2%', textStyle: { color: '#ccc' } }
             ],
             series: [
-                { name: 'Total OI', type: 'bar', data: data.total_oi, itemStyle: { color: 'rgba(54, 162, 235, 0.4)' }, xAxisIndex: 0, yAxisIndex: 0 },
+                { name: 'Total OI', type: 'bar', barGap: '0%', data: data.total_oi, itemStyle: { color: 'rgba(54, 162, 235, 0.4)' }, xAxisIndex: 0, yAxisIndex: 0 },
+                { name: 'PCR', type: 'bar', barGap: '0%', data: data.pcr, itemStyle: { color: '#00FF00' }, xAxisIndex: 0, yAxisIndex: 2 },
+                { name: 'OI Chg %', type: 'bar', barGap: '0%', data: data.oi_chg_pct || [], itemStyle: { color: '#2196F3' }, xAxisIndex: 0, yAxisIndex: 3 },
+                { name: 'Price Chg %', type: 'bar', barGap: '0%', data: data.price_chg_pct || [], itemStyle: { color: '#E88B1E' }, xAxisIndex: 0, yAxisIndex: 3 },
                 { name: 'Price (FUT1)', type: 'line', data: data.price, itemStyle: { color: '#FFCC00' }, lineStyle: { width: 2 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 1 },
-                { name: 'PCR', type: 'line', data: data.pcr, itemStyle: { color: '#00FF00' }, lineStyle: { width: 2 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 2 },
-                { name: 'OI Chg %', type: 'bar', barGap: '0%', data: data.oi_chg_pct || [], itemStyle: { color: '#2196F3' }, xAxisIndex: 1, yAxisIndex: 3 },
-                { name: 'Price Chg %', type: 'bar', barGap: '0%', data: data.price_chg_pct || [], itemStyle: { color: '#E88B1E' }, xAxisIndex: 1, yAxisIndex: 3 },
-                { name: 'ATM IV', type: 'line', data: data.atm_iv || [], itemStyle: { color: '#e040fb' }, lineStyle: { width: 2, type: 'dashed' }, symbol: 'none', xAxisIndex: 2, yAxisIndex: 4 }
+                { name: 'ATM IV', type: 'line', data: data.atm_iv || [], itemStyle: { color: '#e040fb' }, lineStyle: { width: 2, type: 'dashed' }, symbol: 'none', xAxisIndex: 1, yAxisIndex: 4 }
             ]
         };
 
@@ -2508,16 +2515,6 @@ async function loadVolatilityAnalysis() {
                 type: 'line',
                 data: data.atm_iv,
                 lineStyle: { color: '#FF00FF', width: 2, type: 'dashed' }, // Magenta
-                showSymbol: false
-            });
-        }
-
-        if (data.atm_iv && data.atm_iv.length > 0) {
-            coneOption.series.push({
-                name: 'ATM IV',
-                type: 'line',
-                data: data.atm_iv,
-                lineStyle: { color: '#4ade80', width: 2, type: 'dotted' }, // Green
                 showSymbol: false
             });
         }

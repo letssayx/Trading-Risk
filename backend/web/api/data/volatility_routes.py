@@ -385,7 +385,7 @@ async def get_pre_expiry_action(
         india_vix_line = []
         try:
             # We fetch today's Cone endpoint to reuse the atm_iv and india_vix values
-            cone_data = await get_volatility_cone(symbol, db)
+            cone_data = await get_volatility_cone(symbol, lookback_days, db)
             atm_iv_val = cone_data.get("atm_iv", [None])[0]
             vix_val = cone_data.get("india_vix", [None])[0]
             atm_iv_line = [atm_iv_val] * len(dates)

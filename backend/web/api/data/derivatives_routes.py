@@ -103,6 +103,33 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 hist_data[sym][dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
             hist_data[sym][dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
 
+        # Fetch options summary data to append to the analysis table
+        opt_query = db.query(
+            BhavcopyFO.ticker_symb,
+            BhavcopyFO.option_type,
+            db.func.sum(BhavcopyFO.open_interest).label('total_opt_oi')
+        ).filter(
+            BhavcopyFO.trade_date == curr_date,
+            BhavcopyFO.instrument_type.in_(['OPTIDX', 'OPTSTK', 'STO', 'IDO'])
+        ).group_by(BhavcopyFO.ticker_symb, BhavcopyFO.option_type).all()
+
+        opt_data = {}
+        for r in opt_query:
+            sym = r.ticker_symb
+            if sym not in opt_data:
+                opt_data[sym] = {'ce_oi': 0, 'pe_oi': 0}
+            if r.option_type == 'CE':
+                opt_data[sym]['ce_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
+            elif r.option_type == 'PE':
+                opt_data[sym]['pe_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
+
+        # Fetch applicable annualized vol (proxy for ATM IV context)
+        from backend.ingest.nse_models import FOVolatility
+        vol_query = db.query(FOVolatility.symbol, FOVolatility.applicable_annualised_vol).filter(
+            FOVolatility.trade_date == curr_date
+        ).all()
+        vol_data = {r.symbol: float(r.applicable_annualised_vol) * 100 if r.applicable_annualised_vol else None for r in vol_query}
+
         # 5. Calculate metrics
         results = []
         for sym, dates_dict in sym_data.items():
@@ -176,11 +203,30 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                             if p_data["oi"] > 0:
                                 adv_metrics[f"oi_chg_{label}d"] = ((c_data["oi"] - p_data["oi"]) / p_data["oi"]) * 100
 
+            pcr = 0.0
+            total_oi = curr["oi"]
+            if sym in opt_data:
+                pe = opt_data[sym]['pe_oi']
+                ce = opt_data[sym]['ce_oi']
+                if ce > 0:
+                    pcr = pe / ce
+                # Note: true delta weighted OI is intensive for all symbols,
+                # so we stick to futures OI + raw options OI for this top-level summary table if needed,
+                # or just use futures OI as "OI" and opt_oi + fut_oi as "Total OI"
+                total_oi += (pe + ce)
+
+            atm_iv = vol_data.get(sym, None)
+
             results.append({
                 "symbol": sym,
                 "sector": sector_map.get(sym, "Unknown"),
+                "price": curr["price"],
                 "price_chg_pct": round(price_chg, 2),
+                "oi": curr["oi"],
+                "total_oi": total_oi,
                 "oi_chg_pct": round(oi_chg, 2),
+                "pcr": round(pcr, 4),
+                "atm_iv": round(atm_iv, 2) if atm_iv else None,
                 "interpretation": interp,
                 "curr_price": curr["price"],
                 "curr_oi": curr["oi"],
