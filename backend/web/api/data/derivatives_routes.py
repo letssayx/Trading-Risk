@@ -333,36 +333,59 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
 
         latest_date = latest_date_query[0]
 
-        # Get all futures for the latest date
-        futs = db.query(
+        from backend.ingest.nse_models import BhavcopyFO
+
+        # Get last 11 dates to calculate 10 days of history + previous day for % changes
+        dates_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+                  .distinct()\
+                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .limit(11).all()
+
+        hist_dates = [d[0] for d in dates_query]
+
+        if not hist_dates:
+            return {"data": []}
+
+        # Get futures data for all historical dates
+        hist_futs = db.query(
             BhavcopyFO.ticker_symb,
+            BhavcopyFO.trade_date,
             BhavcopyFO.expiry_date,
             BhavcopyFO.close_price,
             BhavcopyFO.open_interest
         ).filter(
-            BhavcopyFO.trade_date == latest_date,
-            BhavcopyFO.expiry_date >= latest_date,
+            BhavcopyFO.trade_date.in_(hist_dates),
+            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
-        ).order_by(BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
+        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
 
-        # Group by symbol
-        sym_futs = {}
-        for f in futs:
+        # Group historical data by symbol and date
+        # sym -> date -> [futs ordered by expiry]
+        hist_map = {}
+        for f in hist_futs:
             sym = f.ticker_symb
-            if sym not in sym_futs:
-                sym_futs[sym] = []
-            sym_futs[sym].append(f)
+            dt = f.trade_date
+            if sym not in hist_map:
+                hist_map[sym] = {}
+            if dt not in hist_map[sym]:
+                hist_map[sym][dt] = []
+            hist_map[sym][dt].append(f)
+
+        from backend.ingest.nse_models import SymbolMaster
+        symbols_list = list(hist_map.keys())
+        sector_query = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).filter(SymbolMaster.symbol.in_(symbols_list)).all()
+        sector_map = {r.symbol: r.sector_index for r in sector_query}
 
         results = []
-        for sym, s_futs in sym_futs.items():
-            if len(s_futs) < 2:
+        for sym, date_dict in hist_map.items():
+            if latest_date not in date_dict or len(date_dict[latest_date]) < 2:
                 continue
 
-            total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in s_futs])
-
-            near = s_futs[0]
-            next_month = s_futs[1]
-
+            latest_futs = date_dict[latest_date]
+            total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in latest_futs])
+            near = latest_futs[0]
+            next_month = latest_futs[1]
             near_oi = int(near.open_interest) if near.open_interest else 0
 
             rollover_pct = 0
@@ -371,19 +394,71 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
 
             near_price = float(near.close_price) if near.close_price else 0
             next_price = float(next_month.close_price) if next_month.close_price else 0
-
             spread = next_price - near_price
             spread_pct = (spread / near_price) * 100 if near_price > 0 else 0
 
+            # Calculate historical 10 days
+            history_arr = []
+            sorted_dates_desc = sorted(date_dict.keys(), reverse=True)
+
+            # Need previous day for today's % changes
+            price_chg_pct_today = 0
+            oi_chg_pct_today = 0
+
+            for i in range(len(sorted_dates_desc)):
+                dt = sorted_dates_desc[i]
+                curr_futs = date_dict[dt]
+                if not curr_futs: continue
+
+                c_near = curr_futs[0]
+                c_price = float(c_near.close_price) if c_near.close_price else 0
+                c_total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in curr_futs])
+
+                p_price_chg = 0
+                p_oi_chg = 0
+
+                # Compare to previous day (which is i+1 in descending sort)
+                if i + 1 < len(sorted_dates_desc):
+                    prev_dt = sorted_dates_desc[i+1]
+                    prev_futs = date_dict.get(prev_dt, [])
+                    if prev_futs:
+                        p_near = prev_futs[0]
+                        p_price = float(p_near.close_price) if p_near.close_price else 0
+                        p_total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in prev_futs])
+
+                        if p_price > 0:
+                            p_price_chg = ((c_price - p_price) / p_price) * 100
+                        if p_total_oi > 0:
+                            p_oi_chg = ((c_total_oi - p_total_oi) / p_total_oi) * 100
+
+                if dt == latest_date:
+                    price_chg_pct_today = p_price_chg
+                    oi_chg_pct_today = p_oi_chg
+
+                # Add to history if within the top 10 dates (excluding the 11th which is just for diffs)
+                if i < 10 and dt in hist_dates[:10]:
+                    history_arr.append({
+                        "date": str(dt),
+                        "price": c_price,
+                        "oi": c_total_oi,
+                        "price_chg_pct": round(p_price_chg, 2),
+                        "oi_chg_pct": round(p_oi_chg, 2)
+                    })
+
             results.append({
                 "symbol": sym,
+                "sector": sector_map.get(sym, "Unknown"),
                 "rollover_pct": round(rollover_pct, 2),
                 "rollover_cost": round(spread, 2),
                 "rollover_cost_pct": round(spread_pct, 2),
                 "near_oi": near_oi,
                 "total_oi": total_oi,
+                "price": near_price,
                 "near_price": near_price,
-                "next_price": next_price
+                "next_price": next_price,
+                "price_chg_pct": round(price_chg_pct_today, 2),
+                "oi_chg_pct": round(oi_chg_pct_today, 2),
+                "history": history_arr
             })
 
         return {"date": str(latest_date), "data": results}

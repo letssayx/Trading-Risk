@@ -73,7 +73,7 @@ const OiTool = {
                     <!-- Chart Area -->
                     <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
-                            <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
+                            <span style="color: #888; font-size: 12px; align-self: center;">OI Analysis</span>
                             <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
                         </div>
                         <div id="oi-chart-area" style="flex: 1;">

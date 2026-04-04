@@ -25,6 +25,9 @@ const RolloverTool = {
             <div style="color: #ccc; height: 100%; display: flex; flex-direction: column;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Rollover Analysis</h2>
+                    <select id="rollover-sector-filter" class="form-control history-input" style="width: 150px; padding: 4px;" onchange="RolloverTool.filterData()">
+                        <option value="">All Sectors</option>
+                    </select>
                     <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
                     <button onclick="RolloverTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
@@ -33,13 +36,35 @@ const RolloverTool = {
                 </div>
 
                 <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
+                    <div style="display: flex; gap: 20px; height: 350px;">
+                        <div style="flex: 1; border: 1px solid #333; background: #1e1e1e;">
+                            <div id="rollover-sector-chart" style="width: 100%; height: 100%;"></div>
+                        </div>
+                        <div style="flex: 1; border: 1px solid #333; background: #1e1e1e; display: flex; flex-direction: column;">
+                            <div style="padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 10px;">
+                                <select id="rollover-chart-sector-filter" onchange="RolloverTool.updateDynamicChart()" class="form-control" style="width: 150px;">
+                                    <option value="ALL">ALL (Sectors)</option>
+                                </select>
+                                <select id="rollover-chart-stock-filter" onchange="RolloverTool.updateDynamicChart()" class="form-control" style="width: 150px; display: none;">
+                                    <option value="">Select Stock</option>
+                                </select>
+                            </div>
+                            <div id="rollover-dynamic-chart" style="flex: 1; width: 100%;"></div>
+                        </div>
+                    </div>
+
                     <!-- Table Area -->
                     <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1;">
                         <table class="data-table" id="rollover-analysis-table" style="width: 100%;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
+                                    <th style="padding: 8px; width: 40px;"></th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
+                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('sector')">Sector ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
+                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Change % ↕</th>
+                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price')">FUT Price ↕</th>
+                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('near_oi')">Near OI ↕</th>
@@ -47,7 +72,7 @@ const RolloverTool = {
                                 </tr>
                             </thead>
                             <tbody id="rollover-analysis-body">
-                                <tr><td colspan="6" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
+                                <tr><td colspan="11" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -95,7 +120,7 @@ const RolloverTool = {
 
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
 
         try {
             const res = await fetch('/api/data/analysis/rollover');
@@ -135,8 +160,10 @@ const RolloverTool = {
     },
 
     renderAggregatedView: function() {
-        const symbolFilter = document.getElementById('rollover-symbol').value.toUpperCase().trim();
-        const sectorFilter = document.getElementById('rollover-sector-filter').value;
+        const symbolEl = document.getElementById('rollover-symbol');
+        const sectorEl = document.getElementById('rollover-sector-filter');
+        const symbolFilter = symbolEl ? symbolEl.value.toUpperCase().trim() : '';
+        const sectorFilter = sectorEl ? sectorEl.value : '';
         let displayData = this.allData;
 
         if (sectorFilter) {
@@ -284,10 +311,12 @@ const RolloverTool = {
     },
 
     updateDynamicChart: async function() {
-        const sector = document.getElementById('rollover-chart-sector-filter').value;
+        const sectorEl = document.getElementById('rollover-chart-sector-filter');
         const stockSelect = document.getElementById('rollover-chart-stock-filter');
         const container = document.getElementById('rollover-dynamic-chart');
 
+        if (!sectorEl || !stockSelect || !container) return;
+        const sector = sectorEl.value;
         if (!sector) return;
 
         if (sector === 'ALL' || (!stockSelect.value && sector !== 'ALL')) {
@@ -393,11 +422,13 @@ const RolloverTool = {
     },
 
     analyzeSingle: async function() {
-        const symbol = document.getElementById('rollover-symbol').value.toUpperCase().trim();
+        const symbolEl = document.getElementById('rollover-symbol');
+        if (!symbolEl) return;
+        const symbol = symbolEl.value.toUpperCase().trim();
         let detailsDiv = document.getElementById('rollover-single-details');
         const resultsDiv = document.getElementById('rollover-results');
 
-        if (!symbol) return;
+        if (!symbol || !resultsDiv) return;
 
         if (!detailsDiv) {
             detailsDiv = document.createElement('div');
