@@ -2391,7 +2391,8 @@ async function loadVolatilityAnalysis() {
                     yAxisIndex: 1,
                     itemStyle: { color: '#FF00FF' }, // Magenta line for ATM IV
                     lineStyle: { width: 1, type: 'dashed' },
-                    showSymbol: true
+                    showSymbol: true,
+                    connectNulls: true
                 },
                 {
                     name: `India VIX`,
@@ -2400,7 +2401,8 @@ async function loadVolatilityAnalysis() {
                     yAxisIndex: 1,
                     itemStyle: { color: '#FFFF00' }, // Yellow line for VIX
                     lineStyle: { width: 1, type: 'dotted' },
-                    showSymbol: true
+                    showSymbol: true,
+                    connectNulls: true
                 }
             ]
         };

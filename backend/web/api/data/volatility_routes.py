@@ -8,7 +8,7 @@ import numpy as np
 router = APIRouter()
 
 @router.get("/api/data/derivatives/volatility_cone/{symbol}")
-async def get_volatility_cone(symbol: str, lookback_days: int = 500, db: Session = Depends(get_db)):
+def get_volatility_cone(symbol: str, lookback_days: int = 500, db: Session = Depends(get_db)):
     try:
         symbol = symbol.upper()
         is_index = symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]
@@ -239,7 +239,7 @@ async def get_volatility_cone(symbol: str, lookback_days: int = 500, db: Session
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/data/derivatives/pre_expiry_action/{symbol}")
-async def get_pre_expiry_action(
+def get_pre_expiry_action(
     symbol: str,
     lookback_days: int = 500,
     box_days: int = 7,
@@ -385,7 +385,7 @@ async def get_pre_expiry_action(
         india_vix_line = []
         try:
             # We fetch today's Cone endpoint to reuse the atm_iv and india_vix values
-            cone_data = await get_volatility_cone(symbol, lookback_days, db)
+            cone_data = get_volatility_cone(symbol, lookback_days, db)
             atm_iv_val = cone_data.get("atm_iv", [None])[0]
             vix_val = cone_data.get("india_vix", [None])[0]
             atm_iv_line = [atm_iv_val] * len(dates)

@@ -35,7 +35,7 @@ def calc_bs_delta_vectorized(S, K, T, r, sigma, is_call):
     return np.where(is_call, delta, delta - 1.0)
 
 @router.get("/api/data/derivatives/pcr_history")
-async def get_pcr_history(symbol: str, days: int = 500, db: Session = Depends(get_db)):
+def get_pcr_history(symbol: str, days: int = 500, db: Session = Depends(get_db)):
     try:
         symbol = symbol.upper()
 

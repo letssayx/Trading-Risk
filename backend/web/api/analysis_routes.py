@@ -45,7 +45,7 @@ def get_history(db: Session, symbol: str, expiry: date, limit: int = 20):
     return data
 
 @router.get("/api/analysis/oi/{symbol}")
-async def analyze_oi(symbol: str, db: Session = Depends(get_db)):
+def analyze_oi(symbol: str, db: Session = Depends(get_db)):
     """
     Get Price vs OI Analysis for a symbol (Underlying).
     Finds the Near Month Future and analyzes it.
@@ -82,7 +82,7 @@ async def analyze_oi(symbol: str, db: Session = Depends(get_db)):
     return result
 
 @router.get("/api/analysis/rollover/{symbol}")
-async def analyze_rollover(symbol: str, db: Session = Depends(get_db)):
+def analyze_rollover(symbol: str, db: Session = Depends(get_db)):
     """
     Get Rollover Analysis between Near and Next month futures.
     """
@@ -208,7 +208,7 @@ async def check_task_status(task_id: str):
         return {"state": task_result.state, "status": task_result.info}
 
 @router.get("/api/morning-report/data/{target_date}")
-async def get_report_data(target_date: str, db: Session = Depends(get_db)):
+def get_report_data(target_date: str, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
     from fastapi.concurrency import run_in_threadpool
 
@@ -225,7 +225,7 @@ async def get_report_data(target_date: str, db: Session = Depends(get_db)):
             DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()
         ).all()
 
-    records = await run_in_threadpool(fetch_data)
+    records = fetch_data()
 
     if not records:
         return []
@@ -239,7 +239,7 @@ async def get_report_data(target_date: str, db: Session = Depends(get_db)):
     return result
 
 @router.get("/api/morning-report/timeseries")
-async def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(get_db)):
+def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
     from fastapi.concurrency import run_in_threadpool
 
@@ -248,7 +248,7 @@ async def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Dep
             DailyDerivativesAnalysis.symbol == symbol.upper()
         ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
 
-    records = await run_in_threadpool(fetch_ts)
+    records = fetch_ts()
 
     if not records:
         return []
@@ -263,7 +263,7 @@ async def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Dep
     return result
 
 @router.get("/api/market-activity/dynamic-chart/{symbol}")
-async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
+def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     """
     Fetches 500 days of dynamic chart data for the UI Multi-Axis Tech Chart (Tile 3/4).
     Returns Candlesticks (OHLC), Volume, ATR (14d), Donchian Channel (20d), and Near Month Future OI.
@@ -480,7 +480,7 @@ async def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/api/market-activity/participant-oi")
-async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
+def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import FAOParticipantOI
 
     try:
@@ -624,7 +624,7 @@ async def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     }
 
 @router.get("/api/market-activity/long-short-ratio")
-async def get_long_short_ratios(days: int = 30, db: Session = Depends(get_db)):
+def get_long_short_ratios(days: int = 30, db: Session = Depends(get_db)):
     """
     Returns Historical Long/Short ratios for each participant across each instrument type.
     Ratio = Long / Short (or Long / (Long+Short)) depending on convention. Here we use Long / Short.
@@ -697,7 +697,7 @@ async def get_long_short_ratios(days: int = 30, db: Session = Depends(get_db)):
     return result
 
 @router.get("/api/market-activity/smart-vs-retail")
-async def get_smart_money_vs_retail(db: Session = Depends(get_db)):
+def get_smart_money_vs_retail(db: Session = Depends(get_db)):
     """
     Returns the Smart Money (FII+DII+Pro) vs Retail (Client) totals for the latest available date.
     Calculates net positions (Long - Short) for each instrument.
@@ -732,7 +732,7 @@ async def get_smart_money_vs_retail(db: Session = Depends(get_db)):
 
 
 @router.get("/api/market-activity/cash-flow")
-async def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
+def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
     """
     Returns real FII/DII Cash Market Flow from the database over the last X days.
     """

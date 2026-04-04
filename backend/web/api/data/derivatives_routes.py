@@ -11,16 +11,17 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 router = APIRouter()
 
 @router.get("/api/data/analysis/oi")
-async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
+def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
     """
     Computes OI vs Price Quadrant Analysis for all F&O symbols on the latest trading day.
     """
     try:
         # 1. Get the latest two trading dates
-        dates_query = db.query(BhavcopyFO.trade_date)\
-                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+        from backend.ingest.nse_models import BhavcopyEQ
+        dates_query = db.query(BhavcopyEQ.trade_date)\
+                  .filter(BhavcopyEQ.series == 'EQ')\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .order_by(BhavcopyEQ.trade_date.desc())\
                   .limit(2).all()
 
         if len(dates_query) < 2:
@@ -69,10 +70,11 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         sector_map = {r.symbol: r.sector_index for r in sector_query}
 
         # Get last 500 dates for extended advanced filters
-        all_hist_dates_query = db.query(BhavcopyFO.trade_date)\
-                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+        from backend.ingest.nse_models import BhavcopyEQ
+        all_hist_dates_query = db.query(BhavcopyEQ.trade_date)\
+                  .filter(BhavcopyEQ.series == 'EQ')\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .order_by(BhavcopyEQ.trade_date.desc())\
                   .limit(500).all()
 
         all_hist_dates = [d[0] for d in all_hist_dates_query]
@@ -139,7 +141,7 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             prev = dates_dict.get(prev_date, {"price": 0, "oi": 0})
             curr = dates_dict.get(curr_date, {"price": 0, "oi": 0})
 
-            if prev["price"] == 0 or prev["oi"] == 0 or curr["price"] is None or curr["price"] == 0 or curr["oi"] == 0:
+            if prev.get("price") is None or prev.get("price") == 0 or prev.get("oi") == 0 or curr.get("price") is None or curr.get("price") == 0 or curr.get("oi") == 0:
                 continue
 
             price_chg = ((curr["price"] - prev["price"]) / prev["price"]) * 100
@@ -245,7 +247,7 @@ async def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/analysis/oi/{symbol}")
-async def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
+def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
     """
     Computes OI vs Price Quadrant Analysis.
     """
@@ -312,16 +314,17 @@ async def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
         raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/analysis/rollover")
-async def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
+def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
     """
     Computes Rollover Analysis metrics for all F&O symbols on the latest trading day.
     """
     try:
         # Get latest date
-        latest_date_query = db.query(BhavcopyFO.trade_date)\
-                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+        from backend.ingest.nse_models import BhavcopyEQ
+        latest_date_query = db.query(BhavcopyEQ.trade_date)\
+                  .filter(BhavcopyEQ.series == 'EQ')\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .order_by(BhavcopyEQ.trade_date.desc())\
                   .first()
 
         if not latest_date_query:
@@ -390,7 +393,7 @@ async def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
         raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/analysis/rollover/{symbol}")
-async def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
+def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
     """
     Computes Rollover Analysis metrics.
     """
@@ -465,7 +468,7 @@ async def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
         raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/derivatives/mwpl_historical")
-async def get_mwpl_historical(db: Session = Depends(get_db)):
+def get_mwpl_historical(db: Session = Depends(get_db)):
     """
     Fetches the last 14 trading days of mwpl_array data directly from MWPLClientPosition.
     Also retrieves the EQ close and calculate the Fut1 close.
@@ -568,7 +571,7 @@ async def get_mwpl_historical(db: Session = Depends(get_db)):
     return {"data": result}
 
 @router.get("/api/data/derivatives/marketwatch")
-async def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = Depends(get_db)):
+def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = Depends(get_db)):
     """
     Fetches Market Watch data for all F&O symbols.
     Returns current EQ price, Corporate Action (Ex-date), and the next 3 unexpired future contracts
@@ -585,9 +588,9 @@ async def get_marketwatch(date: str = None, custom_symbols: str = None, db: Sess
             latest_fo_date = target_date
         else:
             # Find the latest date where there is actual futures data (prevents returning empty table if only EQ is loaded so far)
-            latest_fo_date_row = db.query(BhavcopyFO.trade_date)\
-                                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
-                                   .order_by(desc(BhavcopyFO.trade_date))\
+            latest_fo_date_row = db.query(BhavcopyEQ.trade_date)\
+                                   .filter(BhavcopyEQ.series == 'EQ')\
+                                   .order_by(desc(BhavcopyEQ.trade_date))\
                                    .first()
             if not latest_fo_date_row:
                 return {"data": {}}
