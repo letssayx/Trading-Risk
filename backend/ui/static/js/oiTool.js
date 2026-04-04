@@ -91,10 +91,15 @@ const OiTool = {
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
                                         <th style="padding: 8px; width: 30px;"></th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol/Date ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">OI ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
                                     </tr>
                                 </thead>
@@ -275,30 +280,27 @@ const OiTool = {
 
                 let histHtml = '';
                 if (d.history && d.history.length > 0) {
-                    histHtml = `<table class="oi-history-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>FUT Price</th>
-                                <th>Price Chg %</th>
-                                <th>OI</th>
-                                <th>OI Chg %</th>
-                            </tr>
-                        </thead>
+                    histHtml = `<div style="padding: 10px 40px; background: #151515; border-bottom: 1px solid #333;"><table class="oi-history-table">
                         <tbody>
                     `;
                     d.history.forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#4caf50' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#4caf50' : '#f44336';
-                        histHtml += `<tr>
-                            <td>${h.date}</td>
-                            <td>${(h.price || 0).toFixed(2)}</td>
-                            <td style="color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td>${(h.oi || 0).toLocaleString()}</td>
-                            <td style="color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                        histHtml += `<tr style="border-bottom: 1px solid #222;">
+                            <td style="padding: 6px 10px;"></td>
+                            <td style="padding: 6px 10px; color: #888;">${h.date}</td>
+                            <td style="padding: 6px 10px; color: #555;">-</td>
+                            <td style="padding: 6px 10px;">${(h.price || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 10px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 10px;">${(h.oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 10px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 10px; color: #555;">-</td>
+                            <td style="padding: 6px 10px; color: #555;">-</td>
+                            <td style="padding: 6px 10px; color: #555;">-</td>
+                            <td style="padding: 6px 10px; color: #555;">-</td>
                         </tr>`;
                     });
-                    histHtml += `</tbody></table>`;
+                    histHtml += `</tbody></table></div>`;
                 } else {
                     histHtml = `<div style="padding: 10px; color: #888; margin-left: 30px;">No historical data available</div>`;
                 }
@@ -317,7 +319,7 @@ const OiTool = {
                     <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
                 </tr>
                 <tr id="oi-history-${d.symbol}" class="oi-history-row">
-                    <td colspan="11">${histHtml}</td>
+                    <td colspan="11" style="padding: 0;">${histHtml}</td>
                 </tr>`;
             });
             tbody.innerHTML = html;
