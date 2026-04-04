@@ -1,26 +1,10 @@
-const RolloverTool = {
-    active: false,
-    containerId: 'deriv-tab-rollover',
-    allData: [],
+import re
 
-    init: function() {
-        const container = document.getElementById(this.containerId);
-        if (container && !container.innerHTML.includes('rollover-symbol')) {
-            this.render(container);
-            this.loadAggregatedData();
-        }
-    },
+with open("backend/ui/static/js/rolloverTool.js", "r") as f:
+    content = f.read()
 
-    open: function() {
-        this.active = true;
-        this.init();
-    },
-
-    close: function() {
-        this.active = false;
-    },
-
-
+# Update the render function HTML
+new_render = """
     render: function(container) {
         container.innerHTML = `
             <style>
@@ -119,32 +103,11 @@ const RolloverTool = {
             });
         }
     },
-loadAggregatedData: async function() {
-        const tbody = document.getElementById('rollover-analysis-body');
-        const dateDisplay = document.getElementById('rollover-date-display');
+"""
+content = re.sub(r"render: function\(container\) \{[\s\S]*?(?=loadAggregatedData: async function\(\) \{)", new_render, content)
 
-        // Remove single symbol details if present
-        const detailsDiv = document.getElementById('rollover-single-details');
-        if (detailsDiv) {
-            detailsDiv.remove();
-        }
-
-        if (!tbody) return;
-
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
-
-        try {
-            const res = await fetch('/api/data/analysis/rollover');
-            if (!res.ok) throw new Error("Failed to load rollover data.");
-            const json = await res.json();
-
-            if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
-
-            this.allData = json.data || [];
-            this.currentSortCol = 'rollover_pct';
-            this.currentSortAsc = false;
-
-                        // Populate sector filters
+# Inject populate filters logic into loadAggregatedData
+load_agg_injection = """            // Populate sector filters
             const sectors = new Set();
             this.allData.forEach(d => {
                 if (d.sector && d.sector !== "Unknown") {
@@ -174,14 +137,12 @@ loadAggregatedData: async function() {
 
             this.renderAggregatedView();
             this.loadSectoralChart();
-            this.updateDynamicChart();
+            this.updateDynamicChart();"""
 
-        } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
-        }
-    },
+content = content.replace("this.renderAggregatedView();", load_agg_injection)
 
-
+# Add toggleHistory method
+toggle_history = """
     toggleHistory: function(symbol) {
         const row = document.getElementById(`roll-history-${symbol}`);
         const icon = document.getElementById(`roll-icon-${symbol}`);
@@ -195,33 +156,11 @@ loadAggregatedData: async function() {
             }
         }
     },
-    renderAggregatedView: function() {
-        const symbolFilter = document.getElementById('rollover-symbol').value.toUpperCase().trim();
-        const sectorFilter = document.getElementById('rollover-sector-filter').value;
-        let displayData = this.allData;
+"""
+content = content.replace("renderAggregatedView: function() {", toggle_history + "    renderAggregatedView: function() {")
 
-        if (sectorFilter) {
-            displayData = displayData.filter(d => d.sector === sectorFilter);
-        }
-
-        if (symbolFilter) {
-            displayData = this.allData.filter(d => d.symbol.includes(symbolFilter));
-        }
-
-        // Sort Data
-        displayData.sort((a, b) => {
-            let valA = a[this.currentSortCol];
-            let valB = b[this.currentSortCol];
-
-            if (typeof valA === 'string') valA = valA.toUpperCase();
-            if (typeof valB === 'string') valB = valB.toUpperCase();
-
-            if (valA < valB) return this.currentSortAsc ? -1 : 1;
-            if (valA > valB) return this.currentSortAsc ? 1 : -1;
-            return 0;
-        });
-
-
+# Update renderAggregatedView table HTML
+table_render_code = """
         // Render Table
         const tbody = document.getElementById('rollover-analysis-body');
         tbody.innerHTML = '';
@@ -284,10 +223,17 @@ loadAggregatedData: async function() {
                 </tr>`;
             });
             tbody.innerHTML = html;
-        }
-    },
+        }"""
+
+content = re.sub(r"// Render Table[\s\S]*?tbody\.innerHTML = html;\n\s+\}", table_render_code, content)
+
+# Add sectorFilter handling
+content = content.replace("const symbolFilter = document.getElementById('rollover-symbol').value.toUpperCase().trim();", "const symbolFilter = document.getElementById('rollover-symbol').value.toUpperCase().trim();\n        const sectorFilter = document.getElementById('rollover-sector-filter').value;")
+content = content.replace("if (symbolFilter) {", "if (sectorFilter) {\n            displayData = displayData.filter(d => d.sector === sectorFilter);\n        }\n\n        if (symbolFilter) {")
 
 
+# Add new chart methods
+new_methods = """
     loadSectoralChart: async function() {
         try {
             const res = await fetch('/api/data/analysis/rollover/sectors');
@@ -435,162 +381,10 @@ loadAggregatedData: async function() {
             }
         }
     },
-    filterData: function() {
-        if (!document.getElementById('rollover-analysis-body')) return;
-                    // Populate sector filters
-            const sectors = new Set();
-            this.allData.forEach(d => {
-                if (d.sector && d.sector !== "Unknown") {
-                    sectors.add(d.sector);
-                }
-            });
-            const sectorSelect = document.getElementById('rollover-sector-filter');
-            const chartSectorSelect = document.getElementById('rollover-chart-sector-filter');
-            if (sectorSelect && chartSectorSelect) {
-                const currentVal = sectorSelect.value;
-                const cCurrentVal = chartSectorSelect.value;
+"""
 
-                let opts = '<option value="">All Sectors</option>';
-                let cOpts = '<option value="ALL">All Sectors</option>';
+content = content.replace("filterData: function() {", new_methods + "    filterData: function() {")
 
-                Array.from(sectors).sort().forEach(s => {
-                    opts += `<option value="${s}">${s}</option>`;
-                    cOpts += `<option value="${s}">${s}</option>`;
-                });
 
-                sectorSelect.innerHTML = opts;
-                sectorSelect.value = currentVal;
-
-                chartSectorSelect.innerHTML = cOpts;
-                if(cCurrentVal) chartSectorSelect.value = cCurrentVal;
-            }
-
-            this.renderAggregatedView();
-            this.loadSectoralChart();
-            this.updateDynamicChart();
-    },
-
-    sortData: function(col) {
-        if (!document.getElementById('rollover-analysis-body')) return;
-
-        if (this.currentSortCol === col) {
-            this.currentSortAsc = !this.currentSortAsc;
-        } else {
-            this.currentSortCol = col;
-            this.currentSortAsc = false;
-        }
-                    // Populate sector filters
-            const sectors = new Set();
-            this.allData.forEach(d => {
-                if (d.sector && d.sector !== "Unknown") {
-                    sectors.add(d.sector);
-                }
-            });
-            const sectorSelect = document.getElementById('rollover-sector-filter');
-            const chartSectorSelect = document.getElementById('rollover-chart-sector-filter');
-            if (sectorSelect && chartSectorSelect) {
-                const currentVal = sectorSelect.value;
-                const cCurrentVal = chartSectorSelect.value;
-
-                let opts = '<option value="">All Sectors</option>';
-                let cOpts = '<option value="ALL">All Sectors</option>';
-
-                Array.from(sectors).sort().forEach(s => {
-                    opts += `<option value="${s}">${s}</option>`;
-                    cOpts += `<option value="${s}">${s}</option>`;
-                });
-
-                sectorSelect.innerHTML = opts;
-                sectorSelect.value = currentVal;
-
-                chartSectorSelect.innerHTML = cOpts;
-                if(cCurrentVal) chartSectorSelect.value = cCurrentVal;
-            }
-
-            this.renderAggregatedView();
-            this.loadSectoralChart();
-            this.updateDynamicChart();
-    },
-
-    analyzeSingle: async function() {
-        const symbol = document.getElementById('rollover-symbol').value.toUpperCase().trim();
-        let detailsDiv = document.getElementById('rollover-single-details');
-        const resultsDiv = document.getElementById('rollover-results');
-
-        if (!symbol) return;
-
-        if (!detailsDiv) {
-            detailsDiv = document.createElement('div');
-            detailsDiv.id = 'rollover-single-details';
-            resultsDiv.insertBefore(detailsDiv, resultsDiv.firstChild);
-        }
-
-        detailsDiv.innerHTML = '<p style="text-align:center; color:#888; margin-top: 20px;">Loading Single Symbol Details...</p>';
-
-        try {
-            const res = await fetch(`/api/data/analysis/rollover/${symbol}`);
-            if (!res.ok) throw new Error("Analysis failed");
-            const data = await res.json();
-
-            if (data.error) throw new Error(data.error);
-
-            let html = `<div style="padding: 20px; border: 1px solid #444; background: #222; border-radius: 4px; margin-top: 10px;">
-                <h4 style="margin-top: 0; color: #fff;">${symbol} Detailed Rollover Stats</h4>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px;">
-                    <div>
-                        <div style="font-size: 0.9em; color: #888;">Rollover %</div>
-                        <div style="font-size: 1.5em; color: #00bcd4; font-weight: bold;">${data.rollover_pct}%</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.9em; color: #888;">Rollover Cost (Spread)</div>
-                        <div style="font-size: 1.5em; color: ${data.rollover_cost >= 0 ? '#4caf50' : '#f44336'};">${data.rollover_cost} (${data.rollover_cost_pct}%)</div>
-                    </div>
-                </div>
-
-                <table style="width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 0.9em; text-align: left;">
-                    <thead>
-                        <tr style="background: #333;">
-                            <th style="padding: 8px; border: 1px solid #444;">Contract</th>
-                            <th style="padding: 8px; border: 1px solid #444;">Expiry</th>
-                            <th style="padding: 8px; border: 1px solid #444;">Price</th>
-                            <th style="padding: 8px; border: 1px solid #444;">OI</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">Near Month</td>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">${data.near_month.expiry}</td>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">${data.near_month.price}</td>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">${data.near_month.oi}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">Next Month</td>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">${data.next_month.expiry}</td>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">${data.next_month.price}</td>
-                            <td style="padding: 8px; border: 1px solid #444; color: #ccc;">${data.next_month.oi}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p style="color: #888; font-size: 0.85em; margin-top: 15px;">To return to the all F&O view, clear the search and click "Refresh All".</p>
-            </div>`;
-
-            detailsDiv.innerHTML = html;
-            // Also filter the table to just this symbol
-            this.filterData();
-
-        } catch (e) {
-            detailsDiv.innerHTML = `<p style="color: red; text-align:center; margin-top: 20px;">Error: ${e.message}</p>`;
-        }
-    },
-
-    handleTick: function(tick) {
-        // Update
-    }
-};
-
-// Register
-window.addEventListener('load', () => {
-   if (window.WorkbookManager) {
-       window.WorkbookManager.modules['rollover'] = RolloverTool;
-   }
-});
+with open("backend/ui/static/js/rolloverTool.js", "w") as f:
+    f.write(content)

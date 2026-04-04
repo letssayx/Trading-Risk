@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, text
+from sqlalchemy import desc, text, func
 from datetime import datetime, timedelta
 import pandas as pd
 import json
@@ -17,11 +17,11 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
     """
     try:
         # 1. Get the latest two trading dates
-        from backend.ingest.nse_models import BhavcopyEQ
-        dates_query = db.query(BhavcopyEQ.trade_date)\
-                  .filter(BhavcopyEQ.series == 'EQ')\
+        from backend.ingest.nse_models import BhavcopyFO
+        dates_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
                   .distinct()\
-                  .order_by(BhavcopyEQ.trade_date.desc())\
+                  .order_by(BhavcopyFO.trade_date.desc())\
                   .limit(2).all()
 
         if len(dates_query) < 2:
@@ -70,11 +70,11 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         sector_map = {r.symbol: r.sector_index for r in sector_query}
 
         # Get last 500 dates for extended advanced filters
-        from backend.ingest.nse_models import BhavcopyEQ
-        all_hist_dates_query = db.query(BhavcopyEQ.trade_date)\
-                  .filter(BhavcopyEQ.series == 'EQ')\
+        from backend.ingest.nse_models import BhavcopyFO
+        all_hist_dates_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
                   .distinct()\
-                  .order_by(BhavcopyEQ.trade_date.desc())\
+                  .order_by(BhavcopyFO.trade_date.desc())\
                   .limit(500).all()
 
         all_hist_dates = [d[0] for d in all_hist_dates_query]
@@ -112,7 +112,7 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         opt_query = db.query(
             BhavcopyFO.ticker_symb,
             BhavcopyFO.option_type,
-            db.func.sum(BhavcopyFO.open_interest).label('total_opt_oi')
+            func.sum(BhavcopyFO.open_interest).label('total_opt_oi')
         ).filter(
             BhavcopyFO.trade_date == curr_date,
             BhavcopyFO.instrument_type.in_(['OPTIDX', 'OPTSTK', 'STO', 'IDO'])
@@ -320,12 +320,17 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
     """
     try:
         # Get latest date
-        from backend.ingest.nse_models import BhavcopyEQ
-        latest_date_query = db.query(BhavcopyEQ.trade_date)\
-                  .filter(BhavcopyEQ.series == 'EQ')\
+        from backend.ingest.nse_models import BhavcopyFO
+        dates_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
                   .distinct()\
-                  .order_by(BhavcopyEQ.trade_date.desc())\
-                  .first()
+                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .limit(12).all()
+
+        if not dates_query:
+            return {"data": []}
+
+        latest_date = dates_query[0][0]
 
         if not latest_date_query:
             return {"data": []}
@@ -352,6 +357,41 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
                 sym_futs[sym] = []
             sym_futs[sym].append(f)
 
+        from backend.ingest.nse_models import SymbolMaster
+        symbols_list = list(sym_futs.keys())
+        sector_query = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).filter(SymbolMaster.symbol.in_(symbols_list)).all()
+        sector_map = {r.symbol: r.sector_index for r in sector_query}
+
+        target_dates = [d[0] for d in dates_query][:10]
+
+        # Fetch history for the last 10 days for these symbols
+        hist_query = db.query(
+            BhavcopyFO.ticker_symb,
+            BhavcopyFO.trade_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest,
+            BhavcopyFO.expiry_date
+        ).filter(
+            BhavcopyFO.trade_date.in_(target_dates),
+            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.trade_date.desc(), BhavcopyFO.expiry_date.asc()).all()
+
+        hist_data = {}
+        for r in hist_query:
+            sym = r.ticker_symb
+            dt = r.trade_date
+            if sym not in hist_data:
+                hist_data[sym] = {}
+            if dt not in hist_data[sym]:
+                # first record is near expiry (FUT 1) due to order by expiry asc
+                hist_data[sym][dt] = {
+                    "price": float(r.close_price) if r.close_price else 0.0,
+                    "oi": int(r.open_interest) if r.open_interest else 0,
+                    "total_oi": 0
+                }
+            hist_data[sym][dt]["total_oi"] += (int(r.open_interest) if r.open_interest else 0)
+
         results = []
         for sym, s_futs in sym_futs.items():
             if len(s_futs) < 2:
@@ -374,15 +414,54 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
             spread = next_price - near_price
             spread_pct = (spread / near_price) * 100 if near_price > 0 else 0
 
+            # History
+            hist_arr = []
+            oi_chg_pct = 0
+            price_chg_pct = 0
+
+            if sym in hist_data:
+                sorted_hist_dates = sorted(hist_data[sym].keys(), reverse=True)
+                for i in range(len(sorted_hist_dates)):
+                    dt = sorted_hist_dates[i]
+                    curr_h = hist_data[sym][dt]
+
+                    prev_h = None
+                    if i + 1 < len(sorted_hist_dates):
+                        prev_h = hist_data[sym][sorted_hist_dates[i+1]]
+
+                    h_price_chg = 0
+                    h_oi_chg = 0
+                    if prev_h and prev_h["price"] > 0 and prev_h["total_oi"] > 0:
+                        h_price_chg = ((curr_h["price"] - prev_h["price"]) / prev_h["price"]) * 100
+                        h_oi_chg = ((curr_h["total_oi"] - prev_h["total_oi"]) / prev_h["total_oi"]) * 100
+
+                        if i == 0:
+                            oi_chg_pct = h_oi_chg
+                            price_chg_pct = h_price_chg
+
+                    if dt in target_dates[:10]:
+                        hist_arr.append({
+                            "date": str(dt),
+                            "price": curr_h["price"],
+                            "oi": curr_h["total_oi"],
+                            "price_chg_pct": round(h_price_chg, 2),
+                            "oi_chg_pct": round(h_oi_chg, 2)
+                        })
+
             results.append({
                 "symbol": sym,
+                "sector": sector_map.get(sym, "Unknown"),
                 "rollover_pct": round(rollover_pct, 2),
                 "rollover_cost": round(spread, 2),
                 "rollover_cost_pct": round(spread_pct, 2),
                 "near_oi": near_oi,
                 "total_oi": total_oi,
                 "near_price": near_price,
-                "next_price": next_price
+                "next_price": next_price,
+                "price": near_price,
+                "oi_chg_pct": round(oi_chg_pct, 2),
+                "price_chg_pct": round(price_chg_pct, 2),
+                "history": hist_arr[:10]
             })
 
         return {"date": str(latest_date), "data": results}
@@ -797,3 +876,143 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                     }
 
     return {"data": result, "date": latest_fo_date.strftime('%Y-%m-%d')}
+
+@router.get("/api/data/analysis/rollover/sectors")
+def get_sectoral_rollover(db: Session = Depends(get_db)):
+    """
+    Computes Sector-wide Rollover metrics (average rollover percentage)
+    for the last 2 Expiry days.
+    """
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, SymbolMaster
+        from sqlalchemy import text
+
+        # In NSE, rollover typically peaks on Expiry Day (last Thursday of the month)
+        # However, to be general, we can look at the last 2 days where many expiries happened,
+        # or just find the last 2 dates where a Near Month contract expired.
+        # A simpler approach: find the last 2 expiry dates that have passed.
+
+        expired_dates_query = db.query(BhavcopyFO.expiry_date)\
+            .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK']))\
+            .filter(BhavcopyFO.expiry_date <= func.current_date())\
+            .distinct()\
+            .order_by(desc(BhavcopyFO.expiry_date))\
+            .limit(2).all()
+
+        if len(expired_dates_query) < 2:
+            return {"data": []}
+
+        exp2 = expired_dates_query[0][0] # Most recent expiry
+        exp1 = expired_dates_query[1][0] # Previous expiry
+
+        # For each expiry, we want the data ON that expiry day (or the last available trade date on/before it).
+        # We query the positions on trade_date = exp1 and trade_date = exp2
+        # Then group by Sector.
+
+        results = []
+        for d in [exp1, exp2]:
+            if not d: continue
+
+            futs = db.query(
+                BhavcopyFO.ticker_symb,
+                BhavcopyFO.expiry_date,
+                BhavcopyFO.open_interest
+            ).filter(
+                BhavcopyFO.trade_date == d,
+                BhavcopyFO.expiry_date >= d,
+                BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+            ).order_by(BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
+
+            # Organize
+            sym_futs = {}
+            for f in futs:
+                if f.ticker_symb not in sym_futs:
+                    sym_futs[f.ticker_symb] = []
+                sym_futs[f.ticker_symb].append(f)
+
+            # Compute Rollover per symbol
+            sym_rollovers = {}
+            for sym, s_futs in sym_futs.items():
+                if len(s_futs) < 2: continue
+                total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in s_futs])
+                near_oi = int(s_futs[0].open_interest) if s_futs[0].open_interest else 0
+                roll_pct = ((total_oi - near_oi) / total_oi) * 100 if total_oi > 0 else 0
+                sym_rollovers[sym] = roll_pct
+
+            # Group by Sector
+            symbols_list = list(sym_rollovers.keys())
+            sector_query = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).filter(SymbolMaster.symbol.in_(symbols_list)).all()
+            sector_map = {r.symbol: r.sector_index for r in sector_query}
+
+            sector_aggregates = {}
+            for sym, roll in sym_rollovers.items():
+                sect = sector_map.get(sym, "Unknown")
+                if not sect: sect = "Unknown"
+                if sect not in sector_aggregates:
+                    sector_aggregates[sect] = []
+                sector_aggregates[sect].append(roll)
+
+            for sect, rolls in sector_aggregates.items():
+                avg_roll = sum(rolls) / len(rolls)
+                results.append({
+                    "date": str(d),
+                    "sector": sect,
+                    "avg_rollover_pct": round(avg_roll, 2)
+                })
+
+        return {"data": results}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, detail=str(e))
+
+@router.get("/api/data/analysis/rollover/history/{symbol}")
+def get_symbol_rollover_history(symbol: str, db: Session = Depends(get_db)):
+    """
+    Gets rollover history for the last 12 expiry days for a specific stock/index.
+    """
+    try:
+        from backend.ingest.nse_models import BhavcopyFO
+        symbol = symbol.upper()
+
+        # Get last 12 unique expiry dates for this symbol
+        expired_dates_query = db.query(BhavcopyFO.expiry_date)\
+            .filter(BhavcopyFO.ticker_symb == symbol)\
+            .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK']))\
+            .filter(BhavcopyFO.expiry_date <= func.current_date())\
+            .distinct()\
+            .order_by(desc(BhavcopyFO.expiry_date))\
+            .limit(12).all()
+
+        expired_dates = [d[0] for d in expired_dates_query]
+        expired_dates.reverse() # chronological order
+
+        results = []
+        for d in expired_dates:
+            # For each expiry date, compute the rollover on that exact day
+            futs = db.query(
+                BhavcopyFO.expiry_date,
+                BhavcopyFO.open_interest
+            ).filter(
+                BhavcopyFO.trade_date == d,
+                BhavcopyFO.ticker_symb == symbol,
+                BhavcopyFO.expiry_date >= d,
+                BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+            ).order_by(BhavcopyFO.expiry_date.asc()).all()
+
+            if len(futs) < 2: continue
+
+            total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in futs])
+            near_oi = int(futs[0].open_interest) if futs[0].open_interest else 0
+            roll_pct = ((total_oi - near_oi) / total_oi) * 100 if total_oi > 0 else 0
+
+            results.append({
+                "date": str(d),
+                "rollover_pct": round(roll_pct, 2)
+            })
+
+        return {"symbol": symbol, "data": results}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, detail=str(e))
