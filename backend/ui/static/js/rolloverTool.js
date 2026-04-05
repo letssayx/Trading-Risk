@@ -220,9 +220,10 @@ const RolloverTool = {
                         let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let rowBg = '#151515';
+                        // Matching exact columns: [Icon, Symbol/Date, Rollover %, Spread, Cost %, FUT Price, Price Chg %, Total OI, OI Chg %]
                         html += `<tr class="roll-history-row-${d.symbol}" style="background: ${rowBg}; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
-                            <td style="padding: 6px 8px; width: 30px;"></td>
-                            <td style="padding: 6px 8px; color: #888;">${h.date}</td>
+                            <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
+                            <td style="padding: 6px 8px; color: #888; padding-left: 20px;">└ ${h.date}</td>
                             <td style="padding: 6px 8px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
@@ -256,7 +257,7 @@ const RolloverTool = {
         try {
             const res = await fetch('/api/data/analysis/rollover/sectors');
             if (!res.ok) throw new Error("Failed");
-            const data = await res.json();
+            const responseData = await res.json();
 
             if (window.rolloverSectorChartInstance) {
                 window.rolloverSectorChartInstance.dispose();
@@ -264,6 +265,9 @@ const RolloverTool = {
             window.rolloverSectorChartInstance = echarts.init(chartDom);
 
             // Expected data format: { sectors: [], exp1_name: '', exp1_data: [], exp2_name: '', exp2_data: [] }
+            // Ensure robust extraction, unpacking nested `data` key if present from FastAPI error/payload structures
+            const data = responseData.data || responseData;
+
             // Let's ensure robust fallback
             const sectors = data.sectors || [];
             const exp1 = data.exp1_name || 'Exp 1';
@@ -287,14 +291,14 @@ const RolloverTool = {
                         name: exp1,
                         type: 'bar',
                         barGap: '0%',
-                        itemStyle: { color: '#00838f' }, // Darker cyan
+                        itemStyle: { color: '#00bcd4', opacity: 0.5 }, // Lighter cyan for previous
                         label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
                         data: exp1Data
                     },
                     {
                         name: exp2,
                         type: 'bar',
-                        itemStyle: { color: '#00bcd4' }, // Lighter cyan
+                        itemStyle: { color: '#00bcd4' }, // Solid cyan for latest
                         label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
                         data: exp2Data
                     }
@@ -398,11 +402,13 @@ const RolloverTool = {
 
                     const res = await fetch(`/api/data/analysis/rollover/history/${selectedStock}`);
                     if (!res.ok) throw new Error("Failed to load history");
-                    const data = await res.json();
+                    const responseJson = await res.json();
 
                     window.rolloverDynamicChartInstance.hideLoading();
 
-                    const expiries = data.map(d => d.expiry).reverse();
+                    const data = Array.isArray(responseJson) ? responseJson : (responseJson.data || []);
+
+                    const expiries = data.map(d => d.date || d.expiry).reverse();
                     const values = data.map(d => d.rollover_pct).reverse();
 
                     const option = {

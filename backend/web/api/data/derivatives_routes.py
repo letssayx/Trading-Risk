@@ -992,11 +992,13 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
             exp2_data.append(vals.get(exp_strs[1], 0))
 
     return {
-        "sectors": sectors,
-        "exp1_name": exp_strs[0] if exp_strs else "Exp 1",
-        "exp2_name": exp_strs[1] if len(exp_strs) > 1 else "Exp 2",
-        "exp1_data": exp1_data,
-        "exp2_data": exp2_data
+        "data": {
+            "sectors": sectors,
+            "exp1_name": exp_strs[0] if exp_strs else "Exp 1",
+            "exp2_name": exp_strs[1] if len(exp_strs) > 1 else "Exp 2",
+            "exp1_data": exp1_data,
+            "exp2_data": exp2_data
+        }
     }
 
 

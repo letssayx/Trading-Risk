@@ -298,9 +298,10 @@ const OiTool = {
                     d.history.slice(0, 7).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
-                        html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.9em; display: none;">
-                            <td style="padding: 6px 8px; width: 30px;"></td>
-                            <td style="padding: 6px 8px; color: #888;">${h.date}</td>
+                        // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
+                        html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
+                            <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
+                            <td style="padding: 6px 8px; color: #888; padding-left: 20px;">└ ${h.date}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
                             <td style="padding: 6px 8px;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>

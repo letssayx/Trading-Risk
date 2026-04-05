@@ -1613,8 +1613,30 @@
 
             // Add NIFTY line overlay dynamically to FII/DII Chart if NIFTY exists
             const datasets = [
-                { label: 'FII Net', type: 'bar', yAxisID: 'y', data: data.fii_net, backgroundColor: '#E88B1E', borderColor: '#E88B1E', borderWidth: 0, barPercentage: 1.0, categoryPercentage: 0.8 }, // Orange
-                { label: 'DII Net', type: 'bar', yAxisID: 'y', data: data.dii_net, backgroundColor: '#3176B8', borderColor: '#3176B8', borderWidth: 0, barPercentage: 1.0, categoryPercentage: 0.8 }  // Blue
+                {
+                    label: 'FII Net',
+                    type: 'bar',
+                    yAxisID: 'y',
+                    data: data.fii_net,
+                    backgroundColor: '#E88B1E',
+                    borderColor: '#E88B1E',
+                    borderWidth: 0,
+                    barPercentage: 1.0,
+                    categoryPercentage: 0.8,
+                    datalabels: { align: 'end', anchor: 'end', color: '#ccc', font: {size: 9}, formatter: (value) => value === 0 ? '' : Math.round(value) }
+                }, // Orange
+                {
+                    label: 'DII Net',
+                    type: 'bar',
+                    yAxisID: 'y',
+                    data: data.dii_net,
+                    backgroundColor: '#3176B8',
+                    borderColor: '#3176B8',
+                    borderWidth: 0,
+                    barPercentage: 1.0,
+                    categoryPercentage: 0.8,
+                    datalabels: { align: 'end', anchor: 'end', color: '#ccc', font: {size: 9}, formatter: (value) => value === 0 ? '' : Math.round(value) }
+                }  // Blue
             ];
 
             if (niftyData.length > 0) {
@@ -1651,6 +1673,7 @@
                     labels: data.dates,
                     datasets: datasets
                 },
+                plugins: [window.ChartDataLabels],
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: {
@@ -1661,7 +1684,12 @@
                             min: minNifty, max: maxNifty
                         }
                     },
-                    plugins: { legend: { labels: { color: '#ccc' } } }
+                    plugins: {
+                        legend: { labels: { color: '#ccc' } },
+                        datalabels: {
+                            display: true
+                        }
+                    }
                 }
             });
         } catch (e) { console.error("Error loading FII/DII", e); }
@@ -1698,7 +1726,7 @@
                 { key: 'dii', label: 'DII', color: '#3176B8' },     // Blue
                 { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
                 { key: 'client', label: 'CLI', color: '#00bcd4' },  // Green
-                { key: 'smart_money', label: 'Smart Money', color: '#FFD700' } // Yellow
+                { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' } // Yellow
             ];
 
             const xAxisData = metrics.map(m => m.label);
@@ -1709,9 +1737,9 @@
             const series = participants.map(p => {
                 const pData = metrics.map(m => {
                     if (p.key === 'smart_money') {
-                        // Calculate Smart Money: FII + DII + PRO + CLI
+                        // Calculate Smart Money: FII + DII + PRO (Excluding Client)
                         let sum = 0;
-                        ['fii', 'dii', 'pro', 'client'].forEach(participantKey => {
+                        ['fii', 'dii', 'pro'].forEach(participantKey => {
                             const arrayKey = `${participantKey}_${m.key}`;
                             const arr = data[arrayKey] || [];
                             sum += arr.length > todayIdx ? arr[todayIdx] : 0;
@@ -1791,7 +1819,7 @@
                 const todayDataArr = metrics.map(m => {
                     if (p.key === 'smart_money') {
                         let sum = 0;
-                        ['fii', 'dii', 'pro', 'client'].forEach(participantKey => {
+                        ['fii', 'dii', 'pro'].forEach(participantKey => {
                             const arr = data[`${participantKey}_${m.key}`] || [];
                             sum += arr.length > todayIdx ? arr[todayIdx] : 0;
                         });
@@ -1805,7 +1833,7 @@
                 const prevDataArr = metrics.map(m => {
                     if (p.key === 'smart_money') {
                         let sum = 0;
-                        ['fii', 'dii', 'pro', 'client'].forEach(participantKey => {
+                        ['fii', 'dii', 'pro'].forEach(participantKey => {
                             const arr = data[`${participantKey}_${m.key}`] || [];
                             sum += arr.length > prevIdx ? arr[prevIdx] : 0;
                         });
@@ -1939,14 +1967,14 @@
                             type: 'bar',
                             data: prevData,
                             itemStyle: { color: '#3176B8' }, // Blue
-                            label: { show: true, position: 'top', formatter: '₹{c}Cr', color: '#ccc', fontSize: 10 }
+                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         },
                         {
                             name: 'Today',
                             type: 'bar',
                             data: todayData,
                             itemStyle: { color: '#FFD700' }, // Yellow
-                            label: { show: true, position: 'top', formatter: '₹{c}Cr', color: '#ccc', fontSize: 10 }
+                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         }
                     ]
                 };
