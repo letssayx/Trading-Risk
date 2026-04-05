@@ -60,7 +60,7 @@ const RolloverTool = {
                     <div style="display: flex; justify-content: flex-end; margin-bottom: 5px;">
                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
                     </div>
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto;">
                         <table class="data-table" id="rollover-analysis-table" style="width: 100%; table-layout: fixed;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
@@ -257,6 +257,9 @@ const RolloverTool = {
             const res = await fetch('/api/data/analysis/rollover/sectors');
             if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
             const responseData = await res.json();
+
+            // Clear any previous error/empty messages to render chart
+            chartDom.innerHTML = '';
 
             if (window.rolloverSectorChartInstance) {
                 window.rolloverSectorChartInstance.dispose();

@@ -1973,7 +1973,7 @@
                             name: 'Today',
                             type: 'bar',
                             data: todayData,
-                            itemStyle: { color: '#FFD700' }, // Yellow
+                            itemStyle: { color: '#E88B1E' }, // Orange
                             label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         }
                     ]
