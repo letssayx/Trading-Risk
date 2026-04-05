@@ -206,7 +206,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                     active_expiries.append({
                         "expiry_date": exp_d.strftime('%Y-%m-%d'),
                         "dte": current_dte,
-                        "atm_iv": round(real_iv, 2)
+                        "atm_iv": float(round(real_iv, 2))
                     })
 
             cone_data["active_expiries"] = sorted(active_expiries, key=lambda x: x["dte"])
@@ -412,7 +412,7 @@ def get_pre_expiry_action(
         india_vix_line = []
         try:
             # We fetch today's Cone endpoint to reuse the atm_iv and india_vix values
-            cone_data = get_volatility_cone(symbol, lookback_days, db)
+            cone_data = get_volatility_cone(symbol, lookback_days, False, db)
             atm_iv_val = cone_data.get("atm_iv", [None])[0]
             vix_val = cone_data.get("india_vix", [None])[0]
             atm_iv_line = [atm_iv_val] * len(dates)

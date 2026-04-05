@@ -173,7 +173,7 @@ def calculate_historical_atm_iv(db: Session, symbol: str, lookback_days: int = 5
                 records.append({
                     "trade_date": t_date,
                     "symbol": symbol,
-                    "atm_iv": real_iv
+                    "atm_iv": float(real_iv)
                 })
                 inserted_count += 1
 
