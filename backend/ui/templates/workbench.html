@@ -1455,10 +1455,56 @@
 
                     <!-- Chart 2: Volatility Cone -->
                     <div style="width: 100%; height: 600px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
-                        <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:10px; align-items: center; gap: 10px;">
+                            <label style="color: #ccc; font-size: 11px;"><input type="checkbox" id="vol-analysis-force-calc" style="margin-right: 5px;"> Force Recalculate History</label>
                             <button class="btn btn-secondary" onclick="if(window.volConeChart) exportChartDataToCSV(window.volConeChart, 'Volatility_Cone'); else exportChartDataToCSV(volConeChart, 'Volatility_Cone')"><i class="fas fa-download"></i> CSV</button>
                         </div>
                         <div id="vol-cone-chart" style="width: 100%; height: calc(100% - 35px);"></div>
+                    </div>
+
+                    <!-- Volatility Data Tables -->
+                    <div style="display: flex; gap: 20px; width: 100%; margin-bottom: 20px;">
+                        <!-- Table 1: IV Summary -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">IV Summary</h3>
+                            <table class="data-table" style="width: 100%; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #444; color: #888;">
+                                        <th style="padding: 6px;">Symbol</th>
+                                        <th style="padding: 6px;">Price</th>
+                                        <th style="padding: 6px;">Current ATM IV</th>
+                                        <th style="padding: 6px;">IVR</th>
+                                        <th style="padding: 6px;">IVP</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vol-iv-summary-body" style="color: #ccc;">
+                                    <tr><td colspan="5" style="text-align: center;">Load Volatility Analysis to view data</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Table 2: Cone Data -->
+                        <div style="flex: 2; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Cone Data (Percentiles by Horizon)</h3>
+                            <div class="table-wrapper" style="max-height: 300px; overflow-y: auto;">
+                                <table class="data-table" style="width: 100%; text-align: left;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid #444; color: #888;">
+                                            <th style="padding: 6px;">DTE (N)</th>
+                                            <th style="padding: 6px;">5th %</th>
+                                            <th style="padding: 6px;">25th %</th>
+                                            <th style="padding: 6px;">50th %</th>
+                                            <th style="padding: 6px;">75th %</th>
+                                            <th style="padding: 6px;">95th %</th>
+                                            <th style="padding: 6px;">Market ATM IV</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="vol-cone-data-body" style="color: #ccc;">
+                                        <tr><td colspan="7" style="text-align: center;">Load Volatility Analysis to view data</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
