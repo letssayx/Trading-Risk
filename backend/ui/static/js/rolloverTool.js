@@ -191,7 +191,6 @@ const RolloverTool = {
         const tbody = document.getElementById('rollover-analysis-body');
         tbody.innerHTML = '';
 
-
         if (displayData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#888;">No F&O stocks found.</td></tr>';
         } else {
@@ -256,17 +255,23 @@ const RolloverTool = {
 
         try {
             const res = await fetch('/api/data/analysis/rollover/sectors');
-            if (!res.ok) throw new Error("Failed");
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
             const responseData = await res.json();
 
             if (window.rolloverSectorChartInstance) {
                 window.rolloverSectorChartInstance.dispose();
             }
-            window.rolloverSectorChartInstance = echarts.init(chartDom);
 
             // Expected data format: { sectors: [], exp1_name: '', exp1_data: [], exp2_name: '', exp2_data: [] }
             // Ensure robust extraction, unpacking nested `data` key if present from FastAPI error/payload structures
             const data = responseData.data || responseData;
+
+            if (!data || Object.keys(data).length === 0 || !data.sectors || data.sectors.length === 0) {
+                chartDom.innerHTML = `<p style="color:#888; text-align:center; padding-top:50px;">No sectoral rollover data available yet.</p>`;
+                return;
+            }
+
+            window.rolloverSectorChartInstance = echarts.init(chartDom);
 
             // Let's ensure robust fallback
             const sectors = data.sectors || [];
@@ -291,14 +296,14 @@ const RolloverTool = {
                         name: exp1,
                         type: 'bar',
                         barGap: '0%',
-                        itemStyle: { color: '#00bcd4', opacity: 0.5 }, // Lighter cyan for previous
+                        itemStyle: { color: '#E88B1E', opacity: 0.5 }, // Orange for previous
                         label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
                         data: exp1Data
                     },
                     {
                         name: exp2,
                         type: 'bar',
-                        itemStyle: { color: '#00bcd4' }, // Solid cyan for latest
+                        itemStyle: { color: '#E88B1E' }, // Solid Orange for latest
                         label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
                         data: exp2Data
                     }
@@ -353,7 +358,7 @@ const RolloverTool = {
                     series: [{
                         name: 'Avg Rollover',
                         type: 'bar',
-                        itemStyle: { color: '#00bcd4' },
+                        itemStyle: { color: '#E88B1E' }, // Solid Orange
                         data: values,
                         label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
                     }]
@@ -390,7 +395,7 @@ const RolloverTool = {
                         series: [{
                             name: 'Rollover',
                             type: 'bar',
-                            itemStyle: { color: '#00bcd4' },
+                            itemStyle: { color: '#E88B1E' }, // Solid Orange
                             data: values,
                             label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
                         }]
@@ -422,7 +427,7 @@ const RolloverTool = {
                             type: 'line',
                             symbol: 'circle',
                             symbolSize: 8,
-                            itemStyle: { color: '#00bcd4' },
+                            itemStyle: { color: '#E88B1E' }, // Solid Orange
                             lineStyle: { width: 3 },
                             data: values,
                             label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }

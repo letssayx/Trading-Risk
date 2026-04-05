@@ -302,14 +302,14 @@ const OiTool = {
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px; color: #888; padding-left: 20px;">└ ${h.date}</td>
-                            <td style="padding: 6px 8px; color: #555;">-</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
                             <td style="padding: 6px 8px;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px;">${(h.oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #555;">-</td>
-                            <td style="padding: 6px 8px; color: #555;">-</td>
-                            <td style="padding: 6px 8px; color: #555;">-</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
                         </tr>`;
                     });
