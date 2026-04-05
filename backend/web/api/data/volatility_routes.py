@@ -300,7 +300,7 @@ def get_pre_expiry_action(
                 query = text("""
                     SELECT trade_date, close_price
                     FROM bhavcopy_eq
-                    WHERE ticker_symb = :symbol AND series = 'EQ'
+                    WHERE symbol = :symbol AND series = 'EQ'
                     ORDER BY trade_date DESC
                     LIMIT :lookback
                 """)

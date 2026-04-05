@@ -28,7 +28,7 @@ def calculate_historical_atm_iv(db: Session, symbol: str, lookback_days: int = 5
         query = text("""
             SELECT trade_date, close_price
             FROM bhavcopy_eq
-            WHERE ticker_symb = :symbol AND series = 'EQ'
+            WHERE symbol = :symbol AND series = 'EQ'
             ORDER BY trade_date DESC
             LIMIT :lookback
         """)
