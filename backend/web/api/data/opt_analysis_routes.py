@@ -35,20 +35,42 @@ def calc_bs_delta_vectorized(S, K, T, r, sigma, is_call):
     return np.where(is_call, delta, delta - 1.0)
 
 @router.get("/api/data/derivatives/pcr_history")
-def get_pcr_history(symbol: str, days: int = 500, db: Session = Depends(get_db)):
+def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db: Session = Depends(get_db)):
     try:
         symbol = symbol.upper()
 
         # We need historical futures prices, Option OI, and we calculate delta weighted Option OI using BS.
 
         # 1. Fetch distinct trade dates up to `days` limit
-        dates_query = text("""
-            SELECT DISTINCT trade_date
-            FROM bhavcopy_fo
-            WHERE ticker_symb = :symbol
-            ORDER BY trade_date DESC
-            LIMIT :days
-        """)
+        # If expiry_only is true, filter dates to only those that are an expiry date for this symbol
+        if expiry_only:
+            dates_query = text("""
+                WITH all_dates AS (
+                    SELECT DISTINCT trade_date
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :symbol
+                    ORDER BY trade_date DESC
+                ),
+                expiries AS (
+                    SELECT DISTINCT expiry_date
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :symbol
+                )
+                SELECT d.trade_date
+                FROM all_dates d
+                JOIN expiries e ON d.trade_date = e.expiry_date
+                ORDER BY d.trade_date DESC
+                LIMIT :days
+            """)
+        else:
+            dates_query = text("""
+                SELECT DISTINCT trade_date
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol
+                ORDER BY trade_date DESC
+                LIMIT :days
+            """)
+
         dates_result = db.execute(dates_query, {"symbol": symbol, "days": days}).fetchall()
         if not dates_result:
             return {"dates": [], "price": [], "ce_oi": [], "pe_oi": [], "total_oi": [], "pcr": []}

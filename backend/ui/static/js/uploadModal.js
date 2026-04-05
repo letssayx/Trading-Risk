@@ -505,7 +505,7 @@ class NSEImporter {
         if (this.progressText) this.progressText.textContent = msg;
         if (this.progressBar) {
             this.progressBar.style.width = '5%';
-            this.progressBar.style.backgroundColor = '#60a5fa'; // Cyan
+            this.progressBar.style.backgroundColor = '#00bcd4'; // Cyan
             this.progressBar.parentElement.style.display = 'block';
         }
         if (this.importDetails) this.importDetails.innerHTML = '';
@@ -729,7 +729,7 @@ class NSEImporter {
 
                         html += `
                             <tr>
-                                <td style="color:#60a5fa; font-weight:500; vertical-align:top; min-width:120px;">
+                                <td style="color:#00bcd4; font-weight:500; vertical-align:top; min-width:120px;">
                                     <div style="margin-bottom: 2px;">${table}</div>
                                     ${timeBar}
                                 </td>

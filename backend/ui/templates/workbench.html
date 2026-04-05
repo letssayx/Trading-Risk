@@ -16,12 +16,12 @@
             border-radius: 6px;
         }
         .horizontal-scroll-container::-webkit-scrollbar-thumb {
-            background-color: #555;
+            background-color: #FFD700;
             border-radius: 6px;
             border: 3px solid #1e1e1e;
         }
         .horizontal-scroll-container::-webkit-scrollbar-thumb:hover {
-            background-color: #888;
+            background-color: #e6c200;
         }
 
         /* Custom Scrollbar */
@@ -34,11 +34,11 @@
             border-left: 1px solid #222;
         }
         ::-webkit-scrollbar-thumb {
-            background: #333;
+            background: #FFD700;
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: #e6c200;
         }
 
         .main-tab-content {
@@ -1753,7 +1753,7 @@
                             <div class="log-line">> Logic streams normalized. Ready to process.</div>
                         </div>
                         <div class="chat-message gemini-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div style="color: #60a5fa; font-weight: bold; margin-bottom: 5px;">[GEMINI 2.5] EXECUTION STRATEGIST</div>
+                            <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[GEMINI 2.5] EXECUTION STRATEGIST</div>
                             <div class="log-line">> Synthesis models primed.</div>
                         </div>
                         <div class="chat-message llama-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
@@ -2038,7 +2038,7 @@
                         <button id="btn-cancel-polling" style="position:absolute; top:10px; right:10px; background:#e74c3c; color:white; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:3px;">Stop/Clear Task</button>
                         <div id="progress-text" style="color:#ccc; font-size:0.9em; width:80%;">Starting...</div>
                         <div style="width:100%; background:#444; height:10px; border-radius:5px; margin-top:8px;">
-                            <div id="progress-bar" style="width:0%; background:#60a5fa; height:100%; border-radius:5px;"></div>
+                            <div id="progress-bar" style="width:0%; background:#00bcd4; height:100%; border-radius:5px;"></div>
                         </div>
                         <div id="import-details" style="margin-top:10px; font-size:0.85em;"></div>
                     </div>
@@ -2726,105 +2726,7 @@ function exportChartDataToCSV(chartInstance, filename) {
         window.highOiChartInstance = null;
     }
 
-    async function loadOptionsAnalysis() {
-        const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
-        if (!symbol) return;
-
-        // 1. Load 500-Day PCR Chart
-        try {
-            const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=500`);
-            const data = await res.json();
-
-            const chartDom = document.getElementById('opt-analysis-pcr-chart');
-            if (pcrChartInstance) pcrChartInstance.dispose();
-            pcrChartInstance = echarts.init(chartDom);
-
-            const option = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['Total OI', 'Price (FUT1)', 'PCR'], textStyle: { color: '#ccc' } },
-                grid: { left: '3%', right: '3%', bottom: '3%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: data.dates,
-                    axisLabel: { color: '#888' },
-                    axisLine: { lineStyle: { color: '#333' } }
-                },
-                yAxis: [
-                    {
-                        type: 'value',
-                        name: 'Total OI',
-                        position: 'left',
-                        splitLine: { show: false },
-                        axisLabel: { color: '#888' },
-                        nameTextStyle: { color: '#888' }
-                    },
-                    {
-                        type: 'value',
-                        name: 'Price (FUT1)',
-                        position: 'right',
-                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                        axisLabel: { color: '#888' },
-                        nameTextStyle: { color: '#888' },
-                        scale: true,
-                        min: 'dataMin',
-                        max: 'dataMax'
-                    },
-                    {
-                        type: 'value',
-                        name: 'PCR',
-                        position: 'right',
-                        offset: 60,
-                        scale: true,
-                        min: 'dataMin',
-                        max: 'dataMax',
-                        splitLine: { show: false },
-                        axisLabel: { color: '#888' },
-                        nameTextStyle: { color: '#888' }
-                    }
-                ],
-                dataZoom: [
-                    { type: 'inside', start: 50, end: 100 },
-                    { type: 'slider', start: 50, end: 100, textStyle: { color: '#ccc' } }
-                ],
-                series: [
-                    {
-                        name: 'Total OI',
-                        type: 'bar',
-                        data: data.total_oi,
-                        itemStyle: { color: 'rgba(54, 162, 235, 0.4)' },
-                        yAxisIndex: 0
-                    },
-                    {
-                        name: 'Price (FUT1)',
-                        type: 'line',
-                        data: data.price,
-                        itemStyle: { color: '#FFCC00' }, // Classic yellow
-                        lineStyle: { width: 2 },
-                        symbol: 'none',
-                        yAxisIndex: 1
-                    },
-                    {
-                        name: 'PCR',
-                        type: 'line',
-                        data: data.pcr,
-                        itemStyle: { color: '#60a5fa' }, // Bright green
-                        lineStyle: { width: 2 },
-                        symbol: 'none',
-                        yAxisIndex: 2
-                    }
-                ]
-            };
-            pcrChartInstance.setOption(option);
-        } catch (e) {
-            console.error("Error loading PCR history:", e);
-        }
-
-        // Trigger load High OI Chart (Next step)
-        if (typeof loadHighOI === 'function') {
-            loadHighOI(symbol);
-        }
-    }
+    // Managed in opt_analysis.js to prevent duplicate declarations
 
     async function loadHighOI(symbol) {
         try {

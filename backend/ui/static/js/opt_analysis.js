@@ -8,34 +8,13 @@ async function loadOptionsAnalysis() {
         const days = document.getElementById('opt-analysis-lookback')?.value || '500';
         const showExpiryOnly = document.getElementById('pcr-expiry-only')?.checked || false;
 
-        let url = `/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}`;
-        // If the backend doesn't support 'expiry_only', we could filter on frontend.
+        let url = `/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}&expiry_only=${showExpiryOnly}`;
         const res = await fetch(url);
         let data = await res.json();
-
-        if (showExpiryOnly) {
-            // Frontend filter for expiry days. Usually, this means filtering the data arrays
-            // assuming the backend provides an 'expiry_date' array, or we heuristically pick it.
-            // But since 'pcr_history' might not send 'expiry_dates', we might need to rely on the backend.
-            // Let's check what data object has.
-        }
 
         const chartDom = document.getElementById('opt-analysis-pcr-chart');
         if (pcrChartInstance) pcrChartInstance.dispose();
         pcrChartInstance = echarts.init(chartDom);
-
-        // Expiry Filter Logic
-        if (showExpiryOnly && data.dates && data.expiry_dates) {
-            const indicesToKeep = data.dates.map((d, i) => d === data.expiry_dates[i] ? i : -1).filter(i => i !== -1);
-            if (indicesToKeep.length > 0) {
-                const filterData = (arr) => arr ? indicesToKeep.map(i => arr[i]) : arr;
-                data.dates = filterData(data.dates);
-                data.price = filterData(data.price);
-                data.total_oi = filterData(data.total_oi);
-                data.pcr = filterData(data.pcr);
-                if (data.expiry_dates) data.expiry_dates = filterData(data.expiry_dates);
-            }
-        }
 
         const oiColors = data.total_oi.map((val, idx) => {
             if (idx === 0) return '#60a5fa';
@@ -195,6 +174,43 @@ async function loadOptionsAnalysis() {
             ]
         };
         pcrChartInstance.setOption(option);
+
+        // Render 10-day history table below the chart
+        const tbody = document.getElementById('opt-analysis-history-body');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (data.dates && data.dates.length > 0) {
+                const latestDataPoints = Math.min(10, data.dates.length);
+                const startIdx = data.dates.length - latestDataPoints;
+
+                for (let i = data.dates.length - 1; i >= startIdx; i--) {
+                    const tr = document.createElement('tr');
+                    const d = data.dates[i];
+                    const p = data.price[i];
+                    const oi = data.total_oi[i];
+                    const pcr = data.pcr[i];
+                    const pChg = priceChangePct[i];
+                    const oiChg = oiChangePct[i];
+                    const iv = data.atm_iv ? data.atm_iv[i] : 0;
+
+                    let pColor = pChg >= 0 ? '#60a5fa' : '#f44336';
+                    let oColor = oiChg >= 0 ? '#60a5fa' : '#f44336';
+
+                    tr.innerHTML = `
+                        <td style="padding: 6px;">${d}</td>
+                        <td style="padding: 6px;">${p ? p.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined ? pChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${oi ? oi.toLocaleString() : '-'}</td>
+                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined ? oiChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${pcr ? pcr.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px;">${iv ? iv.toFixed(2) + '%' : '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } else {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No historical data available.</td></tr>';
+            }
+        }
     } catch (e) {
         console.error("Error loading PCR history:", e);
     }
