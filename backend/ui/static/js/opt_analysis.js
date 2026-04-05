@@ -6,22 +6,58 @@ async function loadOptionsAnalysis() {
     // 1. Load 500-Day PCR Chart
     try {
         const days = document.getElementById('opt-analysis-lookback')?.value || '500';
-        const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}`);
-        const data = await res.json();
+        const showExpiryOnly = document.getElementById('pcr-expiry-only')?.checked || false;
+
+        let url = `/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}`;
+        // If the backend doesn't support 'expiry_only', we could filter on frontend.
+        const res = await fetch(url);
+        let data = await res.json();
+
+        if (showExpiryOnly) {
+            // Frontend filter for expiry days. Usually, this means filtering the data arrays
+            // assuming the backend provides an 'expiry_date' array, or we heuristically pick it.
+            // But since 'pcr_history' might not send 'expiry_dates', we might need to rely on the backend.
+            // Let's check what data object has.
+        }
 
         const chartDom = document.getElementById('opt-analysis-pcr-chart');
         if (pcrChartInstance) pcrChartInstance.dispose();
         pcrChartInstance = echarts.init(chartDom);
 
+        // Expiry Filter Logic
+        if (showExpiryOnly && data.dates && data.expiry_dates) {
+            const indicesToKeep = data.dates.map((d, i) => d === data.expiry_dates[i] ? i : -1).filter(i => i !== -1);
+            if (indicesToKeep.length > 0) {
+                const filterData = (arr) => arr ? indicesToKeep.map(i => arr[i]) : arr;
+                data.dates = filterData(data.dates);
+                data.price = filterData(data.price);
+                data.total_oi = filterData(data.total_oi);
+                data.pcr = filterData(data.pcr);
+                if (data.expiry_dates) data.expiry_dates = filterData(data.expiry_dates);
+            }
+        }
+
         const oiColors = data.total_oi.map((val, idx) => {
-            if (idx === 0) return '#3176B8';
-            return val > data.total_oi[idx - 1] ? '#E88B1E' : '#3176B8'; // Orange for up, Blue for down
+            if (idx === 0) return '#00bcd4';
+            return val > data.total_oi[idx - 1] ? '#E88B1E' : '#00bcd4'; // Orange for up, Blue for down
+        });
+
+        // Calculate OI Change percentages
+        const oiChangePct = data.total_oi.map((val, idx) => {
+            if (idx === 0 || !data.total_oi[idx-1]) return 0;
+            return ((val - data.total_oi[idx - 1]) / data.total_oi[idx - 1]) * 100;
+        });
+
+        // Calculate Price Change percentages
+        const priceChangePct = data.price.map((val, idx) => {
+            if (idx === 0 || !data.price[idx-1]) return 0;
+            return ((val - data.price[idx - 1]) / data.price[idx - 1]) * 100;
         });
 
         const option = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Price (FUT1)', 'Total OI', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
+            legend: { data: ['Price (FUT1)', 'Total OI', 'OI Change %', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
             grid: [
                 { left: '12%', right: '8%', top: '10%', height: '35%' },   // Top pane: Price
                 { left: '12%', right: '8%', top: '48%', height: '22%' },   // Middle pane: OI
@@ -78,6 +114,16 @@ async function loadOptionsAnalysis() {
                 },
                 {
                     type: 'value',
+                    name: 'OI/Price Chg %',
+                    position: 'right',
+                    gridIndex: 1,
+                    scale: true,
+                    axisLabel: { color: '#888', formatter: '{value}%' },
+                    splitLine: { show: false },
+                    nameTextStyle: { color: '#888' }
+                },
+                {
+                    type: 'value',
                     name: 'PCR',
                     position: 'left',
                     gridIndex: 2,
@@ -111,6 +157,30 @@ async function loadOptionsAnalysis() {
                     itemStyle: { color: (params) => oiColors[params.dataIndex] },
                     xAxisIndex: 1,
                     yAxisIndex: 1
+                },
+                {
+                    name: 'OI Change %',
+                    type: 'bar',
+                    data: oiChangePct,
+                    itemStyle: {
+                        color: (params) => params.value >= 0 ? '#00bcd4' : '#f44336'
+                    },
+                    xAxisIndex: 1,
+                    yAxisIndex: 2, // Secondary Y axis for percentages
+                    barGap: '0%',
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: (params) => {
+                            const pChg = priceChangePct[params.dataIndex];
+                            return pChg ? pChg.toFixed(1) + '%' : '';
+                        },
+                        color: '#fff',
+                        fontSize: 10,
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        padding: 2,
+                        borderRadius: 2
+                    }
                 },
                 {
                     name: 'PCR',

@@ -91,7 +91,8 @@ const OiTool = {
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
                                         <th style="padding: 8px; width: 30px;"></th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol/Date ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
+                                        <th style="padding: 8px;">Date</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
@@ -272,19 +273,20 @@ const OiTool = {
             let html = '';
             displayData.forEach(d => {
                 let color = '#888';
-                if (d.interpretation === 'Long Build Up') color = '#3176B8'; // Green
+                if (d.interpretation === 'Long Build Up') color = '#00bcd4'; // Green
                 if (d.interpretation === 'Short Covering') color = '#00bcd4'; // Blue/Cyan
                 if (d.interpretation === 'Short Build Up') color = '#f44336'; // Red
                 if (d.interpretation === 'Long Unwinding') color = '#ff9800'; // Orange
 
-                let pColor = d.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
-                let oColor = d.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
+                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
                     <td style="padding: 8px;"><b>${d.symbol}</b></td>
+                    <td style="padding: 8px; color: #aaa;">${d.date || d.history?.[0]?.date || '-'} (Latest)</td>
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
-                    <td style="padding: 8px;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
@@ -296,14 +298,15 @@ const OiTool = {
 
                 if (d.history && d.history.length > 1) {
                     d.history.slice(1, 7).forEach(h => {
-                        let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
-                        let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
+                        let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
-                            <td style="padding: 6px 8px; color: #888; padding-left: 20px;">└ ${h.date}</td>
+                            <td style="padding: 6px 8px;"></td>
+                            <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
-                            <td style="padding: 6px 8px;">${(h.price || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
@@ -345,12 +348,12 @@ const OiTool = {
                 <tbody>`;
 
             dataSubset.forEach(d => {
-                let oColor = d.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
-                let pColor = d.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
                     <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
-                    <td style="padding: 4px; color: #aaa;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                 </tr>`;
             });
@@ -380,7 +383,7 @@ const OiTool = {
         const y = data.map(d => d.price_chg_pct);
         const text = data.map(d => d.symbol);
         const color = data.map(d => {
-            if (d.interpretation === 'Long Build Up') return '#3176B8'; // Green
+            if (d.interpretation === 'Long Build Up') return '#00bcd4'; // Green
             if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
             if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
             if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
@@ -435,7 +438,7 @@ const OiTool = {
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
-                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#3176B8', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#00bcd4', size: 16} },
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
@@ -500,7 +503,7 @@ const OiTool = {
         const y = history.map(d => d.price_chg_pct);
         const text = history.map(d => `${d.time}<br>${d.interpretation}`);
         const color = history.map(d => {
-            if (d.interpretation === 'Long Build Up') return '#3176B8'; // Green
+            if (d.interpretation === 'Long Build Up') return '#00bcd4'; // Green
             if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
             if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
             if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
@@ -563,7 +566,7 @@ const OiTool = {
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
-                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#3176B8', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#00bcd4', size: 16} },
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ]

@@ -1489,6 +1489,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
+                                        <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
                                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.pcrChartInstance) exportChartDataToCSV(window.pcrChartInstance, 'PCR_History'); else exportChartDataToCSV(pcrChartInstance, 'PCR_History')"><i class="fas fa-download"></i> CSV</button>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
                                             <option value="5">5 Days</option>
