@@ -35,12 +35,6 @@ const RolloverTool = {
                     <!-- Charts Area -->
                     <div style="display: flex; gap: 20px; height: 300px; flex-shrink: 0; width: 100%;">
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
-                            <div style="display:flex; justify-content:flex-end; margin-bottom:5px;">
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverSectorChartInstance) exportChartDataToCSV(window.rolloverSectorChartInstance, 'Sectoral_Rollover')"><i class="fas fa-download"></i> CSV</button>
-                            </div>
-                            <div id="rollover-sector-chart" style="width: 100%; height: calc(100% - 30px);"></div>
-                        </div>
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                                 <div style="display:flex; gap:10px;">
                                     <select id="rollover-chart-sector-filter" class="form-control history-input" style="padding: 2px 5px;" onchange="RolloverTool.updateDynamicChart()">
@@ -158,7 +152,6 @@ const RolloverTool = {
             this.renderAggregatedView();
 
             // Also load the charts since data is refreshed
-            this.loadSectoralChart();
             this.updateDynamicChart();
 
         } catch(e) {
@@ -203,7 +196,7 @@ const RolloverTool = {
 
                 html += `
                 <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
-                    <td style="padding: 10px 8px; text-align: center; width: 30px;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▼</span></td>
+                    <td style="padding: 10px 8px; text-align: center; width: 30px;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▶</span></td>
                     <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
                     <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
                     <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost||0).toFixed(2)}</td>
@@ -214,18 +207,19 @@ const RolloverTool = {
                     <td style="padding: 10px 8px; color: ${oColor};">${(d.oi_chg_pct||0).toFixed(2)}%</td>
                 </tr>`;
 
-                if (d.history && d.history.length > 0) {
-                    d.history.slice(0, 7).forEach((h, idx) => {
+                if (d.history && d.history.length > 1) {
+                    d.history.slice(1, 7).forEach((h, idx) => {
                         let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let rowBg = '#151515';
+                        let hCostColor = h.rollover_cost >= 0 ? '#3176B8' : '#f44336';
                         // Matching exact columns: [Icon, Symbol/Date, Rollover %, Spread, Cost %, FUT Price, Price Chg %, Total OI, OI Chg %]
                         html += `<tr class="roll-history-row-${d.symbol}" style="background: ${rowBg}; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px; color: #888; padding-left: 20px;">└ ${h.date}</td>
                             <td style="padding: 6px 8px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #555;">-</td>
-                            <td style="padding: 6px 8px; color: #555;">-</td>
+                            <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px;">${(h.oi || 0).toLocaleString()}</td>
@@ -247,76 +241,6 @@ const RolloverTool = {
             this.currentSortAsc = true;
         }
         this.renderAggregatedView();
-    },
-
-    loadSectoralChart: async function() {
-        const chartDom = document.getElementById('rollover-sector-chart');
-        if (!chartDom) return;
-
-        try {
-            const res = await fetch('/api/data/analysis/rollover/sectors');
-            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-            const responseData = await res.json();
-
-            // Clear any previous error/empty messages to render chart
-            chartDom.innerHTML = '';
-
-            if (window.rolloverSectorChartInstance) {
-                window.rolloverSectorChartInstance.dispose();
-            }
-
-            // Expected data format: { sectors: [], exp1_name: '', exp1_data: [], exp2_name: '', exp2_data: [] }
-            // Ensure robust extraction, unpacking nested `data` key if present from FastAPI error/payload structures
-            const data = responseData.data || responseData;
-
-            if (!data || Object.keys(data).length === 0 || !data.sectors || data.sectors.length === 0) {
-                chartDom.innerHTML = `<p style="color:#888; text-align:center; padding-top:50px;">No sectoral rollover data available yet.</p>`;
-                return;
-            }
-
-            window.rolloverSectorChartInstance = echarts.init(chartDom);
-
-            // Let's ensure robust fallback
-            const sectors = data.sectors || [];
-            const exp1 = data.exp1_name || 'Exp 1';
-            const exp2 = data.exp2_name || 'Exp 2';
-            const exp1Data = data.exp1_data || [];
-            const exp2Data = data.exp2_data || [];
-
-            const option = {
-                title: { text: 'Sectoral Rollover (Prev 2 Expiries)', textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                legend: { data: [exp1, exp2], textStyle: { color: '#ccc' }, bottom: 0 },
-                grid: { left: '3%', right: '4%', bottom: '15%', top: '20%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: sectors,
-                    axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 10 }
-                },
-                yAxis: { type: 'value', axisLabel: { color: '#ccc', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
-                series: [
-                    {
-                        name: exp1,
-                        type: 'bar',
-                        barGap: '0%',
-                        itemStyle: { color: '#E88B1E', opacity: 0.5 }, // Orange for previous
-                        label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
-                        data: exp1Data
-                    },
-                    {
-                        name: exp2,
-                        type: 'bar',
-                        itemStyle: { color: '#E88B1E' }, // Solid Orange for latest
-                        label: { show: true, position: 'top', formatter: '{c}%', fontSize: 9, color: '#ccc' },
-                        data: exp2Data
-                    }
-                ]
-            };
-            window.rolloverSectorChartInstance.setOption(option);
-            window.addEventListener('resize', () => window.rolloverSectorChartInstance.resize());
-        } catch (e) {
-            chartDom.innerHTML = `<p style="color:red; text-align:center; padding-top:50px;">Error loading chart: ${e.message}</p>`;
-        }
     },
 
     updateDynamicChart: async function() {
@@ -459,7 +383,7 @@ const RolloverTool = {
         });
 
         if (icon) {
-            icon.innerText = isHidden ? '▲' : '▼';
+            icon.innerText = isHidden ? '▼' : '▶';
         }
     },
 

@@ -111,30 +111,39 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         from sqlalchemy import func
         # Fetch options summary data to append to the analysis table
         opt_query = db.query(
+            BhavcopyFO.trade_date,
             BhavcopyFO.ticker_symb,
             BhavcopyFO.option_type,
             func.sum(BhavcopyFO.open_interest).label('total_opt_oi')
         ).filter(
-            BhavcopyFO.trade_date == curr_date,
+            BhavcopyFO.trade_date.in_(target_dates[:11]),
             BhavcopyFO.instrument_type.in_(['OPTIDX', 'OPTSTK', 'STO', 'IDO'])
-        ).group_by(BhavcopyFO.ticker_symb, BhavcopyFO.option_type).all()
+        ).group_by(BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.option_type).all()
 
         opt_data = {}
         for r in opt_query:
             sym = r.ticker_symb
-            if sym not in opt_data:
-                opt_data[sym] = {'ce_oi': 0, 'pe_oi': 0}
+            dt = r.trade_date
+            if dt not in opt_data:
+                opt_data[dt] = {}
+            if sym not in opt_data[dt]:
+                opt_data[dt][sym] = {'ce_oi': 0, 'pe_oi': 0}
             if r.option_type == 'CE':
-                opt_data[sym]['ce_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
+                opt_data[dt][sym]['ce_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
             elif r.option_type == 'PE':
-                opt_data[sym]['pe_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
+                opt_data[dt][sym]['pe_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
 
         # Fetch applicable annualized vol (proxy for ATM IV context)
         from backend.ingest.nse_models import FOVolatility
-        vol_query = db.query(FOVolatility.symbol, FOVolatility.applicable_annualised_vol).filter(
-            FOVolatility.trade_date == curr_date
+        vol_query = db.query(FOVolatility.trade_date, FOVolatility.symbol, FOVolatility.applicable_annualised_vol).filter(
+            FOVolatility.trade_date.in_(target_dates[:11])
         ).all()
-        vol_data = {r.symbol: float(r.applicable_annualised_vol) * 100 if r.applicable_annualised_vol else None for r in vol_query}
+        vol_data = {}
+        for r in vol_query:
+            dt = r.trade_date
+            if dt not in vol_data:
+                vol_data[dt] = {}
+            vol_data[dt][r.symbol] = float(r.applicable_annualised_vol) * 100 if r.applicable_annualised_vol else None
 
         # 5. Calculate metrics
         results = []
@@ -178,12 +187,28 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
                     # Only append to 10-day history array if it's within the top 10 recent dates
                     if dt in target_dates[:10]:
+                        h_pcr = 0.0
+                        h_total_oi = curr_h["oi"]
+                        if dt in opt_data and sym in opt_data[dt]:
+                            h_pe = opt_data[dt][sym]['pe_oi']
+                            h_ce = opt_data[dt][sym]['ce_oi']
+                            if h_ce > 0:
+                                h_pcr = h_pe / h_ce
+                            h_total_oi += (h_pe + h_ce)
+
+                        h_atm_iv = None
+                        if dt in vol_data and sym in vol_data[dt]:
+                            h_atm_iv = vol_data[dt][sym]
+
                         hist_arr.append({
                             "date": str(dt),
                             "price": curr_h["price"],
                             "oi": curr_h["oi"],
                             "price_chg_pct": round(h_price_chg, 2),
-                            "oi_chg_pct": round(h_oi_chg, 2)
+                            "oi_chg_pct": round(h_oi_chg, 2),
+                            "total_oi": h_total_oi,
+                            "pcr": round(h_pcr, 4),
+                            "atm_iv": round(h_atm_iv, 2) if h_atm_iv else None
                         })
 
             # Calculate multi-timeframe derived metrics (30d, 60d, 90d, 252d, 500d)
@@ -211,9 +236,9 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
             pcr = 0.0
             total_oi = curr["oi"]
-            if sym in opt_data:
-                pe = opt_data[sym]['pe_oi']
-                ce = opt_data[sym]['ce_oi']
+            if curr_date in opt_data and sym in opt_data[curr_date]:
+                pe = opt_data[curr_date][sym]['pe_oi']
+                ce = opt_data[curr_date][sym]['ce_oi']
                 if ce > 0:
                     pcr = pe / ce
                 # Note: true delta weighted OI is intensive for all symbols,
@@ -221,7 +246,9 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 # or just use futures OI as "OI" and opt_oi + fut_oi as "Total OI"
                 total_oi += (pe + ce)
 
-            atm_iv = vol_data.get(sym, None)
+            atm_iv = None
+            if curr_date in vol_data and sym in vol_data[curr_date]:
+                atm_iv = vol_data[curr_date][sym]
 
             results.append({
                 "symbol": sym,
@@ -415,8 +442,24 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
                 if not curr_futs: continue
 
                 c_near = curr_futs[0]
+                c_next = curr_futs[1] if len(curr_futs) > 1 else None
+                c_far = curr_futs[2] if len(curr_futs) > 2 else None
+
+                c_near_oi = int(c_near.open_interest) if c_near.open_interest else 0
+                c_next_oi = int(c_next.open_interest) if c_next and c_next.open_interest else 0
+                c_far_oi = int(c_far.open_interest) if c_far and c_far.open_interest else 0
+
                 c_price = float(c_near.close_price) if c_near.close_price else 0
+                c_next_price = float(c_next.close_price) if c_next and c_next.close_price else 0
+
                 c_total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in curr_futs])
+
+                c_rollover_pct = 0
+                if c_total_oi > 0:
+                    c_rollover_pct = ((c_next_oi + c_far_oi) / c_total_oi) * 100
+
+                c_spread = c_next_price - c_price
+                c_spread_pct = (c_spread / c_price) * 100 if c_price > 0 else 0
 
                 p_price_chg = 0
                 p_oi_chg = 0
@@ -443,6 +486,9 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
                 if i < 10 and dt in hist_dates[:10]:
                     history_arr.append({
                         "date": str(dt),
+                        "rollover_pct": round(c_rollover_pct, 2),
+                        "rollover_cost": round(c_spread, 2),
+                        "rollover_cost_pct": round(c_spread_pct, 2),
                         "price": c_price,
                         "oi": c_total_oi,
                         "price_chg_pct": round(p_price_chg, 2),

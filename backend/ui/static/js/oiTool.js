@@ -200,7 +200,7 @@ const OiTool = {
         });
 
         if (icon) {
-            icon.innerText = isHidden ? '▲' : '▼';
+            icon.innerText = isHidden ? '▼' : '▶';
         }
     },
 
@@ -281,7 +281,7 @@ const OiTool = {
                 let oColor = d.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
-                    <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▼</span></td>
+                    <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
                     <td style="padding: 8px;"><b>${d.symbol}</b></td>
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
                     <td style="padding: 8px;">${(d.price || 0).toFixed(2)}</td>
@@ -294,8 +294,8 @@ const OiTool = {
                     <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
                 </tr>`;
 
-                if (d.history && d.history.length > 0) {
-                    d.history.slice(0, 7).forEach(h => {
+                if (d.history && d.history.length > 1) {
+                    d.history.slice(1, 7).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#3176B8' : '#f44336';
                         // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
