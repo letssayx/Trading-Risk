@@ -37,7 +37,7 @@ const Toolbox = {
                 // Content
                 const icon = isUser ? '👤' : '♟️';
                 el.innerHTML = `
-                    <div class="flyout-item-icon" style="color:${isUser ? '#ff9800' : '#00bcd4'}">${icon}</div>
+                    <div class="flyout-item-icon" style="color:${isUser ? '#ff9800' : '#60a5fa'}">${icon}</div>
                     <div class="flyout-item-name">${displayName}</div>
                 `;
 
@@ -111,7 +111,7 @@ const Toolbox = {
         chartArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
-            chartArea.style.border = '2px dashed #00bcd4';
+            chartArea.style.border = '2px dashed #60a5fa';
         });
         chartArea.addEventListener('dragleave', () => chartArea.style.border = 'none');
         chartArea.addEventListener('drop', (e) => {
@@ -124,7 +124,7 @@ const Toolbox = {
         const workbookArea = document.getElementById('strategy-workbench');
         workbookArea.addEventListener('dragover', (e) => {
             e.preventDefault();
-            workbookArea.style.border = '2px dashed #00bcd4';
+            workbookArea.style.border = '2px dashed #60a5fa';
         });
         workbookArea.addEventListener('dragleave', () => workbookArea.style.border = 'none');
         workbookArea.addEventListener('drop', (e) => {

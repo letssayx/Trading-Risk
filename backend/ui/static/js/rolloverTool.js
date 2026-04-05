@@ -190,14 +190,14 @@ const RolloverTool = {
         } else {
             let html = '';
             displayData.forEach(d => {
-                let costColor = d.rollover_cost >= 0 ? '#00bcd4' : '#f44336';
-                let rollColor = d.rollover_pct >= 80 ? '#00bcd4' : '#ccc';
-                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let costColor = d.rollover_cost >= 0 ? '#60a5fa' : '#f44336';
+                let rollColor = d.rollover_pct >= 80 ? '#60a5fa' : '#ccc';
+                let pColor = d.price_chg_pct >= 0 ? '#60a5fa' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#60a5fa' : '#f44336';
 
                 html += `
                 <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
-                    <td style="padding: 10px 8px; text-align: center; width: 30px;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #00bcd4; font-weight: bold;">▶</span></td>
+                    <td style="padding: 10px 8px; text-align: center; width: 30px;"><span id="roll-icon-${d.symbol}" style="font-size: 14px; color: #60a5fa; font-weight: bold;">▶</span></td>
                     <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
                     <td style="padding: 10px 8px; color: #aaa;">${d.date || d.history?.[0]?.date || '-'} (Latest)</td>
                     <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
@@ -211,16 +211,16 @@ const RolloverTool = {
 
                 if (d.history && d.history.length > 1) {
                     d.history.slice(1, 7).forEach((h, idx) => {
-                        let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hpColor = h.price_chg_pct >= 0 ? '#60a5fa' : '#f44336';
+                        let hoColor = h.oi_chg_pct >= 0 ? '#60a5fa' : '#f44336';
                         let rowBg = '#151515';
-                        let hCostColor = h.rollover_cost >= 0 ? '#00bcd4' : '#f44336';
+                        let hCostColor = h.rollover_cost >= 0 ? '#60a5fa' : '#f44336';
                         // Matching exact columns: [Icon, Symbol/Date, Rollover %, Spread, Cost %, FUT Price, Price Chg %, Total OI, OI Chg %]
                         html += `<tr class="roll-history-row-${d.symbol}" style="background: ${rowBg}; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
                             <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
-                            <td style="padding: 6px 8px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #60a5fa;">${(h.rollover_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
@@ -333,7 +333,7 @@ const RolloverTool = {
                     window.rolloverDynamicChartInstance.setOption(option);
                 } else {
                     // Fetch 12-month history for the stock
-                    window.rolloverDynamicChartInstance.showLoading({ text: 'Loading 12M History...', color: '#00bcd4', textColor: '#ccc', maskColor: 'rgba(0, 0, 0, 0.5)' });
+                    window.rolloverDynamicChartInstance.showLoading({ text: 'Loading 12M History...', color: '#60a5fa', textColor: '#ccc', maskColor: 'rgba(0, 0, 0, 0.5)' });
 
                     const res = await fetch(`/api/data/analysis/rollover/history/${selectedStock}`);
                     if (!res.ok) throw new Error("Failed to load history");
@@ -434,18 +434,18 @@ const RolloverTool = {
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px;">
                     <div>
                         <div style="font-size: 0.9em; color: #888;">Rollover %</div>
-                        <div style="font-size: 1.5em; color: #00bcd4; font-weight: bold;">${data.rollover_pct}%</div>
+                        <div style="font-size: 1.5em; color: #60a5fa; font-weight: bold;">${data.rollover_pct}%</div>
                     </div>
                     <div>
                         <div style="font-size: 0.9em; color: #888;">Rollover Cost (Spread)</div>
-                        <div style="font-size: 1.5em; color: ${data.rollover_cost >= 0 ? '#00bcd4' : '#f44336'};">${data.rollover_cost} (${data.rollover_cost_pct}%)</div>
+                        <div style="font-size: 1.5em; color: ${data.rollover_cost >= 0 ? '#60a5fa' : '#f44336'};">${data.rollover_cost} (${data.rollover_cost_pct}%)</div>
                     </div>
                 </div>
 
                 <table style="width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 0.9em; text-align: left;">
 
                                 <thead>
-                                    <tr style="position: sticky; top: 0; background: #222; z-index: 10; border-bottom: 2px solid #00bcd4;">
+                                    <tr style="position: sticky; top: 0; background: #222; z-index: 10; border-bottom: 2px solid #60a5fa;">
                                         <th style="padding: 8px; width: 30px;"></th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
                                         <th style="padding: 8px;">Date</th>

@@ -38,8 +38,8 @@ async function loadOptionsAnalysis() {
         }
 
         const oiColors = data.total_oi.map((val, idx) => {
-            if (idx === 0) return '#00bcd4';
-            return val > data.total_oi[idx - 1] ? '#E88B1E' : '#00bcd4'; // Orange for up, Blue for down
+            if (idx === 0) return '#60a5fa';
+            return val > data.total_oi[idx - 1] ? '#E88B1E' : '#60a5fa'; // Orange for up, Blue for down
         });
 
         // Calculate OI Change percentages
@@ -163,7 +163,7 @@ async function loadOptionsAnalysis() {
                     type: 'bar',
                     data: oiChangePct,
                     itemStyle: {
-                        color: (params) => params.value >= 0 ? '#00bcd4' : '#f44336'
+                        color: (params) => params.value >= 0 ? '#60a5fa' : '#f44336'
                     },
                     xAxisIndex: 1,
                     yAxisIndex: 2, // Secondary Y axis for percentages
@@ -186,7 +186,7 @@ async function loadOptionsAnalysis() {
                     name: 'PCR',
                     type: 'line',
                     data: data.pcr,
-                    itemStyle: { color: '#00bcd4' },
+                    itemStyle: { color: '#60a5fa' },
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
