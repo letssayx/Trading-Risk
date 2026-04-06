@@ -580,3 +580,17 @@ class FIIDIICash(Base, TimescaleMixin):
         Index('idx_fii_dii_cash_date', 'trade_date'),
         UniqueConstraint('trade_date', 'category', name='uq_fii_dii_cash_unique')
     )
+
+class HistoricalATMIV(Base, TimescaleMixin):
+    """Historical ATM IV (Implied Volatility) for Equities/Indices"""
+    __tablename__ = "historical_atm_iv"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    atm_iv = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
+        UniqueConstraint('trade_date', 'symbol', name='uq_historical_atm_iv_unique'),
+    )
