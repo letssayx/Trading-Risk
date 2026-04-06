@@ -206,11 +206,11 @@ async function loadOptionsAnalysis() {
 
                     tr.innerHTML = `
                         <td style="padding: 6px;">${d}</td>
-                        <td style="padding: 6px;">${p ? p.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined ? pChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${oi ? oi.toLocaleString() : '-'}</td>
-                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined ? oiChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${pcr ? pcr.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px;">${p !== undefined && p !== null ? p.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined && pChg !== null ? pChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${oi !== undefined && oi !== null ? oi.toLocaleString() : '-'}</td>
+                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined && oiChg !== null ? oiChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${pcr !== undefined && pcr !== null ? pcr.toFixed(2) : '-'}</td>
                         <td style="padding: 6px;">${iv ? iv.toFixed(2) + '%' : '-'}</td>
                     `;
                     tbody.appendChild(tr);
@@ -221,6 +221,11 @@ async function loadOptionsAnalysis() {
         }
     } catch (e) {
         console.error("Error loading PCR history:", e);
+    } finally {
+        if (loadBtn) {
+            loadBtn.innerHTML = originalText;
+            loadBtn.disabled = false;
+        }
     }
 
     // 2. Load High OI Chart

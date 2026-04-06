@@ -1648,18 +1648,33 @@
             ];
 
             if (niftyData.length > 0) {
+                // Determine which dataset has the max value to put Nifty label on top of it.
+                // For a given index, the label should be positioned above the maximum absolute bar value.
+                const topOffsets = data.fii_net.map((fii, i) => {
+                    const dii = data.dii_net[i] || 0;
+                    return Math.max(fii, dii, 0);
+                });
+
+                // In Chart.js, since there's no true 'composite overlay' value label feature directly without an extra invisible bar/scatter,
+                // we can add a scatter dataset (or another bar with 0 height) just for the datalabels.
+                // We'll use a dummy dataset to render the Nifty values.
                 datasets.push({
                     label: 'NIFTY',
                     type: 'line',
-                    yAxisID: 'y1',
+                    yAxisID: 'y1', // Keep y1 so it scales with nifty, but we won't draw the line
                     data: niftyData,
-                    borderColor: '#FFFFFF',
+                    borderColor: 'transparent', // Remove Nifty overlay line
                     backgroundColor: 'transparent',
-                    borderWidth: 4,
-                    pointRadius: 2,
-                    tension: 0.1,
-                    shadowColor: 'rgba(0, 0, 0, 0.5)',
-                    shadowBlur: 5
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    showLine: false,
+                    datalabels: {
+                        align: 'end',
+                        anchor: 'end',
+                        color: '#FFD700', // Yellow Nifty values
+                        font: { size: 10, weight: 'bold' },
+                        formatter: (value) => Math.round(value)
+                    }
                 });
             }
 
@@ -1709,7 +1724,7 @@
                         x: { stacked: false },
                         y: { stacked: false, position: 'left', grid: { color: '#333' } },
                         y1: {
-                            type: 'linear', position: 'right', display: niftyData.length > 0, grid: { drawOnChartArea: false },
+                            type: 'linear', position: 'right', display: false, // hide the axis
                             min: minNifty, max: maxNifty
                         }
                     },
@@ -1829,13 +1844,13 @@
                     type: 'value',
                     axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                    // Removed zebra striping splitArea per user request
                 },
                 series: series.map((s, idx) => {
                     if (idx === 0) {
                         s.markArea = {
                             itemStyle: { color: 'rgba(255,255,255,0.1)' },
                             data: xAxisData.map((lbl, i) => {
+                                // Zebra shading per instrument
                                 if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
                                 return null;
                             }).filter(d => d !== null)
@@ -2023,6 +2038,7 @@
                             markArea: {
                                 itemStyle: { color: 'rgba(255,255,255,0.1)' },
                                 data: xAxisData.map((lbl, i) => {
+                                    // Zebra shading per instrument
                                     if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
                                     return null;
                                 }).filter(d => d !== null)
