@@ -127,7 +127,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         }
 
         # Compute Garman-Klass Volatility
-        ann_factor = 365 # User requested sqrt(365), variance needs 365 multiplier
+        ann_factor = math.sqrt(365) # User requested sqrt(365)
 
         # O, H, L, C arrays
         opens = np.array([float(r[1]) if r[1] > 0 else float(r[4]) for r in ohlc_result])
@@ -139,8 +139,18 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         # 0.5 * (ln(H/L))^2 - (2ln2 - 1) * (ln(C/O))^2
         gk_daily_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * math.log(2) - 1) * (np.log(closes / opens) ** 2)
 
+        # Filter out negative variances (numerical instability) and take sqrt to get daily volatility
+        gk_daily_vol = np.sqrt(np.maximum(gk_daily_var, 0))
+
+        # Immediately annualize the daily volatility
+        gk_daily_ann_vol = gk_daily_vol * ann_factor * 100 # convert to percentage
+
+        # Filter out 0.00% values caused by flat pricing or missing data
+        valid_indices = gk_daily_ann_vol > 0.0001
+        gk_daily_ann_vol_filtered = gk_daily_ann_vol[valid_indices]
+
         for w in windows:
-            if w > len(gk_daily_var):
+            if w > len(gk_daily_ann_vol_filtered):
                 cone_data["p5"].append(None)
                 cone_data["p25"].append(None)
                 cone_data["p50"].append(None)
@@ -149,17 +159,14 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                 cone_data["current_rv"].append(None)
                 continue
 
-            # Vectorized rolling standard deviation
-            # We want ddof=1 for sample standard dev
-            rolling_rv = []
-            for i in range(len(log_returns_np) - w + 1):
-                window = log_returns_np[i:i+w]
-                # ddof=1 matches pandas/standard sample stdev
-                rv = np.std(window, ddof=1) * ann_factor
-                rolling_rv.append(rv)
+            # Calculate N-day rolling mean of the annualized daily volatilities
+            rolling_means = []
+            for i in range(len(gk_daily_ann_vol_filtered) - w + 1):
+                window = gk_daily_ann_vol_filtered[i:i+w]
+                rolling_means.append(np.mean(window))
 
-            if rolling_rv:
-                rv_arr = np.array(rolling_rv)
+            if rolling_means:
+                rv_arr = np.array(rolling_means)
                 # Ignore NaNs
                 rv_arr = rv_arr[~np.isnan(rv_arr)]
 
