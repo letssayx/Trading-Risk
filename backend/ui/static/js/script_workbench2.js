@@ -2434,14 +2434,21 @@ async function loadVolatilityAnalysis(event) {
 
     // Use event.target if provided (to distinguish btn-run-historical-iv from btn-load-vol-analysis)
     let loadBtn = document.getElementById('btn-load-vol-analysis');
-    if (event && event.currentTarget) {
+    const isRunCalcEvent = event && event.target && (event.target.id === 'btn-run-historical-iv' || event.target.parentElement?.id === 'btn-run-historical-iv');
+    if (event && event.currentTarget && !isRunCalcEvent) {
         loadBtn = event.currentTarget;
+    } else if (isRunCalcEvent) {
+        loadBtn = document.getElementById('btn-run-historical-iv');
     }
 
     let originalText = '';
     if (loadBtn) {
         originalText = loadBtn.innerHTML;
-        loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        if (isRunCalcEvent) {
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
+        } else {
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        }
         loadBtn.disabled = true;
     }
 
@@ -2457,8 +2464,18 @@ async function loadVolatilityAnalysis(event) {
 
         if (data.detail) {
             console.error("API Error Pre-Expiry:", data.detail);
-            volPreExpiryChart.hideLoading();
+            if (volPreExpiryChart) volPreExpiryChart.hideLoading();
             alert("Error loading Pre-Expiry Action: " + data.detail);
+
+            const runButtonToRestore = document.getElementById('btn-run-historical-iv');
+            if (isRunCalcEvent && runButtonToRestore) {
+                runButtonToRestore.innerHTML = 'Run Historical IV Calculation';
+                runButtonToRestore.disabled = false;
+            }
+            if (loadBtn) {
+                loadBtn.disabled = false;
+                loadBtn.innerHTML = originalText;
+            }
             return;
         }
 
@@ -2606,7 +2623,8 @@ async function loadVolatilityAnalysis(event) {
         const forceCalc = forceCalcCheckbox ? forceCalcCheckbox.checked : false;
 
         const runButton = document.getElementById('btn-run-historical-iv');
-        if (runButton && event && event.target && (event.target.id === 'btn-run-historical-iv' || event.target.parentElement.id === 'btn-run-historical-iv')) {
+        const isRunCalc = event && event.target && (event.target.id === 'btn-run-historical-iv' || event.target.parentElement.id === 'btn-run-historical-iv');
+        if (isRunCalc && runButton) {
             runButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
             runButton.disabled = true;
         }
@@ -2614,15 +2632,23 @@ async function loadVolatilityAnalysis(event) {
         const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}?lookback_days=${lookbackDays}&force_calc=${forceCalc}`);
         const data = await res.json();
 
-        if (runButton) {
+        if (isRunCalc && runButton) {
             runButton.innerHTML = 'Run Historical IV Calculation';
             runButton.disabled = false;
         }
 
         if (data.detail) {
             console.error("API Error Vol Cone:", data.detail);
-            volConeChart.hideLoading();
+            if (volConeChart) volConeChart.hideLoading();
             alert("Error loading Volatility Cone: " + data.detail);
+            if (isRunCalcEvent && runButton) {
+                runButton.innerHTML = 'Run Historical IV Calculation';
+                runButton.disabled = false;
+            }
+            if (loadBtn) {
+                loadBtn.disabled = false;
+                loadBtn.innerHTML = originalText;
+            }
             return;
         }
 
@@ -2853,6 +2879,13 @@ async function loadVolatilityAnalysis(event) {
     if (loadBtn) {
         loadBtn.disabled = false;
         loadBtn.innerHTML = originalText;
+    }
+
+    // Also restore the historical IV button if it was disabled
+    const runBtn = document.getElementById('btn-run-historical-iv');
+    if (runBtn) {
+        runBtn.innerHTML = 'Run Historical IV Calculation';
+        runBtn.disabled = false;
     }
 }
 
