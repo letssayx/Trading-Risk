@@ -139,18 +139,15 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         # 0.5 * (ln(H/L))^2 - (2ln2 - 1) * (ln(C/O))^2
         gk_daily_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * math.log(2) - 1) * (np.log(closes / opens) ** 2)
 
-        # Filter out negative variances (numerical instability) and take sqrt to get daily volatility
-        gk_daily_vol = np.sqrt(np.maximum(gk_daily_var, 0))
+        # Filter out negative variances (numerical instability)
+        gk_daily_var = np.maximum(gk_daily_var, 0)
 
-        # Immediately annualize the daily volatility
-        gk_daily_ann_vol = gk_daily_vol * ann_factor * 100 # convert to percentage
-
-        # Filter out 0.00% values caused by flat pricing or missing data
-        valid_indices = gk_daily_ann_vol > 0.0001
-        gk_daily_ann_vol_filtered = gk_daily_ann_vol[valid_indices]
+        # Filter out flat pricing days (0 variance)
+        valid_indices = gk_daily_var > 0.00000001
+        gk_daily_var_filtered = gk_daily_var[valid_indices]
 
         for w in windows:
-            if w > len(gk_daily_ann_vol_filtered):
+            if w > len(gk_daily_var_filtered):
                 cone_data["p5"].append(None)
                 cone_data["p25"].append(None)
                 cone_data["p50"].append(None)
@@ -159,14 +156,17 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                 cone_data["current_rv"].append(None)
                 continue
 
-            # Calculate N-day rolling mean of the annualized daily volatilities
-            rolling_means = []
-            for i in range(len(gk_daily_ann_vol_filtered) - w + 1):
-                window = gk_daily_ann_vol_filtered[i:i+w]
-                rolling_means.append(np.mean(window))
+            # Calculate N-day rolling Realized Volatility
+            rolling_vols = []
+            for i in range(len(gk_daily_var_filtered) - w + 1):
+                window = gk_daily_var_filtered[i:i+w]
+                # The realized variance of the window is the mean of daily variances * 252
+                annualized_var = np.mean(window) * 252
+                annualized_vol = math.sqrt(annualized_var) * 100
+                rolling_vols.append(annualized_vol)
 
-            if rolling_means:
-                rv_arr = np.array(rolling_means)
+            if rolling_vols:
+                rv_arr = np.array(rolling_vols)
                 # Ignore NaNs
                 rv_arr = rv_arr[~np.isnan(rv_arr)]
 
@@ -409,38 +409,25 @@ def get_pre_expiry_action(
                     rv_line.append(None)
 
         # 2. Fetch Expiry Dates within the timeframe
+        # Optimization: Only fetch where trade_date = expiry_date directly in SQL
+        # This drastically reduces the number of rows scanned and joined.
         min_date = dates[0]
         max_date = dates[-1]
 
         expiry_query = text("""
-            SELECT DISTINCT trade_date, expiry_date, instrument_type
+            SELECT DISTINCT expiry_date
             FROM bhavcopy_fo
             WHERE ticker_symb = :symbol
+              AND trade_date = expiry_date
               AND trade_date >= :min_date AND trade_date <= :max_date
+              AND instrument_type IN ('FUTIDX', 'FUTSTK', 'STF', 'IDF')
         """)
         expiry_result = db.execute(expiry_query, {"symbol": symbol, "min_date": min_date, "max_date": max_date}).fetchall()
 
-        # We need to find the actual expiry dates that happened.
-        # An expiry happens on a date if there is a trade_date == expiry_date
         expiries = set()
         for r in expiry_result:
-            t_date = r[0].strftime('%Y-%m-%d')
-            e_date = r[1].strftime('%Y-%m-%d')
-            i_type = r[2]
-
-            if t_date == e_date:
-                # Is it monthly or weekly?
-                # Monthly usually has FUTIDX/FUTSTK expiring
-                # Weekly usually only has OPTIDX (for indexes) expiring
-
-                is_monthly = i_type in ['FUTIDX', 'FUTSTK', 'STF', 'IDF']
-                is_options = i_type in ['OPTIDX', 'OPTSTK', 'STO', 'IDO']
-
-                if expiry_type.lower() == 'monthly' and is_monthly:
-                    expiries.add(e_date)
-                elif expiry_type.lower() == 'weekly' and is_options:
-                    # Both monthly and weekly options expire, so we include them
-                    expiries.add(e_date)
+            e_date = r[0].strftime('%Y-%m-%d')
+            expiries.add(e_date)
 
         sorted_expiries = sorted(list(expiries))
 

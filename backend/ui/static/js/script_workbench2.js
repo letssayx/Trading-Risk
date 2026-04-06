@@ -2789,13 +2789,17 @@ async function loadVolatilityAnalysis(event) {
                     let minDiff = Infinity;
                     data.windows.forEach((w, idx) => {
                         let diff = Math.abs(w - exp.dte);
-                        if (diff < minDiff) {
+                        // Prevent expiries from mapping to horizons that are too far away
+                        if (diff < minDiff && diff <= 10) {
                             minDiff = diff;
                             dteIdx = idx;
                         }
                     });
                     if (dteIdx !== -1) {
-                        expiriesByDte[dteIdx] = exp;
+                        // Keep the closest one only if there's a collision
+                        if (!expiriesByDte[dteIdx] || minDiff < Math.abs(data.windows[dteIdx] - expiriesByDte[dteIdx].dte)) {
+                            expiriesByDte[dteIdx] = exp;
+                        }
                     }
                 });
             }
@@ -2803,7 +2807,12 @@ async function loadVolatilityAnalysis(event) {
             data.windows.forEach((w, idx) => {
                 const tr = document.createElement('tr');
                 const exp = expiriesByDte[idx];
-                const atmIvStr = exp ? `<span style="color: #E88B1E;">${exp.atm_iv.toFixed(2)}% (${exp.dte}d)</span>` : '-';
+                let atmIvStr = '-';
+                if (exp) {
+                    atmIvStr = `<span style="color: #E88B1E;">${exp.atm_iv.toFixed(2)}% (${exp.dte}d)</span>`;
+                } else {
+                    atmIvStr = `<span style="color: #666; font-size: 0.9em;">No expiry nearby</span>`;
+                }
 
                 tr.innerHTML = `
                     <td style="padding: 6px; font-weight: bold;">${w}</td>

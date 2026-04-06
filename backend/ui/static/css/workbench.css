@@ -519,14 +519,14 @@ body {
 .ai-chat-feed::-webkit-scrollbar-thumb,
 .table-wrapper::-webkit-scrollbar-thumb,
 .chart-content-area::-webkit-scrollbar-thumb {
-    background: #FFD700;
+    background: #555;
     border-radius: 4px;
 }
 
 .ai-chat-feed::-webkit-scrollbar-thumb:hover,
 .table-wrapper::-webkit-scrollbar-thumb:hover,
 .chart-content-area::-webkit-scrollbar-thumb:hover {
-    background: #e6c200;
+    background: #666;
 }
 
 .chat-message {
