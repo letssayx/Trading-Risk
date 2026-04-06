@@ -2789,7 +2789,7 @@ async function loadVolatilityAnalysis() {
                     name: 'ATM IV',
                     type: 'scatter',
                     data: scatterData,
-                    itemStyle: { color: '#FF00FF' }, // Magenta
+                    itemStyle: { color: '#E88B1E' }, // Bloomberg Orange
                     symbol: 'circle',
                     symbolSize: 10,
                     tooltip: {

@@ -70,13 +70,47 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         dates = [r[0] for r in result]
         prices = [float(r[1]) for r in result]
 
-        # Calculate daily log returns
-        log_returns = []
-        for i in range(1, len(prices)):
-            if prices[i-1] > 0 and prices[i] > 0:
-                log_returns.append(math.log(prices[i] / prices[i-1]))
-            else:
-                log_returns.append(0.0)
+        # Get historical OHLC prices
+        if is_index:
+            ohlc_query = text("""
+                SELECT trade_date, open_price, high_price, low_price, close_price
+                FROM historical_index_data
+                WHERE index_name = :symbol
+                ORDER BY trade_date DESC
+                LIMIT :lookback
+            """)
+        else:
+            ohlc_query = text("""
+                SELECT trade_date, open_price, high_price, low_price, close_price
+                FROM bhavcopy_eq
+                WHERE ticker_symb = :symbol AND series = 'EQ'
+                ORDER BY trade_date DESC
+                LIMIT :lookback
+            """)
+
+        ohlc_result = db.execute(ohlc_query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+
+        if not ohlc_result:
+            try:
+                 ohlc_query = text("""
+                    SELECT * FROM (
+                        SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price
+                        FROM bhavcopy_fo
+                        WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF')
+                        ORDER BY trade_date DESC, expiry_date ASC
+                    ) AS distinct_dates
+                    ORDER BY trade_date DESC
+                    LIMIT :lookback
+                """)
+                 ohlc_result = db.execute(ohlc_query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+            except Exception:
+                 db.rollback()
+                 ohlc_result = []
+
+        ohlc_result.reverse()
+
+        if not ohlc_result or len(ohlc_result) < 5:
+            raise HTTPException(status_code=400, detail=f"Insufficient price history for Volatility Cone ({len(ohlc_result)} records found, need at least 5 days)")
 
         # Windows to calculate (updated per user request)
         windows = [1, 2, 3, 5, 10, 21, 30]
@@ -92,12 +126,21 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
             "active_expiries": [] # To hold overlay dots
         }
 
-        # Compute rolling window Realized Volatilities
-        log_returns_np = np.array(log_returns)
-        ann_factor = math.sqrt(365) * 100  # Note: user requested sqrt(365) instead of 252
+        # Compute Garman-Klass Volatility
+        ann_factor = 365 # User requested sqrt(365), variance needs 365 multiplier
+
+        # O, H, L, C arrays
+        opens = np.array([float(r[1]) if r[1] > 0 else float(r[4]) for r in ohlc_result])
+        highs = np.array([float(r[2]) if r[2] > 0 else float(r[4]) for r in ohlc_result])
+        lows = np.array([float(r[3]) if r[3] > 0 else float(r[4]) for r in ohlc_result])
+        closes = np.array([float(r[4]) for r in ohlc_result])
+
+        # Calculate daily Garman-Klass variance estimator
+        # 0.5 * (ln(H/L))^2 - (2ln2 - 1) * (ln(C/O))^2
+        gk_daily_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * math.log(2) - 1) * (np.log(closes / opens) ** 2)
 
         for w in windows:
-            if w > len(log_returns_np):
+            if w > len(gk_daily_var):
                 cone_data["p5"].append(None)
                 cone_data["p25"].append(None)
                 cone_data["p50"].append(None)
