@@ -142,48 +142,30 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         # Filter out negative variances (numerical instability)
         gk_daily_var = np.maximum(gk_daily_var, 0)
 
-        # Filter out flat pricing days (0 variance)
-        valid_indices = gk_daily_var > 0.00000001
-        gk_daily_var_filtered = gk_daily_var[valid_indices]
+        # DO NOT filter out flat days globally, we must preserve chronology for rolling sums
+        # We roll first, then calculate percentiles from valid rolling values
+
+        import pandas as pd
+        df = pd.DataFrame({'gk_var': gk_daily_var})
 
         for w in windows:
-            if w > len(gk_daily_var_filtered):
-                cone_data["p5"].append(None)
-                cone_data["p25"].append(None)
-                cone_data["p50"].append(None)
-                cone_data["p75"].append(None)
-                cone_data["p95"].append(None)
-                cone_data["current_rv"].append(None)
-                continue
+            # Step 2: Rolling SUM of variances over N days (forward horizon)
+            rolling_var_sum = df['gk_var'].rolling(window=w).sum()
 
-            # Calculate N-day rolling Realized Volatility
-            rolling_vols = []
-            for i in range(len(gk_daily_var_filtered) - w + 1):
-                window = gk_daily_var_filtered[i:i+w]
-                # The realized variance of the window is the mean of daily variances * 252
-                annualized_var = np.mean(window) * 252
-                annualized_vol = math.sqrt(annualized_var) * 100
-                rolling_vols.append(annualized_vol)
+            # Step 3: Annualize to get volatility for N-day period
+            # Formula: Vol_N = sqrt(Sum_of_variances * (252 / N)) * 100
+            rolling_vol_annualized = np.sqrt(rolling_var_sum * (252 / w)) * 100
 
-            if rolling_vols:
-                rv_arr = np.array(rolling_vols)
-                # Ignore NaNs
-                rv_arr = rv_arr[~np.isnan(rv_arr)]
+            # Step 4: Get percentiles from historical data
+            valid_vol = rolling_vol_annualized.dropna().tail(lookback_days)
 
-                if len(rv_arr) > 0:
-                    cone_data["p5"].append(round(float(np.percentile(rv_arr, 5)), 2))
-                    cone_data["p25"].append(round(float(np.percentile(rv_arr, 25)), 2))
-                    cone_data["p50"].append(round(float(np.percentile(rv_arr, 50)), 2))
-                    cone_data["p75"].append(round(float(np.percentile(rv_arr, 75)), 2))
-                    cone_data["p95"].append(round(float(np.percentile(rv_arr, 95)), 2))
-                    cone_data["current_rv"].append(round(float(rv_arr[-1]), 2))
-                else:
-                    cone_data["p5"].append(None)
-                    cone_data["p25"].append(None)
-                    cone_data["p50"].append(None)
-                    cone_data["p75"].append(None)
-                    cone_data["p95"].append(None)
-                    cone_data["current_rv"].append(None)
+            if len(valid_vol) > 0:
+                cone_data["p5"].append(round(float(valid_vol.quantile(0.05)), 2))
+                cone_data["p25"].append(round(float(valid_vol.quantile(0.25)), 2))
+                cone_data["p50"].append(round(float(valid_vol.quantile(0.50)), 2))
+                cone_data["p75"].append(round(float(valid_vol.quantile(0.75)), 2))
+                cone_data["p95"].append(round(float(valid_vol.quantile(0.95)), 2))
+                cone_data["current_rv"].append(round(float(valid_vol.iloc[-1]), 2))
             else:
                 cone_data["p5"].append(None)
                 cone_data["p25"].append(None)
@@ -191,6 +173,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                 cone_data["p75"].append(None)
                 cone_data["p95"].append(None)
                 cone_data["current_rv"].append(None)
+
 
         # Fetch Active Expiries and their ATM IVs
         current_date = dates[-1]
