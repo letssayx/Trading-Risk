@@ -1601,6 +1601,14 @@
     async function loadMarketActivity() {
         const symbol = document.getElementById('market-activity-symbol').value.toUpperCase() || 'NIFTY';
 
+        const loadBtn = document.getElementById('btn-load-market-activity');
+        let originalText = '';
+        if (loadBtn) {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
         // 1. Load FII/DII Chart (Side by side bars per user request)
         try {
             const res = await fetch('/api/market-activity/cash-flow');
@@ -2085,6 +2093,11 @@
         } finally {
             echartInstance?.hideLoading();
         }
+
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.innerHTML = originalText;
+        }
     }
 
     // Listen for resize
@@ -2413,11 +2426,24 @@ function renderParticipantHistorical(data) {
 let volPreExpiryChart = null;
 let volConeChart = null;
 
-async function loadVolatilityAnalysis() {
+async function loadVolatilityAnalysis(event) {
     const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
     const expiryType = document.getElementById('vol-analysis-expiry-type').value;
     const lookback = document.getElementById('vol-analysis-lookback').value;
     const boxDays = document.getElementById('vol-analysis-box-days').value;
+
+    // Use event.target if provided (to distinguish btn-run-historical-iv from btn-load-vol-analysis)
+    let loadBtn = document.getElementById('btn-load-vol-analysis');
+    if (event && event.currentTarget) {
+        loadBtn = event.currentTarget;
+    }
+
+    let originalText = '';
+    if (loadBtn) {
+        originalText = loadBtn.innerHTML;
+        loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        loadBtn.disabled = true;
+    }
 
     // 1. Load Pre-Expiry Chart
     try {
@@ -2814,6 +2840,11 @@ async function loadVolatilityAnalysis() {
     } catch (e) {
         console.error("Error loading Volatility Cone", e);
         if (volConeChart) volConeChart.hideLoading();
+    }
+
+    if (loadBtn) {
+        loadBtn.disabled = false;
+        loadBtn.innerHTML = originalText;
     }
 }
 

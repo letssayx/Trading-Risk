@@ -179,13 +179,15 @@ def calculate_historical_atm_iv(db: Session, symbol: str, lookback_days: int = 5
 
         # Insert batch
         if records:
-            from sqlalchemy.exc import IntegrityError
+            from sqlalchemy.dialects.postgresql import insert
             try:
-                db.bulk_insert_mappings(HistoricalATMIV, records)
+                stmt = insert(HistoricalATMIV).values(records)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['trade_date', 'symbol'],
+                    set_={'atm_iv': stmt.excluded.atm_iv}
+                )
+                db.execute(stmt)
                 db.commit()
-            except IntegrityError as e:
-                db.rollback()
-                print(f"Warning: Failed to bulk insert Historical ATM IV for {symbol} due to IntegrityError: {e}")
             except Exception as e:
                 db.rollback()
                 print(f"Error: Failed to bulk insert Historical ATM IV for {symbol}: {e}")

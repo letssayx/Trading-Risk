@@ -1358,7 +1358,7 @@
                             <div id="opt-symbol-dropdown" class="autocomplete-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 99; max-height: 300px; overflow-y: auto; background-color: #333; border: 1px solid #444; border-radius: 4px;"></div>
                         </div>
                         <select id="opt-expiry-select" class="form-control history-select" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
-                        <button class="btn btn-primary" onclick="loadOptionChain()">Load Chain</button>
+                        <button class="btn btn-primary" id="btn-load-option-chain" onclick="loadOptionChain()">Load Chain</button>
                         <button class="btn btn-secondary" onclick="exportTableToCSV('option-chain-table', 'Option_Chain')"><i class="fas fa-download"></i> CSV</button>
 
                         <div style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end;">
@@ -1433,7 +1433,7 @@
                             <option value="252">252 Days</option>
                             <option value="500" selected>500 Days</option>
                         </select>
-                        <button class="btn btn-primary" onclick="loadVolatilityAnalysis()">Load</button>
+                        <button class="btn btn-primary" id="btn-load-vol-analysis" onclick="loadVolatilityAnalysis(event)">Load</button>
                     </div>
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
@@ -1459,7 +1459,7 @@
                     <div style="width: 100%; height: 800px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content: space-between; margin-bottom:10px; align-items: center;">
                             <div style="display:flex; gap: 10px; align-items: center;">
-                                <button class="btn btn-primary" onclick="loadVolatilityAnalysis()">Run Historical IV Calculation</button>
+                                <button class="btn btn-primary" id="btn-run-historical-iv" onclick="loadVolatilityAnalysis(event)">Run Historical IV Calculation</button>
                                 <label style="color: #ccc; font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="vol-analysis-force-calc" style="margin-right: 5px;"> Force Recalculate History</label>
                             </div>
                             <button class="btn btn-secondary" onclick="if(window.volConeChart) exportChartDataToCSV(window.volConeChart, 'Volatility_Cone'); else exportChartDataToCSV(volConeChart, 'Volatility_Cone')"><i class="fas fa-download"></i> CSV</button>
@@ -1550,7 +1550,7 @@
                         <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0; margin-top: 20px; border-top: 1px solid #333; padding-top: 20px;">
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
                             <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
-                            <button class="btn btn-secondary" onclick="loadOptionsAnalysis()">Load Charts</button>
+                            <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()">Load Charts</button>
                         </div>
 
                         <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
@@ -1615,7 +1615,7 @@
                 <!-- SUB-TAB MWPL Analysis -->
                 <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <button class="btn btn-secondary" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
+                        <button class="btn btn-secondary" id="btn-load-mwpl" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
                         <button class="btn btn-secondary" onclick="exportTableToCSV('mwpl-analysis-table', 'MWPL_Analysis')"><i class="fas fa-download"></i> CSV</button>
                     </div>
                     <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
@@ -1647,7 +1647,7 @@
                             <option value="252">252 Days</option>
                             <option value="500" selected>500 Days</option>
                         </select>
-                        <button class="btn btn-secondary" onclick="loadMarketActivity()">Load Charts</button>
+                        <button class="btn btn-secondary" id="btn-load-market-activity" onclick="loadMarketActivity()">Load Charts</button>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px;">
@@ -1752,7 +1752,7 @@
                 <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
-                        <button class="btn btn-secondary" onclick="loadDynamicChart()">Load Chart</button>
+                        <button class="btn btn-secondary" id="btn-load-adv-tech" onclick="loadDynamicChart()">Load Chart</button>
                     </div>
 
                     <!-- Technical Multi-Axis Chart (ECharts) -->
@@ -2919,6 +2919,14 @@ function exportChartDataToCSV(chartInstance, filename) {
     async function loadDynamicChart() {
         const symbol = document.getElementById('market-activity-symbol').value.toUpperCase() || 'NIFTY';
 
+        const loadBtn = document.getElementById('btn-load-adv-tech');
+        let originalText = '';
+        if (loadBtn) {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
         // 3. Load EChart Multi-Axis
         const container = document.getElementById('echart-container');
         if (!echartInstance) {
@@ -3015,12 +3023,25 @@ function exportChartDataToCSV(chartInstance, filename) {
         } finally {
             echartInstance?.hideLoading();
         }
+
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.innerHTML = originalText;
+        }
     }
 
     async function loadMWPLAnalysis() {
         const thead = document.querySelector('#mwpl-analysis-table thead');
         const tbody = document.getElementById('mwpl-analysis-body');
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Loading...</td></tr>';
+
+        const loadBtn = document.getElementById('btn-load-mwpl');
+        let originalText = '';
+        if (loadBtn) {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
 
         try {
             const res = await fetch('/api/data/derivatives/mwpl_historical');
@@ -3317,6 +3338,11 @@ function exportChartDataToCSV(chartInstance, filename) {
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
+
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.innerHTML = originalText;
+        }
     }
 
     let marketWatchCustomSymbols = []; // array to store manually added custom symbols
@@ -3481,6 +3507,14 @@ function exportChartDataToCSV(chartInstance, filename) {
         const sym = document.getElementById('opt-symbol-input').value.toUpperCase();
         if (!sym) return;
 
+        const loadBtn = document.getElementById('btn-load-option-chain');
+        let originalText = '';
+        if (loadBtn) {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
         const expirySelect = document.getElementById('opt-expiry-select');
         const selectedExpiry = expirySelect.value;
         const tbody = document.getElementById('option-chain-body');
@@ -3597,6 +3631,11 @@ function exportChartDataToCSV(chartInstance, filename) {
 
         } catch(e) {
             tbody.innerHTML = `<tr><td colspan="21" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+        }
+
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.innerHTML = originalText;
         }
     }
 

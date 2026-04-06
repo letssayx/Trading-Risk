@@ -3,6 +3,14 @@ async function loadOptionsAnalysis() {
     const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
     if (!symbol) return;
 
+    const loadBtn = document.getElementById('btn-load-options-analysis');
+    let originalText = '';
+    if (loadBtn) {
+        originalText = loadBtn.innerHTML;
+        loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        loadBtn.disabled = true;
+    }
+
     // 1. Load 500-Day PCR Chart
     try {
         const days = document.getElementById('opt-analysis-lookback')?.value || '500';
@@ -318,5 +326,10 @@ async function loadOptionsAnalysis() {
         highOiChartInstance.setOption(option);
     } catch (e) {
         console.error("Error loading high OI chart:", e);
+    }
+
+    if (loadBtn) {
+        loadBtn.disabled = false;
+        loadBtn.innerHTML = originalText;
     }
 }
