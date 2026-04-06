@@ -1661,8 +1661,8 @@
                 datasets.push({
                     label: 'NIFTY',
                     type: 'line',
-                    yAxisID: 'y1', // Keep y1 so it scales with nifty, but we won't draw the line
-                    data: niftyData,
+                    yAxisID: 'y', // Bind to the main Y axis so it matches bar heights
+                    data: topOffsets, // Use topOffsets instead of niftyData so it hovers exactly above the highest bar
                     borderColor: 'transparent', // Remove Nifty overlay line
                     backgroundColor: 'transparent',
                     borderWidth: 0,
@@ -1672,24 +1672,13 @@
                         align: 'end',
                         anchor: 'end',
                         color: '#FFD700', // Yellow Nifty values
-                        font: { size: 10, weight: 'bold' },
-                        formatter: (value) => Math.round(value)
+                        font: { size: 11, weight: 'bold' },
+                        formatter: (value, context) => {
+                            const niftyVal = niftyData[context.dataIndex];
+                            return niftyVal ? Math.round(niftyVal) : '';
+                        }
                     }
                 });
-            }
-
-            let minNifty = null;
-            let maxNifty = null;
-            if (niftyData.length > 0) {
-                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
-                if (validNifty.length > 0) {
-                    const absMin = Math.min(...validNifty);
-                    const absMax = Math.max(...validNifty);
-                    const diff = absMax - absMin;
-                    const pad = diff * 0.1;
-                    minNifty = Math.floor(absMin - pad);
-                    maxNifty = Math.ceil(absMax + pad);
-                }
             }
 
             const alternatingBackgroundPlugin = {
@@ -1722,11 +1711,7 @@
                     responsive: true, maintainAspectRatio: false,
                     scales: {
                         x: { stacked: false },
-                        y: { stacked: false, position: 'left', grid: { color: '#333' } },
-                        y1: {
-                            type: 'linear', position: 'right', display: false, // hide the axis
-                            min: minNifty, max: maxNifty
-                        }
+                        y: { stacked: false, position: 'left', grid: { color: '#333' } }
                     },
                     plugins: {
                         legend: { labels: { color: '#ccc' } },
@@ -1848,10 +1833,16 @@
                 series: series.map((s, idx) => {
                     if (idx === 0) {
                         s.markArea = {
-                            itemStyle: { color: 'rgba(255,255,255,0.1)' },
+                            itemStyle: { color: 'rgba(255,255,255,0.05)' },
                             data: xAxisData.map((lbl, i) => {
-                                // Zebra shading per instrument
-                                if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
+                                // Zebra shading: shade every alternating instrument (Index Futures, Stock Futures, Index Calls, Index Puts...)
+                                // The layout is exact category names.
+                                if (i % 2 === 1) {
+                                    return [
+                                        { name: lbl, xAxis: lbl },
+                                        { xAxis: lbl }
+                                    ];
+                                }
                                 return null;
                             }).filter(d => d !== null)
                         };
@@ -2036,10 +2027,15 @@
                             data: prevData,
                             itemStyle: { color: '#60a5fa' }, // Blue
                             markArea: {
-                                itemStyle: { color: 'rgba(255,255,255,0.1)' },
+                                itemStyle: { color: 'rgba(255,255,255,0.05)' },
                                 data: xAxisData.map((lbl, i) => {
                                     // Zebra shading per instrument
-                                    if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
+                                    if (i % 2 === 1) {
+                                        return [
+                                            { name: lbl, xAxis: lbl },
+                                            { xAxis: lbl }
+                                        ];
+                                    }
                                     return null;
                                 }).filter(d => d !== null)
                             },

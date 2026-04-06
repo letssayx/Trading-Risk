@@ -442,17 +442,51 @@ const OiTool = {
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'pan'
+            dragmode: 'zoom'
         };
 
         const config = {
             responsive: true,
             scrollZoom: true,
             displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'pan2d']
         };
 
         Plotly.newPlot(container, [trace], layout, config);
+
+        // Force strictly symmetric zoom (centered on 0,0) so the quadrants don't drift
+        container.on('plotly_relayout', function(eventdata) {
+            // Prevent infinite loop if we are the ones triggering the relayout
+            if (eventdata.xaxis && eventdata.xaxis.autorange) return;
+            if (eventdata['xaxis.range[0]'] || eventdata['yaxis.range[0]']) {
+                let x0 = eventdata['xaxis.range[0]'];
+                let x1 = eventdata['xaxis.range[1]'];
+                let y0 = eventdata['yaxis.range[0]'];
+                let y1 = eventdata['yaxis.range[1]'];
+
+                let update = false;
+                let newLayout = {};
+
+                if (x0 !== undefined && x1 !== undefined) {
+                    let maxAbsX = Math.max(Math.abs(x0), Math.abs(x1));
+                    if (Math.abs(Math.abs(x0) - Math.abs(x1)) > 0.001) {
+                        newLayout['xaxis.range'] = [-maxAbsX, maxAbsX];
+                        update = true;
+                    }
+                }
+                if (y0 !== undefined && y1 !== undefined) {
+                    let maxAbsY = Math.max(Math.abs(y0), Math.abs(y1));
+                    if (Math.abs(Math.abs(y0) - Math.abs(y1)) > 0.001) {
+                        newLayout['yaxis.range'] = [-maxAbsY, maxAbsY];
+                        update = true;
+                    }
+                }
+
+                if (update) {
+                    Plotly.relayout(container, newLayout);
+                }
+            }
+        });
     },
 
     filterData: function() {
