@@ -1876,7 +1876,7 @@
                     {
                         name: `${p.label} (Prev)`,
                         type: 'bar',
-                        stack: p.label, // Stack Prev and Today for visual pairing if needed, or group
+
                         data: prevDataArr,
                         itemStyle: { color: p.key === 'smart_money' ? '#8B8000' : p.color, opacity: 0.5 }, // Dimmer for previous
                         label: { show: false }
@@ -1884,7 +1884,7 @@
                     {
                         name: `${p.label} (Today)`,
                         type: 'bar',
-                        stack: p.label,
+
                         data: todayDataArr,
                         itemStyle: { color: p.color },
                         label: {
@@ -1905,23 +1905,8 @@
                 ];
             }).flat();
 
-            // Add markArea to create shading for alternate groups
-            if (granularSeries.length > 0) {
-                granularSeries[0].markArea = {
-                    itemStyle: { color: 'rgba(255,255,255,0.1)' },
                     data: xAxisData.map((lbl, idx) => {
                         if (idx % 2 === 1) { // Apply shading to alternate categories
-                            return [{ xAxis: idx - 0.5 }, { xAxis: idx + 0.5 }];
-                        }
-                        return null;
-                    }).filter(d => d !== null)
-                };
-            }
-
-            const granularOption = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                legend: { type: 'scroll', textStyle: { color: '#ccc' }, bottom: 0 },
                 grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
                 xAxis: {
                     type: 'category',
@@ -2007,14 +1992,14 @@
                             name: 'Previous Day',
                             type: 'bar',
                             data: prevData,
-                            itemStyle: { color: '#60a5fa' }, // Blue
+                            itemStyle: { color: '#3176B8' }, // Blue (Previous)
                             label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         },
                         {
                             name: 'Today',
                             type: 'bar',
                             data: todayData,
-                            itemStyle: { color: '#E88B1E' }, // Orange
+                            itemStyle: { color: '#FFD700' }, // Yellow (Today)
                             label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         }
                     ]
@@ -2520,7 +2505,7 @@ async function loadVolatilityAnalysis(event) {
                     type: 'line',
                     data: data.prices,
                     yAxisIndex: 0,
-                    itemStyle: { color: '#60a5fa' }, // Blue line for price
+                    itemStyle: { color: '#3176B8' }, // Blue (Previous) line for price
                     lineStyle: { width: 2 },
                     showSymbol: false,
                     markLine: {
@@ -2537,7 +2522,7 @@ async function loadVolatilityAnalysis(event) {
                     type: 'line',
                     data: data.rv,
                     yAxisIndex: 1,
-                    itemStyle: { color: '#E88B1E' }, // Orange line for RV
+                    itemStyle: { color: '#FFD700' }, // Yellow (Today) line for RV
                     lineStyle: { width: 2 },
                     showSymbol: false
                 },
@@ -3020,3 +3005,4 @@ function exportChartDataToCSV(chartInstance, filename) {
     downloadLink.click();
     document.body.removeChild(downloadLink);
 }
+window.exportChartDataToCSV = exportChartDataToCSV;

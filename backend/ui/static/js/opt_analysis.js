@@ -21,8 +21,8 @@ async function loadOptionsAnalysis() {
         let data = await res.json();
 
         const chartDom = document.getElementById('opt-analysis-pcr-chart');
-        if (pcrChartInstance) pcrChartInstance.dispose();
-        pcrChartInstance = echarts.init(chartDom);
+        if (window.pcrChartInstance) window.pcrChartInstance.dispose();
+        window.pcrChartInstance = echarts.init(chartDom);
 
         const oiColors = data.total_oi.map((val, idx) => {
             if (idx === 0) return '#60a5fa';
@@ -181,7 +181,7 @@ async function loadOptionsAnalysis() {
                 }
             ]
         };
-        pcrChartInstance.setOption(option);
+        window.pcrChartInstance.setOption(option);
 
         // Render 10-day history table below the chart
         const tbody = document.getElementById('opt-analysis-history-body');
@@ -270,8 +270,8 @@ async function loadOptionsAnalysis() {
             pe_oi.push(row.PE.oi || 0);
         });
 
-        if (highOiChartInstance) highOiChartInstance.dispose();
-        highOiChartInstance = echarts.init(chartDom);
+        if (window.highOiChartInstance) window.highOiChartInstance.dispose();
+        window.highOiChartInstance = echarts.init(chartDom);
 
         const option = {
             backgroundColor: 'transparent',
@@ -328,7 +328,7 @@ async function loadOptionsAnalysis() {
             ]
         };
 
-        highOiChartInstance.setOption(option);
+        window.highOiChartInstance.setOption(option);
     } catch (e) {
         console.error("Error loading high OI chart:", e);
     }
@@ -338,3 +338,4 @@ async function loadOptionsAnalysis() {
         loadBtn.innerHTML = originalText;
     }
 }
+window.loadOptionsAnalysis = loadOptionsAnalysis;
