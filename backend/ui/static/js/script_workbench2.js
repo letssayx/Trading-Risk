@@ -502,7 +502,7 @@
                     let typeBadge = '';
                     if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
                     else if (item.issue_type === 'tender') typeBadge = '<span class="badge" style="background:#FF9800; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Tender</span>';
-                    else if (item.issue_type === 'rights') typeBadge = '<span class="badge" style="background:#60a5fa; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Rights</span>';
+                    else if (item.issue_type === 'rights') typeBadge = '<span class="badge" style="background:#00bcd4; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">Rights</span>';
                     else typeBadge = item.issue_type || '-';
 
                      tr.innerHTML = `
@@ -658,7 +658,7 @@
                         }
                         // For display, truncate long URLs
                         let displayVal = val.length > 50 ? val.substring(0, 47) + '...' : val;
-                        html += `<td><a href="${linkUrl}" target="_blank" style="color:#60a5fa; text-decoration:underline;" title="${val}">${displayVal}</a></td>`;
+                        html += `<td><a href="${linkUrl}" target="_blank" style="color:#00bcd4; text-decoration:underline;" title="${val}">${displayVal}</a></td>`;
                     } else {
                         if(typeof val === 'string' && val.length > 100) val = val.substring(0, 97) + '...';
                         html += `<td title="${item[k]}">${val}</td>`;
@@ -790,7 +790,7 @@
                 } else if (msg.type === "jules_task") {
                     let julesOutput = `
                     <div class="chat-message jules-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                        <div style="color: #60a5fa; font-weight: bold; margin-bottom: 5px;">[JULES PRE-PROCESS]</div>`;
+                        <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[JULES PRE-PROCESS]</div>`;
 
                     if (msg.reasoning) {
                         julesOutput += `
@@ -908,7 +908,7 @@
                     }
                     if(d.futures && d.futures.close_price) {
                         hasData = true;
-                        let oiColor = (d.futures.change_in_oi > 0) ? 'color: #60a5fa;' : 'color: #f59e0b;';
+                        let oiColor = (d.futures.change_in_oi > 0) ? 'color: #00bcd4;' : 'color: #f59e0b;';
                         let oiSign = (d.futures.change_in_oi > 0) ? '+' : '';
                         matrixOutput += `
                             <tr>
@@ -955,7 +955,7 @@
                     </div>`;
                 } else if (msg.type === "execution") {
                     const ex = msg.data;
-                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'color: #f59e0b;' : 'color: #60a5fa;';
+                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'color: #f59e0b;' : 'color: #00bcd4;';
                     let rationaleHtml = "";
                     if (Array.isArray(ex.rationale)) {
                         rationaleHtml = "<ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px; color: #ccc;'>" + ex.rationale.map(r => `<li>${r}</li>`).join('') + "</ul>";
@@ -965,7 +965,7 @@
 
                     let execOutput = `
                     <div class="chat-message gemini-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                        <div style="color: #60a5fa; font-weight: bold; margin-bottom: 5px;">[GEMINI] EXECUTION</div>`;
+                        <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[GEMINI] EXECUTION</div>`;
 
                     if (ex.reasoning) {
                         execOutput += `
@@ -1479,7 +1479,7 @@
                         e.preventDefault();
                         const msg = chatInput.value.trim();
                         if (!msg) return;
-                        chatContent.innerHTML += `<div class="msg user" style="color:#60a5fa; margin-top:5px;"><strong>You:</strong> ${msg}</div>`;
+                        chatContent.innerHTML += `<div class="msg user" style="color:#00bcd4; margin-top:5px;"><strong>You:</strong> ${msg}</div>`;
                         chatInput.value = '';
                         // Mock Response for now as actual backend call wasn't fully visible in my read but I recall the structure
                         try {
@@ -1645,11 +1645,13 @@
                     type: 'line',
                     yAxisID: 'y1',
                     data: niftyData,
-                    borderColor: '#ff9900',
+                    borderColor: '#FFFFFF',
                     backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0.1
+                    borderWidth: 4,
+                    pointRadius: 2,
+                    tension: 0.1,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)',
+                    shadowBlur: 5
                 });
             }
 
@@ -1674,7 +1676,7 @@
                     const xAxis = chart.scales.x;
                     const yAxis = chart.scales.y;
                     ctx.save();
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
                     for (let i = 0; i < xAxis.ticks.length; i++) {
                         if (i % 2 === 1) { // Alternate days shading
                             const left = i === 0 ? xAxis.left : (xAxis.getPixelForTick(i) + xAxis.getPixelForTick(i-1)) / 2;
@@ -1744,7 +1746,7 @@
                 { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
                 { key: 'dii', label: 'DII', color: '#60a5fa' },     // Blue
                 { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
-                { key: 'client', label: 'CLI', color: '#60a5fa' },  // Green
+                { key: 'client', label: 'CLI', color: '#60a5fa' },  // Blue
                 { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' } // Yellow
             ];
 
@@ -1821,7 +1823,18 @@
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                     // Removed zebra striping splitArea per user request
                 },
-                series: series
+                series: series.map((s, idx) => {
+                    if (idx === 0) {
+                        s.markArea = {
+                            itemStyle: { color: 'rgba(255,255,255,0.1)' },
+                            data: xAxisData.map((lbl, i) => {
+                                if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
+                                return null;
+                            }).filter(d => d !== null)
+                        };
+                    }
+                    return s;
+                })
             };
 
             participantChartInstance.setOption(option);
@@ -1897,7 +1910,17 @@
             }).flat();
 
             // Add markArea to create shading for alternate groups
-            // Removed zebra striping as it's visually distracting
+            if (granularSeries.length > 0) {
+                granularSeries[0].markArea = {
+                    itemStyle: { color: 'rgba(255,255,255,0.1)' },
+                    data: xAxisData.map((lbl, idx) => {
+                        if (idx % 2 === 1) { // Apply shading to alternate categories
+                            return [{ xAxis: idx - 0.5 }, { xAxis: idx + 0.5 }];
+                        }
+                        return null;
+                    }).filter(d => d !== null)
+                };
+            }
 
             const granularOption = {
                 backgroundColor: 'transparent',
@@ -1990,7 +2013,7 @@
                             data: prevData,
                             itemStyle: { color: '#60a5fa' }, // Blue
                             markArea: {
-                                itemStyle: { color: 'rgba(255,255,255,0.05)' },
+                                itemStyle: { color: 'rgba(255,255,255,0.1)' },
                                 data: xAxisData.map((lbl, i) => {
                                     if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
                                     return null;
@@ -2072,140 +2095,7 @@
     });
 // script end
 
-let pcrChartInstance = null;
-let highOiChartInstance = null;
-
-async function loadOptionsAnalysis() {
-    const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
-    if (!symbol) return;
-
-    // 1. Load 500-Day PCR Chart
-    try {
-        const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=500`);
-        const data = await res.json();
-
-        const chartDom = document.getElementById('opt-analysis-pcr-chart');
-        if (pcrChartInstance) pcrChartInstance.dispose();
-        pcrChartInstance = echarts.init(chartDom);
-
-        const option = {
-            backgroundColor: 'transparent',
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'cross' },
-                formatter: function(params) {
-                    let tooltipHtml = `<b>${params[0].axisValue}</b><br/>`;
-                    params.forEach(param => {
-                        let val = param.value !== undefined && param.value !== null ? parseFloat(param.value).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : 'N/A';
-                        if (param.seriesName.includes('%')) val += '%';
-                        tooltipHtml += `${param.marker} ${param.seriesName}: <b>${val}</b><br/>`;
-                    });
-                    return tooltipHtml;
-                }
-            },
-            legend: {
-                data: ['Total OI', 'PCR', 'OI Chg %', 'Price Chg %', 'Price (FUT1)', 'ATM IV'],
-                textStyle: { color: '#ccc' }
-            },
-            grid: [
-                { left: '3%', right: '8%', height: '55%', top: '10%', containLabel: true }, // Main Chart
-                { left: '3%', right: '8%', height: '15%', top: '70%', containLabel: true }  // ATM IV
-            ],
-            xAxis: [
-                { type: 'category', data: data.dates, gridIndex: 0, show: false, axisPointer: {label: {show: false}} },
-                { type: 'category', data: data.dates, gridIndex: 1, axisLabel: { color: '#888' }, axisLine: { lineStyle: { color: '#333' } } }
-            ],
-            yAxis: [
-                { type: 'value', name: 'Total OI', position: 'left', gridIndex: 0, splitLine: { show: false }, axisLabel: { color: '#888' } },
-                { type: 'value', name: 'Price', position: 'right', gridIndex: 0, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, scale: true, axisLabel: { color: '#888' } },
-                { type: 'value', name: 'PCR', position: 'right', offset: 60, gridIndex: 0, scale: true, splitLine: { show: false }, axisLabel: { color: '#888' } },
-                { type: 'value', name: '% Chg', position: 'right', offset: 120, gridIndex: 0, splitLine: { show: false }, axisLabel: { color: '#888', formatter: '{value}%' } },
-                { type: 'value', name: 'ATM IV', gridIndex: 1, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, axisLabel: { color: '#888', formatter: '{value}%' } }
-            ],
-            dataZoom: [
-                { type: 'inside', xAxisIndex: [0, 1], start: 50, end: 100 },
-                { type: 'slider', xAxisIndex: [0, 1], start: 50, end: 100, bottom: '2%', textStyle: { color: '#ccc' } }
-            ],
-            series: [
-                { name: 'Total OI', type: 'bar', barGap: '0%', data: data.total_oi, itemStyle: { color: 'rgba(54, 162, 235, 0.4)' }, xAxisIndex: 0, yAxisIndex: 0 },
-                { name: 'PCR', type: 'bar', barGap: '0%', data: data.pcr, itemStyle: { color: '#60a5fa' }, xAxisIndex: 0, yAxisIndex: 2 },
-                { name: 'OI Chg %', type: 'bar', barGap: '0%', data: data.oi_chg_pct || [], itemStyle: { color: '#2196F3' }, xAxisIndex: 0, yAxisIndex: 3 },
-                { name: 'Price Chg %', type: 'bar', barGap: '0%', data: data.price_chg_pct || [], itemStyle: { color: '#E88B1E' }, xAxisIndex: 0, yAxisIndex: 3 },
-                { name: 'Price (FUT1)', type: 'line', data: data.price, itemStyle: { color: '#FFCC00' }, lineStyle: { width: 2 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 1 },
-                { name: 'ATM IV', type: 'line', data: data.atm_iv || [], itemStyle: { color: '#e040fb' }, lineStyle: { width: 2, type: 'dashed' }, symbol: 'none', xAxisIndex: 1, yAxisIndex: 4 }
-            ]
-        };
-
-        // Custom min/max to prevent flat lines
-        if (data.price && data.price.length > 0) {
-            const valid = data.price.filter(v => v !== null && !isNaN(v));
-            if (valid.length > 0) {
-                const min = Math.min(...valid);
-                const max = Math.max(...valid);
-                const pad = (max - min) * 0.1;
-                option.yAxis[1].min = Math.floor(min - pad);
-                option.yAxis[1].max = Math.ceil(max + pad);
-            }
-        }
-        if (data.pcr && data.pcr.length > 0) {
-            const valid = data.pcr.filter(v => v !== null && !isNaN(v));
-            if (valid.length > 0) {
-                const min = Math.min(...valid);
-                const max = Math.max(...valid);
-                const pad = (max - min) * 0.1;
-                option.yAxis[2].min = (min - pad).toFixed(2);
-                option.yAxis[2].max = (max + pad).toFixed(2);
-            }
-        }
-
-        pcrChartInstance.setOption(option);
-
-        // Render 10-day history table below the chart
-        const tbody = document.getElementById('opt-analysis-history-body');
-        if (tbody) {
-            tbody.innerHTML = '';
-            if (data.dates && data.dates.length > 0) {
-                const latestDataPoints = Math.min(10, data.dates.length);
-                const startIdx = data.dates.length - latestDataPoints;
-
-                for (let i = data.dates.length - 1; i >= startIdx; i--) {
-                    const tr = document.createElement('tr');
-                    const d = data.dates[i];
-                    const p = data.price[i];
-                    const oi = data.total_oi[i];
-                    const pcr = data.pcr[i];
-                    const pChg = data.price_chg_pct ? data.price_chg_pct[i] : 0;
-                    const oiChg = data.oi_chg_pct ? data.oi_chg_pct[i] : 0;
-                    const iv = data.atm_iv ? data.atm_iv[i] : 0;
-
-                    let pColor = pChg >= 0 ? '#60a5fa' : '#f44336';
-                    let oColor = oiChg >= 0 ? '#60a5fa' : '#f44336';
-
-                    tr.innerHTML = `
-                        <td style="padding: 6px;">${d}</td>
-                        <td style="padding: 6px;">${p ? p.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined ? pChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${oi ? oi.toLocaleString() : '-'}</td>
-                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined ? oiChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${pcr ? pcr.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px;">${iv ? iv.toFixed(2) + '%' : '-'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-            } else {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No historical data available.</td></tr>';
-            }
-        }
-
-    } catch (e) {
-        console.error("Error loading PCR history:", e);
-    }
-
-    // Trigger load High OI Chart (Next step)
-    if (typeof loadHighOI === 'function') {
-        loadHighOI(symbol);
-    }
-}
+// Managed by opt_analysis.js
 
 async function loadHighOI(symbol) {
     try {
@@ -2297,7 +2187,7 @@ async function loadHighOI(symbol) {
                     type: 'bar',
                     stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#60a5fa' }, // Classic Green for puts/support
+                    itemStyle: { color: '#60a5fa' }, // Classic Blue for puts/support
                     data: pe_oi
                 }
             ]
@@ -2567,7 +2457,7 @@ async function loadVolatilityAnalysis() {
                     let pChg = 0;
                     if(data.price_chg_pct_line && data.price_chg_pct_line[params[0].dataIndex] !== undefined) {
                          pChg = data.price_chg_pct_line[params[0].dataIndex];
-                         tooltipHtml += `Price Change: <span style="color: ${pChg >= 0 ? '#60a5fa' : '#f44336'}">${pChg}%</span><br/>`;
+                         tooltipHtml += `Price Change: <span style="color: ${pChg >= 0 ? '#00bcd4' : '#f44336'}">${pChg}%</span><br/>`;
                     }
 
                     params.forEach(param => {

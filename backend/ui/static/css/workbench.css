@@ -4,7 +4,7 @@
     --bg-header: #252525;
     --border-color: #333;
     --text-primary: #e0e0e0;
-    --accent-color: #60a5fa;
+    --accent-color: #00bcd4;
     --tab-active: #2d2d2d;
     --tab-inactive: #1a1a1a;
 }
@@ -352,7 +352,7 @@ body {
     border-radius: 3px;
     font-size: 0.9em;
 }
-.inner-tab.active { background: #60a5fa; color: #000; }
+.inner-tab.active { background: #00bcd4; color: #000; }
 
 /* Strategy Table */
 .strategy-table {
@@ -412,7 +412,7 @@ body {
 }
 
 .ai-cmd-prompt {
-    color: #60a5fa;
+    color: #00bcd4;
     margin-right: 10px;
     font-weight: bold;
     user-select: none;
@@ -471,7 +471,7 @@ body {
 }
 
 /* Colors for alerts/status */
-.text-emerald { color: #60a5fa; }
+.text-emerald { color: #00bcd4; }
 .text-crimson { color: #f44336; }
 
 /* Analysis Feed */
@@ -492,7 +492,7 @@ body {
 
 .section-title {
     font-size: 0.85em;
-    color: #60a5fa;
+    color: #00bcd4;
     border-bottom: 1px dashed #333;
     padding-bottom: 5px;
     width: max-content;
@@ -519,14 +519,14 @@ body {
 .ai-chat-feed::-webkit-scrollbar-thumb,
 .table-wrapper::-webkit-scrollbar-thumb,
 .chart-content-area::-webkit-scrollbar-thumb {
-    background: #444;
+    background: #FFD700;
     border-radius: 4px;
 }
 
 .ai-chat-feed::-webkit-scrollbar-thumb:hover,
 .table-wrapper::-webkit-scrollbar-thumb:hover,
 .chart-content-area::-webkit-scrollbar-thumb:hover {
-    background: #666;
+    background: #e6c200;
 }
 
 .chat-message {
