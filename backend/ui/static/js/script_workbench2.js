@@ -1830,25 +1830,7 @@
                     axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                series: series.map((s, idx) => {
-                    if (idx === 0) {
-                        s.markArea = {
-                            itemStyle: { color: 'rgba(255,255,255,0.05)' },
-                            data: xAxisData.map((lbl, i) => {
-                                // Zebra shading: shade every alternating instrument (Index Futures, Stock Futures, Index Calls, Index Puts...)
-                                // The layout is exact category names.
-                                if (i % 2 === 1) {
-                                    return [
-                                        { name: lbl, xAxis: lbl },
-                                        { xAxis: lbl }
-                                    ];
-                                }
-                                return null;
-                            }).filter(d => d !== null)
-                        };
-                    }
-                    return s;
-                })
+                series: series
             };
 
             participantChartInstance.setOption(option);
@@ -2026,19 +2008,6 @@
                             type: 'bar',
                             data: prevData,
                             itemStyle: { color: '#60a5fa' }, // Blue
-                            markArea: {
-                                itemStyle: { color: 'rgba(255,255,255,0.05)' },
-                                data: xAxisData.map((lbl, i) => {
-                                    // Zebra shading per instrument
-                                    if (i % 2 === 1) {
-                                        return [
-                                            { name: lbl, xAxis: lbl },
-                                            { xAxis: lbl }
-                                        ];
-                                    }
-                                    return null;
-                                }).filter(d => d !== null)
-                            },
                             label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         },
                         {
