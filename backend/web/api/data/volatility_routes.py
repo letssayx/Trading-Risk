@@ -136,25 +136,13 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         closes = np.array([float(r[4]) for r in ohlc_result])
 
         # Calculate daily Garman-Klass variance estimator
-        # 0.5 * (ln(H/L))^2 - (2ln2 - 1) * (ln(C/O))^2
-        gk_daily_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * math.log(2) - 1) * (np.log(closes / opens) ** 2)
-
-        # Filter out negative variances (numerical instability)
-        gk_daily_var = np.maximum(gk_daily_var, 0)
-
-        # DO NOT filter out flat days globally, we must preserve chronology for rolling sums
-        # We roll first, then calculate percentiles from valid rolling values
-
         import pandas as pd
-        df = pd.DataFrame({'gk_var': gk_daily_var})
+
+        gk_daily_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * np.log(2) - 1) * (np.log(closes / opens) ** 2)
+        gk_daily_var = np.where(np.isfinite(gk_daily_var), gk_daily_var, np.nan)
 
         for w in windows:
-            # Step 2: Rolling SUM of variances over N days (forward horizon)
-            rolling_var_sum = df['gk_var'].rolling(window=w).sum()
-
-            # Step 3: Annualize to get volatility for N-day period
-            # Formula: Vol_N = sqrt(Sum_of_variances * (252 / N)) * 100
-            rolling_vol_annualized = np.sqrt(rolling_var_sum * (252 / w)) * 100
+            rolling_vol_annualized = np.sqrt(pd.Series(gk_daily_var).rolling(w).mean()) * np.sqrt(252) * 100
 
             # Step 4: Get percentiles from historical data
             valid_vol = rolling_vol_annualized.dropna().tail(lookback_days)
