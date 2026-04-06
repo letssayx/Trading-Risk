@@ -1611,9 +1611,25 @@
 
                 <!-- SUB-TAB MWPL Analysis -->
                 <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                    <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <button class="btn btn-secondary" id="btn-load-mwpl" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
                         <button class="btn btn-secondary" onclick="exportTableToCSV('mwpl-analysis-table', 'MWPL_Analysis')"><i class="fas fa-download"></i> CSV</button>
+
+                        <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
+                            <span style="color: #aaa; font-size: 13px;">History Range:</span>
+                            <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                                <input type="radio" name="mwpl_days" value="14" checked onchange="loadMWPLAnalysis()"> 14 Days
+                            </label>
+                            <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                                <input type="radio" name="mwpl_days" value="30" onchange="loadMWPLAnalysis()"> 30 Days
+                            </label>
+                            <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                                <input type="radio" name="mwpl_days" value="45" onchange="loadMWPLAnalysis()"> 45 Days
+                            </label>
+                            <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                                <input type="radio" name="mwpl_days" value="60" onchange="loadMWPLAnalysis()"> 60 Days
+                            </label>
+                        </div>
                     </div>
                     <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
                         <table class="data-table" id="mwpl-analysis-table" style="width: 100%;">
@@ -3040,8 +3056,17 @@ function exportChartDataToCSV(chartInstance, filename) {
             loadBtn.disabled = true;
         }
 
+        let selectedDays = 14;
+        const radios = document.getElementsByName('mwpl_days');
+        for (let i = 0; i < radios.length; i++) {
+            if (radios[i].checked) {
+                selectedDays = parseInt(radios[i].value);
+                break;
+            }
+        }
+
         try {
-            const res = await fetch('/api/data/derivatives/mwpl_historical');
+            const res = await fetch(`/api/data/derivatives/mwpl_historical?days=${selectedDays}`);
             const result = await res.json();
             const data = result.data;
 
