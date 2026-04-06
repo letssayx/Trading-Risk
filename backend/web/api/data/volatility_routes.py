@@ -127,7 +127,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         }
 
         # Compute Garman-Klass Volatility
-        ann_factor = math.sqrt(365) # User requested sqrt(365)
+        ann_factor = math.sqrt(252) # User requested sqrt(252) for trading days
 
         # O, H, L, C arrays
         opens = np.array([float(r[1]) if r[1] > 0 else float(r[4]) for r in ohlc_result])

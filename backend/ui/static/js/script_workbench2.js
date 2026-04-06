@@ -2689,8 +2689,20 @@ async function loadVolatilityAnalysis() {
         const forceCalcCheckbox = document.getElementById('vol-analysis-force-calc');
         const forceCalc = forceCalcCheckbox ? forceCalcCheckbox.checked : false;
 
+        const runButton = document.querySelector('button[onclick="loadVolatilityAnalysis()"]');
+        const originalButtonText = runButton ? runButton.innerHTML : 'Run Historical IV Calculation';
+        if (runButton) {
+            runButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            runButton.disabled = true;
+        }
+
         const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}?lookback_days=${lookbackDays}&force_calc=${forceCalc}`);
         const data = await res.json();
+
+        if (runButton) {
+            runButton.innerHTML = originalButtonText;
+            runButton.disabled = false;
+        }
 
         if (data.detail) {
             console.error("API Error Vol Cone:", data.detail);
@@ -2761,9 +2773,16 @@ async function loadVolatilityAnalysis() {
         };
 
         // Prepare scatter data for ATM IVs across expiries
+        let highestIVDot = 0;
+        let highestP95 = Math.max(...data.p95.filter(v => v !== null));
+
         if (data.active_expiries && data.active_expiries.length > 0) {
             let scatterData = [];
-            data.active_expiries.forEach(exp => {
+
+            // User feedback: Limit ATM IV dots to the next 4 active expiries only
+            const expiriesToPlot = data.active_expiries.slice(0, 4);
+
+            expiriesToPlot.forEach(exp => {
                 // Find the closest x-axis index for the scatter point
                 let dteIdx = -1;
                 let minDiff = Infinity;
@@ -2779,14 +2798,22 @@ async function loadVolatilityAnalysis() {
                 if (dteIdx !== -1) {
                     scatterData.push({
                         value: [dteIdx, exp.atm_iv],
-                        name: `Expiry: ${exp.expiry_date} (${exp.dte} DTE)`
+                        name: `${exp.expiry_date} Expiry: ${exp.atm_iv.toFixed(1)}%` // Required label format
                     });
+
+                    if (exp.atm_iv > highestIVDot) {
+                        highestIVDot = exp.atm_iv;
+                    }
                 }
             });
 
             if (scatterData.length > 0) {
+                // Check if user requested changing legend name
+                // "group ATM IV entries into 'Active Expiries'"
+                coneOption.legend.data[5] = 'Active Expiries'; // Change legend array
+
                 coneOption.series.push({
-                    name: 'ATM IV',
+                    name: 'Active Expiries', // Group legend
                     type: 'scatter',
                     data: scatterData,
                     itemStyle: { color: '#E88B1E' }, // Bloomberg Orange
@@ -2794,20 +2821,26 @@ async function loadVolatilityAnalysis() {
                     symbolSize: 10,
                     tooltip: {
                         formatter: function(params) {
-                            return `<b>${params.data.name}</b><br/>ATM IV: ${params.value[1].toFixed(2)}%`;
+                            return `<b>${params.data.name}</b>`; // Hover format required by user
                         }
                     },
                     label: {
                         show: true,
                         position: 'top',
                         formatter: function(params) {
-                            return params.data.name.split(' ')[1]; // show Expiry Date
+                            return params.data.name; // Permanent label required by user
                         },
                         color: '#ccc',
                         fontSize: 10
                     }
                 });
             }
+        }
+
+        // Auto-scale Y-axis to ensure highest 95th percentile and highest IV dot are visible
+        const maxYValue = Math.max(highestIVDot, highestP95);
+        if (maxYValue > 0) {
+            coneOption.yAxis.max = Math.ceil(maxYValue * 1.1); // Add 10% padding
         }
 
         volConeChart.setOption(coneOption);
@@ -2867,6 +2900,25 @@ async function loadVolatilityAnalysis() {
                 `;
                 coneBody.appendChild(tr);
             });
+        }
+
+        // Table 3: Active Expiries
+        const activeExpiriesBody = document.getElementById('vol-active-expiries-body');
+        if (activeExpiriesBody && data.active_expiries) {
+            activeExpiriesBody.innerHTML = '';
+            if (data.active_expiries.length === 0) {
+                activeExpiriesBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No active expiries found</td></tr>';
+            } else {
+                data.active_expiries.forEach(exp => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="padding: 6px;">${exp.expiry_date}</td>
+                        <td style="padding: 6px;">${exp.dte}</td>
+                        <td style="padding: 6px; color: #E88B1E; font-weight: bold;">${exp.atm_iv.toFixed(2)}%</td>
+                    `;
+                    activeExpiriesBody.appendChild(tr);
+                });
+            }
         }
 
     } catch (e) {
