@@ -2854,7 +2854,7 @@ async function loadVolatilityAnalysis() {
                 <tr>
                     <td style="padding: 6px;">${summary.symbol || '-'}</td>
                     <td style="padding: 6px;">${summary.price !== null ? summary.price.toFixed(2) : '-'}</td>
-                    <td style="padding: 6px; color: #FF00FF;">${summary.current_atm_iv !== null ? summary.current_atm_iv.toFixed(2) + '%' : '-'}</td>
+                    <td style="padding: 6px; color: #E88B1E;">${summary.current_atm_iv !== null ? summary.current_atm_iv.toFixed(2) + '%' : '-'}</td>
                     <td style="padding: 6px;">${summary.ivr !== null ? summary.ivr.toFixed(2) : '-'}</td>
                     <td style="padding: 6px;">${summary.ivp !== null ? summary.ivp.toFixed(2) + '%' : '-'}</td>
                 </tr>
@@ -2887,7 +2887,7 @@ async function loadVolatilityAnalysis() {
             data.windows.forEach((w, idx) => {
                 const tr = document.createElement('tr');
                 const exp = expiriesByDte[idx];
-                const atmIvStr = exp ? `<span style="color: #FF00FF;">${exp.atm_iv.toFixed(2)}% (${exp.dte}d)</span>` : '-';
+                const atmIvStr = exp ? `<span style="color: #E88B1E;">${exp.atm_iv.toFixed(2)}% (${exp.dte}d)</span>` : '-';
 
                 tr.innerHTML = `
                     <td style="padding: 6px; font-weight: bold;">${w}</td>
