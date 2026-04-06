@@ -2605,10 +2605,9 @@ async function loadVolatilityAnalysis(event) {
         const forceCalcCheckbox = document.getElementById('vol-analysis-force-calc');
         const forceCalc = forceCalcCheckbox ? forceCalcCheckbox.checked : false;
 
-        const runButton = document.querySelector('button[onclick="loadVolatilityAnalysis()"]');
-        const originalButtonText = runButton ? runButton.innerHTML : 'Run Historical IV Calculation';
-        if (runButton) {
-            runButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        const runButton = document.getElementById('btn-run-historical-iv');
+        if (runButton && event && event.target && (event.target.id === 'btn-run-historical-iv' || event.target.parentElement.id === 'btn-run-historical-iv')) {
+            runButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
             runButton.disabled = true;
         }
 
@@ -2616,7 +2615,7 @@ async function loadVolatilityAnalysis(event) {
         const data = await res.json();
 
         if (runButton) {
-            runButton.innerHTML = originalButtonText;
+            runButton.innerHTML = 'Run Historical IV Calculation';
             runButton.disabled = false;
         }
 
