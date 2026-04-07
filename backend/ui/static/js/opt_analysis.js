@@ -205,6 +205,10 @@ async function loadOptionsAnalysis() {
 
         if (!data || !data.data || data.data.length === 0) {
             chartDom.innerHTML = '<p style="text-align:center; color:#888;">No Option Chain data found.</p>';
+            if (loadBtn) {
+                loadBtn.disabled = false;
+                loadBtn.innerHTML = originalText;
+            }
             return;
         }
 
