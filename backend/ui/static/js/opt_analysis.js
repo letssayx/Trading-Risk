@@ -183,42 +183,6 @@ async function loadOptionsAnalysis() {
         };
         pcrChartInstance.setOption(option);
 
-        // Render 10-day history table below the chart
-        const tbody = document.getElementById('opt-analysis-history-body');
-        if (tbody) {
-            tbody.innerHTML = '';
-            if (data.dates && data.dates.length > 0) {
-                const latestDataPoints = Math.min(10, data.dates.length);
-                const startIdx = data.dates.length - latestDataPoints;
-
-                for (let i = data.dates.length - 1; i >= startIdx; i--) {
-                    const tr = document.createElement('tr');
-                    const d = data.dates[i];
-                    const p = data.price[i];
-                    const oi = data.total_oi[i];
-                    const pcr = data.pcr[i];
-                    const pChg = priceChangePct[i];
-                    const oiChg = oiChangePct[i];
-                    const iv = data.atm_iv ? data.atm_iv[i] : 0;
-
-                    let pColor = pChg >= 0 ? '#60a5fa' : '#f44336';
-                    let oColor = oiChg >= 0 ? '#60a5fa' : '#f44336';
-
-                    tr.innerHTML = `
-                        <td style="padding: 6px;">${d}</td>
-                        <td style="padding: 6px;">${p ? p.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined ? pChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${oi ? oi.toLocaleString() : '-'}</td>
-                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined ? oiChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${pcr ? pcr.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px;">${iv ? iv.toFixed(2) + '%' : '-'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-            } else {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No historical data available.</td></tr>';
-            }
-        }
     } catch (e) {
         console.error("Error loading PCR history:", e);
     }
@@ -268,8 +232,20 @@ async function loadOptionsAnalysis() {
         if (highOiChartInstance) highOiChartInstance.dispose();
         highOiChartInstance = echarts.init(chartDom);
 
+        // Update title with date
+        let reportDate = data.date || data.trade_date || '-';
+        if (data.data && data.data.length > 0 && data.data[0].trade_date) {
+            reportDate = data.data[0].trade_date;
+        }
+
         const option = {
             backgroundColor: 'transparent',
+            title: {
+                text: `Data Date: ${reportDate}`,
+                textStyle: { color: '#888', fontSize: 12, fontWeight: 'normal' },
+                right: '4%',
+                top: 0
+            },
             tooltip: {
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
@@ -284,38 +260,65 @@ async function loadOptionsAnalysis() {
             },
             legend: {
                 data: ['Call OI', 'Put OI'],
-                textStyle: { color: '#ccc' }
+                textStyle: { color: '#ccc' },
+                left: 'center'
             },
-            grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-            xAxis: {
-                type: 'value',
-                axisLabel: {
-                    color: '#888',
-                    formatter: function (value) { return Math.abs(value); }
+            grid: [
+                { left: '3%', right: '55%', bottom: '3%', top: '10%', containLabel: true },
+                { left: '55%', right: '4%', bottom: '3%', top: '10%', containLabel: true }
+            ],
+            xAxis: [
+                {
+                    type: 'value',
+                    gridIndex: 0,
+                    inverse: true,
+                    axisLabel: { color: '#888', formatter: function (value) { return Math.abs(value); } },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-            },
-            yAxis: {
-                type: 'category',
-                data: strikes,
-                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
-                axisLine: { show: false },
-                axisTick: { show: false },
-                splitLine: { show: true, lineStyle: { color: '#222' } }
-            },
+                {
+                    type: 'value',
+                    gridIndex: 1,
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'category',
+                    gridIndex: 0,
+                    data: strikes,
+                    position: 'right',
+                    axisLabel: { show: false },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                },
+                {
+                    type: 'category',
+                    gridIndex: 1,
+                    data: strikes,
+                    position: 'left',
+                    axisLabel: { color: '#FFCC00', fontWeight: 'bold', align: 'center', margin: 30 },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                }
+            ],
             series: [
                 {
                     name: 'Call OI',
                     type: 'bar',
-                    stack: 'Total',
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
                     label: { show: false },
                     itemStyle: { color: '#3176B8' }, // Blue
-                    data: ce_oi
+                    data: ce_oi.map(v => Math.abs(v)) // Pass positive values, inverse xAxis handles direction
                 },
                 {
                     name: 'Put OI',
                     type: 'bar',
-                    stack: 'Total',
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
                     label: { show: false },
                     itemStyle: { color: '#E88B1E' }, // Orange
                     data: pe_oi

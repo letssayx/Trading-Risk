@@ -157,6 +157,22 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             price_chg = ((curr["price"] - prev["price"]) / prev["price"]) * 100
             oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"]) * 100
 
+            # Fetch options OI for curr and prev
+            curr_pe_oi = 0
+            curr_ce_oi = 0
+            if curr_date in opt_data and sym in opt_data[curr_date]:
+                curr_pe_oi = opt_data[curr_date][sym].get('pe_oi', 0)
+                curr_ce_oi = opt_data[curr_date][sym].get('ce_oi', 0)
+
+            prev_pe_oi = 0
+            prev_ce_oi = 0
+            if prev_date in opt_data and sym in opt_data[prev_date]:
+                prev_pe_oi = opt_data[prev_date][sym].get('pe_oi', 0)
+                prev_ce_oi = opt_data[prev_date][sym].get('ce_oi', 0)
+
+            pe_oi_chg = ((curr_pe_oi - prev_pe_oi) / prev_pe_oi) * 100 if prev_pe_oi > 0 else 0
+            ce_oi_chg = ((curr_ce_oi - prev_ce_oi) / prev_ce_oi) * 100 if prev_ce_oi > 0 else 0
+
             interp = "Neutral"
             if price_chg > 0 and oi_chg > 0:
                 interp = "Long Build Up"
@@ -185,16 +201,33 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                         h_price_chg = ((curr_h["price"] - prev_h["price"]) / prev_h["price"]) * 100
                         h_oi_chg = ((curr_h["oi"] - prev_h["oi"]) / prev_h["oi"]) * 100
 
-                    # Only append to 10-day history array if it's within the top 10 recent dates
-                    if dt in target_dates[:10]:
+                    # Only append to 30-day history array if it's within the top 30 recent dates
+                    if dt in all_hist_dates[:30]:
                         h_pcr = 0.0
                         h_total_oi = curr_h["oi"]
+
+                        h_pe = 0
+                        h_ce = 0
+
                         if dt in opt_data and sym in opt_data[dt]:
-                            h_pe = opt_data[dt][sym]['pe_oi']
-                            h_ce = opt_data[dt][sym]['ce_oi']
-                            if h_ce > 0:
-                                h_pcr = h_pe / h_ce
-                            h_total_oi += (h_pe + h_ce)
+                            h_pe = opt_data[dt][sym].get('pe_oi', 0)
+                            h_ce = opt_data[dt][sym].get('ce_oi', 0)
+                        if h_ce > 0:
+                            h_pcr = h_pe / h_ce
+                        h_total_oi += (h_pe + h_ce)
+
+                        h_pe_oi_chg = 0
+                        h_ce_oi_chg = 0
+                        if prev_h:
+                            prev_h_pe = 0
+                            prev_h_ce = 0
+                            prev_h_dt = sorted_hist_dates[i+1] if i + 1 < len(sorted_hist_dates) else None
+                            if prev_h_dt and prev_h_dt in opt_data and sym in opt_data[prev_h_dt]:
+                                prev_h_pe = opt_data[prev_h_dt][sym].get('pe_oi', 0)
+                                prev_h_ce = opt_data[prev_h_dt][sym].get('ce_oi', 0)
+
+                            if prev_h_pe > 0: h_pe_oi_chg = ((h_pe - prev_h_pe) / prev_h_pe) * 100
+                            if prev_h_ce > 0: h_ce_oi_chg = ((h_ce - prev_h_ce) / prev_h_ce) * 100
 
                         h_atm_iv = None
                         if dt in vol_data and sym in vol_data[dt]:
@@ -206,6 +239,10 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                             "oi": curr_h["oi"],
                             "price_chg_pct": round(h_price_chg, 2),
                             "oi_chg_pct": round(h_oi_chg, 2),
+                            "call_oi": h_ce,
+                            "call_oi_chg_pct": round(h_ce_oi_chg, 2),
+                            "put_oi": h_pe,
+                            "put_oi_chg_pct": round(h_pe_oi_chg, 2),
                             "total_oi": h_total_oi,
                             "pcr": round(h_pcr, 4),
                             "atm_iv": round(h_atm_iv, 2) if h_atm_iv else None
@@ -237,13 +274,10 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             pcr = 0.0
             total_oi = curr["oi"]
             if curr_date in opt_data and sym in opt_data[curr_date]:
-                pe = opt_data[curr_date][sym]['pe_oi']
-                ce = opt_data[curr_date][sym]['ce_oi']
+                pe = opt_data[curr_date][sym].get('pe_oi', 0)
+                ce = opt_data[curr_date][sym].get('ce_oi', 0)
                 if ce > 0:
                     pcr = pe / ce
-                # Note: true delta weighted OI is intensive for all symbols,
-                # so we stick to futures OI + raw options OI for this top-level summary table if needed,
-                # or just use futures OI as "OI" and opt_oi + fut_oi as "Total OI"
                 total_oi += (pe + ce)
 
             atm_iv = None
@@ -256,14 +290,18 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 "price": curr["price"],
                 "price_chg_pct": round(price_chg, 2),
                 "oi": curr["oi"],
-                "total_oi": total_oi,
                 "oi_chg_pct": round(oi_chg, 2),
+                "call_oi": curr_ce_oi,
+                "call_oi_chg_pct": round(ce_oi_chg, 2),
+                "put_oi": curr_pe_oi,
+                "put_oi_chg_pct": round(pe_oi_chg, 2),
+                "total_oi": total_oi,
                 "pcr": round(pcr, 4),
                 "atm_iv": round(atm_iv, 2) if atm_iv else None,
                 "interpretation": interp,
                 "curr_price": curr["price"],
                 "curr_oi": curr["oi"],
-                "history": hist_arr[:10],
+                "history": hist_arr[:30],
                 **{k: round(v, 2) if v is not None else 0 for k, v in adv_metrics.items()}
             })
 

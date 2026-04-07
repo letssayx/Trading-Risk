@@ -57,7 +57,7 @@ const OiTool = {
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-bottom: 20px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
                     <!-- Top Derived Info Panels -->
                     <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
@@ -73,7 +73,7 @@ const OiTool = {
                     <!-- Chart Area -->
                     <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
-                            <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
+                            <span style="color: #888; font-size: 12px; align-self: center;">OI vs Price change Quadrant Analysis</span>
                             <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
                         </div>
                         <div id="oi-chart-area" style="flex: 1;">
@@ -82,11 +82,11 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="flex: 1; overflow: auto;">
+                        <div style="flex: 1;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
@@ -96,8 +96,12 @@ const OiTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">OI ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">FUT OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">FUT OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi')">Put OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg_pct')">Put OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
@@ -105,7 +109,7 @@ const OiTool = {
                                     </tr>
                                 </thead>
                                 <tbody id="oi-analysis-body">
-                                    <tr><td colspan="11" style="text-align:center; color:#888;">Loading...</td></tr>
+                                    <tr><td colspan="15" style="text-align:center; color:#888;">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -268,7 +272,7 @@ const OiTool = {
         tbody.innerHTML = '';
 
         if (displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
         } else {
             let html = '';
             displayData.forEach(d => {
@@ -280,6 +284,8 @@ const OiTool = {
 
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let ceColor = d.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let peColor = d.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
@@ -290,6 +296,10 @@ const OiTool = {
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${ceColor};">${(d.call_oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.put_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${peColor};">${(d.put_oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
                     <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
@@ -297,10 +307,12 @@ const OiTool = {
                 </tr>`;
 
                 if (d.history && d.history.length > 1) {
-                    d.history.slice(1, 7).forEach(h => {
+                    d.history.slice(1, 31).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
+                        let hCeColor = h.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hPeColor = h.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, FUT OI, FUT OI Chg %, Call OI, Call OI Chg %, Put OI, Put OI Chg %, Total OI, PCR, ATM IV, Quadrant]
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
@@ -310,6 +322,10 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.call_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hCeColor}">${(h.call_oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.put_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hPeColor}">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
@@ -442,14 +458,14 @@ const OiTool = {
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'pan'
+            dragmode: 'zoom'
         };
 
         const config = {
             responsive: true,
             scrollZoom: true,
             displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'pan2d']
         };
 
         Plotly.newPlot(container, [trace], layout, config);
