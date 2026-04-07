@@ -21,8 +21,8 @@ async function loadOptionsAnalysis() {
         let data = await res.json();
 
         const chartDom = document.getElementById('opt-analysis-pcr-chart');
-        if (window.pcrChartInstance) window.pcrChartInstance.dispose();
-        window.pcrChartInstance = echarts.init(chartDom);
+        if (pcrChartInstance) pcrChartInstance.dispose();
+        pcrChartInstance = echarts.init(chartDom);
 
         const oiColors = data.total_oi.map((val, idx) => {
             if (idx === 0) return '#60a5fa';
@@ -170,17 +170,6 @@ async function loadOptionsAnalysis() {
                     }
                 },
                 {
-                    name: 'Price Chg %',
-                    type: 'bar',
-                    data: priceChangePct,
-                    itemStyle: {
-                        color: (params) => params.value >= 0 ? '#60a5fa' : '#f44336'
-                    },
-                    xAxisIndex: 1,
-                    yAxisIndex: 2, // Secondary Y axis for percentages
-                    barGap: '0%'
-                },
-                {
                     name: 'PCR',
                     type: 'line',
                     data: data.pcr,
@@ -188,25 +177,21 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
-                    yAxisIndex: 3
+                    yAxisIndex: 2
                 }
             ]
         };
-        window.pcrChartInstance.setOption(option);
+        pcrChartInstance.setOption(option);
 
         // Render 10-day history table below the chart
         const tbody = document.getElementById('opt-analysis-history-body');
         if (tbody) {
             tbody.innerHTML = '';
             if (data.dates && data.dates.length > 0) {
-                // The backend sorts dates ascending (min_date at index 0, max_date at end).
-                // We want to show the last 10 dates (or fewer), starting from the most recent.
-                const totalPoints = data.dates.length;
-                const limit = Math.min(10, totalPoints);
-                const startIdx = totalPoints - 1; // latest
-                const endIdx = totalPoints - limit; // 10 days ago
+                const latestDataPoints = Math.min(10, data.dates.length);
+                const startIdx = data.dates.length - latestDataPoints;
 
-                for (let i = startIdx; i >= endIdx; i--) {
+                for (let i = data.dates.length - 1; i >= startIdx; i--) {
                     const tr = document.createElement('tr');
                     const d = data.dates[i];
                     const p = data.price[i];
@@ -221,11 +206,11 @@ async function loadOptionsAnalysis() {
 
                     tr.innerHTML = `
                         <td style="padding: 6px;">${d}</td>
-                        <td style="padding: 6px;">${p !== undefined && p !== null ? p.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined && pChg !== null ? pChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${oi !== undefined && oi !== null ? oi.toLocaleString() : '-'}</td>
-                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined && oiChg !== null ? oiChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${pcr !== undefined && pcr !== null ? pcr.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px;">${p ? p.toFixed(2) : '-'}</td>
+                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined ? pChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${oi ? oi.toLocaleString() : '-'}</td>
+                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined ? oiChg.toFixed(2) + '%' : '-'}</td>
+                        <td style="padding: 6px;">${pcr ? pcr.toFixed(2) : '-'}</td>
                         <td style="padding: 6px;">${iv ? iv.toFixed(2) + '%' : '-'}</td>
                     `;
                     tbody.appendChild(tr);
@@ -280,8 +265,8 @@ async function loadOptionsAnalysis() {
             pe_oi.push(row.PE.oi || 0);
         });
 
-        if (window.highOiChartInstance) window.highOiChartInstance.dispose();
-        window.highOiChartInstance = echarts.init(chartDom);
+        if (highOiChartInstance) highOiChartInstance.dispose();
+        highOiChartInstance = echarts.init(chartDom);
 
         const option = {
             backgroundColor: 'transparent',
@@ -338,7 +323,7 @@ async function loadOptionsAnalysis() {
             ]
         };
 
-        window.highOiChartInstance.setOption(option);
+        highOiChartInstance.setOption(option);
     } catch (e) {
         console.error("Error loading high OI chart:", e);
     }
@@ -348,4 +333,3 @@ async function loadOptionsAnalysis() {
         loadBtn.innerHTML = originalText;
     }
 }
-window.loadOptionsAnalysis = loadOptionsAnalysis;

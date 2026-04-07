@@ -145,23 +145,32 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         highs = highs.mask(highs == 0, closes)
         lows  = lows.mask(lows == 0, closes)
 
-        # Calculate daily Garman-Klass variance estimator
-        gk_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * np.log(2) - 1) * (np.log(closes / opens) ** 2)
+        # Step 1: Overnight variance (previous close to today's open)
+        prev_closes = closes.shift(1)
+        overnight_ret = np.log(opens / prev_closes)
+        overnight_var = overnight_ret ** 2
 
-        # Add close-to-close variance component for overnight gaps (previous close to current open)
-        prev_closes = closes.shift(1).fillna(closes)
-        cc_var = np.log(opens / prev_closes) ** 2
+        # Step 2: Daytime Garman-Klass variance
+        log_hl = np.log(highs / lows)
+        log_co = np.log(closes / opens)
+        daytime_var = 0.5 * (log_hl ** 2) - (2 * np.log(2) - 1) * (log_co ** 2)
+        daytime_var = daytime_var.clip(lower=0)
 
-        total_var = gk_var + cc_var
+        # Step 3: Yang-Zhang combination (weighted)
+        # For daily data, overnight and daytime have equal weight in variance terms
+        total_var = overnight_var + daytime_var
 
-        # Clip extreme outliers (e.g. data errors or extreme black swan days)
-        limit = np.percentile(total_var.dropna(), 99)
-        total_var = total_var.clip(lower=0, upper=limit)
+        # Step 4: Remove outliers (99.5th percentile)
+        limit = np.percentile(total_var.dropna(), 99.5)
+        total_var = total_var.clip(upper=limit)
 
         for w in windows:
-            rolling_var = pd.Series(total_var).rolling(w).mean()
-            rolling_var = rolling_var.clip(lower=0)
-            rolling_vol_annualized = np.sqrt(rolling_var) * np.sqrt(252) * 100
+            # CRITICAL: Rolling MEAN of daily variances
+            rolling_mean_var = pd.Series(total_var).rolling(window=w).mean()
+            rolling_mean_var = rolling_mean_var.clip(lower=0)
+
+            # CRITICAL: Annualize using sqrt(252) only on the final mean variance
+            rolling_vol_annualized = np.sqrt(rolling_mean_var * 252) * 100
 
             # Step 4: Get percentiles from historical data
             valid_vol = rolling_vol_annualized.dropna().tail(lookback_days)
@@ -477,6 +486,83 @@ def get_pre_expiry_action(
             "india_vix_line": india_vix_line,
             "price_chg_pct_line": price_chg_pct_line
         }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/data/derivatives/volatility_summary_all")
+def get_volatility_summary_all(db: Session = Depends(get_db)):
+    try:
+        # We need the latest trade date
+        date_query = text("SELECT MAX(trade_date) FROM bhavcopy_fo")
+        latest_date = db.execute(date_query).scalar()
+        if not latest_date:
+            return {"data": []}
+
+        # 1. Fetch current ATM IV for all symbols from the nearest expiry
+        # This is computationally heavy if done via greeks on the fly.
+        # But we already pre-calculate and store it in historical_atm_iv!
+        # So we can just fetch the latest IV and min/max IVs for all symbols from historical_atm_iv.
+
+        query = text("""
+            WITH LatestIV AS (
+                SELECT symbol, atm_iv as current_iv
+                FROM historical_atm_iv
+                WHERE trade_date = (SELECT MAX(trade_date) FROM historical_atm_iv)
+            ),
+            HistoricalStats AS (
+                SELECT symbol,
+                       MIN(atm_iv) as min_iv,
+                       MAX(atm_iv) as max_iv,
+                       COUNT(atm_iv) as total_days
+                FROM historical_atm_iv
+                WHERE trade_date >= CURRENT_DATE - INTERVAL '1 year'
+                GROUP BY symbol
+            ),
+            DaysBelow AS (
+                SELECT h.symbol, COUNT(h.atm_iv) as days_below
+                FROM historical_atm_iv h
+                JOIN LatestIV l ON h.symbol = l.symbol
+                WHERE h.atm_iv < l.current_iv
+                  AND h.trade_date >= CURRENT_DATE - INTERVAL '1 year'
+                GROUP BY h.symbol
+            )
+            SELECT l.symbol, l.current_iv, s.min_iv, s.max_iv, s.total_days, COALESCE(d.days_below, 0) as days_below
+            FROM LatestIV l
+            JOIN HistoricalStats s ON l.symbol = s.symbol
+            LEFT JOIN DaysBelow d ON l.symbol = d.symbol
+            ORDER BY l.symbol
+        """)
+
+        result = db.execute(query).fetchall()
+
+        data = []
+        for r in result:
+            sym = r[0]
+            current_iv = r[1]
+            min_iv = r[2]
+            max_iv = r[3]
+            total_days = r[4]
+            days_below = r[5]
+
+            if current_iv is None or min_iv is None or max_iv is None or total_days == 0:
+                continue
+
+            ivr = None
+            if max_iv > min_iv:
+                ivr = ((current_iv - min_iv) / (max_iv - min_iv)) * 100
+
+            ivp = (days_below / total_days) * 100
+
+            data.append({
+                "symbol": sym,
+                "current_atm_iv": round(current_iv, 2),
+                "ivr": round(ivr, 2) if ivr is not None else None,
+                "ivp": round(ivp, 2)
+            })
+
+        return {"data": data}
     except Exception as e:
         import traceback
         traceback.print_exc()
