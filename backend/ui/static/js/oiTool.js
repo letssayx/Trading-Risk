@@ -99,7 +99,7 @@ const OiTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">FUT OI ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg')">FUT OI Chg ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">FUT OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi_chg_pct')">FUT OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg')">Call OI Chg ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
@@ -167,7 +167,7 @@ const OiTool = {
             if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
 
             this.allData = json.data || [];
-            this.currentSortCol = 'oi_chg_pct';
+            this.currentSortCol = 'fut_oi_chg_pct';
             this.currentSortAsc = false;
 
             // Populate sector filter dropdown
@@ -234,7 +234,7 @@ const OiTool = {
 
         // Apply Advanced Filters (which modifies the table/scatter scope)
         if (advFilter) {
-            let sortedByOI = [...displayData].sort((a,b) => b.oi_chg_pct - a.oi_chg_pct);
+            let sortedByOI = [...displayData].sort((a,b) => b.fut_oi_chg_pct - a.fut_oi_chg_pct);
 
             if (advFilter === 'top_5_oi_add') displayData = sortedByOI.slice(0, 5);
             else if (advFilter === 'top_10_oi_add') displayData = sortedByOI.slice(0, 10);
@@ -245,7 +245,7 @@ const OiTool = {
                 const parts = advFilter.split('_');
                 const days = parts[parts.length - 1]; // '30' or '60'
                 const isPrice = advFilter.includes('price');
-                const metricKey = isPrice ? `price_chg_${days}d` : `oi_chg_${days}d`;
+                const metricKey = isPrice ? `price_chg_${days}d` : `fut_oi_chg_pct_${days}d`;
 
                 // Sort by absolute highest magnitude of change and take top 15
                 displayData = [...displayData].sort((a,b) => {
@@ -288,7 +288,7 @@ const OiTool = {
                 if (d.interpretation === 'Long Unwinding') color = '#ff9800'; // Orange
 
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let oColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let ceColor = d.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let peColor = d.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
@@ -305,7 +305,7 @@ const OiTool = {
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${oColor};">${oSign}${(d.oi_chg || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.fut_oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${ceColor};">${ceSign}${(d.call_oi_chg || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${ceColor};">${(d.call_oi_chg_pct || 0).toFixed(2)}%</td>
@@ -321,7 +321,7 @@ const OiTool = {
                 if (d.history && d.history.length > 1) {
                     d.history.slice(1, 31).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hoColor = h.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         let hCeColor = h.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         let hPeColor = h.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
@@ -339,7 +339,7 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${hoColor}">${hoSign}${(h.oi_chg || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.fut_oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.call_oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${hCeColor}">${hceSign}${(h.call_oi_chg || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${hCeColor}">${(h.call_oi_chg_pct || 0).toFixed(2)}%</td>
@@ -362,7 +362,7 @@ const OiTool = {
     },
 
     renderDerivedPanels: function(universe) {
-        let sortedByOI = [...universe].sort((a,b) => b.oi_chg_pct - a.oi_chg_pct);
+        let sortedByOI = [...universe].sort((a,b) => b.fut_oi_chg_pct - a.fut_oi_chg_pct);
         const top5Add = sortedByOI.slice(0, 5);
         const top5Red = sortedByOI.slice().reverse().slice(0, 5);
 
@@ -384,11 +384,11 @@ const OiTool = {
                 <tbody>`;
 
             dataSubset.forEach(d => {
-                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let oColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
-                    <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
+                    <td style="padding: 4px; color: ${oColor};">${d.fut_oi_chg_pct}%</td>
                     <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                 </tr>`;
@@ -415,7 +415,7 @@ const OiTool = {
             return;
         }
 
-        const x = data.map(d => d.oi_chg_pct);
+        const x = data.map(d => d.fut_oi_chg_pct);
         const y = data.map(d => d.price_chg_pct);
         const text = data.map(d => d.symbol);
         const color = data.map(d => {
@@ -446,7 +446,7 @@ const OiTool = {
             type: 'scatter',
             text: text,
             textposition: 'top center',
-            hovertext: data.map(d => `${d.symbol}<br>Price: ${d.price_chg_pct}%<br>OI: ${d.oi_chg_pct}%`),
+            hovertext: data.map(d => `${d.symbol}<br>Price: ${d.price_chg_pct}%<br>OI: ${d.fut_oi_chg_pct}%`),
             marker: { size: 10, color: color, opacity: 0.8 }
         };
 
@@ -569,7 +569,7 @@ const OiTool = {
         container.innerHTML = '';
 
         const history = data.history || [];
-        const x = history.map(d => d.oi_chg_pct);
+        const x = history.map(d => d.fut_oi_chg_pct);
         const y = history.map(d => d.price_chg_pct);
         const text = history.map(d => `${d.time}<br>${d.interpretation}`);
         const color = history.map(d => {
@@ -664,7 +664,7 @@ const OiTool = {
 
         let csv = "Symbol,Sector,Price Change %,OI Change %,Quadrant\n";
         displayData.forEach(d => {
-            csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.oi_chg_pct}","${d.interpretation}"\n`;
+            csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.fut_oi_chg_pct}","${d.interpretation}"\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv' });
