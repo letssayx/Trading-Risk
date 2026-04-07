@@ -45,21 +45,21 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
         # If expiry_only is true, filter dates to only those that are an expiry date for this symbol
         if expiry_only:
             dates_query = text("""
-                WITH all_dates AS (
-                    SELECT DISTINCT trade_date
-                    FROM bhavcopy_fo
-                    WHERE ticker_symb = :symbol
-                    ORDER BY trade_date DESC
-                ),
-                expiries AS (
+                WITH expiries AS (
                     SELECT DISTINCT expiry_date
                     FROM bhavcopy_fo
                     WHERE ticker_symb = :symbol
+                      AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO', 'FUTIDX', 'FUTSTK', 'STF', 'IDF')
+                ),
+                valid_dates AS (
+                    SELECT DISTINCT trade_date
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :symbol
+                      AND trade_date IN (SELECT expiry_date FROM expiries)
                 )
-                SELECT d.trade_date
-                FROM all_dates d
-                JOIN expiries e ON d.trade_date = e.expiry_date
-                ORDER BY d.trade_date DESC
+                SELECT trade_date
+                FROM valid_dates
+                ORDER BY trade_date DESC
                 LIMIT :days
             """)
         else:

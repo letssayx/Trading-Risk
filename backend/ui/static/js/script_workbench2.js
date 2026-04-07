@@ -1648,33 +1648,37 @@
             ];
 
             if (niftyData.length > 0) {
+                // Determine which dataset has the max value to put Nifty label on top of it.
+                // For a given index, the label should be positioned above the maximum absolute bar value.
+                const topOffsets = data.fii_net.map((fii, i) => {
+                    const dii = data.dii_net[i] || 0;
+                    return Math.max(Math.abs(fii), Math.abs(dii), 0) + (Math.max(Math.abs(fii), Math.abs(dii), 0) * 0.05); // Add a 5% buffer to push label slightly above bar
+                });
+
+                // In Chart.js, since there's no true 'composite overlay' value label feature directly without an extra invisible bar/scatter,
+                // we can add a scatter dataset (or another bar with 0 height) just for the datalabels.
+                // We'll use a dummy dataset to render the Nifty values.
                 datasets.push({
                     label: 'NIFTY',
                     type: 'line',
-                    yAxisID: 'y1',
-                    data: niftyData,
-                    borderColor: '#FFFFFF',
+                    yAxisID: 'y', // Bind to the main Y axis so it matches bar heights
+                    data: topOffsets, // Use topOffsets instead of niftyData so it hovers exactly above the highest bar
+                    borderColor: 'transparent', // Remove Nifty overlay line
                     backgroundColor: 'transparent',
-                    borderWidth: 4,
-                    pointRadius: 2,
-                    tension: 0.1,
-                    shadowColor: 'rgba(0, 0, 0, 0.5)',
-                    shadowBlur: 5
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    showLine: false,
+                    datalabels: {
+                        align: 'end',
+                        anchor: 'end',
+                        color: '#FFD700', // Yellow Nifty values
+                        font: { size: 11, weight: 'bold' },
+                        formatter: (value, context) => {
+                            const niftyVal = niftyData[context.dataIndex];
+                            return niftyVal ? Math.round(niftyVal) : '';
+                        }
+                    }
                 });
-            }
-
-            let minNifty = null;
-            let maxNifty = null;
-            if (niftyData.length > 0) {
-                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
-                if (validNifty.length > 0) {
-                    const absMin = Math.min(...validNifty);
-                    const absMax = Math.max(...validNifty);
-                    const diff = absMax - absMin;
-                    const pad = diff * 0.1;
-                    minNifty = Math.floor(absMin - pad);
-                    maxNifty = Math.ceil(absMax + pad);
-                }
             }
 
             const alternatingBackgroundPlugin = {
@@ -1707,11 +1711,7 @@
                     responsive: true, maintainAspectRatio: false,
                     scales: {
                         x: { stacked: false },
-                        y: { stacked: false, position: 'left', grid: { color: '#333' } },
-                        y1: {
-                            type: 'linear', position: 'right', display: niftyData.length > 0, grid: { drawOnChartArea: false },
-                            min: minNifty, max: maxNifty
-                        }
+                        y: { stacked: false, position: 'left', grid: { color: '#333' } }
                     },
                     plugins: {
                         legend: { labels: { color: '#ccc' } },
@@ -1829,20 +1829,24 @@
                     type: 'value',
                     axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                    // Removed zebra striping splitArea per user request
                 },
-                series: series.map((s, idx) => {
-                    if (idx === 0) {
-                        s.markArea = {
-                            itemStyle: { color: 'rgba(255,255,255,0.1)' },
-                            data: xAxisData.map((lbl, i) => {
-                                if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
-                                return null;
-                            }).filter(d => d !== null)
-                        };
-                    }
-                    return s;
-                })
+                series: [
+                    // Zebra shading overlay (grouping by instrument)
+                    {
+                        type: 'bar',
+                        name: 'Zebra Background',
+                        silent: true,
+                        barWidth: '100%',
+                        barGap: '-100%',
+                        z: -1,
+                        itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
+                        data: xAxisData.map((lbl, idx) => {
+                            if (idx % 2 === 1) return { value: Math.max(...series.flatMap(s => s.data.map(Math.abs))) * 1.5 };
+                            return 0;
+                        })
+                    },
+                    ...series
+                ]
             };
 
             participantChartInstance.setOption(option);
@@ -1888,7 +1892,6 @@
                     {
                         name: `${p.label} (Prev)`,
                         type: 'bar',
-                        stack: p.label, // Stack Prev and Today for visual pairing if needed, or group
                         data: prevDataArr,
                         itemStyle: { color: p.key === 'smart_money' ? '#8B8000' : p.color, opacity: 0.5 }, // Dimmer for previous
                         label: { show: false }
@@ -1896,7 +1899,6 @@
                     {
                         name: `${p.label} (Today)`,
                         type: 'bar',
-                        stack: p.label,
                         data: todayDataArr,
                         itemStyle: { color: p.color },
                         label: {
@@ -1917,24 +1919,18 @@
                 ];
             }).flat();
 
-            // Add markArea to create shading for alternate groups
-            if (granularSeries.length > 0) {
-                granularSeries[0].markArea = {
-                    itemStyle: { color: 'rgba(255,255,255,0.1)' },
-                    data: xAxisData.map((lbl, idx) => {
-                        if (idx % 2 === 1) { // Apply shading to alternate categories
-                            return [{ xAxis: idx - 0.5 }, { xAxis: idx + 0.5 }];
-                        }
-                        return null;
-                    }).filter(d => d !== null)
-                };
-            }
-
             const granularOption = {
                 backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                legend: { type: 'scroll', textStyle: { color: '#ccc' }, bottom: 0 },
-                grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: participants.map(p => [`${p.label} (Prev)`, `${p.label} (Today)`]).flat(),
+                    textStyle: { color: '#ccc' },
+                    type: 'scroll'
+                },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
                 xAxis: {
                     type: 'category',
                     data: xAxisData,
@@ -1945,7 +1941,23 @@
                     axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                series: granularSeries
+                series: [
+                    // Zebra shading overlay (grouping by instrument)
+                    {
+                        type: 'bar',
+                        name: 'Zebra Background',
+                        silent: true,
+                        barWidth: '100%',
+                        barGap: '-100%',
+                        z: -1,
+                        itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
+                        data: xAxisData.map((lbl, idx) => {
+                            if (idx % 2 === 1) return { value: Math.max(...granularSeries.flatMap(s => s.data.map(Math.abs))) * 1.5 }; // Ensure it covers height
+                            return 0;
+                        })
+                    },
+                    ...granularSeries
+                ]
             };
 
             window.participantGranularChartInstance.setOption(granularOption);
@@ -2015,25 +2027,32 @@
                         splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                     },
                     series: [
+                        // Zebra shading overlay (grouping by prev/today per instrument)
+                        {
+                            type: 'bar',
+                            name: 'Zebra Background',
+                            silent: true,
+                            barWidth: '100%',
+                            barGap: '-100%',
+                            z: -1,
+                            itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
+                            data: xAxisData.map((lbl, idx) => {
+                                if (idx % 2 === 1) return { value: Math.max(...prevData.concat(todayData).map(Math.abs)) * 1.5 };
+                                return 0;
+                            })
+                        },
                         {
                             name: 'Previous Day',
                             type: 'bar',
                             data: prevData,
-                            itemStyle: { color: '#60a5fa' }, // Blue
-                            markArea: {
-                                itemStyle: { color: 'rgba(255,255,255,0.1)' },
-                                data: xAxisData.map((lbl, i) => {
-                                    if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
-                                    return null;
-                                }).filter(d => d !== null)
-                            },
+                            itemStyle: { color: '#3176B8' }, // Blue (Previous)
                             label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         },
                         {
                             name: 'Today',
                             type: 'bar',
                             data: todayData,
-                            itemStyle: { color: '#E88B1E' }, // Orange
+                            itemStyle: { color: '#FFD700' }, // Yellow (Today)
                             label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         }
                     ]
@@ -2092,11 +2111,10 @@
             container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
         } finally {
             echartInstance?.hideLoading();
-        }
-
-        if (loadBtn) {
-            loadBtn.disabled = false;
-            loadBtn.innerHTML = originalText;
+            if (loadBtn) {
+                loadBtn.disabled = false;
+                loadBtn.innerHTML = originalText;
+            }
         }
     }
 
@@ -2360,18 +2378,43 @@ function renderParticipantHistorical(data) {
         // Let ECharts naturally scale Y-axis for Net Positions (which can be positive/negative)
         option.yAxis[0].min = null;
 
-        // Add NIFTY overlay
+        // Add NIFTY overlay as top bar labels
         const niftyData = data.nifty_prices || data.nifty_close || [];
         if (niftyData.length > 0) {
             option.legend.data.push('NIFTY');
+
+            // Find max values across all series for each day to place the NIFTY label above
+            const topOffsets = niftyData.map((_, i) => {
+                let maxVal = 0;
+                option.series.forEach(s => {
+                    if (s.data && s.data[i]) {
+                        maxVal = Math.max(maxVal, s.data[i]);
+                    }
+                });
+                return maxVal;
+            });
+
             option.series.push({
                 name: 'NIFTY',
                 type: 'line',
-                data: niftyData,
-                yAxisIndex: 1,
-                itemStyle: { color: '#FFCC00' }, // Classic yellow line
-                lineStyle: { width: 2 },
-                symbol: 'none'
+                data: topOffsets, // Placed exactly above max bar height
+                yAxisIndex: 0, // Bind to same Y-axis as bars
+                borderColor: 'transparent', // Remove line overlay
+                backgroundColor: 'transparent',
+                borderWidth: 0,
+                pointRadius: 0,
+                showLine: false,
+                label: {
+                    show: true,
+                    position: 'top',
+                    color: '#FFD700', // Yellow
+                    fontSize: 11,
+                    fontWeight: 'bold',
+                    formatter: function(params) {
+                        const val = niftyData[params.dataIndex];
+                        return val ? Math.round(val) : '';
+                    }
+                }
             });
         }
 
@@ -2556,7 +2599,7 @@ async function loadVolatilityAnalysis(event) {
                     type: 'line',
                     data: data.prices,
                     yAxisIndex: 0,
-                    itemStyle: { color: '#60a5fa' }, // Blue line for price
+                    itemStyle: { color: '#3176B8' }, // Blue (Previous) line for price
                     lineStyle: { width: 2 },
                     showSymbol: false,
                     markLine: {
@@ -2573,7 +2616,7 @@ async function loadVolatilityAnalysis(event) {
                     type: 'line',
                     data: data.rv,
                     yAxisIndex: 1,
-                    itemStyle: { color: '#E88B1E' }, // Orange line for RV
+                    itemStyle: { color: '#FFD700' }, // Yellow (Today) line for RV
                     lineStyle: { width: 2 },
                     showSymbol: false
                 },
@@ -3071,3 +3114,4 @@ function exportChartDataToCSV(chartInstance, filename) {
     downloadLink.click();
     document.body.removeChild(downloadLink);
 }
+window.exportChartDataToCSV = exportChartDataToCSV;

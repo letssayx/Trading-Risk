@@ -61,11 +61,11 @@ const OiTool = {
                     <!-- Top Derived Info Panels -->
                     <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
-                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top OI Additions</h4>
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top 5 OI Additions</h4>
                             <div id="oi-top-add-chart" style="height: 180px;"></div>
                         </div>
                         <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
-                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top OI Reductions</h4>
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top 5 OI Reductions</h4>
                             <div id="oi-top-red-chart" style="height: 180px;"></div>
                         </div>
                     </div>
@@ -343,6 +343,7 @@ const OiTool = {
                         <th style="padding: 4px;">OI Chg %</th>
                         <th style="padding: 4px;">Price</th>
                         <th style="padding: 4px;">Price Chg %</th>
+                        <th style="padding: 4px;">Buildup Type</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -350,11 +351,18 @@ const OiTool = {
             dataSubset.forEach(d => {
                 let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let typeColor = '#888';
+                if (d.interpretation === 'Long Build Up') typeColor = '#00bcd4';
+                if (d.interpretation === 'Short Build Up') typeColor = '#f44336';
+                if (d.interpretation === 'Short Covering') typeColor = '#00bcd4'; // Also blue per instructions
+                if (d.interpretation === 'Long Unwinding') typeColor = '#ff9800'; // Orange
+
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
                     <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
                     <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 4px; color: ${typeColor};">${d.interpretation || '-'}</td>
                 </tr>`;
             });
 
@@ -442,7 +450,7 @@ const OiTool = {
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'pan'
+            dragmode: 'pan' // Allow panning natively without getting stuck
         };
 
         const config = {
@@ -453,6 +461,8 @@ const OiTool = {
         };
 
         Plotly.newPlot(container, [trace], layout, config);
+
+        // Allow free panning, but keep the initial load perfectly symmetric
     },
 
     filterData: function() {
@@ -469,11 +479,30 @@ const OiTool = {
         this.renderAggregatedView();
     },
 
-    analyzeSingle: async function() {
+    analyzeSingle: async function(btnContext) {
         const symbol = document.getElementById('oi-symbol').value.toUpperCase().trim();
         const chartArea = document.getElementById('oi-chart-area');
 
-        if (!symbol) return;
+        let originalText = '';
+        // Fix ReferenceError: Handle `event` safely and properly detect the button
+        let loadBtn = btnContext instanceof HTMLElement ? btnContext : null;
+        if (!loadBtn && typeof event !== 'undefined' && event && event.currentTarget instanceof HTMLElement) {
+            loadBtn = event.currentTarget;
+        }
+
+        if (loadBtn && loadBtn.tagName === 'BUTTON') {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
+        if (!symbol) {
+            if (loadBtn && loadBtn.tagName === 'BUTTON') {
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
+            return;
+        }
 
         chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
 
@@ -492,6 +521,11 @@ const OiTool = {
 
         } catch (e) {
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        } finally {
+            if (loadBtn && loadBtn.tagName === 'BUTTON') {
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
         }
     },
 
