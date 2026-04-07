@@ -1915,14 +1915,16 @@
             if (window.dailyNetOIChangeChartInstance) window.dailyNetOIChangeChartInstance.dispose();
             window.dailyNetOIChangeChartInstance = echarts.init(oiChangeContainer);
 
-            // Compute net totals per instrument across all participants (excluding smart_money which is just a sum of FII, DII, PRO)
-            const computeNet = (mKey, idx) => {
-                let sum = 0;
+            // Daily Net Open Interest Change = Today - Prev Day
+            const computeNetChange = (mKey, todayIdx, prevIdx) => {
+                let change = 0;
                 ['fii', 'dii', 'pro', 'client'].forEach(pKey => {
                     const arr = data[`${pKey}_${mKey}`] || [];
-                    sum += arr.length > idx ? arr[idx] : 0;
+                    const today = arr.length > todayIdx ? arr[todayIdx] : 0;
+                    const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
+                    change += (today - prev);
                 });
-                return sum;
+                return change;
             };
 
             const oiChangeMetrics = [
@@ -1933,18 +1935,13 @@
             ];
 
             const todayNetData = [
-                computeNet('fut_idx', todayIdx),
-                computeNet('fut_stk', todayIdx),
-                computeNet('opt_idx_ce', todayIdx) + computeNet('opt_idx_pe', todayIdx),
-                computeNet('opt_stk_ce', todayIdx) + computeNet('opt_stk_pe', todayIdx)
+                computeNetChange('fut_idx', todayIdx, prevIdx),
+                computeNetChange('fut_stk', todayIdx, prevIdx),
+                computeNetChange('opt_idx_ce', todayIdx, prevIdx) + computeNetChange('opt_idx_pe', todayIdx, prevIdx),
+                computeNetChange('opt_stk_ce', todayIdx, prevIdx) + computeNetChange('opt_stk_pe', todayIdx, prevIdx)
             ];
 
-            const prevNetData = [
-                computeNet('fut_idx', prevIdx),
-                computeNet('fut_stk', prevIdx),
-                computeNet('opt_idx_ce', prevIdx) + computeNet('opt_idx_pe', prevIdx),
-                computeNet('opt_stk_ce', prevIdx) + computeNet('opt_stk_pe', prevIdx)
-            ];
+            const prevNetData = [0, 0, 0, 0]; // It's a change chart now, so just one bar makes sense, but we'll adapt to show the change as 'Today'
 
             const oiChangeOption = {
                 backgroundColor: 'transparent',
@@ -1953,7 +1950,7 @@
                     axisPointer: { type: 'shadow' }
                 },
                 legend: {
-                    data: ['Today', 'Prev Day'],
+                    data: ['Net Change'],
                     textStyle: { color: '#ccc' }
                 },
                 grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
@@ -1964,30 +1961,26 @@
                 },
                 yAxis: {
                     type: 'value',
-                    axisLabel: { color: '#888' },
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (val) {
+                            if (Math.abs(val) >= 100000) return (val / 100000).toFixed(2) + 'L';
+                            if (Math.abs(val) >= 1000) return (val / 1000).toFixed(2) + 'K';
+                            return val;
+                        }
+                    },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
                 series: [
                     {
-                        name: 'Today',
+                        name: 'Net Change',
                         type: 'bar',
                         data: todayNetData,
-                        itemStyle: { color: '#3176B8' }, // Blue
-                        label: {
-                            show: true, position: 'top', formatter: function(p) {
-                                let val = p.value; if (!val || val === 0) return '';
-                                let absVal = Math.abs(val);
-                                if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
-                                if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
-                                return val;
-                            }, color: '#ccc', fontSize: 10
-                        }
-                    },
-                    {
-                        name: 'Prev Day',
-                        type: 'bar',
-                        data: prevNetData,
-                        itemStyle: { color: '#E88B1E' }, // Orange
+                        itemStyle: {
+                            color: function(params) {
+                                return params.value > 0 ? '#3176B8' : '#e74c3c'; // Blue for positive, Red for negative
+                            }
+                        },
                         label: {
                             show: true, position: 'top', formatter: function(p) {
                                 let val = p.value; if (!val || val === 0) return '';
@@ -2322,7 +2315,7 @@ function renderParticipantHistorical(data) {
         { key: 'fii', label: 'FII', color: '#E88B1E' },
         { key: 'dii', label: 'DII', color: '#60a5fa' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
-        { key: 'client', label: 'CLI', color: '#60a5fa' }
+        { key: 'client', label: 'CLI', color: '#00bcd4' }
     ];
 
     metrics.forEach(m => {
