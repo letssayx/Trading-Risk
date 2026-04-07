@@ -3105,10 +3105,12 @@ async function loadAllIVSummary(event) {
         const res = await fetch(`/api/data/derivatives/volatility_summary_all?expiry_type=${expiryType}`);
         const result = await res.json();
 
+        console.log("All F&O API response:", result);
+
         window.allIvData = result.data || [];
 
         if (window.allIvData.length === 0) {
-            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No IV data found.</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No IV data found. Please run the Historical IV calculation first.</td></tr>';
             return;
         }
 
@@ -3160,7 +3162,7 @@ function renderAllIVSummary() {
         const ivpColor = isHighIV ? '#ff4d4d' : '#ccc';
 
         tr.innerHTML = `
-            <td style="padding: 6px; font-weight: bold; color: #4da6ff; cursor: pointer;" onclick="document.getElementById('vol-analysis-symbol').value='${item.symbol}'; document.getElementById('btn-run-historical-iv').click();">${item.symbol}</td>
+            <td style="padding: 6px; font-weight: bold; color: #4da6ff; cursor: pointer;" onclick="document.getElementById('vol-analysis-symbol').value='${item.symbol}'; document.getElementById('btn-load-vol-analysis').click(); window.scrollTo(0, 0);">${item.symbol}</td>
             <td style="padding: 6px;">${item.price !== undefined && item.price !== null ? item.price.toFixed(2) : '-'}</td>
             <td style="padding: 6px; color: #e6a23c;">${item.current_atm_iv !== null ? item.current_atm_iv.toFixed(2) + '%' : '-'}</td>
             <td style="padding: 6px;">${item.ivr !== null ? item.ivr.toFixed(2) : '-'}</td>
