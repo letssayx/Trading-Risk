@@ -1648,12 +1648,17 @@
             ];
 
             if (niftyData.length > 0) {
-                // Determine which dataset has the max value to put Nifty label on top of it.
-                // For a given index, the label should be positioned above the maximum absolute bar value.
-                const topOffsets = data.fii_net.map((fii, i) => {
+                // Determine the global maximum absolute value across all bars to place Nifty labels at a single horizontal line at the top.
+                let maxAbsVal = 0;
+                data.fii_net.forEach((fii, i) => {
                     const dii = data.dii_net[i] || 0;
-                    return Math.max(Math.abs(fii), Math.abs(dii), 0) + (Math.max(Math.abs(fii), Math.abs(dii), 0) * 0.05); // Add a 5% buffer to push label slightly above bar
+                    const maxLocal = Math.max(Math.abs(fii), Math.abs(dii));
+                    if (maxLocal > maxAbsVal) maxAbsVal = maxLocal;
                 });
+
+                // Add a small buffer above the global max for the labels
+                const topOffsetVal = maxAbsVal + (maxAbsVal * 0.1);
+                const topOffsets = data.fii_net.map(() => topOffsetVal);
 
                 // In Chart.js, since there's no true 'composite overlay' value label feature directly without an extra invisible bar/scatter,
                 // we can add a scatter dataset (or another bar with 0 height) just for the datalabels.
@@ -1669,7 +1674,7 @@
                     pointRadius: 0,
                     showLine: false,
                     datalabels: {
-                        align: 'end',
+                        align: 'bottom',
                         anchor: 'end',
                         color: '#FFD700', // Yellow Nifty values
                         font: { size: 11, weight: 'bold' },
@@ -1754,7 +1759,7 @@
                 { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
                 { key: 'dii', label: 'DII', color: '#60a5fa' },     // Blue
                 { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
-                { key: 'client', label: 'CLI', color: '#60a5fa' },  // Blue
+                { key: 'client', label: 'CLI', color: '#00bcd4' },  // Cyan
                 { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' } // Yellow
             ];
 
@@ -1794,8 +1799,8 @@
                             let val = params.value;
                             if (val === 0) return '';
                             let absVal = Math.abs(val);
-                            if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
-                            if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                            if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
+                            if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
                             return val;
                         },
                         color: '#ccc',
@@ -1831,20 +1836,6 @@
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
                 series: [
-                    // Zebra shading overlay (grouping by instrument)
-                    {
-                        type: 'bar',
-                        name: 'Zebra Background',
-                        silent: true,
-                        barWidth: '100%',
-                        barGap: '-100%',
-                        z: -1,
-                        itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
-                        data: xAxisData.map((lbl, idx) => {
-                            if (idx % 2 === 1) return { value: Math.max(...series.flatMap(s => s.data.map(Math.abs))) * 1.5 };
-                            return 0;
-                        })
-                    },
                     ...series
                 ]
             };
@@ -1908,8 +1899,8 @@
                                 let val = params.value;
                                 if (!val || val === 0) return '';
                                 let absVal = Math.abs(val);
-                                if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
-                                if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                                if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
+                                if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
                                 return val;
                             },
                             color: '#ccc',
@@ -1918,6 +1909,98 @@
                     }
                 ];
             }).flat();
+
+            // Daily Net Open Interest Change Chart
+            const oiChangeContainer = document.getElementById('daily-net-oi-change-summary');
+            if (window.dailyNetOIChangeChartInstance) window.dailyNetOIChangeChartInstance.dispose();
+            window.dailyNetOIChangeChartInstance = echarts.init(oiChangeContainer);
+
+            // Compute net totals per instrument across all participants (excluding smart_money which is just a sum of FII, DII, PRO)
+            const computeNet = (mKey, idx) => {
+                let sum = 0;
+                ['fii', 'dii', 'pro', 'client'].forEach(pKey => {
+                    const arr = data[`${pKey}_${mKey}`] || [];
+                    sum += arr.length > idx ? arr[idx] : 0;
+                });
+                return sum;
+            };
+
+            const oiChangeMetrics = [
+                { key: 'fut_idx', label: 'Index Futures' },
+                { key: 'fut_stk', label: 'Stock Futures' },
+                { key: 'opt_idx', label: 'Index Options' },
+                { key: 'opt_stk', label: 'Stock Options' }
+            ];
+
+            const todayNetData = [
+                computeNet('fut_idx', todayIdx),
+                computeNet('fut_stk', todayIdx),
+                computeNet('opt_idx_ce', todayIdx) + computeNet('opt_idx_pe', todayIdx),
+                computeNet('opt_stk_ce', todayIdx) + computeNet('opt_stk_pe', todayIdx)
+            ];
+
+            const prevNetData = [
+                computeNet('fut_idx', prevIdx),
+                computeNet('fut_stk', prevIdx),
+                computeNet('opt_idx_ce', prevIdx) + computeNet('opt_idx_pe', prevIdx),
+                computeNet('opt_stk_ce', prevIdx) + computeNet('opt_stk_pe', prevIdx)
+            ];
+
+            const oiChangeOption = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: ['Today', 'Prev Day'],
+                    textStyle: { color: '#ccc' }
+                },
+                grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: oiChangeMetrics.map(m => m.label),
+                    axisLabel: { color: '#ccc', fontWeight: 'bold' }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                },
+                series: [
+                    {
+                        name: 'Today',
+                        type: 'bar',
+                        data: todayNetData,
+                        itemStyle: { color: '#3176B8' }, // Blue
+                        label: {
+                            show: true, position: 'top', formatter: function(p) {
+                                let val = p.value; if (!val || val === 0) return '';
+                                let absVal = Math.abs(val);
+                                if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
+                                if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
+                                return val;
+                            }, color: '#ccc', fontSize: 10
+                        }
+                    },
+                    {
+                        name: 'Prev Day',
+                        type: 'bar',
+                        data: prevNetData,
+                        itemStyle: { color: '#E88B1E' }, // Orange
+                        label: {
+                            show: true, position: 'top', formatter: function(p) {
+                                let val = p.value; if (!val || val === 0) return '';
+                                let absVal = Math.abs(val);
+                                if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
+                                if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
+                                return val;
+                            }, color: '#ccc', fontSize: 10
+                        }
+                    }
+                ]
+            };
+            window.dailyNetOIChangeChartInstance.setOption(oiChangeOption);
 
             const granularOption = {
                 backgroundColor: 'transparent',
@@ -1942,20 +2025,6 @@
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
                 series: [
-                    // Zebra shading overlay (grouping by instrument)
-                    {
-                        type: 'bar',
-                        name: 'Zebra Background',
-                        silent: true,
-                        barWidth: '100%',
-                        barGap: '-100%',
-                        z: -1,
-                        itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
-                        data: xAxisData.map((lbl, idx) => {
-                            if (idx % 2 === 1) return { value: Math.max(...granularSeries.flatMap(s => s.data.map(Math.abs))) * 1.5 }; // Ensure it covers height
-                            return 0;
-                        })
-                    },
                     ...granularSeries
                 ]
             };
@@ -2027,20 +2096,6 @@
                         splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                     },
                     series: [
-                        // Zebra shading overlay (grouping by prev/today per instrument)
-                        {
-                            type: 'bar',
-                            name: 'Zebra Background',
-                            silent: true,
-                            barWidth: '100%',
-                            barGap: '-100%',
-                            z: -1,
-                            itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
-                            data: xAxisData.map((lbl, idx) => {
-                                if (idx % 2 === 1) return { value: Math.max(...prevData.concat(todayData).map(Math.abs)) * 1.5 };
-                                return 0;
-                            })
-                        },
                         {
                             name: 'Previous Day',
                             type: 'bar',
@@ -2090,9 +2145,9 @@
                 ],
                 yAxis: [
                     { scale: true, gridIndex: 0, splitLine: { show: true, lineStyle: { color: '#333' } } },
-                    { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } },
+                    { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { formatter: (v) => (v/1000000).toFixed(2) + 'M' } },
                     { scale: true, gridIndex: 2, name: 'ATR %', splitNumber: 2, position: 'left' },
-                    { scale: true, gridIndex: 2, name: 'Total OI', splitNumber: 2, position: 'right', axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } }
+                    { scale: true, gridIndex: 2, name: 'Total OI', splitNumber: 2, position: 'right', axisLabel: { formatter: (v) => (v/1000000).toFixed(2) + 'M' } }
                 ],
                 dataZoom: [{ type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 }, { show: true, type: 'slider', xAxisIndex: [0, 1, 2], bottom: '0%' }],
                 series: [
@@ -2123,6 +2178,8 @@
         if (echartInstance) echartInstance.resize();
         if (window.fiiMoneyChartInstance) window.fiiMoneyChartInstance.resize();
         if (participantChartInstance) participantChartInstance.resize();
+        if (window.participantGranularChartInstance) window.participantGranularChartInstance.resize();
+        if (window.dailyNetOIChangeChartInstance) window.dailyNetOIChangeChartInstance.resize();
     });
 // script end
 
@@ -2330,8 +2387,8 @@ function renderParticipantHistorical(data) {
                             let val = params.value;
                             if (!val || val === 0) return '';
                             let absVal = Math.abs(val);
-                            if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
-                            if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                            if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
+                            if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
                             return val;
                         },
                         color: '#ccc',
@@ -2421,7 +2478,7 @@ function renderParticipantHistorical(data) {
         // Relabel Y-axis to format absolute values for Net Position
         option.yAxis[0].axisLabel.formatter = function (value) {
             if (Math.abs(value) >= 1000) {
-                return (value / 1000).toFixed(1) + 'k';
+                return (value / 1000).toFixed(2) + 'K';
             }
             return value;
         };
@@ -2782,7 +2839,7 @@ async function loadVolatilityAnalysis(event) {
                 if (dteIdx !== -1) {
                     scatterData.push({
                         value: [dteIdx, exp.atm_iv],
-                        name: `${exp.expiry_date} Expiry: ${exp.atm_iv.toFixed(1)}%` // Required label format
+                        name: `${exp.expiry_date} Expiry: ${exp.atm_iv.toFixed(2)}%` // Required label format
                     });
 
                     if (exp.atm_iv > highestIVDot) {
