@@ -148,11 +148,15 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         # Calculate daily Garman-Klass variance estimator
         gk_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * np.log(2) - 1) * (np.log(closes / opens) ** 2)
 
-        # Add close-to-close variance component for overnight gaps
-        log_cc = np.log(closes.values[1:] / closes.values[:-1])
-        cc_var = np.concatenate([[0], log_cc ** 2])
+        # Add close-to-close variance component for overnight gaps (previous close to current open)
+        prev_closes = closes.shift(1).fillna(closes)
+        cc_var = np.log(opens / prev_closes) ** 2
 
         total_var = gk_var + cc_var
+
+        # Clip extreme outliers (e.g. data errors or extreme black swan days)
+        limit = np.percentile(total_var.dropna(), 99)
+        total_var = total_var.clip(lower=0, upper=limit)
 
         for w in windows:
             rolling_var = pd.Series(total_var).rolling(w).mean()
