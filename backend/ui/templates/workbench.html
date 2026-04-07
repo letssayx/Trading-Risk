@@ -1687,7 +1687,16 @@
 
                         <!-- Smart Money Row (Contracts & Money Terms) -->
                         <div style="display: flex; gap: 20px; height: 450px; margin-bottom: 20px;">
-                            <!-- Chart 3: FII Derivatives Statistics (Money Terms) -->
+                            <!-- Smart Money Latest Daily Position (Left) -->
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.dailyNetOIChangeChartInstance) exportChartDataToCSV(window.dailyNetOIChangeChartInstance, 'Smart_Money_Latest_Pos');"><i class="fas fa-download"></i> CSV</button>
+                                </div>
+                                <div id="daily-net-oi-change-summary" style="flex: 1; width: 100%;"></div>
+                            </div>
+
+                            <!-- FII Derivatives Statistics in Money Terms (Right) -->
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">FII Latest Daily Position in money terms</h3>
@@ -1704,17 +1713,6 @@
                                 <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Activity');"><i class="fas fa-download"></i> CSV</button>
                             </div>
                             <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
-                        </div>
-
-                        <!-- Daily Net Open Interest Change (Instrument Trends) -->
-                        <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Daily Net Open Interest Change (Smart Money)</h3>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.dailyNetOIChangeChartInstance) exportChartDataToCSV(window.dailyNetOIChangeChartInstance, 'Daily_Net_OI_Change');"><i class="fas fa-download"></i> CSV</button>
-                            </div>
-                            <div style="flex: 1; width: 100%; overflow-x: auto; overflow-y: hidden;">
-                                <div id="daily-net-oi-change-summary" style="height: 100%; min-width: 1200px;"></div>
-                            </div>
                         </div>
 
                         <!-- 6 Historical Bar Charts with Index Overlay (2 per row) -->
