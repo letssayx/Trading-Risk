@@ -343,6 +343,7 @@ const OiTool = {
                         <th style="padding: 4px;">OI Chg %</th>
                         <th style="padding: 4px;">Price</th>
                         <th style="padding: 4px;">Price Chg %</th>
+                        <th style="padding: 4px;">Buildup Type</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -350,11 +351,18 @@ const OiTool = {
             dataSubset.forEach(d => {
                 let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let typeColor = '#888';
+                if (d.interpretation === 'Long Build Up') typeColor = '#00bcd4';
+                if (d.interpretation === 'Short Build Up') typeColor = '#f44336';
+                if (d.interpretation === 'Short Covering') typeColor = '#00bcd4'; // Also blue per instructions
+                if (d.interpretation === 'Long Unwinding') typeColor = '#ff9800'; // Orange
+
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
                     <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
                     <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 4px; color: ${typeColor};">${d.interpretation || '-'}</td>
                 </tr>`;
             });
 
@@ -442,51 +450,19 @@ const OiTool = {
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'zoom'
+            dragmode: 'pan' // Allow panning natively without getting stuck
         };
 
         const config = {
             responsive: true,
             scrollZoom: true,
             displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'pan2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d']
         };
 
         Plotly.newPlot(container, [trace], layout, config);
 
-        // Force strictly symmetric zoom (centered on 0,0) so the quadrants don't drift
-        container.on('plotly_relayout', function(eventdata) {
-            // Prevent infinite loop if we are the ones triggering the relayout
-            if (eventdata.xaxis && eventdata.xaxis.autorange) return;
-            if (eventdata['xaxis.range[0]'] || eventdata['yaxis.range[0]']) {
-                let x0 = eventdata['xaxis.range[0]'];
-                let x1 = eventdata['xaxis.range[1]'];
-                let y0 = eventdata['yaxis.range[0]'];
-                let y1 = eventdata['yaxis.range[1]'];
-
-                let update = false;
-                let newLayout = {};
-
-                if (x0 !== undefined && x1 !== undefined) {
-                    let maxAbsX = Math.max(Math.abs(x0), Math.abs(x1));
-                    if (Math.abs(Math.abs(x0) - Math.abs(x1)) > 0.001) {
-                        newLayout['xaxis.range'] = [-maxAbsX, maxAbsX];
-                        update = true;
-                    }
-                }
-                if (y0 !== undefined && y1 !== undefined) {
-                    let maxAbsY = Math.max(Math.abs(y0), Math.abs(y1));
-                    if (Math.abs(Math.abs(y0) - Math.abs(y1)) > 0.001) {
-                        newLayout['yaxis.range'] = [-maxAbsY, maxAbsY];
-                        update = true;
-                    }
-                }
-
-                if (update) {
-                    Plotly.relayout(container, newLayout);
-                }
-            }
-        });
+        // Allow free panning, but keep the initial load perfectly symmetric
     },
 
     filterData: function() {
@@ -503,11 +479,30 @@ const OiTool = {
         this.renderAggregatedView();
     },
 
-    analyzeSingle: async function() {
+    analyzeSingle: async function(btnContext) {
         const symbol = document.getElementById('oi-symbol').value.toUpperCase().trim();
         const chartArea = document.getElementById('oi-chart-area');
 
-        if (!symbol) return;
+        let originalText = '';
+        // Fix ReferenceError: Handle `event` safely and properly detect the button
+        let loadBtn = btnContext instanceof HTMLElement ? btnContext : null;
+        if (!loadBtn && typeof event !== 'undefined' && event && event.currentTarget instanceof HTMLElement) {
+            loadBtn = event.currentTarget;
+        }
+
+        if (loadBtn && loadBtn.tagName === 'BUTTON') {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
+        if (!symbol) {
+            if (loadBtn && loadBtn.tagName === 'BUTTON') {
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
+            return;
+        }
 
         chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
 
@@ -526,6 +521,11 @@ const OiTool = {
 
         } catch (e) {
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        } finally {
+            if (loadBtn && loadBtn.tagName === 'BUTTON') {
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
         }
     },
 

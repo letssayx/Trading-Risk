@@ -407,12 +407,31 @@ const RolloverTool = {
         this.renderAggregatedView();
     },
 
-    analyzeSingle: async function() {
+    analyzeSingle: async function(btnContext) {
         const symbol = document.getElementById('rollover-symbol').value.toUpperCase().trim();
         let detailsDiv = document.getElementById('rollover-single-details');
         const resultsDiv = document.getElementById('rollover-results');
 
-        if (!symbol) return;
+        let originalText = '';
+        // Fix ReferenceError: Handle `event` safely and properly detect the button
+        let loadBtn = btnContext instanceof HTMLElement ? btnContext : null;
+        if (!loadBtn && typeof event !== 'undefined' && event && event.currentTarget instanceof HTMLElement) {
+            loadBtn = event.currentTarget;
+        }
+
+        if (loadBtn && loadBtn.tagName === 'BUTTON') {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
+        if (!symbol) {
+            if (loadBtn && loadBtn.tagName === 'BUTTON') {
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
+            return;
+        }
 
         if (!detailsDiv) {
             detailsDiv = document.createElement('div');
@@ -483,6 +502,11 @@ const RolloverTool = {
 
         } catch (e) {
             detailsDiv.innerHTML = `<p style="color: red; text-align:center; margin-top: 20px;">Error: ${e.message}</p>`;
+        } finally {
+            if (loadBtn && loadBtn.tagName === 'BUTTON') {
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
         }
     },
 

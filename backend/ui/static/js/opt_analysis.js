@@ -170,6 +170,17 @@ async function loadOptionsAnalysis() {
                     }
                 },
                 {
+                    name: 'Price Chg %',
+                    type: 'bar',
+                    data: priceChangePct,
+                    itemStyle: {
+                        color: (params) => params.value >= 0 ? '#60a5fa' : '#f44336'
+                    },
+                    xAxisIndex: 1,
+                    yAxisIndex: 2, // Secondary Y axis for percentages
+                    barGap: '0%'
+                },
+                {
                     name: 'PCR',
                     type: 'line',
                     data: data.pcr,
@@ -177,7 +188,7 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
-                    yAxisIndex: 2
+                    yAxisIndex: 3
                 }
             ]
         };
@@ -188,10 +199,14 @@ async function loadOptionsAnalysis() {
         if (tbody) {
             tbody.innerHTML = '';
             if (data.dates && data.dates.length > 0) {
-                const latestDataPoints = Math.min(10, data.dates.length);
-                const startIdx = data.dates.length - latestDataPoints;
+                // The backend sorts dates ascending (min_date at index 0, max_date at end).
+                // We want to show the last 10 dates (or fewer), starting from the most recent.
+                const totalPoints = data.dates.length;
+                const limit = Math.min(10, totalPoints);
+                const startIdx = totalPoints - 1; // latest
+                const endIdx = totalPoints - limit; // 10 days ago
 
-                for (let i = data.dates.length - 1; i >= startIdx; i--) {
+                for (let i = startIdx; i >= endIdx; i--) {
                     const tr = document.createElement('tr');
                     const d = data.dates[i];
                     const p = data.price[i];
@@ -221,11 +236,6 @@ async function loadOptionsAnalysis() {
         }
     } catch (e) {
         console.error("Error loading PCR history:", e);
-    } finally {
-        if (loadBtn) {
-            loadBtn.innerHTML = originalText;
-            loadBtn.disabled = false;
-        }
     }
 
     // 2. Load High OI Chart

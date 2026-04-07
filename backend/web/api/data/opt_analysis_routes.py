@@ -49,6 +49,7 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
                     SELECT DISTINCT expiry_date
                     FROM bhavcopy_fo
                     WHERE ticker_symb = :symbol
+                      AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO', 'FUTIDX', 'FUTSTK', 'STF', 'IDF')
                 ),
                 valid_dates AS (
                     SELECT DISTINCT trade_date

@@ -1652,7 +1652,7 @@
                 // For a given index, the label should be positioned above the maximum absolute bar value.
                 const topOffsets = data.fii_net.map((fii, i) => {
                     const dii = data.dii_net[i] || 0;
-                    return Math.max(fii, dii, 0);
+                    return Math.max(Math.abs(fii), Math.abs(dii), 0) + (Math.max(Math.abs(fii), Math.abs(dii), 0) * 0.05); // Add a 5% buffer to push label slightly above bar
                 });
 
                 // In Chart.js, since there's no true 'composite overlay' value label feature directly without an extra invisible bar/scatter,
@@ -1830,7 +1830,23 @@
                     axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                series: series
+                series: [
+                    // Zebra shading overlay (grouping by instrument)
+                    {
+                        type: 'bar',
+                        name: 'Zebra Background',
+                        silent: true,
+                        barWidth: '100%',
+                        barGap: '-100%',
+                        z: -1,
+                        itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
+                        data: xAxisData.map((lbl, idx) => {
+                            if (idx % 2 === 1) return { value: Math.max(...series.flatMap(s => s.data.map(Math.abs))) * 1.5 };
+                            return 0;
+                        })
+                    },
+                    ...series
+                ]
             };
 
             participantChartInstance.setOption(option);
@@ -1876,7 +1892,6 @@
                     {
                         name: `${p.label} (Prev)`,
                         type: 'bar',
-
                         data: prevDataArr,
                         itemStyle: { color: p.key === 'smart_money' ? '#8B8000' : p.color, opacity: 0.5 }, // Dimmer for previous
                         label: { show: false }
@@ -1884,7 +1899,6 @@
                     {
                         name: `${p.label} (Today)`,
                         type: 'bar',
-
                         data: todayDataArr,
                         itemStyle: { color: p.color },
                         label: {
@@ -1905,9 +1919,18 @@
                 ];
             }).flat();
 
-                    data: xAxisData.map((lbl, idx) => {
-                        if (idx % 2 === 1) { // Apply shading to alternate categories
-                grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+            const granularOption = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: {
+                    data: participants.map(p => [`${p.label} (Prev)`, `${p.label} (Today)`]).flat(),
+                    textStyle: { color: '#ccc' },
+                    type: 'scroll'
+                },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
                 xAxis: {
                     type: 'category',
                     data: xAxisData,
@@ -1918,7 +1941,23 @@
                     axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                series: granularSeries
+                series: [
+                    // Zebra shading overlay (grouping by instrument)
+                    {
+                        type: 'bar',
+                        name: 'Zebra Background',
+                        silent: true,
+                        barWidth: '100%',
+                        barGap: '-100%',
+                        z: -1,
+                        itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
+                        data: xAxisData.map((lbl, idx) => {
+                            if (idx % 2 === 1) return { value: Math.max(...granularSeries.flatMap(s => s.data.map(Math.abs))) * 1.5 }; // Ensure it covers height
+                            return 0;
+                        })
+                    },
+                    ...granularSeries
+                ]
             };
 
             window.participantGranularChartInstance.setOption(granularOption);
@@ -1988,6 +2027,20 @@
                         splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                     },
                     series: [
+                        // Zebra shading overlay (grouping by prev/today per instrument)
+                        {
+                            type: 'bar',
+                            name: 'Zebra Background',
+                            silent: true,
+                            barWidth: '100%',
+                            barGap: '-100%',
+                            z: -1,
+                            itemStyle: { color: 'rgba(255, 255, 255, 0.03)' },
+                            data: xAxisData.map((lbl, idx) => {
+                                if (idx % 2 === 1) return { value: Math.max(...prevData.concat(todayData).map(Math.abs)) * 1.5 };
+                                return 0;
+                            })
+                        },
                         {
                             name: 'Previous Day',
                             type: 'bar',
@@ -2058,11 +2111,10 @@
             container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
         } finally {
             echartInstance?.hideLoading();
-        }
-
-        if (loadBtn) {
-            loadBtn.disabled = false;
-            loadBtn.innerHTML = originalText;
+            if (loadBtn) {
+                loadBtn.disabled = false;
+                loadBtn.innerHTML = originalText;
+            }
         }
     }
 
@@ -2326,18 +2378,43 @@ function renderParticipantHistorical(data) {
         // Let ECharts naturally scale Y-axis for Net Positions (which can be positive/negative)
         option.yAxis[0].min = null;
 
-        // Add NIFTY overlay
+        // Add NIFTY overlay as top bar labels
         const niftyData = data.nifty_prices || data.nifty_close || [];
         if (niftyData.length > 0) {
             option.legend.data.push('NIFTY');
+
+            // Find max values across all series for each day to place the NIFTY label above
+            const topOffsets = niftyData.map((_, i) => {
+                let maxVal = 0;
+                option.series.forEach(s => {
+                    if (s.data && s.data[i]) {
+                        maxVal = Math.max(maxVal, s.data[i]);
+                    }
+                });
+                return maxVal;
+            });
+
             option.series.push({
                 name: 'NIFTY',
                 type: 'line',
-                data: niftyData,
-                yAxisIndex: 1,
-                itemStyle: { color: '#FFCC00' }, // Classic yellow line
-                lineStyle: { width: 2 },
-                symbol: 'none'
+                data: topOffsets, // Placed exactly above max bar height
+                yAxisIndex: 0, // Bind to same Y-axis as bars
+                borderColor: 'transparent', // Remove line overlay
+                backgroundColor: 'transparent',
+                borderWidth: 0,
+                pointRadius: 0,
+                showLine: false,
+                label: {
+                    show: true,
+                    position: 'top',
+                    color: '#FFD700', // Yellow
+                    fontSize: 11,
+                    fontWeight: 'bold',
+                    formatter: function(params) {
+                        const val = niftyData[params.dataIndex];
+                        return val ? Math.round(val) : '';
+                    }
+                }
             });
         }
 
