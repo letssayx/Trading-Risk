@@ -1543,12 +1543,12 @@
                 <!-- SUB-TAB 2: OI Analysis -->
                 <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 20px;">
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
-                    <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px;">
+                    <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px; flex-shrink: 0;">
                         <!-- Content loaded by workbookManager.js / OiTool -->
                     </div>
 
                     <!-- Bottom section: Options Analysis Charts -->
-                    <div id="oi-options-charts-container" style="width: 100%; display: flex; flex-direction: column; gap: 20px;">
+                    <div id="oi-options-charts-container" style="width: 100%; display: flex; flex-direction: column; gap: 20px; flex-shrink: 0;">
                         <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0; margin-top: 20px; border-top: 1px solid #333; padding-top: 20px;">
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
                             <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
@@ -1577,10 +1577,15 @@
                             </div>
 
                             <!-- 4c. High Open Interest Chart -->
-                            <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
+                            <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 800px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
+                                    <div style="display: flex; gap: 10px;">
+                                        <select id="opt-analysis-expiry" class="history-input" style="padding: 2px 5px; font-size: 12px; width: 120px;" onchange="loadOptionsAnalysis()">
+                                            <option value="">ALL EXPIRIES</option>
+                                        </select>
+                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
+                                    </div>
                                 </div>
                                 <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
 

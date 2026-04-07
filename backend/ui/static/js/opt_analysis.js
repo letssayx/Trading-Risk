@@ -41,6 +41,9 @@ async function loadOptionsAnalysis() {
             return ((val - data.price[idx - 1]) / data.price[idx - 1]) * 100;
         });
 
+        if (window.pcrChartInstance) window.pcrChartInstance.dispose();
+        window.pcrChartInstance = pcrChartInstance;
+
         const option = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
@@ -153,7 +156,7 @@ async function loadOptionsAnalysis() {
                         color: (params) => params.value >= 0 ? '#60a5fa' : '#f44336'
                     },
                     xAxisIndex: 1,
-                    yAxisIndex: 2, // Secondary Y axis for percentages
+                    yAxisIndex: 1, // Changed from 2 to 1 to render on existing grid 1
                     barGap: '0%',
                     label: {
                         show: true,
@@ -177,7 +180,7 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
-                    yAxisIndex: 2
+                    yAxisIndex: 2 // Assuming PCR is mapped to the 3rd yAxis (index 2)
                 }
             ]
         };
@@ -199,13 +202,45 @@ async function loadOptionsAnalysis() {
             return;
         }
 
+        // Handle Expiries Dropdown
+        const expiries = [...new Set(data.data.map(d => d.expiry))].sort((a, b) => new Date(a) - new Date(b));
+        const expirySelect = document.getElementById('opt-analysis-expiry');
+        if (expirySelect && expirySelect.options.length <= 1) {
+            expirySelect.innerHTML = '<option value="">ALL EXPIRIES</option>';
+            expiries.forEach(exp => {
+                const opt = document.createElement('option');
+                opt.value = exp;
+                opt.textContent = exp;
+                expirySelect.appendChild(opt);
+            });
+        }
+
+        const selectedExpiry = expirySelect ? expirySelect.value : '';
+        let allData = data.data;
+
+        if (selectedExpiry) {
+            allData = allData.filter(d => d.expiry === selectedExpiry);
+        }
+
+        // Aggregate OI by strike if ALL EXPIRIES is selected
+        if (!selectedExpiry) {
+            const aggregated = {};
+            allData.forEach(row => {
+                if (!aggregated[row.strike]) {
+                    aggregated[row.strike] = { strike: row.strike, CE: { oi: 0 }, PE: { oi: 0 }, trade_date: row.trade_date };
+                }
+                aggregated[row.strike].CE.oi += (row.CE.oi || 0);
+                aggregated[row.strike].PE.oi += (row.PE.oi || 0);
+            });
+            allData = Object.values(aggregated);
+        }
+
         const strikes = [];
         const ce_oi = [];
         const pe_oi = [];
 
         // Instead of taking rigid +/- 20 strikes (which includes illiquid intermediate strikes),
         // we take the top 15 by Call OI and top 15 by Put OI, and union them.
-        const allData = [...data.data];
 
         // Sort by CE OI descending
         const topCe = [...allData].sort((a, b) => (b.CE.oi || 0) - (a.CE.oi || 0)).slice(0, 15);

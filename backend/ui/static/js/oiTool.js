@@ -52,7 +52,7 @@ const OiTool = {
                         <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
                     </select>
 
-                    <button onclick="OiTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button id="btn-oi-refresh-all" onclick="OiTool.handleRefreshAll()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
@@ -82,7 +82,7 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow: hidden; flex: 1; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
@@ -448,6 +448,10 @@ const OiTool = {
             marker: { size: 10, color: color, opacity: 0.8 }
         };
 
+        // Precalculate aspect ratio safely to prevent zero division
+        const safeZoomRangeX = zoomRangeX === 0 ? 1 : zoomRangeX;
+        const scaleRatio = zoomRangeY / safeZoomRangeX;
+
         const layout = {
             title: `OI vs Price Change Quadrant Analysis`,
             paper_bgcolor: '#1e1e1e',
@@ -470,7 +474,7 @@ const OiTool = {
                 gridcolor: '#333',
                 range: [-zoomRangeY, zoomRangeY],
                 scaleanchor: 'x',
-                scaleratio: zoomRangeY / zoomRangeX
+                scaleratio: scaleRatio
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
@@ -496,6 +500,21 @@ const OiTool = {
                 'xaxis.range': [-zoomRangeX, zoomRangeX],
                 'yaxis.range': [-zoomRangeY, zoomRangeY]
             });
+        });
+
+        // Expose zoomRange values for external references if any (although not strictly needed in double click since it's a closure)
+        container._zoomRangeX = zoomRangeX;
+        container._zoomRangeY = zoomRangeY;
+    },
+
+    handleRefreshAll: function() {
+        const btn = document.getElementById('btn-oi-refresh-all');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+        btn.disabled = true;
+        this.loadAggregatedData().finally(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
         });
     },
 
