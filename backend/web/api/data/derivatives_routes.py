@@ -269,7 +269,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
         if insert_data:
             stmt = insert(OiAnalysisMetrics).values(insert_data)
             stmt = stmt.on_conflict_do_update(
-                constraint='pk_oi_analysis_metrics',
+                index_elements=['trade_date', 'symbol'],
                 set_={
                     "price": stmt.excluded.price,
                     "price_chg_pct": stmt.excluded.price_chg_pct,

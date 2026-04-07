@@ -514,7 +514,10 @@ const OiTool = {
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
         btn.disabled = true;
-        this.loadAggregatedData(true).finally(() => {
+        this.loadAggregatedData(true).catch(e => {
+            console.error("Refresh failed:", e);
+            alert("Refresh failed. Please check the backend logs or ensure the database is running.");
+        }).finally(() => {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         });
