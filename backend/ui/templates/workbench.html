@@ -1434,7 +1434,7 @@
                     </div>
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
-                    <div style="width: 100%; height: 600px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+                    <div style="width: 100%; min-height: 600px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content: space-between; margin-bottom:10px; align-items: center;">
                             <div style="display:flex; gap: 10px; align-items: center;">
                                 <label style="color: #ccc; margin: 0; font-size: 12px;">Pre-Expiry Window (DTE):</label>
@@ -1453,7 +1453,7 @@
                     </div>
 
                     <!-- Chart 2: Volatility Cone -->
-                    <div style="width: 100%; height: 800px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+                    <div style="width: 100%; min-height: 800px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content: space-between; margin-bottom:10px; align-items: center;">
                             <div style="display:flex; gap: 10px; align-items: center;">
                                 <button class="btn btn-primary" id="btn-run-historical-iv" onclick="loadVolatilityAnalysis(event)">Run Historical IV Calculation</button>
@@ -1465,7 +1465,7 @@
                     </div>
 
                     <!-- Volatility Data Tables -->
-                    <div style="display: flex; gap: 20px; width: 100%; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 20px; width: 100%; margin-bottom: 20px; flex-shrink: 0; min-height: 350px;">
                         <!-- Table 1: IV Summary -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
