@@ -1613,6 +1613,14 @@
         try {
             const res = await fetch('/api/market-activity/cash-flow');
             const data = await res.json();
+
+            // Update global latest date
+            if (data.dates && data.dates.length > 0) {
+                const latestDateStr = data.dates[data.dates.length - 1];
+                const globalDateEl = document.getElementById('global-latest-date');
+                if (globalDateEl) globalDateEl.innerText = `Latest Data Date: ${latestDateStr}`;
+            }
+
             if (fiiDiiChartInstance) fiiDiiChartInstance.destroy();
             const ctx = document.getElementById('fiiDiiChart').getContext('2d');
 
@@ -1626,13 +1634,13 @@
                     type: 'bar',
                     yAxisID: 'y',
                     data: data.fii_net,
-                    backgroundColor: '#E88B1E',
-                    borderColor: '#E88B1E',
+                    backgroundColor: '#FFD700',
+                    borderColor: '#FFD700',
                     borderWidth: 0,
                     barPercentage: 1.0,
                     categoryPercentage: 0.8,
                     datalabels: { align: 'end', anchor: 'end', color: '#ccc', font: {size: 9}, formatter: (value) => value === 0 ? '' : Math.round(value) }
-                }, // Orange
+                }, // Yellow
                 {
                     label: 'DII Net',
                     type: 'bar',
@@ -1800,7 +1808,9 @@
                 { key: 'opt_idx_ce', label: 'INDEX CALL' },
                 { key: 'fut_idx', label: 'INDEX FUT' },
                 { key: 'opt_idx_pe', label: 'INDEX PUT' },
-                { key: 'fut_stk', label: 'STK FUT' }
+                { key: 'opt_stk_ce', label: 'STK CALL' },
+                { key: 'fut_stk', label: 'STK FUT' },
+                { key: 'opt_stk_pe', label: 'STK PUT' }
             ];
 
             const formatterLakhs = (val) => {
@@ -1865,8 +1875,22 @@
                     const arr = data[`${p.key}_${m.key}`] || [];
                     const today = arr.length > todayIdx ? arr[todayIdx] : 0;
                     const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
-                    todayDataArr.push(today);
-                    prevDataArr.push(prev);
+
+                    // We need to calculate incremental change for labels, but bar heights remain outstanding.
+                    const dayBeforePrev = arr.length > prevIdx - 1 && (prevIdx - 1) >= 0 ? arr[prevIdx - 1] : 0;
+
+                    const diffToday = today - prev;
+                    const diffPrev = prev - dayBeforePrev;
+
+                    todayDataArr.push({
+                        value: today,
+                        diff: diffToday
+                    });
+
+                    prevDataArr.push({
+                        value: prev,
+                        diff: diffPrev
+                    });
                 });
 
                 series.push({
@@ -1881,6 +1905,7 @@
                         show: true,
                         position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
                         formatter: function(params) {
+                            // Net outstanding at the top/bottom of the bar
                             return formatterLakhs(params.value);
                         },
                         color: '#eee',
@@ -1889,13 +1914,37 @@
                     }
                 });
 
+                // Add invisible label series for "Today" to render Net Change at the opposite end of the bar
+                series.push({
+                    name: 'Today Net Change',
+                    type: 'bar',
+                    xAxisIndex: index,
+                    yAxisIndex: index,
+                    data: todayDataArr,
+                    barGap: '-100%', // Overlap perfectly
+                    itemStyle: { color: 'transparent' },
+                    label: {
+                        show: true,
+                        position: function(params) { return params.value >= 0 ? 'bottom' : 'top'; }, // Opposite to outstanding
+                        formatter: function(params) {
+                            if (params.data.diff > 0) return '▲ ' + formatterLakhs(params.data.diff);
+                            if (params.data.diff < 0) return '▼ ' + formatterLakhs(Math.abs(params.data.diff));
+                            return '';
+                        },
+                        color: function(params) { return params.data.diff >= 0 ? '#4caf50' : '#f44336'; },
+                        fontSize: 9,
+                        fontWeight: 'bold'
+                    },
+                    tooltip: { show: false } // Hide this dummy series from tooltip
+                });
+
                 series.push({
                     name: 'Prev Day',
                     type: 'bar',
                     xAxisIndex: index,
                     yAxisIndex: index,
                     data: prevDataArr,
-                    itemStyle: { color: '#E88B1E' }, // Yellow/Orange
+                    itemStyle: { color: '#FFD700' }, // Yellow per user request
                     label: {
                         show: true,
                         position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
@@ -1906,6 +1955,30 @@
                         fontSize: 9,
                         fontWeight: 'bold'
                     }
+                });
+
+                // Add invisible label series for "Prev Day" to render Net Change at the opposite end of the bar
+                series.push({
+                    name: 'Prev Net Change',
+                    type: 'bar',
+                    xAxisIndex: index,
+                    yAxisIndex: index,
+                    data: prevDataArr,
+                    barGap: '-100%', // Overlap perfectly
+                    itemStyle: { color: 'transparent' },
+                    label: {
+                        show: true,
+                        position: function(params) { return params.value >= 0 ? 'bottom' : 'top'; }, // Opposite to outstanding
+                        formatter: function(params) {
+                            if (params.data.diff > 0) return '▲ ' + formatterLakhs(params.data.diff);
+                            if (params.data.diff < 0) return '▼ ' + formatterLakhs(Math.abs(params.data.diff));
+                            return '';
+                        },
+                        color: function(params) { return params.data.diff >= 0 ? '#4caf50' : '#f44336'; },
+                        fontSize: 9,
+                        fontWeight: 'bold'
+                    },
+                    tooltip: { show: false } // Hide this dummy series from tooltip
                 });
             });
 
@@ -1938,30 +2011,36 @@
             window.participantGranularChartInstance.setOption(granularOption);
 
 
-            // Daily Net Open Interest Change Chart (1x4 grid for Instrument Trends)
+            // Daily Net Open Interest Change Chart (Smart Money: (FII+DII+PRO)-CLI) - 1x6 Grid
             const oiChangeContainer = document.getElementById('daily-net-oi-change-summary');
             if (window.dailyNetOIChangeChartInstance) window.dailyNetOIChangeChartInstance.dispose();
             window.dailyNetOIChangeChartInstance = echarts.init(oiChangeContainer);
 
             const instLayouts = [
-                { left: '3%', right: '77%', top: '15%', bottom: '10%', containLabel: true },
-                { left: '28%', right: '52%', top: '15%', bottom: '10%', containLabel: true },
-                { left: '53%', right: '27%', top: '15%', bottom: '10%', containLabel: true },
-                { left: '78%', right: '2%', top: '15%', bottom: '10%', containLabel: true }
+                { left: '2%', right: '84%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '18.6%', right: '67.4%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '35.2%', right: '50.8%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '51.8%', right: '34.2%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '68.4%', right: '17.6%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '85%', right: '1%', top: '15%', bottom: '10%', containLabel: true }
             ];
 
             const instTitles = [
-                { text: 'INDEX FUTURES', left: '12%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } },
-                { text: 'INDEX OPTIONS', left: '38%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } },
-                { text: 'STOCK FUTURES', left: '62%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } },
-                { text: 'STOCK OPTIONS', left: '88%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } }
+                { text: 'INDEX FUTURES', left: '8%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 11 } },
+                { text: 'INDEX CALLS', left: '25%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 11 } },
+                { text: 'INDEX PUTS', left: '42%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 11 } },
+                { text: 'STOCK FUTURES', left: '58%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 11 } },
+                { text: 'STOCK CALLS', left: '75%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 11 } },
+                { text: 'STOCK PUTS', left: '92%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 11 } }
             ];
 
             const instMetrics = [
                 { key: 'fut_idx' },
-                { key: 'opt_idx_ce', key2: 'opt_idx_pe' }, // Will sum calls and puts for options
+                { key: 'opt_idx_ce' },
+                { key: 'opt_idx_pe' },
                 { key: 'fut_stk' },
-                { key: 'opt_stk_ce', key2: 'opt_stk_pe' }
+                { key: 'opt_stk_ce' },
+                { key: 'opt_stk_pe' }
             ];
 
             const instGrids = [];
@@ -1989,27 +2068,32 @@
                     axisLine: { show: true, lineStyle: { color: '#555' } }
                 });
 
-                let todaySum = 0;
-                let prevSum = 0;
+                let todaySmartMoney = 0;
+                let prevSmartMoney = 0;
 
-                // Sum all participants for the specific instrument
-                participants.forEach(p => {
-                    const addData = (k) => {
-                        const arr = data[`${p.key}_${k}`] || [];
-                        todaySum += (arr.length > todayIdx ? arr[todayIdx] : 0);
-                        prevSum += (arr.length > prevIdx ? arr[prevIdx] : 0);
+                // Smart Money Formula = (FII + DII + PRO) - CLI
+                const calculateSmartMoney = (dayIdx) => {
+                    const getVal = (pKey) => {
+                        const arr = data[`${pKey}_${m.key}`] || [];
+                        return arr.length > dayIdx ? arr[dayIdx] : 0;
                     };
-                    addData(m.key);
-                    if (m.key2) addData(m.key2);
-                });
+                    const fii = getVal('fii');
+                    const dii = getVal('dii');
+                    const pro = getVal('pro');
+                    const cli = getVal('client');
+                    return (fii + dii + pro) - cli;
+                };
+
+                todaySmartMoney = calculateSmartMoney(todayIdx);
+                prevSmartMoney = calculateSmartMoney(prevIdx);
 
                 instSeries.push({
                     type: 'bar',
                     xAxisIndex: index,
                     yAxisIndex: index,
                     data: [
-                        { value: todaySum, itemStyle: { color: '#3176B8' } },
-                        { value: prevSum, itemStyle: { color: '#E88B1E' } }
+                        { value: todaySmartMoney, itemStyle: { color: '#3176B8' } }, // Blue
+                        { value: prevSmartMoney, itemStyle: { color: '#FFD700' } }  // Yellow per user request
                     ],
                     barWidth: '50%',
                     label: {
