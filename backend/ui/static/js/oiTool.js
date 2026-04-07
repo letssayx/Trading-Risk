@@ -468,7 +468,9 @@ const OiTool = {
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
                 gridcolor: '#333',
-                range: [-zoomRangeY, zoomRangeY]
+                range: [-zoomRangeY, zoomRangeY],
+                scaleanchor: 'x',
+                scaleratio: zoomRangeY / zoomRangeX
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
@@ -487,6 +489,14 @@ const OiTool = {
         };
 
         Plotly.newPlot(container, [trace], layout, config);
+
+        // Ensure double click resets zoom properly to initial symmetric state
+        container.on('plotly_doubleclick', function() {
+            Plotly.relayout(container, {
+                'xaxis.range': [-zoomRangeX, zoomRangeX],
+                'yaxis.range': [-zoomRangeY, zoomRangeY]
+            });
+        });
     },
 
     filterData: function() {

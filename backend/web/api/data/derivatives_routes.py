@@ -79,8 +79,8 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
         all_hist_dates = [d[0] for d in all_hist_dates_query]
 
-        # We need the last 10 days for the table, and the dates exactly 30, 60, 90, 252, 500 days ago for advanced filters
-        target_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 29, 59, 89, 251, 499]
+        # We need the last 30 days for the table, and the dates exactly 60, 90, 252, 500 days ago for advanced filters
+        target_indices = list(range(31)) + [59, 89, 251, 499]
         target_dates = []
         for idx in target_indices:
             if idx < len(all_hist_dates):
@@ -116,7 +116,7 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
             BhavcopyFO.option_type,
             func.sum(BhavcopyFO.open_interest).label('total_opt_oi')
         ).filter(
-            BhavcopyFO.trade_date.in_(target_dates[:11]),
+            BhavcopyFO.trade_date.in_(target_dates[:31]),
             BhavcopyFO.instrument_type.in_(['OPTIDX', 'OPTSTK', 'STO', 'IDO'])
         ).group_by(BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.option_type).all()
 
@@ -136,7 +136,7 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         # Fetch applicable annualized vol (proxy for ATM IV context)
         from backend.ingest.nse_models import FOVolatility
         vol_query = db.query(FOVolatility.trade_date, FOVolatility.symbol, FOVolatility.applicable_annualised_vol).filter(
-            FOVolatility.trade_date.in_(target_dates[:11])
+            FOVolatility.trade_date.in_(target_dates[:31])
         ).all()
         vol_data = {}
         for r in vol_query:
@@ -207,7 +207,7 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                         h_oi_chg = curr_h["oi"] - prev_h["oi"]
 
                     # Only append to 30-day history array if it's within the top 30 recent dates
-                    if dt in all_hist_dates[:30]:
+                    if dt in target_dates[:30]:
                         h_pcr = 0.0
                         h_total_oi = curr_h["oi"]
 
