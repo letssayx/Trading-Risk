@@ -471,20 +471,34 @@ def get_pre_expiry_action(
                     "end_date": dates[exp_idx]
                 })
 
-        # Append ATM IV and India VIX overlay logic for the Pre-Expiry chart
-        # This gives a single constant line across the chart for current values
-        atm_iv_line = []
-        india_vix_line = []
+        # Append ATM IV overlay logic for the Pre-Expiry chart
+        # User requested 1 moving point for today's date only
+        atm_iv_line = [None] * len(dates)
         try:
-            # We fetch today's Cone endpoint to reuse the atm_iv and india_vix values
             cone_data = get_volatility_cone(symbol, lookback_days, False, db)
             atm_iv_val = cone_data.get("atm_iv", [None])[0]
-            vix_val = cone_data.get("india_vix", [None])[0]
-            atm_iv_line = [atm_iv_val] * len(dates)
-            india_vix_line = [vix_val] * len(dates)
+            if atm_iv_val is not None:
+                atm_iv_line[-1] = atm_iv_val  # Plot only on the last day (today)
         except Exception as e:
-            atm_iv_line = [None] * len(dates)
-            india_vix_line = [None] * len(dates)
+            pass
+
+        # Fetch actual historical India VIX for the exact dates
+        india_vix_line = [None] * len(dates)
+        try:
+            vix_query = text("""
+                SELECT trade_date, close_price
+                FROM historical_index_data
+                WHERE index_name = 'INDIA VIX'
+                  AND trade_date >= :min_date
+                  AND trade_date <= :max_date
+            """)
+            vix_result = db.execute(vix_query, {"min_date": dates[0], "max_date": dates[-1]}).fetchall()
+            vix_dict = {r[0].strftime('%Y-%m-%d'): float(r[1]) for r in vix_result}
+
+            for i, d in enumerate(dates):
+                india_vix_line[i] = vix_dict.get(d, None)
+        except Exception as e:
+            pass
 
         # Precalculate price change percentages
         price_chg_pct_line = [0]
@@ -522,6 +536,14 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
         # We already adjusted the backfiller to ignore options < 5 days to expiry.
         # This means `historical_atm_iv` inherently ignores the immediate expiry week noise now.
 
+        # Automatically calculate missing historical IV data for all symbols
+        # (force=False means it only processes dates that are missing, which is fast)
+        try:
+            from backend.analysis.historical_iv_calculator import calculate_historical_atm_iv
+            calculate_historical_atm_iv(db, "ALL", lookback_days=252, force=False)
+        except Exception as e:
+            print(f"Warning: Failed to auto-backfill historical ATM IV for ALL: {e}")
+
         query = text("""
             WITH UnderlyingPrice AS (
                 SELECT symbol as ticker_symb, close_price as underlying_price
@@ -533,9 +555,9 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
                 WHERE trade_date = :latest_date
             ),
             LatestIV AS (
-                SELECT symbol, atm_iv as current_iv
+                SELECT DISTINCT ON (symbol) symbol, atm_iv as current_iv
                 FROM historical_atm_iv
-                WHERE trade_date = (SELECT MAX(trade_date) FROM historical_atm_iv)
+                ORDER BY symbol, trade_date DESC
             ),
             HistoricalStats AS (
                 SELECT symbol,
