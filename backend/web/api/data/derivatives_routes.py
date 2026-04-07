@@ -155,7 +155,8 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 continue
 
             price_chg = ((curr["price"] - prev["price"]) / prev["price"]) * 100
-            oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"]) * 100
+            oi_chg_pct = ((curr["oi"] - prev["oi"]) / prev["oi"]) * 100
+            oi_chg = curr["oi"] - prev["oi"]
 
             # Fetch options OI for curr and prev
             curr_pe_oi = 0
@@ -170,17 +171,19 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 prev_pe_oi = opt_data[prev_date][sym].get('pe_oi', 0)
                 prev_ce_oi = opt_data[prev_date][sym].get('ce_oi', 0)
 
-            pe_oi_chg = ((curr_pe_oi - prev_pe_oi) / prev_pe_oi) * 100 if prev_pe_oi > 0 else 0
-            ce_oi_chg = ((curr_ce_oi - prev_ce_oi) / prev_ce_oi) * 100 if prev_ce_oi > 0 else 0
+            pe_oi_chg_pct = ((curr_pe_oi - prev_pe_oi) / prev_pe_oi) * 100 if prev_pe_oi > 0 else 0
+            ce_oi_chg_pct = ((curr_ce_oi - prev_ce_oi) / prev_ce_oi) * 100 if prev_ce_oi > 0 else 0
+            pe_oi_chg = curr_pe_oi - prev_pe_oi
+            ce_oi_chg = curr_ce_oi - prev_ce_oi
 
             interp = "Neutral"
-            if price_chg > 0 and oi_chg > 0:
+            if price_chg > 0 and oi_chg_pct > 0:
                 interp = "Long Build Up"
-            elif price_chg > 0 and oi_chg < 0:
+            elif price_chg > 0 and oi_chg_pct < 0:
                 interp = "Short Covering"
-            elif price_chg < 0 and oi_chg > 0:
+            elif price_chg < 0 and oi_chg_pct > 0:
                 interp = "Short Build Up"
-            elif price_chg < 0 and oi_chg < 0:
+            elif price_chg < 0 and oi_chg_pct < 0:
                 interp = "Long Unwinding"
 
             # Build history array
@@ -195,11 +198,13 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                     if i + 1 < len(sorted_hist_dates):
                         prev_h = hist_data[sym][sorted_hist_dates[i+1]]
 
-                    h_price_chg = 0
+                    h_price_chg_pct = 0
+                    h_oi_chg_pct = 0
                     h_oi_chg = 0
                     if prev_h and prev_h["price"] > 0 and prev_h["oi"] > 0:
-                        h_price_chg = ((curr_h["price"] - prev_h["price"]) / prev_h["price"]) * 100
-                        h_oi_chg = ((curr_h["oi"] - prev_h["oi"]) / prev_h["oi"]) * 100
+                        h_price_chg_pct = ((curr_h["price"] - prev_h["price"]) / prev_h["price"]) * 100
+                        h_oi_chg_pct = ((curr_h["oi"] - prev_h["oi"]) / prev_h["oi"]) * 100
+                        h_oi_chg = curr_h["oi"] - prev_h["oi"]
 
                     # Only append to 30-day history array if it's within the top 30 recent dates
                     if dt in all_hist_dates[:30]:
@@ -216,6 +221,8 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                             h_pcr = h_pe / h_ce
                         h_total_oi += (h_pe + h_ce)
 
+                        h_pe_oi_chg_pct = 0
+                        h_ce_oi_chg_pct = 0
                         h_pe_oi_chg = 0
                         h_ce_oi_chg = 0
                         if prev_h:
@@ -226,8 +233,10 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                                 prev_h_pe = opt_data[prev_h_dt][sym].get('pe_oi', 0)
                                 prev_h_ce = opt_data[prev_h_dt][sym].get('ce_oi', 0)
 
-                            if prev_h_pe > 0: h_pe_oi_chg = ((h_pe - prev_h_pe) / prev_h_pe) * 100
-                            if prev_h_ce > 0: h_ce_oi_chg = ((h_ce - prev_h_ce) / prev_h_ce) * 100
+                            if prev_h_pe > 0: h_pe_oi_chg_pct = ((h_pe - prev_h_pe) / prev_h_pe) * 100
+                            if prev_h_ce > 0: h_ce_oi_chg_pct = ((h_ce - prev_h_ce) / prev_h_ce) * 100
+                            h_pe_oi_chg = h_pe - prev_h_pe
+                            h_ce_oi_chg = h_ce - prev_h_ce
 
                         h_atm_iv = None
                         if dt in vol_data and sym in vol_data[dt]:
@@ -237,12 +246,15 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                             "date": str(dt),
                             "price": curr_h["price"],
                             "oi": curr_h["oi"],
-                            "price_chg_pct": round(h_price_chg, 2),
-                            "oi_chg_pct": round(h_oi_chg, 2),
+                            "price_chg_pct": round(h_price_chg_pct, 2),
+                            "oi_chg": h_oi_chg,
+                            "oi_chg_pct": round(h_oi_chg_pct, 2),
                             "call_oi": h_ce,
-                            "call_oi_chg_pct": round(h_ce_oi_chg, 2),
+                            "call_oi_chg": h_ce_oi_chg,
+                            "call_oi_chg_pct": round(h_ce_oi_chg_pct, 2),
                             "put_oi": h_pe,
-                            "put_oi_chg_pct": round(h_pe_oi_chg, 2),
+                            "put_oi_chg": h_pe_oi_chg,
+                            "put_oi_chg_pct": round(h_pe_oi_chg_pct, 2),
                             "total_oi": h_total_oi,
                             "pcr": round(h_pcr, 4),
                             "atm_iv": round(h_atm_iv, 2) if h_atm_iv else None
@@ -290,11 +302,14 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 "price": curr["price"],
                 "price_chg_pct": round(price_chg, 2),
                 "oi": curr["oi"],
-                "oi_chg_pct": round(oi_chg, 2),
+                "oi_chg": oi_chg,
+                "oi_chg_pct": round(oi_chg_pct, 2),
                 "call_oi": curr_ce_oi,
-                "call_oi_chg_pct": round(ce_oi_chg, 2),
+                "call_oi_chg": ce_oi_chg,
+                "call_oi_chg_pct": round(ce_oi_chg_pct, 2),
                 "put_oi": curr_pe_oi,
-                "put_oi_chg_pct": round(pe_oi_chg, 2),
+                "put_oi_chg": pe_oi_chg,
+                "put_oi_chg_pct": round(pe_oi_chg_pct, 2),
                 "total_oi": total_oi,
                 "pcr": round(pcr, 4),
                 "atm_iv": round(atm_iv, 2) if atm_iv else None,
