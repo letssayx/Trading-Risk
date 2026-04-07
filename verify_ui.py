@@ -8,23 +8,27 @@ def run():
         page.goto("http://localhost:8000/workbench")
         page.wait_for_load_state("networkidle")
 
-        # Click the tab
-        try:
-            page.locator('.main-tab[data-target="market-activity"]').click(timeout=3000)
-        except Exception:
-            pass
+        # Use page.evaluate to force display the market-activity content
+        page.evaluate("""
+            document.querySelectorAll('.main-tab-content').forEach(e => e.style.display = 'none');
+            const ma = document.getElementById('market-activity');
+            if (ma) ma.style.display = 'block';
 
-        try:
-            page.locator('li[data-target="market-activity"]').click(timeout=3000)
-        except Exception:
-            pass
+            // Try triggering render via module manager if it exists
+            if (window.WorkbookManager && window.WorkbookManager.modules['market-activity']) {
+                window.WorkbookManager.modules['market-activity'].render(ma);
+            }
+        """)
 
-        # Load participant OI
-        page.locator('#btn-load-participant-oi').click()
-        time.sleep(4)
+        time.sleep(2)
 
-        page.screenshot(path="verification_netoi5.png", full_page=True)
-        print("Screenshot saved to verification_netoi5.png")
+        # Call loadMarketActivity directly
+        page.evaluate("if(typeof loadMarketActivity === 'function') { loadMarketActivity(); }")
+
+        time.sleep(5)
+
+        page.screenshot(path="verification_netoi12.png", full_page=True)
+        print("Screenshot saved to verification_netoi12.png")
         browser.close()
 
 run()

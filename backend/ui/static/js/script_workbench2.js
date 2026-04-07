@@ -1759,7 +1759,7 @@
                 { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
                 { key: 'dii', label: 'DII', color: '#60a5fa' },     // Blue
                 { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
-                { key: 'client', label: 'CLI', color: '#00bcd4' },  // Cyan
+                { key: 'client', label: 'CLI', color: '#E91E63' },  // Cyan
                 { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' } // Yellow
             ];
 
@@ -1927,21 +1927,34 @@
                 return change;
             };
 
+            // Reconstruct the bar chart to show changes per participant per metric, matching the granular chart design
             const oiChangeMetrics = [
-                { key: 'fut_idx', label: 'Index Futures' },
-                { key: 'fut_stk', label: 'Stock Futures' },
-                { key: 'opt_idx', label: 'Index Options' },
-                { key: 'opt_stk', label: 'Stock Options' }
+                { key: 'opt_idx_ce', label: 'INDEX CALL' },
+                { key: 'fut_idx', label: 'INDEX FUT' },
+                { key: 'opt_idx_pe', label: 'INDEX PUT' },
+                { key: 'fut_stk', label: 'STK FUT' }
             ];
 
-            const todayNetData = [
-                computeNetChange('fut_idx', todayIdx, prevIdx),
-                computeNetChange('fut_stk', todayIdx, prevIdx),
-                computeNetChange('opt_idx_ce', todayIdx, prevIdx) + computeNetChange('opt_idx_pe', todayIdx, prevIdx),
-                computeNetChange('opt_stk_ce', todayIdx, prevIdx) + computeNetChange('opt_stk_pe', todayIdx, prevIdx)
-            ];
+            const changeXAxisData = [];
+            participants.forEach(p => {
+                oiChangeMetrics.forEach(m => {
+                    changeXAxisData.push(`${p.label}\n${m.label}`);
+                });
+            });
 
-            const prevNetData = [0, 0, 0, 0]; // It's a change chart now, so just one bar makes sense, but we'll adapt to show the change as 'Today'
+            const changeSeriesData = [];
+            participants.forEach(p => {
+                oiChangeMetrics.forEach(m => {
+                    const arr = data[`${p.key}_${m.key}`] || [];
+                    const today = arr.length > todayIdx ? arr[todayIdx] : 0;
+                    const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
+                    const change = today - prev;
+                    changeSeriesData.push({
+                        value: change,
+                        itemStyle: { color: change > 0 ? '#3176B8' : '#e74c3c' }
+                    });
+                });
+            });
 
             const oiChangeOption = {
                 backgroundColor: 'transparent',
@@ -1949,15 +1962,11 @@
                     trigger: 'axis',
                     axisPointer: { type: 'shadow' }
                 },
-                legend: {
-                    data: ['Net Change'],
-                    textStyle: { color: '#ccc' }
-                },
-                grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
                 xAxis: {
                     type: 'category',
-                    data: oiChangeMetrics.map(m => m.label),
-                    axisLabel: { color: '#ccc', fontWeight: 'bold' }
+                    data: changeXAxisData,
+                    axisLabel: { color: '#ccc', fontWeight: 'bold', interval: 0, formatter: (val) => val }
                 },
                 yAxis: {
                     type: 'value',
@@ -1975,20 +1984,20 @@
                     {
                         name: 'Net Change',
                         type: 'bar',
-                        data: todayNetData,
-                        itemStyle: {
-                            color: function(params) {
-                                return params.value > 0 ? '#3176B8' : '#e74c3c'; // Blue for positive, Red for negative
-                            }
-                        },
+                        data: changeSeriesData,
+                        barGap: '0%',
                         label: {
-                            show: true, position: 'top', formatter: function(p) {
+                            show: true,
+                            position: function(p) { return p.value > 0 ? 'top' : 'bottom'; },
+                            formatter: function(p) {
                                 let val = p.value; if (!val || val === 0) return '';
                                 let absVal = Math.abs(val);
                                 if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
                                 if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
                                 return val;
-                            }, color: '#ccc', fontSize: 10
+                            },
+                            color: '#ccc',
+                            fontSize: 10
                         }
                     }
                 ]
@@ -2315,7 +2324,7 @@ function renderParticipantHistorical(data) {
         { key: 'fii', label: 'FII', color: '#E88B1E' },
         { key: 'dii', label: 'DII', color: '#60a5fa' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
-        { key: 'client', label: 'CLI', color: '#00bcd4' }
+        { key: 'client', label: 'CLI', color: '#E91E63' }
     ];
 
     metrics.forEach(m => {
