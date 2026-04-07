@@ -94,6 +94,7 @@ def calculate_historical_atm_iv(db: Session, symbol: str, lookback_days: int = 5
         batch_dates = dates_to_calculate[i:i+batch_size]
 
         # CTE to find the nearest expiry for each trade_date
+        # Modified to ignore options expiring within 5 days (expiry week noise)
         opts_query = text("""
             WITH ExpiryRank AS (
                 SELECT trade_date, expiry_date,
@@ -101,7 +102,7 @@ def calculate_historical_atm_iv(db: Session, symbol: str, lookback_days: int = 5
                 FROM bhavcopy_fo
                 WHERE ticker_symb = :symbol
                   AND trade_date = ANY(:dates)
-                  AND expiry_date > trade_date
+                  AND expiry_date >= trade_date + INTERVAL '5 days'
                   AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
             )
             SELECT bf.trade_date, bf.expiry_date, bf.strike_price, bf.option_type, bf.close_price

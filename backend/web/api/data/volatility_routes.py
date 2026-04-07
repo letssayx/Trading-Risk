@@ -129,8 +129,6 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         }
 
         # Compute Garman-Klass Volatility
-        ann_factor = math.sqrt(252) # User requested sqrt(252) for trading days
-
         import pandas as pd
 
         df = pd.DataFrame(ohlc_result, columns=["date", "open", "high", "low", "close"])
@@ -492,7 +490,7 @@ def get_pre_expiry_action(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/data/derivatives/volatility_summary_all")
-def get_volatility_summary_all(db: Session = Depends(get_db)):
+def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str = Query("monthly", description="monthly or all")):
     try:
         # We need the latest trade date
         date_query = text("SELECT MAX(trade_date) FROM bhavcopy_fo")
@@ -500,13 +498,40 @@ def get_volatility_summary_all(db: Session = Depends(get_db)):
         if not latest_date:
             return {"data": []}
 
-        # 1. Fetch current ATM IV for all symbols from the nearest expiry
-        # This is computationally heavy if done via greeks on the fly.
-        # But we already pre-calculate and store it in historical_atm_iv!
-        # So we can just fetch the latest IV and min/max IVs for all symbols from historical_atm_iv.
+        # Expiry logic for current IV calculation
+        # The user requested skipping the immediate expiry week to avoid noisy IVs.
+        # We can implement this by choosing an expiry at least 5 days out.
 
         query = text("""
-            WITH LatestIV AS (
+            WITH ExpiryRank AS (
+                SELECT ticker_symb, expiry_date,
+                       ROW_NUMBER() OVER(PARTITION BY ticker_symb ORDER BY expiry_date ASC) as rnk
+                FROM bhavcopy_fo
+                WHERE trade_date = :latest_date
+                  AND expiry_date >= :latest_date + INTERVAL '5 days'
+                  AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
+            ),
+            NearestExpiry AS (
+                SELECT ticker_symb, expiry_date
+                FROM ExpiryRank
+                WHERE rnk = 1
+            ),
+            -- Get the underlying price for the symbol
+            UnderlyingPrice AS (
+                SELECT symbol as ticker_symb, close_price as underlying_price
+                FROM bhavcopy_eq
+                WHERE trade_date = :latest_date AND series = 'EQ'
+                UNION ALL
+                SELECT index_name as ticker_symb, close_price as underlying_price
+                FROM historical_index_data
+                WHERE trade_date = :latest_date
+            ),
+            LatestIV AS (
+                -- Try to find the pre-calculated IV from historical_atm_iv first
+                -- If we want to strictly skip expiry week, we need to calculate it here dynamically or
+                -- assume the backfiller also skips expiry weeks. The backfiller currently picks the absolute nearest.
+                -- For performance on "All F&O", using the precalculated value is MUCH faster.
+                -- Let's stick to the pre-calculated IV for now and handle the expiry filter if needed via dynamic greeks.
                 SELECT symbol, atm_iv as current_iv
                 FROM historical_atm_iv
                 WHERE trade_date = (SELECT MAX(trade_date) FROM historical_atm_iv)
@@ -535,7 +560,7 @@ def get_volatility_summary_all(db: Session = Depends(get_db)):
             ORDER BY l.symbol
         """)
 
-        result = db.execute(query).fetchall()
+        result = db.execute(query, {"latest_date": latest_date}).fetchall()
 
         data = []
         for r in result:

@@ -1470,7 +1470,13 @@
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <h3 style="margin: 0; font-size: 14px; color: #ccc;">IV Summary</h3>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" id="btn-load-all-iv" onclick="loadAllIVSummary(event)">Load All F&O</button>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <select id="iv-summary-expiry-type" style="background: #2a2a2a; color: #ccc; border: 1px solid #444; border-radius: 4px; padding: 2px 5px; font-size: 11px;">
+                                        <option value="monthly">Monthly</option>
+                                        <option value="all">All Expiries</option>
+                                    </select>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" id="btn-load-all-iv" onclick="loadAllIVSummary(event)">Load All F&O</button>
+                                </div>
                             </div>
                             <div class="table-wrapper" style="flex: 1; max-height: 300px; overflow-y: auto;">
                                 <table class="data-table" style="width: 100%; text-align: left;">

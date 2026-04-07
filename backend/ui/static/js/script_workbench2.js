@@ -3086,6 +3086,8 @@ function exportChartDataToCSV(chartInstance, filename) {
 
 async function loadAllIVSummary(event) {
     const btn = document.getElementById('btn-load-all-iv');
+    const expirySelect = document.getElementById('iv-summary-expiry-type');
+    const expiryType = expirySelect ? expirySelect.value : 'monthly';
     const originalText = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
     btn.disabled = true;
@@ -3094,7 +3096,7 @@ async function loadAllIVSummary(event) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Fetching data across all symbols...</td></tr>';
 
     try {
-        const res = await fetch('/api/data/derivatives/volatility_summary_all');
+        const res = await fetch(`/api/data/derivatives/volatility_summary_all?expiry_type=${expiryType}`);
         const result = await res.json();
 
         window.allIvData = result.data || [];
