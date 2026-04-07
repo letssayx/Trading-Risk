@@ -222,7 +222,8 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
             active_expiries = []
             for exp_d, opts in expiries_map.items():
                 current_dte = (exp_d - current_date).days
-                if current_dte <= 0: continue
+                # Skip expiries that are too close (noise)
+                if current_dte < 3: continue
 
                 t_years = current_dte / 365.0
                 risk_free_rate = 0.05
@@ -296,6 +297,9 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
 
         try:
             # We want lookback period up to today
+            # If the user has just clicked run, they may have backfilled history up to today
+            # But "active_expiries" comes from today's live options chain or latest EOD, so current ATM IV might differ slightly from the backfilled historic value if it wasn't backfilled today
+            # We should use the precalculated historic IV's latest value as "Current ATM IV" for consistency, or the nearest expiry from "active_expiries"
             min_date = dates[0]
             max_date = dates[-1]
             hist_iv_query = text("""
@@ -514,26 +518,12 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
         if not latest_date:
             return {"data": []}
 
-        # Expiry logic for current IV calculation
-        # The user requested skipping the immediate expiry week to avoid noisy IVs.
-        # We can implement this by choosing an expiry at least 5 days out.
+        # We will use the latest precalculated IV from historical_atm_iv table
+        # We already adjusted the backfiller to ignore options < 5 days to expiry.
+        # This means `historical_atm_iv` inherently ignores the immediate expiry week noise now.
 
         query = text("""
-            WITH ExpiryRank AS (
-                SELECT ticker_symb, expiry_date,
-                       ROW_NUMBER() OVER(PARTITION BY ticker_symb ORDER BY expiry_date ASC) as rnk
-                FROM bhavcopy_fo
-                WHERE trade_date = :latest_date
-                  AND expiry_date >= :latest_date + INTERVAL '5 days'
-                  AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
-            ),
-            NearestExpiry AS (
-                SELECT ticker_symb, expiry_date
-                FROM ExpiryRank
-                WHERE rnk = 1
-            ),
-            -- Get the underlying price for the symbol
-            UnderlyingPrice AS (
+            WITH UnderlyingPrice AS (
                 SELECT symbol as ticker_symb, close_price as underlying_price
                 FROM bhavcopy_eq
                 WHERE trade_date = :latest_date AND series = 'EQ'
@@ -543,11 +533,6 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
                 WHERE trade_date = :latest_date
             ),
             LatestIV AS (
-                -- Try to find the pre-calculated IV from historical_atm_iv first
-                -- If we want to strictly skip expiry week, we need to calculate it here dynamically or
-                -- assume the backfiller also skips expiry weeks. The backfiller currently picks the absolute nearest.
-                -- For performance on "All F&O", using the precalculated value is MUCH faster.
-                -- Let's stick to the pre-calculated IV for now and handle the expiry filter if needed via dynamic greeks.
                 SELECT symbol, atm_iv as current_iv
                 FROM historical_atm_iv
                 WHERE trade_date = (SELECT MAX(trade_date) FROM historical_atm_iv)
@@ -569,10 +554,11 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
                   AND h.trade_date >= CURRENT_DATE - INTERVAL '1 year'
                 GROUP BY h.symbol
             )
-            SELECT l.symbol, l.current_iv, s.min_iv, s.max_iv, s.total_days, COALESCE(d.days_below, 0) as days_below
+            SELECT l.symbol, l.current_iv, s.min_iv, s.max_iv, s.total_days, COALESCE(d.days_below, 0) as days_below, u.underlying_price
             FROM LatestIV l
             JOIN HistoricalStats s ON l.symbol = s.symbol
             LEFT JOIN DaysBelow d ON l.symbol = d.symbol
+            LEFT JOIN UnderlyingPrice u ON l.symbol = u.ticker_symb
             ORDER BY l.symbol
         """)
 
@@ -586,6 +572,7 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
             max_iv = r[3]
             total_days = r[4]
             days_below = r[5]
+            price = r[6]
 
             if current_iv is None or min_iv is None or max_iv is None or total_days == 0:
                 continue
@@ -598,6 +585,7 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
 
             data.append({
                 "symbol": sym,
+                "price": float(price) if price else None,
                 "current_atm_iv": round(current_iv, 2),
                 "ivr": round(ivr, 2) if ivr is not None else None,
                 "ivp": round(ivp, 2)

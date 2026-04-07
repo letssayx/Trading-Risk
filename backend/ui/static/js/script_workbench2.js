@@ -2732,8 +2732,8 @@ async function loadVolatilityAnalysis(event) {
         if (data.active_expiries && data.active_expiries.length > 0) {
             let scatterData = [];
 
-            // User feedback: Limit ATM IV dots to the next 4 active expiries only
-            const expiriesToPlot = data.active_expiries.slice(0, 4);
+            // User feedback: Limit ATM IV dots to expiries with DTE >= 3 and max 4 points
+            const expiriesToPlot = data.active_expiries.filter(e => e.dte >= 3).slice(0, 4);
 
             expiriesToPlot.forEach(exp => {
                 // Find the closest x-axis index for the scatter point
@@ -3160,10 +3160,10 @@ function renderAllIVSummary() {
         const ivpColor = isHighIV ? '#ff4d4d' : '#ccc';
 
         tr.innerHTML = `
-            <td style="padding: 6px; font-weight: bold; color: #4da6ff;">${item.symbol}</td>
-            <td style="padding: 6px;">-</td>
+            <td style="padding: 6px; font-weight: bold; color: #4da6ff; cursor: pointer;" onclick="document.getElementById('vol-analysis-symbol').value='${item.symbol}'; document.getElementById('btn-run-historical-iv').click();">${item.symbol}</td>
+            <td style="padding: 6px;">${item.price !== undefined && item.price !== null ? item.price.toFixed(2) : '-'}</td>
             <td style="padding: 6px; color: #e6a23c;">${item.current_atm_iv !== null ? item.current_atm_iv.toFixed(2) + '%' : '-'}</td>
-            <td style="padding: 6px;">${item.ivr !== null ? item.ivr.toFixed(2) + '%' : '-'}</td>
+            <td style="padding: 6px;">${item.ivr !== null ? item.ivr.toFixed(2) : '-'}</td>
             <td style="padding: 6px; color: ${ivpColor};">${item.ivp !== null ? item.ivp.toFixed(2) + '%' : '-'}</td>
         `;
         tbody.appendChild(tr);
