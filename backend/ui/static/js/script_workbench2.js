@@ -3085,15 +3085,21 @@ function exportChartDataToCSV(chartInstance, filename) {
 }
 
 async function loadAllIVSummary(event) {
+    if (event) event.preventDefault();
     const btn = document.getElementById('btn-load-all-iv');
     const expirySelect = document.getElementById('iv-summary-expiry-type');
     const expiryType = expirySelect ? expirySelect.value : 'monthly';
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-    btn.disabled = true;
+    const originalText = btn ? btn.innerHTML : 'Load All F&O';
+
+    if (btn) {
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+        btn.disabled = true;
+    }
 
     const tbody = document.getElementById('vol-iv-summary-body');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Fetching data across all symbols...</td></tr>';
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Fetching data across all symbols...</td></tr>';
+    }
 
     try {
         const res = await fetch(`/api/data/derivatives/volatility_summary_all?expiry_type=${expiryType}`);
@@ -3102,17 +3108,19 @@ async function loadAllIVSummary(event) {
         window.allIvData = result.data || [];
 
         if (window.allIvData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No IV data found.</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No IV data found.</td></tr>';
             return;
         }
 
         renderAllIVSummary();
 
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error: ${e.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error: ${e.message}</td></tr>`;
     } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     }
 }
 

@@ -282,6 +282,19 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         }
 
         try:
+            # Fetch India VIX for overlay if requested
+            vix_query = text("""
+                SELECT close_price
+                FROM historical_index_data
+                WHERE index_name = 'INDIA VIX' AND trade_date = :current_date
+            """)
+            vix_result = db.execute(vix_query, {"current_date": current_date}).fetchone()
+            if vix_result:
+                cone_data["india_vix"] = [float(vix_result[0])]
+        except Exception:
+            pass
+
+        try:
             # We want lookback period up to today
             min_date = dates[0]
             max_date = dates[-1]
@@ -304,6 +317,9 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                     if cone_data["active_expiries"]:
                         current_atm_iv = cone_data["active_expiries"][0]["atm_iv"]
                         cone_data["iv_summary"]["current_atm_iv"] = current_atm_iv
+
+                        # Add ATM IV to top level dict for other routes to use
+                        cone_data["atm_iv"] = [current_atm_iv]
 
                         if max_iv > min_iv:
                             ivr = (current_atm_iv - min_iv) / (max_iv - min_iv) * 100
