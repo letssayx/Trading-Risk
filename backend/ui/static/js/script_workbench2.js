@@ -2683,7 +2683,8 @@ async function loadVolatilityAnalysis(event) {
                     name: '95th %',
                     type: 'line',
                     data: data.p95,
-                    lineStyle: { color: '#ef5350', width: 2 }, // Red
+                    lineStyle: { color: '#ef5350', width: 2, type: 'dashed' }, // Red Dashed
+                    itemStyle: { color: '#ef5350' },
                     showSymbol: false
                 },
                 {
@@ -2691,27 +2692,34 @@ async function loadVolatilityAnalysis(event) {
                     type: 'line',
                     data: data.p75,
                     lineStyle: { color: '#ab47bc', width: 2 }, // Purple
+                    itemStyle: { color: '#ab47bc' },
+                    areaStyle: { color: 'rgba(171, 71, 188, 0.1)', origin: 'auto' },
                     showSymbol: false
                 },
                 {
                     name: '50th % (Median)',
                     type: 'line',
                     data: data.p50,
-                    lineStyle: { color: '#26a69a', width: 2 }, // Teal
-                    showSymbol: false
+                    lineStyle: { color: '#00e676', width: 4 }, // Bright Green, thickest line
+                    itemStyle: { color: '#00e676' },
+                    showSymbol: false,
+                    zlevel: 10
                 },
                 {
                     name: '25th %',
                     type: 'line',
                     data: data.p25,
                     lineStyle: { color: '#29b6f6', width: 2 }, // Light Blue
+                    itemStyle: { color: '#29b6f6' },
+                    areaStyle: { color: 'rgba(41, 182, 246, 0.1)', origin: 'auto' },
                     showSymbol: false
                 },
                 {
                     name: '5th %',
                     type: 'line',
                     data: data.p5,
-                    lineStyle: { color: '#66bb6a', width: 2 }, // Green
+                    lineStyle: { color: '#66bb6a', width: 2, type: 'dashed' }, // Green Dashed
+                    itemStyle: { color: '#66bb6a' },
                     showSymbol: false
                 }
             ]
