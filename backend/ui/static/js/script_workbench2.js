@@ -2429,8 +2429,8 @@ let volConeChart = null;
 async function loadVolatilityAnalysis(event) {
     const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
     const expiryType = document.getElementById('vol-analysis-expiry-type').value;
-    const lookback = document.getElementById('vol-analysis-lookback').value;
-    const boxDays = document.getElementById('vol-analysis-box-days').value;
+    const lookback = document.getElementById('vol-analysis-lookback').value || 500;
+    const boxDays = document.getElementById('vol-analysis-box-days').value || 7;
 
     // Use event.target if provided (to distinguish btn-run-historical-iv from btn-load-vol-analysis)
     let loadBtn = document.getElementById('btn-load-vol-analysis');

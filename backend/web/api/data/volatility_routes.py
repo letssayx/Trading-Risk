@@ -136,10 +136,14 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         df = pd.DataFrame(ohlc_result, columns=["date", "open", "high", "low", "close"])
         df = df.sort_values("date")
 
-        opens = df["open"].astype(float).replace(0, df["close"])
-        highs = df["high"].astype(float).replace(0, df["close"])
-        lows  = df["low"].astype(float).replace(0, df["close"])
+        opens = df["open"].astype(float)
+        highs = df["high"].astype(float)
+        lows  = df["low"].astype(float)
         closes= df["close"].astype(float)
+
+        opens = opens.mask(opens == 0, closes)
+        highs = highs.mask(highs == 0, closes)
+        lows  = lows.mask(lows == 0, closes)
 
         # Calculate daily Garman-Klass variance estimator
         gk_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * np.log(2) - 1) * (np.log(closes / opens) ** 2)
