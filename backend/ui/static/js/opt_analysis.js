@@ -1,15 +1,24 @@
 
-async function loadOptionsAnalysis() {
+
+async function loadOptionsAnalysisWrapper() {
+
+
+    try {
+        await _loadOptionsAnalysisCore();
+    } finally {
+        if (loadBtn) {
+            loadBtn.innerHTML = originalText;
+            loadBtn.disabled = false;
+        }
+    }
+}
+
+async function _loadOptionsAnalysisCore() {
+
     const symbol = document.getElementById('opt-analysis-symbol').value.toUpperCase();
     if (!symbol) return;
 
-    const loadBtn = document.getElementById('btn-load-options-analysis');
-    let originalText = '';
-    if (loadBtn) {
-        originalText = loadBtn.innerHTML;
-        loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        loadBtn.disabled = true;
-    }
+
 
     // 1. Load 500-Day PCR Chart
     try {
@@ -25,7 +34,7 @@ async function loadOptionsAnalysis() {
 
         if (!data || !data.total_oi || !data.price || data.total_oi.length === 0) {
             chartDom.innerHTML = '<p style="text-align:center; color:#888; padding-top: 20px;">No historical PCR data found.</p>';
-            throw new Error("No data returned for PCR history");
+            console.warn("No data returned for PCR history"); return;
         }
 
         pcrChartInstance = echarts.init(chartDom);
@@ -376,8 +385,5 @@ async function loadOptionsAnalysis() {
         console.error("Error loading high OI chart:", e);
     }
 
-    if (loadBtn) {
-        loadBtn.disabled = false;
-        loadBtn.innerHTML = originalText;
-    }
+
 }

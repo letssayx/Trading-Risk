@@ -11,14 +11,19 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 router = APIRouter()
 
 @router.get("/api/data/analysis/oi")
-def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
+def get_aggregated_oi_analysis(force_compute: bool = False, db: Session = Depends(get_db)):
     """
     Reads OI vs Price Quadrant Analysis data instantly from the pre-computed oi_analysis_metrics table.
     Includes historical array for table expansion.
     """
     try:
-        from backend.ingest.nse_models import OiAnalysisMetrics, SymbolMaster
+        from backend.ingest.nse_models import OiAnalysisMetrics, SymbolMaster, BhavcopyFO
         from sqlalchemy import desc
+
+        if force_compute:
+            # We don't want to call POST /compute HTTP endpoint from here natively,
+            # so we just call the python function directly!
+            compute_aggregated_oi_analysis(db)
 
         # We need the last 30 dates available in the metrics table
         dates_query = db.query(OiAnalysisMetrics.trade_date)\

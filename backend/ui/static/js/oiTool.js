@@ -53,7 +53,7 @@ const OiTool = {
                     </select>
 
                     <button id="btn-oi-refresh-all" onclick="OiTool.handleRefreshAll()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
-                    <button id="btn-oi-compute-all" onclick="OiTool.handleComputeAll()" class="btn btn-secondary"><i class="fas fa-calculator"></i> Compute Latest Data</button>
+
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
@@ -149,7 +149,7 @@ const OiTool = {
         }
     },
 
-    loadAggregatedData: async function() {
+    loadAggregatedData: async function(forceCompute = false) {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
@@ -159,7 +159,8 @@ const OiTool = {
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            const res = await fetch('/api/data/analysis/oi');
+            const url = forceCompute ? '/api/data/analysis/oi?force_compute=true' : '/api/data/analysis/oi';
+            const res = await fetch(url);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
 
@@ -513,39 +514,13 @@ const OiTool = {
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
         btn.disabled = true;
-        this.loadAggregatedData().finally(() => {
+        this.loadAggregatedData(true).finally(() => {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         });
     },
 
-    handleComputeAll: function() {
-        if (!confirm("This will execute a heavy backend calculation to compute and overwrite the latest OI data into the permanent database table. Proceed?")) return;
 
-        const btn = document.getElementById('btn-oi-compute-all');
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Computing...';
-        btn.disabled = true;
-
-        fetch('/api/data/analysis/oi/compute', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Automatically refresh the table with the new data
-                    this.loadAggregatedData();
-                } else {
-                    alert("Computation failed: " + (data.message || "Unknown error"));
-                }
-            })
-            .catch(error => {
-                console.error("Error computing OI analysis:", error);
-                alert("Computation error: " + error);
-            })
-            .finally(() => {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            });
-    },
 
     filterData: function() {
         this.renderAggregatedView();
