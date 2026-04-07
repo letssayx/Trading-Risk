@@ -25,6 +25,8 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
 
         # Fetch historical prices to calculate realized volatility
         # We fetch DESC with LIMIT, then reverse to ASC
+        fetch_limit = lookback_days + 50
+
         if is_index:
             query = text("""
                 SELECT trade_date, close_price
@@ -42,7 +44,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                 LIMIT :lookback
             """)
 
-        result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+        result = db.execute(query, {"symbol": symbol, "lookback": fetch_limit}).fetchall()
 
         # fallback to futures if eq/index is empty
         if not result:
@@ -57,7 +59,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                     ORDER BY trade_date DESC
                     LIMIT :lookback
                 """)
-                 result = db.execute(query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+                 result = db.execute(query, {"symbol": symbol, "lookback": fetch_limit}).fetchall()
              except Exception:
                  db.rollback()
                  result = []
@@ -88,7 +90,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                 LIMIT :lookback
             """)
 
-        ohlc_result = db.execute(ohlc_query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+        ohlc_result = db.execute(ohlc_query, {"symbol": symbol, "lookback": fetch_limit}).fetchall()
 
         if not ohlc_result:
             try:
@@ -102,7 +104,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                     ORDER BY trade_date DESC
                     LIMIT :lookback
                 """)
-                 ohlc_result = db.execute(ohlc_query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
+                 ohlc_result = db.execute(ohlc_query, {"symbol": symbol, "lookback": fetch_limit}).fetchall()
             except Exception:
                  db.rollback()
                  ohlc_result = []
@@ -129,20 +131,29 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         # Compute Garman-Klass Volatility
         ann_factor = math.sqrt(252) # User requested sqrt(252) for trading days
 
-        # O, H, L, C arrays
-        opens = np.array([float(r[1]) if r[1] > 0 else float(r[4]) for r in ohlc_result])
-        highs = np.array([float(r[2]) if r[2] > 0 else float(r[4]) for r in ohlc_result])
-        lows = np.array([float(r[3]) if r[3] > 0 else float(r[4]) for r in ohlc_result])
-        closes = np.array([float(r[4]) for r in ohlc_result])
-
-        # Calculate daily Garman-Klass variance estimator
         import pandas as pd
 
-        gk_daily_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * np.log(2) - 1) * (np.log(closes / opens) ** 2)
-        gk_daily_var = np.where(np.isfinite(gk_daily_var), gk_daily_var, np.nan)
+        df = pd.DataFrame(ohlc_result, columns=["date", "open", "high", "low", "close"])
+        df = df.sort_values("date")
+
+        opens = df["open"].astype(float).replace(0, df["close"])
+        highs = df["high"].astype(float).replace(0, df["close"])
+        lows  = df["low"].astype(float).replace(0, df["close"])
+        closes= df["close"].astype(float)
+
+        # Calculate daily Garman-Klass variance estimator
+        gk_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * np.log(2) - 1) * (np.log(closes / opens) ** 2)
+
+        # Add close-to-close variance component for overnight gaps
+        log_cc = np.log(closes.values[1:] / closes.values[:-1])
+        cc_var = np.concatenate([[0], log_cc ** 2])
+
+        total_var = gk_var + cc_var
 
         for w in windows:
-            rolling_vol_annualized = np.sqrt(pd.Series(gk_daily_var).rolling(w).mean()) * np.sqrt(252) * 100
+            rolling_var = pd.Series(total_var).rolling(w).mean()
+            rolling_var = rolling_var.clip(lower=0)
+            rolling_vol_annualized = np.sqrt(rolling_var) * np.sqrt(252) * 100
 
             # Step 4: Get percentiles from historical data
             valid_vol = rolling_vol_annualized.dropna().tail(lookback_days)
@@ -224,9 +235,20 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
 
                 if ivs:
                     real_iv = sum(ivs) / len(ivs)
+
+                    # Map DTE to closest rolling window for comparison overlay
+                    mapped_n = None
+                    if 1 <= current_dte <= 3:
+                        mapped_n = min([1, 2, 3], key=lambda x: abs(x - current_dte))
+                    elif 5 <= current_dte <= 10:
+                        mapped_n = min([5, 10], key=lambda x: abs(x - current_dte))
+                    elif 15 <= current_dte <= 30:
+                        mapped_n = min([21, 30], key=lambda x: abs(x - current_dte))
+
                     active_expiries.append({
                         "expiry_date": exp_d.strftime('%Y-%m-%d'),
                         "dte": current_dte,
+                        "mapped_n": mapped_n,
                         "atm_iv": float(round(real_iv, 2))
                     })
 
