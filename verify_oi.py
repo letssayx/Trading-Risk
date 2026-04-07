@@ -6,16 +6,23 @@ def run_cuj(page):
     page.wait_for_timeout(2000)
 
     # Click the Derivatives Analysis tab
-    print("Clicking Derivatives Analysis tab...")
     page.locator('.main-tab[data-target="derivatives"]').click()
     page.wait_for_timeout(2000)
 
     # Click the OI Analysis sub-tab
-    print("Clicking OI Analysis sub-tab...")
     page.locator('#deriv-tab-btn-oi').click()
     page.wait_for_timeout(2000)
 
-    page.screenshot(path="/home/jules/verification/screenshots/verification1.png")
+    page.fill("#opt-analysis-symbol", "NIFTY")
+    page.evaluate("document.getElementById('btn-load-options-analysis').disabled = false;")
+    page.locator("#btn-load-options-analysis").click(force=True)
+    page.wait_for_timeout(4000)
+
+    # Scroll down to PCR history to ensure render without crash
+    page.evaluate("document.getElementById('opt-analysis-pcr-chart').scrollIntoView({behavior: 'instant'})")
+    page.wait_for_timeout(2000)
+
+    page.screenshot(path="/home/jules/verification/screenshots/verification3.png")
 
 if __name__ == "__main__":
     with sync_playwright() as p:

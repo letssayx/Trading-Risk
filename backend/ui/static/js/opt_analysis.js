@@ -22,6 +22,12 @@ async function loadOptionsAnalysis() {
 
         const chartDom = document.getElementById('opt-analysis-pcr-chart');
         if (pcrChartInstance) pcrChartInstance.dispose();
+
+        if (!data || !data.total_oi || !data.price || data.total_oi.length === 0) {
+            chartDom.innerHTML = '<p style="text-align:center; color:#888; padding-top: 20px;">No historical PCR data found.</p>';
+            throw new Error("No data returned for PCR history");
+        }
+
         pcrChartInstance = echarts.init(chartDom);
 
         const oiColors = data.total_oi.map((val, idx) => {
@@ -156,7 +162,7 @@ async function loadOptionsAnalysis() {
                         color: (params) => params.value >= 0 ? '#60a5fa' : '#f44336'
                     },
                     xAxisIndex: 1,
-                    yAxisIndex: 1, // Changed from 2 to 1 to render on existing grid 1
+                    yAxisIndex: 2,
                     barGap: '0%',
                     label: {
                         show: true,
@@ -180,7 +186,7 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
-                    yAxisIndex: 2 // Assuming PCR is mapped to the 3rd yAxis (index 2)
+                    yAxisIndex: 3
                 }
             ]
         };
