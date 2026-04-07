@@ -1648,34 +1648,38 @@
             ];
 
             if (niftyData.length > 0) {
-                // Determine the global maximum absolute value across all bars to place Nifty labels at a single horizontal line at the top.
-                let maxAbsVal = 0;
+                // Determine the global maximum positive value and global minimum negative value across all bars.
+                // We will place Nifty labels exactly at the upper chart boundary.
+                let maxVal = 0;
+                let minVal = 0;
                 data.fii_net.forEach((fii, i) => {
                     const dii = data.dii_net[i] || 0;
-                    const maxLocal = Math.max(Math.abs(fii), Math.abs(dii));
-                    if (maxLocal > maxAbsVal) maxAbsVal = maxLocal;
+                    const maxLocal = Math.max(fii, dii);
+                    const minLocal = Math.min(fii, dii);
+                    if (maxLocal > maxVal) maxVal = maxLocal;
+                    if (minLocal < minVal) minVal = minLocal;
                 });
 
-                // Add a small buffer above the global max for the labels
-                const topOffsetVal = maxAbsVal + (maxAbsVal * 0.1);
+                // We will explicitly set the Y-axis maximum to make room for labels.
+                const buffer = (maxVal - minVal) * 0.15 || maxVal * 0.15;
+                const topOffsetVal = maxVal + buffer;
                 const topOffsets = data.fii_net.map(() => topOffsetVal);
 
                 // In Chart.js, since there's no true 'composite overlay' value label feature directly without an extra invisible bar/scatter,
-                // we can add a scatter dataset (or another bar with 0 height) just for the datalabels.
-                // We'll use a dummy dataset to render the Nifty values.
+                // we can add a dummy dataset to render the Nifty values exactly at the top.
                 datasets.push({
                     label: 'NIFTY',
                     type: 'line',
-                    yAxisID: 'y', // Bind to the main Y axis so it matches bar heights
-                    data: topOffsets, // Use topOffsets instead of niftyData so it hovers exactly above the highest bar
+                    yAxisID: 'y', // Bind to the main Y axis
+                    data: topOffsets, // Placed identically at a flat top line
                     borderColor: 'transparent', // Remove Nifty overlay line
                     backgroundColor: 'transparent',
                     borderWidth: 0,
                     pointRadius: 0,
                     showLine: false,
                     datalabels: {
-                        align: 'bottom',
-                        anchor: 'end',
+                        align: 'top',
+                        anchor: 'start',
                         color: '#FFD700', // Yellow Nifty values
                         font: { size: 11, weight: 'bold' },
                         formatter: (value, context) => {
@@ -1705,6 +1709,22 @@
                 }
             };
 
+            // Compute Y-axis max if Nifty data exists
+            let yMax = undefined;
+            if (niftyData.length > 0) {
+                let maxVal = 0;
+                let minVal = 0;
+                data.fii_net.forEach((fii, i) => {
+                    const dii = data.dii_net[i] || 0;
+                    const maxLocal = Math.max(fii, dii);
+                    const minLocal = Math.min(fii, dii);
+                    if (maxLocal > maxVal) maxVal = maxLocal;
+                    if (minLocal < minVal) minVal = minLocal;
+                });
+                const buffer = (maxVal - minVal) * 0.15 || maxVal * 0.15;
+                yMax = maxVal + buffer * 1.5; // Leave enough room for the top labels
+            }
+
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -1716,7 +1736,12 @@
                     responsive: true, maintainAspectRatio: false,
                     scales: {
                         x: { stacked: false },
-                        y: { stacked: false, position: 'left', grid: { color: '#333' } }
+                        y: { stacked: false, position: 'left', grid: { color: '#333' }, max: yMax }
+                    },
+                    layout: {
+                        padding: {
+                            top: 20 // Ensure labels aren't clipped
+                        }
                     },
                     plugins: {
                         legend: { labels: { color: '#ccc' } },
@@ -1829,41 +1854,56 @@
                     gridIndex: index,
                     type: 'value',
                     axisLabel: { show: false }, // Hide Y axis labels for cleaner look
-                    splitLine: { show: false }, // Hide split lines
+                    splitLine: { show: true, lineStyle: { color: '#333', type: 'dashed' } },
                     axisLine: { show: true, lineStyle: { color: '#555' } }
                 });
 
-                const dataArr = oiChangeMetrics.map(m => {
+                const todayDataArr = [];
+                const prevDataArr = [];
+
+                oiChangeMetrics.forEach(m => {
                     const arr = data[`${p.key}_${m.key}`] || [];
                     const today = arr.length > todayIdx ? arr[todayIdx] : 0;
                     const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
-                    return {
-                        value: today - prev,
-                        todayVal: today,
-                        prevVal: prev
-                    };
+                    todayDataArr.push(today);
+                    prevDataArr.push(prev);
                 });
 
                 series.push({
-                    name: p.label,
+                    name: 'Today',
                     type: 'bar',
                     xAxisIndex: index,
                     yAxisIndex: index,
-                    data: dataArr,
-                    barWidth: '40%',
-                    itemStyle: {
-                        color: function(params) {
-                            return params.value > 0 ? '#3176B8' : '#e74c3c'; // Strict Blue / Red
-                        }
-                    },
+                    data: todayDataArr,
+                    barGap: '0%', // Grouped
+                    itemStyle: { color: '#3176B8' }, // Blue
                     label: {
                         show: true,
-                        position: function(params) { return params.value > 0 ? 'top' : 'bottom'; },
+                        position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
                         formatter: function(params) {
                             return formatterLakhs(params.value);
                         },
                         color: '#eee',
-                        fontSize: 10,
+                        fontSize: 9,
+                        fontWeight: 'bold'
+                    }
+                });
+
+                series.push({
+                    name: 'Prev Day',
+                    type: 'bar',
+                    xAxisIndex: index,
+                    yAxisIndex: index,
+                    data: prevDataArr,
+                    itemStyle: { color: '#E88B1E' }, // Yellow/Orange
+                    label: {
+                        show: true,
+                        position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
+                        formatter: function(params) {
+                            return formatterLakhs(params.value);
+                        },
+                        color: '#eee',
+                        fontSize: 9,
                         fontWeight: 'bold'
                     }
                 });
@@ -1875,16 +1915,19 @@
                 grid: grids,
                 xAxis: xAxes,
                 yAxis: yAxes,
+                legend: {
+                    data: ['Today', 'Prev Day'],
+                    top: 0,
+                    textStyle: { color: '#ccc' }
+                },
                 tooltip: {
                     trigger: 'axis',
                     axisPointer: { type: 'shadow' },
                     formatter: function(params) {
-                        let html = `<div style="font-size: 12px;">`;
+                        if (!params.length) return '';
+                        let html = `<div style="font-size: 12px;"><strong>${params[0].axisValue}</strong><br/>`;
                         params.forEach(p => {
-                            html += `<strong>${p.name}</strong><br/>`;
-                            html += `Change: ${formatterLakhs(p.data.value)}<br/>`;
-                            html += `Today: ${formatterLakhs(p.data.todayVal)}<br/>`;
-                            html += `Prev: ${formatterLakhs(p.data.prevVal)}<br/>`;
+                            html += `${p.seriesName}: ${formatterLakhs(p.value)}<br/>`;
                         });
                         html += `</div>`;
                         return html;
@@ -1895,34 +1938,83 @@
             window.participantGranularChartInstance.setOption(granularOption);
 
 
-            // Daily Net Open Interest Change Chart
+            // Daily Net Open Interest Change Chart (1x4 grid for Instrument Trends)
             const oiChangeContainer = document.getElementById('daily-net-oi-change-summary');
             if (window.dailyNetOIChangeChartInstance) window.dailyNetOIChangeChartInstance.dispose();
             window.dailyNetOIChangeChartInstance = echarts.init(oiChangeContainer);
 
-            const changeSeries = [];
+            const instLayouts = [
+                { left: '3%', right: '77%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '28%', right: '52%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '53%', right: '27%', top: '15%', bottom: '10%', containLabel: true },
+                { left: '78%', right: '2%', top: '15%', bottom: '10%', containLabel: true }
+            ];
 
-            oiChangeMetrics.forEach(m => {
-                const changeDataArr = participants.map(p => {
-                    const arr = data[`${p.key}_${m.key}`] || [];
-                    const today = arr.length > todayIdx ? arr[todayIdx] : 0;
-                    const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
-                    return today - prev;
+            const instTitles = [
+                { text: 'INDEX FUTURES', left: '12%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } },
+                { text: 'INDEX OPTIONS', left: '38%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } },
+                { text: 'STOCK FUTURES', left: '62%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } },
+                { text: 'STOCK OPTIONS', left: '88%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 12 } }
+            ];
+
+            const instMetrics = [
+                { key: 'fut_idx' },
+                { key: 'opt_idx_ce', key2: 'opt_idx_pe' }, // Will sum calls and puts for options
+                { key: 'fut_stk' },
+                { key: 'opt_stk_ce', key2: 'opt_stk_pe' }
+            ];
+
+            const instGrids = [];
+            const instXAxes = [];
+            const instYAxes = [];
+            const instSeries = [];
+
+            instMetrics.forEach((m, index) => {
+                instGrids.push(instLayouts[index]);
+
+                instXAxes.push({
+                    gridIndex: index,
+                    type: 'category',
+                    data: ['Today', 'Prev Day'],
+                    axisLabel: { color: '#ccc', fontSize: 10, fontWeight: 'bold' },
+                    axisLine: { lineStyle: { color: '#555' } },
+                    axisTick: { show: false }
                 });
 
-                changeSeries.push({
-                    name: m.label,
+                instYAxes.push({
+                    gridIndex: index,
+                    type: 'value',
+                    axisLabel: { show: false }, // Hide Y labels
+                    splitLine: { show: true, lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLine: { show: true, lineStyle: { color: '#555' } }
+                });
+
+                let todaySum = 0;
+                let prevSum = 0;
+
+                // Sum all participants for the specific instrument
+                participants.forEach(p => {
+                    const addData = (k) => {
+                        const arr = data[`${p.key}_${k}`] || [];
+                        todaySum += (arr.length > todayIdx ? arr[todayIdx] : 0);
+                        prevSum += (arr.length > prevIdx ? arr[prevIdx] : 0);
+                    };
+                    addData(m.key);
+                    if (m.key2) addData(m.key2);
+                });
+
+                instSeries.push({
                     type: 'bar',
-                    barGap: '10%',
-                    data: changeDataArr,
-                    itemStyle: {
-                        color: function(params) {
-                            return params.value > 0 ? '#3176B8' : '#e74c3c'; // Strict Blue / Red
-                        }
-                    },
+                    xAxisIndex: index,
+                    yAxisIndex: index,
+                    data: [
+                        { value: todaySum, itemStyle: { color: '#3176B8' } },
+                        { value: prevSum, itemStyle: { color: '#E88B1E' } }
+                    ],
+                    barWidth: '50%',
                     label: {
                         show: true,
-                        position: function(p) { return p.value > 0 ? 'top' : 'bottom'; },
+                        position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
                         formatter: function(params) {
                             return formatterLakhs(params.value);
                         },
@@ -1935,32 +2027,19 @@
 
             const oiChangeOption = {
                 backgroundColor: 'transparent',
+                title: instTitles,
+                grid: instGrids,
+                xAxis: instXAxes,
+                yAxis: instYAxes,
                 tooltip: {
                     trigger: 'axis',
-                    axisPointer: { type: 'shadow' }
+                    axisPointer: { type: 'shadow' },
+                    formatter: function(params) {
+                        if (!params.length) return '';
+                        return `<strong>${params[0].axisValue}</strong><br/>Change: ${formatterLakhs(params[0].value)}`;
+                    }
                 },
-                legend: {
-                    data: oiChangeMetrics.map(m => m.label),
-                    textStyle: { color: '#ccc' },
-                    type: 'scroll'
-                },
-                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: participants.map(p => p.label),
-                    axisLabel: { color: '#ccc', fontWeight: 'bold' }
-                },
-                yAxis: {
-                    type: 'value',
-                    axisLabel: {
-                        color: '#888',
-                        formatter: function (val) {
-                            return formatterLakhs(val);
-                        }
-                    },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                },
-                series: changeSeries
+                series: instSeries
             };
             window.dailyNetOIChangeChartInstance.setOption(oiChangeOption);
 
