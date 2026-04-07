@@ -1682,16 +1682,7 @@
                         </div>
 
                         <!-- Smart Money Row (Contracts & Money Terms) -->
-                        <div style="display: flex; gap: 20px; height: 450px;">
-                            <!-- Chart 2: Daily Snapshot Grouped Bar Chart (Contracts) -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
-                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position contracts</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Daily_Position_Contracts'); else if(typeof participantChartInstance !== 'undefined') exportChartDataToCSV(participantChartInstance, 'Smart_Money_Daily_Position_Contracts')"><i class="fas fa-download"></i> CSV</button>
-                                </div>
-                                <div id="participant-oi-daily-summary" style="flex: 1; width: 100%;"></div>
-                            </div>
-
+                        <div style="display: flex; gap: 20px; height: 450px; margin-bottom: 20px;">
                             <!-- Chart 3: FII Derivatives Statistics (Money Terms) -->
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
