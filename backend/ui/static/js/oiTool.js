@@ -53,6 +53,7 @@ const OiTool = {
                     </select>
 
                     <button id="btn-oi-refresh-all" onclick="OiTool.handleRefreshAll()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button id="btn-oi-compute-all" onclick="OiTool.handleComputeAll()" class="btn btn-secondary"><i class="fas fa-calculator"></i> Compute Latest Data</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
@@ -516,6 +517,34 @@ const OiTool = {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         });
+    },
+
+    handleComputeAll: function() {
+        if (!confirm("This will execute a heavy backend calculation to compute and overwrite the latest OI data into the permanent database table. Proceed?")) return;
+
+        const btn = document.getElementById('btn-oi-compute-all');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Computing...';
+        btn.disabled = true;
+
+        fetch('/api/data/analysis/oi/compute', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Automatically refresh the table with the new data
+                    this.loadAggregatedData();
+                } else {
+                    alert("Computation failed: " + (data.message || "Unknown error"));
+                }
+            })
+            .catch(error => {
+                console.error("Error computing OI analysis:", error);
+                alert("Computation error: " + error);
+            })
+            .finally(() => {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            });
     },
 
     filterData: function() {
