@@ -164,6 +164,16 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                     sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
                 elif r.option_type == 'PE':
                     sym_data[sym][dt]["put_oi"] += int(r.open_interest) if r.open_interest else 0
+                # Fallback: if futures price is missing but we have options price data (sometimes happens on expiry or due to NSE ingest quirks)
+                if sym_data[sym][dt]["price"] is None and r.close_price and float(r.close_price) > 0:
+                     # Note: Options close prices are premiums, not the underlying, so we must be careful.
+                     # However, for STF/IDF the instrument_type might just be "STF".
+                     pass
+
+            if r.instrument_type in ['STF', 'IDF']:
+                 # Old NSE formats
+                 if sym_data[sym][dt]["price"] is None:
+                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
 
         atm_iv_records = db.query(HistoricalATMIV).filter(HistoricalATMIV.trade_date.in_(valid_dates)).all()
         atm_iv_map = {}
@@ -188,11 +198,12 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 pd = date_dict[prev_date]
                 m30d = date_dict[date_30d]
 
-                if cd["price"] is None or cd["price"] == 0:
-                    continue
+                cd_price = cd["price"] if cd["price"] is not None else 0.0
+                if cd_price == 0 and cd["fut_oi"] == 0 and cd["call_oi"] == 0 and cd["put_oi"] == 0:
+                    continue # Totally empty record
 
-                prev_p = pd["price"] if pd["price"] else cd["price"]
-                p_chg = ((cd["price"] - prev_p) / prev_p) * 100 if prev_p > 0 else 0
+                prev_p = pd["price"] if pd["price"] else cd_price
+                p_chg = ((cd_price - prev_p) / prev_p) * 100 if prev_p > 0 else 0
 
                 fut_oi_chg_1d = cd["fut_oi"] - pd["fut_oi"]
                 call_oi_chg_1d = cd["call_oi"] - pd["call_oi"]
@@ -219,7 +230,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 insert_data.append({
                     "trade_date": curr_date,
                     "symbol": sym,
-                    "price": round(cd["price"], 2),
+                    "price": round(cd_price, 2),
                     "price_chg_pct": round(p_chg, 2),
                     "fut_oi": cd["fut_oi"],
                     "call_oi": cd["call_oi"],
