@@ -1434,11 +1434,11 @@
                             <option value="252">252 Days</option>
                             <option value="500" selected>500 Days</option>
                         </select>
-                        <button class="btn btn-primary" id="btn-load-vol-analysis" onclick="loadVolatilityAnalysis(event)">Load</button>
+                        <button class="btn btn-primary" id="btn-load-vol-analysis" type="button" onclick="loadVolatilityAnalysis(event)">Load</button>
                     </div>
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
-                    <div style="width: 100%; height: 600px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+                    <div style="width: 100%; min-height: 600px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content: space-between; margin-bottom:10px; align-items: center;">
                             <div style="display:flex; gap: 10px; align-items: center;">
                                 <label style="color: #ccc; margin: 0; font-size: 12px;">Pre-Expiry Window (DTE):</label>
@@ -1457,10 +1457,10 @@
                     </div>
 
                     <!-- Chart 2: Volatility Cone -->
-                    <div style="width: 100%; height: 800px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+                    <div style="width: 100%; min-height: 800px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
                         <div style="display:flex; justify-content: space-between; margin-bottom:10px; align-items: center;">
                             <div style="display:flex; gap: 10px; align-items: center;">
-                                <button class="btn btn-primary" id="btn-run-historical-iv" onclick="loadVolatilityAnalysis(event)">Run Historical IV Calculation</button>
+                                <button class="btn btn-primary" id="btn-run-historical-iv" type="button" onclick="loadVolatilityAnalysis(event)">Run Historical IV Calculation</button>
                                 <label style="color: #ccc; font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="vol-analysis-force-calc" style="margin-right: 5px;"> Force Recalculate History</label>
                             </div>
                             <button class="btn btn-secondary" onclick="if(window.volConeChart) exportChartDataToCSV(window.volConeChart, 'Volatility_Cone'); else exportChartDataToCSV(volConeChart, 'Volatility_Cone')"><i class="fas fa-download"></i> CSV</button>
@@ -1469,24 +1469,35 @@
                     </div>
 
                     <!-- Volatility Data Tables -->
-                    <div style="display: flex; gap: 20px; width: 100%; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 20px; width: 100%; margin-bottom: 20px; flex-shrink: 0; min-height: 350px;">
                         <!-- Table 1: IV Summary -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">IV Summary</h3>
-                            <table class="data-table" style="width: 100%; text-align: left;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid #444; color: #888;">
-                                        <th style="padding: 6px;">Symbol</th>
-                                        <th style="padding: 6px;">Price</th>
-                                        <th style="padding: 6px;">Current ATM IV</th>
-                                        <th style="padding: 6px;">IVR</th>
-                                        <th style="padding: 6px;">IVP</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="vol-iv-summary-body" style="color: #ccc;">
-                                    <tr><td colspan="5" style="text-align: center;">Load Volatility Analysis to view data</td></tr>
-                                </tbody>
-                            </table>
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">IV Summary</h3>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <select id="iv-summary-expiry-type" style="background: #2a2a2a; color: #ccc; border: 1px solid #444; border-radius: 4px; padding: 2px 5px; font-size: 11px;">
+                                        <option value="monthly">Monthly</option>
+                                        <option value="all">All Expiries</option>
+                                    </select>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" id="btn-load-all-iv" type="button" onclick="loadAllIVSummary(event)">Load All F&O</button>
+                                </div>
+                            </div>
+                            <div class="table-wrapper" style="flex: 1; height: 300px; overflow-y: scroll;">
+                                <table class="data-table" style="width: 100%; text-align: left;">
+                                    <thead style="position: sticky; top: 0; background: #1e1e1e; z-index: 2;">
+                                        <tr style="border-bottom: 1px solid #444; color: #888;">
+                                            <th style="padding: 6px; cursor: pointer;" onclick="sortAllIV('symbol')">Symbol</th>
+                                            <th style="padding: 6px;">Price</th>
+                                            <th style="padding: 6px; cursor: pointer;" onclick="sortAllIV('current_atm_iv')">Current ATM IV</th>
+                                            <th style="padding: 6px; cursor: pointer;" onclick="sortAllIV('ivr')">IVR</th>
+                                            <th style="padding: 6px; cursor: pointer;" onclick="sortAllIV('ivp')">IVP</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="vol-iv-summary-body" style="color: #ccc;">
+                                        <tr><td colspan="5" style="text-align: center;">Load Volatility Analysis to view data</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         <!-- Table 2: Cone Data -->

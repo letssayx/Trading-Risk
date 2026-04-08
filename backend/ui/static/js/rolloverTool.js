@@ -64,7 +64,7 @@ const RolloverTool = {
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price')">FUT Price ↕</th>
+                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('fut_close')">FUT Price ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('total_oi')">Total OI ↕</th>
                                     <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
@@ -439,31 +439,12 @@ const RolloverTool = {
         this.renderAggregatedView();
     },
 
-    analyzeSingle: async function(btnContext) {
+    analyzeSingle: async function() {
         const symbol = document.getElementById('rollover-symbol').value.toUpperCase().trim();
         let detailsDiv = document.getElementById('rollover-single-details');
         const resultsDiv = document.getElementById('rollover-results');
 
-        let originalText = '';
-        // Fix ReferenceError: Handle `event` safely and properly detect the button
-        let loadBtn = btnContext instanceof HTMLElement ? btnContext : null;
-        if (!loadBtn && typeof event !== 'undefined' && event && event.currentTarget instanceof HTMLElement) {
-            loadBtn = event.currentTarget;
-        }
-
-        if (loadBtn && loadBtn.tagName === 'BUTTON') {
-            originalText = loadBtn.innerHTML;
-            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-            loadBtn.disabled = true;
-        }
-
-        if (!symbol) {
-            if (loadBtn && loadBtn.tagName === 'BUTTON') {
-                loadBtn.innerHTML = originalText;
-                loadBtn.disabled = false;
-            }
-            return;
-        }
+        if (!symbol) return;
 
         if (!detailsDiv) {
             detailsDiv = document.createElement('div');
@@ -503,7 +484,7 @@ const RolloverTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price')">FUT Price ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('fut_close')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('total_oi')">Total OI ↕</th>
@@ -535,11 +516,6 @@ const RolloverTool = {
 
         } catch (e) {
             detailsDiv.innerHTML = `<p style="color: red; text-align:center; margin-top: 20px;">Error: ${e.message}</p>`;
-        } finally {
-            if (loadBtn && loadBtn.tagName === 'BUTTON') {
-                loadBtn.innerHTML = originalText;
-                loadBtn.disabled = false;
-            }
         }
     },
 

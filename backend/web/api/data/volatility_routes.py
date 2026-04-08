@@ -129,8 +129,6 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         }
 
         # Compute Garman-Klass Volatility
-        ann_factor = math.sqrt(252) # User requested sqrt(252) for trading days
-
         import pandas as pd
 
         df = pd.DataFrame(ohlc_result, columns=["date", "open", "high", "low", "close"])
@@ -145,23 +143,32 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         highs = highs.mask(highs == 0, closes)
         lows  = lows.mask(lows == 0, closes)
 
-        # Calculate daily Garman-Klass variance estimator
-        gk_var = 0.5 * (np.log(highs / lows) ** 2) - (2 * np.log(2) - 1) * (np.log(closes / opens) ** 2)
+        # Step 1: Overnight variance (previous close to today's open)
+        prev_closes = closes.shift(1)
+        overnight_ret = np.log(opens / prev_closes)
+        overnight_var = overnight_ret ** 2
 
-        # Add close-to-close variance component for overnight gaps (previous close to current open)
-        prev_closes = closes.shift(1).fillna(closes)
-        cc_var = np.log(opens / prev_closes) ** 2
+        # Step 2: Daytime Garman-Klass variance
+        log_hl = np.log(highs / lows)
+        log_co = np.log(closes / opens)
+        daytime_var = 0.5 * (log_hl ** 2) - (2 * np.log(2) - 1) * (log_co ** 2)
+        daytime_var = daytime_var.clip(lower=0)
 
-        total_var = gk_var + cc_var
+        # Step 3: Yang-Zhang combination (weighted)
+        # For daily data, overnight and daytime have equal weight in variance terms
+        total_var = overnight_var + daytime_var
 
-        # Clip extreme outliers (e.g. data errors or extreme black swan days)
-        limit = np.percentile(total_var.dropna(), 99)
-        total_var = total_var.clip(lower=0, upper=limit)
+        # Step 4: Remove outliers (99.5th percentile)
+        limit = np.percentile(total_var.dropna(), 99.5)
+        total_var = total_var.clip(upper=limit)
 
         for w in windows:
-            rolling_var = pd.Series(total_var).rolling(w).mean()
-            rolling_var = rolling_var.clip(lower=0)
-            rolling_vol_annualized = np.sqrt(rolling_var) * np.sqrt(252) * 100
+            # CRITICAL: Rolling MEAN of daily variances
+            rolling_mean_var = pd.Series(total_var).rolling(window=w).mean()
+            rolling_mean_var = rolling_mean_var.clip(lower=0)
+
+            # CRITICAL: Annualize using sqrt(252) only on the final mean variance
+            rolling_vol_annualized = np.sqrt(rolling_mean_var * 252) * 100
 
             # Step 4: Get percentiles from historical data
             valid_vol = rolling_vol_annualized.dropna().tail(lookback_days)
@@ -215,7 +222,8 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
             active_expiries = []
             for exp_d, opts in expiries_map.items():
                 current_dte = (exp_d - current_date).days
-                if current_dte <= 0: continue
+                # Skip expiries that are too close (noise)
+                if current_dte < 3: continue
 
                 t_years = current_dte / 365.0
                 risk_free_rate = 0.05
@@ -275,7 +283,23 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         }
 
         try:
+            # Fetch India VIX for overlay if requested
+            vix_query = text("""
+                SELECT close_price
+                FROM historical_index_data
+                WHERE index_name = 'INDIA VIX' AND trade_date = :current_date
+            """)
+            vix_result = db.execute(vix_query, {"current_date": current_date}).fetchone()
+            if vix_result:
+                cone_data["india_vix"] = [float(vix_result[0])]
+        except Exception:
+            pass
+
+        try:
             # We want lookback period up to today
+            # If the user has just clicked run, they may have backfilled history up to today
+            # But "active_expiries" comes from today's live options chain or latest EOD, so current ATM IV might differ slightly from the backfilled historic value if it wasn't backfilled today
+            # We should use the precalculated historic IV's latest value as "Current ATM IV" for consistency, or the nearest expiry from "active_expiries"
             min_date = dates[0]
             max_date = dates[-1]
             hist_iv_query = text("""
@@ -297,6 +321,9 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
                     if cone_data["active_expiries"]:
                         current_atm_iv = cone_data["active_expiries"][0]["atm_iv"]
                         cone_data["iv_summary"]["current_atm_iv"] = current_atm_iv
+
+                        # Add ATM IV to top level dict for other routes to use
+                        cone_data["atm_iv"] = [current_atm_iv]
 
                         if max_iv > min_iv:
                             ivr = (current_atm_iv - min_iv) / (max_iv - min_iv) * 100
@@ -444,20 +471,34 @@ def get_pre_expiry_action(
                     "end_date": dates[exp_idx]
                 })
 
-        # Append ATM IV and India VIX overlay logic for the Pre-Expiry chart
-        # This gives a single constant line across the chart for current values
-        atm_iv_line = []
-        india_vix_line = []
+        # Append ATM IV overlay logic for the Pre-Expiry chart
+        # User requested 1 moving point for today's date only
+        atm_iv_line = [None] * len(dates)
         try:
-            # We fetch today's Cone endpoint to reuse the atm_iv and india_vix values
             cone_data = get_volatility_cone(symbol, lookback_days, False, db)
             atm_iv_val = cone_data.get("atm_iv", [None])[0]
-            vix_val = cone_data.get("india_vix", [None])[0]
-            atm_iv_line = [atm_iv_val] * len(dates)
-            india_vix_line = [vix_val] * len(dates)
+            if atm_iv_val is not None:
+                atm_iv_line[-1] = atm_iv_val  # Plot only on the last day (today)
         except Exception as e:
-            atm_iv_line = [None] * len(dates)
-            india_vix_line = [None] * len(dates)
+            pass
+
+        # Fetch actual historical India VIX for the exact dates
+        india_vix_line = [None] * len(dates)
+        try:
+            vix_query = text("""
+                SELECT trade_date, close_price
+                FROM historical_index_data
+                WHERE index_name = 'INDIA VIX'
+                  AND trade_date >= :min_date
+                  AND trade_date <= :max_date
+            """)
+            vix_result = db.execute(vix_query, {"min_date": dates[0], "max_date": dates[-1]}).fetchall()
+            vix_dict = {r[0].strftime('%Y-%m-%d'): float(r[1]) for r in vix_result}
+
+            for i, d in enumerate(dates):
+                india_vix_line[i] = vix_dict.get(d, None)
+        except Exception as e:
+            pass
 
         # Precalculate price change percentages
         price_chg_pct_line = [0]
@@ -477,6 +518,101 @@ def get_pre_expiry_action(
             "india_vix_line": india_vix_line,
             "price_chg_pct_line": price_chg_pct_line
         }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/data/derivatives/volatility_summary_all")
+def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str = Query("monthly", description="monthly or all")):
+    try:
+        # We need the latest trade date
+        date_query = text("SELECT MAX(trade_date) FROM bhavcopy_fo")
+        latest_date = db.execute(date_query).scalar()
+        if not latest_date:
+            return {"data": []}
+
+        # We will use the latest precalculated IV from historical_atm_iv table
+        # We already adjusted the backfiller to ignore options < 5 days to expiry.
+        # This means `historical_atm_iv` inherently ignores the immediate expiry week noise now.
+
+        # We don't automatically backfill "ALL" here anymore because it times out the request.
+        # It's better to let users explicitly run it per symbol, or run a background job.
+        # But we DO want to ensure all stock futures are returned if there's no IV. We'll LEFT JOIN to FO symbols.
+
+        query = text("""
+            WITH AllSymbols AS (
+                SELECT DISTINCT ticker_symb as symbol FROM bhavcopy_fo WHERE trade_date = :latest_date
+            ),
+            UnderlyingPrice AS (
+                SELECT symbol as ticker_symb, close_price as underlying_price
+                FROM bhavcopy_eq
+                WHERE trade_date = :latest_date AND series = 'EQ'
+                UNION ALL
+                SELECT index_name as ticker_symb, close_price as underlying_price
+                FROM historical_index_data
+                WHERE trade_date = :latest_date
+            ),
+            LatestIV AS (
+                SELECT DISTINCT ON (symbol) symbol, atm_iv as current_iv
+                FROM historical_atm_iv
+                ORDER BY symbol, trade_date DESC
+            ),
+            HistoricalStats AS (
+                SELECT symbol,
+                       MIN(atm_iv) as min_iv,
+                       MAX(atm_iv) as max_iv,
+                       COUNT(atm_iv) as total_days
+                FROM historical_atm_iv
+                WHERE trade_date >= CURRENT_DATE - INTERVAL '1 year'
+                GROUP BY symbol
+            ),
+            DaysBelow AS (
+                SELECT h.symbol, COUNT(h.atm_iv) as days_below
+                FROM historical_atm_iv h
+                JOIN LatestIV l ON h.symbol = l.symbol
+                WHERE h.atm_iv < l.current_iv
+                  AND h.trade_date >= CURRENT_DATE - INTERVAL '1 year'
+                GROUP BY h.symbol
+            )
+            SELECT a.symbol, l.current_iv, s.min_iv, s.max_iv, COALESCE(s.total_days, 0) as total_days, COALESCE(d.days_below, 0) as days_below, u.underlying_price
+            FROM AllSymbols a
+            LEFT JOIN LatestIV l ON a.symbol = l.symbol
+            LEFT JOIN HistoricalStats s ON a.symbol = s.symbol
+            LEFT JOIN DaysBelow d ON a.symbol = d.symbol
+            LEFT JOIN UnderlyingPrice u ON a.symbol = u.ticker_symb
+            ORDER BY a.symbol
+        """)
+
+        result = db.execute(query, {"latest_date": latest_date}).fetchall()
+
+        data = []
+        for r in result:
+            sym = r[0]
+            current_iv = r[1]
+            min_iv = r[2]
+            max_iv = r[3]
+            total_days = r[4]
+            days_below = r[5]
+            price = r[6]
+
+            ivr = None
+            ivp = None
+
+            if current_iv is not None and min_iv is not None and max_iv is not None and total_days > 0:
+                if max_iv > min_iv:
+                    ivr = ((current_iv - min_iv) / (max_iv - min_iv)) * 100
+                ivp = (days_below / total_days) * 100
+
+            data.append({
+                "symbol": sym,
+                "price": float(price) if price else None,
+                "current_atm_iv": round(current_iv, 2) if current_iv is not None else None,
+                "ivr": round(ivr, 2) if ivr is not None else None,
+                "ivp": round(ivp, 2) if ivp is not None else None
+            })
+
+        return {"data": data}
     except Exception as e:
         import traceback
         traceback.print_exc()

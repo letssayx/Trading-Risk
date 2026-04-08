@@ -1668,7 +1668,11 @@
                     responsive: true, maintainAspectRatio: false,
                     scales: {
                         x: { stacked: false },
-                        y: { stacked: false, position: 'left', grid: { color: '#333' } }
+                        y: { stacked: false, position: 'left', grid: { color: '#333' } },
+                        y1: {
+                            type: 'linear', position: 'right', display: niftyData.length > 0, grid: { drawOnChartArea: false },
+                            min: minNifty, max: maxNifty
+                        }
                     },
                     layout: {
                         padding: {
@@ -2120,10 +2124,11 @@
             container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
         } finally {
             echartInstance?.hideLoading();
-            if (loadBtn) {
-                loadBtn.disabled = false;
-                loadBtn.innerHTML = originalText;
-            }
+        }
+
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.innerHTML = originalText;
         }
     }
 
@@ -2389,43 +2394,18 @@ function renderParticipantHistorical(data) {
         // Let ECharts naturally scale Y-axis for Net Positions (which can be positive/negative)
         option.yAxis[0].min = null;
 
-        // Add NIFTY overlay as top bar labels
+        // Add NIFTY overlay
         const niftyData = data.nifty_prices || data.nifty_close || [];
         if (niftyData.length > 0) {
             option.legend.data.push('NIFTY');
-
-            // Find max values across all series for each day to place the NIFTY label above
-            const topOffsets = niftyData.map((_, i) => {
-                let maxVal = 0;
-                option.series.forEach(s => {
-                    if (s.data && s.data[i]) {
-                        maxVal = Math.max(maxVal, s.data[i]);
-                    }
-                });
-                return maxVal;
-            });
-
             option.series.push({
                 name: 'NIFTY',
                 type: 'line',
-                data: topOffsets, // Placed exactly above max bar height
-                yAxisIndex: 0, // Bind to same Y-axis as bars
-                borderColor: 'transparent', // Remove line overlay
-                backgroundColor: 'transparent',
-                borderWidth: 0,
-                pointRadius: 0,
-                showLine: false,
-                label: {
-                    show: true,
-                    position: 'top',
-                    color: '#FFD700', // Yellow
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    formatter: function(params) {
-                        const val = niftyData[params.dataIndex];
-                        return val ? Math.round(val) : '';
-                    }
-                }
+                data: niftyData,
+                yAxisIndex: 1,
+                itemStyle: { color: '#FFCC00' }, // Classic yellow line
+                lineStyle: { width: 2 },
+                symbol: 'none'
             });
         }
 
@@ -2479,6 +2459,10 @@ function renderParticipantHistorical(data) {
 
 let volPreExpiryChart = null;
 let volConeChart = null;
+
+window.allIvData = [];
+let ivSortCol = 'symbol';
+let ivSortAsc = true;
 
 async function loadVolatilityAnalysis(event) {
     const symbol = document.getElementById('vol-analysis-symbol').value.toUpperCase() || 'NIFTY';
@@ -2534,12 +2518,12 @@ async function loadVolatilityAnalysis(event) {
         }
 
         const markLines = (data.expiries || []).map(exp => {
-            return { xAxis: exp, label: { formatter: 'Exp', position: 'start' } };
+            return { xAxis: exp, label: { show: false } }; // Removed 'Exp' label to prevent overwriting
         });
 
         const markAreas = (data.boxes || []).map(box => {
             return [
-                { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 204, 0, 0.2)' } },
+                { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 255, 255, 0.05)' } }, // Match FII chart shading
                 { xAxis: box.end_date }
             ];
         });
@@ -2564,7 +2548,7 @@ async function loadVolatilityAnalysis(event) {
                     return tooltipHtml;
                 }
             },
-            legend: { data: ['Price', `Realized Vol (${boxDays}D)`, 'ATM IV', 'India VIX', 'Price Change %'], textStyle: { color: '#ccc' } },
+            legend: { data: [`Realized Vol (${boxDays}D)`, 'India VIX', 'ATM IV', 'Price Change %'], textStyle: { color: '#ccc' } },
             grid: { left: '3%', right: '3%', bottom: '10%', top: '15%', containLabel: true },
             xAxis: {
                 type: 'category',
@@ -2575,19 +2559,10 @@ async function loadVolatilityAnalysis(event) {
             yAxis: [
                 {
                     type: 'value',
-                    name: 'Price',
-                    position: 'left',
-                    scale: true,
-                    splitLine: { lineStyle: { color: '#333' } },
-                    axisLabel: { color: '#ccc' },
-                    nameTextStyle: { color: '#ccc' }
-                },
-                {
-                    type: 'value',
                     name: `Vol / %`,
                     position: 'right',
                     scale: true,
-                    splitLine: { show: false },
+                    splitLine: { lineStyle: { color: '#333' } },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' }
                 }
@@ -2598,21 +2573,12 @@ async function loadVolatilityAnalysis(event) {
                     name: 'Price Change %',
                     type: 'bar',
                     data: data.price_chg_pct_line,
-                    yAxisIndex: 1,
+                    yAxisIndex: 0,
                     itemStyle: {
                         color: function(params) {
                             return params.value >= 0 ? 'rgba(49, 118, 184, 0.5)' : 'rgba(244, 67, 54, 0.5)';
                         }
-                    }
-                },
-                {
-                    name: 'Price',
-                    type: 'line',
-                    data: data.prices,
-                    yAxisIndex: 0,
-                    itemStyle: { color: '#3176B8' }, // Blue (Previous) line for price
-                    lineStyle: { width: 2 },
-                    showSymbol: false,
+                    },
                     markLine: {
                         symbol: ['none', 'none'],
                         lineStyle: { color: '#ff4444', type: 'solid', width: 1 },
@@ -2626,34 +2592,30 @@ async function loadVolatilityAnalysis(event) {
                     name: `Realized Vol (${boxDays}D)`,
                     type: 'line',
                     data: data.rv,
-                    yAxisIndex: 1,
-                    itemStyle: { color: '#FFD700' }, // Yellow (Today) line for RV
+                    yAxisIndex: 0,
+                    itemStyle: { color: '#60a5fa' }, // Blue line for RV
                     lineStyle: { width: 2 },
                     showSymbol: false
-                },
-                {
-                    name: `ATM IV`,
-                    type: 'line',
-                    data: data.atm_iv_line,
-                    yAxisIndex: 1,
-                    itemStyle: { color: '#FF00FF' }, // Magenta line for ATM IV
-                    lineStyle: { width: 1, type: 'dashed' },
-                    symbol: 'circle',
-                    symbolSize: 6,
-                    showSymbol: true,
-                    connectNulls: true
                 },
                 {
                     name: `India VIX`,
                     type: 'line',
                     data: data.india_vix_line,
-                    yAxisIndex: 1,
+                    yAxisIndex: 0,
                     itemStyle: { color: '#FFFF00' }, // Yellow line for VIX
-                    lineStyle: { width: 1, type: 'dotted' },
-                    symbol: 'circle',
-                    symbolSize: 6,
-                    showSymbol: true,
+                    lineStyle: { width: 2 },
+                    showSymbol: false,
                     connectNulls: true
+                },
+                {
+                    name: `ATM IV`,
+                    type: 'scatter', // Use scatter for single point
+                    data: data.atm_iv_line.map((v, i) => v !== null ? [i, v] : null).filter(v => v !== null),
+                    yAxisIndex: 0,
+                    itemStyle: { color: '#E88B1E' }, // Orange point for ATM IV
+                    symbol: 'circle',
+                    symbolSize: 10,
+                    zlevel: 10
                 }
             ]
         };
@@ -2706,21 +2668,36 @@ async function loadVolatilityAnalysis(event) {
             return;
         }
 
+        // Map line series to explicitly use numeric X values
+        const formatLineData = (arr) => arr.map((v, i) => [data.windows[i], v]);
+
         const coneOption = {
             backgroundColor: 'transparent',
             title: { text: 'Realized Volatility Cone', textStyle: { color: '#ccc', fontSize: 14 } },
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['95th %', '75th %', '50th % (Median)', '25th %', '5th %', 'ATM IV'], textStyle: { color: '#ccc' } },
+            tooltip: {
+                trigger: 'item', // Changed to item so scatter dots show properly
+                formatter: function(params) {
+                    if (params.seriesName === 'Active Expiries') {
+                        return `<b>Active Expiry</b><br/>DTE: ${params.value[0]}<br/>ATM IV: ${params.value[1].toFixed(2)}%`;
+                    } else if (params.value && params.value.length === 2) {
+                        return `<b>${params.seriesName}</b><br/>DTE: ${params.value[0]}<br/>Vol: ${params.value[1].toFixed(2)}%`;
+                    }
+                    return `${params.seriesName}: ${params.value}%`;
+                }
+            },
+            legend: { data: ['95th %', '75th %', '50th % (Median)', '25th %', '5th %', 'Active Expiries'], textStyle: { color: '#ccc' } },
+            color: ['#ef5350', '#ab47bc', '#00e676', '#29b6f6', '#66bb6a', '#E88B1E'], // Match Tooltip Colors
             grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
             xAxis: {
-                type: 'category',
-                boundaryGap: false,
-                data: data.windows.map(w => `${w}`), // Just the number
+                type: 'value',
+                min: 1,
+                max: 30, // Or dynamically Math.max(...data.windows)
                 name: 'Days to Expiry (N)',
                 nameLocation: 'middle',
                 nameGap: 30,
                 axisLabel: { color: '#888' },
-                axisLine: { lineStyle: { color: '#333' } }
+                axisLine: { lineStyle: { color: '#333' } },
+                splitLine: { show: false }
             },
             yAxis: {
                 type: 'value',
@@ -2732,36 +2709,39 @@ async function loadVolatilityAnalysis(event) {
                 {
                     name: '95th %',
                     type: 'line',
-                    data: data.p95,
-                    lineStyle: { color: '#ef5350', width: 2 }, // Red
+                    data: formatLineData(data.p95),
+                    lineStyle: { width: 2, type: 'dashed' },
                     showSymbol: false
                 },
                 {
                     name: '75th %',
                     type: 'line',
-                    data: data.p75,
-                    lineStyle: { color: '#ab47bc', width: 2 }, // Purple
+                    data: formatLineData(data.p75),
+                    lineStyle: { width: 2 },
+                    areaStyle: { color: 'rgba(171, 71, 188, 0.1)', origin: 'auto' },
                     showSymbol: false
                 },
                 {
                     name: '50th % (Median)',
                     type: 'line',
-                    data: data.p50,
-                    lineStyle: { color: '#26a69a', width: 2 }, // Teal
-                    showSymbol: false
+                    data: formatLineData(data.p50),
+                    lineStyle: { width: 4 }, // Thicker
+                    showSymbol: false,
+                    zlevel: 10
                 },
                 {
                     name: '25th %',
                     type: 'line',
-                    data: data.p25,
-                    lineStyle: { color: '#29b6f6', width: 2 }, // Light Blue
+                    data: formatLineData(data.p25),
+                    lineStyle: { width: 2 },
+                    areaStyle: { color: 'rgba(41, 182, 246, 0.1)', origin: 'auto' },
                     showSymbol: false
                 },
                 {
                     name: '5th %',
                     type: 'line',
-                    data: data.p5,
-                    lineStyle: { color: '#66bb6a', width: 2 }, // Green
+                    data: formatLineData(data.p5),
+                    lineStyle: { width: 2, type: 'dashed' },
                     showSymbol: false
                 }
             ]
@@ -2774,23 +2754,12 @@ async function loadVolatilityAnalysis(event) {
         if (data.active_expiries && data.active_expiries.length > 0) {
             let scatterData = [];
 
-            // User feedback: Limit ATM IV dots to the next 4 active expiries only
-            const expiriesToPlot = data.active_expiries.slice(0, 4);
+            // User feedback: Limit ATM IV dots to expiries with DTE >= 3 and max 4 points
+            const expiriesToPlot = data.active_expiries.filter(e => e.dte >= 3).slice(0, 4);
 
             expiriesToPlot.forEach(exp => {
-                // Find the closest x-axis index for the scatter point
-                let dteIdx = -1;
-                let minDiff = Infinity;
-                data.windows.forEach((w, idx) => {
-                    let diff = Math.abs(w - exp.dte);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        dteIdx = idx;
-                    }
-                });
-
-                // Add the dot at the closest horizon
-                if (dteIdx !== -1) {
+                // We use exact DTE now
+                if (exp.dte <= 30) { // Keep within cone range
                     scatterData.push({
                         value: [dteIdx, exp.atm_iv],
                         name: `${exp.expiry_date} Expiry: ${exp.atm_iv.toFixed(2)}%` // Required label format
@@ -2803,10 +2772,6 @@ async function loadVolatilityAnalysis(event) {
             });
 
             if (scatterData.length > 0) {
-                // Check if user requested changing legend name
-                // "group ATM IV entries into 'Active Expiries'"
-                coneOption.legend.data[5] = 'Active Expiries'; // Change legend array
-
                 coneOption.series.push({
                     name: 'Active Expiries', // Group legend
                     type: 'scatter',
@@ -3125,4 +3090,91 @@ function exportChartDataToCSV(chartInstance, filename) {
     downloadLink.click();
     document.body.removeChild(downloadLink);
 }
-window.exportChartDataToCSV = exportChartDataToCSV;
+
+async function loadAllIVSummary(event) {
+    if (event) event.preventDefault();
+    const btn = document.getElementById('btn-load-all-iv');
+    const expirySelect = document.getElementById('iv-summary-expiry-type');
+    const expiryType = expirySelect ? expirySelect.value : 'monthly';
+    const originalText = btn ? btn.innerHTML : 'Load All F&O';
+
+    if (btn) {
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+        btn.disabled = true;
+    }
+
+    const tbody = document.getElementById('vol-iv-summary-body');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Fetching data across all symbols...</td></tr>';
+    }
+
+    try {
+        const res = await fetch(`/api/data/derivatives/volatility_summary_all?expiry_type=${expiryType}`);
+        const result = await res.json();
+
+        console.log("All F&O API response:", result);
+
+        window.allIvData = result.data || [];
+
+        if (window.allIvData.length === 0) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No IV data found. Please run the Historical IV calculation first.</td></tr>';
+            return;
+        }
+
+        renderAllIVSummary();
+
+    } catch (e) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error: ${e.message}</td></tr>`;
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+}
+
+function sortAllIV(col) {
+    if (ivSortCol === col) {
+        ivSortAsc = !ivSortAsc;
+    } else {
+        ivSortCol = col;
+        ivSortAsc = true;
+    }
+    renderAllIVSummary();
+}
+
+function renderAllIVSummary() {
+    if (!window.allIvData || window.allIvData.length === 0) return;
+
+    // Sort data
+    const sortedData = [...window.allIvData].sort((a, b) => {
+        let valA = a[ivSortCol];
+        let valB = b[ivSortCol];
+
+        if (valA === null || valA === undefined) valA = ivSortAsc ? Infinity : -Infinity;
+        if (valB === null || valB === undefined) valB = ivSortAsc ? Infinity : -Infinity;
+
+        if (valA < valB) return ivSortAsc ? -1 : 1;
+        if (valA > valB) return ivSortAsc ? 1 : -1;
+        return 0;
+    });
+
+    const tbody = document.getElementById('vol-iv-summary-body');
+    tbody.innerHTML = '';
+
+    sortedData.forEach(item => {
+        const tr = document.createElement('tr');
+
+        const isHighIV = item.ivp > 80;
+        const ivpColor = isHighIV ? '#ff4d4d' : '#ccc';
+
+        tr.innerHTML = `
+            <td style="padding: 6px; font-weight: bold; color: #4da6ff; cursor: pointer;" onclick="document.getElementById('vol-analysis-symbol').value='${item.symbol}'; document.getElementById('btn-load-vol-analysis').click(); window.scrollTo(0, 0);">${item.symbol}</td>
+            <td style="padding: 6px;">${item.price !== undefined && item.price !== null ? item.price.toFixed(2) : '-'}</td>
+            <td style="padding: 6px; color: #e6a23c;">${item.current_atm_iv !== null ? item.current_atm_iv.toFixed(2) + '%' : '-'}</td>
+            <td style="padding: 6px;">${item.ivr !== null ? item.ivr.toFixed(2) : '-'}</td>
+            <td style="padding: 6px; color: ${ivpColor};">${item.ivp !== null ? item.ivp.toFixed(2) + '%' : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
