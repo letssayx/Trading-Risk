@@ -585,6 +585,10 @@
 
         <!-- TAB DERIVATIVES ANALYSIS -->
         <div id="tab-derivatives" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
+            <!-- Top Status Bar for Date -->
+            <div style="background: #252526; padding: 5px 20px; font-size: 12px; color: #FFD700; border-bottom: 1px solid #333; display: flex; justify-content: flex-end;">
+                <span id="global-latest-date">Latest Data Date: Loading...</span>
+            </div>
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto; flex-shrink: 0;">
                 <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
@@ -1665,11 +1669,11 @@
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <select id="market-activity-days" class="history-input" style="width: 100px;" onchange="loadMarketActivity()">
                             <option value="5">5 Days</option>
-                            <option value="30">30 Days</option>
+                            <option value="30" selected>30 Days</option>
                             <option value="60">60 Days</option>
                             <option value="90">90 Days</option>
                             <option value="252">252 Days</option>
-                            <option value="500" selected>500 Days</option>
+                            <option value="500">500 Days</option>
                         </select>
                         <button class="btn btn-secondary" id="btn-load-market-activity" onclick="loadMarketActivity()">Load Charts</button>
                     </div>
@@ -1693,17 +1697,17 @@
                         </div>
 
                         <!-- Smart Money Row (Contracts & Money Terms) -->
-                        <div style="display: flex; gap: 20px; height: 450px;">
-                            <!-- Chart 2: Daily Snapshot Grouped Bar Chart (Contracts) -->
+                        <div style="display: flex; gap: 20px; height: 450px; margin-bottom: 20px;">
+                            <!-- Smart Money Latest Daily Position (Left) -->
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position contracts</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Daily_Position_Contracts'); else if(typeof participantChartInstance !== 'undefined') exportChartDataToCSV(participantChartInstance, 'Smart_Money_Daily_Position_Contracts')"><i class="fas fa-download"></i> CSV</button>
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Smart Money (FII+DII+PRO+CLI) Latest Daily Position</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.dailyNetOIChangeChartInstance) exportChartDataToCSV(window.dailyNetOIChangeChartInstance, 'Smart_Money_Latest_Pos');"><i class="fas fa-download"></i> CSV</button>
                                 </div>
-                                <div id="participant-oi-daily-summary" style="flex: 1; width: 100%;"></div>
+                                <div id="daily-net-oi-change-summary" style="flex: 1; width: 100%;"></div>
                             </div>
 
-                            <!-- Chart 3: FII Derivatives Statistics (Money Terms) -->
+                            <!-- FII Derivatives Statistics in Money Terms (Right) -->
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                     <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">FII Latest Daily Position in money terms</h3>
@@ -1713,14 +1717,15 @@
                             </div>
                         </div>
 
-                        <!-- Granular Collective Chart: Today vs Previous -->
-                        <div style="height: 450px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
+                        <!-- Granular Collective Chart: Today vs Previous (Participant Activity) -->
+                        <div style="height: 800px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI - Granular Bifurcation (Prev vs Today)</h3>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Granular_OI');"><i class="fas fa-download"></i> CSV</button>
+                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant Activity (Prev vs Today)</h3>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Activity');"><i class="fas fa-download"></i> CSV</button>
                             </div>
                             <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
                         </div>
+
 
                         <!-- 6 Historical Bar Charts with Index Overlay (2 per row) -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">

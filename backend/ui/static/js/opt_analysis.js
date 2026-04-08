@@ -93,7 +93,7 @@ async function loadOptionsAnalysis() {
                     position: 'left',
                     gridIndex: 1,
                     splitLine: { show: false },
-                    axisLabel: { color: '#888', formatter: (value) => (value/1000000).toFixed(1) + 'M' },
+                    axisLabel: { color: '#888', formatter: (value) => (value/1000000).toFixed(2) + 'M' },
                     nameTextStyle: { color: '#888' },
                     scale: true,
                     min: function(value) { return Math.floor(value.min * 0.95); },
@@ -160,7 +160,7 @@ async function loadOptionsAnalysis() {
                         position: 'top',
                         formatter: (params) => {
                             const pChg = priceChangePct[params.dataIndex];
-                            return pChg ? pChg.toFixed(1) + '%' : '';
+                            return pChg ? pChg.toFixed(2) + '%' : '';
                         },
                         color: '#fff',
                         fontSize: 10,
