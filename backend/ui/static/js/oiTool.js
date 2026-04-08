@@ -148,9 +148,16 @@ const OiTool = {
 
         if (!tbody || !chartArea) return;
 
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Computing and fetching aggregated F&O data...</td></tr>';
 
         try {
+            // First trigger compute
+            try {
+                await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
+            } catch (e) {
+                console.error("Compute failed, falling back to cached data:", e);
+            }
+
             const url = '/api/data/analysis/oi';
             const res = await fetch(url);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
@@ -613,6 +620,6 @@ const OiTool = {
 // Register with WorkbookManager
 window.addEventListener('load', () => {
    if (window.WorkbookManager) {
-       window.WorkbookManager.modules['oi'] = OiTool;
+       window.WorkbookManager.modules['oi_analysis'] = OiTool;
    }
 });
