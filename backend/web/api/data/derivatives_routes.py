@@ -11,7 +11,7 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 router = APIRouter()
 
 @router.get("/api/data/analysis/oi")
-def get_aggregated_oi_analysis(force_compute: bool = False, db: Session = Depends(get_db)):
+def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
     """
     Reads OI vs Price Quadrant Analysis data instantly from the pre-computed oi_analysis_metrics table.
     Includes historical array for table expansion.
@@ -19,9 +19,6 @@ def get_aggregated_oi_analysis(force_compute: bool = False, db: Session = Depend
     try:
         from backend.ingest.nse_models import OiAnalysisMetrics, SymbolMaster
         from sqlalchemy import desc
-
-        if force_compute:
-            compute_aggregated_oi_analysis(db)
 
         dates_query = db.query(OiAnalysisMetrics.trade_date)\
             .distinct()\

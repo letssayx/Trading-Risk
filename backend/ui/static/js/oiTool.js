@@ -141,7 +141,7 @@ const OiTool = {
         }
     },
 
-    loadAggregatedData: async function(forceCompute = false) {
+    loadAggregatedData: async function() {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
@@ -151,7 +151,7 @@ const OiTool = {
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            const url = forceCompute ? '/api/data/analysis/oi?force_compute=true' : '/api/data/analysis/oi';
+            const url = '/api/data/analysis/oi';
             const res = await fetch(url);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
