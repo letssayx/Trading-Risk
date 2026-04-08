@@ -31,7 +31,7 @@ const OiTool = {
                 .oi-history-table th, .oi-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
                 .oi-history-table th { background: #111; color: #888; }
             </style>
-            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0;">
+            <div style="color: #ccc; display: flex; flex-direction: column; flex: 1; min-width: 0;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
                     <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
@@ -79,12 +79,12 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="flex: 1;">
-                            <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
+                        <div style="flex: 1; overflow-x: auto;">
+                            <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed; margin-bottom: 0;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
                                         <th style="padding: 8px; width: 30px;"></th>

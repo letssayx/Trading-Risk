@@ -130,7 +130,7 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
     except Exception as e:
         import logging
         logging.error(f"Error reading aggregated OI analysis: {e}")
-        return {"data": []}
+        raise HTTPException(500, detail=str(e))
 
 
 @router.post("/api/data/analysis/oi/compute")
@@ -279,7 +279,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
         if insert_data:
             stmt = insert(OiAnalysisMetrics).values(insert_data)
             stmt = stmt.on_conflict_do_update(
-                constraint='pk_oi_analysis_metrics',
+                index_elements=['trade_date', 'symbol'],
                 set_={
                     "price": stmt.excluded.price,
                     "price_chg_pct": stmt.excluded.price_chg_pct,
@@ -309,7 +309,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
     except Exception as e:
         import logging
         logging.error(f"Error computing aggregated OI analysis: {e}")
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/analysis/oi/{symbol}")
 def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):

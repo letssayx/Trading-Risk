@@ -1,21 +1,25 @@
-"""create_oi_analysis_metrics
+"""Add OiAnalysisMetrics
 
-Revision ID: create_oi_analysis_metrics
-Revises: 5218b0821c97
-Create Date: 2024-05-01 00:00:00.000000
+Revision ID: f4a6ff141c09
+Revises: 016_bhavcopy_fo_duplicates_fix
+Create Date: 2026-04-08 04:35:41.572219
 
 """
+from typing import Sequence, Union
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'create_oi_analysis_metrics'
-down_revision = '5218b0821c97'
-branch_labels = None
-depends_on = None
+revision: str = 'f4a6ff141c09'
+down_revision: Union[str, Sequence[str], None] = '016_bhavcopy_fo_duplicates_fix'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
-def upgrade():
+
+def upgrade() -> None:
+    """Upgrade schema."""
     op.create_table(
         'oi_analysis_metrics',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -46,7 +50,8 @@ def upgrade():
     op.create_index(op.f('ix_oi_analysis_metrics_trade_date'), 'oi_analysis_metrics', ['trade_date'], unique=False)
 
 
-def downgrade():
+def downgrade() -> None:
+    """Downgrade schema."""
     op.drop_index(op.f('ix_oi_analysis_metrics_trade_date'), table_name='oi_analysis_metrics')
     op.drop_index(op.f('ix_oi_analysis_metrics_symbol'), table_name='oi_analysis_metrics')
     op.drop_table('oi_analysis_metrics')
