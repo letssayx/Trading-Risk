@@ -356,19 +356,12 @@ def get_pre_expiry_action(
         symbol = symbol.upper()
 
         # 1. Fetch underlying price history
-        query = text("""
-            SELECT trade_date, close_price
-            FROM bhavcopy_eq
-            WHERE ticker_symb = :symbol
-            ORDER BY trade_date DESC
-            LIMIT :lookback
-        """)
         is_index = symbol in ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]
 
         try:
             if is_index:
                 idx_query = text("""
-                    SELECT trade_date, close_price
+                    SELECT trade_date, open_price, high_price, low_price, close_price
                     FROM historical_index_data
                     WHERE index_name = :symbol
                     ORDER BY trade_date DESC
@@ -377,7 +370,7 @@ def get_pre_expiry_action(
                 result = db.execute(idx_query, {"symbol": symbol, "lookback": lookback_days}).fetchall()
             else:
                 query = text("""
-                    SELECT trade_date, close_price
+                    SELECT trade_date, open_price, high_price, low_price, close_price
                     FROM bhavcopy_eq
                     WHERE symbol = :symbol AND series = 'EQ'
                     ORDER BY trade_date DESC
@@ -393,7 +386,7 @@ def get_pre_expiry_action(
              try:
                  query = text("""
                     SELECT * FROM (
-                        SELECT DISTINCT ON (trade_date) trade_date, close_price
+                        SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price
                         FROM bhavcopy_fo
                         WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF')
                         ORDER BY trade_date DESC, expiry_date ASC
