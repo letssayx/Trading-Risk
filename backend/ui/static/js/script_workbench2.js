@@ -1657,49 +1657,6 @@
                 }  // Blue
             ];
 
-            if (niftyData.length > 0) {
-                datasets.push({
-                    label: 'NIFTY',
-                    type: 'line',
-                    yAxisID: 'y1', // Bind NIFTY to secondary Y axis
-                    data: niftyData,
-                    borderColor: '#ffffff',
-                    backgroundColor: '#ffffff',
-                    borderWidth: 2,
-                    pointRadius: 2,
-                    fill: false,
-                    datalabels: {
-                        align: 'end',
-                        anchor: 'end',
-                        color: '#ffffff', // White Nifty values
-                        font: { size: 10, weight: 'bold' },
-                        formatter: (value) => Math.round(value),
-                        offset: function(context) {
-                            let meta = context.chart.getDatasetMeta(context.datasetIndex);
-                            if (!meta.data || !meta.data[context.dataIndex]) return 0;
-                            let yPos = meta.data[context.dataIndex].y;
-                            return -yPos + 10; // Push to top with 10px margin
-                        }
-                    }
-                });
-            }
-
-            // Compute Y-axis max if Nifty data exists
-            let yMax = undefined;
-            if (niftyData.length > 0) {
-                let maxVal = 0;
-                let minVal = 0;
-                data.fii_net.forEach((fii, i) => {
-                    const dii = data.dii_net[i] || 0;
-                    const maxLocal = Math.max(fii, dii);
-                    const minLocal = Math.min(fii, dii);
-                    if (maxLocal > maxVal) maxVal = maxLocal;
-                    if (minLocal < minVal) minVal = minLocal;
-                });
-                const buffer = (maxVal - minVal) * 0.15 || maxVal * 0.15;
-                yMax = maxVal + buffer * 1.5; // Leave enough room for the top labels
-            }
-
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -1711,8 +1668,7 @@
                     responsive: true, maintainAspectRatio: false,
                     scales: {
                         x: { stacked: false },
-                        y: { stacked: false, position: 'left', grid: { color: '#333' }, max: yMax },
-                        y1: { stacked: false, position: 'right', display: false } // Hide secondary axis line
+                        y: { stacked: false, position: 'left', grid: { color: '#333' } }
                     },
                     layout: {
                         padding: {
@@ -1844,20 +1800,21 @@
                     const today = arr.length > todayIdx ? arr[todayIdx] : 0;
                     const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
 
-                    // We need to calculate incremental change for labels, but bar heights remain outstanding.
                     const dayBeforePrev = arr.length > prevIdx - 1 && (prevIdx - 1) >= 0 ? arr[prevIdx - 1] : 0;
 
                     const diffToday = today - prev;
                     const diffPrev = prev - dayBeforePrev;
 
+                    // User request: The bars should represent the RAW CHANGE in OI (diffToday, diffPrev).
+                    // The labels should show Net Outstanding (today/prev) AND the diff.
                     todayDataArr.push({
-                        value: today,
-                        diff: diffToday
+                        value: diffToday,
+                        outstanding: today
                     });
 
                     prevDataArr.push({
-                        value: prev,
-                        diff: diffPrev
+                        value: diffPrev,
+                        outstanding: prev
                     });
                 });
 
@@ -1868,16 +1825,16 @@
                     yAxisIndex: index,
                     data: todayDataArr,
                     barGap: '0%', // Grouped
-                    itemStyle: { color: '#E88B1E' }, // Orange (Today)
+                    itemStyle: { color: '#FFD700' }, // Yellow per user request for Institutional Flows match
                     label: {
                         show: true,
                         position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
                         formatter: function(params) {
-                            let base = formatterLakhs(params.value);
+                            let outStr = formatterLakhs(params.data.outstanding);
                             let diffStr = '';
-                            if (params.data.diff > 0) diffStr = '\n{up|▲ ' + formatterLakhs(params.data.diff) + '}';
-                            else if (params.data.diff < 0) diffStr = '\n{down|▼ ' + formatterLakhs(Math.abs(params.data.diff)) + '}';
-                            return base + diffStr;
+                            if (params.value > 0) diffStr = '\n{up|▲ ' + formatterLakhs(params.value) + '}';
+                            else if (params.value < 0) diffStr = '\n{down|▼ ' + formatterLakhs(Math.abs(params.value)) + '}';
+                            return outStr + diffStr;
                         },
                         rich: {
                             up: { color: '#4caf50', fontSize: 9, fontWeight: 'bold' },
@@ -1900,11 +1857,11 @@
                         show: true,
                         position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
                         formatter: function(params) {
-                            let base = formatterLakhs(params.value);
+                            let outStr = formatterLakhs(params.data.outstanding);
                             let diffStr = '';
-                            if (params.data.diff > 0) diffStr = '\n{up|▲ ' + formatterLakhs(params.data.diff) + '}';
-                            else if (params.data.diff < 0) diffStr = '\n{down|▼ ' + formatterLakhs(Math.abs(params.data.diff)) + '}';
-                            return base + diffStr;
+                            if (params.value > 0) diffStr = '\n{up|▲ ' + formatterLakhs(params.value) + '}';
+                            else if (params.value < 0) diffStr = '\n{down|▼ ' + formatterLakhs(Math.abs(params.value)) + '}';
+                            return outStr + diffStr;
                         },
                         rich: {
                             up: { color: '#4caf50', fontSize: 9, fontWeight: 'bold' },
@@ -1944,71 +1901,6 @@
                 series: series
             };
             window.participantGranularChartInstance.setOption(granularOption);
-
-            // OI Change Bar Chart (Today - Prev Day)
-            const oiChangeGranularContainer = document.getElementById('oi-change-granular-summary');
-            if (oiChangeGranularContainer) {
-                if (window.oiChangeGranularChartInstance) window.oiChangeGranularChartInstance.dispose();
-                window.oiChangeGranularChartInstance = echarts.init(oiChangeGranularContainer);
-
-                const oiChangeSeries = [];
-                quadrantParticipants.forEach((p, index) => {
-                    const diffDataArr = [];
-
-                    oiChangeMetrics.forEach(m => {
-                        const arr = data[`${p.key}_${m.key}`] || [];
-                        const today = arr.length > todayIdx ? arr[todayIdx] : 0;
-                        const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
-                        diffDataArr.push(today - prev);
-                    });
-
-                    oiChangeSeries.push({
-                        name: 'OI Change',
-                        type: 'bar',
-                        xAxisIndex: index,
-                        yAxisIndex: index,
-                        data: diffDataArr,
-                        itemStyle: {
-                            color: function(params) {
-                                return params.value >= 0 ? '#4caf50' : '#f44336'; // Green for pos, Red for neg
-                            }
-                        },
-                        label: {
-                            show: true,
-                            position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
-                            formatter: function(params) {
-                                return formatterLakhs(params.value);
-                            },
-                            color: '#eee',
-                            fontSize: 10,
-                            fontWeight: 'bold'
-                        }
-                    });
-                });
-
-                const oiChangeGranularOption = {
-                    backgroundColor: 'transparent',
-                    title: gridTitles,
-                    grid: grids,
-                    xAxis: xAxes,
-                    yAxis: yAxes,
-                    tooltip: {
-                        trigger: 'axis',
-                        axisPointer: { type: 'shadow' },
-                        formatter: function(params) {
-                            if (!params.length) return '';
-                            let html = `<div style="font-size: 12px;"><strong>${params[0].axisValue}</strong><br/>`;
-                            params.forEach(p => {
-                                html += `${p.seriesName}: ${formatterLakhs(p.value)}<br/>`;
-                            });
-                            html += `</div>`;
-                            return html;
-                        }
-                    },
-                    series: oiChangeSeries
-                };
-                window.oiChangeGranularChartInstance.setOption(oiChangeGranularOption);
-            }
 
             // Smart Money Latest Daily Position (Single Chart)
             const oiChangeContainer = document.getElementById('daily-net-oi-change-summary');
@@ -2169,7 +2061,7 @@
                             name: 'Today',
                             type: 'bar',
                             data: todayData,
-                            itemStyle: { color: '#E88B1E' }, // Orange (Today) - matched from old chart
+                            itemStyle: { color: '#FFD700' }, // Yellow per user request for Institutional Flows match
                             label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2); }, color: '#ccc', fontSize: 10 }
                         }
                     ]
