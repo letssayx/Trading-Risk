@@ -52,7 +52,7 @@ const OiTool = {
                         <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
                     </select>
 
-                    <button onclick="OiTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
@@ -141,27 +141,42 @@ const OiTool = {
         }
     },
 
-    loadAggregatedData: async function() {
+    loadAggregatedData: async function(forceCompute = false) {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
 
         if (!tbody || !chartArea) return;
 
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Computing and fetching aggregated F&O data...</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#888;">
+            <i class="fas fa-spinner fa-spin"></i> ${forceCompute ? 'Computing and fetching' : 'Fetching'} aggregated F&O data...
+        </td></tr>`;
 
         try {
-            // First trigger compute
-            try {
-                await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
-            } catch (e) {
-                console.error("Compute failed, falling back to cached data:", e);
+            if (forceCompute) {
+                try {
+                    await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
+                } catch (e) {
+                    console.error("Compute failed, falling back to cached data:", e);
+                }
             }
 
             const url = '/api/data/analysis/oi';
-            const res = await fetch(url);
+            let res = await fetch(url);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
-            const json = await res.json();
+            let json = await res.json();
+
+            // If we have no data on load (first time run), automatically compute it
+            if ((!json.data || json.data.length === 0) && !forceCompute) {
+                console.log("No data found in cache. Forcing compute...");
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#888;">
+                    <i class="fas fa-spinner fa-spin"></i> Initializing data cache. This may take a few seconds...
+                </td></tr>`;
+                await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
+                res = await fetch(url);
+                if (!res.ok) throw new Error("Failed to load aggregated OI analysis after compute.");
+                json = await res.json();
+            }
 
             if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
 
