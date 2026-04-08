@@ -27,9 +27,10 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         # We fetch DESC with LIMIT, then reverse to ASC
         fetch_limit = lookback_days + 50
 
+        # Need OHLC for Yang-Zhang
         if is_index:
             query = text("""
-                SELECT trade_date, close_price
+                SELECT trade_date, open_price, high_price, low_price, close_price
                 FROM historical_index_data
                 WHERE index_name = :symbol
                 ORDER BY trade_date DESC
@@ -37,7 +38,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
             """)
         else:
             query = text("""
-                SELECT trade_date, close_price
+                SELECT trade_date, open_price, high_price, low_price, close_price
                 FROM bhavcopy_eq
                 WHERE ticker_symb = :symbol AND series = 'EQ'
                 ORDER BY trade_date DESC
@@ -51,7 +52,7 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
              try:
                  query = text("""
                     SELECT * FROM (
-                        SELECT DISTINCT ON (trade_date) trade_date, close_price
+                        SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price
                         FROM bhavcopy_fo
                         WHERE ticker_symb = :symbol AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF')
                         ORDER BY trade_date DESC, expiry_date ASC
@@ -411,30 +412,46 @@ def get_pre_expiry_action(
             return {"detail": "No price data found for the given symbol.", "dates": [], "prices": [], "expiries": [], "rv": [], "boxes": []}
 
         dates = [r[0].strftime('%Y-%m-%d') for r in result]
-        prices = [float(r[1]) for r in result]
+        prices = [float(r[4]) for r in result]  # index 4 is close_price
 
-        # Calculate Rolling Realized Volatility for the box_days window
-        rv_line = []
-        log_returns = []
-        for i in range(1, len(prices)):
-            if prices[i-1] > 0 and prices[i] > 0:
-                log_returns.append(math.log(prices[i] / prices[i-1]))
-            else:
-                log_returns.append(0.0)
+        # Calculate Rolling Realized Volatility for the box_days window using Yang-Zhang
+        rv_line = [None] * len(dates)
 
-        ann_factor = math.sqrt(252)
-        for i in range(len(prices)):
-            if i < box_days:
-                rv_line.append(None)
-            else:
-                window_returns = log_returns[i-box_days:i]
-                if len(window_returns) > 1:
-                    mean_r = sum(window_returns) / len(window_returns)
-                    var_r = sum((r - mean_r)**2 for r in window_returns) / (len(window_returns) - 1)
-                    rv = math.sqrt(var_r) * ann_factor * 100
-                    rv_line.append(round(rv, 2))
-                else:
-                    rv_line.append(None)
+        import pandas as pd
+        df = pd.DataFrame(result, columns=["date", "open", "high", "low", "close"])
+        df = df.sort_values("date")
+
+        opens = df["open"].astype(float)
+        highs = df["high"].astype(float)
+        lows  = df["low"].astype(float)
+        closes= df["close"].astype(float)
+
+        opens = opens.mask(opens == 0, closes)
+        highs = highs.mask(highs == 0, closes)
+        lows  = lows.mask(lows == 0, closes)
+
+        prev_closes = closes.shift(1)
+        overnight_ret = np.log(opens / prev_closes)
+        overnight_var = overnight_ret ** 2
+
+        log_hl = np.log(highs / lows)
+        log_co = np.log(closes / opens)
+        daytime_var = 0.5 * (log_hl ** 2) - (2 * np.log(2) - 1) * (log_co ** 2)
+        daytime_var = daytime_var.clip(lower=0)
+
+        total_var = overnight_var + daytime_var
+        limit = np.percentile(total_var.dropna(), 99.5)
+        total_var = total_var.clip(upper=limit)
+
+        rolling_mean_var = pd.Series(total_var).rolling(window=box_days).mean()
+        rolling_mean_var = rolling_mean_var.clip(lower=0)
+
+        rolling_vol_annualized = np.sqrt(rolling_mean_var * 252) * 100
+
+        for i in range(len(rolling_vol_annualized)):
+            val = rolling_vol_annualized.iloc[i]
+            if not np.isnan(val):
+                rv_line[i] = round(float(val), 2)
 
         # 2. Fetch Expiry Dates within the timeframe
         # Optimization: Only fetch where trade_date = expiry_date directly in SQL

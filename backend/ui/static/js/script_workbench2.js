@@ -1601,8 +1601,6 @@
     async function loadMarketActivity() {
         const symbol = document.getElementById('market-activity-symbol').value.toUpperCase() || 'NIFTY';
 
-        const days = document.getElementById('market-activity-days').value || '30';
-
         const loadBtn = document.getElementById('btn-load-market-activity');
         let originalText = '';
         if (loadBtn) {
@@ -1613,16 +1611,8 @@
 
         // 1. Load FII/DII Chart (Side by side bars per user request)
         try {
-            const res = await fetch(`/api/market-activity/cash-flow?days=${days}`);
+            const res = await fetch('/api/market-activity/cash-flow');
             const data = await res.json();
-
-            // Update global latest date
-            if (data.dates && data.dates.length > 0) {
-                const latestDateStr = data.dates[data.dates.length - 1];
-                const globalDateEl = document.getElementById('global-latest-date');
-                if (globalDateEl) globalDateEl.innerText = `Latest Data Date: ${latestDateStr}`;
-            }
-
             if (fiiDiiChartInstance) fiiDiiChartInstance.destroy();
             const ctx = document.getElementById('fiiDiiChart').getContext('2d');
 
@@ -1636,13 +1626,13 @@
                     type: 'bar',
                     yAxisID: 'y',
                     data: data.fii_net,
-                    backgroundColor: '#FFD700',
-                    borderColor: '#FFD700',
+                    backgroundColor: '#E88B1E',
+                    borderColor: '#E88B1E',
                     borderWidth: 0,
                     barPercentage: 1.0,
                     categoryPercentage: 0.8,
                     datalabels: { align: 'end', anchor: 'end', color: '#ccc', font: {size: 9}, formatter: (value) => value === 0 ? '' : Math.round(value) }
-                }, // Yellow
+                }, // Orange
                 {
                     label: 'DII Net',
                     type: 'bar',
@@ -1657,13 +1647,62 @@
                 }  // Blue
             ];
 
+            if (niftyData.length > 0) {
+                datasets.push({
+                    label: 'NIFTY',
+                    type: 'line',
+                    yAxisID: 'y1',
+                    data: niftyData,
+                    borderColor: '#FFFFFF',
+                    backgroundColor: 'transparent',
+                    borderWidth: 4,
+                    pointRadius: 2,
+                    tension: 0.1,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)',
+                    shadowBlur: 5
+                });
+            }
+
+            let minNifty = null;
+            let maxNifty = null;
+            if (niftyData.length > 0) {
+                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
+                if (validNifty.length > 0) {
+                    const absMin = Math.min(...validNifty);
+                    const absMax = Math.max(...validNifty);
+                    const diff = absMax - absMin;
+                    const pad = diff * 0.1;
+                    minNifty = Math.floor(absMin - pad);
+                    maxNifty = Math.ceil(absMax + pad);
+                }
+            }
+
+            const alternatingBackgroundPlugin = {
+                id: 'alternatingBackgroundPlugin',
+                beforeDraw: (chart) => {
+                    const ctx = chart.canvas.getContext('2d');
+                    const xAxis = chart.scales.x;
+                    const yAxis = chart.scales.y;
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                    for (let i = 0; i < xAxis.ticks.length; i++) {
+                        if (i % 2 === 1) { // Alternate days shading
+                            const left = i === 0 ? xAxis.left : (xAxis.getPixelForTick(i) + xAxis.getPixelForTick(i-1)) / 2;
+                            const right = i === xAxis.ticks.length - 1 ? xAxis.right : (xAxis.getPixelForTick(i) + xAxis.getPixelForTick(i+1)) / 2;
+                            ctx.fillRect(left, yAxis.top, right - left, yAxis.bottom - yAxis.top);
+                        }
+                    }
+                    ctx.restore();
+                }
+            };
+
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: data.dates,
                     datasets: datasets
                 },
-                plugins: [window.ChartDataLabels],
+                plugins: [window.ChartDataLabels, alternatingBackgroundPlugin],
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: {
@@ -1672,11 +1711,6 @@
                         y1: {
                             type: 'linear', position: 'right', display: niftyData.length > 0, grid: { drawOnChartArea: false },
                             min: minNifty, max: maxNifty
-                        }
-                    },
-                    layout: {
-                        padding: {
-                            top: 20 // Ensure labels aren't clipped
                         }
                     },
                     plugins: {
@@ -1690,15 +1724,19 @@
         } catch (e) { console.error("Error loading FII/DII", e); }
 
         // 2. Load Participant OI Chart (Merged Daily Grouped Bar Chart - Contracts)
-        // days is already declared at the top of the function
+        const days = document.getElementById('market-activity-days').value || '30';
         try {
             const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
 
+            // Build grouped ECharts for daily snapshot
+            const container = document.getElementById('participant-oi-daily-summary');
+            if (participantChartInstance) participantChartInstance.dispose();
+            participantChartInstance = echarts.init(container);
+
             const dates = data.dates || [];
             if (dates.length === 0) {
-                const granularContainer = document.getElementById('participant-oi-granular-summary');
-                if (granularContainer) granularContainer.innerHTML = '<p style="text-align:center; color:#888;">No Participant OI data found.</p>';
+                container.innerHTML = '<p style="text-align:center; color:#888;">No Participant OI data found.</p>';
                 return;
             }
 
@@ -1712,12 +1750,12 @@
                 { key: 'opt_stk_pe', label: 'Stock Puts' }
             ];
 
-            // Only core participants without Smart Money
             const participants = [
-                { key: 'fii', label: 'FII' },
-                { key: 'dii', label: 'DII' },
-                { key: 'pro', label: 'PRO' },
-                { key: 'client', label: 'CLI' }
+                { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
+                { key: 'dii', label: 'DII', color: '#60a5fa' },     // Blue
+                { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
+                { key: 'client', label: 'CLI', color: '#60a5fa' },  // Blue
+                { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' } // Yellow
             ];
 
             const xAxisData = metrics.map(m => m.label);
@@ -1725,261 +1763,192 @@
             // We only care about the latest date (Today)
             const todayIdx = dates.length - 1;
 
-            // Granular Collective Chart (Today vs Previous Day) - 2x2 Grid
+            const series = participants.map(p => {
+                const pData = metrics.map(m => {
+                    if (p.key === 'smart_money') {
+                        // Calculate Smart Money: FII + DII + PRO (Excluding Client)
+                        let sum = 0;
+                        ['fii', 'dii', 'pro'].forEach(participantKey => {
+                            const arrayKey = `${participantKey}_${m.key}`;
+                            const arr = data[arrayKey] || [];
+                            sum += arr.length > todayIdx ? arr[todayIdx] : 0;
+                        });
+                        return sum;
+                    } else {
+                        const arrayKey = `${p.key}_${m.key}`;
+                        const arr = data[arrayKey] || [];
+                        return arr.length > todayIdx ? arr[todayIdx] : 0;
+                    }
+                });
+
+                return {
+                    name: p.label,
+                    type: 'bar',
+                    barGap: '0%', // Combine bars closely together per instrument (no gap)
+                    data: pData,
+                    itemStyle: { color: p.color },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: function(params) {
+                            let val = params.value;
+                            if (val === 0) return '';
+                            let absVal = Math.abs(val);
+                            if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
+                            if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                            return val;
+                        },
+                        color: '#ccc',
+                        fontSize: 9
+                    }
+                };
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow',
+                        shadowStyle: { color: 'rgba(255, 255, 255, 0.05)' } // Hover highlight per user request
+                    }
+                },
+                legend: {
+                    data: participants.map(p => p.label),
+                    textStyle: { color: '#ccc' }
+                },
+                grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: xAxisData,
+                    axisLabel: { color: '#ccc', fontWeight: 'bold' },
+                    axisLine: { lineStyle: { color: '#333' } },
+                    axisTick: { alignWithLabel: true }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#888' },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                    // Removed zebra striping splitArea per user request
+                },
+                series: series.map((s, idx) => {
+                    if (idx === 0) {
+                        s.markArea = {
+                            itemStyle: { color: 'rgba(255,255,255,0.1)' },
+                            data: xAxisData.map((lbl, i) => {
+                                if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
+                                return null;
+                            }).filter(d => d !== null)
+                        };
+                    }
+                    return s;
+                })
+            };
+
+            participantChartInstance.setOption(option);
+
+            // Granular Collective Chart (Today vs Previous Day)
             const granularContainer = document.getElementById('participant-oi-granular-summary');
             if (window.participantGranularChartInstance) window.participantGranularChartInstance.dispose();
             window.participantGranularChartInstance = echarts.init(granularContainer);
 
             const prevIdx = todayIdx > 0 ? todayIdx - 1 : 0;
 
-            const oiChangeMetrics = [
-                { key: 'opt_idx_ce', label: 'INDEX CALL' },
-                { key: 'fut_idx', label: 'INDEX FUT' },
-                { key: 'opt_idx_pe', label: 'INDEX PUT' },
-                { key: 'opt_stk_ce', label: 'STK CALL' },
-                { key: 'fut_stk', label: 'STK FUT' },
-                { key: 'opt_stk_pe', label: 'STK PUT' }
-            ];
-
-            const formatterLakhs = (val) => {
-                if (!val || val === 0) return '0';
-                let absVal = Math.abs(val);
-                if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
-                if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
-                return val.toString();
-            };
-
-            const gridLayouts = [
-                { left: '3%', right: '52%', top: '8%', bottom: '55%', containLabel: true }, // Top-Left (FII)
-                { left: '52%', right: '3%', top: '8%', bottom: '55%', containLabel: true }, // Top-Right (DII)
-                { left: '3%', right: '52%', top: '55%', bottom: '8%', containLabel: true }, // Bottom-Left (Client)
-                { left: '52%', right: '3%', top: '55%', bottom: '8%', containLabel: true }  // Bottom-Right (PRO)
-            ];
-
-            const gridTitles = [
-                { text: 'FII', left: '25%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 14 } },
-                { text: 'DII', left: '75%', top: '2%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 14 } },
-                { text: 'Clients', left: '25%', top: '49%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 14 } },
-                { text: 'Pro', left: '75%', top: '49%', textAlign: 'center', textStyle: { color: '#ccc', fontSize: 14 } }
-            ];
-
-            const grids = [];
-            const xAxes = [];
-            const yAxes = [];
-            const series = [];
-
-            // Order: FII, DII, Client, PRO
-            const quadrantParticipants = [
-                { key: 'fii', label: 'FII' },
-                { key: 'dii', label: 'DII' },
-                { key: 'client', label: 'Clients' },
-                { key: 'pro', label: 'Pro' }
-            ];
-
-            quadrantParticipants.forEach((p, index) => {
-                grids.push(gridLayouts[index]);
-
-                xAxes.push({
-                    gridIndex: index,
-                    type: 'category',
-                    data: oiChangeMetrics.map(m => m.label),
-                    axisLabel: { color: '#ccc', fontSize: 10, fontWeight: 'bold' },
-                    axisLine: { lineStyle: { color: '#555' } },
-                    axisTick: { show: false }
-                });
-
-                yAxes.push({
-                    gridIndex: index,
-                    type: 'value',
-                    axisLabel: { show: false }, // Hide Y axis labels for cleaner look
-                    splitLine: { show: true, lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLine: { show: true, lineStyle: { color: '#555' } }
-                });
-
-                const todayDataArr = [];
-                const prevDataArr = [];
-
-                oiChangeMetrics.forEach(m => {
-                    const arr = data[`${p.key}_${m.key}`] || [];
-                    const today = arr.length > todayIdx ? arr[todayIdx] : 0;
-                    const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
-
-                    const dayBeforePrev = arr.length > prevIdx - 1 && (prevIdx - 1) >= 0 ? arr[prevIdx - 1] : 0;
-
-                    const diffToday = today - prev;
-                    const diffPrev = prev - dayBeforePrev;
-
-                    // User request: The bars should represent the RAW CHANGE in OI (diffToday, diffPrev).
-                    // The labels should show Net Outstanding (today/prev) AND the diff.
-                    todayDataArr.push({
-                        value: diffToday,
-                        outstanding: today
-                    });
-
-                    prevDataArr.push({
-                        value: diffPrev,
-                        outstanding: prev
-                    });
-                });
-
-                series.push({
-                    name: 'Today',
-                    type: 'bar',
-                    xAxisIndex: index,
-                    yAxisIndex: index,
-                    data: todayDataArr,
-                    barGap: '0%', // Grouped
-                    itemStyle: { color: '#FFD700' }, // Yellow per user request for Institutional Flows match
-                    label: {
-                        show: true,
-                        position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
-                        formatter: function(params) {
-                            let outStr = formatterLakhs(params.data.outstanding);
-                            let diffStr = '';
-                            if (params.value > 0) diffStr = '\n{up|▲ ' + formatterLakhs(params.value) + '}';
-                            else if (params.value < 0) diffStr = '\n{down|▼ ' + formatterLakhs(Math.abs(params.value)) + '}';
-                            return outStr + diffStr;
-                        },
-                        rich: {
-                            up: { color: '#4caf50', fontSize: 9, fontWeight: 'bold' },
-                            down: { color: '#f44336', fontSize: 9, fontWeight: 'bold' }
-                        },
-                        color: '#eee',
-                        fontSize: 10,
-                        fontWeight: 'bold'
+            // Re-map the same participants for granular
+            const granularSeries = participants.map(p => {
+                const todayDataArr = metrics.map(m => {
+                    if (p.key === 'smart_money') {
+                        let sum = 0;
+                        ['fii', 'dii', 'pro'].forEach(participantKey => {
+                            const arr = data[`${participantKey}_${m.key}`] || [];
+                            sum += arr.length > todayIdx ? arr[todayIdx] : 0;
+                        });
+                        return sum;
+                    } else {
+                        const arr = data[`${p.key}_${m.key}`] || [];
+                        return arr.length > todayIdx ? arr[todayIdx] : 0;
                     }
                 });
 
-                series.push({
-                    name: 'Prev Day',
-                    type: 'bar',
-                    xAxisIndex: index,
-                    yAxisIndex: index,
-                    data: prevDataArr,
-                    itemStyle: { color: '#3176B8' }, // Blue (Previous Day)
-                    label: {
-                        show: true,
-                        position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
-                        formatter: function(params) {
-                            let outStr = formatterLakhs(params.data.outstanding);
-                            let diffStr = '';
-                            if (params.value > 0) diffStr = '\n{up|▲ ' + formatterLakhs(params.value) + '}';
-                            else if (params.value < 0) diffStr = '\n{down|▼ ' + formatterLakhs(Math.abs(params.value)) + '}';
-                            return outStr + diffStr;
-                        },
-                        rich: {
-                            up: { color: '#4caf50', fontSize: 9, fontWeight: 'bold' },
-                            down: { color: '#f44336', fontSize: 9, fontWeight: 'bold' }
-                        },
-                        color: '#eee',
-                        fontSize: 10,
-                        fontWeight: 'bold'
+                const prevDataArr = metrics.map(m => {
+                    if (p.key === 'smart_money') {
+                        let sum = 0;
+                        ['fii', 'dii', 'pro'].forEach(participantKey => {
+                            const arr = data[`${participantKey}_${m.key}`] || [];
+                            sum += arr.length > prevIdx ? arr[prevIdx] : 0;
+                        });
+                        return sum;
+                    } else {
+                        const arr = data[`${p.key}_${m.key}`] || [];
+                        return arr.length > prevIdx ? arr[prevIdx] : 0;
                     }
                 });
-            });
+
+                return [
+                    {
+                        name: `${p.label} (Prev)`,
+                        type: 'bar',
+                        stack: p.label, // Stack Prev and Today for visual pairing if needed, or group
+                        data: prevDataArr,
+                        itemStyle: { color: p.key === 'smart_money' ? '#8B8000' : p.color, opacity: 0.5 }, // Dimmer for previous
+                        label: { show: false }
+                    },
+                    {
+                        name: `${p.label} (Today)`,
+                        type: 'bar',
+                        stack: p.label,
+                        data: todayDataArr,
+                        itemStyle: { color: p.color },
+                        label: {
+                            show: true,
+                            position: 'top',
+                            formatter: function(params) {
+                                let val = params.value;
+                                if (!val || val === 0) return '';
+                                let absVal = Math.abs(val);
+                                if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
+                                if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
+                                return val;
+                            },
+                            color: '#ccc',
+                            fontSize: 9
+                        }
+                    }
+                ];
+            }).flat();
+
+            // Add markArea to create shading for alternate groups
+            if (granularSeries.length > 0) {
+                granularSeries[0].markArea = {
+                    itemStyle: { color: 'rgba(255,255,255,0.1)' },
+                    data: xAxisData.map((lbl, idx) => {
+                        if (idx % 2 === 1) { // Apply shading to alternate categories
+                            return [{ xAxis: idx - 0.5 }, { xAxis: idx + 0.5 }];
+                        }
+                        return null;
+                    }).filter(d => d !== null)
+                };
+            }
 
             const granularOption = {
                 backgroundColor: 'transparent',
-                title: gridTitles,
-                grid: grids,
-                xAxis: xAxes,
-                yAxis: yAxes,
-                legend: {
-                    data: ['Prev Day', 'Today'],
-                    top: 0,
-                    textStyle: { color: '#ccc' }
-                },
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: { type: 'shadow' },
-                    formatter: function(params) {
-                        if (!params.length) return '';
-                        let html = `<div style="font-size: 12px;"><strong>${params[0].axisValue}</strong><br/>`;
-                        params.forEach(p => {
-                            html += `${p.seriesName}: ${formatterLakhs(p.value)}<br/>`;
-                        });
-                        html += `</div>`;
-                        return html;
-                    }
-                },
-                series: series
-            };
-            window.participantGranularChartInstance.setOption(granularOption);
-
-            // Smart Money Latest Daily Position (Single Chart)
-            const oiChangeContainer = document.getElementById('daily-net-oi-change-summary');
-            if (window.dailyNetOIChangeChartInstance) window.dailyNetOIChangeChartInstance.dispose();
-            window.dailyNetOIChangeChartInstance = echarts.init(oiChangeContainer);
-
-            const smCategories = ['Index Futures', 'Stock Futures', 'Index Calls', 'Index Puts', 'Stock Calls', 'Stock Puts'];
-            const smMetrics = ['fut_idx', 'fut_stk', 'opt_idx_ce', 'opt_idx_pe', 'opt_stk_ce', 'opt_stk_pe'];
-
-            const fiiData = [];
-            const diiData = [];
-            const proData = [];
-            const cliData = [];
-
-            smMetrics.forEach(m => {
-                const getVal = (pKey) => {
-                    const arr = data[`${pKey}_${m}`] || [];
-                    return arr.length > todayIdx ? arr[todayIdx] : 0;
-                };
-                fiiData.push(getVal('fii'));
-                diiData.push(getVal('dii'));
-                proData.push(getVal('pro'));
-                cliData.push(getVal('client'));
-            });
-
-            const oiChangeOption = {
-                backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: { type: 'shadow' }
-                },
-                legend: {
-                    data: ['FII', 'DII', 'PRO', 'CLI'],
-                    textStyle: { color: '#ccc' }
-                },
-                grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { type: 'scroll', textStyle: { color: '#ccc' }, bottom: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
                 xAxis: {
                     type: 'category',
-                    data: smCategories,
-                    axisLabel: { color: '#ccc', fontWeight: 'bold' },
-                    axisLine: { lineStyle: { color: '#555' } }
+                    data: xAxisData,
+                    axisLabel: { color: '#ccc', fontWeight: 'bold' }
                 },
                 yAxis: {
                     type: 'value',
-                    axisLabel: { color: '#888', formatter: function(value) { return formatterLakhs(value); } },
+                    axisLabel: { color: '#888' },
                     splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                series: [
-                    {
-                        name: 'FII',
-                        type: 'bar',
-                        data: fiiData,
-                        itemStyle: { color: '#E88B1E' } // Orange
-                    },
-                    {
-                        name: 'DII',
-                        type: 'bar',
-                        data: diiData,
-                        itemStyle: { color: '#3176B8' } // Blue
-                    },
-                    {
-                        name: 'PRO',
-                        type: 'bar',
-                        data: proData,
-                        itemStyle: { color: '#9B59B6' } // Purple
-                    },
-                    {
-                        name: 'CLI',
-                        type: 'bar',
-                        data: cliData,
-                        itemStyle: { color: '#00bcd4' } // Cyan
-                    }
-                ]
+                series: granularSeries
             };
-            window.dailyNetOIChangeChartInstance.setOption(oiChangeOption);
+
+            window.participantGranularChartInstance.setOption(granularOption);
 
 
             // Trigger historical charts rendering next
@@ -2026,15 +1995,7 @@
                     backgroundColor: 'transparent',
                     tooltip: {
                         trigger: 'axis',
-                        axisPointer: { type: 'shadow' },
-                        formatter: function(params) {
-                            if (!params.length) return '';
-                            let html = `<div style="font-weight:bold; margin-bottom: 5px;">${params[0].axisValue}</div>`;
-                            params.forEach(p => {
-                                html += `<div style="color:${p.color};">${p.seriesName}: ₹${p.value.toFixed(2)} Cr</div>`;
-                            });
-                            return html;
-                        }
+                        axisPointer: { type: 'shadow' }
                     },
                     legend: {
                         data: ['Previous Day', 'Today'],
@@ -2058,15 +2019,22 @@
                             name: 'Previous Day',
                             type: 'bar',
                             data: prevData,
-                            itemStyle: { color: '#3176B8' }, // Blue (Previous)
-                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2); }, color: '#ccc', fontSize: 10 }
+                            itemStyle: { color: '#60a5fa' }, // Blue
+                            markArea: {
+                                itemStyle: { color: 'rgba(255,255,255,0.1)' },
+                                data: xAxisData.map((lbl, i) => {
+                                    if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
+                                    return null;
+                                }).filter(d => d !== null)
+                            },
+                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         },
                         {
                             name: 'Today',
                             type: 'bar',
                             data: todayData,
-                            itemStyle: { color: '#FFD700' }, // Yellow per user request for Institutional Flows match
-                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2); }, color: '#ccc', fontSize: 10 }
+                            itemStyle: { color: '#E88B1E' }, // Orange
+                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
                         }
                     ]
                 };
@@ -2103,9 +2071,9 @@
                 ],
                 yAxis: [
                     { scale: true, gridIndex: 0, splitLine: { show: true, lineStyle: { color: '#333' } } },
-                    { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { formatter: (v) => (v/1000000).toFixed(2) + 'M' } },
+                    { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } },
                     { scale: true, gridIndex: 2, name: 'ATR %', splitNumber: 2, position: 'left' },
-                    { scale: true, gridIndex: 2, name: 'Total OI', splitNumber: 2, position: 'right', axisLabel: { formatter: (v) => (v/1000000).toFixed(2) + 'M' } }
+                    { scale: true, gridIndex: 2, name: 'Total OI', splitNumber: 2, position: 'right', axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } }
                 ],
                 dataZoom: [{ type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 }, { show: true, type: 'slider', xAxisIndex: [0, 1, 2], bottom: '0%' }],
                 series: [
@@ -2137,8 +2105,6 @@
         if (echartInstance) echartInstance.resize();
         if (window.fiiMoneyChartInstance) window.fiiMoneyChartInstance.resize();
         if (participantChartInstance) participantChartInstance.resize();
-        if (window.participantGranularChartInstance) window.participantGranularChartInstance.resize();
-        if (window.dailyNetOIChangeChartInstance) window.dailyNetOIChangeChartInstance.resize();
     });
 // script end
 
@@ -2281,7 +2247,7 @@ function renderParticipantHistorical(data) {
         { key: 'fii', label: 'FII', color: '#E88B1E' },
         { key: 'dii', label: 'DII', color: '#60a5fa' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
-        { key: 'client', label: 'CLI', color: '#00bcd4' }
+        { key: 'client', label: 'CLI', color: '#60a5fa' }
     ];
 
     metrics.forEach(m => {
@@ -2346,8 +2312,8 @@ function renderParticipantHistorical(data) {
                             let val = params.value;
                             if (!val || val === 0) return '';
                             let absVal = Math.abs(val);
-                            if (absVal >= 100000) return (val / 100000).toFixed(2) + 'L';
-                            if (absVal >= 1000) return (val / 1000).toFixed(2) + 'K';
+                            if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
+                            if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
                             return val;
                         },
                         color: '#ccc',
@@ -2412,7 +2378,7 @@ function renderParticipantHistorical(data) {
         // Relabel Y-axis to format absolute values for Net Position
         option.yAxis[0].axisLabel.formatter = function (value) {
             if (Math.abs(value) >= 1000) {
-                return (value / 1000).toFixed(2) + 'K';
+                return (value / 1000).toFixed(1) + 'k';
             }
             return value;
         };
@@ -2517,13 +2483,15 @@ async function loadVolatilityAnalysis(event) {
             return;
         }
 
+    const runButtonToRestore = document.getElementById('btn-run-historical-iv');
+
         const markLines = (data.expiries || []).map(exp => {
             return { xAxis: exp, label: { show: false } }; // Removed 'Exp' label to prevent overwriting
         });
 
         const markAreas = (data.boxes || []).map(box => {
             return [
-                { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 255, 255, 0.05)' } }, // Match FII chart shading
+                { xAxis: box.start_date, itemStyle: { color: 'rgba(255, 255, 255, 0.1)' } }, // Make shading slightly brighter per user request
                 { xAxis: box.end_date }
             ];
         });
@@ -2565,6 +2533,15 @@ async function loadVolatilityAnalysis(event) {
                     splitLine: { lineStyle: { color: '#333' } },
                     axisLabel: { color: '#888' },
                     nameTextStyle: { color: '#888' }
+                },
+                {
+                    type: 'value',
+                    name: `Price Chg %`,
+                    position: 'left',
+                    scale: true,
+                    splitLine: { show: false },
+                    axisLabel: { color: '#888' },
+                    nameTextStyle: { color: '#888' }
                 }
             ],
             dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
@@ -2573,7 +2550,7 @@ async function loadVolatilityAnalysis(event) {
                     name: 'Price Change %',
                     type: 'bar',
                     data: data.price_chg_pct_line,
-                    yAxisIndex: 0,
+                    yAxisIndex: 1, // Use left Y-axis
                     itemStyle: {
                         color: function(params) {
                             return params.value >= 0 ? 'rgba(49, 118, 184, 0.5)' : 'rgba(244, 67, 54, 0.5)';
@@ -2593,7 +2570,7 @@ async function loadVolatilityAnalysis(event) {
                     type: 'line',
                     data: data.rv,
                     yAxisIndex: 0,
-                    itemStyle: { color: '#60a5fa' }, // Blue line for RV
+                    itemStyle: { color: '#ffffff' }, // White line for RV
                     lineStyle: { width: 2 },
                     showSymbol: false
                 },
@@ -2638,34 +2615,32 @@ async function loadVolatilityAnalysis(event) {
         const forceCalcCheckbox = document.getElementById('vol-analysis-force-calc');
         const forceCalc = forceCalcCheckbox ? forceCalcCheckbox.checked : false;
 
-        const runButton = document.getElementById('btn-run-historical-iv');
-        const isRunCalc = event && event.target && (event.target.id === 'btn-run-historical-iv' || event.target.parentElement.id === 'btn-run-historical-iv');
-        if (isRunCalc && runButton) {
-            runButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
-            runButton.disabled = true;
-        }
-
         const res = await fetch(`/api/data/derivatives/volatility_cone/${symbol}?lookback_days=${lookbackDays}&force_calc=${forceCalc}`);
         const data = await res.json();
-
-        if (isRunCalc && runButton) {
-            runButton.innerHTML = 'Run Historical IV Calculation';
-            runButton.disabled = false;
-        }
 
         if (data.detail) {
             console.error("API Error Vol Cone:", data.detail);
             if (volConeChart) volConeChart.hideLoading();
             alert("Error loading Volatility Cone: " + data.detail);
-            if (isRunCalcEvent && runButton) {
-                runButton.innerHTML = 'Run Historical IV Calculation';
-                runButton.disabled = false;
+            if (isRunCalcEvent && runButtonToRestore) {
+                runButtonToRestore.innerHTML = 'Run Historical IV Calculation';
+                runButtonToRestore.disabled = false;
             }
             if (loadBtn) {
                 loadBtn.disabled = false;
                 loadBtn.innerHTML = originalText;
             }
             return;
+        }
+
+        // Re-enable load button if all went well
+        if (isRunCalcEvent && runButtonToRestore) {
+            runButtonToRestore.innerHTML = 'Run Historical IV Calculation';
+            runButtonToRestore.disabled = false;
+        }
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.innerHTML = originalText;
         }
 
         // Map line series to explicitly use numeric X values
@@ -2761,8 +2736,8 @@ async function loadVolatilityAnalysis(event) {
                 // We use exact DTE now
                 if (exp.dte <= 30) { // Keep within cone range
                     scatterData.push({
-                        value: [dteIdx, exp.atm_iv],
-                        name: `${exp.expiry_date} Expiry: ${exp.atm_iv.toFixed(2)}%` // Required label format
+                        value: [exp.dte, exp.atm_iv],
+                        name: `${exp.expiry_date} Expiry: ${exp.atm_iv.toFixed(1)}%` // Required label format
                     });
 
                     if (exp.atm_iv > highestIVDot) {

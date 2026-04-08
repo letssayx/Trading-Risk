@@ -184,7 +184,7 @@ def calculate_historical_atm_iv(db: Session, symbol: str, lookback_days: int = 5
             try:
                 stmt = insert(HistoricalATMIV).values(records)
                 stmt = stmt.on_conflict_do_update(
-                    index_elements=['trade_date', 'symbol'],
+                    constraint='uq_historical_atm_iv_unique',
                     set_={'atm_iv': stmt.excluded.atm_iv}
                 )
                 db.execute(stmt)
