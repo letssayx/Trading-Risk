@@ -536,16 +536,15 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
         # We already adjusted the backfiller to ignore options < 5 days to expiry.
         # This means `historical_atm_iv` inherently ignores the immediate expiry week noise now.
 
-        # Automatically calculate missing historical IV data for all symbols
-        # (force=False means it only processes dates that are missing, which is fast)
-        try:
-            from backend.analysis.historical_iv_calculator import calculate_historical_atm_iv
-            calculate_historical_atm_iv(db, "ALL", lookback_days=252, force=False)
-        except Exception as e:
-            print(f"Warning: Failed to auto-backfill historical ATM IV for ALL: {e}")
+        # We don't automatically backfill "ALL" here anymore because it times out the request.
+        # It's better to let users explicitly run it per symbol, or run a background job.
+        # But we DO want to ensure all stock futures are returned if there's no IV. We'll LEFT JOIN to FO symbols.
 
         query = text("""
-            WITH UnderlyingPrice AS (
+            WITH AllSymbols AS (
+                SELECT DISTINCT ticker_symb as symbol FROM bhavcopy_fo WHERE trade_date = :latest_date
+            ),
+            UnderlyingPrice AS (
                 SELECT symbol as ticker_symb, close_price as underlying_price
                 FROM bhavcopy_eq
                 WHERE trade_date = :latest_date AND series = 'EQ'
@@ -576,12 +575,13 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
                   AND h.trade_date >= CURRENT_DATE - INTERVAL '1 year'
                 GROUP BY h.symbol
             )
-            SELECT l.symbol, l.current_iv, s.min_iv, s.max_iv, s.total_days, COALESCE(d.days_below, 0) as days_below, u.underlying_price
-            FROM LatestIV l
-            JOIN HistoricalStats s ON l.symbol = s.symbol
-            LEFT JOIN DaysBelow d ON l.symbol = d.symbol
-            LEFT JOIN UnderlyingPrice u ON l.symbol = u.ticker_symb
-            ORDER BY l.symbol
+            SELECT a.symbol, l.current_iv, s.min_iv, s.max_iv, COALESCE(s.total_days, 0) as total_days, COALESCE(d.days_below, 0) as days_below, u.underlying_price
+            FROM AllSymbols a
+            LEFT JOIN LatestIV l ON a.symbol = l.symbol
+            LEFT JOIN HistoricalStats s ON a.symbol = s.symbol
+            LEFT JOIN DaysBelow d ON a.symbol = d.symbol
+            LEFT JOIN UnderlyingPrice u ON a.symbol = u.ticker_symb
+            ORDER BY a.symbol
         """)
 
         result = db.execute(query, {"latest_date": latest_date}).fetchall()
@@ -596,21 +596,20 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
             days_below = r[5]
             price = r[6]
 
-            if current_iv is None or min_iv is None or max_iv is None or total_days == 0:
-                continue
-
             ivr = None
-            if max_iv > min_iv:
-                ivr = ((current_iv - min_iv) / (max_iv - min_iv)) * 100
+            ivp = None
 
-            ivp = (days_below / total_days) * 100
+            if current_iv is not None and min_iv is not None and max_iv is not None and total_days > 0:
+                if max_iv > min_iv:
+                    ivr = ((current_iv - min_iv) / (max_iv - min_iv)) * 100
+                ivp = (days_below / total_days) * 100
 
             data.append({
                 "symbol": sym,
                 "price": float(price) if price else None,
-                "current_atm_iv": round(current_iv, 2),
+                "current_atm_iv": round(current_iv, 2) if current_iv is not None else None,
                 "ivr": round(ivr, 2) if ivr is not None else None,
-                "ivp": round(ivp, 2)
+                "ivp": round(ivp, 2) if ivp is not None else None
             })
 
         return {"data": data}

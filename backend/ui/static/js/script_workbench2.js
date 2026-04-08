@@ -2640,9 +2640,19 @@ async function loadVolatilityAnalysis(event) {
         const coneOption = {
             backgroundColor: 'transparent',
             title: { text: 'Realized Volatility Cone', textStyle: { color: '#ccc', fontSize: 14 } },
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            tooltip: {
+                trigger: 'item', // Changed to item so scatter dots show properly
+                formatter: function(params) {
+                    if (params.seriesName === 'Active Expiries') {
+                        return `<b>Active Expiry</b><br/>DTE: ${params.value[0]}<br/>ATM IV: ${params.value[1].toFixed(2)}%`;
+                    } else if (params.value && params.value.length === 2) {
+                        return `<b>${params.seriesName}</b><br/>DTE: ${params.value[0]}<br/>Vol: ${params.value[1].toFixed(2)}%`;
+                    }
+                    return `${params.seriesName}: ${params.value}%`;
+                }
+            },
             legend: { data: ['95th %', '75th %', '50th % (Median)', '25th %', '5th %', 'Active Expiries'], textStyle: { color: '#ccc' } },
-            color: ['#ef5350', '#ab47bc', '#00e676', '#29b6f6', '#66bb6a', '#E88B1E'], // Ensure colors match strictly
+            color: ['#ef5350', '#ab47bc', '#00e676', '#29b6f6', '#66bb6a', '#E88B1E'], // Match Tooltip Colors
             grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
             xAxis: {
                 type: 'value',
