@@ -163,16 +163,24 @@ def get_volatility_cone(symbol: str, lookback_days: int = 500, force_calc: bool 
         limit = np.percentile(total_var.dropna(), 99.5)
         total_var = total_var.clip(upper=limit)
 
+        # Calculate rolling volatilities for ALL windows first
+        rolling_vols = {}
+
         for w in windows:
-            # CRITICAL: Rolling MEAN of daily variances
-            rolling_mean_var = pd.Series(total_var).rolling(window=w).mean()
-            rolling_mean_var = rolling_mean_var.clip(lower=0)
+            rolling_mean_var = total_var.rolling(window=w).mean()
+            rolling_vol = np.sqrt(rolling_mean_var * 252) * 100
+            rolling_vols[w] = rolling_vol
 
-            # CRITICAL: Annualize using sqrt(252) only on the final mean variance
-            rolling_vol_annualized = np.sqrt(rolling_mean_var * 252) * 100
+        # Create DataFrame with all windows
+        vol_df = pd.DataFrame(rolling_vols)
 
-            # Step 4: Get percentiles from historical data
-            valid_vol = rolling_vol_annualized.dropna().tail(lookback_days)
+        # CRITICAL FIX: Drop rows where ANY window has NaN
+        # This ensures all windows use the EXACT same dates
+        vol_df = vol_df.dropna()
+
+        # Now calculate percentiles from the aligned data
+        for i, w in enumerate(windows):
+            valid_vol = vol_df[w].tail(lookback_days)
 
             if len(valid_vol) > 0:
                 cone_data["p5"].append(round(float(valid_vol.quantile(0.05)), 2))
