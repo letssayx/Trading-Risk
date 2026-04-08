@@ -286,38 +286,66 @@ async function loadOptionsAnalysis() {
                 data: ['Call OI', 'Put OI'],
                 textStyle: { color: '#ccc' }
             },
-            grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-            xAxis: {
-                type: 'value',
-                axisLabel: {
-                    color: '#888',
-                    formatter: function (value) { return Math.abs(value); }
+            grid: [
+                { left: '3%', right: '50%', bottom: '3%', top: '10%', containLabel: true }, // Calls Grid
+                { left: '50%', right: '4%', bottom: '3%', top: '10%', containLabel: true }  // Puts Grid
+            ],
+            xAxis: [
+                {
+                    type: 'value',
+                    gridIndex: 0,
+                    inverse: true, // Calls extend leftwards
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (value) { return Math.abs(value); }
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-            },
-            yAxis: {
-                type: 'category',
-                data: strikes,
-                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
-                axisLine: { show: false },
-                axisTick: { show: false },
-                splitLine: { show: true, lineStyle: { color: '#222' } }
-            },
+                {
+                    type: 'value',
+                    gridIndex: 1,
+                    axisLabel: {
+                        color: '#888'
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'category',
+                    gridIndex: 0,
+                    data: strikes,
+                    axisLabel: { show: false }, // Hide left y-axis labels to prevent overlap
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                },
+                {
+                    type: 'category',
+                    gridIndex: 1,
+                    data: strikes,
+                    position: 'left', // Pin to the split line between grids
+                    axisLabel: { color: '#FFCC00', fontWeight: 'bold', align: 'center', margin: 30 },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                }
+            ],
             series: [
                 {
                     name: 'Call OI',
                     type: 'bar',
-                    stack: 'Total',
-                    label: { show: false },
-                    itemStyle: { color: '#3176B8' }, // Blue
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    itemStyle: { color: '#E88B1E' }, // Orange Calls
                     data: ce_oi
                 },
                 {
                     name: 'Put OI',
                     type: 'bar',
-                    stack: 'Total',
-                    label: { show: false },
-                    itemStyle: { color: '#E88B1E' }, // Orange
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#3176B8' }, // Blue Puts
                     data: pe_oi
                 }
             ]

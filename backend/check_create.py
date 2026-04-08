@@ -1,4 +1,6 @@
-from infrastructure.db import engine
-from ingest.nse_models import Base
+from backend.infrastructure.db import engine, Base
+from backend.ingest import nse_models
+
+print("Creating tables...")
 Base.metadata.create_all(bind=engine)
-print("done")
+print("Done.")

@@ -442,17 +442,24 @@ const OiTool = {
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'pan'
+            dragmode: 'zoom'
         };
 
         const config = {
             responsive: true,
             scrollZoom: true,
             displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'pan2d']
         };
 
         Plotly.newPlot(container, [trace], layout, config);
+
+        container.on('plotly_doubleclick', function() {
+            Plotly.relayout(container, {
+                'xaxis.range': [-zoomRangeX, zoomRangeX],
+                'yaxis.range': [-zoomRangeY, zoomRangeY]
+            });
+        });
     },
 
     filterData: function() {

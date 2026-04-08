@@ -533,6 +533,43 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     )
 
 
+class OiAnalysisMetrics(Base, TimescaleMixin):
+    """Pre-computed Aggregated Open Interest Data for UI rendering"""
+    __tablename__ = "oi_analysis_metrics"
+
+    id = Column(Integer, autoincrement=True, nullable=False)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+
+    price = Column(Float)
+    price_chg_pct = Column(Float)
+
+    fut_oi = Column(BigInteger)
+    call_oi = Column(BigInteger)
+    put_oi = Column(BigInteger)
+    total_oi = Column(BigInteger)
+
+    fut_oi_chg = Column(BigInteger)
+    call_oi_chg = Column(BigInteger)
+    put_oi_chg = Column(BigInteger)
+
+    fut_oi_chg_pct = Column(Float)
+    call_oi_chg_pct = Column(Float)
+    put_oi_chg_pct = Column(Float)
+    oi_chg_pct = Column(Float)
+
+    fut_oi_chg_pct_30d = Column(Float)
+    call_oi_chg_pct_30d = Column(Float)
+    put_oi_chg_pct_30d = Column(Float)
+
+    pcr = Column(Float)
+    atm_iv = Column(Float)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('trade_date', 'id'),
+        UniqueConstraint('trade_date', 'symbol', name='uq_oi_analysis_metrics'),
+    )
+
 class ImportLog(Base):
     """Import Audit Log"""
     __tablename__ = "import_logs"
