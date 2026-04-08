@@ -1658,66 +1658,31 @@
             ];
 
             if (niftyData.length > 0) {
-                // Determine the global maximum positive value and global minimum negative value across all bars.
-                // We will place Nifty labels exactly at the upper chart boundary.
-                let maxVal = 0;
-                let minVal = 0;
-                data.fii_net.forEach((fii, i) => {
-                    const dii = data.dii_net[i] || 0;
-                    const maxLocal = Math.max(fii, dii);
-                    const minLocal = Math.min(fii, dii);
-                    if (maxLocal > maxVal) maxVal = maxLocal;
-                    if (minLocal < minVal) minVal = minLocal;
-                });
-
-                // We will explicitly set the Y-axis maximum to make room for labels.
-                const buffer = (maxVal - minVal) * 0.15 || maxVal * 0.15;
-                const topOffsetVal = maxVal + buffer;
-                const topOffsets = data.fii_net.map(() => topOffsetVal);
-
-                // In Chart.js, since there's no true 'composite overlay' value label feature directly without an extra invisible bar/scatter,
-                // we can add a dummy dataset to render the Nifty values exactly at the top.
                 datasets.push({
                     label: 'NIFTY',
                     type: 'line',
-                    yAxisID: 'y', // Bind to the main Y axis
-                    data: topOffsets, // Placed identically at a flat top line
-                    borderColor: 'transparent', // Remove Nifty overlay line
-                    backgroundColor: 'transparent',
-                    borderWidth: 0,
-                    pointRadius: 0,
-                    showLine: false,
+                    yAxisID: 'y1', // Bind NIFTY to secondary Y axis
+                    data: niftyData,
+                    borderColor: '#ffffff',
+                    backgroundColor: '#ffffff',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    fill: false,
                     datalabels: {
-                        align: 'top',
-                        anchor: 'start',
-                        color: '#FFD700', // Yellow Nifty values
-                        font: { size: 11, weight: 'bold' },
-                        formatter: (value, context) => {
-                            const niftyVal = niftyData[context.dataIndex];
-                            return niftyVal ? Math.round(niftyVal) : '';
+                        align: 'end',
+                        anchor: 'end',
+                        color: '#ffffff', // White Nifty values
+                        font: { size: 10, weight: 'bold' },
+                        formatter: (value) => Math.round(value),
+                        offset: function(context) {
+                            let meta = context.chart.getDatasetMeta(context.datasetIndex);
+                            if (!meta.data || !meta.data[context.dataIndex]) return 0;
+                            let yPos = meta.data[context.dataIndex].y;
+                            return -yPos + 10; // Push to top with 10px margin
                         }
                     }
                 });
             }
-
-            const alternatingBackgroundPlugin = {
-                id: 'alternatingBackgroundPlugin',
-                beforeDraw: (chart) => {
-                    const ctx = chart.canvas.getContext('2d');
-                    const xAxis = chart.scales.x;
-                    const yAxis = chart.scales.y;
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                    for (let i = 0; i < xAxis.ticks.length; i++) {
-                        if (i % 2 === 1) { // Alternate days shading
-                            const left = i === 0 ? xAxis.left : (xAxis.getPixelForTick(i) + xAxis.getPixelForTick(i-1)) / 2;
-                            const right = i === xAxis.ticks.length - 1 ? xAxis.right : (xAxis.getPixelForTick(i) + xAxis.getPixelForTick(i+1)) / 2;
-                            ctx.fillRect(left, yAxis.top, right - left, yAxis.bottom - yAxis.top);
-                        }
-                    }
-                    ctx.restore();
-                }
-            };
 
             // Compute Y-axis max if Nifty data exists
             let yMax = undefined;
@@ -1741,12 +1706,13 @@
                     labels: data.dates,
                     datasets: datasets
                 },
-                plugins: [window.ChartDataLabels, alternatingBackgroundPlugin],
+                plugins: [window.ChartDataLabels],
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: {
                         x: { stacked: false },
-                        y: { stacked: false, position: 'left', grid: { color: '#333' }, max: yMax }
+                        y: { stacked: false, position: 'left', grid: { color: '#333' }, max: yMax },
+                        y1: { stacked: false, position: 'right', display: false } // Hide secondary axis line
                     },
                     layout: {
                         padding: {
@@ -1764,7 +1730,7 @@
         } catch (e) { console.error("Error loading FII/DII", e); }
 
         // 2. Load Participant OI Chart (Merged Daily Grouped Bar Chart - Contracts)
-        const days = document.getElementById('market-activity-days').value || '30';
+        // days is already declared at the top of the function
         try {
             const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
             const data = await res.json();
@@ -1902,12 +1868,11 @@
                     yAxisIndex: index,
                     data: todayDataArr,
                     barGap: '0%', // Grouped
-                    itemStyle: { color: '#3176B8' }, // Blue
+                    itemStyle: { color: '#E88B1E' }, // Orange (Today)
                     label: {
                         show: true,
                         position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
                         formatter: function(params) {
-                            // Net outstanding at the top/bottom of the bar, along with diff underneath
                             let base = formatterLakhs(params.value);
                             let diffStr = '';
                             if (params.data.diff > 0) diffStr = '\n{up|▲ ' + formatterLakhs(params.data.diff) + '}';
@@ -1930,7 +1895,7 @@
                     xAxisIndex: index,
                     yAxisIndex: index,
                     data: prevDataArr,
-                    itemStyle: { color: '#FFD700' }, // Yellow per user request
+                    itemStyle: { color: '#3176B8' }, // Blue (Previous Day)
                     label: {
                         show: true,
                         position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
@@ -1959,7 +1924,7 @@
                 xAxis: xAxes,
                 yAxis: yAxes,
                 legend: {
-                    data: ['Today', 'Prev Day'],
+                    data: ['Prev Day', 'Today'],
                     top: 0,
                     textStyle: { color: '#ccc' }
                 },
@@ -1980,6 +1945,70 @@
             };
             window.participantGranularChartInstance.setOption(granularOption);
 
+            // OI Change Bar Chart (Today - Prev Day)
+            const oiChangeGranularContainer = document.getElementById('oi-change-granular-summary');
+            if (oiChangeGranularContainer) {
+                if (window.oiChangeGranularChartInstance) window.oiChangeGranularChartInstance.dispose();
+                window.oiChangeGranularChartInstance = echarts.init(oiChangeGranularContainer);
+
+                const oiChangeSeries = [];
+                quadrantParticipants.forEach((p, index) => {
+                    const diffDataArr = [];
+
+                    oiChangeMetrics.forEach(m => {
+                        const arr = data[`${p.key}_${m.key}`] || [];
+                        const today = arr.length > todayIdx ? arr[todayIdx] : 0;
+                        const prev = arr.length > prevIdx ? arr[prevIdx] : 0;
+                        diffDataArr.push(today - prev);
+                    });
+
+                    oiChangeSeries.push({
+                        name: 'OI Change',
+                        type: 'bar',
+                        xAxisIndex: index,
+                        yAxisIndex: index,
+                        data: diffDataArr,
+                        itemStyle: {
+                            color: function(params) {
+                                return params.value >= 0 ? '#4caf50' : '#f44336'; // Green for pos, Red for neg
+                            }
+                        },
+                        label: {
+                            show: true,
+                            position: function(params) { return params.value >= 0 ? 'top' : 'bottom'; },
+                            formatter: function(params) {
+                                return formatterLakhs(params.value);
+                            },
+                            color: '#eee',
+                            fontSize: 10,
+                            fontWeight: 'bold'
+                        }
+                    });
+                });
+
+                const oiChangeGranularOption = {
+                    backgroundColor: 'transparent',
+                    title: gridTitles,
+                    grid: grids,
+                    xAxis: xAxes,
+                    yAxis: yAxes,
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: { type: 'shadow' },
+                        formatter: function(params) {
+                            if (!params.length) return '';
+                            let html = `<div style="font-size: 12px;"><strong>${params[0].axisValue}</strong><br/>`;
+                            params.forEach(p => {
+                                html += `${p.seriesName}: ${formatterLakhs(p.value)}<br/>`;
+                            });
+                            html += `</div>`;
+                            return html;
+                        }
+                    },
+                    series: oiChangeSeries
+                };
+                window.oiChangeGranularChartInstance.setOption(oiChangeGranularOption);
+            }
 
             // Smart Money Latest Daily Position (Single Chart)
             const oiChangeContainer = document.getElementById('daily-net-oi-change-summary');
@@ -2134,14 +2163,14 @@
                             type: 'bar',
                             data: prevData,
                             itemStyle: { color: '#3176B8' }, // Blue (Previous)
-                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
+                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2); }, color: '#ccc', fontSize: 10 }
                         },
                         {
                             name: 'Today',
                             type: 'bar',
                             data: todayData,
-                            itemStyle: { color: '#FFD700' }, // Yellow (Today)
-                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
+                            itemStyle: { color: '#E88B1E' }, // Orange (Today) - matched from old chart
+                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2); }, color: '#ccc', fontSize: 10 }
                         }
                     ]
                 };
