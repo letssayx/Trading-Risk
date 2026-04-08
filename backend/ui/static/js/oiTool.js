@@ -155,7 +155,12 @@ const OiTool = {
         try {
             if (forceCompute) {
                 try {
-                    await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
+                    const computeRes = await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
+                    const computeJson = await computeRes.json();
+                    if (computeJson.status === 'error') {
+                        console.error("Compute API returned error:", computeJson.message);
+                        alert("Failed to compute data: " + computeJson.message);
+                    }
                 } catch (e) {
                     console.error("Compute failed, falling back to cached data:", e);
                 }
@@ -172,7 +177,11 @@ const OiTool = {
                 tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#888;">
                     <i class="fas fa-spinner fa-spin"></i> Initializing data cache. This may take a few seconds...
                 </td></tr>`;
-                await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
+                const initRes = await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
+                const initJson = await initRes.json();
+                if (initJson.status === 'error') {
+                    console.warn("Initialization compute returned error:", initJson.message);
+                }
                 res = await fetch(url);
                 if (!res.ok) throw new Error("Failed to load aggregated OI analysis after compute.");
                 json = await res.json();

@@ -131,7 +131,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                   .limit(32).all()
 
         if len(dates_query) < 2:
-            return {"status": "error", "message": "Not enough data"}
+            return {"status": "error", "message": f"Not enough data in BhavcopyFO. Found {len(dates_query)} dates."}
 
         valid_dates = [d[0] for d in dates_query]
 
@@ -239,6 +239,9 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                     "atm_iv": round(atm_val, 2)
                 })
 
+        if not insert_data:
+            return {"status": "error", "message": "No valid F&O combinations found to compute."}
+
         if insert_data:
             stmt = insert(OiAnalysisMetrics).values(insert_data)
             stmt = stmt.on_conflict_do_update(
@@ -267,7 +270,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
             db.execute(stmt)
             db.commit()
 
-        return {"status": "success", "message": f"Computed and backfilled 30 day history"}
+        return {"status": "success", "message": f"Computed and backfilled 30 day history. Inserted {len(insert_data)} rows."}
     except Exception as e:
         import logging
         logging.error(f"Error computing aggregated OI analysis: {e}")
