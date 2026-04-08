@@ -52,7 +52,7 @@ const OiTool = {
                         <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
                     </select>
 
-                    <button onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button onclick="OiTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
@@ -97,7 +97,7 @@ const OiTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">OI ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi_chg_pct')">OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
@@ -141,56 +141,24 @@ const OiTool = {
         }
     },
 
-    loadAggregatedData: async function(forceCompute = false) {
+    loadAggregatedData: async function() {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
 
         if (!tbody || !chartArea) return;
 
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#888;">
-            <i class="fas fa-spinner fa-spin"></i> ${forceCompute ? 'Computing and fetching' : 'Fetching'} aggregated F&O data...
-        </td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            if (forceCompute) {
-                try {
-                    const computeRes = await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
-                    const computeJson = await computeRes.json();
-                    if (computeJson.status === 'error') {
-                        console.error("Compute API returned error:", computeJson.message);
-                        alert("Failed to compute data: " + computeJson.message);
-                    }
-                } catch (e) {
-                    console.error("Compute failed, falling back to cached data:", e);
-                }
-            }
-
-            const url = '/api/data/analysis/oi';
-            let res = await fetch(url);
+            const res = await fetch('/api/data/analysis/oi');
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
-            let json = await res.json();
-
-            // If we have no data on load (first time run), automatically compute it
-            if ((!json.data || json.data.length === 0) && !forceCompute) {
-                console.log("No data found in cache. Forcing compute...");
-                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#888;">
-                    <i class="fas fa-spinner fa-spin"></i> Initializing data cache. This may take a few seconds...
-                </td></tr>`;
-                const initRes = await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
-                const initJson = await initRes.json();
-                if (initJson.status === 'error') {
-                    console.warn("Initialization compute returned error:", initJson.message);
-                }
-                res = await fetch(url);
-                if (!res.ok) throw new Error("Failed to load aggregated OI analysis after compute.");
-                json = await res.json();
-            }
+            const json = await res.json();
 
             if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
 
             this.allData = json.data || [];
-            this.currentSortCol = 'fut_oi_chg_pct';
+            this.currentSortCol = 'oi_chg_pct';
             this.currentSortAsc = false;
 
             // Populate sector filter dropdown
@@ -264,7 +232,7 @@ const OiTool = {
             else if (advFilter === 'top_5_oi_red') displayData = sortedByOI.slice().reverse().slice(0, 5);
             else if (advFilter === 'top_10_oi_red') displayData = sortedByOI.slice().reverse().slice(0, 10);
             else if (advFilter.startsWith('highest_oi_chg_') || advFilter.startsWith('highest_price_chg_')) {
-                // e.g., 'highest_oi_chg_30' maps to `d.fut_oi_chg_30d` computed directly on backend
+                // e.g., 'highest_oi_chg_30' maps to `d.oi_chg_30d` computed directly on backend
                 const parts = advFilter.split('_');
                 const days = parts[parts.length - 1]; // '30' or '60'
                 const isPrice = advFilter.includes('price');
@@ -311,7 +279,7 @@ const OiTool = {
                 if (d.interpretation === 'Long Unwinding') color = '#ff9800'; // Orange
 
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let oColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
@@ -320,8 +288,8 @@ const OiTool = {
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
                     <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.fut_oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${(d.fut_oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
                     <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
@@ -331,7 +299,7 @@ const OiTool = {
                 if (d.history && d.history.length > 1) {
                     d.history.slice(1, 7).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hoColor = h.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
@@ -341,7 +309,7 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.fut_oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
@@ -380,11 +348,11 @@ const OiTool = {
                 <tbody>`;
 
             dataSubset.forEach(d => {
-                let oColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
-                    <td style="padding: 4px; color: ${oColor};">${d.fut_oi_chg_pct}%</td>
+                    <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
                     <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                 </tr>`;
@@ -411,7 +379,7 @@ const OiTool = {
             return;
         }
 
-        const x = data.map(d => d.fut_oi_chg_pct);
+        const x = data.map(d => d.oi_chg_pct);
         const y = data.map(d => d.price_chg_pct);
         const text = data.map(d => d.symbol);
         const color = data.map(d => {
@@ -442,7 +410,7 @@ const OiTool = {
             type: 'scatter',
             text: text,
             textposition: 'top center',
-            hovertext: data.map(d => `${d.symbol}<br>Price: ${d.price_chg_pct}%<br>OI: ${d.fut_oi_chg_pct}%`),
+            hovertext: data.map(d => `${d.symbol}<br>Price: ${d.price_chg_pct}%<br>OI: ${d.oi_chg_pct}%`),
             marker: { size: 10, color: color, opacity: 0.8 }
         };
 
@@ -531,7 +499,7 @@ const OiTool = {
         container.innerHTML = '';
 
         const history = data.history || [];
-        const x = history.map(d => d.fut_oi_chg_pct);
+        const x = history.map(d => d.oi_chg_pct);
         const y = history.map(d => d.price_chg_pct);
         const text = history.map(d => `${d.time}<br>${d.interpretation}`);
         const color = history.map(d => {
@@ -626,7 +594,7 @@ const OiTool = {
 
         let csv = "Symbol,Sector,Price Change %,OI Change %,Quadrant\n";
         displayData.forEach(d => {
-            csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.fut_oi_chg_pct}","${d.interpretation}"\n`;
+            csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.oi_chg_pct}","${d.interpretation}"\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -644,6 +612,6 @@ const OiTool = {
 // Register with WorkbookManager
 window.addEventListener('load', () => {
    if (window.WorkbookManager) {
-       window.WorkbookManager.modules['oi_analysis'] = OiTool;
+       window.WorkbookManager.modules['oi'] = OiTool;
    }
 });
