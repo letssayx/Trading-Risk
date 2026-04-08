@@ -153,7 +153,8 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
         curr_date = dates_query[0][0]
         prev_date = dates_query[1][0]
-        date_30d = dates_query[-1][0]
+        # Allow less than 31 days if history isn't populated
+        date_30d = dates_query[-1][0] if len(dates_query) > 0 else curr_date
 
         query = db.query(
             BhavcopyFO.ticker_symb,
@@ -163,7 +164,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
             BhavcopyFO.instrument_type,
             BhavcopyFO.option_type
         ).filter(
-            BhavcopyFO.trade_date.in_([curr_date, prev_date, date_30d]),
+            BhavcopyFO.trade_date.in_(list(set([curr_date, prev_date, date_30d]))),
             BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()

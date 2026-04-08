@@ -274,7 +274,10 @@ async function loadOptionsAnalysis() {
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
                 formatter: function (params) {
-                    let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
+                    // params is an array of objects for each series at the hovered index
+                    // Extract strike correctly
+                    let strikeVal = params[0].name;
+                    let res = `<div style="font-weight:bold; margin-bottom:5px;">Strike: ${strikeVal}</div>`;
                     params.forEach(function (p) {
                         const val = Math.abs(p.value).toLocaleString();
                         res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
@@ -284,40 +287,86 @@ async function loadOptionsAnalysis() {
             },
             legend: {
                 data: ['Call OI', 'Put OI'],
-                textStyle: { color: '#ccc' }
+                textStyle: { color: '#ccc' },
+                top: 0
             },
-            grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-            xAxis: {
-                type: 'value',
-                axisLabel: {
-                    color: '#888',
-                    formatter: function (value) { return Math.abs(value); }
+            grid: [
+                { left: '5%', right: '55%', bottom: '5%', top: '10%', containLabel: false },
+                { left: '55%', right: '5%', bottom: '5%', top: '10%', containLabel: false }
+            ],
+            xAxis: [
+                {
+                    type: 'value',
+                    gridIndex: 0,
+                    inverse: true, // Calls inverted on the left
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (value) {
+                            return Math.abs(value).toLocaleString();
+                        }
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
                 },
-                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-            },
-            yAxis: {
-                type: 'category',
-                data: strikes,
-                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
-                axisLine: { show: false },
-                axisTick: { show: false },
-                splitLine: { show: true, lineStyle: { color: '#222' } }
-            },
+                {
+                    type: 'value',
+                    gridIndex: 1, // Puts normal on the right
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (value) {
+                            return Math.abs(value).toLocaleString();
+                        }
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'category',
+                    gridIndex: 0,
+                    data: strikes,
+                    position: 'right',
+                    axisLabel: {
+                        show: true,
+                        color: '#FFCC00',
+                        fontWeight: 'bold',
+                        margin: 20, // push labels right to center them perfectly between the two grids
+                        align: 'center'
+                    },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: false }
+                },
+                {
+                    type: 'category',
+                    gridIndex: 1,
+                    data: strikes,
+                    axisLabel: { show: false }, // Hide labels on the right grid, use left grid's center labels
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: false }
+                }
+            ],
             series: [
                 {
                     name: 'Call OI',
                     type: 'bar',
-                    stack: 'Total',
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
                     label: { show: false },
-                    itemStyle: { color: '#3176B8' }, // Blue
-                    data: ce_oi
+                    itemStyle: { color: '#E88B1E' }, // Orange for Calls
+                    data: ce_oi.map(v => Math.abs(v)) // Pass positive values, X-axis inverse handles the rendering
                 },
                 {
                     name: 'Put OI',
                     type: 'bar',
-                    stack: 'Total',
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
                     label: { show: false },
-                    itemStyle: { color: '#E88B1E' }, // Orange
+                    itemStyle: { color: '#3176B8' }, // Blue for Puts
                     data: pe_oi
                 }
             ]
