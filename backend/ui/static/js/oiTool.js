@@ -53,7 +53,7 @@ const OiTool = {
                     </select>
 
                     <button type="button" id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
-                    <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
+                    <button type="button" id="oi-single-btn" onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
@@ -145,8 +145,16 @@ const OiTool = {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
+        const refreshBtn = document.getElementById('oi-refresh-btn');
 
         if (!tbody || !chartArea) return;
+
+        let originalBtnHtml = "";
+        if (refreshBtn && forceRefresh) {
+            originalBtnHtml = refreshBtn.innerHTML;
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Computing...';
+        }
 
         if (forceRefresh) {
             tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Computing fresh data (this takes a moment)...</td></tr>';
@@ -194,8 +202,13 @@ const OiTool = {
             this.renderAggregatedView();
 
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        } finally {
+            if (refreshBtn && forceRefresh) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = originalBtnHtml;
+            }
         }
     },
 
@@ -482,10 +495,18 @@ const OiTool = {
     analyzeSingle: async function() {
         const symbol = document.getElementById('oi-symbol').value.toUpperCase().trim();
         const chartArea = document.getElementById('oi-chart-area');
+        const singleBtn = document.getElementById('oi-single-btn');
 
         if (!symbol) return;
 
-        chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
+        let originalBtnHtml = "";
+        if (singleBtn) {
+            originalBtnHtml = singleBtn.innerHTML;
+            singleBtn.disabled = true;
+            singleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        }
+
+        chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;"><i class="fas fa-spinner fa-spin"></i> Loading Single Symbol Analysis...</p>';
 
         // Filter the table to just show this symbol instead of hiding it
         if (this.allData && this.allData.length > 0) {
@@ -502,6 +523,11 @@ const OiTool = {
 
         } catch (e) {
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        } finally {
+            if (singleBtn) {
+                singleBtn.disabled = false;
+                singleBtn.innerHTML = originalBtnHtml;
+            }
         }
     },
 

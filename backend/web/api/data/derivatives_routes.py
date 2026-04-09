@@ -225,7 +225,7 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                 })
 
         if insert_data:
-            chunk_size = 1000
+            chunk_size = 500
             for i in range(0, len(insert_data), chunk_size):
                 chunk = insert_data[i:i + chunk_size]
                 if db.bind.dialect.name == 'postgresql':
