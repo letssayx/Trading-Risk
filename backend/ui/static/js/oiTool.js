@@ -3,14 +3,116 @@ const OiTool = {
     containerId: 'oi-tool-container',
     allData: [],
 
-    init: function(event, forceCompute = false) {
+    init: function() {
         const container = document.getElementById(this.containerId);
         if (container && !container.innerHTML.includes('oi-symbol')) {
             this.render(container);
-            this.loadAggregatedData(forceCompute);
-        } else if (forceCompute) {
-            this.loadAggregatedData(true);
+            this.loadAggregatedData();
         }
+    },
+
+    open: function() {
+        this.active = true;
+        this.init();
+    },
+
+    close: function() {
+        this.active = false;
+    },
+
+    render: function(container) {
+        container.innerHTML = `
+            <style>
+                .oi-row { border-bottom: 1px solid #333; }
+                .oi-row:hover { background-color: #2a2a2a; cursor: pointer; }
+                .oi-history-row { display: none; background-color: #1a1a1a; }
+                .oi-history-row td { padding: 0 !important; border: none; }
+                .oi-history-table { width: 100%; border-collapse: collapse; margin-left: 30px; font-size: 0.9em; color: #aaa; }
+                .oi-history-table th, .oi-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
+                .oi-history-table th { background: #111; color: #888; }
+            </style>
+            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
+                    <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
+                    <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
+                    <select id="oi-sector-filter" class="form-control history-input" style="width: 130px; padding: 4px;" onchange="OiTool.filterData()">
+                        <option value="">All Sectors</option>
+                    </select>
+
+                    <!-- Advanced Filters -->
+                    <select id="oi-advanced-filter" class="form-control history-input" style="width: 180px; padding: 4px;" onchange="OiTool.filterData()">
+                        <option value="">No Filter</option>
+                        <option value="top_5_oi_add">Top 5 OI Additions</option>
+                        <option value="top_10_oi_add">Top 10 OI Additions</option>
+                        <option value="top_5_oi_red">Top 5 OI Reductions</option>
+                        <option value="top_10_oi_red">Top 10 OI Reductions</option>
+                        <option value="highest_oi_chg_30">Highest OI Chg (30 Days)</option>
+                        <option value="highest_oi_chg_60">Highest OI Chg (60 Days)</option>
+                        <option value="highest_price_chg_30">Highest Price Chg (30 Days)</option>
+                        <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
+                    </select>
+
+                    <button id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
+                    <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
+                </div>
+
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-bottom: 20px;">
+                    <!-- Top Derived Info Panels -->
+                    <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top OI Additions</h4>
+                            <div id="oi-top-add-chart" style="height: 180px;"></div>
+                        </div>
+                        <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top OI Reductions</h4>
+                            <div id="oi-top-red-chart" style="height: 180px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Area -->
+                    <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
+                            <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
+                            <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div id="oi-chart-area" style="flex: 1;">
+                            <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
+                        </div>
+                    </div>
+
+                    <!-- Table Area -->
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
+                            <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div style="flex: 1; overflow: auto;">
+                            <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
+                                <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 8px; width: 30px;"></th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
+                                        <th style="padding: 8px;">Date</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="oi-analysis-body">
+                                    <tr><td colspan="11" style="text-align:center; color:#888;">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
 
         // Add enter key support
         const input = document.getElementById('oi-symbol');
@@ -39,391 +141,287 @@ const OiTool = {
         }
     },
 
-    render: function(container) {
-        const html = `
-            <div style="background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
-                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                    <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
-                    <select id="oi-sector-filter" class="form-control history-input" style="width: 130px; padding: 4px;" onchange="OiTool.filterData()">
-                        <option value="">All Sectors</option>
-                        <!-- Populated dynamically -->
-                    </select>
-
-                    <!-- Advanced Filters -->
-                    <select id="oi-advanced-filter" class="form-control history-input" style="width: 180px; padding: 4px;" onchange="OiTool.filterData()">
-                        <option value="">No Filter</option>
-                        <option value="top_5_oi_add">Top 5 OI Additions</option>
-                        <option value="top_10_oi_add">Top 10 OI Additions</option>
-                        <option value="top_5_oi_red">Top 5 OI Reductions</option>
-                        <option value="top_10_oi_red">Top 10 OI Reductions</option>
-                        <option value="highest_oi_chg_30">Highest OI Chg (30 Days)</option>
-                    </select>
-
-                    <button id="oi-refresh-btn" onclick="OiTool.init(event, true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
-                    <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
-                </div>
-            </div>
-
-            <!-- Dashboard Layout: 1/3 Chart, 2/3 Table -->
-            <div style="display: flex; gap: 20px; flex-wrap: wrap; height: 100%;">
-                <!-- Left: Quadrant Scatter Plot -->
-                <div style="flex: 1; min-width: 300px; background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 15px;">
-                    <h4 style="margin-top: 0; color: #ccc; font-size: 14px;">Price vs OI Quadrant Analysis (1D)</h4>
-                    <div id="oi-quadrant-chart" style="width: 100%; height: 400px; background: #151515;"></div>
-                </div>
-
-                <!-- Right: Aggregated Data Table -->
-                <div style="flex: 2; min-width: 600px; background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 15px; display: flex; flex-direction: column;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="margin: 0; color: #ccc; font-size: 14px;">Aggregated Real-time OI Analysis <span id="oi-table-date" style="color: #888; font-size: 12px; margin-left: 10px;"></span></h4>
-                        <div>
-                            <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
-                        </div>
-                    </div>
-
-                    <div style="flex: 1; overflow-y: auto;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;">
-                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
-                                <tr style="border-bottom: 2px solid #444; color: #888;">
-                                    <th style="padding: 8px; width: 30px;"></th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi')">FUT OI ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi_chg')">FUT OI Chg ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi_chg_pct')">FUT OI Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg')">Call OI Chg ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi')">Put OI ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg')">Put OI Chg ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg_pct')">Put OI Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
-                                </tr>
-                            </thead>
-                            <tbody id="oi-analysis-body" style="color: #ccc;">
-                                <tr><td colspan="18" style="text-align:center; padding: 20px;">Waiting for data...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-        container.innerHTML = html;
-    },
-
-    loadAggregatedData: async function(forceCompute = false) {
+    loadAggregatedData: async function() {
         const tbody = document.getElementById('oi-analysis-body');
-        const chartArea = document.getElementById('oi-quadrant-chart');
-        if (!tbody) return;
+        const chartArea = document.getElementById('oi-chart-area');
+        const dateDisplay = document.getElementById('oi-date-display');
 
-        let eventSource = document.getElementById('oi-refresh-btn');
-        let originalText = '';
+        if (!tbody || !chartArea) return;
 
-        if (eventSource && forceCompute) {
-            originalText = eventSource.innerHTML;
-            eventSource.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Computing Backend...";
-            eventSource.disabled = true;
-        }
-
-        tbody.innerHTML = '<tr><td colspan="18" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            if (forceCompute) {
-                const computeRes = await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
-                if (!computeRes.ok) throw new Error("Failed to compute OI analysis on backend.");
-                // Ensure data takes half a second to settle and show success visually on the button before flashing
-                await new Promise(r => setTimeout(r, 500));
-            }
-
             const res = await fetch('/api/data/analysis/oi');
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
 
-            if (json.date) {
-                document.getElementById('oi-table-date').innerText = `(${json.date})`;
+            if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
+
+            this.allData = json.data || [];
+            this.currentSortCol = 'oi_chg_pct';
+            this.currentSortAsc = false;
+
+            // Populate sector filter dropdown
+            const sectors = new Set();
+            this.allData.forEach(d => {
+                if (d.sector && d.sector !== "Unknown") {
+                    sectors.add(d.sector);
+                }
+            });
+            const sectorSelect = document.getElementById('oi-sector-filter');
+            if (sectorSelect) {
+                const currentVal = sectorSelect.value;
+                sectorSelect.innerHTML = '<option value="">All Sectors</option>';
+                Array.from(sectors).sort().forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s;
+                    sectorSelect.appendChild(opt);
+                });
+                sectorSelect.value = currentVal; // Restore selection if any
             }
 
-            // Derive Quadrant explicitly for Scatter Plot
-            this.allData = (json.data || []).map(d => {
-                let interp = "Neutral";
-                let p = d.price_chg_pct;
-                let o = d.fut_oi_chg_pct;
-
-                if (p > 0 && o > 0) interp = "Long Build Up";
-                else if (p < 0 && o > 0) interp = "Short Build Up";
-                else if (p > 0 && o < 0) interp = "Short Covering";
-                else if (p < 0 && o < 0) interp = "Long Unwinding";
-
-                d.interpretation = interp;
-                return d;
-            });
-
-            this.populateSectors(this.allData);
-            this.filterData(); // Applies any existing filters and calls renderData
+            this.renderAggregatedView();
 
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="18" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
-        } finally {
-            if (eventSource && forceCompute) {
-                eventSource.innerHTML = originalText;
-                eventSource.disabled = false;
-            }
         }
     },
 
-    populateSectors: function(data) {
-        const select = document.getElementById('oi-sector-filter');
-        if (!select) return;
+    toggleHistory: function(symbol) {
+        const histRows = document.querySelectorAll(`.oi-history-row-${symbol}`);
+        const icon = document.getElementById(`oi-icon-${symbol}`);
+        if (!histRows || histRows.length === 0) return;
 
-        const currentVal = select.value;
-        const sectors = [...new Set(data.map(d => d.sector).filter(s => s && s !== 'Unknown'))].sort();
+        let isHidden = histRows[0].style.display === 'none' || histRows[0].style.display === '';
 
-        let html = '<option value="">All Sectors</option>';
-        sectors.forEach(s => {
-            html += `<option value="${s}">${s}</option>`;
+        histRows.forEach(row => {
+            row.style.display = isHidden ? 'table-row' : 'none';
         });
 
-        select.innerHTML = html;
-        select.value = currentVal;
+        if (icon) {
+            icon.innerText = isHidden ? '▼' : '▶';
+        }
     },
 
-    filterData: function() {
-        const symbolTerm = document.getElementById('oi-symbol')?.value.toUpperCase() || '';
-        const sectorTerm = document.getElementById('oi-sector-filter')?.value || '';
-        const advFilter = document.getElementById('oi-advanced-filter')?.value || '';
+    renderAggregatedView: function() {
+        const symbolFilter = document.getElementById('oi-symbol').value.toUpperCase().trim();
+        const sectorFilter = document.getElementById('oi-sector-filter').value;
+        const advFilter = document.getElementById('oi-advanced-filter').value;
 
-        let filtered = this.allData;
+        let displayData = this.allData;
 
-        // 1. Text Filters
-        if (symbolTerm) {
-            filtered = filtered.filter(d => d.symbol.includes(symbolTerm));
+        // Apply symbol / sector filter first to scope the universe
+        if (symbolFilter) {
+            displayData = displayData.filter(d => d.symbol.includes(symbolFilter));
         }
-        if (sectorTerm) {
-            filtered = filtered.filter(d => d.sector === sectorTerm);
+        if (sectorFilter) {
+            displayData = displayData.filter(d => d.sector === sectorFilter);
         }
 
-        // 2. Advanced Filters
+        // Save the filtered universe for generating Top Panels
+        const baseUniverse = [...displayData];
+
+        // Apply Advanced Filters (which modifies the table/scatter scope)
         if (advFilter) {
-            let sortedByOI = [...filtered].sort((a, b) => (b.fut_oi_chg_pct || 0) - (a.fut_oi_chg_pct || 0));
+            let sortedByOI = [...displayData].sort((a,b) => b.oi_chg_pct - a.oi_chg_pct);
 
-            if (advFilter === 'top_5_oi_add') filtered = sortedByOI.slice(0, 5);
-            else if (advFilter === 'top_10_oi_add') filtered = sortedByOI.slice(0, 10);
-            else if (advFilter === 'top_5_oi_red') filtered = sortedByOI.slice().reverse().slice(0, 5);
-            else if (advFilter === 'top_10_oi_red') filtered = sortedByOI.slice().reverse().slice(0, 10);
+            if (advFilter === 'top_5_oi_add') displayData = sortedByOI.slice(0, 5);
+            else if (advFilter === 'top_10_oi_add') displayData = sortedByOI.slice(0, 10);
+            else if (advFilter === 'top_5_oi_red') displayData = sortedByOI.slice().reverse().slice(0, 5);
+            else if (advFilter === 'top_10_oi_red') displayData = sortedByOI.slice().reverse().slice(0, 10);
             else if (advFilter.startsWith('highest_oi_chg_') || advFilter.startsWith('highest_price_chg_')) {
-                // e.g., 'highest_oi_chg_30' maps to `d.fut_oi_chg_pct_30d` computed directly on backend
+                // e.g., 'highest_oi_chg_30' maps to `d.oi_chg_30d` computed directly on backend
                 const parts = advFilter.split('_');
-                const days = parts[parts.length - 1]; // '30'
+                const days = parts[parts.length - 1]; // '30' or '60'
                 const isPrice = advFilter.includes('price');
-                const metricKey = isPrice ? `price_chg_pct_${days}d` : `fut_oi_chg_pct_${days}d`;
+                const metricKey = isPrice ? `price_chg_${days}d` : `oi_chg_${days}d`;
 
                 // Sort by absolute highest magnitude of change and take top 15
-                filtered = [...filtered].sort((a,b) => {
-                    return Math.abs(b[metricKey] || 0) - Math.abs(a[metricKey] || 0);
+                displayData = [...displayData].sort((a,b) => {
+                    const valA = Math.abs(a[metricKey] || 0);
+                    const valB = Math.abs(b[metricKey] || 0);
+                    return valB - valA;
                 }).slice(0, 15);
             }
         }
 
-        this.renderData(filtered);
-    },
+        // Apply Standard Table Sorting
+        displayData.sort((a, b) => {
+            let valA = a[this.currentSortCol];
+            let valB = b[this.currentSortCol];
 
-    renderData: function(displayData) {
-        const tbody = document.getElementById('oi-analysis-body');
-        if (!tbody) return;
+            if (typeof valA === 'string') valA = valA.toUpperCase();
+            if (typeof valB === 'string') valB = valB.toUpperCase();
 
-        if (!displayData || displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="18" style="text-align:center; color:#888;">No F&O stocks found or no recent history. Please click Refresh All.</td></tr>';
-            this.renderScatterPlot([]);
-            return;
-        }
-
-        let html = '';
-        displayData.forEach(d => {
-            let color = '#aaa';
-            if (d.interpretation === 'Long Build Up') color = '#00bcd4';   // Teal
-            if (d.interpretation === 'Short Build Up') color = '#f44336';  // Red
-            if (d.interpretation === 'Short Covering') color = '#4caf50';  // Green
-            if (d.interpretation === 'Long Unwinding') color = '#ff9800'; // Orange
-
-            let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-            let oColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-            let ceColor = d.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-            let peColor = d.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-            let oSign = d.fut_oi_chg >= 0 ? '+' : '';
-            let ceSign = d.call_oi_chg >= 0 ? '+' : '';
-            let peSign = d.put_oi_chg >= 0 ? '+' : '';
-
-            html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
-                <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
-                <td style="padding: 8px; font-weight: bold; color: #fff;">${d.symbol}</td>
-                <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
-                <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
-                <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
-                <td style="padding: 8px;">${(d.fut_oi || 0).toLocaleString()}</td>
-                <td style="padding: 8px; color: ${oColor};">${oSign}${(d.fut_oi_chg || 0).toLocaleString()}</td>
-                <td style="padding: 8px; color: ${oColor};">${(d.fut_oi_chg_pct || 0).toFixed(2)}%</td>
-                <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
-                <td style="padding: 8px; color: ${ceColor};">${ceSign}${(d.call_oi_chg || 0).toLocaleString()}</td>
-                <td style="padding: 8px; color: ${ceColor};">${(d.call_oi_chg_pct || 0).toFixed(2)}%</td>
-                <td style="padding: 8px;">${(d.put_oi || 0).toLocaleString()}</td>
-                <td style="padding: 8px; color: ${peColor};">${peSign}${(d.put_oi_chg || 0).toLocaleString()}</td>
-                <td style="padding: 8px; color: ${peColor};">${(d.put_oi_chg_pct || 0).toFixed(2)}%</td>
-                <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
-                <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
-                <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
-                <td style="padding: 8px; color: ${color}; font-weight: bold;">${d.interpretation}</td>
-            </tr>`;
-
-            if (d.history && d.history.length > 1) {
-                d.history.slice(1, 31).forEach(h => {
-                    let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                    let hoColor = h.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                    let hCeColor = h.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                    let hPeColor = h.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-
-                    let hoSign = h.fut_oi_chg >= 0 ? '+' : '';
-                    let hceSign = h.call_oi_chg >= 0 ? '+' : '';
-                    let hpeSign = h.put_oi_chg >= 0 ? '+' : '';
-
-                    // Matching exact columns
-                    html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
-                        <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
-                        <td style="padding: 6px 8px;"></td>
-                        <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
-                        <td style="padding: 6px 8px; color: #ccc;">${d.sector || '-'}</td>
-                        <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
-                        <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                        <td style="padding: 6px 8px; color: #ccc;">${(h.fut_oi || 0).toLocaleString()}</td>
-                        <td style="padding: 6px 8px; color: ${hoColor}">${hoSign}${(h.fut_oi_chg || 0).toLocaleString()}</td>
-                        <td style="padding: 6px 8px; color: ${hoColor}">${(h.fut_oi_chg_pct || 0).toFixed(2)}%</td>
-                        <td style="padding: 6px 8px; color: #ccc;">${(h.call_oi || 0).toLocaleString()}</td>
-                        <td style="padding: 6px 8px; color: ${hCeColor}">${hceSign}${(h.call_oi_chg || 0).toLocaleString()}</td>
-                        <td style="padding: 6px 8px; color: ${hCeColor}">${(h.call_oi_chg_pct || 0).toFixed(2)}%</td>
-                        <td style="padding: 6px 8px; color: #ccc;">${(h.put_oi || 0).toLocaleString()}</td>
-                        <td style="padding: 6px 8px; color: ${hPeColor}">${hpeSign}${(h.put_oi_chg || 0).toLocaleString()}</td>
-                        <td style="padding: 6px 8px; color: ${hPeColor}">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
-                        <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
-                        <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
-                        <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
-                        <td style="padding: 6px 8px;"></td>
-                    </tr>`;
-                });
-            }
-        });
-
-        tbody.innerHTML = html;
-
-        // Render Scatter Plot
-        this.renderScatterPlot(displayData);
-    },
-
-    toggleHistory: function(symbol) {
-        const rows = document.querySelectorAll(`.oi-history-row-${symbol}`);
-        const icon = document.getElementById(`oi-icon-${symbol}`);
-        let isExpanded = false;
-        rows.forEach(r => {
-            if (r.style.display === 'none') {
-                r.style.display = 'table-row';
-                isExpanded = true;
-            } else {
-                r.style.display = 'none';
-            }
-        });
-        if (icon) {
-            icon.innerText = isExpanded ? '▼' : '▶';
-        }
-    },
-
-    currentSortCol: '',
-    currentSortDir: 'desc',
-
-    sortData: function(col) {
-        if (this.currentSortCol === col) {
-            this.currentSortDir = this.currentSortDir === 'asc' ? 'desc' : 'asc';
-        } else {
-            this.currentSortCol = col;
-            this.currentSortDir = 'desc';
-        }
-
-        this.allData.sort((a, b) => {
-            let valA = a[col] || 0;
-            let valB = b[col] || 0;
-
-            if (typeof valA === 'string') valA = valA.toLowerCase();
-            if (typeof valB === 'string') valB = valB.toLowerCase();
-
-            if (valA < valB) return this.currentSortDir === 'asc' ? -1 : 1;
-            if (valA > valB) return this.currentSortDir === 'asc' ? 1 : -1;
+            if (valA < valB) return this.currentSortAsc ? -1 : 1;
+            if (valA > valB) return this.currentSortAsc ? 1 : -1;
             return 0;
         });
 
-        this.filterData();
+        this.renderDerivedPanels(baseUniverse);
+
+
+        // 1. Render Table
+        const tbody = document.getElementById('oi-analysis-body');
+        tbody.innerHTML = '';
+
+        if (displayData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
+        } else {
+            let html = '';
+            displayData.forEach(d => {
+                let color = '#888';
+                if (d.interpretation === 'Long Build Up') color = '#00bcd4'; // Green
+                if (d.interpretation === 'Short Covering') color = '#00bcd4'; // Blue/Cyan
+                if (d.interpretation === 'Short Build Up') color = '#f44336'; // Red
+                if (d.interpretation === 'Long Unwinding') color = '#ff9800'; // Orange
+
+                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+
+                html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
+                    <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
+                    <td style="padding: 8px;"><b>${d.symbol}</b></td>
+                    <td style="padding: 8px; color: #aaa;">${d.date || d.history?.[0]?.date || '-'} (Latest)</td>
+                    <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
+                    <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
+                    <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
+                    <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
+                </tr>`;
+
+                if (d.history && d.history.length > 1) {
+                    d.history.slice(1, 7).forEach(h => {
+                        let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
+                        html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
+                            <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
+                            <td style="padding: 6px 8px;"></td>
+                            <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
+                            <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: #555;">-</td>
+                        </tr>`;
+                    });
+                }
+            });
+            tbody.innerHTML = html;
+        }
+
+        // 2. Render Scatter Plot
+        this.renderAggregatedChart(displayData);
     },
 
-    renderScatterPlot: function(data) {
-        const container = document.getElementById('oi-quadrant-chart');
+    renderDerivedPanels: function(universe) {
+        let sortedByOI = [...universe].sort((a,b) => b.oi_chg_pct - a.oi_chg_pct);
+        const top5Add = sortedByOI.slice(0, 5);
+        const top5Red = sortedByOI.slice().reverse().slice(0, 5);
+
+        const addDom = document.getElementById('oi-top-add-chart');
+        const redDom = document.getElementById('oi-top-red-chart');
+
+        if (!addDom || !redDom) return;
+
+        const buildTableHTML = (dataSubset) => {
+            let html = `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #333; color: #888;">
+                        <th style="padding: 4px;">Symbol</th>
+                        <th style="padding: 4px;">OI Chg %</th>
+                        <th style="padding: 4px;">Price</th>
+                        <th style="padding: 4px;">Price Chg %</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            dataSubset.forEach(d => {
+                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                html += `<tr style="border-bottom: 1px solid #222;">
+                    <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
+                    <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
+                    <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
+                    <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table>`;
+            return html;
+        };
+
+        // Dispose previous charts to prevent memory leaks if they existed
+        if (window.oiAddChart) { window.oiAddChart.dispose(); window.oiAddChart = null; }
+        if (window.oiRedChart) { window.oiRedChart.dispose(); window.oiRedChart = null; }
+
+        addDom.innerHTML = buildTableHTML(top5Add);
+        redDom.innerHTML = buildTableHTML(top5Red);
+    },
+
+    renderAggregatedChart: function(data) {
+        const container = document.getElementById('oi-chart-area');
         if (!container) return;
 
         if (data.length === 0) {
-            container.innerHTML = '<p style="color:#888; text-align:center; padding-top: 50px;">No data</p>';
+            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">No data for scatter plot.</p>';
             return;
         }
 
-        const validData = data.filter(d => d.price_chg_pct !== null && d.fut_oi_chg_pct !== null);
-
-        let maxX = 0;
-        let maxY = 0;
-        validData.forEach(d => {
-            if (Math.abs(d.price_chg_pct) > maxX) maxX = Math.abs(d.price_chg_pct);
-            if (Math.abs(d.fut_oi_chg_pct) > maxY) maxY = Math.abs(d.fut_oi_chg_pct);
+        const x = data.map(d => d.oi_chg_pct);
+        const y = data.map(d => d.price_chg_pct);
+        const text = data.map(d => d.symbol);
+        const color = data.map(d => {
+            if (d.interpretation === 'Long Build Up') return '#00bcd4'; // Green
+            if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
+            if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
+            if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
+            return '#888';
         });
 
-        // Cap extreme outliers to prevent crazy squishing
-        let zoomRangeX = Math.min(maxX * 1.1, 10); // cap max X to +/- 10%
-        let zoomRangeY = Math.min(maxY * 1.1, 40); // cap max Y to +/- 40%
+        // Ensure axes are symmetric around 0 so the quadrants are mathematically correct relative to paper corners
+        let maxAbsX = Math.max(...x.map(Math.abs), 1) * 1.1; // fallback to 1 to avoid 0 range
+        let maxAbsY = Math.max(...y.map(Math.abs), 1) * 1.1;
+
+        // Clip extreme outliers for better default zoom scale (e.g. 95th percentile)
+        let sortedAbsX = [...x.map(Math.abs)].sort((a, b) => a - b);
+        let sortedAbsY = [...y.map(Math.abs)].sort((a, b) => a - b);
+        let perc95X = sortedAbsX[Math.floor(sortedAbsX.length * 0.95)] || maxAbsX;
+        let perc95Y = sortedAbsY[Math.floor(sortedAbsY.length * 0.95)] || maxAbsY;
+
+        let zoomRangeX = Math.max(perc95X * 1.2, 5);
+        let zoomRangeY = Math.max(perc95Y * 1.2, 2);
 
         const trace = {
-            x: validData.map(d => d.price_chg_pct),
-            y: validData.map(d => d.fut_oi_chg_pct),
+            x: x,
+            y: y,
             mode: 'markers+text',
             type: 'scatter',
-            text: validData.map(d => d.symbol),
+            text: text,
             textposition: 'top center',
-            textfont: {
-                family: 'monospace',
-                size: 10,
-                color: '#fff'
-            },
-            marker: {
-                size: 8,
-                color: validData.map(d => {
-                    if (d.interpretation === 'Long Build Up') return '#00bcd4';
-                    if (d.interpretation === 'Short Build Up') return '#f44336';
-                    if (d.interpretation === 'Short Covering') return '#4caf50';
-                    return '#ff9800'; // Long unwinding
-                }),
-                opacity: 0.8,
-                line: { color: '#000', width: 1 }
-            },
-            hovertemplate:
-                '<b>%{text}</b><br>' +
-                'Price Chg: %{x:.2f}%<br>' +
-                'OI Chg: %{y:.2f}%<extra></extra>'
+            hovertext: data.map(d => `${d.symbol}<br>Price: ${d.price_chg_pct}%<br>OI: ${d.oi_chg_pct}%`),
+            marker: { size: 10, color: color, opacity: 0.8 }
         };
 
         const layout = {
-            plot_bgcolor: 'transparent',
-            paper_bgcolor: 'transparent',
-            margin: { t: 20, r: 20, l: 40, b: 40 },
+            title: `OI vs Price Change Quadrant Analysis`,
+            paper_bgcolor: '#1e1e1e',
+            plot_bgcolor: '#1e1e1e',
+            font: { color: '#ccc' },
+            margin: { t: 40, b: 40, l: 40, r: 40 },
             xaxis: {
-                title: 'Price Change %',
-                color: '#aaa',
+                title: 'OI Change %',
                 zeroline: true,
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
@@ -431,72 +429,189 @@ const OiTool = {
                 range: [-zoomRangeX, zoomRangeX]
             },
             yaxis: {
-                title: 'OI Change %',
-                color: '#aaa',
+                title: 'Price Change %',
                 zeroline: true,
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
                 gridcolor: '#333',
-                range: [-zoomRangeY, zoomRangeY],
-                scaleanchor: 'x',
-                scaleratio: zoomRangeY / (zoomRangeX === 0 ? 1 : zoomRangeX)
+                range: [-zoomRangeY, zoomRangeY]
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
-                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#4caf50', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#00bcd4', size: 16} },
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'zoom'
+            dragmode: 'pan'
         };
 
         const config = {
             responsive: true,
             scrollZoom: true,
             displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'pan2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d']
         };
 
         Plotly.newPlot(container, [trace], layout, config);
     },
 
-    exportScatterCSV: function() {
-        const rows = [
-            ['Symbol', 'Sector', 'FUT Price', 'Price Chg %', 'FUT OI', 'FUT OI Chg %', 'Call OI', 'Call OI Chg %', 'Put OI', 'Put OI Chg %', 'Total OI', 'PCR', 'ATM IV', 'Quadrant']
-        ];
+    filterData: function() {
+        this.renderAggregatedView();
+    },
 
-        this.allData.forEach(d => {
-            rows.push([
-                d.symbol,
-                d.sector || '',
-                d.price,
-                d.price_chg_pct,
-                d.fut_oi,
-                d.fut_oi_chg_pct,
-                d.call_oi,
-                d.call_oi_chg_pct,
-                d.put_oi,
-                d.put_oi_chg_pct,
-                d.total_oi,
-                d.pcr,
-                d.atm_iv,
-                d.interpretation
-            ]);
+    sortData: function(col) {
+        if (this.currentSortCol === col) {
+            this.currentSortAsc = !this.currentSortAsc;
+        } else {
+            this.currentSortCol = col;
+            this.currentSortAsc = false;
+        }
+        this.renderAggregatedView();
+    },
+
+    analyzeSingle: async function() {
+        const symbol = document.getElementById('oi-symbol').value.toUpperCase().trim();
+        const chartArea = document.getElementById('oi-chart-area');
+
+        if (!symbol) return;
+
+        chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
+
+        // Filter the table to just show this symbol instead of hiding it
+        if (this.allData && this.allData.length > 0) {
+            this.filterData();
+        }
+
+        try {
+            const res = await fetch(`/api/data/analysis/oi/${symbol}`);
+            if (!res.ok) throw new Error("Analysis failed");
+            const data = await res.json();
+
+            // Render Single History Plotly Chart
+            this.renderSingleChart(chartArea, data);
+
+        } catch (e) {
+            chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        }
+    },
+
+    renderSingleChart: function(container, data) {
+        container.innerHTML = '';
+
+        const history = data.history || [];
+        const x = history.map(d => d.oi_chg_pct);
+        const y = history.map(d => d.price_chg_pct);
+        const text = history.map(d => `${d.time}<br>${d.interpretation}`);
+        const color = history.map(d => {
+            if (d.interpretation === 'Long Build Up') return '#00bcd4'; // Green
+            if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
+            if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
+            if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
+            return '#888';
         });
 
-        const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-        const encodedUri = encodeURI(csvContent);
+        // Create a line tracing the path chronologically
+        const tracePath = {
+            x: x,
+            y: y,
+            mode: 'lines',
+            type: 'scatter',
+            line: {color: '#555', width: 1, dash: 'dot'},
+            hoverinfo: 'none'
+        };
+
+        const traceMarkers = {
+            x: x,
+            y: y,
+            mode: 'markers+text',
+            type: 'scatter',
+            text: history.map((d, i) => {
+                if (i === history.length - 1) return (i + 1).toString() + "\n(Latest)";
+                return (i + 1).toString();
+            }),
+            textposition: history.map((d, i) => i === history.length - 1 ? 'top center' : 'middle center'),
+            textfont: {
+                color: history.map((d, i) => i === history.length - 1 ? '#ffcc00' : '#fff'),
+                size: history.map((d, i) => i === history.length - 1 ? 12 : 10),
+                weight: history.map((d, i) => i === history.length - 1 ? 'bold' : 'normal')
+            },
+            hovertext: text,
+            marker: {
+                size: history.map((d, i) => i === history.length - 1 ? 24 : 18),
+                color: history.map((d, i, arr) => i === history.length - 1 ? '#ffffff' : color[i]),
+                line: {
+                    color: history.map((d, i) => i === history.length - 1 ? '#ffcc00' : 'transparent'),
+                    width: history.map((d, i) => i === history.length - 1 ? 2 : 0)
+                }
+            }
+        };
+
+        const layout = {
+            title: `Single Symbol History (30d): ${data.symbol}`,
+            paper_bgcolor: '#1e1e1e',
+            plot_bgcolor: '#1e1e1e',
+            font: { color: '#ccc' },
+            margin: { t: 40, b: 40, l: 40, r: 40 },
+            xaxis: {
+                title: 'OI Change %',
+                zeroline: true,
+                zerolinecolor: '#888',
+                gridcolor: '#333'
+            },
+            yaxis: {
+                title: 'Price Change %',
+                zeroline: true,
+                zerolinecolor: '#888',
+                gridcolor: '#333'
+            },
+            annotations: [
+                { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#00bcd4', size: 16} },
+                { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
+                { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
+            ]
+        };
+
+        Plotly.newPlot(container, [tracePath, traceMarkers], layout, {responsive: true});
+    },
+
+    exportScatterCSV: function() {
+        const symbolFilter = document.getElementById('oi-symbol').value.toUpperCase().trim();
+        const sectorFilter = document.getElementById('oi-sector-filter').value;
+        let displayData = this.allData;
+
+        if (symbolFilter) {
+            displayData = displayData.filter(d => d.symbol.includes(symbolFilter));
+        }
+        if (sectorFilter) {
+            displayData = displayData.filter(d => d.sector === sectorFilter);
+        }
+
+        if (!displayData || displayData.length === 0) {
+            alert("No data to export.");
+            return;
+        }
+
+        let csv = "Symbol,Sector,Price Change %,OI Change %,Quadrant\n";
+        displayData.forEach(d => {
+            csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.oi_chg_pct}","${d.interpretation}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `oi_analysis_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
+        link.href = URL.createObjectURL(blob);
+        link.download = `OI_Scatter_Data_${new Date().toISOString().slice(0,10)}.csv`;
         link.click();
-        document.body.removeChild(link);
+    },
+
+    handleTick: function(tick) {
+        // Update if active
     }
 };
 
-if (typeof window !== 'undefined') {
-    if (!window.WorkbookManager) window.WorkbookManager = { modules: {} };
-    if (!window.WorkbookManager.modules) window.WorkbookManager.modules = {};
-    window.WorkbookManager.modules['oi'] = OiTool;
-}
+// Register with WorkbookManager
+window.addEventListener('load', () => {
+   if (window.WorkbookManager) {
+       window.WorkbookManager.modules['oi'] = OiTool;
+   }
+});

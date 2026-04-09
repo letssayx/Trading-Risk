@@ -111,6 +111,15 @@ async function loadOptionsAnalysis() {
                 },
                 {
                     type: 'value',
+                    name: 'OI Change %',
+                    position: 'right',
+                    gridIndex: 1,
+                    splitLine: { show: false },
+                    axisLabel: { color: '#888', formatter: '{value}%' },
+                    nameTextStyle: { color: '#888' }
+                },
+                {
+                    type: 'value',
                     name: 'PCR',
                     position: 'left',
                     gridIndex: 2,
@@ -177,7 +186,7 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
-                    yAxisIndex: 2
+                    yAxisIndex: 3
                 }
             ]
         };
@@ -261,7 +270,7 @@ async function loadOptionsAnalysis() {
         filteredData.forEach(row => {
             strikes.push(row.strike);
             // CE OI mapped as negative to extend to the left of the axis
-            ce_oi.push(row.CE.oi || 0);
+            ce_oi.push(row.CE.oi ? -row.CE.oi : 0);
             pe_oi.push(row.PE.oi || 0);
         });
 
@@ -274,8 +283,7 @@ async function loadOptionsAnalysis() {
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
                 formatter: function (params) {
-                    let strikeVal = params[0].name;
-                    let res = `<div style="font-weight:bold; margin-bottom:5px;">Strike: ${strikeVal}</div>`;
+                    let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
                     params.forEach(function (p) {
                         const val = Math.abs(p.value).toLocaleString();
                         res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
@@ -285,86 +293,40 @@ async function loadOptionsAnalysis() {
             },
             legend: {
                 data: ['Call OI', 'Put OI'],
-                textStyle: { color: '#ccc' },
-                top: 0
+                textStyle: { color: '#ccc' }
             },
-            grid: [
-                { left: '2%', right: '52%', bottom: '5%', top: '10%', containLabel: true },
-                { left: '52%', right: '2%', bottom: '5%', top: '10%', containLabel: true }
-            ],
-            xAxis: [
-                {
-                    type: 'value',
-                    gridIndex: 0,
-                    inverse: true, // Calls inverted on the left
-                    axisLabel: {
-                        color: '#888',
-                        formatter: function (value) {
-                            return Math.abs(value).toLocaleString();
-                        }
-                    },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLine: { show: false },
-                    axisTick: { show: false }
+            grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+            xAxis: {
+                type: 'value',
+                axisLabel: {
+                    color: '#888',
+                    formatter: function (value) { return Math.abs(value); }
                 },
-                {
-                    type: 'value',
-                    gridIndex: 1, // Puts normal on the right
-                    axisLabel: {
-                        color: '#888',
-                        formatter: function (value) {
-                            return Math.abs(value).toLocaleString();
-                        }
-                    },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLine: { show: false },
-                    axisTick: { show: false }
-                }
-            ],
-            yAxis: [
-                {
-                    type: 'category',
-                    gridIndex: 0,
-                    data: strikes,
-                    position: 'right',
-                    axisLabel: {
-                        show: true,
-                        color: '#FFCC00',
-                        fontWeight: 'bold',
-                        margin: 20, // Push labels right to center them
-                        align: 'center'
-                    },
-                    axisLine: { show: false },
-                    axisTick: { show: false },
-                    splitLine: { show: false }
-                },
-                {
-                    type: 'category',
-                    gridIndex: 1,
-                    data: strikes,
-                    axisLabel: { show: false }, // Hide labels on right grid
-                    axisLine: { show: false },
-                    axisTick: { show: false },
-                    splitLine: { show: false }
-                }
-            ],
+                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+            },
+            yAxis: {
+                type: 'category',
+                data: strikes,
+                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
+                axisLine: { show: false },
+                axisTick: { show: false },
+                splitLine: { show: true, lineStyle: { color: '#222' } }
+            },
             series: [
                 {
                     name: 'Call OI',
                     type: 'bar',
-                    xAxisIndex: 0,
-                    yAxisIndex: 0,
+                    stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#E88B1E' }, // Orange for Calls
-                    data: ce_oi.map(v => Math.abs(v)) // Pass absolute, axis inversion handles visualization
+                    itemStyle: { color: '#3176B8' }, // Blue
+                    data: ce_oi
                 },
                 {
                     name: 'Put OI',
                     type: 'bar',
-                    xAxisIndex: 1,
-                    yAxisIndex: 1,
+                    stack: 'Total',
                     label: { show: false },
-                    itemStyle: { color: '#3176B8' }, // Blue for Puts
+                    itemStyle: { color: '#E88B1E' }, // Orange
                     data: pe_oi
                 }
             ]

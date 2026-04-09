@@ -1804,360 +1804,13 @@
                 };
             });
 
-            const option = {
-                backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: {
-                        type: 'shadow',
-                        shadowStyle: { color: 'rgba(255, 255, 255, 0.05)' } // Hover highlight per user request
-                    }
-                },
-                legend: {
-                    data: participants.map(p => p.label),
-                    textStyle: { color: '#ccc' }
-                },
-                grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: xAxisData,
-                    axisLabel: { color: '#ccc', fontWeight: 'bold' },
-                    axisLine: { lineStyle: { color: '#333' } },
-                    axisTick: { alignWithLabel: true }
-                },
-                yAxis: {
-                    type: 'value',
-                    axisLabel: { color: '#888' },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                    // Removed zebra striping splitArea per user request
-                },
-                series: series.map((s, idx) => {
-                    if (idx === 0) {
-                        s.markArea = {
-                            itemStyle: { color: 'rgba(255,255,255,0.1)' },
-                            data: xAxisData.map((lbl, i) => {
-                                if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
-                                return null;
-                            }).filter(d => d !== null)
-                        };
-                    }
-                    return s;
-                })
-            };
-
-            participantChartInstance.setOption(option);
-
-            // Granular Collective Chart (Today vs Previous Day)
-            const granularContainer = document.getElementById('participant-oi-granular-summary');
-            if (window.participantGranularChartInstance) window.participantGranularChartInstance.dispose();
-            window.participantGranularChartInstance = echarts.init(granularContainer);
-
-            const prevIdx = todayIdx > 0 ? todayIdx - 1 : 0;
-
-            // Re-map the same participants for granular
-            const granularSeries = participants.map(p => {
-                const todayDataArr = metrics.map(m => {
-                    if (p.key === 'smart_money') {
-                        let sum = 0;
-                        ['fii', 'dii', 'pro'].forEach(participantKey => {
-                            const arr = data[`${participantKey}_${m.key}`] || [];
-                            sum += arr.length > todayIdx ? arr[todayIdx] : 0;
-                        });
-                        return sum;
-                    } else {
-                        const arr = data[`${p.key}_${m.key}`] || [];
-                        return arr.length > todayIdx ? arr[todayIdx] : 0;
-                    }
-                });
-
-                const prevDataArr = metrics.map(m => {
-                    if (p.key === 'smart_money') {
-                        let sum = 0;
-                        ['fii', 'dii', 'pro'].forEach(participantKey => {
-                            const arr = data[`${participantKey}_${m.key}`] || [];
-                            sum += arr.length > prevIdx ? arr[prevIdx] : 0;
-                        });
-                        return sum;
-                    } else {
-                        const arr = data[`${p.key}_${m.key}`] || [];
-                        return arr.length > prevIdx ? arr[prevIdx] : 0;
-                    }
-                });
-
-                return [
-                    {
-                        name: `${p.label} (Prev)`,
-                        type: 'bar',
-                        stack: p.label, // Stack Prev and Today for visual pairing if needed, or group
-                        data: prevDataArr,
-                        itemStyle: { color: p.key === 'smart_money' ? '#8B8000' : p.color, opacity: 0.5 }, // Dimmer for previous
-                        label: { show: false }
-                    },
-                    {
-                        name: `${p.label} (Today)`,
-                        type: 'bar',
-                        stack: p.label,
-                        data: todayDataArr,
-                        itemStyle: { color: p.color },
-                        label: {
-                            show: true,
-                            position: 'top',
-                            formatter: function(params) {
-                                let val = params.value;
-                                if (!val || val === 0) return '';
-                                let absVal = Math.abs(val);
-                                if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
-                                if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
-                                return val;
-                            },
-                            color: '#ccc',
-                            fontSize: 9
-                        }
-                    }
-                ];
-            }).flat();
-
-            // Add markArea to create shading for alternate groups
-            if (granularSeries.length > 0) {
-                granularSeries[0].markArea = {
-                    itemStyle: { color: 'rgba(255,255,255,0.1)' },
-                    data: xAxisData.map((lbl, idx) => {
-                        if (idx % 2 === 1) { // Apply shading to alternate categories
-                            return [{ xAxis: idx - 0.5 }, { xAxis: idx + 0.5 }];
-                        }
-                        return null;
-                    }).filter(d => d !== null)
-                };
-            }
-
-            const granularOption = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                legend: { type: 'scroll', textStyle: { color: '#ccc' }, bottom: 0 },
-                grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: xAxisData,
-                    axisLabel: { color: '#ccc', fontWeight: 'bold' }
-                },
-                yAxis: {
-                    type: 'value',
-                    axisLabel: { color: '#888' },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                },
-                series: granularSeries
-            };
-
-            window.participantGranularChartInstance.setOption(granularOption);
-
-
-            // Trigger historical charts rendering next
-            if (typeof renderParticipantHistorical === 'function') {
-                renderParticipantHistorical(data);
-            }
-
-        } catch (e) { console.error("Error loading Participant OI", e); }
-
-        // 2b. Load FII Money Terms Chart
-        try {
-            const res = await fetch(`/api/market-activity/fii-stats-money?days=${days}`);
-            const data = await res.json();
-
-            const container = document.getElementById('fii-money-daily-summary');
-            if (window.fiiMoneyChartInstance) window.fiiMoneyChartInstance.dispose();
-            window.fiiMoneyChartInstance = echarts.init(container);
-
-            const dates = data.dates || [];
-            if (dates.length === 0) {
-                container.innerHTML = '<p style="text-align:center; color:#888;">No FII Statistics data found.</p>';
-            } else {
-                const xAxisData = ['Index Futures', 'Stock Futures', 'Index Options', 'Stock Options'];
-
-                // Latest date data
-                const todayIdx = dates.length - 1;
-                const prevIdx = todayIdx > 0 ? todayIdx - 1 : 0;
-
-                const todayData = [
-                    data.fut_idx[todayIdx] || 0,
-                    data.fut_stk[todayIdx] || 0,
-                    data.opt_idx[todayIdx] || 0,
-                    data.opt_stk[todayIdx] || 0
-                ];
-
-                const prevData = [
-                    data.fut_idx[prevIdx] || 0,
-                    data.fut_stk[prevIdx] || 0,
-                    data.opt_idx[prevIdx] || 0,
-                    data.opt_stk[prevIdx] || 0
-                ];
-
-                const option = {
-                    backgroundColor: 'transparent',
-                    tooltip: {
-                        trigger: 'axis',
-                        axisPointer: { type: 'shadow' }
-                    },
-                    legend: {
-                        data: ['Previous Day', 'Today'],
-                        textStyle: { color: '#ccc' }
-                    },
-                    grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
-                    xAxis: {
-                        type: 'category',
-                        data: xAxisData,
-                        axisLabel: { color: '#ccc', fontWeight: 'bold' },
-                        axisLine: { lineStyle: { color: '#333' } },
-                        axisTick: { alignWithLabel: true }
-                    },
-                    yAxis: {
-                        type: 'value',
-                        axisLabel: { color: '#888', formatter: '₹ {value} Cr' },
-                        splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                    },
-                    series: [
-                        {
-                            name: 'Previous Day',
-                            type: 'bar',
-                            data: prevData,
-                            itemStyle: { color: '#60a5fa' }, // Blue
-                            markArea: {
-                                itemStyle: { color: 'rgba(255,255,255,0.1)' },
-                                data: xAxisData.map((lbl, i) => {
-                                    if (i % 2 === 1) return [{ xAxis: i - 0.5 }, { xAxis: i + 0.5 }];
-                                    return null;
-                                }).filter(d => d !== null)
-                            },
-                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
-                        },
-                        {
-                            name: 'Today',
-                            type: 'bar',
-                            data: todayData,
-                            itemStyle: { color: '#E88B1E' }, // Orange
-                            label: { show: true, position: 'top', formatter: function(p) { return '₹' + p.value.toFixed(2) + 'Cr'; }, color: '#ccc', fontSize: 10 }
-                        }
-                    ]
-                };
-                window.fiiMoneyChartInstance.setOption(option);
-            }
-        } catch (e) { console.error("Error loading FII Money Terms", e); }
-
-        // 3. Load EChart Multi-Axis
-        const container = document.getElementById('echart-container');
-        if (!echartInstance) {
-            echartInstance = echarts.init(container, 'dark', { renderer: 'canvas' });
-        }
-
-        echartInstance.showLoading({ text: 'Loading Data...', color: '#60a5fa', textColor: '#fff', maskColor: 'rgba(30, 30, 30, 0.8)' });
-
-        try {
-            const res = await fetch(`/api/market-activity/dynamic-chart/${symbol}`);
-            if (!res.ok) throw new Error("Data fetch failed");
-            const data = await res.json();
-
-            const option = {
-                backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['K-Line', 'MA20', 'Donchian Upper', 'Donchian Lower', 'Volume', 'ATR (14)', 'Future OI'] },
-                grid: [
-                    { left: '5%', right: '5%', height: '50%', top: '5%' }, // Main Chart
-                    { left: '5%', right: '5%', top: '60%', height: '15%' }, // Volume
-                    { left: '5%', right: '5%', top: '80%', height: '15%' }  // ATR / OI
-                ],
-                xAxis: [
-                    { type: 'category', data: data.dates, gridIndex: 0, show: false },
-                    { type: 'category', data: data.dates, gridIndex: 1, show: false },
-                    { type: 'category', data: data.dates, gridIndex: 2 }
-                ],
-                yAxis: [
-                    { scale: true, gridIndex: 0, splitLine: { show: true, lineStyle: { color: '#333' } } },
-                    { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } },
-                    { scale: true, gridIndex: 2, name: 'ATR %', splitNumber: 2, position: 'left' },
-                    { scale: true, gridIndex: 2, name: 'Total OI', splitNumber: 2, position: 'right', axisLabel: { formatter: (v) => (v/1000000).toFixed(1) + 'M' } }
-                ],
-                dataZoom: [{ type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 }, { show: true, type: 'slider', xAxisIndex: [0, 1, 2], bottom: '0%' }],
-                series: [
-                    { name: 'K-Line', type: 'candlestick', data: data.ohlc, itemStyle: { color: '#ef5350', color0: '#26a69a', borderColor: '#ef5350', borderColor0: '#26a69a' } },
-                    { name: 'MA20', type: 'line', data: data.ma20, smooth: true, showSymbol: false, lineStyle: { width: 1, color: '#fff' } },
-                    { name: 'Donchian Upper', type: 'line', data: data.donchian_upper, step: 'end', showSymbol: false, lineStyle: { type: 'dashed', color: '#ffeb3b', width: 1 } },
-                    { name: 'Donchian Lower', type: 'line', data: data.donchian_lower, step: 'end', showSymbol: false, lineStyle: { type: 'dashed', color: '#ffeb3b', width: 1 } },
-                    { name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: data.volume, itemStyle: { color: '#5470c6' } },
-                    { name: 'ATR (14)', type: 'line', xAxisIndex: 2, yAxisIndex: 2, data: data.atr, showSymbol: false, lineStyle: { color: '#fac858' } },
-                    { name: 'Future OI', type: 'line', xAxisIndex: 2, yAxisIndex: 3, data: data.oi, showSymbol: false, lineStyle: { color: '#ee6666' } }
-                ]
-            };
-
-            echartInstance.setOption(option, true);
-        } catch (e) {
-            container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
-        } finally {
-            echartInstance?.hideLoading();
-        }
-
-        if (loadBtn) {
-            loadBtn.disabled = false;
-            loadBtn.innerHTML = originalText;
-        }
-    }
-
-    // Listen for resize
-    window.addEventListener('resize', () => {
-        if (echartInstance) echartInstance.resize();
-        if (window.fiiMoneyChartInstance) window.fiiMoneyChartInstance.resize();
-        if (participantChartInstance) participantChartInstance.resize();
-    });
-// script end
-
-// Managed by opt_analysis.js
-
-async function loadHighOI(symbol) {
-    try {
-        const res = await fetch(`/api/data/derivatives/option_chain?symbol=${symbol}`);
-        const data = await res.json();
-
-        if (!data || !data.data || data.data.length === 0) {
-            document.getElementById('opt-analysis-high-oi-chart').innerHTML = '<p style="text-align:center; color:#888;">No Option Chain data found.</p>';
-            return;
-        }
-
-        const strikes = [];
-        const ce_oi = [];
-        const pe_oi = [];
-
-        // Only take ATM +/- 20 strikes to avoid squished charts
-        const sortedData = data.data.sort((a,b) => a.strike - b.strike);
-        let atmIndex = 0;
-        let minDiff = Infinity;
-
-        for (let i = 0; i < sortedData.length; i++) {
-            const diff = Math.abs(sortedData[i].strike - data.spot_price);
-            if (diff < minDiff) {
-                minDiff = diff;
-                atmIndex = i;
-            }
-        }
-
-        const startIdx = Math.max(0, atmIndex - 20);
-        const endIdx = Math.min(sortedData.length, atmIndex + 20);
-        const filteredData = sortedData.slice(startIdx, endIdx);
-
-        filteredData.forEach(row => {
-            strikes.push(row.strike);
-            ce_oi.push(row.CE.oi || 0);
-            pe_oi.push(row.PE.oi || 0);
-        });
-
-        const chartDom = document.getElementById('opt-analysis-high-oi-chart');
-        if (highOiChartInstance) highOiChartInstance.dispose();
-        highOiChartInstance = echarts.init(chartDom);
-
-        const option = {
+                    const option = {
             backgroundColor: 'transparent',
             tooltip: {
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
                 formatter: function (params) {
-                    let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
+                    let res = `<div style="font-weight:bold; margin-bottom:5px;">Strike: ${params[0].axisValue}</div>`;
                     params.forEach(function (p) {
                         const val = Math.abs(p.value).toLocaleString();
                         res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
@@ -2167,58 +1820,89 @@ async function loadHighOI(symbol) {
             },
             legend: {
                 data: ['Call OI', 'Put OI'],
-                textStyle: { color: '#ccc' }
+                textStyle: { color: '#ccc' },
+                top: 0
             },
-            grid: { left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
-            xAxis: {
-                type: 'category',
-                data: strikes,
-                axisLabel: { color: '#FFCC00', fontWeight: 'bold', rotate: 45 },
-                axisLine: { show: true, lineStyle: { color: '#333' } },
-                axisTick: { show: false },
-                splitLine: { show: true, lineStyle: { color: '#222' } }
-            },
-            yAxis: {
-                type: 'value',
-                axisLabel: {
-                    color: '#888',
-                    formatter: function (value) { return Math.abs(value); }
+            grid: [
+                { left: '2%', right: '55%', bottom: '5%', top: '10%', containLabel: true },
+                { left: '55%', right: '2%', bottom: '5%', top: '10%', containLabel: true }
+            ],
+            xAxis: [
+                {
+                    type: 'value',
+                    gridIndex: 0,
+                    inverse: true, // Calls inverted on the left
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (value) {
+                            return Math.abs(value).toLocaleString();
+                        }
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
                 },
-                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-            },
+                {
+                    type: 'value',
+                    gridIndex: 1, // Puts normal on the right
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (value) {
+                            return Math.abs(value).toLocaleString();
+                        }
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'category',
+                    gridIndex: 0,
+                    data: strikes,
+                    position: 'right',
+                    axisLabel: {
+                        show: true,
+                        color: '#FFCC00',
+                        fontWeight: 'bold',
+                        margin: 20, // Push labels right to center them
+                        align: 'center'
+                    },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: false }
+                },
+                {
+                    type: 'category',
+                    gridIndex: 1,
+                    data: strikes,
+                    axisLabel: { show: false }, // Hide labels on right grid
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: false }
+                }
+            ],
             series: [
                 {
                     name: 'Call OI',
                     type: 'bar',
-                    stack: 'Total',
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
                     label: { show: false },
-                    itemStyle: { color: '#FF0000' }, // Classic Red for calls/resistance
-                    data: ce_oi.map(v => -v) // Negative value to make it bar leftwards
+                    itemStyle: { color: '#E88B1E' }, // Orange for Calls
+                    data: ce_oi.map(v => Math.abs(v)) // Pass absolute, axis inversion handles visualization
                 },
                 {
                     name: 'Put OI',
                     type: 'bar',
-                    stack: 'Total',
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
                     label: { show: false },
-                    itemStyle: { color: '#60a5fa' }, // Classic Blue for puts/support
+                    itemStyle: { color: '#3176B8' }, // Blue for Puts
                     data: pe_oi
                 }
             ]
-        };
-
-        // Format tooltip to show absolute values for Call OI
-        option.tooltip.formatter = function (params) {
-            let res = `<div style="font-weight:bold;">Strike: ${params[0].axisValue}</div>`;
-            params.forEach(function (p) {
-                const val = Math.abs(p.value).toLocaleString();
-                res += `<div style="color:${p.color};">${p.seriesName}: ${val}</div>`;
-            });
-            return res;
-        };
-
-        // Format xAxis to show absolute values
-        option.xAxis.axisLabel.formatter = function (value) {
-            return Math.abs(value);
         };
 
         highOiChartInstance.setOption(option);

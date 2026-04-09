@@ -10,269 +10,285 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 
 router = APIRouter()
 
-@router.get("/api/data/analysis/oi")
-def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
+
+@router.post("/api/data/analysis/oi/compute")
+def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
     """
-    Computes OI vs Price Quadrant Analysis for all F&O symbols on the latest trading day.
+    Computes OI vs Price Quadrant Analysis for all F&O symbols over 32 days and caches it.
     """
     try:
-        # 1. Get the latest two trading dates
-        from backend.ingest.nse_models import BhavcopyFO
+        from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV
+        from sqlalchemy.dialects.postgresql import insert
+        from backend.ingest.nse_models import OiAnalysisMetrics
+        import datetime
+        from sqlalchemy import desc
+
         dates_query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
                   .distinct()\
                   .order_by(BhavcopyFO.trade_date.desc())\
-                  .limit(2).all()
+                  .limit(32).all()
 
         if len(dates_query) < 2:
-            return {"data": []}
+            return {"status": "error", "message": f"Not enough data in BhavcopyFO. Found {len(dates_query)} dates."}
 
-        curr_date, prev_date = dates_query[0][0], dates_query[1][0]
+        valid_dates = [d[0] for d in dates_query]
 
-        if not curr_date or not prev_date:
-            return {"data": []}
-
-        # 2. Get data for both dates (Filter out expired contracts to ensure accurate FUT 1 selection)
         query = db.query(
             BhavcopyFO.ticker_symb,
             BhavcopyFO.trade_date,
             BhavcopyFO.close_price,
-            BhavcopyFO.open_interest
+            BhavcopyFO.open_interest,
+            BhavcopyFO.instrument_type,
+            BhavcopyFO.option_type
         ).filter(
-            BhavcopyFO.trade_date.in_([curr_date, prev_date]),
+            BhavcopyFO.trade_date.in_(valid_dates),
             BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
 
-        # 3. Aggregate OI and get price per symbol per date
         sym_data = {}
         for r in query:
             sym = r.ticker_symb
             dt = r.trade_date
             if sym not in sym_data:
-                sym_data[sym] = {curr_date: {"price": None, "oi": 0}, prev_date: {"price": None, "oi": 0}}
+                sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0} for d in valid_dates}
 
-            # Strictly use Near Month Futures (FUT 1) close price for analysis
-            # Due to `expiry_date >= trade_date` and `order_by(expiry_date.asc())`,
-            # the first record is guaranteed to be active FUT 1.
-            if sym_data[sym][dt]["price"] is None:
-                sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
+            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']:
+                sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
+                if sym_data[sym][dt]["price"] is None:
+                    sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
+            elif r.instrument_type in ['OPTIDX', 'OPTSTK']:
+                if r.option_type == 'CE':
+                    sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
+                elif r.option_type == 'PE':
+                    sym_data[sym][dt]["put_oi"] += int(r.open_interest) if r.open_interest else 0
 
-            # Sum OI across all expiries (FUT 1 + FUT 2 + FUT 3...)
-            sym_data[sym][dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
+            if r.instrument_type in ['STF', 'IDF']:
+                 if sym_data[sym][dt]["price"] is None:
+                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
 
-        # 4. Get historical data for the last 10 days for MWPL-style collapsible rows
-        from backend.ingest.nse_models import SymbolMaster
-        symbols_list = list(sym_data.keys())
+        atm_iv_records = db.query(HistoricalATMIV).filter(HistoricalATMIV.trade_date.in_(valid_dates)).all()
+        atm_iv_map = {}
+        for r in atm_iv_records:
+            if r.symbol not in atm_iv_map:
+                atm_iv_map[r.symbol] = {}
+            atm_iv_map[r.symbol][r.trade_date] = float(r.atm_iv) if r.atm_iv else 0.0
 
-        # Get sector info
-        sector_query = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).filter(SymbolMaster.symbol.in_(symbols_list)).all()
-        sector_map = {r.symbol: r.sector_index for r in sector_query}
+        insert_data = []
 
-        # Get last 500 dates for extended advanced filters
-        from backend.ingest.nse_models import BhavcopyFO
-        all_hist_dates_query = db.query(BhavcopyFO.trade_date)\
-                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
-                  .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc())\
-                  .limit(500).all()
+        for sym, date_dict in sym_data.items():
+            for i in range(len(valid_dates)):
+                curr_date = valid_dates[i]
 
-        all_hist_dates = [d[0] for d in all_hist_dates_query]
+                if i + 1 >= len(valid_dates): break
+                prev_date = valid_dates[i+1]
 
-        # We need the last 10 days for the table, and the dates exactly 30, 60, 90, 252, 500 days ago for advanced filters
-        target_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 29, 59, 89, 251, 499]
-        target_dates = []
-        for idx in target_indices:
-            if idx < len(all_hist_dates):
-                target_dates.append(all_hist_dates[idx])
+                date_30d_idx = min(i + 30, len(valid_dates) - 1)
+                date_30d = valid_dates[date_30d_idx]
 
-        # Query history for these specific target dates
-        hist_query = db.query(
-            BhavcopyFO.ticker_symb,
-            BhavcopyFO.trade_date,
-            BhavcopyFO.close_price,
-            BhavcopyFO.open_interest
+                cd = date_dict[curr_date]
+                pd = date_dict[prev_date]
+                d30 = date_dict[date_30d]
+
+                c_price = cd["price"] or 0
+                p_price = pd["price"] or 0
+
+                c_fut_oi = cd["fut_oi"]
+                p_fut_oi = pd["fut_oi"]
+                d30_fut_oi = d30["fut_oi"]
+
+                c_ce_oi = cd["call_oi"]
+                p_ce_oi = pd["call_oi"]
+                d30_ce_oi = d30["call_oi"]
+
+                c_pe_oi = cd["put_oi"]
+                p_pe_oi = pd["put_oi"]
+                d30_pe_oi = d30["put_oi"]
+
+                price_chg_pct = ((c_price - p_price) / p_price * 100) if p_price > 0 else 0
+
+                fut_oi_chg = c_fut_oi - p_fut_oi
+                call_oi_chg = c_ce_oi - p_ce_oi
+                put_oi_chg = c_pe_oi - p_pe_oi
+
+                fut_oi_chg_pct = (fut_oi_chg / p_fut_oi * 100) if p_fut_oi > 0 else 0
+                call_oi_chg_pct = (call_oi_chg / p_ce_oi * 100) if p_ce_oi > 0 else 0
+                put_oi_chg_pct = (put_oi_chg / p_pe_oi * 100) if p_pe_oi > 0 else 0
+
+                total_oi_c = c_fut_oi + c_ce_oi + c_pe_oi
+                total_oi_p = p_fut_oi + p_ce_oi + p_pe_oi
+                oi_chg_pct = ((total_oi_c - total_oi_p) / total_oi_p * 100) if total_oi_p > 0 else 0
+
+                fut_oi_chg_pct_30d = ((c_fut_oi - d30_fut_oi) / d30_fut_oi * 100) if d30_fut_oi > 0 else 0
+                call_oi_chg_pct_30d = ((c_ce_oi - d30_ce_oi) / d30_ce_oi * 100) if d30_ce_oi > 0 else 0
+                put_oi_chg_pct_30d = ((c_pe_oi - d30_pe_oi) / d30_pe_oi * 100) if d30_pe_oi > 0 else 0
+
+                pcr = (c_pe_oi / c_ce_oi) if c_ce_oi > 0 else 0
+
+                atm_iv = atm_iv_map.get(sym, {}).get(curr_date, 0.0)
+
+                insert_data.append({
+                    "trade_date": curr_date,
+                    "symbol": sym,
+                    "price": c_price,
+                    "price_chg_pct": price_chg_pct,
+                    "fut_oi": c_fut_oi,
+                    "call_oi": c_ce_oi,
+                    "put_oi": c_pe_oi,
+                    "total_oi": total_oi_c,
+                    "fut_oi_chg_pct": fut_oi_chg_pct,
+                    "call_oi_chg_pct": call_oi_chg_pct,
+                    "put_oi_chg_pct": put_oi_chg_pct,
+                    "oi_chg_pct": oi_chg_pct,
+                    "fut_oi_chg_pct_30d": fut_oi_chg_pct_30d,
+                    "call_oi_chg_pct_30d": call_oi_chg_pct_30d,
+                    "put_oi_chg_pct_30d": put_oi_chg_pct_30d,
+                    "fut_oi_chg": fut_oi_chg,
+                    "call_oi_chg": call_oi_chg,
+                    "put_oi_chg": put_oi_chg,
+                    "pcr": pcr,
+                    "atm_iv": atm_iv
+                })
+
+        if insert_data:
+            if db.bind.dialect.name == 'postgresql':
+                stmt = insert(OiAnalysisMetrics).values(insert_data)
+                stmt = stmt.on_conflict_do_update(
+                    constraint='uq_oi_analysis_metrics_date_symbol',
+                    set_={
+                        'price': stmt.excluded.price,
+                        'price_chg_pct': stmt.excluded.price_chg_pct,
+                        'fut_oi': stmt.excluded.fut_oi,
+                        'call_oi': stmt.excluded.call_oi,
+                        'put_oi': stmt.excluded.put_oi,
+                        'total_oi': stmt.excluded.total_oi,
+                        'fut_oi_chg_pct': stmt.excluded.fut_oi_chg_pct,
+                        'call_oi_chg_pct': stmt.excluded.call_oi_chg_pct,
+                        'put_oi_chg_pct': stmt.excluded.put_oi_chg_pct,
+                        'oi_chg_pct': stmt.excluded.oi_chg_pct,
+                        'fut_oi_chg_pct_30d': stmt.excluded.fut_oi_chg_pct_30d,
+                        'call_oi_chg_pct_30d': stmt.excluded.call_oi_chg_pct_30d,
+                        'put_oi_chg_pct_30d': stmt.excluded.put_oi_chg_pct_30d,
+                        'fut_oi_chg': stmt.excluded.fut_oi_chg,
+                        'call_oi_chg': stmt.excluded.call_oi_chg,
+                        'put_oi_chg': stmt.excluded.put_oi_chg,
+                        'pcr': stmt.excluded.pcr,
+                        'atm_iv': stmt.excluded.atm_iv
+                    }
+                )
+                db.execute(stmt)
+            else:
+                for data in insert_data:
+                    existing = db.query(OiAnalysisMetrics).filter(
+                        OiAnalysisMetrics.trade_date == data['trade_date'],
+                        OiAnalysisMetrics.symbol == data['symbol']
+                    ).first()
+                    if existing:
+                        for k, v in data.items():
+                            setattr(existing, k, v)
+                    else:
+                        db.add(OiAnalysisMetrics(**data))
+
+            db.commit()
+
+        return {"status": "success", "message": f"Upserted {len(insert_data)} OI Analysis records."}
+    except Exception as e:
+        db.rollback()
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+
+@router.get("/api/data/analysis/oi")
+def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
+    """
+    Retrieves OI vs Price Quadrant Analysis.
+    """
+    try:
+        from backend.ingest.nse_models import OiAnalysisMetrics, SymbolMaster
+        from sqlalchemy import desc
+
+        dates_query = db.query(OiAnalysisMetrics.trade_date)\
+            .distinct()\
+            .order_by(desc(OiAnalysisMetrics.trade_date))\
+            .limit(31).all()
+
+        if not dates_query:
+            return {"data": []}
+
+        valid_dates = [d[0] for d in dates_query]
+
+        records = db.query(
+            OiAnalysisMetrics,
+            SymbolMaster.sector_index
+        ).outerjoin(
+            SymbolMaster,
+            OiAnalysisMetrics.symbol == SymbolMaster.symbol
         ).filter(
-            BhavcopyFO.trade_date.in_(target_dates),
-            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
-        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
+            OiAnalysisMetrics.trade_date.in_(valid_dates)
+        ).order_by(OiAnalysisMetrics.trade_date.desc()).all()
 
-        hist_data = {}
-        for r in hist_query:
-            sym = r.ticker_symb
-            dt = r.trade_date
-            if sym not in hist_data:
-                hist_data[sym] = {}
-            if dt not in hist_data[sym]:
-                hist_data[sym][dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
-            hist_data[sym][dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
+        sym_map = {}
+        for analysis, sector in records:
+            sym = analysis.symbol
+            if sym not in sym_map:
+                sym_map[sym] = {"sector": sector or "Unknown", "history": []}
 
-        from sqlalchemy import func
-        # Fetch options summary data to append to the analysis table
-        opt_query = db.query(
-            BhavcopyFO.trade_date,
-            BhavcopyFO.ticker_symb,
-            BhavcopyFO.option_type,
-            func.sum(BhavcopyFO.open_interest).label('total_opt_oi')
-        ).filter(
-            BhavcopyFO.trade_date.in_(target_dates[:11]),
-            BhavcopyFO.instrument_type.in_(['OPTIDX', 'OPTSTK', 'STO', 'IDO'])
-        ).group_by(BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.option_type).all()
-
-        opt_data = {}
-        for r in opt_query:
-            sym = r.ticker_symb
-            dt = r.trade_date
-            if dt not in opt_data:
-                opt_data[dt] = {}
-            if sym not in opt_data[dt]:
-                opt_data[dt][sym] = {'ce_oi': 0, 'pe_oi': 0}
-            if r.option_type == 'CE':
-                opt_data[dt][sym]['ce_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
-            elif r.option_type == 'PE':
-                opt_data[dt][sym]['pe_oi'] = int(r.total_opt_oi) if r.total_opt_oi else 0
-
-        # Fetch applicable annualized vol (proxy for ATM IV context)
-        from backend.ingest.nse_models import FOVolatility
-        vol_query = db.query(FOVolatility.trade_date, FOVolatility.symbol, FOVolatility.applicable_annualised_vol).filter(
-            FOVolatility.trade_date.in_(target_dates[:11])
-        ).all()
-        vol_data = {}
-        for r in vol_query:
-            dt = r.trade_date
-            if dt not in vol_data:
-                vol_data[dt] = {}
-            vol_data[dt][r.symbol] = float(r.applicable_annualised_vol) * 100 if r.applicable_annualised_vol else None
-
-        # 5. Calculate metrics
-        results = []
-        for sym, dates_dict in sym_data.items():
-            prev = dates_dict.get(prev_date, {"price": 0, "oi": 0})
-            curr = dates_dict.get(curr_date, {"price": 0, "oi": 0})
-
-            if prev.get("price") is None or prev.get("price") == 0 or prev.get("oi") == 0 or curr.get("price") is None or curr.get("price") == 0 or curr.get("oi") == 0:
-                continue
-
-            price_chg = ((curr["price"] - prev["price"]) / prev["price"]) * 100
-            oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"]) * 100
-
-            interp = "Neutral"
-            if price_chg > 0 and oi_chg > 0:
-                interp = "Long Build Up"
-            elif price_chg > 0 and oi_chg < 0:
-                interp = "Short Covering"
-            elif price_chg < 0 and oi_chg > 0:
-                interp = "Short Build Up"
-            elif price_chg < 0 and oi_chg < 0:
-                interp = "Long Unwinding"
-
-            # Build history array
-            hist_arr = []
-            if sym in hist_data:
-                sorted_hist_dates = sorted(hist_data[sym].keys(), reverse=True)
-                for i in range(len(sorted_hist_dates)):
-                    dt = sorted_hist_dates[i]
-                    curr_h = hist_data[sym][dt]
-
-                    prev_h = None
-                    if i + 1 < len(sorted_hist_dates):
-                        prev_h = hist_data[sym][sorted_hist_dates[i+1]]
-
-                    h_price_chg = 0
-                    h_oi_chg = 0
-                    if prev_h and prev_h["price"] > 0 and prev_h["oi"] > 0:
-                        h_price_chg = ((curr_h["price"] - prev_h["price"]) / prev_h["price"]) * 100
-                        h_oi_chg = ((curr_h["oi"] - prev_h["oi"]) / prev_h["oi"]) * 100
-
-                    # Only append to 10-day history array if it's within the top 10 recent dates
-                    if dt in target_dates[:10]:
-                        h_pcr = 0.0
-                        h_total_oi = curr_h["oi"]
-                        if dt in opt_data and sym in opt_data[dt]:
-                            h_pe = opt_data[dt][sym]['pe_oi']
-                            h_ce = opt_data[dt][sym]['ce_oi']
-                            if h_ce > 0:
-                                h_pcr = h_pe / h_ce
-                            h_total_oi += (h_pe + h_ce)
-
-                        h_atm_iv = None
-                        if dt in vol_data and sym in vol_data[dt]:
-                            h_atm_iv = vol_data[dt][sym]
-
-                        hist_arr.append({
-                            "date": str(dt),
-                            "price": curr_h["price"],
-                            "oi": curr_h["oi"],
-                            "price_chg_pct": round(h_price_chg, 2),
-                            "oi_chg_pct": round(h_oi_chg, 2),
-                            "total_oi": h_total_oi,
-                            "pcr": round(h_pcr, 4),
-                            "atm_iv": round(h_atm_iv, 2) if h_atm_iv else None
-                        })
-
-            # Calculate multi-timeframe derived metrics (30d, 60d, 90d, 252d, 500d)
-            adv_metrics = {
-                "oi_chg_30d": 0, "price_chg_30d": 0,
-                "oi_chg_60d": 0, "price_chg_60d": 0,
-                "oi_chg_90d": 0, "price_chg_90d": 0,
-                "oi_chg_252d": 0, "price_chg_252d": 0,
-                "oi_chg_500d": 0, "price_chg_500d": 0
-            }
-
-            if sym in hist_data and curr_date in hist_data[sym]:
-                c_data = hist_data[sym][curr_date]
-
-                timeframes = [(30, 29), (60, 59), (90, 89), (252, 251), (500, 499)]
-                for label, idx in timeframes:
-                    if idx < len(all_hist_dates):
-                        past_dt = all_hist_dates[idx]
-                        if past_dt in hist_data[sym]:
-                            p_data = hist_data[sym][past_dt]
-                            if p_data["price"] > 0:
-                                adv_metrics[f"price_chg_{label}d"] = ((c_data["price"] - p_data["price"]) / p_data["price"]) * 100
-                            if p_data["oi"] > 0:
-                                adv_metrics[f"oi_chg_{label}d"] = ((c_data["oi"] - p_data["oi"]) / p_data["oi"]) * 100
-
-            pcr = 0.0
-            total_oi = curr["oi"]
-            if curr_date in opt_data and sym in opt_data[curr_date]:
-                pe = opt_data[curr_date][sym]['pe_oi']
-                ce = opt_data[curr_date][sym]['ce_oi']
-                if ce > 0:
-                    pcr = pe / ce
-                # Note: true delta weighted OI is intensive for all symbols,
-                # so we stick to futures OI + raw options OI for this top-level summary table if needed,
-                # or just use futures OI as "OI" and opt_oi + fut_oi as "Total OI"
-                total_oi += (pe + ce)
-
-            atm_iv = None
-            if curr_date in vol_data and sym in vol_data[curr_date]:
-                atm_iv = vol_data[curr_date][sym]
-
-            results.append({
-                "symbol": sym,
-                "sector": sector_map.get(sym, "Unknown"),
-                "price": curr["price"],
-                "price_chg_pct": round(price_chg, 2),
-                "oi": curr["oi"],
-                "total_oi": total_oi,
-                "oi_chg_pct": round(oi_chg, 2),
-                "pcr": round(pcr, 4),
-                "atm_iv": round(atm_iv, 2) if atm_iv else None,
-                "interpretation": interp,
-                "curr_price": curr["price"],
-                "curr_oi": curr["oi"],
-                "history": hist_arr[:10],
-                **{k: round(v, 2) if v is not None else 0 for k, v in adv_metrics.items()}
+            sym_map[sym]["history"].append({
+                "date": str(analysis.trade_date),
+                "price": analysis.price,
+                "price_chg_pct": analysis.price_chg_pct,
+                "fut_oi": analysis.fut_oi,
+                "fut_oi_chg_pct": analysis.fut_oi_chg_pct,
+                "call_oi": analysis.call_oi,
+                "call_oi_chg_pct": analysis.call_oi_chg_pct,
+                "put_oi": analysis.put_oi,
+                "put_oi_chg_pct": analysis.put_oi_chg_pct,
+                "total_oi": analysis.total_oi,
+                "oi_chg_pct": analysis.oi_chg_pct,
+                "pcr": analysis.pcr,
+                "atm_iv": analysis.atm_iv,
+                "fut_oi_chg_pct_30d": analysis.fut_oi_chg_pct_30d,
+                "call_oi_chg_pct_30d": analysis.call_oi_chg_pct_30d,
+                "put_oi_chg_pct_30d": analysis.put_oi_chg_pct_30d,
+                "fut_oi_chg": analysis.fut_oi_chg,
+                "call_oi_chg": analysis.call_oi_chg,
+                "put_oi_chg": analysis.put_oi_chg
             })
 
-        return {"date": str(curr_date), "data": results}
+        output = []
+        for sym, d in sym_map.items():
+            if not d["history"]: continue
+            latest = d["history"][0]
+            output.append({
+                "symbol": sym,
+                "sector": d["sector"],
+                "price": latest["price"],
+                "price_chg_pct": latest["price_chg_pct"],
+                "fut_oi": latest["fut_oi"],
+                "fut_oi_chg_pct": latest["fut_oi_chg_pct"],
+                "call_oi": latest["call_oi"],
+                "call_oi_chg_pct": latest["call_oi_chg_pct"],
+                "put_oi": latest["put_oi"],
+                "put_oi_chg_pct": latest["put_oi_chg_pct"],
+                "total_oi": latest["total_oi"],
+                "oi_chg_pct": latest["oi_chg_pct"],
+                "pcr": latest["pcr"],
+                "atm_iv": latest["atm_iv"],
+                "fut_oi_chg_pct_30d": latest.get("fut_oi_chg_pct_30d", 0),
+                "call_oi_chg_pct_30d": latest.get("call_oi_chg_pct_30d", 0),
+                "put_oi_chg_pct_30d": latest.get("put_oi_chg_pct_30d", 0),
+                "fut_oi_chg": latest.get("fut_oi_chg", 0),
+                "call_oi_chg": latest.get("call_oi_chg", 0),
+                "put_oi_chg": latest.get("put_oi_chg", 0),
+                "history": d["history"]
+            })
 
+        return {"data": output}
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        raise HTTPException(500, detail=str(e))
+        print(f"Error fetching aggregated OI analysis: {e}")
+        return {"data": [], "error": str(e)}
 
 @router.get("/api/data/analysis/oi/{symbol}")
 def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
