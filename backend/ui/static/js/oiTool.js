@@ -52,7 +52,7 @@ const OiTool = {
                         <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
                     </select>
 
-                    <button id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button type="button" id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>

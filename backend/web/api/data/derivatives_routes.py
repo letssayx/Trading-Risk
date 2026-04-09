@@ -11,6 +11,19 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 router = APIRouter()
 
 
+import numpy as np
+
+# Vectorized Black-Scholes Delta
+def calc_bs_delta_vectorized(S, K, T, r, sigma, is_call):
+    T = np.maximum(T, 1e-5)
+    sigma = np.maximum(sigma, 1e-5)
+    d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+    import math
+    def norm_cdf(x):
+        return (1.0 + np.vectorize(math.erf)(x / np.sqrt(2.0))) / 2.0
+    delta = norm_cdf(d1)
+    return np.where(is_call, delta, delta - 1.0)
+
 @router.post("/api/data/analysis/oi/compute")
 def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)):
     """
@@ -22,6 +35,7 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
         from backend.ingest.nse_models import OiAnalysisMetrics
         import datetime
         from sqlalchemy import desc
+        import pandas as pd
 
         dates_query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
@@ -33,10 +47,14 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
             return {"status": "error", "message": f"Not enough data in BhavcopyFO. Found {len(dates_query)} dates."}
 
         valid_dates = [d[0] for d in dates_query]
+        min_date = min(valid_dates)
+        max_date = max(valid_dates)
 
         query = db.query(
             BhavcopyFO.ticker_symb,
             BhavcopyFO.trade_date,
+            BhavcopyFO.expiry_date,
+            BhavcopyFO.strike_price,
             BhavcopyFO.close_price,
             BhavcopyFO.open_interest,
             BhavcopyFO.instrument_type,
@@ -47,33 +65,88 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
 
-        sym_data = {}
-        for r in query:
-            sym = r.ticker_symb
-            dt = r.trade_date
-            if sym not in sym_data:
-                sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0} for d in valid_dates}
-
-            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']:
-                sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
-                if sym_data[sym][dt]["price"] is None:
-                    sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
-            elif r.instrument_type in ['OPTIDX', 'OPTSTK']:
-                if r.option_type == 'CE':
-                    sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
-                elif r.option_type == 'PE':
-                    sym_data[sym][dt]["put_oi"] += int(r.open_interest) if r.open_interest else 0
-
-            if r.instrument_type in ['STF', 'IDF']:
-                 if sym_data[sym][dt]["price"] is None:
-                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
-
         atm_iv_records = db.query(HistoricalATMIV).filter(HistoricalATMIV.trade_date.in_(valid_dates)).all()
         atm_iv_map = {}
         for r in atm_iv_records:
             if r.symbol not in atm_iv_map:
                 atm_iv_map[r.symbol] = {}
             atm_iv_map[r.symbol][r.trade_date] = float(r.atm_iv) if r.atm_iv else 0.0
+
+        # Organize data
+        sym_data = {}
+        opt_rows = []
+
+        for r in query:
+            sym = r.ticker_symb
+            dt = r.trade_date
+            if sym not in sym_data:
+                sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0, "delta_opt_oi": 0} for d in valid_dates}
+
+            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']:
+                sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
+                if sym_data[sym][dt]["price"] is None:
+                    sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
+            elif r.instrument_type in ['OPTIDX', 'OPTSTK']:
+                oi = int(r.open_interest) if r.open_interest else 0
+                if r.option_type == 'CE':
+                    sym_data[sym][dt]["call_oi"] += oi
+                elif r.option_type == 'PE':
+                    sym_data[sym][dt]["put_oi"] += oi
+
+                # Collect for vectorized calculation later
+                if oi > 0:
+                    opt_rows.append({
+                        'symbol': sym,
+                        'trade_date': dt,
+                        'expiry_date': r.expiry_date,
+                        'strike_price': float(r.strike_price) if r.strike_price else 0.0,
+                        'option_type': r.option_type,
+                        'open_interest': oi
+                    })
+
+            if r.instrument_type in ['STF', 'IDF']:
+                 if sym_data[sym][dt]["price"] is None:
+                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
+
+        # Calculate Delta-Weighted OI
+        if opt_rows:
+            opt_df = pd.DataFrame(opt_rows)
+
+            # Map futures prices
+            def get_fut_close(row):
+                return sym_data[row['symbol']][row['trade_date']]["price"] or 0.0
+            opt_df['fut_close'] = opt_df.apply(get_fut_close, axis=1)
+
+            # Map volatility
+            def get_sigma(row):
+                return atm_iv_map.get(row['symbol'], {}).get(row['trade_date'], 0.20) or 0.20
+            opt_df['sigma'] = opt_df.apply(get_sigma, axis=1)
+
+            # Calculate T
+            trade_dt = pd.to_datetime(opt_df['trade_date'])
+            expiry_dt = pd.to_datetime(opt_df['expiry_date'])
+            opt_df['T'] = (expiry_dt - trade_dt).dt.days / 365.0
+
+            is_call = opt_df['option_type'] == 'CE'
+
+            try:
+                opt_df['delta'] = calc_bs_delta_vectorized(
+                    opt_df['fut_close'].values,
+                    opt_df['strike_price'].values,
+                    opt_df['T'].values,
+                    0.0, # risk-free rate
+                    opt_df['sigma'].values,
+                    is_call.values
+                )
+                opt_df['delta_weighted_oi'] = opt_df['open_interest'] * np.abs(opt_df['delta'])
+            except Exception as e:
+                print(f"Error calculating delta: {e}")
+                opt_df['delta'] = np.where(is_call, 0.5, -0.5)
+                opt_df['delta_weighted_oi'] = opt_df['open_interest'] * 0.5
+
+            agg_df = opt_df.groupby(['symbol', 'trade_date'])['delta_weighted_oi'].sum().reset_index()
+            for _, row in agg_df.iterrows():
+                sym_data[row['symbol']][row['trade_date']]["delta_opt_oi"] = row['delta_weighted_oi']
 
         insert_data = []
 
@@ -88,22 +161,22 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                 date_30d = valid_dates[date_30d_idx]
 
                 cd = date_dict[curr_date]
-                pd = date_dict[prev_date]
+                pd_data = date_dict[prev_date]
                 d30 = date_dict[date_30d]
 
                 c_price = cd["price"] or 0
-                p_price = pd["price"] or 0
+                p_price = pd_data["price"] or 0
 
                 c_fut_oi = cd["fut_oi"]
-                p_fut_oi = pd["fut_oi"]
+                p_fut_oi = pd_data["fut_oi"]
                 d30_fut_oi = d30["fut_oi"]
 
                 c_ce_oi = cd["call_oi"]
-                p_ce_oi = pd["call_oi"]
+                p_ce_oi = pd_data["call_oi"]
                 d30_ce_oi = d30["call_oi"]
 
                 c_pe_oi = cd["put_oi"]
-                p_pe_oi = pd["put_oi"]
+                p_pe_oi = pd_data["put_oi"]
                 d30_pe_oi = d30["put_oi"]
 
                 price_chg_pct = ((c_price - p_price) / p_price * 100) if p_price > 0 else 0
@@ -116,8 +189,8 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                 call_oi_chg_pct = (call_oi_chg / p_ce_oi * 100) if p_ce_oi > 0 else 0
                 put_oi_chg_pct = (put_oi_chg / p_pe_oi * 100) if p_pe_oi > 0 else 0
 
-                total_oi_c = c_fut_oi + c_ce_oi + c_pe_oi
-                total_oi_p = p_fut_oi + p_ce_oi + p_pe_oi
+                total_oi_c = c_fut_oi + cd["delta_opt_oi"]
+                total_oi_p = p_fut_oi + pd_data["delta_opt_oi"]
                 oi_chg_pct = ((total_oi_c - total_oi_p) / total_oi_p * 100) if total_oi_p > 0 else 0
 
                 fut_oi_chg_pct_30d = ((c_fut_oi - d30_fut_oi) / d30_fut_oi * 100) if d30_fut_oi > 0 else 0
@@ -126,33 +199,29 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
 
                 pcr = (c_pe_oi / c_ce_oi) if c_ce_oi > 0 else 0
 
-                # Note: PCR Delta weighted calculation from opt_analysis_routes should be done here
-                # if we want exact parity. For now we will rely on raw put/call OI ratio as it is
-                # already available in the sym_data dictionary.
-
                 atm_iv = atm_iv_map.get(sym, {}).get(curr_date, 0.0)
 
                 insert_data.append({
                     "trade_date": curr_date,
                     "symbol": sym,
                     "price": c_price,
-                    "price_chg_pct": price_chg_pct,
+                    "price_chg_pct": float(price_chg_pct),
                     "fut_oi": c_fut_oi,
                     "call_oi": c_ce_oi,
                     "put_oi": c_pe_oi,
-                    "total_oi": total_oi_c,
-                    "fut_oi_chg_pct": fut_oi_chg_pct,
-                    "call_oi_chg_pct": call_oi_chg_pct,
-                    "put_oi_chg_pct": put_oi_chg_pct,
-                    "oi_chg_pct": oi_chg_pct,
-                    "fut_oi_chg_pct_30d": fut_oi_chg_pct_30d,
-                    "call_oi_chg_pct_30d": call_oi_chg_pct_30d,
-                    "put_oi_chg_pct_30d": put_oi_chg_pct_30d,
+                    "total_oi": int(total_oi_c),
+                    "fut_oi_chg_pct": float(fut_oi_chg_pct),
+                    "call_oi_chg_pct": float(call_oi_chg_pct),
+                    "put_oi_chg_pct": float(put_oi_chg_pct),
+                    "oi_chg_pct": float(oi_chg_pct),
+                    "fut_oi_chg_pct_30d": float(fut_oi_chg_pct_30d),
+                    "call_oi_chg_pct_30d": float(call_oi_chg_pct_30d),
+                    "put_oi_chg_pct_30d": float(put_oi_chg_pct_30d),
                     "fut_oi_chg": fut_oi_chg,
                     "call_oi_chg": call_oi_chg,
                     "put_oi_chg": put_oi_chg,
-                    "pcr": pcr,
-                    "atm_iv": atm_iv
+                    "pcr": float(pcr),
+                    "atm_iv": float(atm_iv)
                 })
 
         if insert_data:
@@ -200,6 +269,7 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
     except Exception as e:
         db.rollback()
         import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
