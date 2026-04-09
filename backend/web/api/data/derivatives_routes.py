@@ -225,43 +225,46 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                 })
 
         if insert_data:
-            if db.bind.dialect.name == 'postgresql':
-                stmt = insert(OiAnalysisMetrics).values(insert_data)
-                stmt = stmt.on_conflict_do_update(
-                    constraint='uq_oi_analysis_metrics_date_symbol',
-                    set_={
-                        'price': stmt.excluded.price,
-                        'price_chg_pct': stmt.excluded.price_chg_pct,
-                        'fut_oi': stmt.excluded.fut_oi,
-                        'call_oi': stmt.excluded.call_oi,
-                        'put_oi': stmt.excluded.put_oi,
-                        'total_oi': stmt.excluded.total_oi,
-                        'fut_oi_chg_pct': stmt.excluded.fut_oi_chg_pct,
-                        'call_oi_chg_pct': stmt.excluded.call_oi_chg_pct,
-                        'put_oi_chg_pct': stmt.excluded.put_oi_chg_pct,
-                        'oi_chg_pct': stmt.excluded.oi_chg_pct,
-                        'fut_oi_chg_pct_30d': stmt.excluded.fut_oi_chg_pct_30d,
-                        'call_oi_chg_pct_30d': stmt.excluded.call_oi_chg_pct_30d,
-                        'put_oi_chg_pct_30d': stmt.excluded.put_oi_chg_pct_30d,
-                        'fut_oi_chg': stmt.excluded.fut_oi_chg,
-                        'call_oi_chg': stmt.excluded.call_oi_chg,
-                        'put_oi_chg': stmt.excluded.put_oi_chg,
-                        'pcr': stmt.excluded.pcr,
-                        'atm_iv': stmt.excluded.atm_iv
-                    }
-                )
-                db.execute(stmt)
-            else:
-                for data in insert_data:
-                    existing = db.query(OiAnalysisMetrics).filter(
-                        OiAnalysisMetrics.trade_date == data['trade_date'],
-                        OiAnalysisMetrics.symbol == data['symbol']
-                    ).first()
-                    if existing:
-                        for k, v in data.items():
-                            setattr(existing, k, v)
-                    else:
-                        db.add(OiAnalysisMetrics(**data))
+            chunk_size = 1000
+            for i in range(0, len(insert_data), chunk_size):
+                chunk = insert_data[i:i + chunk_size]
+                if db.bind.dialect.name == 'postgresql':
+                    stmt = insert(OiAnalysisMetrics).values(chunk)
+                    stmt = stmt.on_conflict_do_update(
+                        constraint='uq_oi_analysis_metrics_date_symbol',
+                        set_={
+                            'price': stmt.excluded.price,
+                            'price_chg_pct': stmt.excluded.price_chg_pct,
+                            'fut_oi': stmt.excluded.fut_oi,
+                            'call_oi': stmt.excluded.call_oi,
+                            'put_oi': stmt.excluded.put_oi,
+                            'total_oi': stmt.excluded.total_oi,
+                            'fut_oi_chg_pct': stmt.excluded.fut_oi_chg_pct,
+                            'call_oi_chg_pct': stmt.excluded.call_oi_chg_pct,
+                            'put_oi_chg_pct': stmt.excluded.put_oi_chg_pct,
+                            'oi_chg_pct': stmt.excluded.oi_chg_pct,
+                            'fut_oi_chg_pct_30d': stmt.excluded.fut_oi_chg_pct_30d,
+                            'call_oi_chg_pct_30d': stmt.excluded.call_oi_chg_pct_30d,
+                            'put_oi_chg_pct_30d': stmt.excluded.put_oi_chg_pct_30d,
+                            'fut_oi_chg': stmt.excluded.fut_oi_chg,
+                            'call_oi_chg': stmt.excluded.call_oi_chg,
+                            'put_oi_chg': stmt.excluded.put_oi_chg,
+                            'pcr': stmt.excluded.pcr,
+                            'atm_iv': stmt.excluded.atm_iv
+                        }
+                    )
+                    db.execute(stmt)
+                else:
+                    for data in chunk:
+                        existing = db.query(OiAnalysisMetrics).filter(
+                            OiAnalysisMetrics.trade_date == data['trade_date'],
+                            OiAnalysisMetrics.symbol == data['symbol']
+                        ).first()
+                        if existing:
+                            for k, v in data.items():
+                                setattr(existing, k, v)
+                        else:
+                            db.add(OiAnalysisMetrics(**data))
 
             db.commit()
 
