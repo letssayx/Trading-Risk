@@ -141,14 +141,24 @@ const OiTool = {
         }
     },
 
-    loadAggregatedData: async function() {
+    loadAggregatedData: async function(forceRefresh = false) {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
 
         if (!tbody || !chartArea) return;
 
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
+        if (forceRefresh) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Computing fresh data (this takes a moment)...</td></tr>';
+            try {
+                const computeRes = await fetch('/api/data/analysis/oi/compute', {method: 'POST'});
+                if (!computeRes.ok) throw new Error("Failed to compute fresh data.");
+            } catch (e) {
+                console.error(e);
+            }
+        } else {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
+        }
 
         try {
             const res = await fetch('/api/data/analysis/oi');

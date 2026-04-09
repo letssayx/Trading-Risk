@@ -12,9 +12,9 @@ router = APIRouter()
 
 
 @router.post("/api/data/analysis/oi/compute")
-def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
+def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)):
     """
-    Computes OI vs Price Quadrant Analysis for all F&O symbols over 32 days and caches it.
+    Computes OI vs Price Quadrant Analysis for all F&O symbols over specified days and caches it.
     """
     try:
         from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV
@@ -27,7 +27,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
                   .distinct()\
                   .order_by(BhavcopyFO.trade_date.desc())\
-                  .limit(32).all()
+                  .limit(days).all()
 
         if len(dates_query) < 2:
             return {"status": "error", "message": f"Not enough data in BhavcopyFO. Found {len(dates_query)} dates."}
@@ -125,6 +125,10 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 put_oi_chg_pct_30d = ((c_pe_oi - d30_pe_oi) / d30_pe_oi * 100) if d30_pe_oi > 0 else 0
 
                 pcr = (c_pe_oi / c_ce_oi) if c_ce_oi > 0 else 0
+
+                # Note: PCR Delta weighted calculation from opt_analysis_routes should be done here
+                # if we want exact parity. For now we will rely on raw put/call OI ratio as it is
+                # already available in the sym_data dictionary.
 
                 atm_iv = atm_iv_map.get(sym, {}).get(curr_date, 0.0)
 
@@ -293,48 +297,30 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
 @router.get("/api/data/analysis/oi/{symbol}")
 def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
     """
-    Computes OI vs Price Quadrant Analysis.
+    Retrieves single symbol OI vs Price Quadrant Analysis history from pre-computed metrics.
     """
     try:
+        from backend.ingest.nse_models import OiAnalysisMetrics
         symbol = symbol.upper()
 
-        # Get active futures for this symbol for the last 60 days
-        # We need trade_date, close_price, open_interest
-        # Use only Near Month to avoid aggregating all expiries, or sum them. Sum is better for "Total OI".
-        # We will use BhavcopyFO for futures.
-
-        query = db.query(
-            BhavcopyFO.trade_date,
-            BhavcopyFO.close_price,
-            BhavcopyFO.open_interest
+        records = db.query(
+            OiAnalysisMetrics.trade_date,
+            OiAnalysisMetrics.price_chg_pct,
+            OiAnalysisMetrics.oi_chg_pct
         ).filter(
-            BhavcopyFO.ticker_symb == symbol,
-            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
-        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
+            OiAnalysisMetrics.symbol == symbol
+        ).order_by(OiAnalysisMetrics.trade_date.desc()).limit(30).all()
 
-        if not query:
+        if not records:
             return {"symbol": symbol, "history": []}
 
-        # Aggregate OI and get price (strictly using Near Month Futures / FUT 1 price)
-        dates = {}
-        for r in query:
-            dt = r.trade_date
-            if dt not in dates:
-                # First encountered row per trade_date is guaranteed to be active FUT 1
-                dates[dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
-            # Sum OI across all expiries (FUT 1 + FUT 2 + FUT 3...)
-            dates[dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
-
-        sorted_dates = sorted(dates.keys())
+        # Need to return in ascending order for charting path
+        records = reversed(records)
 
         history = []
-        for i in range(1, len(sorted_dates)):
-            prev = dates[sorted_dates[i-1]]
-            curr = dates[sorted_dates[i]]
-
-            p_chg = ((curr["price"] - prev["price"]) / prev["price"] * 100) if prev["price"] > 0 else 0
-            oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"] * 100) if prev["oi"] > 0 else 0
+        for r in records:
+            p_chg = r.price_chg_pct or 0
+            oi_chg = r.oi_chg_pct or 0
 
             interpretation = "Indecision"
             if p_chg > 0 and oi_chg > 0: interpretation = "Long Build Up"
@@ -343,15 +329,13 @@ def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
             elif p_chg < 0 and oi_chg < 0: interpretation = "Long Unwinding"
 
             history.append({
-                "time": sorted_dates[i].strftime('%Y-%m-%d'),
-                "price_chg_pct": p_chg,
-                "oi_chg_pct": oi_chg,
+                "time": str(r.trade_date),
+                "price_chg_pct": round(p_chg, 2),
+                "oi_chg_pct": round(oi_chg, 2),
                 "interpretation": interpretation
             })
 
-        # Return only last 30 days to avoid clutter
-        return {"symbol": symbol, "history": history[-30:]}
-
+        return {"symbol": symbol, "history": history}
     except Exception as e:
         import traceback
         traceback.print_exc()
