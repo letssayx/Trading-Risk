@@ -31,7 +31,7 @@ const OiTool = {
                 .oi-history-table th, .oi-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
                 .oi-history-table th { background: #111; color: #888; }
             </style>
-            <div style="color: #ccc; display: flex; flex-direction: column; flex: 1; min-width: 0;">
+            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
                     <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
@@ -47,14 +47,17 @@ const OiTool = {
                         <option value="top_5_oi_red">Top 5 OI Reductions</option>
                         <option value="top_10_oi_red">Top 10 OI Reductions</option>
                         <option value="highest_oi_chg_30">Highest OI Chg (30 Days)</option>
+                        <option value="highest_oi_chg_60">Highest OI Chg (60 Days)</option>
+                        <option value="highest_price_chg_30">Highest Price Chg (30 Days)</option>
+                        <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
                     </select>
 
-                    <button onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button onclick="OiTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-bottom: 20px;">
                     <!-- Top Derived Info Panels -->
                     <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
@@ -79,12 +82,12 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="flex: 1; overflow-x: auto;">
-                            <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed; margin-bottom: 0;">
+                        <div style="flex: 1; overflow: auto;">
+                            <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
                                         <th style="padding: 8px; width: 30px;"></th>
@@ -93,15 +96,8 @@ const OiTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">FUT OI ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg')">FUT OI Chg ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">FUT OI Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg')">Call OI Chg ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi')">Put OI ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg')">Put OI Chg ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg_pct')">Put OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
@@ -109,7 +105,7 @@ const OiTool = {
                                     </tr>
                                 </thead>
                                 <tbody id="oi-analysis-body">
-                                    <tr><td colspan="18" style="text-align:center; color:#888;">Loading...</td></tr>
+                                    <tr><td colspan="11" style="text-align:center; color:#888;">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -145,31 +141,16 @@ const OiTool = {
         }
     },
 
-    loadAggregatedData: async function(forceCompute = false) {
+    loadAggregatedData: async function() {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
 
         if (!tbody || !chartArea) return;
 
-        // If specifically requested by the Refresh button, compute on backend first.
-        // Also capture the event to inject a loading spinner.
-        const eventSource = window.event && window.event.target ? window.event.target.closest('.btn-primary') : null;
-        let originalText = '';
-        if (eventSource && forceCompute) {
-            originalText = eventSource.innerHTML;
-            eventSource.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Computing...";
-            eventSource.disabled = true;
-        }
-
-        tbody.innerHTML = '<tr><td colspan="18" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            if (forceCompute) {
-                const computeRes = await fetch('/api/data/analysis/oi/compute', { method: 'POST' });
-                if (!computeRes.ok) throw new Error("Failed to compute OI analysis on backend.");
-            }
-
             const res = await fetch('/api/data/analysis/oi');
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
@@ -205,11 +186,6 @@ const OiTool = {
         } catch(e) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
-        } finally {
-            if (eventSource && forceCompute) {
-                eventSource.innerHTML = originalText;
-                eventSource.disabled = false;
-            }
         }
     },
 
@@ -256,11 +232,11 @@ const OiTool = {
             else if (advFilter === 'top_5_oi_red') displayData = sortedByOI.slice().reverse().slice(0, 5);
             else if (advFilter === 'top_10_oi_red') displayData = sortedByOI.slice().reverse().slice(0, 10);
             else if (advFilter.startsWith('highest_oi_chg_') || advFilter.startsWith('highest_price_chg_')) {
-                // e.g., 'highest_oi_chg_30' maps to `d.fut_oi_chg_pct_30d` computed directly on backend
+                // e.g., 'highest_oi_chg_30' maps to `d.oi_chg_30d` computed directly on backend
                 const parts = advFilter.split('_');
-                const days = parts[parts.length - 1]; // '30'
+                const days = parts[parts.length - 1]; // '30' or '60'
                 const isPrice = advFilter.includes('price');
-                const metricKey = isPrice ? `price_chg_pct_${days}d` : `fut_oi_chg_pct_${days}d`;
+                const metricKey = isPrice ? `price_chg_${days}d` : `oi_chg_${days}d`;
 
                 // Sort by absolute highest magnitude of change and take top 15
                 displayData = [...displayData].sort((a,b) => {
@@ -303,12 +279,7 @@ const OiTool = {
                 if (d.interpretation === 'Long Unwinding') color = '#ff9800'; // Orange
 
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let oColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let ceColor = d.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let peColor = d.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let oSign = d.fut_oi_chg >= 0 ? '+' : '';
-                let ceSign = d.call_oi_chg >= 0 ? '+' : '';
-                let peSign = d.put_oi_chg >= 0 ? '+' : '';
+                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
@@ -317,15 +288,8 @@ const OiTool = {
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
                     <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.fut_oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${oSign}${(d.fut_oi_chg || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${(d.fut_oi_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${ceColor};">${ceSign}${(d.call_oi_chg || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${ceColor};">${(d.call_oi_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.put_oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${peColor};">${peSign}${(d.put_oi_chg || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${peColor};">${(d.put_oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
                     <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
@@ -333,33 +297,19 @@ const OiTool = {
                 </tr>`;
 
                 if (d.history && d.history.length > 1) {
-                    d.history.slice(1, 31).forEach(h => {
+                    d.history.slice(1, 7).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hoColor = h.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hCeColor = h.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hPeColor = h.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-
-                        let hoSign = h.fut_oi_chg >= 0 ? '+' : '';
-                        let hceSign = h.call_oi_chg >= 0 ? '+' : '';
-                        let hpeSign = h.put_oi_chg >= 0 ? '+' : '';
-
-                        // Matching exact columns
+                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
                             <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${d.sector || '-'}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.fut_oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${hoSign}${(h.fut_oi_chg || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.fut_oi_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.call_oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hCeColor}">${hceSign}${(h.call_oi_chg || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hCeColor}">${(h.call_oi_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.put_oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hPeColor}">${hpeSign}${(h.put_oi_chg || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hPeColor}">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
@@ -484,9 +434,7 @@ const OiTool = {
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
                 gridcolor: '#333',
-                range: [-zoomRangeY, zoomRangeY],
-                scaleanchor: 'x',
-                scaleratio: zoomRangeY / (zoomRangeX === 0 ? 1 : zoomRangeX)
+                range: [-zoomRangeY, zoomRangeY]
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
@@ -494,14 +442,14 @@ const OiTool = {
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'zoom'
+            dragmode: 'pan'
         };
 
         const config = {
             responsive: true,
             scrollZoom: true,
             displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'pan2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d']
         };
 
         Plotly.newPlot(container, [trace], layout, config);

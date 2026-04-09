@@ -458,45 +458,6 @@ class BoardMeeting(Base, TimescaleMixin):
     )
 
 
-class OiAnalysisMetrics(Base, TimescaleMixin):
-    """Pre-computed metrics specifically for OI Analysis & Quadrant visualizations."""
-    __tablename__ = "oi_analysis_metrics"
-
-    id = Column(Integer, autoincrement=True, nullable=False)
-    trade_date = Column(Date, nullable=False, index=True)
-    symbol = Column(String(50), nullable=False, index=True)
-
-    price = Column(Float)
-    price_chg_pct = Column(Float)
-    fut_oi = Column(BigInteger)
-    call_oi = Column(BigInteger)
-    put_oi = Column(BigInteger)
-    total_oi = Column(BigInteger)
-
-    # Percentage changes
-    fut_oi_chg_pct = Column(Float)
-    call_oi_chg_pct = Column(Float)
-    put_oi_chg_pct = Column(Float)
-    oi_chg_pct = Column(Float)
-
-    fut_oi_chg_pct_30d = Column(Float)
-    call_oi_chg_pct_30d = Column(Float)
-    put_oi_chg_pct_30d = Column(Float)
-
-    # Absolute quantity changes
-    fut_oi_chg = Column(BigInteger)
-    call_oi_chg = Column(BigInteger)
-    put_oi_chg = Column(BigInteger)
-
-    pcr = Column(Float)
-    atm_iv = Column(Float)
-
-    __table_args__ = (
-        PrimaryKeyConstraint('trade_date', 'symbol', name='pk_oi_analysis_metrics'),
-        UniqueConstraint('trade_date', 'symbol', name='uq_oi_analysis_metrics_date_symbol'),
-    )
-
-
 class DailyDerivativesAnalysis(Base, TimescaleMixin):
     """Composite Daily Derivatives Analysis"""
     __tablename__ = "daily_derivatives_analysis"

@@ -261,7 +261,7 @@ async function loadOptionsAnalysis() {
         filteredData.forEach(row => {
             strikes.push(row.strike);
             // CE OI mapped as negative to extend to the left of the axis
-            ce_oi.push(row.CE.oi ? -row.CE.oi : 0);
+            ce_oi.push(row.CE.oi || 0);
             pe_oi.push(row.PE.oi || 0);
         });
 
@@ -274,8 +274,6 @@ async function loadOptionsAnalysis() {
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
                 formatter: function (params) {
-                    // params is an array of objects for each series at the hovered index
-                    // Extract strike correctly
                     let strikeVal = params[0].name;
                     let res = `<div style="font-weight:bold; margin-bottom:5px;">Strike: ${strikeVal}</div>`;
                     params.forEach(function (p) {
@@ -291,8 +289,8 @@ async function loadOptionsAnalysis() {
                 top: 0
             },
             grid: [
-                { left: '5%', right: '55%', bottom: '5%', top: '10%', containLabel: false },
-                { left: '55%', right: '5%', bottom: '5%', top: '10%', containLabel: false }
+                { left: '2%', right: '52%', bottom: '5%', top: '10%', containLabel: true },
+                { left: '52%', right: '2%', bottom: '5%', top: '10%', containLabel: true }
             ],
             xAxis: [
                 {
@@ -333,7 +331,7 @@ async function loadOptionsAnalysis() {
                         show: true,
                         color: '#FFCC00',
                         fontWeight: 'bold',
-                        margin: 20, // push labels right to center them perfectly between the two grids
+                        margin: 20, // Push labels right to center them
                         align: 'center'
                     },
                     axisLine: { show: false },
@@ -344,7 +342,7 @@ async function loadOptionsAnalysis() {
                     type: 'category',
                     gridIndex: 1,
                     data: strikes,
-                    axisLabel: { show: false }, // Hide labels on the right grid, use left grid's center labels
+                    axisLabel: { show: false }, // Hide labels on right grid
                     axisLine: { show: false },
                     axisTick: { show: false },
                     splitLine: { show: false }
@@ -358,7 +356,7 @@ async function loadOptionsAnalysis() {
                     yAxisIndex: 0,
                     label: { show: false },
                     itemStyle: { color: '#E88B1E' }, // Orange for Calls
-                    data: ce_oi.map(v => Math.abs(v)) // Pass positive values, X-axis inverse handles the rendering
+                    data: ce_oi.map(v => Math.abs(v)) // Pass absolute, axis inversion handles visualization
                 },
                 {
                     name: 'Put OI',
