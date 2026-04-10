@@ -8,11 +8,6 @@ const OiTool = {
         if (container && !container.innerHTML.includes('oi-symbol')) {
             this.render(container);
             this.loadAggregatedData();
-        } else if (container && this.allData && this.allData.length > 0) {
-            // Already rendered, just re-filter/render table to avoid wiping state on tab switch
-            this.filterData();
-        } else if (container) {
-            this.loadAggregatedData();
         }
     },
 
@@ -36,7 +31,7 @@ const OiTool = {
                 .oi-history-table th, .oi-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
                 .oi-history-table th { background: #111; color: #888; }
             </style>
-            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 800px;">
+            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
                     <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
@@ -57,12 +52,12 @@ const OiTool = {
                         <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
                     </select>
 
-                    <button type="button" id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
-                    <button type="button" id="oi-single-btn" onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
+                    <button id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-bottom: 20px;">
                     <!-- Top Derived Info Panels -->
                     <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
@@ -76,22 +71,22 @@ const OiTool = {
                     </div>
 
                     <!-- Chart Area -->
-                    <div style="min-height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
+                    <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
                             <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div id="oi-chart-area" style="flex: 1; min-height: 360px;">
+                        <div id="oi-chart-area" style="flex: 1;">
                             <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
                         </div>
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="flex: 1; overflow-x: auto;">
+                        <div style="flex: 1; overflow: auto;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
@@ -119,7 +114,7 @@ const OiTool = {
                                     </tr>
                                 </thead>
                                 <tbody id="oi-analysis-body">
-                                    <tr><td colspan="17" style="text-align:center; color:#888;">Loading...</td></tr>
+                                    <tr><td colspan="11" style="text-align:center; color:#888;">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -155,54 +150,25 @@ const OiTool = {
         }
     },
 
-    loadAggregatedData: async function(forceRefresh = false) {
+    loadAggregatedData: async function() {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
-        const refreshBtn = document.getElementById('oi-refresh-btn');
 
         if (!tbody || !chartArea) return;
 
-        let originalBtnHtml = "";
-        if (refreshBtn) {
-            originalBtnHtml = refreshBtn.innerHTML;
-            refreshBtn.disabled = true;
-            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (forceRefresh ? 'Computing...' : 'Loading...');
-        }
-
-        if (forceRefresh) {
-            tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Computing fresh data (this takes a moment)...</td></tr>';
-            try {
-                const computeRes = await fetch('/api/data/analysis/oi/compute', {method: 'POST'});
-                if (!computeRes.ok) throw new Error("Failed to compute fresh data.");
-            } catch (e) {
-                console.error(e);
-            }
-        } else if (!this.allData || this.allData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
-        }
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            // First try to just get the data
-            let res = await fetch('/api/data/analysis/oi');
+            const res = await fetch('/api/data/analysis/oi');
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
-            let json = await res.json();
-
-            // If data is empty and we haven't forced a refresh, auto-compute it
-            if ((!json.data || json.data.length === 0) && !forceRefresh) {
-                tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Initializing data...</td></tr>';
-                await fetch('/api/data/analysis/oi/compute', {method: 'POST'});
-                res = await fetch('/api/data/analysis/oi');
-                json = await res.json();
-            }
+            const json = await res.json();
 
             if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
 
             this.allData = json.data || [];
-            if (!this.currentSortCol) {
-                this.currentSortCol = 'oi_chg_pct';
-                this.currentSortAsc = false;
-            }
+            this.currentSortCol = 'oi_chg_pct';
+            this.currentSortAsc = false;
 
             // Populate sector filter dropdown
             const sectors = new Set();
@@ -227,13 +193,8 @@ const OiTool = {
             this.renderAggregatedView();
 
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
-        } finally {
-            if (refreshBtn) {
-                refreshBtn.disabled = false;
-                refreshBtn.innerHTML = originalBtnHtml;
-            }
         }
     },
 
@@ -297,8 +258,8 @@ const OiTool = {
 
         // Apply Standard Table Sorting
         displayData.sort((a, b) => {
-            let valA = a[this.currentSortCol] || 0;
-            let valB = b[this.currentSortCol] || 0;
+            let valA = a[this.currentSortCol];
+            let valB = b[this.currentSortCol];
 
             if (typeof valA === 'string') valA = valA.toUpperCase();
             if (typeof valB === 'string') valB = valB.toUpperCase();
@@ -316,7 +277,7 @@ const OiTool = {
         tbody.innerHTML = '';
 
         if (displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
         } else {
             let html = '';
             displayData.forEach(d => {
@@ -328,14 +289,13 @@ const OiTool = {
 
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let futOColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let callOColor = d.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let putOColor = d.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
-                // Only render top 30
-                if (index >= 30) return;
+                if (i >= 30) return; // Limit to 30 rows
 
-                // Calculate raws safely
+                let futOColor = (d.fut_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+                let callOColor = (d.call_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+                let putOColor = (d.put_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+
                 const futOiRaw = Math.round(((d.fut_oi || 0) * (d.fut_oi_chg_pct || 0)) / 100) || 0;
                 const callOiRaw = Math.round(((d.call_oi || 0) * (d.call_oi_chg_pct || 0)) / 100) || 0;
                 const putOiRaw = Math.round(((d.put_oi || 0) * (d.put_oi_chg_pct || 0)) / 100) || 0;
@@ -348,9 +308,9 @@ const OiTool = {
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
                     <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.fut_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px;">${(d.fut_oi || d.oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${futOColor};">${futOiRaw.toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${futOColor};">${(d.fut_oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px; color: ${futOColor};">${(d.fut_oi_chg_pct || d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${callOColor};">${callOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${callOColor};">${(d.call_oi_chg_pct || 0).toFixed(2)}%</td>
@@ -366,12 +326,10 @@ const OiTool = {
                 </tr>`;
 
                 if (d.history && d.history.length > 1) {
-                    d.history.slice(1, 30).forEach(h => {
+                    d.history.slice(1, 7).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hfutOColor = h.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hcallOColor = h.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hputOColor = h.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
@@ -379,14 +337,9 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.fut_oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hfutOColor}">${(h.fut_oi_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.call_oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hcallOColor}">${(h.call_oi_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.put_oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hputOColor}">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
@@ -532,11 +485,7 @@ const OiTool = {
     },
 
     filterData: function() {
-        if (!this.allData || this.allData.length === 0) {
-            this.loadAggregatedData();
-        } else {
-            this.renderAggregatedView();
-        }
+        this.renderAggregatedView();
     },
 
     sortData: function(col) {
@@ -552,21 +501,15 @@ const OiTool = {
     analyzeSingle: async function() {
         const symbol = document.getElementById('oi-symbol').value.toUpperCase().trim();
         const chartArea = document.getElementById('oi-chart-area');
-        const singleBtn = document.getElementById('oi-single-btn');
 
         if (!symbol) return;
 
-        let originalBtnHtml = "";
-        if (singleBtn) {
-            originalBtnHtml = singleBtn.innerHTML;
-            singleBtn.disabled = true;
-            singleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        }
-
-        chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;"><i class="fas fa-spinner fa-spin"></i> Loading Single Symbol Analysis...</p>';
+        chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
 
         // Filter the table to just show this symbol instead of hiding it
-        this.filterData();
+        if (this.allData && this.allData.length > 0) {
+            this.filterData();
+        }
 
         try {
             const res = await fetch(`/api/data/analysis/oi/${symbol}`);
@@ -578,11 +521,6 @@ const OiTool = {
 
         } catch (e) {
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
-        } finally {
-            if (singleBtn) {
-                singleBtn.disabled = false;
-                singleBtn.innerHTML = originalBtnHtml;
-            }
         }
     },
 
@@ -706,4 +644,3 @@ window.addEventListener('load', () => {
        window.WorkbookManager.modules['oi'] = OiTool;
    }
 });
-// Trigger visual refresh

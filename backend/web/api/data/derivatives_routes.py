@@ -11,23 +11,10 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 router = APIRouter()
 
 
-import numpy as np
-
-# Vectorized Black-Scholes Delta
-def calc_bs_delta_vectorized(S, K, T, r, sigma, is_call):
-    T = np.maximum(T, 1e-5)
-    sigma = np.maximum(sigma, 1e-5)
-    d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
-    import math
-    def norm_cdf(x):
-        return (1.0 + np.vectorize(math.erf)(x / np.sqrt(2.0))) / 2.0
-    delta = norm_cdf(d1)
-    return np.where(is_call, delta, delta - 1.0)
-
 @router.post("/api/data/analysis/oi/compute")
-def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)):
+def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
     """
-    Computes OI vs Price Quadrant Analysis for all F&O symbols over specified days and caches it.
+    Computes OI vs Price Quadrant Analysis for all F&O symbols over 32 days and caches it.
     """
     try:
         from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV
@@ -35,26 +22,21 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
         from backend.ingest.nse_models import OiAnalysisMetrics
         import datetime
         from sqlalchemy import desc
-        import pandas as pd
 
         dates_query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
                   .distinct()\
                   .order_by(BhavcopyFO.trade_date.desc())\
-                  .limit(days).all()
+                  .limit(32).all()
 
         if len(dates_query) < 2:
             return {"status": "error", "message": f"Not enough data in BhavcopyFO. Found {len(dates_query)} dates."}
 
         valid_dates = [d[0] for d in dates_query]
-        min_date = min(valid_dates)
-        max_date = max(valid_dates)
 
         query = db.query(
             BhavcopyFO.ticker_symb,
             BhavcopyFO.trade_date,
-            BhavcopyFO.expiry_date,
-            BhavcopyFO.strike_price,
             BhavcopyFO.close_price,
             BhavcopyFO.open_interest,
             BhavcopyFO.instrument_type,
@@ -65,88 +47,33 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
             BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
 
-        atm_iv_records = db.query(HistoricalATMIV).filter(HistoricalATMIV.trade_date.in_(valid_dates)).all()
-        atm_iv_map = {}
-        for r in atm_iv_records:
-            if r.symbol not in atm_iv_map:
-                atm_iv_map[r.symbol] = {}
-            atm_iv_map[r.symbol][r.trade_date] = float(r.atm_iv) if r.atm_iv else 0.0
-
-        # Organize data
         sym_data = {}
-        opt_rows = []
-
         for r in query:
             sym = r.ticker_symb
             dt = r.trade_date
             if sym not in sym_data:
-                sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0, "delta_opt_oi": 0} for d in valid_dates}
+                sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0} for d in valid_dates}
 
             if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']:
                 sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
                 if sym_data[sym][dt]["price"] is None:
                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
             elif r.instrument_type in ['OPTIDX', 'OPTSTK']:
-                oi = int(r.open_interest) if r.open_interest else 0
                 if r.option_type == 'CE':
-                    sym_data[sym][dt]["call_oi"] += oi
+                    sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
                 elif r.option_type == 'PE':
-                    sym_data[sym][dt]["put_oi"] += oi
-
-                # Collect for vectorized calculation later
-                if oi > 0:
-                    opt_rows.append({
-                        'symbol': sym,
-                        'trade_date': dt,
-                        'expiry_date': r.expiry_date,
-                        'strike_price': float(r.strike_price) if r.strike_price else 0.0,
-                        'option_type': r.option_type,
-                        'open_interest': oi
-                    })
+                    sym_data[sym][dt]["put_oi"] += int(r.open_interest) if r.open_interest else 0
 
             if r.instrument_type in ['STF', 'IDF']:
                  if sym_data[sym][dt]["price"] is None:
                      sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
 
-        # Calculate Delta-Weighted OI
-        if opt_rows:
-            opt_df = pd.DataFrame(opt_rows)
-
-            # Map futures prices
-            def get_fut_close(row):
-                return sym_data[row['symbol']][row['trade_date']]["price"] or 0.0
-            opt_df['fut_close'] = opt_df.apply(get_fut_close, axis=1)
-
-            # Map volatility
-            def get_sigma(row):
-                return atm_iv_map.get(row['symbol'], {}).get(row['trade_date'], 0.20) or 0.20
-            opt_df['sigma'] = opt_df.apply(get_sigma, axis=1)
-
-            # Calculate T
-            trade_dt = pd.to_datetime(opt_df['trade_date'])
-            expiry_dt = pd.to_datetime(opt_df['expiry_date'])
-            opt_df['T'] = (expiry_dt - trade_dt).dt.days / 365.0
-
-            is_call = opt_df['option_type'] == 'CE'
-
-            try:
-                opt_df['delta'] = calc_bs_delta_vectorized(
-                    opt_df['fut_close'].values,
-                    opt_df['strike_price'].values,
-                    opt_df['T'].values,
-                    0.0, # risk-free rate
-                    opt_df['sigma'].values,
-                    is_call.values
-                )
-                opt_df['delta_weighted_oi'] = opt_df['open_interest'] * np.abs(opt_df['delta'])
-            except Exception as e:
-                print(f"Error calculating delta: {e}")
-                opt_df['delta'] = np.where(is_call, 0.5, -0.5)
-                opt_df['delta_weighted_oi'] = opt_df['open_interest'] * 0.5
-
-            agg_df = opt_df.groupby(['symbol', 'trade_date'])['delta_weighted_oi'].sum().reset_index()
-            for _, row in agg_df.iterrows():
-                sym_data[row['symbol']][row['trade_date']]["delta_opt_oi"] = row['delta_weighted_oi']
+        atm_iv_records = db.query(HistoricalATMIV).filter(HistoricalATMIV.trade_date.in_(valid_dates)).all()
+        atm_iv_map = {}
+        for r in atm_iv_records:
+            if r.symbol not in atm_iv_map:
+                atm_iv_map[r.symbol] = {}
+            atm_iv_map[r.symbol][r.trade_date] = float(r.atm_iv) if r.atm_iv else 0.0
 
         insert_data = []
 
@@ -161,22 +88,22 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                 date_30d = valid_dates[date_30d_idx]
 
                 cd = date_dict[curr_date]
-                pd_data = date_dict[prev_date]
+                pd = date_dict[prev_date]
                 d30 = date_dict[date_30d]
 
                 c_price = cd["price"] or 0
-                p_price = pd_data["price"] or 0
+                p_price = pd["price"] or 0
 
                 c_fut_oi = cd["fut_oi"]
-                p_fut_oi = pd_data["fut_oi"]
+                p_fut_oi = pd["fut_oi"]
                 d30_fut_oi = d30["fut_oi"]
 
                 c_ce_oi = cd["call_oi"]
-                p_ce_oi = pd_data["call_oi"]
+                p_ce_oi = pd["call_oi"]
                 d30_ce_oi = d30["call_oi"]
 
                 c_pe_oi = cd["put_oi"]
-                p_pe_oi = pd_data["put_oi"]
+                p_pe_oi = pd["put_oi"]
                 d30_pe_oi = d30["put_oi"]
 
                 price_chg_pct = ((c_price - p_price) / p_price * 100) if p_price > 0 else 0
@@ -189,9 +116,9 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                 call_oi_chg_pct = (call_oi_chg / p_ce_oi * 100) if p_ce_oi > 0 else 0
                 put_oi_chg_pct = (put_oi_chg / p_pe_oi * 100) if p_pe_oi > 0 else 0
 
-                total_oi_c = c_fut_oi + cd["delta_opt_oi"]
-                total_oi_p = p_fut_oi + pd_data["delta_opt_oi"]
-                oi_chg_pct = ((total_oi_c - total_oi_p) / abs(total_oi_p) * 100) if total_oi_p != 0 else 0
+                total_oi_c = c_fut_oi + c_ce_oi + c_pe_oi
+                total_oi_p = p_fut_oi + p_ce_oi + p_pe_oi
+                oi_chg_pct = ((total_oi_c - total_oi_p) / total_oi_p * 100) if total_oi_p > 0 else 0
 
                 fut_oi_chg_pct_30d = ((c_fut_oi - d30_fut_oi) / d30_fut_oi * 100) if d30_fut_oi > 0 else 0
                 call_oi_chg_pct_30d = ((c_ce_oi - d30_ce_oi) / d30_ce_oi * 100) if d30_ce_oi > 0 else 0
@@ -205,79 +132,63 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                     "trade_date": curr_date,
                     "symbol": sym,
                     "price": c_price,
-                    "price_chg_pct": float(price_chg_pct),
+                    "price_chg_pct": price_chg_pct,
                     "fut_oi": c_fut_oi,
                     "call_oi": c_ce_oi,
                     "put_oi": c_pe_oi,
-                    "total_oi": int(total_oi_c),
-                    "fut_oi_chg_pct": float(fut_oi_chg_pct),
-                    "call_oi_chg_pct": float(call_oi_chg_pct),
-                    "put_oi_chg_pct": float(put_oi_chg_pct),
-                    "oi_chg_pct": float(oi_chg_pct),
-                    "fut_oi_chg_pct_30d": float(fut_oi_chg_pct_30d),
-                    "call_oi_chg_pct_30d": float(call_oi_chg_pct_30d),
-                    "put_oi_chg_pct_30d": float(put_oi_chg_pct_30d),
+                    "total_oi": total_oi_c,
+                    "fut_oi_chg_pct": fut_oi_chg_pct,
+                    "call_oi_chg_pct": call_oi_chg_pct,
+                    "put_oi_chg_pct": put_oi_chg_pct,
+                    "oi_chg_pct": oi_chg_pct,
+                    "fut_oi_chg_pct_30d": fut_oi_chg_pct_30d,
+                    "call_oi_chg_pct_30d": call_oi_chg_pct_30d,
+                    "put_oi_chg_pct_30d": put_oi_chg_pct_30d,
                     "fut_oi_chg": fut_oi_chg,
                     "call_oi_chg": call_oi_chg,
                     "put_oi_chg": put_oi_chg,
-                    "pcr": float(pcr),
-                    "atm_iv": float(atm_iv)
+                    "pcr": pcr,
+                    "atm_iv": atm_iv
                 })
 
         if insert_data:
             if db.bind.dialect.name == 'postgresql':
-                try:
-                    from sqlalchemy import text
-                    # Auto-fix sequence for users without full DB migrations
-                    db.execute(text("CREATE SEQUENCE IF NOT EXISTS oi_analysis_metrics_id_seq;"))
-                    db.execute(text("ALTER TABLE oi_analysis_metrics ALTER COLUMN id SET DEFAULT nextval('oi_analysis_metrics_id_seq');"))
-                    db.execute(text("ALTER SEQUENCE oi_analysis_metrics_id_seq OWNED BY oi_analysis_metrics.id;"))
-                    db.commit()
-                except Exception as ex:
-                    db.rollback()
-                    print("Failed to auto-fix sequence:", ex)
-
-            chunk_size = 500
-            for i in range(0, len(insert_data), chunk_size):
-                chunk = insert_data[i:i + chunk_size]
-                if db.bind.dialect.name == 'postgresql':
-                    stmt = insert(OiAnalysisMetrics).values(chunk)
-
-                    stmt = stmt.on_conflict_do_update(
-                        constraint='uq_oi_analysis_metrics_date_symbol',
-                        set_={
-                            'price': stmt.excluded.price,
-                            'price_chg_pct': stmt.excluded.price_chg_pct,
-                            'fut_oi': stmt.excluded.fut_oi,
-                            'call_oi': stmt.excluded.call_oi,
-                            'put_oi': stmt.excluded.put_oi,
-                            'total_oi': stmt.excluded.total_oi,
-                            'fut_oi_chg_pct': stmt.excluded.fut_oi_chg_pct,
-                            'call_oi_chg_pct': stmt.excluded.call_oi_chg_pct,
-                            'put_oi_chg_pct': stmt.excluded.put_oi_chg_pct,
-                            'oi_chg_pct': stmt.excluded.oi_chg_pct,
-                            'fut_oi_chg_pct_30d': stmt.excluded.fut_oi_chg_pct_30d,
-                            'call_oi_chg_pct_30d': stmt.excluded.call_oi_chg_pct_30d,
-                            'put_oi_chg_pct_30d': stmt.excluded.put_oi_chg_pct_30d,
-                            'fut_oi_chg': stmt.excluded.fut_oi_chg,
-                            'call_oi_chg': stmt.excluded.call_oi_chg,
-                            'put_oi_chg': stmt.excluded.put_oi_chg,
-                            'pcr': stmt.excluded.pcr,
-                            'atm_iv': stmt.excluded.atm_iv
-                        }
-                    )
-                    db.execute(stmt)
-                else:
-                    for data in chunk:
-                        existing = db.query(OiAnalysisMetrics).filter(
-                            OiAnalysisMetrics.trade_date == data['trade_date'],
-                            OiAnalysisMetrics.symbol == data['symbol']
-                        ).first()
-                        if existing:
-                            for k, v in data.items():
-                                setattr(existing, k, v)
-                        else:
-                            db.add(OiAnalysisMetrics(**data))
+                stmt = insert(OiAnalysisMetrics).values(insert_data)
+                stmt = stmt.on_conflict_do_update(
+                    constraint='uq_oi_analysis_metrics_date_symbol',
+                    set_={
+                        'price': stmt.excluded.price,
+                        'price_chg_pct': stmt.excluded.price_chg_pct,
+                        'fut_oi': stmt.excluded.fut_oi,
+                        'call_oi': stmt.excluded.call_oi,
+                        'put_oi': stmt.excluded.put_oi,
+                        'total_oi': stmt.excluded.total_oi,
+                        'fut_oi_chg_pct': stmt.excluded.fut_oi_chg_pct,
+                        'call_oi_chg_pct': stmt.excluded.call_oi_chg_pct,
+                        'put_oi_chg_pct': stmt.excluded.put_oi_chg_pct,
+                        'oi_chg_pct': stmt.excluded.oi_chg_pct,
+                        'fut_oi_chg_pct_30d': stmt.excluded.fut_oi_chg_pct_30d,
+                        'call_oi_chg_pct_30d': stmt.excluded.call_oi_chg_pct_30d,
+                        'put_oi_chg_pct_30d': stmt.excluded.put_oi_chg_pct_30d,
+                        'fut_oi_chg': stmt.excluded.fut_oi_chg,
+                        'call_oi_chg': stmt.excluded.call_oi_chg,
+                        'put_oi_chg': stmt.excluded.put_oi_chg,
+                        'pcr': stmt.excluded.pcr,
+                        'atm_iv': stmt.excluded.atm_iv
+                    }
+                )
+                db.execute(stmt)
+            else:
+                for data in insert_data:
+                    existing = db.query(OiAnalysisMetrics).filter(
+                        OiAnalysisMetrics.trade_date == data['trade_date'],
+                        OiAnalysisMetrics.symbol == data['symbol']
+                    ).first()
+                    if existing:
+                        for k, v in data.items():
+                            setattr(existing, k, v)
+                    else:
+                        db.add(OiAnalysisMetrics(**data))
 
             db.commit()
 
@@ -285,7 +196,6 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
     except Exception as e:
         db.rollback()
         import traceback
-        traceback.print_exc()
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
@@ -350,17 +260,6 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         for sym, d in sym_map.items():
             if not d["history"]: continue
             latest = d["history"][0]
-
-            # Calculate Interpretation (Quadrant)
-            p_chg = latest["price_chg_pct"] or 0
-            oi_chg = latest["oi_chg_pct"] or 0
-
-            interpretation = "Indecision"
-            if p_chg > 0 and oi_chg > 0: interpretation = "Long Build Up"
-            elif p_chg < 0 and oi_chg > 0: interpretation = "Short Build Up"
-            elif p_chg > 0 and oi_chg < 0: interpretation = "Short Covering"
-            elif p_chg < 0 and oi_chg < 0: interpretation = "Long Unwinding"
-
             output.append({
                 "symbol": sym,
                 "sector": d["sector"],
@@ -376,7 +275,6 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 "oi_chg_pct": latest["oi_chg_pct"],
                 "pcr": latest["pcr"],
                 "atm_iv": latest["atm_iv"],
-                "interpretation": interpretation,
                 "fut_oi_chg_pct_30d": latest.get("fut_oi_chg_pct_30d", 0),
                 "call_oi_chg_pct_30d": latest.get("call_oi_chg_pct_30d", 0),
                 "put_oi_chg_pct_30d": latest.get("put_oi_chg_pct_30d", 0),
@@ -395,30 +293,48 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
 @router.get("/api/data/analysis/oi/{symbol}")
 def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
     """
-    Retrieves single symbol OI vs Price Quadrant Analysis history from pre-computed metrics.
+    Computes OI vs Price Quadrant Analysis.
     """
     try:
-        from backend.ingest.nse_models import OiAnalysisMetrics
         symbol = symbol.upper()
 
-        records = db.query(
-            OiAnalysisMetrics.trade_date,
-            OiAnalysisMetrics.price_chg_pct,
-            OiAnalysisMetrics.oi_chg_pct
-        ).filter(
-            OiAnalysisMetrics.symbol == symbol
-        ).order_by(OiAnalysisMetrics.trade_date.desc()).limit(30).all()
+        # Get active futures for this symbol for the last 60 days
+        # We need trade_date, close_price, open_interest
+        # Use only Near Month to avoid aggregating all expiries, or sum them. Sum is better for "Total OI".
+        # We will use BhavcopyFO for futures.
 
-        if not records:
+        query = db.query(
+            BhavcopyFO.trade_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest
+        ).filter(
+            BhavcopyFO.ticker_symb == symbol,
+            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
+
+        if not query:
             return {"symbol": symbol, "history": []}
 
-        # Need to return in ascending order for charting path
-        records = reversed(records)
+        # Aggregate OI and get price (strictly using Near Month Futures / FUT 1 price)
+        dates = {}
+        for r in query:
+            dt = r.trade_date
+            if dt not in dates:
+                # First encountered row per trade_date is guaranteed to be active FUT 1
+                dates[dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
+            # Sum OI across all expiries (FUT 1 + FUT 2 + FUT 3...)
+            dates[dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
+
+        sorted_dates = sorted(dates.keys())
 
         history = []
-        for r in records:
-            p_chg = r.price_chg_pct or 0
-            oi_chg = r.oi_chg_pct or 0
+        for i in range(1, len(sorted_dates)):
+            prev = dates[sorted_dates[i-1]]
+            curr = dates[sorted_dates[i]]
+
+            p_chg = ((curr["price"] - prev["price"]) / prev["price"] * 100) if prev["price"] > 0 else 0
+            oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"] * 100) if prev["oi"] > 0 else 0
 
             interpretation = "Indecision"
             if p_chg > 0 and oi_chg > 0: interpretation = "Long Build Up"
@@ -427,13 +343,15 @@ def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
             elif p_chg < 0 and oi_chg < 0: interpretation = "Long Unwinding"
 
             history.append({
-                "time": str(r.trade_date),
-                "price_chg_pct": round(p_chg, 2),
-                "oi_chg_pct": round(oi_chg, 2),
+                "time": sorted_dates[i].strftime('%Y-%m-%d'),
+                "price_chg_pct": p_chg,
+                "oi_chg_pct": oi_chg,
                 "interpretation": interpretation
             })
 
-        return {"symbol": symbol, "history": history}
+        # Return only last 30 days to avoid clutter
+        return {"symbol": symbol, "history": history[-30:]}
+
     except Exception as e:
         import traceback
         traceback.print_exc()

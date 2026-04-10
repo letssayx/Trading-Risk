@@ -37,44 +37,108 @@ def calc_bs_delta_vectorized(S, K, T, r, sigma, is_call):
 @router.get("/api/data/derivatives/pcr_history")
 def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db: Session = Depends(get_db)):
     try:
-        from backend.ingest.nse_models import OiAnalysisMetrics, BhavcopyFO
         symbol = symbol.upper()
 
-        if expiry_only:
-            # Join with BhavcopyFO to find expiry dates
-            # A trade date is an expiry date if there is any instrument expiring on that day for this symbol
-            records = db.query(
-                OiAnalysisMetrics.trade_date,
-                OiAnalysisMetrics.price,
-                OiAnalysisMetrics.call_oi,
-                OiAnalysisMetrics.put_oi,
-                OiAnalysisMetrics.total_oi,
-                OiAnalysisMetrics.pcr
-            ).join(
-                BhavcopyFO,
-                (OiAnalysisMetrics.trade_date == BhavcopyFO.expiry_date) &
-                (OiAnalysisMetrics.symbol == BhavcopyFO.ticker_symb)
-            ).filter(
-                OiAnalysisMetrics.symbol == symbol
-            ).distinct().order_by(OiAnalysisMetrics.trade_date.desc()).limit(days).all()
-        else:
-            records = db.query(
-                OiAnalysisMetrics.trade_date,
-                OiAnalysisMetrics.price,
-                OiAnalysisMetrics.call_oi,
-                OiAnalysisMetrics.put_oi,
-                OiAnalysisMetrics.total_oi,
-                OiAnalysisMetrics.pcr
-            ).filter(
-                OiAnalysisMetrics.symbol == symbol
-            ).order_by(OiAnalysisMetrics.trade_date.desc()).limit(days).all()
+        # We need historical futures prices, Option OI, and we calculate delta weighted Option OI using BS.
 
-        if not records:
+        # 1. Fetch distinct trade dates up to `days` limit
+        # If expiry_only is true, filter dates to only those that are an expiry date for this symbol
+        if expiry_only:
+            dates_query = text("""
+                WITH all_dates AS (
+                    SELECT DISTINCT trade_date
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :symbol
+                    ORDER BY trade_date DESC
+                ),
+                expiries AS (
+                    SELECT DISTINCT expiry_date
+                    FROM bhavcopy_fo
+                    WHERE ticker_symb = :symbol
+                )
+                SELECT d.trade_date
+                FROM all_dates d
+                JOIN expiries e ON d.trade_date = e.expiry_date
+                ORDER BY d.trade_date DESC
+                LIMIT :days
+            """)
+        else:
+            dates_query = text("""
+                SELECT DISTINCT trade_date
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol
+                ORDER BY trade_date DESC
+                LIMIT :days
+            """)
+
+        dates_result = db.execute(dates_query, {"symbol": symbol, "days": days}).fetchall()
+        if not dates_result:
             return {"dates": [], "price": [], "ce_oi": [], "pe_oi": [], "total_oi": [], "pcr": []}
 
-        # Need ascending order for charting
-        records = list(reversed(records))
+        dates = sorted([r[0] for r in dates_result])
+        min_date = dates[0]
+        max_date = dates[-1]
 
+        # 2. Fetch Near Month Futures Price and Total Futures OI
+        fut_query = text("""
+            WITH fut_price AS (
+                SELECT
+                    trade_date,
+                    close_price as fut_close,
+                    ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY expiry_date ASC) as rn
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol
+                  AND instrument_type IN ('FUTIDX', 'FUTSTK', 'STF', 'IDF')
+                  AND expiry_date >= trade_date
+                  AND trade_date BETWEEN :min_date AND :max_date
+            ),
+            fut_oi AS (
+                SELECT
+                    trade_date,
+                    SUM(open_interest) as total_fut_oi
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol
+                  AND instrument_type IN ('FUTIDX', 'FUTSTK', 'STF', 'IDF')
+                  AND trade_date BETWEEN :min_date AND :max_date
+                GROUP BY trade_date
+            )
+            SELECT f.trade_date, f.fut_close, foi.total_fut_oi
+            FROM fut_price f
+            LEFT JOIN fut_oi foi ON f.trade_date = foi.trade_date
+            WHERE f.rn = 1
+        """)
+        fut_df = pd.read_sql(fut_query, db.connection(), params={"symbol": symbol, "min_date": min_date, "max_date": max_date})
+        if fut_df.empty:
+            return {"dates": [], "price": [], "ce_oi": [], "pe_oi": [], "total_oi": [], "pcr": []}
+
+        fut_df.set_index('trade_date', inplace=True)
+
+        # 3. Fetch Options Data
+        opt_query = text("""
+            SELECT
+                trade_date,
+                expiry_date,
+                strike_price,
+                option_type,
+                open_interest
+            FROM bhavcopy_fo
+            WHERE ticker_symb = :symbol
+              AND instrument_type IN ('OPTIDX', 'OPTSTK', 'STO', 'IDO')
+              AND trade_date BETWEEN :min_date AND :max_date
+              AND open_interest > 0
+        """)
+        opt_df = pd.read_sql(opt_query, db.connection(), params={"symbol": symbol, "min_date": min_date, "max_date": max_date})
+
+        # 4. Fetch Volatility (Daily)
+        vol_query = text("""
+            SELECT trade_date, applicable_annualised_vol
+            FROM fo_volatility
+            WHERE symbol = :symbol AND trade_date BETWEEN :min_date AND :max_date
+        """)
+        vol_df = pd.read_sql(vol_query, db.connection(), params={"symbol": symbol, "min_date": min_date, "max_date": max_date})
+        vol_df.set_index('trade_date', inplace=True)
+
+        # Create output arrays
         result_dates = []
         result_prices = []
         result_ce_oi = []
@@ -82,13 +146,81 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
         result_total_oi = []
         result_pcr = []
 
-        for r in records:
-            result_dates.append(str(r.trade_date))
-            result_prices.append(r.price or 0.0)
-            result_ce_oi.append(r.call_oi or 0)
-            result_pe_oi.append(r.put_oi or 0)
-            result_total_oi.append(r.total_oi or 0)
-            result_pcr.append(r.pcr or 0.0)
+        # If options data exists, vector calculate BS Delta
+        if not opt_df.empty:
+            # Map futures close price and volatility to options dataframe
+            opt_df['fut_close'] = opt_df['trade_date'].map(fut_df['fut_close']).fillna(0)
+
+            # Map volatility - Default to 20% if missing
+            if not vol_df.empty:
+                opt_df['sigma'] = opt_df['trade_date'].map(vol_df['applicable_annualised_vol'])
+            else:
+                opt_df['sigma'] = 0.20
+            opt_df['sigma'] = opt_df['sigma'].fillna(0.20)
+
+            # Calculate Time to Expiry (T) in years
+            # Convert dates to pandas datetime for subtraction
+            trade_dt = pd.to_datetime(opt_df['trade_date'])
+            expiry_dt = pd.to_datetime(opt_df['expiry_date'])
+            opt_df['T'] = (expiry_dt - trade_dt).dt.days / 365.0
+
+            # Calculate Delta
+            is_call = opt_df['option_type'] == 'CE'
+
+            # Vectorized call
+            try:
+                opt_df['delta'] = calc_bs_delta_vectorized(
+                    opt_df['fut_close'].values,
+                    opt_df['strike_price'].values,
+                    opt_df['T'].values,
+                    0.0, # risk-free rate
+                    opt_df['sigma'].values,
+                    is_call.values
+                )
+                opt_df['delta_weighted_oi'] = opt_df['open_interest'] * np.abs(opt_df['delta'])
+            except Exception as e:
+                # Fallback to naive delta if math error
+                print(f"Error calculating delta: {e}")
+                opt_df['delta'] = np.where(is_call, 0.5, -0.5)
+                opt_df['delta_weighted_oi'] = opt_df['open_interest'] * 0.5
+
+            # Aggregate per day
+            agg_df = opt_df.groupby('trade_date').apply(lambda x: pd.Series({
+                'ce_oi': x.loc[x['option_type'] == 'CE', 'open_interest'].sum(),
+                'pe_oi': x.loc[x['option_type'] == 'PE', 'open_interest'].sum(),
+                'delta_weighted_opt_oi': x['delta_weighted_oi'].sum()
+            })).reset_index()
+            agg_df.set_index('trade_date', inplace=True)
+
+        else:
+            agg_df = pd.DataFrame(columns=['ce_oi', 'pe_oi', 'delta_weighted_opt_oi'])
+
+        # Build final response
+        for d in dates:
+            if d not in fut_df.index:
+                continue
+
+            price = float(fut_df.loc[d, 'fut_close'])
+            total_fut_oi = float(fut_df.loc[d, 'total_fut_oi']) if pd.notna(fut_df.loc[d, 'total_fut_oi']) else 0
+
+            ce_oi = 0
+            pe_oi = 0
+            delta_opt_oi = 0
+
+            if d in agg_df.index:
+                ce_oi = int(agg_df.loc[d, 'ce_oi'])
+                pe_oi = int(agg_df.loc[d, 'pe_oi'])
+                delta_opt_oi = float(agg_df.loc[d, 'delta_weighted_opt_oi'])
+
+            total_oi = int(total_fut_oi + delta_opt_oi)
+            pcr = float(pe_oi / ce_oi) if ce_oi > 0 else 0.0
+
+            result_dates.append(d.strftime('%Y-%m-%d'))
+            result_prices.append(price)
+            result_ce_oi.append(ce_oi)
+            result_pe_oi.append(pe_oi)
+            result_total_oi.append(total_oi)
+            result_pcr.append(round(pcr, 4))
 
         return {
             "dates": result_dates,
