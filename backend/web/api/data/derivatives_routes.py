@@ -350,6 +350,17 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         for sym, d in sym_map.items():
             if not d["history"]: continue
             latest = d["history"][0]
+
+            # Calculate Interpretation (Quadrant)
+            p_chg = latest["price_chg_pct"] or 0
+            oi_chg = latest["oi_chg_pct"] or 0
+
+            interpretation = "Indecision"
+            if p_chg > 0 and oi_chg > 0: interpretation = "Long Build Up"
+            elif p_chg < 0 and oi_chg > 0: interpretation = "Short Build Up"
+            elif p_chg > 0 and oi_chg < 0: interpretation = "Short Covering"
+            elif p_chg < 0 and oi_chg < 0: interpretation = "Long Unwinding"
+
             output.append({
                 "symbol": sym,
                 "sector": d["sector"],
@@ -365,6 +376,7 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 "oi_chg_pct": latest["oi_chg_pct"],
                 "pcr": latest["pcr"],
                 "atm_iv": latest["atm_iv"],
+                "interpretation": interpretation,
                 "fut_oi_chg_pct_30d": latest.get("fut_oi_chg_pct_30d", 0),
                 "call_oi_chg_pct_30d": latest.get("call_oi_chg_pct_30d", 0),
                 "put_oi_chg_pct_30d": latest.get("put_oi_chg_pct_30d", 0),

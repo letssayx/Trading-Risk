@@ -101,16 +101,21 @@ const OiTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi')">OI ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi')">FUT OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi_chg_pct')">FUT OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi')">Put OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg_pct')">Put OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">Total OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
                                     </tr>
                                 </thead>
                                 <tbody id="oi-analysis-body">
-                                    <tr><td colspan="11" style="text-align:center; color:#888;">Loading...</td></tr>
+                                    <tr><td colspan="17" style="text-align:center; color:#888;">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -162,7 +167,7 @@ const OiTool = {
         }
 
         if (forceRefresh) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Computing fresh data (this takes a moment)...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Computing fresh data (this takes a moment)...</td></tr>';
             try {
                 const computeRes = await fetch('/api/data/analysis/oi/compute', {method: 'POST'});
                 if (!computeRes.ok) throw new Error("Failed to compute fresh data.");
@@ -170,7 +175,7 @@ const OiTool = {
                 console.error(e);
             }
         } else if (!this.allData || this.allData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
         }
 
         try {
@@ -181,7 +186,7 @@ const OiTool = {
 
             // If data is empty and we haven't forced a refresh, auto-compute it
             if ((!json.data || json.data.length === 0) && !forceRefresh) {
-                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Initializing data...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Initializing data...</td></tr>';
                 await fetch('/api/data/analysis/oi/compute', {method: 'POST'});
                 res = await fetch('/api/data/analysis/oi');
                 json = await res.json();
@@ -218,7 +223,7 @@ const OiTool = {
             this.renderAggregatedView();
 
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
         } finally {
             if (refreshBtn) {
@@ -288,8 +293,8 @@ const OiTool = {
 
         // Apply Standard Table Sorting
         displayData.sort((a, b) => {
-            let valA = a[this.currentSortCol];
-            let valB = b[this.currentSortCol];
+            let valA = a[this.currentSortCol] || 0;
+            let valB = b[this.currentSortCol] || 0;
 
             if (typeof valA === 'string') valA = valA.toUpperCase();
             if (typeof valB === 'string') valB = valB.toUpperCase();
@@ -307,7 +312,7 @@ const OiTool = {
         tbody.innerHTML = '';
 
         if (displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="17" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
         } else {
             let html = '';
             displayData.forEach(d => {
@@ -319,6 +324,9 @@ const OiTool = {
 
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let futOColor = d.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let callOColor = d.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let putOColor = d.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
@@ -327,19 +335,26 @@ const OiTool = {
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
                     <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.fut_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${futOColor};">${(d.fut_oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${callOColor};">${(d.call_oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 8px;">${(d.put_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${putOColor};">${(d.put_oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
                     <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
                     <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
                 </tr>`;
 
                 if (d.history && d.history.length > 1) {
-                    d.history.slice(1, 7).forEach(h => {
+                    d.history.slice(1, 30).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
+                        let hfutOColor = h.fut_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hcallOColor = h.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hputOColor = h.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
@@ -347,9 +362,14 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.fut_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hfutOColor}">${(h.fut_oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.call_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hcallOColor}">${(h.call_oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.put_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hputOColor}">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
