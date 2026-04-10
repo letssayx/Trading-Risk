@@ -689,3 +689,4 @@ window.addEventListener('load', () => {
        window.WorkbookManager.modules['oi'] = OiTool;
    }
 });
+// Trigger visual refresh
