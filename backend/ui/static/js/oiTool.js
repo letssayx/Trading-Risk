@@ -102,12 +102,16 @@ const OiTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi')">FUT OI ↕</th>
+                                        <th style="padding: 8px;">FUT OI Chg (Raw)</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi_chg_pct')">FUT OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
+                                        <th style="padding: 8px;">Call OI Chg (Raw)</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi')">Put OI ↕</th>
+                                        <th style="padding: 8px;">Put OI Chg (Raw)</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg_pct')">Put OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
+                                        <th style="padding: 8px;">Total OI Chg (Raw)</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">Total OI Chg % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
@@ -328,6 +332,15 @@ const OiTool = {
                 let callOColor = d.call_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let putOColor = d.put_oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
+                // Only render top 30
+                if (index >= 30) return;
+
+                // Calculate raws safely
+                const futOiRaw = Math.round(((d.fut_oi || 0) * (d.fut_oi_chg_pct || 0)) / 100) || 0;
+                const callOiRaw = Math.round(((d.call_oi || 0) * (d.call_oi_chg_pct || 0)) / 100) || 0;
+                const putOiRaw = Math.round(((d.put_oi || 0) * (d.put_oi_chg_pct || 0)) / 100) || 0;
+                const totalOiRaw = Math.round(((d.total_oi || 0) * (d.oi_chg_pct || 0)) / 100) || 0;
+
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
                     <td style="padding: 8px;"><b>${d.symbol}</b></td>
@@ -336,12 +349,16 @@ const OiTool = {
                     <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.fut_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${futOColor};">${futOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${futOColor};">${(d.fut_oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${callOColor};">${callOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${callOColor};">${(d.call_oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.put_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${putOColor};">${putOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${putOColor};">${(d.put_oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px; color: ${oColor};">${totalOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
                     <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
