@@ -8,6 +8,11 @@ const OiTool = {
         if (container && !container.innerHTML.includes('oi-symbol')) {
             this.render(container);
             this.loadAggregatedData();
+        } else if (container && this.allData && this.allData.length > 0) {
+            // Already rendered, just re-filter/render table to avoid wiping state on tab switch
+            this.filterData();
+        } else if (container) {
+            this.loadAggregatedData();
         }
     },
 
@@ -31,7 +36,7 @@ const OiTool = {
                 .oi-history-table th, .oi-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
                 .oi-history-table th { background: #111; color: #888; }
             </style>
-            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0;">
+            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 800px;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
                     <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
@@ -57,7 +62,7 @@ const OiTool = {
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding-bottom: 20px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
                     <!-- Top Derived Info Panels -->
                     <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
@@ -71,22 +76,22 @@ const OiTool = {
                     </div>
 
                     <!-- Chart Area -->
-                    <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
+                    <div style="min-height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
                             <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div id="oi-chart-area" style="flex: 1;">
+                        <div id="oi-chart-area" style="flex: 1; min-height: 360px;">
                             <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
                         </div>
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="flex: 1; overflow: auto;">
+                        <div style="flex: 1; overflow-x: auto;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
@@ -150,10 +155,10 @@ const OiTool = {
         if (!tbody || !chartArea) return;
 
         let originalBtnHtml = "";
-        if (refreshBtn && forceRefresh) {
+        if (refreshBtn) {
             originalBtnHtml = refreshBtn.innerHTML;
             refreshBtn.disabled = true;
-            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Computing...';
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (forceRefresh ? 'Computing...' : 'Loading...');
         }
 
         if (forceRefresh) {
@@ -164,20 +169,31 @@ const OiTool = {
             } catch (e) {
                 console.error(e);
             }
-        } else {
+        } else if (!this.allData || this.allData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
         }
 
         try {
-            const res = await fetch('/api/data/analysis/oi');
+            // First try to just get the data
+            let res = await fetch('/api/data/analysis/oi');
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
-            const json = await res.json();
+            let json = await res.json();
+
+            // If data is empty and we haven't forced a refresh, auto-compute it
+            if ((!json.data || json.data.length === 0) && !forceRefresh) {
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Initializing data...</td></tr>';
+                await fetch('/api/data/analysis/oi/compute', {method: 'POST'});
+                res = await fetch('/api/data/analysis/oi');
+                json = await res.json();
+            }
 
             if (json.date) dateDisplay.textContent = `Date: ${json.date}`;
 
             this.allData = json.data || [];
-            this.currentSortCol = 'oi_chg_pct';
-            this.currentSortAsc = false;
+            if (!this.currentSortCol) {
+                this.currentSortCol = 'oi_chg_pct';
+                this.currentSortAsc = false;
+            }
 
             // Populate sector filter dropdown
             const sectors = new Set();
@@ -205,7 +221,7 @@ const OiTool = {
             tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
         } finally {
-            if (refreshBtn && forceRefresh) {
+            if (refreshBtn) {
                 refreshBtn.disabled = false;
                 refreshBtn.innerHTML = originalBtnHtml;
             }
@@ -479,7 +495,11 @@ const OiTool = {
     },
 
     filterData: function() {
-        this.renderAggregatedView();
+        if (!this.allData || this.allData.length === 0) {
+            this.loadAggregatedData();
+        } else {
+            this.renderAggregatedView();
+        }
     },
 
     sortData: function(col) {
@@ -509,9 +529,7 @@ const OiTool = {
         chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;"><i class="fas fa-spinner fa-spin"></i> Loading Single Symbol Analysis...</p>';
 
         // Filter the table to just show this symbol instead of hiding it
-        if (this.allData && this.allData.length > 0) {
-            this.filterData();
-        }
+        this.filterData();
 
         try {
             const res = await fetch(`/api/data/analysis/oi/${symbol}`);

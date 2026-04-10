@@ -191,7 +191,7 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
 
                 total_oi_c = c_fut_oi + cd["delta_opt_oi"]
                 total_oi_p = p_fut_oi + pd_data["delta_opt_oi"]
-                oi_chg_pct = ((total_oi_c - total_oi_p) / total_oi_p * 100) if total_oi_p > 0 else 0
+                oi_chg_pct = ((total_oi_c - total_oi_p) / abs(total_oi_p) * 100) if total_oi_p != 0 else 0
 
                 fut_oi_chg_pct_30d = ((c_fut_oi - d30_fut_oi) / d30_fut_oi * 100) if d30_fut_oi > 0 else 0
                 call_oi_chg_pct_30d = ((c_ce_oi - d30_ce_oi) / d30_ce_oi * 100) if d30_ce_oi > 0 else 0
