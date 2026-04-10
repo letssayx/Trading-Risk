@@ -280,7 +280,7 @@ const OiTool = {
             tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found matching criteria.</td></tr>';
         } else {
             let html = '';
-            displayData.forEach(d => {
+            displayData.forEach((d, index) => {
                 let color = '#888';
                 if (d.interpretation === 'Long Build Up') color = '#00bcd4'; // Green
                 if (d.interpretation === 'Short Covering') color = '#00bcd4'; // Blue/Cyan
@@ -290,7 +290,7 @@ const OiTool = {
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
-                if (i >= 30) return; // Limit to 30 rows
+                if (index >= 30) return; // Limit to 30 rows
 
                 let futOColor = (d.fut_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
                 let callOColor = (d.call_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
@@ -622,7 +622,7 @@ const OiTool = {
         }
 
         let csv = "Symbol,Sector,Price Change %,OI Change %,Quadrant\n";
-        displayData.forEach(d => {
+        displayData.forEach((d, index) => {
             csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.oi_chg_pct}","${d.interpretation}"\n`;
         });
 
