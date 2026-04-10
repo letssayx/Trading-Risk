@@ -225,11 +225,24 @@ def compute_aggregated_oi_analysis(days: int = 32, db: Session = Depends(get_db)
                 })
 
         if insert_data:
+            if db.bind.dialect.name == 'postgresql':
+                try:
+                    from sqlalchemy import text
+                    # Auto-fix sequence for users without full DB migrations
+                    db.execute(text("CREATE SEQUENCE IF NOT EXISTS oi_analysis_metrics_id_seq;"))
+                    db.execute(text("ALTER TABLE oi_analysis_metrics ALTER COLUMN id SET DEFAULT nextval('oi_analysis_metrics_id_seq');"))
+                    db.execute(text("ALTER SEQUENCE oi_analysis_metrics_id_seq OWNED BY oi_analysis_metrics.id;"))
+                    db.commit()
+                except Exception as ex:
+                    db.rollback()
+                    print("Failed to auto-fix sequence:", ex)
+
             chunk_size = 500
             for i in range(0, len(insert_data), chunk_size):
                 chunk = insert_data[i:i + chunk_size]
                 if db.bind.dialect.name == 'postgresql':
                     stmt = insert(OiAnalysisMetrics).values(chunk)
+
                     stmt = stmt.on_conflict_do_update(
                         constraint='uq_oi_analysis_metrics_date_symbol',
                         set_={
