@@ -11,6 +11,32 @@ from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, Bhav
 router = APIRouter()
 
 
+@router.post("/api/data/analysis/oi/sync")
+def sync_aggregated_oi_analysis(db: Session = Depends(get_db)):
+    """
+    Checks if a computation is needed (i.e., if BhavcopyFO has newer data than OiAnalysisMetrics)
+    and if so, triggers the computation.
+    """
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, OiAnalysisMetrics
+        from sqlalchemy import func
+
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
+        ).scalar()
+
+        latest_metric_date = db.query(func.max(OiAnalysisMetrics.trade_date)).scalar()
+
+        if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date:
+            return {"status": "success", "message": "Data is already up to date.", "computed": False}
+
+        # If we reach here, we need to compute
+        return compute_aggregated_oi_analysis(db)
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+
 @router.post("/api/data/analysis/oi/compute")
 def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
     """
@@ -235,6 +261,14 @@ def get_aggregated_oi_analysis(days: int = Query(30), db: Session = Depends(get_
             if sym not in sym_map:
                 sym_map[sym] = {"sector": sector or "Unknown", "history": []}
 
+            p_chg = analysis.price_chg_pct or 0
+            oi_chg = analysis.oi_chg_pct or 0
+            interpretation = "Indecision"
+            if p_chg > 0 and oi_chg > 0: interpretation = "Long Build Up"
+            elif p_chg < 0 and oi_chg > 0: interpretation = "Short Build Up"
+            elif p_chg > 0 and oi_chg < 0: interpretation = "Short Covering"
+            elif p_chg < 0 and oi_chg < 0: interpretation = "Long Unwinding"
+
             sym_map[sym]["history"].append({
                 "date": str(analysis.trade_date),
                 "price": analysis.price,
@@ -249,6 +283,7 @@ def get_aggregated_oi_analysis(days: int = Query(30), db: Session = Depends(get_
                 "oi_chg_pct": analysis.oi_chg_pct,
                 "pcr": analysis.pcr,
                 "atm_iv": analysis.atm_iv,
+                "interpretation": interpretation,
                 "fut_oi_chg_pct_30d": analysis.fut_oi_chg_pct_30d,
                 "call_oi_chg_pct_30d": analysis.call_oi_chg_pct_30d,
                 "put_oi_chg_pct_30d": analysis.put_oi_chg_pct_30d,
@@ -276,6 +311,7 @@ def get_aggregated_oi_analysis(days: int = Query(30), db: Session = Depends(get_
                 "oi_chg_pct": latest["oi_chg_pct"],
                 "pcr": latest["pcr"],
                 "atm_iv": latest["atm_iv"],
+                "interpretation": latest["interpretation"],
                 "fut_oi_chg_pct_30d": latest.get("fut_oi_chg_pct_30d", 0),
                 "call_oi_chg_pct_30d": latest.get("call_oi_chg_pct_30d", 0),
                 "put_oi_chg_pct_30d": latest.get("put_oi_chg_pct_30d", 0),

@@ -59,7 +59,7 @@ const OiTool = {
                         <option value="30" selected>30 Days</option>
                     </select>
 
-                    <button id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <button id="oi-refresh-btn" onclick="OiTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
@@ -89,11 +89,11 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; height: 500px; overflow-y: auto; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 500px; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="flex: 1; overflow: auto;">
+                        <div style="flex: 1; overflow-y: auto;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
@@ -154,6 +154,31 @@ const OiTool = {
                     }
                 }
             });
+        }
+    },
+
+    syncAndLoadAggregatedData: async function() {
+        const refreshBtn = document.getElementById('oi-refresh-btn');
+        let originalBtnHtml = "";
+        if (refreshBtn) {
+            originalBtnHtml = refreshBtn.innerHTML;
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing Data...';
+        }
+        const tbody = document.getElementById('oi-analysis-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Checking for new F&O data and syncing...</td></tr>';
+
+        try {
+            const syncRes = await fetch('/api/data/analysis/oi/sync', { method: 'POST' });
+            if (!syncRes.ok) throw new Error("Sync failed.");
+            await this.loadAggregatedData();
+        } catch(e) {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:red;">Sync Error: ${e.message}</td></tr>`;
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = originalBtnHtml || '<i class="fas fa-sync"></i> Refresh All';
+            }
         }
     },
 
