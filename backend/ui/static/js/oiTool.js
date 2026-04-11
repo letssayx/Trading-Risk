@@ -89,35 +89,32 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 500px; flex-shrink: 0; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="flex: 1; overflow-y: auto;">
+                        <div style="flex: 1;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>
-                                        <th style="padding: 8px; width: 30px;"></th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
-                                        <th style="padding: 8px;">Date</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('sector')">Sector ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi')">FUT OI ↕</th>
-                                        <th style="padding: 8px;">FUT OI Chg (Raw)</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('fut_oi_chg_pct')">FUT OI Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
-                                        <th style="padding: 8px;">Call OI Chg (Raw)</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi')">Put OI ↕</th>
-                                        <th style="padding: 8px;">Put OI Chg (Raw)</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('put_oi_chg_pct')">Put OI Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('total_oi')">Total OI ↕</th>
-                                        <th style="padding: 8px;">Total OI Chg (Raw)</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('oi_chg_pct')">Total OI Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
+                                        <th style="padding: 8px; width: 30px; white-space: nowrap;"></th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('symbol')">Symbol ↕</th>
+                                        <th style="padding: 8px; white-space: nowrap;">Date</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('sector')">Sector ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('price')">FUT Price ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('price_chg_pct')">Price Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('fut_oi')">FUT OI ↕</th>
+                                        <th style="padding: 8px; white-space: nowrap;">FUT OI Chg (Raw)</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('fut_oi_chg_pct')">FUT OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('call_oi')">Call OI ↕</th>
+                                        <th style="padding: 8px; white-space: nowrap;">Call OI Chg (Raw)</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('call_oi_chg_pct')">Call OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('put_oi')">Put OI ↕</th>
+                                        <th style="padding: 8px; white-space: nowrap;">Put OI Chg (Raw)</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('put_oi_chg_pct')">Put OI Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('pcr')">PCR ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('atm_iv')">ATM IV ↕</th>
+                                        <th style="padding: 8px; cursor: pointer; white-space: nowrap;" onclick="OiTool.sortData('interpretation')">Quadrant ↕</th>
                                     </tr>
                                 </thead>
                                 <tbody id="oi-analysis-body">
@@ -366,9 +363,6 @@ const OiTool = {
                     <td style="padding: 8px;">${(d.put_oi || 0).toLocaleString()}</td>
                     <td style="padding: 8px; color: ${putOColor};">${putOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${putOColor};">${(d.put_oi_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.total_oi || 0).toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${totalOiRaw.toLocaleString()}</td>
-                    <td style="padding: 8px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
                     <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
                     <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
@@ -402,9 +396,6 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: #ccc;">${(h.put_oi || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${putOColor};">${(h.put_oi_chg || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${putOColor};">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor};">${(h.total_oi_chg || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>

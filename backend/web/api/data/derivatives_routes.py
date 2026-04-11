@@ -80,7 +80,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
             if sym not in sym_data:
                 sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0} for d in valid_dates}
 
-            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']:
+            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'STF', 'IDF']:
                 sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
                 if sym_data[sym][dt]["price"] is None:
                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
