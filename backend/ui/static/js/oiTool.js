@@ -89,7 +89,7 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: 650px; overflow-y: auto; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; height: 500px; overflow-y: auto; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
@@ -356,6 +356,11 @@ const OiTool = {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
+                        let futOColor = (h.fut_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+                        let callOColor = (h.call_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+                        let putOColor = (h.put_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+                        let baseFutOiH = h.fut_oi !== undefined ? h.fut_oi : h.oi || 0;
+
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
@@ -363,9 +368,18 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${baseFutOiH.toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${futOColor};">${(h.fut_oi_chg || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${futOColor};">${(h.fut_oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.call_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${callOColor};">${(h.call_oi_chg || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${callOColor};">${(h.call_oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.put_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${putOColor};">${(h.put_oi_chg || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${putOColor};">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.total_oi || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hoColor};">${(h.total_oi_chg || 0).toLocaleString()}</td>
+                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>

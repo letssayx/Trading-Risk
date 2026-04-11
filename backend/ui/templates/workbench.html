@@ -167,8 +167,8 @@
         }
         .table-wrapper {
             height: calc(100% - 45px); /* Adjust based on controls height */
-            overflow: auto;
-            overflow-x: auto;
+            overflow-y: auto;
+
             position: relative;
             background: #1e1e1e;
         }
@@ -586,7 +586,7 @@
         <!-- TAB DERIVATIVES ANALYSIS -->
         <div id="tab-derivatives" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
             <!-- Sub-tab Navigation -->
-            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; overflow-x: auto; flex-shrink: 0;">
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px;  flex-shrink: 0;">
                 <div class="wb-tab active" id="deriv-tab-btn-matrix" onclick="switchDerivTab('matrix')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Data Matrix</div>
                 <div class="wb-tab" id="deriv-tab-btn-watch" onclick="switchDerivTab('watch')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Basis Watch</div>
                 <div class="wb-tab" id="deriv-tab-btn-options" onclick="switchDerivTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
@@ -662,7 +662,7 @@
                         <button id="mr-export-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 10px;">Download CSV</button>
                     </div>
 
-                    <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0; overflow-x: auto; max-width: 100%;">
+                    <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0;  max-width: 100%;">
                         <table class="data-table" id="mr-data-table">
                             <thead id="mr-data-head">
                                 <tr>
@@ -1323,7 +1323,7 @@
                         </div>
                         <div></div>
                     </div>
-                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;  max-width: 100%; min-height: 0;">
                         <table class="data-table" id="marketwatch-table" style="width: 100%; margin: 0; padding: 0;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
@@ -1367,7 +1367,7 @@
                         </div>
                     </div>
 
-                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow: auto; max-width: 100%; min-height: 0;">
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;  max-width: 100%; min-height: 0;">
                         <table class="data-table" id="option-chain-table" style="width: 100%; margin: 0; padding: 0; text-align: center; border-collapse: collapse;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
@@ -1535,15 +1535,15 @@
                 </div>
 
                 <!-- SUB-TAB: Option Strategy -->
-                <div id="deriv-tab-optstrategy" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
+                <div id="deriv-tab-optstrategy" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; ">
                     <h2 style="color: #fff; margin-top: 0;">Option Strategy</h2>
                     <p style="color: #888;">Coming Soon: Option strategies like covered call, Gamma Short, options expiry strategy, etc.</p>
                 </div>
 
                 <!-- SUB-TAB 2: OI Analysis -->
-                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 20px;">
+                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto;  display: flex; flex-direction: column; gap: 20px;">
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
-                    <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px; overflow-x: auto;">
+                    <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; min-height: 800px; ">
                         <!-- Content loaded by workbookManager.js / OiTool -->
                     </div>
 
@@ -1590,7 +1590,7 @@
                 </div>
 
                 <!-- SUB-TAB 3: Rollover Analysis -->
-                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow: auto;">
+                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; ">
                     <!-- Content loaded by workbookManager.js / RolloverTool -->
                 </div>
 
@@ -1616,7 +1616,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-x: auto; max-width: 100%;">
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;  max-width: 100%;">
                         <table class="data-table" id="mwpl-analysis-table" style="width: 100%;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
@@ -1635,7 +1635,7 @@
 
 
                 <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: auto; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto;  flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <select id="market-activity-days" class="history-input" style="width: 100px;" onchange="loadMarketActivity()">
                             <option value="5">5 Days</option>
@@ -1659,7 +1659,7 @@
                                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiChartInstance) exportChartDataToCSV(window.fiiDiiChartInstance, 'FII_DII_Net_Pos'); else if(typeof fiiDiiChartInstance !== 'undefined') exportChartDataToCSV(fiiDiiChartInstance, 'FII_DII_Net_Pos')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                             </div>
-                            <div style="flex: 1; position: relative; overflow-x: auto; overflow-y: hidden;">
+                            <div style="flex: 1; position: relative;  overflow-y: hidden;">
                                 <div style="min-width: 800px; height: 100%;">
                                     <canvas id="fiiDiiChart"></canvas>
                                 </div>
@@ -1747,7 +1747,7 @@
                 </div>
 
                 <!-- SUB-TAB 5: Adv Technicals -->
-                <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto;  flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                         <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
                         <button class="btn btn-secondary" id="btn-load-adv-tech" onclick="loadDynamicChart()">Load Chart</button>
