@@ -82,7 +82,7 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: 500px; overflow-y: auto; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
@@ -151,6 +151,13 @@ const OiTool = {
     },
 
     loadAggregatedData: async function() {
+        const refreshBtn = document.getElementById('oi-refresh-btn');
+        let originalBtnHtml = "";
+        if (refreshBtn) {
+            originalBtnHtml = refreshBtn.innerHTML;
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        }
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
@@ -195,6 +202,12 @@ const OiTool = {
         } catch(e) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        } finally {
+            const refreshBtn = document.getElementById('oi-refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = originalBtnHtml || '<i class="fas fa-sync"></i> Refresh All';
+            }
         }
     },
 
@@ -296,10 +309,11 @@ const OiTool = {
                 let callOColor = (d.call_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
                 let putOColor = (d.put_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
 
-                const futOiRaw = Math.round(((d.fut_oi || 0) * (d.fut_oi_chg_pct || 0)) / 100) || 0;
-                const callOiRaw = Math.round(((d.call_oi || 0) * (d.call_oi_chg_pct || 0)) / 100) || 0;
-                const putOiRaw = Math.round(((d.put_oi || 0) * (d.put_oi_chg_pct || 0)) / 100) || 0;
-                const totalOiRaw = Math.round(((d.total_oi || 0) * (d.oi_chg_pct || 0)) / 100) || 0;
+                // Use backend raw changes if available, else fallback to math
+                const futOiRaw = d.fut_oi_chg !== undefined ? d.fut_oi_chg : Math.round(((d.fut_oi || 0) * (d.fut_oi_chg_pct || 0)) / 100) || 0;
+                const callOiRaw = d.call_oi_chg !== undefined ? d.call_oi_chg : Math.round(((d.call_oi || 0) * (d.call_oi_chg_pct || 0)) / 100) || 0;
+                const putOiRaw = d.put_oi_chg !== undefined ? d.put_oi_chg : Math.round(((d.put_oi || 0) * (d.put_oi_chg_pct || 0)) / 100) || 0;
+                const totalOiRaw = d.oi_chg !== undefined ? d.oi_chg : Math.round(((d.total_oi || 0) * (d.oi_chg_pct || 0)) / 100) || 0;
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
@@ -372,6 +386,7 @@ const OiTool = {
                         <th style="padding: 4px;">OI Chg %</th>
                         <th style="padding: 4px;">Price</th>
                         <th style="padding: 4px;">Price Chg %</th>
+                        <th style="padding: 4px;">Inference</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -384,6 +399,7 @@ const OiTool = {
                     <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
                     <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 4px; color: ${oColor};">${d.interpretation || '-'}</td>
                 </tr>`;
             });
 
@@ -485,7 +501,11 @@ const OiTool = {
     },
 
     filterData: function() {
-        this.renderAggregatedView();
+        if (!this.allData || this.allData.length === 0) {
+            this.loadAggregatedData();
+        } else {
+            this.renderAggregatedView();
+        }
     },
 
     sortData: function(col) {
@@ -504,6 +524,13 @@ const OiTool = {
 
         if (!symbol) return;
 
+        const singleBtn = document.querySelector('button[onclick="OiTool.analyzeSingle()"]');
+        let originalSingleBtnHtml = "";
+        if (singleBtn) {
+            originalSingleBtnHtml = singleBtn.innerHTML;
+            singleBtn.disabled = true;
+            singleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        }
         chartArea.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Loading Single Symbol Analysis...</p>';
 
         // Filter the table to just show this symbol instead of hiding it
@@ -521,6 +548,12 @@ const OiTool = {
 
         } catch (e) {
             chartArea.innerHTML = `<p style="color: red; padding: 20px;">Error: ${e.message}</p>`;
+        } finally {
+            const singleBtn = document.querySelector('button[onclick="OiTool.analyzeSingle()"]');
+            if (singleBtn) {
+                singleBtn.disabled = false;
+                singleBtn.innerHTML = originalSingleBtnHtml || 'Load Single Symbol History';
+            }
         }
     },
 

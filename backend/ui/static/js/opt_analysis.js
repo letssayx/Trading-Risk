@@ -111,15 +111,6 @@ async function loadOptionsAnalysis() {
                 },
                 {
                     type: 'value',
-                    name: 'OI Change %',
-                    position: 'right',
-                    gridIndex: 1,
-                    splitLine: { show: false },
-                    axisLabel: { color: '#888', formatter: '{value}%' },
-                    nameTextStyle: { color: '#888' }
-                },
-                {
-                    type: 'value',
                     name: 'PCR',
                     position: 'left',
                     gridIndex: 2,
@@ -186,7 +177,7 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
-                    yAxisIndex: 3
+                    yAxisIndex: 2
                 }
             ]
         };
@@ -295,38 +286,75 @@ async function loadOptionsAnalysis() {
                 data: ['Call OI', 'Put OI'],
                 textStyle: { color: '#ccc' }
             },
-            grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-            xAxis: {
-                type: 'value',
-                axisLabel: {
-                    color: '#888',
-                    formatter: function (value) { return Math.abs(value); }
+            grid: [
+                { left: '3%', width: '40%', bottom: '3%', top: '10%', containLabel: true },
+                { left: '50%', width: '0%', bottom: '3%', top: '10%', containLabel: false }, // Center space for labels
+                { right: '3%', width: '40%', bottom: '3%', top: '10%', containLabel: true }
+            ],
+            xAxis: [
+                {
+                    type: 'value',
+                    gridIndex: 0,
+                    inverse: true, // Calls extend leftwards
+                    axisLabel: {
+                        color: '#888',
+                        formatter: function (value) { return Math.abs(value); }
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
-                splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-            },
-            yAxis: {
-                type: 'category',
-                data: strikes,
-                axisLabel: { color: '#FFCC00', fontWeight: 'bold' },
-                axisLine: { show: false },
-                axisTick: { show: false },
-                splitLine: { show: true, lineStyle: { color: '#222' } }
-            },
+                {
+                    type: 'value',
+                    gridIndex: 2,
+                    axisLabel: {
+                        color: '#888'
+                    },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'category',
+                    gridIndex: 0,
+                    data: strikes,
+                    axisLabel: { show: false }, // Hide left y-axis labels to prevent overlap
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                },
+                {
+                    type: 'category',
+                    gridIndex: 1,
+                    data: strikes,
+                    axisLabel: { color: '#FFCC00', fontWeight: 'bold', align: 'center' }, // Center labels
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: false }
+                },
+                {
+                    type: 'category',
+                    gridIndex: 2,
+                    data: strikes,
+                    axisLabel: { show: false }, // Hide right labels
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                }
+            ],
             series: [
                 {
                     name: 'Call OI',
                     type: 'bar',
-                    stack: 'Total',
-                    label: { show: false },
-                    itemStyle: { color: '#3176B8' }, // Blue
-                    data: ce_oi
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    itemStyle: { color: '#E88B1E' }, // Orange Calls
+                    data: ce_oi.map(v => Math.abs(v))
                 },
                 {
                     name: 'Put OI',
                     type: 'bar',
-                    stack: 'Total',
-                    label: { show: false },
-                    itemStyle: { color: '#E88B1E' }, // Orange
+                    xAxisIndex: 1,
+                    yAxisIndex: 2,
+                    itemStyle: { color: '#3176B8' }, // Blue Puts
                     data: pe_oi
                 }
             ]
