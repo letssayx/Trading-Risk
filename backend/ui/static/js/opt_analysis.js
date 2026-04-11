@@ -182,43 +182,6 @@ async function loadOptionsAnalysis() {
             ]
         };
         pcrChartInstance.setOption(option);
-
-        // Render 10-day history table below the chart
-        const tbody = document.getElementById('opt-analysis-history-body');
-        if (tbody) {
-            tbody.innerHTML = '';
-            if (data.dates && data.dates.length > 0) {
-                const latestDataPoints = Math.min(10, data.dates.length);
-                const startIdx = data.dates.length - latestDataPoints;
-
-                for (let i = data.dates.length - 1; i >= startIdx; i--) {
-                    const tr = document.createElement('tr');
-                    const d = data.dates[i];
-                    const p = data.price[i];
-                    const oi = data.total_oi[i];
-                    const pcr = data.pcr[i];
-                    const pChg = priceChangePct[i];
-                    const oiChg = oiChangePct[i];
-                    const iv = data.atm_iv ? data.atm_iv[i] : 0;
-
-                    let pColor = pChg >= 0 ? '#60a5fa' : '#f44336';
-                    let oColor = oiChg >= 0 ? '#60a5fa' : '#f44336';
-
-                    tr.innerHTML = `
-                        <td style="padding: 6px;">${d}</td>
-                        <td style="padding: 6px;">${p ? p.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px; color: ${pColor};">${pChg !== undefined ? pChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${oi ? oi.toLocaleString() : '-'}</td>
-                        <td style="padding: 6px; color: ${oColor};">${oiChg !== undefined ? oiChg.toFixed(2) + '%' : '-'}</td>
-                        <td style="padding: 6px;">${pcr ? pcr.toFixed(2) : '-'}</td>
-                        <td style="padding: 6px;">${iv ? iv.toFixed(2) + '%' : '-'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-            } else {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">No historical data available.</td></tr>';
-            }
-        }
     } catch (e) {
         console.error("Error loading PCR history:", e);
     }

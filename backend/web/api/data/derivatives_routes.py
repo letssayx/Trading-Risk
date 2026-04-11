@@ -200,7 +200,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
 
 @router.get("/api/data/analysis/oi")
-def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
+def get_aggregated_oi_analysis(days: int = Query(30), db: Session = Depends(get_db)):
     """
     Retrieves OI vs Price Quadrant Analysis.
     """
@@ -208,10 +208,11 @@ def get_aggregated_oi_analysis(db: Session = Depends(get_db)):
         from backend.ingest.nse_models import OiAnalysisMetrics, SymbolMaster
         from sqlalchemy import desc
 
+        limit_days = min(days + 1, 60) # Limit to a max to be safe, get days+1 for calculations if needed
         dates_query = db.query(OiAnalysisMetrics.trade_date)\
             .distinct()\
             .order_by(desc(OiAnalysisMetrics.trade_date))\
-            .limit(31).all()
+            .limit(limit_days).all()
 
         if not dates_query:
             return {"data": []}

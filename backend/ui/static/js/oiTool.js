@@ -52,6 +52,13 @@ const OiTool = {
                         <option value="highest_price_chg_60">Highest Price Chg (60 Days)</option>
                     </select>
 
+                    <select id="oi-days-filter" class="form-control history-input" style="width: 100px; padding: 4px;" onchange="OiTool.loadAggregatedData(true)">
+                        <option value="7">7 Days</option>
+                        <option value="14">14 Days</option>
+                        <option value="21">21 Days</option>
+                        <option value="30" selected>30 Days</option>
+                    </select>
+
                     <button id="oi-refresh-btn" onclick="OiTool.loadAggregatedData(true)" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
@@ -82,7 +89,7 @@ const OiTool = {
                     </div>
 
                     <!-- Table Area -->
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: 500px; overflow-y: auto; display: flex; flex-direction: column;">
+                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: 650px; overflow-y: auto; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
@@ -161,13 +168,15 @@ const OiTool = {
         const tbody = document.getElementById('oi-analysis-body');
         const chartArea = document.getElementById('oi-chart-area');
         const dateDisplay = document.getElementById('oi-date-display');
+        const daysFilter = document.getElementById('oi-days-filter');
+        const days = daysFilter ? daysFilter.value : 30;
 
         if (!tbody || !chartArea) return;
 
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            const res = await fetch('/api/data/analysis/oi');
+            const res = await fetch(`/api/data/analysis/oi?days=${days}`);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
 
@@ -303,17 +312,18 @@ const OiTool = {
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
 
-                if (index >= 30) return; // Limit to 30 rows
-
                 let futOColor = (d.fut_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
                 let callOColor = (d.call_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
                 let putOColor = (d.put_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
 
                 // Use backend raw changes if available, else fallback to math
-                const futOiRaw = d.fut_oi_chg !== undefined ? d.fut_oi_chg : Math.round(((d.fut_oi || 0) * (d.fut_oi_chg_pct || 0)) / 100) || 0;
-                const callOiRaw = d.call_oi_chg !== undefined ? d.call_oi_chg : Math.round(((d.call_oi || 0) * (d.call_oi_chg_pct || 0)) / 100) || 0;
-                const putOiRaw = d.put_oi_chg !== undefined ? d.put_oi_chg : Math.round(((d.put_oi || 0) * (d.put_oi_chg_pct || 0)) / 100) || 0;
-                const totalOiRaw = d.oi_chg !== undefined ? d.oi_chg : Math.round(((d.total_oi || 0) * (d.oi_chg_pct || 0)) / 100) || 0;
+                const baseFutOi = d.fut_oi !== undefined ? d.fut_oi : d.oi || 0;
+                const futOiRaw = (d.fut_oi_chg !== undefined && d.fut_oi_chg !== 0) ? d.fut_oi_chg : Math.round((baseFutOi * (d.fut_oi_chg_pct || d.oi_chg_pct || 0)) / 100) || 0;
+                const callOiRaw = (d.call_oi_chg !== undefined && d.call_oi_chg !== 0) ? d.call_oi_chg : Math.round(((d.call_oi || 0) * (d.call_oi_chg_pct || 0)) / 100) || 0;
+                const putOiRaw = (d.put_oi_chg !== undefined && d.put_oi_chg !== 0) ? d.put_oi_chg : Math.round(((d.put_oi || 0) * (d.put_oi_chg_pct || 0)) / 100) || 0;
+                const totalOiRaw = (d.put_oi_chg !== undefined && d.call_oi_chg !== undefined && d.fut_oi_chg !== undefined && (d.put_oi_chg !== 0 || d.call_oi_chg !== 0 || d.fut_oi_chg !== 0))
+                                    ? (d.put_oi_chg + d.call_oi_chg + d.fut_oi_chg)
+                                    : Math.round(((d.total_oi || 0) * (d.oi_chg_pct || 0)) / 100) || 0;
 
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
@@ -322,7 +332,7 @@ const OiTool = {
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
                     <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
-                    <td style="padding: 8px;">${(d.fut_oi || d.oi || 0).toLocaleString()}</td>
+                    <td style="padding: 8px;">${baseFutOi.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${futOColor};">${futOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${futOColor};">${(d.fut_oi_chg_pct || d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${(d.call_oi || 0).toLocaleString()}</td>
@@ -340,7 +350,9 @@ const OiTool = {
                 </tr>`;
 
                 if (d.history && d.history.length > 1) {
-                    d.history.slice(1, 7).forEach(h => {
+                    const daysFilter = document.getElementById('oi-days-filter');
+                    const days = daysFilter ? parseInt(daysFilter.value, 10) : 30;
+                    d.history.slice(1, days).forEach(h => {
                         let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                         // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
