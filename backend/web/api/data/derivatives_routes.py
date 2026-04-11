@@ -70,7 +70,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
         ).filter(
             BhavcopyFO.trade_date.in_(valid_dates),
             BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK'])
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
 
         sym_data = {}
@@ -84,7 +84,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
                 if sym_data[sym][dt]["price"] is None:
                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
-            elif r.instrument_type in ['OPTIDX', 'OPTSTK']:
+            elif r.instrument_type in ['OPTIDX', 'OPTSTK', 'STO', 'IDO']:
                 if r.option_type == 'CE':
                     sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
                 elif r.option_type == 'PE':
