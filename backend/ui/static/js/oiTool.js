@@ -31,7 +31,7 @@ const OiTool = {
                 .oi-history-table th, .oi-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
                 .oi-history-table th { background: #111; color: #888; }
             </style>
-            <div style="color: #ccc; height: 100%; display: flex; flex-direction: column; flex: 1; min-width: 0;">
+            <div style="color: #ccc; display: flex; flex-direction: column; flex: 1; min-width: 0;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
                     <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
@@ -64,7 +64,7 @@ const OiTool = {
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; overflow: visible; padding-bottom: 20px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
                     <!-- Top Derived Info Panels -->
                     <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
@@ -93,7 +93,7 @@ const OiTool = {
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0;">
                             <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div style="max-height: 500px; overflow-y: auto; overflow-x: auto;">
+                        <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                     <tr>

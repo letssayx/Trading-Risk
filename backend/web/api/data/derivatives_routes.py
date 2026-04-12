@@ -27,6 +27,25 @@ def sync_aggregated_oi_analysis(db: Session = Depends(get_db)):
 
         latest_metric_date = db.query(func.max(OiAnalysisMetrics.trade_date)).scalar()
 
+        # Check for corrupted/empty metric records
+        if latest_metric_date:
+            corrupt_count = db.query(OiAnalysisMetrics).filter(
+                OiAnalysisMetrics.trade_date == latest_metric_date,
+                OiAnalysisMetrics.fut_oi == 0,
+                OiAnalysisMetrics.call_oi == 0,
+                OiAnalysisMetrics.put_oi == 0
+            ).count()
+
+            # If all rows for the latest date have 0 OI, assume it was corrupted by earlier bugs
+            if corrupt_count > 0:
+                total_count = db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == latest_metric_date).count()
+                if corrupt_count >= total_count * 0.9: # If 90%+ is corrupt
+                    # Delete the corrupted date so it forces a recompute for it
+                    db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == latest_metric_date).delete()
+                    db.commit()
+                    # Re-fetch latest metric date
+                    latest_metric_date = db.query(func.max(OiAnalysisMetrics.trade_date)).scalar()
+
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date:
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
@@ -102,18 +121,21 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
             if sym not in sym_data:
                 sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0} for d in valid_dates}
 
-            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'STF', 'IDF'] or (r.instrument_type and r.instrument_type.startswith('FUT')):
+            inst_type_up = r.instrument_type.upper().strip() if r.instrument_type else ""
+            opt_type_up = r.option_type.upper().strip() if r.option_type else ""
+
+            if inst_type_up in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'STF', 'IDF'] or inst_type_up.startswith('FUT') or (inst_type_up == '' and opt_type_up == ''):
                 sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
                 if sym_data[sym][dt]["price"] is None:
                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
-            elif r.instrument_type in ['OPTIDX', 'OPTSTK', 'STO', 'IDO'] or (r.instrument_type and r.instrument_type.startswith('OPT')) or (r.option_type and r.option_type.strip().upper() in ['CE', 'PE']):
-                opt_type = r.option_type.strip().upper() if r.option_type else ''
-                if opt_type == 'CE':
+
+            if inst_type_up in ['OPTIDX', 'OPTSTK', 'STO', 'IDO'] or inst_type_up.startswith('OPT') or opt_type_up in ['CE', 'PE'] or (inst_type_up == '' and opt_type_up in ['CE', 'PE']):
+                if opt_type_up == 'CE':
                     sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
-                elif opt_type == 'PE':
+                elif opt_type_up == 'PE':
                     sym_data[sym][dt]["put_oi"] += int(r.open_interest) if r.open_interest else 0
 
-            if r.instrument_type in ['STF', 'IDF']:
+            if inst_type_up in ['STF', 'IDF'] or inst_type_up.startswith('FUT'):
                  if sym_data[sym][dt]["price"] is None:
                      sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
 
