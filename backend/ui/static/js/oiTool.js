@@ -31,7 +31,7 @@ const OiTool = {
                 .oi-history-table th, .oi-history-table td { padding: 6px 8px; border-bottom: 1px solid #222; text-align: left; }
                 .oi-history-table th { background: #111; color: #888; }
             </style>
-            <div style="color: #ccc; display: flex; flex-direction: column; flex: 1; min-width: 0;">
+            <div style="color: #ccc; display: flex; flex-direction: column; flex-shrink: 0; min-width: 0;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
                     <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
@@ -438,7 +438,7 @@ const OiTool = {
                 let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
-                    <td style="padding: 4px; color: ${oColor};">${d.oi_chg_pct}%</td>
+                    <td style="padding: 4px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 4px; color: ${oColor};">${d.interpretation || '-'}</td>
@@ -529,14 +529,14 @@ const OiTool = {
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
                 { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
             ],
-            dragmode: 'pan'
+            dragmode: 'zoom'
         };
 
         const config = {
             responsive: true,
             scrollZoom: true,
             displayModeBar: true,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'pan2d']
         };
 
         Plotly.newPlot(container, [trace], layout, config);
