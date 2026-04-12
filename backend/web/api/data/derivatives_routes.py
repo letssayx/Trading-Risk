@@ -31,14 +31,14 @@ def sync_aggregated_oi_analysis(db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         # If we reach here, we need to compute
-        return compute_aggregated_oi_analysis(db)
+        return compute_aggregated_oi_analysis(db, latest_metric_date=str(latest_metric_date) if latest_metric_date else None)
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
 @router.post("/api/data/analysis/oi/compute")
-def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
+def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
     """
     Computes OI vs Price Quadrant Analysis for all F&O symbols over 32 days and caches it.
     """
@@ -49,16 +49,38 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
         import datetime
         from sqlalchemy import desc
 
-        dates_query = db.query(BhavcopyFO.trade_date)\
+        latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
+
+        # First, find all dates in BhavcopyFO
+        all_dates_query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc())\
-                  .limit(32).all()
+                  .order_by(BhavcopyFO.trade_date.desc()).all()
 
-        if len(dates_query) < 2:
-            return {"status": "error", "message": f"Not enough data in BhavcopyFO. Found {len(dates_query)} dates."}
+        all_dates = [d[0] for d in all_dates_query]
 
-        valid_dates = [d[0] for d in dates_query]
+        if not all_dates:
+            return {"status": "error", "message": "No data found in BhavcopyFO."}
+
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:32] # Initial backfill
+
+        if not dates_to_compute:
+            return {"status": "success", "message": "No new dates to compute."}
+
+        # Need enough historical dates to compute 30-day changes for the oldest date to compute
+        # The oldest date to compute is dates_to_compute[-1]
+        oldest_idx = all_dates.index(dates_to_compute[-1])
+        # We need the current dates + 30 days of history beyond the oldest
+        max_idx = min(oldest_idx + 31, len(all_dates))
+        valid_dates = all_dates[:max_idx]
+
+        if len(valid_dates) < 2:
+            return {"status": "error", "message": f"Not enough data in BhavcopyFO. Found {len(valid_dates)} dates."}
+
 
         query = db.query(
             BhavcopyFO.ticker_symb,
@@ -84,10 +106,11 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
                 if sym_data[sym][dt]["price"] is None:
                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
-            elif r.instrument_type in ['OPTIDX', 'OPTSTK', 'STO', 'IDO'] or (r.instrument_type and r.instrument_type.startswith('OPT')) or r.option_type in ['CE', 'PE']:
-                if r.option_type == 'CE':
+            elif r.instrument_type in ['OPTIDX', 'OPTSTK', 'STO', 'IDO'] or (r.instrument_type and r.instrument_type.startswith('OPT')) or (r.option_type and r.option_type.strip().upper() in ['CE', 'PE']):
+                opt_type = r.option_type.strip().upper() if r.option_type else ''
+                if opt_type == 'CE':
                     sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
-                elif r.option_type == 'PE':
+                elif opt_type == 'PE':
                     sym_data[sym][dt]["put_oi"] += int(r.open_interest) if r.open_interest else 0
 
             if r.instrument_type in ['STF', 'IDF']:
@@ -106,6 +129,10 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
         for sym, date_dict in sym_data.items():
             for i in range(len(valid_dates)):
                 curr_date = valid_dates[i]
+
+                # Only insert/update rows for dates we need to compute
+                if curr_date not in dates_to_compute:
+                    continue
 
                 if i + 1 >= len(valid_dates): break
                 prev_date = valid_dates[i+1]
