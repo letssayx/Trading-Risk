@@ -28,7 +28,7 @@ def sync_aggregated_oi_analysis(db: Session = Depends(get_db)):
         latest_metric_date = db.query(func.max(OiAnalysisMetrics.trade_date)).scalar()
 
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date:
-            return {"status": "success", "message": "Data is already up to date.", "computed": False}
+            return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         # If we reach here, we need to compute
         return compute_aggregated_oi_analysis(db)
@@ -50,7 +50,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
         from sqlalchemy import desc
 
         dates_query = db.query(BhavcopyFO.trade_date)\
-                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
                   .distinct()\
                   .order_by(BhavcopyFO.trade_date.desc())\
                   .limit(32).all()
@@ -70,7 +70,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
         ).filter(
             BhavcopyFO.trade_date.in_(valid_dates),
             BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO'])
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE'])
         ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
 
         sym_data = {}
@@ -80,11 +80,11 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
             if sym not in sym_data:
                 sym_data[sym] = {d: {"price": None, "fut_oi": 0, "call_oi": 0, "put_oi": 0} for d in valid_dates}
 
-            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'STF', 'IDF']:
+            if r.instrument_type in ['FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'STF', 'IDF'] or (r.instrument_type and r.instrument_type.startswith('FUT')):
                 sym_data[sym][dt]["fut_oi"] += int(r.open_interest) if r.open_interest else 0
                 if sym_data[sym][dt]["price"] is None:
                     sym_data[sym][dt]["price"] = float(r.close_price) if r.close_price else 0.0
-            elif r.instrument_type in ['OPTIDX', 'OPTSTK', 'STO', 'IDO']:
+            elif r.instrument_type in ['OPTIDX', 'OPTSTK', 'STO', 'IDO'] or (r.instrument_type and r.instrument_type.startswith('OPT')) or r.option_type in ['CE', 'PE']:
                 if r.option_type == 'CE':
                     sym_data[sym][dt]["call_oi"] += int(r.open_interest) if r.open_interest else 0
                 elif r.option_type == 'PE':
@@ -150,7 +150,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db)):
                 call_oi_chg_pct_30d = ((c_ce_oi - d30_ce_oi) / d30_ce_oi * 100) if d30_ce_oi > 0 else 0
                 put_oi_chg_pct_30d = ((c_pe_oi - d30_pe_oi) / d30_pe_oi * 100) if d30_pe_oi > 0 else 0
 
-                pcr = (c_pe_oi / c_ce_oi) if c_ce_oi > 0 else 0
+                pcr = (c_pe_oi / c_ce_oi) if c_ce_oi and c_ce_oi > 0 else 0
 
                 atm_iv = atm_iv_map.get(sym, {}).get(curr_date, 0.0)
 
