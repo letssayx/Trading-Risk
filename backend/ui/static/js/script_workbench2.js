@@ -1905,7 +1905,7 @@
             ]
         };
 
-        highOiChartInstance.setOption(option);
+        window.highOiChartInstance.setOption(option);
     } catch (e) {
         console.error("Error loading high OI chart:", e);
     }

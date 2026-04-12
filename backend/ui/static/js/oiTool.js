@@ -364,7 +364,7 @@ const OiTool = {
                     <td style="padding: 8px; color: ${putOColor};">${putOiRaw.toLocaleString()}</td>
                     <td style="padding: 8px; color: ${putOColor};">${(d.put_oi_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 8px;">${d.pcr ? d.pcr.toFixed(2) : '-'}</td>
-                    <td style="padding: 8px;">${d.atm_iv ? d.atm_iv.toFixed(2) + '%' : '-'}</td>
+                    <td style="padding: 8px;">${(d.atm_iv !== undefined && d.atm_iv !== null && d.atm_iv !== 0) ? (typeof d.atm_iv === "string" ? parseFloat(d.atm_iv) : d.atm_iv).toFixed(2) + "%" : "-"}</td>
                     <td style="padding: 8px; font-weight: bold; color: ${color};">${d.interpretation}</td>
                 </tr>`;
 
@@ -397,7 +397,7 @@ const OiTool = {
                             <td style="padding: 6px 8px; color: ${putOColor};">${(h.put_oi_chg || 0).toLocaleString()}</td>
                             <td style="padding: 6px 8px; color: ${putOColor};">${(h.put_oi_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ccc;">${(h.pcr || 0).toFixed(2)}</td>
-                            <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: #ccc;">${(h.atm_iv !== undefined && h.atm_iv !== null && h.atm_iv !== 0) ? (typeof h.atm_iv === "string" ? parseFloat(h.atm_iv) : h.atm_iv).toFixed(2) + "%" : "-"}</td>
                             <td style="padding: 6px 8px; color: #555;">-</td>
                         </tr>`;
                     });

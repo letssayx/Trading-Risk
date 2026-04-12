@@ -1548,7 +1548,7 @@
                     </div>
 
                     <!-- Bottom section: Options Analysis Charts -->
-                    <div id="oi-options-charts-container" style="width: 100%; display: flex; flex-direction: column; gap: 20px;">
+                    <div id="oi-options-charts-container" style="width: 100%; display: flex; flex-direction: column; gap: 20px; flex-shrink: 0;">
                         <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0; margin-top: 20px; border-top: 1px solid #333; padding-top: 20px;">
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
                             <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
@@ -1562,7 +1562,7 @@
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
-                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.pcrChartInstance) exportChartDataToCSV(window.pcrChartInstance, 'PCR_History'); else exportChartDataToCSV(pcrChartInstance, 'PCR_History')"><i class="fas fa-download"></i> CSV</button>
+                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.pcrChartInstance) exportChartDataToCSV(window.pcrChartInstance, 'PCR_History'); else exportChartDataToCSV(window.pcrChartInstance, 'PCR_History')"><i class="fas fa-download"></i> CSV</button>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
                                             <option value="5">5 Days</option>
                                             <option value="30">30 Days</option>
@@ -1580,7 +1580,7 @@
                             <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
 
@@ -2787,10 +2787,10 @@ function exportChartDataToCSV(chartInstance, filename) {
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
     // Managed in opt_analysis.js to prevent duplicate declarations
-    if (typeof pcrChartInstance === 'undefined') {
+    if (typeof window.pcrChartInstance === 'undefined') {
         window.pcrChartInstance = null;
     }
-    if (typeof highOiChartInstance === 'undefined') {
+    if (typeof window.highOiChartInstance === 'undefined') {
         window.highOiChartInstance = null;
     }
 
@@ -2834,8 +2834,8 @@ function exportChartDataToCSV(chartInstance, filename) {
             });
 
             const chartDom = document.getElementById('opt-analysis-high-oi-chart');
-            if (highOiChartInstance) highOiChartInstance.dispose();
-            highOiChartInstance = echarts.init(chartDom);
+            if (window.highOiChartInstance) window.highOiChartInstance.dispose();
+            window.highOiChartInstance = echarts.init(chartDom);
 
             const option = {
                 backgroundColor: 'transparent',
@@ -2907,7 +2907,7 @@ function exportChartDataToCSV(chartInstance, filename) {
                 return Math.abs(value);
             };
 
-            highOiChartInstance.setOption(option);
+            window.highOiChartInstance.setOption(option);
         } catch (e) {
             console.error("Error loading high OI chart:", e);
         }
@@ -3651,8 +3651,8 @@ function exportChartDataToCSV(chartInstance, filename) {
         if (echartInstance) echartInstance.resize();
         if (volPreExpiryChart) volPreExpiryChart.resize();
         if (volConeChart) volConeChart.resize();
-        if (pcrChartInstance) pcrChartInstance.resize();
-        if (highOiChartInstance) highOiChartInstance.resize();
+        if (window.pcrChartInstance) window.pcrChartInstance.resize();
+        if (window.highOiChartInstance) window.highOiChartInstance.resize();
     });
 </script>
 <script>

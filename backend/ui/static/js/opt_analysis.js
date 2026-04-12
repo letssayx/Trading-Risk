@@ -24,9 +24,10 @@ async function loadOptionsAnalysis() {
         if (!data || !data.dates || data.dates.length === 0) {
             chartDom.innerHTML = '<p style="text-align:center; color:#888;">No historical data found.</p>';
             return;
+
         }
-        if (pcrChartInstance) pcrChartInstance.dispose();
-        pcrChartInstance = echarts.init(chartDom);
+        if (window.pcrChartInstance) window.pcrChartInstance.dispose();
+        window.pcrChartInstance = echarts.init(chartDom);
 
         const oiColors = data.total_oi.map((val, idx) => {
             if (idx === 0) return '#60a5fa';
@@ -185,7 +186,7 @@ async function loadOptionsAnalysis() {
                 }
             ]
         };
-        pcrChartInstance.setOption(option);
+        window.pcrChartInstance.setOption(option);
     } catch (e) {
         console.error("Error loading PCR history:", e);
     }
@@ -201,6 +202,7 @@ async function loadOptionsAnalysis() {
             console.error('API Error:', data.error || 'No Option Chain data found.');
             chartDom.innerHTML = '<p style="text-align:center; color:#888;">No Option Chain data found.</p>';
             return;
+
         }
 
         const strikes = [];
@@ -233,8 +235,8 @@ async function loadOptionsAnalysis() {
             pe_oi.push(row.PE.oi || 0);
         });
 
-        if (highOiChartInstance) highOiChartInstance.dispose();
-        highOiChartInstance = echarts.init(chartDom);
+        if (window.highOiChartInstance) window.highOiChartInstance.dispose();
+        window.highOiChartInstance = echarts.init(chartDom);
 
         const option = {
             backgroundColor: 'transparent',
@@ -321,14 +323,14 @@ async function loadOptionsAnalysis() {
                     name: 'Put OI',
                     type: 'bar',
                     xAxisIndex: 1,
-                    yAxisIndex: 2,
+                    yAxisIndex: 1,
                     itemStyle: { color: '#3176B8' }, // Blue Puts
                     data: pe_oi
                 }
             ]
         };
 
-        highOiChartInstance.setOption(option);
+        window.highOiChartInstance.setOption(option);
     } catch (e) {
         console.error("Error loading high OI chart:", e);
     }
@@ -340,10 +342,10 @@ async function loadOptionsAnalysis() {
 }
 
 window.addEventListener('resize', function () {
-    if (typeof pcrChartInstance !== 'undefined' && pcrChartInstance) {
-        pcrChartInstance.resize();
+    if (typeof window.pcrChartInstance !== 'undefined' && window.pcrChartInstance) {
+        window.pcrChartInstance.resize();
     }
-    if (typeof highOiChartInstance !== 'undefined' && highOiChartInstance) {
-        highOiChartInstance.resize();
+    if (typeof window.highOiChartInstance !== 'undefined' && window.highOiChartInstance) {
+        window.highOiChartInstance.resize();
     }
 });
