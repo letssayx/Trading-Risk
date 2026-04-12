@@ -21,6 +21,10 @@ async function loadOptionsAnalysis() {
         let data = await res.json();
 
         const chartDom = document.getElementById('opt-analysis-pcr-chart');
+        if (!data || !data.dates || data.dates.length === 0) {
+            chartDom.innerHTML = '<p style="text-align:center; color:#888;">No historical data found.</p>';
+            return;
+        }
         if (pcrChartInstance) pcrChartInstance.dispose();
         pcrChartInstance = echarts.init(chartDom);
 
@@ -47,7 +51,7 @@ async function loadOptionsAnalysis() {
             legend: { data: ['Price (FUT1)', 'Total OI', 'OI Change %', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
             grid: [
                 { left: '12%', right: '8%', top: '10%', height: '35%' },   // Top pane: Price
-                { left: '12%', right: '8%', top: '48%', height: '22%' },   // Middle pane: OI
+                { left: '12%', right: '8%', top: '48%', height: '20%' },   // Middle pane: OI
                 { left: '12%', right: '8%', top: '72%', height: '15%' }    // Bottom pane: PCR
             ],
             axisPointer: { link: { xAxisIndex: 'all' }, label: { backgroundColor: '#777' } },
@@ -193,7 +197,8 @@ async function loadOptionsAnalysis() {
 
         const chartDom = document.getElementById('opt-analysis-high-oi-chart');
 
-        if (!data || !data.data || data.data.length === 0) {
+        if (data.error || !data || !data.data || data.data.length === 0) {
+            console.error('API Error:', data.error || 'No Option Chain data found.');
             chartDom.innerHTML = '<p style="text-align:center; color:#888;">No Option Chain data found.</p>';
             return;
         }
@@ -250,9 +255,9 @@ async function loadOptionsAnalysis() {
                 textStyle: { color: '#ccc' }
             },
             grid: [
-                { left: '3%', width: '40%', bottom: '3%', top: '10%', containLabel: true },
-                { left: '50%', width: '0%', bottom: '3%', top: '10%', containLabel: false }, // Center space for labels
-                { right: '3%', width: '40%', bottom: '3%', top: '10%', containLabel: true }
+                { left: '5%', right: '55%', bottom: '5%', top: '10%', containLabel: true },
+                { left: '45%', right: '45%', bottom: '5%', top: '10%', containLabel: false },
+                { left: '55%', right: '5%', bottom: '5%', top: '10%', containLabel: true }
             ],
             xAxis: [
                 {
@@ -333,3 +338,12 @@ async function loadOptionsAnalysis() {
         loadBtn.innerHTML = originalText;
     }
 }
+
+window.addEventListener('resize', function () {
+    if (typeof pcrChartInstance !== 'undefined' && pcrChartInstance) {
+        pcrChartInstance.resize();
+    }
+    if (typeof highOiChartInstance !== 'undefined' && highOiChartInstance) {
+        highOiChartInstance.resize();
+    }
+});
