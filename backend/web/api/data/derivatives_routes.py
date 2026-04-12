@@ -130,11 +130,12 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
             for i in range(len(valid_dates)):
                 curr_date = valid_dates[i]
 
+                if i + 1 >= len(valid_dates): break
+
                 # Only insert/update rows for dates we need to compute
                 if curr_date not in dates_to_compute:
                     continue
 
-                if i + 1 >= len(valid_dates): break
                 prev_date = valid_dates[i+1]
 
                 date_30d_idx = min(i + 30, len(valid_dates) - 1)
@@ -165,17 +166,17 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
                 call_oi_chg = c_ce_oi - p_ce_oi
                 put_oi_chg = c_pe_oi - p_pe_oi
 
-                fut_oi_chg_pct = (fut_oi_chg / p_fut_oi * 100) if p_fut_oi > 0 else 0
-                call_oi_chg_pct = (call_oi_chg / p_ce_oi * 100) if p_ce_oi > 0 else 0
-                put_oi_chg_pct = (put_oi_chg / p_pe_oi * 100) if p_pe_oi > 0 else 0
+                fut_oi_chg_pct = (fut_oi_chg / abs(p_fut_oi) * 100) if p_fut_oi != 0 else 0
+                call_oi_chg_pct = (call_oi_chg / abs(p_ce_oi) * 100) if p_ce_oi != 0 else 0
+                put_oi_chg_pct = (put_oi_chg / abs(p_pe_oi) * 100) if p_pe_oi != 0 else 0
 
                 total_oi_c = c_fut_oi + c_ce_oi + c_pe_oi
                 total_oi_p = p_fut_oi + p_ce_oi + p_pe_oi
-                oi_chg_pct = ((total_oi_c - total_oi_p) / total_oi_p * 100) if total_oi_p > 0 else 0
+                oi_chg_pct = ((total_oi_c - total_oi_p) / abs(total_oi_p) * 100) if total_oi_p != 0 else 0
 
-                fut_oi_chg_pct_30d = ((c_fut_oi - d30_fut_oi) / d30_fut_oi * 100) if d30_fut_oi > 0 else 0
-                call_oi_chg_pct_30d = ((c_ce_oi - d30_ce_oi) / d30_ce_oi * 100) if d30_ce_oi > 0 else 0
-                put_oi_chg_pct_30d = ((c_pe_oi - d30_pe_oi) / d30_pe_oi * 100) if d30_pe_oi > 0 else 0
+                fut_oi_chg_pct_30d = ((c_fut_oi - d30_fut_oi) / abs(d30_fut_oi) * 100) if d30_fut_oi != 0 else 0
+                call_oi_chg_pct_30d = ((c_ce_oi - d30_ce_oi) / abs(d30_ce_oi) * 100) if d30_ce_oi != 0 else 0
+                put_oi_chg_pct_30d = ((c_pe_oi - d30_pe_oi) / abs(d30_pe_oi) * 100) if d30_pe_oi != 0 else 0
 
                 pcr = (c_pe_oi / c_ce_oi) if c_ce_oi and c_ce_oi > 0 else 0
 
