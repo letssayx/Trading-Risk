@@ -4,8 +4,6 @@ from sqlalchemy.ext.declarative import declarative_base
 import os
 import logging
 from dotenv import load_dotenv
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://jules@localhost/turtle_terminal")
 
 load_dotenv()
 

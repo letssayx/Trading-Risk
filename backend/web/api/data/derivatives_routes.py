@@ -90,6 +90,16 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute."}
 
+        # BEFORE COMPUTING METRICS, UPDATE HISTORICAL ATM IV if needed
+        try:
+            from backend.analysis.historical_iv_calculator import calculate_historical_atm_iv
+            from sqlalchemy import text
+            unique_syms = db.execute(text("SELECT DISTINCT ticker_symb FROM bhavcopy_fo WHERE trade_date = ANY(:dates)") , {"dates": dates_to_compute}).fetchall()
+            for (sym,) in unique_syms:
+                calculate_historical_atm_iv(db, sym, lookback_days=len(dates_to_compute) + 10)
+        except Exception as e:
+            print(f"Failed to pre-compute ATM IV: {e}")
+
         # Need enough historical dates to compute 30-day changes for the oldest date to compute
         # The oldest date to compute is dates_to_compute[-1]
         oldest_idx = all_dates.index(dates_to_compute[-1])

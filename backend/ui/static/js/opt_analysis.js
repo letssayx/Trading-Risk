@@ -158,7 +158,7 @@ async function loadOptionsAnalysis() {
                         color: (params) => params.value >= 0 ? '#60a5fa' : '#f44336'
                     },
                     xAxisIndex: 1,
-                    yAxisIndex: 2, // Secondary Y axis for percentages
+                    yAxisIndex: 3, // Secondary Y axis for percentages
                     barGap: '0%',
                     label: {
                         show: true,
@@ -182,7 +182,7 @@ async function loadOptionsAnalysis() {
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
-                    yAxisIndex: 2
+                    yAxisIndex: 3
                 }
             ]
         };
@@ -323,7 +323,7 @@ async function loadOptionsAnalysis() {
                     name: 'Put OI',
                     type: 'bar',
                     xAxisIndex: 1,
-                    yAxisIndex: 1,
+                    yAxisIndex: 2,
                     itemStyle: { color: '#3176B8' }, // Blue Puts
                     data: pe_oi
                 }
