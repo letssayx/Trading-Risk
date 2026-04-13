@@ -2768,6 +2768,11 @@ async function loadAllIVSummary(event) {
     }
 
     try {
+        const force = document.getElementById('vol-force-refresh') && document.getElementById('vol-force-refresh').checked;
+        if (force) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Checking for new data and syncing...</td></tr>';
+            await fetch(`/api/data/analysis/volatility/sync?force=true`, { method: 'POST' });
+        }
         const res = await fetch(`/api/data/derivatives/volatility_summary_all?expiry_type=${expiryType}`);
         const result = await res.json();
 

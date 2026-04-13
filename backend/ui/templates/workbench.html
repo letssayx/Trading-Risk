@@ -1317,7 +1317,8 @@
                             <div style="display: flex; gap: 10px; align-items: center;">
                                 <input type="text" id="mw-custom-symbol" class="form-control history-input" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
                                 <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
-                                <button class="btn btn-secondary" onclick="loadMarketWatch()"><i class="fas fa-sync"></i> Refresh Data</button>
+                                <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="mw-force-refresh"> Force</label>
+                                <button class="btn btn-secondary" onclick="loadMarketWatch(true)"><i class="fas fa-sync"></i> Refresh Data</button>
                                 <button class="btn btn-secondary" onclick="exportTableToCSV('marketwatch-table', 'Basis_Watch')"><i class="fas fa-download"></i> CSV</button>
                             </div>
                         </div>
@@ -1470,7 +1471,10 @@
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <h3 style="margin: 0; font-size: 14px; color: #ccc;">IV Summary</h3>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" id="btn-load-all-iv" onclick="loadAllIVSummary(event)">Load All F&O</button>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="vol-force-refresh"> Force</label>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" id="btn-load-all-iv" onclick="loadAllIVSummary(event)">Load All F&O</button>
+                                </div>
                             </div>
                             <div class="table-wrapper" style="flex: 1; max-height: 300px; overflow-y: auto;">
                                 <table class="data-table" style="width: 100%; text-align: left;">
@@ -3366,13 +3370,22 @@ function exportChartDataToCSV(chartInstance, filename) {
         }
     }
 
-    async function loadMarketWatch() {
+    async function loadMarketWatch(isRefresh = false) {
         const tbody = document.getElementById('marketwatch-body');
         // The user explicitly requested to remove the date input requirement for marketwatch.
         // It will automatically pull the latest F&O data.
         tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
+            if (isRefresh) {
+                const force = document.getElementById('mw-force-refresh') && document.getElementById('mw-force-refresh').checked;
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Checking for new data and syncing Basis...</td></tr>';
+                await fetch(`/api/data/analysis/basis/sync?force=${force}`, { method: 'POST' });
+            }
+
+            // Note: The UI for Basis Watch previously mapped to 'marketwatch' endpoint. To keep backward UI compatibility,
+            // we will still fetch from marketwatch endpoint which dynamically calculates standard columns, but now the syncing occurs.
+            // If the user wants the exact 8 metrics table, we could use the new `/api/data/analysis/basis` directly in a new UI.
             const url = marketWatchCustomSymbols.length > 0 ?
                         `/api/data/derivatives/marketwatch?custom_symbols=${marketWatchCustomSymbols.join(',')}` :
                         '/api/data/derivatives/marketwatch';
