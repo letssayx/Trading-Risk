@@ -458,134 +458,73 @@ def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
 @router.get("/api/data/analysis/rollover")
 def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
     """
-    Computes Rollover Analysis metrics for all F&O symbols on the latest trading day.
+    Computes Rollover Analysis metrics for all F&O symbols on the latest trading day directly from RolloverAnalysisMetrics.
     """
     try:
-        # Get latest date
-        from backend.ingest.nse_models import BhavcopyEQ
-        latest_date_query = db.query(BhavcopyEQ.trade_date)\
-                  .filter(BhavcopyEQ.series == 'EQ')\
-                  .distinct()\
-                  .order_by(BhavcopyEQ.trade_date.desc())\
-                  .first()
+        from backend.ingest.nse_models import RolloverAnalysisMetrics, SymbolMaster
+        from sqlalchemy import func
 
-        if not latest_date_query:
+        latest_date = db.query(func.max(RolloverAnalysisMetrics.trade_date)).scalar()
+        if not latest_date:
             return {"data": []}
 
-        latest_date = latest_date_query[0]
-
-        from backend.ingest.nse_models import BhavcopyFO
-
-        # Get last 11 dates to calculate 10 days of history + previous day for % changes
-        dates_query = db.query(BhavcopyFO.trade_date)\
-                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC']))\
+        # Need last 11 dates for 10-day history
+        dates_query = db.query(RolloverAnalysisMetrics.trade_date)\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc())\
+                  .order_by(RolloverAnalysisMetrics.trade_date.desc())\
                   .limit(11).all()
-
         hist_dates = [d[0] for d in dates_query]
 
-        if not hist_dates:
-            return {"data": []}
+        records = db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date.in_(hist_dates)).all()
 
-        # Get futures data for all historical dates
-        hist_futs = db.query(
-            BhavcopyFO.ticker_symb,
-            BhavcopyFO.trade_date,
-            BhavcopyFO.expiry_date,
-            BhavcopyFO.close_price,
-            BhavcopyFO.open_interest
-        ).filter(
-            BhavcopyFO.trade_date.in_(hist_dates),
-            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
-        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
-
-        # Group historical data by symbol and date
-        # sym -> date -> [futs ordered by expiry]
         hist_map = {}
-        for f in hist_futs:
-            sym = f.ticker_symb
-            dt = f.trade_date
-            if sym not in hist_map:
-                hist_map[sym] = {}
-            if dt not in hist_map[sym]:
-                hist_map[sym][dt] = []
-            hist_map[sym][dt].append(f)
+        for r in records:
+            if r.symbol not in hist_map:
+                hist_map[r.symbol] = {}
+            hist_map[r.symbol][r.trade_date] = r
 
-        from backend.ingest.nse_models import SymbolMaster
         symbols_list = list(hist_map.keys())
         sector_query = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).filter(SymbolMaster.symbol.in_(symbols_list)).all()
         sector_map = {r.symbol: r.sector_index for r in sector_query}
 
         results = []
         for sym, date_dict in hist_map.items():
-            if latest_date not in date_dict or len(date_dict[latest_date]) < 2:
+            if latest_date not in date_dict:
                 continue
 
-            latest_futs = date_dict[latest_date]
-            total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in latest_futs])
-            near = latest_futs[0]
-            next_month = latest_futs[1]
-            far_month = latest_futs[2] if len(latest_futs) > 2 else None
+            latest_r = date_dict[latest_date]
+            rollover_pct = latest_r.rollover_pct
 
-            near_oi = int(near.open_interest) if near.open_interest else 0
-            next_oi = int(next_month.open_interest) if next_month.open_interest else 0
-            far_oi = int(far_month.open_interest) if far_month and far_month.open_interest else 0
-
-            rollover_pct = 0
-            if total_oi > 0:
-                rollover_pct = ((next_oi + far_oi) / total_oi) * 100
-
-            near_price = float(near.close_price) if near.close_price else 0
-            next_price = float(next_month.close_price) if next_month.close_price else 0
-            spread = next_price - near_price
+            near_price = latest_r.fut_close
+            spread = latest_r.rollover_cost
             spread_pct = (spread / near_price) * 100 if near_price > 0 else 0
 
             # Calculate historical 10 days
             history_arr = []
             sorted_dates_desc = sorted(date_dict.keys(), reverse=True)
 
-            # Need previous day for today's % changes
             price_chg_pct_today = 0
             oi_chg_pct_today = 0
 
             for i in range(len(sorted_dates_desc)):
                 dt = sorted_dates_desc[i]
-                curr_futs = date_dict[dt]
-                if not curr_futs: continue
+                curr_r = date_dict[dt]
 
-                c_near = curr_futs[0]
-                c_next = curr_futs[1] if len(curr_futs) > 1 else None
-                c_far = curr_futs[2] if len(curr_futs) > 2 else None
-
-                c_near_oi = int(c_near.open_interest) if c_near.open_interest else 0
-                c_next_oi = int(c_next.open_interest) if c_next and c_next.open_interest else 0
-                c_far_oi = int(c_far.open_interest) if c_far and c_far.open_interest else 0
-
-                c_price = float(c_near.close_price) if c_near.close_price else 0
-                c_next_price = float(c_next.close_price) if c_next and c_next.close_price else 0
-
-                c_total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in curr_futs])
-
-                c_rollover_pct = 0
-                if c_total_oi > 0:
-                    c_rollover_pct = ((c_next_oi + c_far_oi) / c_total_oi) * 100
-
-                c_spread = c_next_price - c_price
+                c_price = curr_r.fut_close
+                c_total_oi = curr_r.total_oi
+                c_rollover_pct = curr_r.rollover_pct
+                c_spread = curr_r.rollover_cost
                 c_spread_pct = (c_spread / c_price) * 100 if c_price > 0 else 0
 
                 p_price_chg = 0
                 p_oi_chg = 0
 
-                # Compare to previous day (which is i+1 in descending sort)
                 if i + 1 < len(sorted_dates_desc):
                     prev_dt = sorted_dates_desc[i+1]
-                    prev_futs = date_dict.get(prev_dt, [])
-                    if prev_futs:
-                        p_near = prev_futs[0]
-                        p_price = float(p_near.close_price) if p_near.close_price else 0
-                        p_total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in prev_futs])
+                    prev_r = date_dict.get(prev_dt)
+                    if prev_r:
+                        p_price = prev_r.price
+                        p_total_oi = prev_r.total_oi
 
                         if p_price > 0:
                             p_price_chg = ((c_price - p_price) / p_price) * 100
@@ -596,7 +535,6 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
                     price_chg_pct_today = p_price_chg
                     oi_chg_pct_today = p_oi_chg
 
-                # Add to history if within the top 10 dates (excluding the 11th which is just for diffs)
                 if i < 10 and dt in hist_dates[:10]:
                     history_arr.append({
                         "date": str(dt),
@@ -710,103 +648,51 @@ def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
         raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/derivatives/mwpl_historical")
-def get_mwpl_historical(db: Session = Depends(get_db)):
+def get_mwpl_historical(days: int = 14, db: Session = Depends(get_db)):
     """
-    Fetches the last 14 trading days of mwpl_array data directly from MWPLClientPosition.
-    Also retrieves the EQ close and calculate the Fut1 close.
+    Fetches the last N trading days of MWPL data directly from the persistent MwplAnalysisMetrics table.
     """
-    from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, MWPLClientPosition
+    from backend.ingest.nse_models import MwplAnalysisMetrics, MWPLClientPosition
+    from collections import defaultdict
 
-    # Find the last 14 unique trading dates in MWPLClientPosition
-    dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).limit(14).all()
+    dates_query = db.query(MwplAnalysisMetrics.trade_date).distinct().order_by(MwplAnalysisMetrics.trade_date.desc()).limit(days).all()
     if not dates_query:
         return {"data": {}}
 
     dates = [d[0] for d in dates_query]
 
-    # Query MWPL data for these dates
-    mwpl_records = db.query(
-        MWPLClientPosition.date,
-        MWPLClientPosition.underlying_stock,
-        MWPLClientPosition.client_position_num,
-        MWPLClientPosition.position_pct
-    ).filter(
-        MWPLClientPosition.date.in_(dates)
-    ).all()
+    # Need old client arrays to preserve UI parsing logic
+    mwpl_raw_records = db.query(MWPLClientPosition).filter(MWPLClientPosition.date.in_(dates)).all()
+    grouped_mwpl = defaultdict(list)
+    for r in mwpl_raw_records:
+        grouped_mwpl[(r.date, r.underlying_stock)].append({
+            "client": r.client_position_num,
+            "pct": float(r.position_pct) if r.position_pct else 0.0
+        })
 
-    # Query BhavcopyEQ for these dates
-    eq_records = db.query(
-        BhavcopyEQ.trade_date,
-        BhavcopyEQ.symbol,
-        BhavcopyEQ.close_price
-    ).filter(
-        BhavcopyEQ.trade_date.in_(dates),
-        BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ'])
-    ).all()
+    records = db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.trade_date.in_(dates)).all()
 
-    eq_map = {}
-    for r in eq_records:
-        eq_map[(r.trade_date, r.symbol)] = float(r.close_price) if r.close_price else 0.0
-
-    # Query BhavcopyFO for futures close prices
-    fo_records = db.query(
-        BhavcopyFO.trade_date,
-        BhavcopyFO.ticker_symb,
-        BhavcopyFO.close_price,
-        BhavcopyFO.expiry_date
-    ).filter(
-        BhavcopyFO.trade_date.in_(dates),
-        BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
-    ).all()
-
-    # Group futures by date and symbol, find the nearest expiry for "fut1_close"
-    fo_map = {}
-    for r in fo_records:
-        key = (r.trade_date, r.ticker_symb)
-        if key not in fo_map:
-            fo_map[key] = []
-        fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0})
-
-    for key, futs in fo_map.items():
-        futs.sort(key=lambda x: x["expiry"])
-        fo_map[key] = futs[0]["close"] if futs else 0.0
-
-    result = {}
-
-    # Group MWPL records by date and symbol
-    grouped_mwpl = {}
-    for r in mwpl_records:
-        key = (r.date, r.underlying_stock)
-        if key not in grouped_mwpl:
-            grouped_mwpl[key] = []
-        grouped_mwpl[key].append({"client": r.client_position_num, "pct": float(r.position_pct) if r.position_pct else 0.0})
-
-    for (trade_date, symbol), clients in grouped_mwpl.items():
-        if symbol not in result:
-            result[symbol] = []
-
-        parsed_arr = []
-        mwpl_val = 0.0
-
-        # Sort clients by pct
+    result = defaultdict(list)
+    for r in records:
+        d = r.trade_date
+        sym = r.symbol
+        clients = grouped_mwpl.get((d, sym), [])
         clients.sort(key=lambda x: x["pct"], reverse=True)
 
+        parsed_arr = []
         for idx, client in enumerate(clients):
-            val = client["pct"]
-            parsed_arr.append({f"Client {idx+1}": val})
-            if val > mwpl_val:
-                mwpl_val = val
+            parsed_arr.append({f"Client {idx+1}": client["pct"]})
 
-        if parsed_arr:
-            result[symbol].append({
-                "date": str(trade_date),
-                "eq_close": eq_map.get((trade_date, symbol), 0.0),
-                "fut1_close": fo_map.get((trade_date, symbol), 0.0),
-                "mwpl": mwpl_val,
-                "mwpl_array": parsed_arr
-            })
+        result[sym].append({
+            "date": d.strftime("%Y-%m-%d"),
+            "eq_close": r.price,  # the UI calculates change based on this
+            "fut1_close": r.price,
+            "mwpl": r.mwpl_pct,
+            "mwpl_array": parsed_arr,
+            "interpretation": "Neutral",
+            "fut_oi_chg_pct": 0.0
+        })
 
-    # Sort dates descending for each symbol
     for sym in result:
         result[sym].sort(key=lambda x: x["date"], reverse=True)
 
@@ -1165,59 +1051,406 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
 @router.get("/api/data/analysis/rollover/history/{symbol}")
 def get_stock_rollover_history(symbol: str, db: Session = Depends(get_db)):
     """
-    Returns 12-month rollover history for a given stock symbol.
+    Returns rollover history for a given stock symbol directly from RolloverAnalysisMetrics.
     """
-    from backend.ingest.nse_models import BhavcopyFO
+    from backend.ingest.nse_models import RolloverAnalysisMetrics
     from sqlalchemy import desc
 
-    # Get last 12 expiries
-    expiries = db.query(BhavcopyFO.expiry_date)\
-        .filter(BhavcopyFO.ticker_symb == symbol)\
-        .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK']))\
-        .distinct()\
-        .order_by(desc(BhavcopyFO.expiry_date))\
-        .limit(12).all()
+    symbol = symbol.upper()
 
-    exp_dates = sorted([e[0] for e in expiries])
-    if not exp_dates:
+    records = db.query(RolloverAnalysisMetrics).filter(
+        RolloverAnalysisMetrics.symbol == symbol
+    ).order_by(desc(RolloverAnalysisMetrics.trade_date)).limit(12).all()
+
+    if not records:
         return {"data": []}
 
     results = []
-
-    for dt in exp_dates:
-        # Find the trade date closest to (or exactly on) the expiry date
-        closest_trade_date_row = db.query(BhavcopyFO.trade_date)\
-            .filter(BhavcopyFO.ticker_symb == symbol)\
-            .filter(BhavcopyFO.trade_date <= dt)\
-            .order_by(desc(BhavcopyFO.trade_date))\
-            .first()
-
-        if not closest_trade_date_row:
-            continue
-
-        trade_date = closest_trade_date_row[0]
-
-        # Get futures for this symbol on this trade date
-        futs = db.query(BhavcopyFO.open_interest, BhavcopyFO.expiry_date)\
-            .filter(BhavcopyFO.ticker_symb == symbol)\
-            .filter(BhavcopyFO.trade_date == trade_date)\
-            .filter(BhavcopyFO.expiry_date >= trade_date)\
-            .order_by(BhavcopyFO.expiry_date.asc())\
-            .all()
-
-        if len(futs) < 2:
-            continue
-
-        total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in futs])
-        near_oi = int(futs[0].open_interest) if futs[0].open_interest else 0
-
-        rollover_pct = 0
-        if total_oi > 0:
-            rollover_pct = ((total_oi - near_oi) / total_oi) * 100
-
+    for r in records:
         results.append({
-            "date": str(dt),
-            "rollover_pct": round(rollover_pct, 2)
+            "date": str(r.trade_date),
+            "rollover_pct": round(r.rollover_pct, 2)
         })
 
+    # Maintain ascending chronological order as original UI expects
+    results.reverse()
+
     return {"data": results}
+
+@router.post("/api/data/analysis/mwpl/sync")
+def sync_mwpl_analysis(force: str = "false", db: Session = Depends(get_db)):
+    try:
+        from backend.ingest.nse_models import MWPLClientPosition, MwplAnalysisMetrics
+        from sqlalchemy import func
+
+        latest_raw_date = db.query(func.max(MWPLClientPosition.date)).scalar()
+        latest_metric_date = db.query(func.max(MwplAnalysisMetrics.trade_date)).scalar()
+
+        if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
+            return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
+
+        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        return compute_mwpl_analysis(db, latest_metric_date=compute_lookback)
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+@router.post("/api/data/analysis/mwpl/compute")
+def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
+    try:
+        from backend.ingest.nse_models import MWPLClientPosition, BhavcopyEQ, BhavcopyFO, MwplAnalysisMetrics
+        from sqlalchemy.dialects.postgresql import insert
+        import datetime
+
+        latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
+
+        all_dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).all()
+        all_dates = [d[0] for d in all_dates_query]
+
+        if not all_dates:
+            return {"status": "error", "message": "No data found."}
+
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:500]
+
+        if not dates_to_compute:
+            return {"status": "success", "message": "No new dates to compute.", "computed": False}
+
+        mwpl_records = db.query(
+            MWPLClientPosition.date,
+            MWPLClientPosition.underlying_stock,
+            MWPLClientPosition.position_pct
+        ).filter(
+            MWPLClientPosition.date.in_(dates_to_compute)
+        ).all()
+
+        eq_records = db.query(
+            BhavcopyEQ.trade_date, BhavcopyEQ.symbol, BhavcopyEQ.close_price
+        ).filter(BhavcopyEQ.trade_date.in_(dates_to_compute), BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ'])).all()
+        eq_map = {(r.trade_date, r.symbol): float(r.close_price) if r.close_price else 0.0 for r in eq_records}
+
+        fo_records = db.query(
+            BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_int
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+
+        fo_map = {}
+        for r in fo_records:
+            key = (r.trade_date, r.ticker_symb)
+            if key not in fo_map:
+                fo_map[key] = []
+            fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0, "oi": float(r.open_int) if r.open_int else 0.0})
+
+        for key, futs in fo_map.items():
+            futs.sort(key=lambda x: x["expiry"])
+            fo_map[key] = {"close": futs[0]["close"], "oi": sum([x["oi"] for x in futs])}
+
+        # Need previous date OI & Price for Chg %
+        prev_dates = list(set([d for d in all_dates if d not in dates_to_compute] + dates_to_compute))
+        prev_dates.sort()
+
+        # Fast way is to just fetch the last 500 days of required stuff
+        prev_fo_records = db.query(
+            BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_int
+        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+
+        prev_fo_map = {}
+        for r in prev_fo_records:
+            key = (r.trade_date, r.ticker_symb)
+            if key not in prev_fo_map:
+                prev_fo_map[key] = []
+            prev_fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0, "oi": float(r.open_int) if r.open_int else 0.0})
+
+        aggregated_prev_fo = {}
+        for key, futs in prev_fo_map.items():
+            futs.sort(key=lambda x: x["expiry"])
+            aggregated_prev_fo[key] = {"close": futs[0]["close"], "oi": sum([x["oi"] for x in futs])}
+
+        metrics = []
+        for r in mwpl_records:
+            d = r.date
+            sym = r.underlying_stock
+            mwpl_pct = float(r.position_pct) if r.position_pct else 0.0
+
+            price = eq_map.get((d, sym), fo_map.get((d, sym), {}).get("close", 0.0))
+            oi = fo_map.get((d, sym), {}).get("oi", 0.0)
+
+            # Find previous date
+            idx = prev_dates.index(d)
+            prev_d = prev_dates[idx-1] if idx > 0 else None
+
+            price_chg_pct = 0.0
+            oi_chg_pct = 0.0
+            if prev_d:
+                prev_price = eq_map.get((prev_d, sym), aggregated_prev_fo.get((prev_d, sym), {}).get("close", price))
+                prev_oi = aggregated_prev_fo.get((prev_d, sym), {}).get("oi", oi)
+                if prev_price and prev_price > 0:
+                    price_chg_pct = ((price - prev_price) / prev_price) * 100
+                if prev_oi and prev_oi > 0:
+                    oi_chg_pct = ((oi - prev_oi) / abs(prev_oi)) * 100
+
+            interp = "Neutral"
+            if price_chg_pct > 0 and oi_chg_pct > 0: interp = "Long Build Up"
+            elif price_chg_pct < 0 and oi_chg_pct > 0: interp = "Short Build Up"
+            elif price_chg_pct > 0 and oi_chg_pct < 0: interp = "Short Covering"
+            elif price_chg_pct < 0 and oi_chg_pct < 0: interp = "Long Unwinding"
+
+            metrics.append({
+                "trade_date": d,
+                "symbol": sym,
+                "mwpl_pct": mwpl_pct,
+                "mwpl_chg_pct": 0.0,
+                "open_interest": r.client_oi if r and hasattr(r, 'client_oi') else 0,
+                "limit_for_next_day": 0,
+                "price": price,
+                "price_chg_pct": price_chg_pct
+            })
+
+        if metrics:
+            stmt = insert(MwplAnalysisMetrics).values(metrics)
+            stmt = stmt.on_conflict_do_update(
+                constraint='uq_mwpl_analysis_metrics_date_symbol',
+                set_={
+                    'mwpl_pct': stmt.excluded.mwpl_pct,
+                    'mwpl_chg_pct': stmt.excluded.mwpl_chg_pct,
+                    'open_interest': stmt.excluded.open_interest,
+                    'limit_for_next_day': stmt.excluded.limit_for_next_day,
+                    'price': stmt.excluded.price,
+                    'price_chg_pct': stmt.excluded.price_chg_pct
+                }
+            )
+            db.execute(stmt)
+            db.commit()
+
+        return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+@router.post("/api/data/analysis/rollover/sync")
+def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics
+        from sqlalchemy import func
+
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).scalar()
+        latest_metric_date = db.query(func.max(RolloverAnalysisMetrics.trade_date)).scalar()
+
+        if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
+            return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
+
+        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        return compute_rollover_analysis(db, latest_metric_date=compute_lookback)
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+@router.post("/api/data/analysis/rollover/compute")
+def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics, BhavcopyEQ
+        from sqlalchemy.dialects.postgresql import insert
+        import datetime
+
+        latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
+
+        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
+        all_dates = [d[0] for d in all_dates_query]
+
+        if not all_dates:
+            return {"status": "error", "message": "No data found."}
+
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:500]
+
+        if not dates_to_compute:
+            return {"status": "success", "message": "No new dates to compute.", "computed": False}
+
+        fo_records = db.query(
+            BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_int
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+
+        fo_map = {}
+        for r in fo_records:
+            d = r.trade_date
+            sym = r.ticker_symb
+            key = (d, sym)
+            if key not in fo_map:
+                fo_map[key] = []
+            fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0, "oi": float(r.open_int) if r.open_int else 0.0})
+
+        metrics = []
+        for (d, sym), futs in fo_map.items():
+            futs.sort(key=lambda x: x["expiry"])
+            if len(futs) < 2:
+                continue
+
+            near = futs[0]
+            next_month = futs[1]
+            far_oi = sum(f["oi"] for f in futs[2:]) if len(futs) > 2 else 0
+
+            total_oi = near["oi"] + next_month["oi"] + far_oi
+            rollover_pct = ((next_month["oi"] + far_oi) / total_oi * 100) if total_oi > 0 else 0
+            rollover_cost = next_month["close"] - near["close"]
+
+            interp = "Neutral"
+            if rollover_pct > 75 and rollover_cost > 0: interp = "Long Rollover"
+            elif rollover_pct > 75 and rollover_cost < 0: interp = "Short Rollover"
+
+            metrics.append({
+                "trade_date": d,
+                "symbol": sym,
+                "rollover_pct": rollover_pct,
+                "rollover_cost": rollover_cost,
+                "rollover_cost_pct": 0.0,
+                "near_month_oi": near["oi"],
+                "next_month_oi": next_month["oi"],
+                "total_oi": total_oi,
+                "fut_close": near["close"],
+                "price_chg_pct": 0.0,
+                "oi_chg_pct": 0.0
+            })
+
+        if metrics:
+            stmt = insert(RolloverAnalysisMetrics).values(metrics)
+            stmt = stmt.on_conflict_do_update(
+                constraint='uq_rollover_analysis_metrics_date_symbol',
+                set_={
+                    'rollover_pct': stmt.excluded.rollover_pct,
+                    'rollover_cost': stmt.excluded.rollover_cost,
+                    'rollover_cost_pct': stmt.excluded.rollover_cost_pct,
+                    'near_month_oi': stmt.excluded.near_month_oi,
+                    'next_month_oi': stmt.excluded.next_month_oi,
+                    'total_oi': stmt.excluded.total_oi,
+                    'fut_close': stmt.excluded.fut_close,
+                    'price_chg_pct': stmt.excluded.price_chg_pct,
+                    'oi_chg_pct': stmt.excluded.oi_chg_pct
+                }
+            )
+            db.execute(stmt)
+            db.commit()
+
+        return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+@router.post("/api/data/analysis/basis/sync")
+def sync_basis_watch(force: str = "false", db: Session = Depends(get_db)):
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, BasisWatchMetrics
+        from sqlalchemy import func
+
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).scalar()
+        latest_metric_date = db.query(func.max(BasisWatchMetrics.trade_date)).scalar()
+
+        if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
+            return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
+
+        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        return compute_basis_watch(db, latest_metric_date=compute_lookback)
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+@router.post("/api/data/analysis/basis/compute")
+def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str = None):
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, BasisWatchMetrics, BhavcopyEQ, HistoricalIndexData
+        from sqlalchemy.dialects.postgresql import insert
+        import datetime
+
+        latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
+
+        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
+        all_dates = [d[0] for d in all_dates_query]
+
+        if not all_dates:
+            return {"status": "error", "message": "No data found."}
+
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:500]
+
+        if not dates_to_compute:
+            return {"status": "success", "message": "No new dates to compute.", "computed": False}
+
+        eq_records = db.query(
+            BhavcopyEQ.trade_date, BhavcopyEQ.symbol, BhavcopyEQ.close_price
+        ).filter(BhavcopyEQ.trade_date.in_(dates_to_compute), BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ'])).all()
+        eq_map = {(r.trade_date, r.symbol): float(r.close_price) if r.close_price else 0.0 for r in eq_records}
+
+        fo_records = db.query(
+            BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+
+        fo_map = {}
+        for r in fo_records:
+            key = (r.trade_date, r.ticker_symb)
+            if key not in fo_map:
+                fo_map[key] = []
+            fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0})
+
+        metrics = []
+        for key, futs in fo_map.items():
+            d, sym = key
+            futs.sort(key=lambda x: x["expiry"])
+            near = futs[0]
+
+            spot = eq_map.get((d, sym))
+            if not spot: # try to fallback to futures if eq missing (like indices)
+                spot = near["close"]
+
+            fut_price = near["close"]
+            basis = fut_price - spot
+            basis_pct = (basis / spot * 100) if spot > 0 else 0
+
+            dte = (near["expiry"] - d).days
+            dte = max(dte, 1) # Prevent div by 0
+
+            annualized = (basis_pct / dte) * 365
+
+            interp = "Neutral"
+            if basis_pct > 0.5: interp = "High Premium"
+            elif basis_pct < -0.5: interp = "Discount"
+            elif basis_pct > 0: interp = "Premium"
+
+            metrics.append({
+                "trade_date": d,
+                "symbol": sym,
+                "basis_value": basis,
+                "basis_pct": basis_pct,
+                "near_fut_close": fut_price,
+                "cash_close": spot,
+                "price_chg_pct": 0.0,
+                "carry_cost_annualized": annualized
+            })
+
+        if metrics:
+            stmt = insert(BasisWatchMetrics).values(metrics)
+            stmt = stmt.on_conflict_do_update(
+                constraint='uq_basis_watch_metrics_date_symbol',
+                set_={
+                    'basis_value': stmt.excluded.basis_value,
+                    'basis_pct': stmt.excluded.basis_pct,
+                    'near_fut_close': stmt.excluded.near_fut_close,
+                    'cash_close': stmt.excluded.cash_close,
+                    'price_chg_pct': stmt.excluded.price_chg_pct,
+                    'carry_cost_annualized': stmt.excluded.carry_cost_annualized
+                }
+            )
+            db.execute(stmt)
+            db.commit()
+
+        return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+

@@ -1577,7 +1577,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%;"></div>
+                                <div id="opt-analysis-pcr-chart" style="flex: 1; width: 100%; min-height: 500px;"></div>
                             </div>
 
                             <!-- 4c. High Open Interest Chart -->
@@ -1586,7 +1586,7 @@
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
                                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
-                                <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%;"></div>
+                                <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%; min-height: 500px;"></div>
 
                             </div>
                         </div>
@@ -1601,7 +1601,8 @@
                 <!-- SUB-TAB MWPL Analysis -->
                 <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <button class="btn btn-secondary" id="btn-load-mwpl" onclick="loadMWPLAnalysis()">Refresh MWPL Data</button>
+                        <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="mwpl-force-refresh"> Force</label>
+                        <button class="btn btn-secondary" id="btn-load-mwpl" onclick="loadMWPLAnalysis(true)">Refresh MWPL Data</button>
                         <button class="btn btn-secondary" onclick="exportTableToCSV('mwpl-analysis-table', 'MWPL_Analysis')"><i class="fas fa-download"></i> CSV</button>
 
                         <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
@@ -3032,7 +3033,7 @@ function exportChartDataToCSV(chartInstance, filename) {
         }
     }
 
-    async function loadMWPLAnalysis() {
+    async function loadMWPLAnalysis(isRefresh = false) {
         const thead = document.querySelector('#mwpl-analysis-table thead');
         const tbody = document.getElementById('mwpl-analysis-body');
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Loading...</td></tr>';
@@ -3055,6 +3056,11 @@ function exportChartDataToCSV(chartInstance, filename) {
         }
 
         try {
+            if (isRefresh) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Checking for new data and syncing...</td></tr>';
+                const force = document.getElementById('mwpl-force-refresh') && document.getElementById('mwpl-force-refresh').checked;
+                await fetch(`/api/data/analysis/mwpl/sync?force=${force}`, { method: 'POST' });
+            }
             const res = await fetch(`/api/data/derivatives/mwpl_historical?days=${selectedDays}`);
             const result = await res.json();
             const data = result.data;

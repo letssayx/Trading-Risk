@@ -26,7 +26,8 @@ const RolloverTool = {
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Rollover Analysis</h2>
                     <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
-                    <button onclick="RolloverTool.loadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+                    <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>
+                    <button id="rollover-refresh-btn" onclick="RolloverTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
@@ -105,6 +106,33 @@ const RolloverTool = {
                 }
             });
         }
+    },
+
+    syncAndLoadAggregatedData: async function() {
+        const btn = document.getElementById('rollover-refresh-btn');
+        const forceCb = document.getElementById('rollover-force-refresh');
+        const isForce = forceCb && forceCb.checked;
+        const originalText = btn ? btn.innerHTML : '';
+
+        if (btn) {
+            btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Syncing...";
+            btn.disabled = true;
+        }
+
+        try {
+            const syncRes = await fetch(`/api/data/analysis/rollover/sync?force=${isForce}`, { method: 'POST' });
+            if (!syncRes.ok) console.warn("Sync failed or not supported.");
+        } catch (e) {
+            console.error("Sync error:", e);
+        }
+
+        await this.loadAggregatedData();
+
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+        if (forceCb) forceCb.checked = false;
     },
 
     loadAggregatedData: async function() {

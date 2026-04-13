@@ -187,6 +187,7 @@ async function loadOptionsAnalysis() {
             ]
         };
         window.pcrChartInstance.setOption(option);
+        setTimeout(() => window.pcrChartInstance.resize(), 100);
     } catch (e) {
         console.error("Error loading PCR history:", e);
     }
@@ -331,6 +332,7 @@ async function loadOptionsAnalysis() {
         };
 
         window.highOiChartInstance.setOption(option);
+        setTimeout(() => window.highOiChartInstance.resize(), 100);
     } catch (e) {
         console.error("Error loading high OI chart:", e);
     }

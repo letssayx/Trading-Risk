@@ -629,3 +629,85 @@ class OiAnalysisMetrics(Base, TimescaleMixin):
     __table_args__ = (
         UniqueConstraint('trade_date', 'symbol', name='uq_oi_analysis_metrics_date_symbol'),
     )
+
+class MwplAnalysisMetrics(Base, TimescaleMixin):
+    __tablename__ = "mwpl_analysis_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+
+    mwpl_pct = Column(Float)
+    mwpl_chg_pct = Column(Float)
+    open_interest = Column(BigInteger)
+    limit_for_next_day = Column(BigInteger)
+    price = Column(Float)
+    price_chg_pct = Column(Float)
+
+    __table_args__ = (
+        UniqueConstraint('trade_date', 'symbol', name='uq_mwpl_analysis_metrics_date_symbol'),
+    )
+
+
+class RolloverAnalysisMetrics(Base, TimescaleMixin):
+    __tablename__ = "rollover_analysis_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+
+    rollover_pct = Column(Float)
+    rollover_cost = Column(Float)
+    rollover_cost_pct = Column(Float)
+    near_month_oi = Column(BigInteger)
+    next_month_oi = Column(BigInteger)
+    fut_close = Column(Float)
+    price_chg_pct = Column(Float)
+    oi_chg_pct = Column(Float)
+    total_oi = Column(BigInteger)
+
+    __table_args__ = (
+        UniqueConstraint('trade_date', 'symbol', name='uq_rollover_analysis_metrics_date_symbol'),
+    )
+
+
+class VolatilityAnalysisMetrics(Base, TimescaleMixin):
+    __tablename__ = "volatility_analysis_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+
+    current_iv = Column(Float)
+    iv_chg_pct = Column(Float)
+    ivp = Column(Float)
+    ivr = Column(Float)
+    rv_1mo = Column(Float)
+    rv_3mo = Column(Float)
+    rv_12mo = Column(Float)
+    iv_rv_spread = Column(Float)
+    price = Column(Float)
+    price_chg_pct = Column(Float)
+
+    __table_args__ = (
+        UniqueConstraint('trade_date', 'symbol', name='uq_volatility_analysis_metrics_date_symbol'),
+    )
+
+
+class BasisWatchMetrics(Base, TimescaleMixin):
+    __tablename__ = "basis_watch_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+
+    basis_value = Column(Float)
+    basis_pct = Column(Float)
+    near_fut_close = Column(Float)
+    cash_close = Column(Float)
+    price_chg_pct = Column(Float)
+    carry_cost_annualized = Column(Float)
+
+    __table_args__ = (
+        UniqueConstraint('trade_date', 'symbol', name='uq_basis_watch_metrics_date_symbol'),
+    )

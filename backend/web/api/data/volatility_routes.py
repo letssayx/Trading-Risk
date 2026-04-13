@@ -544,90 +544,38 @@ def get_pre_expiry_action(
 @router.get("/api/data/derivatives/volatility_summary_all")
 def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str = Query("monthly", description="monthly or all")):
     try:
-        # We need the latest trade date
-        date_query = text("SELECT MAX(trade_date) FROM bhavcopy_fo")
-        latest_date = db.execute(date_query).scalar()
+        from backend.ingest.nse_models import VolatilityAnalysisMetrics, BhavcopyFO, BhavcopyEQ, HistoricalIndexData
+        from sqlalchemy import func
+
+        latest_date = db.query(func.max(VolatilityAnalysisMetrics.trade_date)).scalar()
         if not latest_date:
             return {"data": []}
 
-        # We will use the latest precalculated IV from historical_atm_iv table
-        # We already adjusted the backfiller to ignore options < 5 days to expiry.
-        # This means `historical_atm_iv` inherently ignores the immediate expiry week noise now.
+        metrics = db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.trade_date == latest_date).all()
 
-        # We don't automatically backfill "ALL" here anymore because it times out the request.
-        # It's better to let users explicitly run it per symbol, or run a background job.
-        # But we DO want to ensure all stock futures are returned if there's no IV. We'll LEFT JOIN to FO symbols.
+        # Need latest prices from EQ and FO/Indices
+        eq_records = db.query(
+            BhavcopyEQ.symbol, BhavcopyEQ.close_price
+        ).filter(BhavcopyEQ.trade_date == latest_date, BhavcopyEQ.series == 'EQ').all()
 
-        query = text("""
-            WITH AllSymbols AS (
-                SELECT DISTINCT ticker_symb as symbol FROM bhavcopy_fo WHERE trade_date = :latest_date
-            ),
-            UnderlyingPrice AS (
-                SELECT symbol as ticker_symb, close_price as underlying_price
-                FROM bhavcopy_eq
-                WHERE trade_date = :latest_date AND series = 'EQ'
-                UNION ALL
-                SELECT index_name as ticker_symb, close_price as underlying_price
-                FROM historical_index_data
-                WHERE trade_date = :latest_date
-            ),
-            LatestIV AS (
-                SELECT DISTINCT ON (symbol) symbol, atm_iv as current_iv
-                FROM historical_atm_iv
-                ORDER BY symbol, trade_date DESC
-            ),
-            HistoricalStats AS (
-                SELECT symbol,
-                       MIN(atm_iv) as min_iv,
-                       MAX(atm_iv) as max_iv,
-                       COUNT(atm_iv) as total_days
-                FROM historical_atm_iv
-                WHERE trade_date >= CURRENT_DATE - INTERVAL '1 year'
-                GROUP BY symbol
-            ),
-            DaysBelow AS (
-                SELECT h.symbol, COUNT(h.atm_iv) as days_below
-                FROM historical_atm_iv h
-                JOIN LatestIV l ON h.symbol = l.symbol
-                WHERE h.atm_iv < l.current_iv
-                  AND h.trade_date >= CURRENT_DATE - INTERVAL '1 year'
-                GROUP BY h.symbol
-            )
-            SELECT a.symbol, l.current_iv, s.min_iv, s.max_iv, COALESCE(s.total_days, 0) as total_days, COALESCE(d.days_below, 0) as days_below, u.underlying_price
-            FROM AllSymbols a
-            LEFT JOIN LatestIV l ON a.symbol = l.symbol
-            LEFT JOIN HistoricalStats s ON a.symbol = s.symbol
-            LEFT JOIN DaysBelow d ON a.symbol = d.symbol
-            LEFT JOIN UnderlyingPrice u ON a.symbol = u.ticker_symb
-            ORDER BY a.symbol
-        """)
+        idx_records = db.query(
+            HistoricalIndexData.index_name, HistoricalIndexData.close_price
+        ).filter(HistoricalIndexData.trade_date == latest_date).all()
 
-        result = db.execute(query, {"latest_date": latest_date}).fetchall()
+        price_map = {}
+        for r in eq_records:
+            price_map[r.symbol] = r.close_price
+        for r in idx_records:
+            price_map[r.index_name] = r.close_price
 
         data = []
-        for r in result:
-            sym = r[0]
-            current_iv = r[1]
-            min_iv = r[2]
-            max_iv = r[3]
-            total_days = r[4]
-            days_below = r[5]
-            price = r[6]
-
-            ivr = None
-            ivp = None
-
-            if current_iv is not None and min_iv is not None and max_iv is not None and total_days > 0:
-                if max_iv > min_iv:
-                    ivr = ((current_iv - min_iv) / (max_iv - min_iv)) * 100
-                ivp = (days_below / total_days) * 100
-
+        for m in metrics:
             data.append({
-                "symbol": sym,
-                "price": float(price) if price else None,
-                "current_atm_iv": round(current_iv, 2) if current_iv is not None else None,
-                "ivr": round(ivr, 2) if ivr is not None else None,
-                "ivp": round(ivp, 2) if ivp is not None else None
+                "symbol": m.symbol,
+                "price": round(price_map.get(m.symbol, 0), 2),
+                "current_atm_iv": round(m.current_iv, 2) if m.current_iv is not None else None,
+                "ivr": round(m.ivr, 2) if m.ivr is not None else None,
+                "ivp": round(m.ivp, 2) if m.ivp is not None else None
             })
 
         return {"data": data}
@@ -635,3 +583,100 @@ def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str =
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/data/analysis/volatility/sync")
+def sync_volatility_analysis(force: str = "false", db: Session = Depends(get_db)):
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, VolatilityAnalysisMetrics
+        from sqlalchemy import func
+
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).scalar()
+        latest_metric_date = db.query(func.max(VolatilityAnalysisMetrics.trade_date)).scalar()
+
+        if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
+            return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
+
+        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        return compute_volatility_analysis(db, latest_metric_date=compute_lookback)
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+@router.post("/api/data/analysis/volatility/compute")
+def compute_volatility_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
+    try:
+        from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV, VolatilityAnalysisMetrics, BhavcopyEQ, HistoricalIndexData
+        from sqlalchemy.dialects.postgresql import insert
+        import datetime
+        import pandas as pd
+
+        latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
+
+        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
+        all_dates = [d[0] for d in all_dates_query]
+
+        if not all_dates:
+            return {"status": "error", "message": "No data found."}
+
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:32]
+
+        if not dates_to_compute:
+            return {"status": "success", "message": "No new dates to compute.", "computed": False}
+
+        iv_records = db.query(
+            HistoricalATMIV.trade_date, HistoricalATMIV.symbol, HistoricalATMIV.atm_iv, HistoricalATMIV.iv_rank, HistoricalATMIV.iv_percentile
+        ).filter(HistoricalATMIV.trade_date.in_(dates_to_compute)).all()
+
+        metrics = []
+        for r in iv_records:
+            iv = float(r.atm_iv) if r.atm_iv else 0.0
+            p = float(r.iv_percentile) if r.iv_percentile else 0.0
+
+            interp = "Neutral"
+            if iv > 25 and p > 80: interp = "Extremely High Volatility"
+            elif p > 70: interp = "High Volatility"
+            elif p < 20: interp = "Low Volatility"
+
+            metrics.append({
+                "trade_date": r.trade_date,
+                "symbol": r.symbol,
+                "current_iv": iv,
+                "iv_chg_pct": 0.0,
+                "ivp": p,
+                "ivr": float(r.iv_rank) if r.iv_rank else 0.0,
+                "rv_1mo": 0.0,
+                "rv_3mo": 0.0,
+                "rv_12mo": 0.0,
+                "iv_rv_spread": 0.0,
+                "price": 0.0,
+                "price_chg_pct": 0.0
+            })
+
+        if metrics:
+            stmt = insert(VolatilityAnalysisMetrics).values(metrics)
+            stmt = stmt.on_conflict_do_update(
+                constraint='uq_volatility_analysis_metrics_date_symbol',
+                set_={
+                    'current_iv': stmt.excluded.current_iv,
+                    'iv_chg_pct': stmt.excluded.iv_chg_pct,
+                    'ivp': stmt.excluded.ivp,
+                    'ivr': stmt.excluded.ivr,
+                    'rv_1mo': stmt.excluded.rv_1mo,
+                    'rv_3mo': stmt.excluded.rv_3mo,
+                    'rv_12mo': stmt.excluded.rv_12mo,
+                    'iv_rv_spread': stmt.excluded.iv_rv_spread,
+                    'price': stmt.excluded.price,
+                    'price_chg_pct': stmt.excluded.price_chg_pct
+                }
+            )
+            db.execute(stmt)
+            db.commit()
+
+        return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
