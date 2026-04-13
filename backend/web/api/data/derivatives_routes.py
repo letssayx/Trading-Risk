@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.post("/api/data/analysis/oi/sync")
-def sync_aggregated_oi_analysis(db: Session = Depends(get_db)):
+def sync_aggregated_oi_analysis(force: str = "false", db: Session = Depends(get_db)):
     """
     Checks if a computation is needed (i.e., if BhavcopyFO has newer data than OiAnalysisMetrics)
     and if so, triggers the computation.
@@ -46,11 +46,12 @@ def sync_aggregated_oi_analysis(db: Session = Depends(get_db)):
                     # Re-fetch latest metric date
                     latest_metric_date = db.query(func.max(OiAnalysisMetrics.trade_date)).scalar()
 
-        if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date:
+        if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         # If we reach here, we need to compute
-        return compute_aggregated_oi_analysis(db, latest_metric_date=str(latest_metric_date) if latest_metric_date else None)
+        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        return compute_aggregated_oi_analysis(db, latest_metric_date=compute_lookback)
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}

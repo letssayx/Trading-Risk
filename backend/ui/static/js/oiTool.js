@@ -59,6 +59,7 @@ const OiTool = {
                         <option value="30" selected>30 Days</option>
                     </select>
 
+                    <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="oi-force-refresh"> Force</label>
                     <button id="oi-refresh-btn" onclick="OiTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
@@ -166,7 +167,8 @@ const OiTool = {
         if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Checking for new F&O data and syncing...</td></tr>';
 
         try {
-            const syncRes = await fetch('/api/data/analysis/oi/sync', { method: 'POST' });
+            const force = document.getElementById('oi-force-refresh') && document.getElementById('oi-force-refresh').checked;
+            const syncRes = await fetch(`/api/data/analysis/oi/sync?force=${force}`, { method: 'POST' });
             if (!syncRes.ok) throw new Error("Sync failed.");
             await this.loadAggregatedData();
         } catch(e) {
@@ -347,7 +349,7 @@ const OiTool = {
                                     ? (d.put_oi_chg + d.call_oi_chg + d.fut_oi_chg)
                                     : Math.round(((d.total_oi || 0) * (d.oi_chg_pct || 0)) / 100) || 0;
 
-                html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}')">
+                html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}'); document.getElementById('opt-analysis-symbol').value = '${d.symbol}'; loadOptionsAnalysis();">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
                     <td style="padding: 8px;"><b>${d.symbol}</b></td>
                     <td style="padding: 8px; color: #aaa;">${d.date || d.history?.[0]?.date || '-'} (Latest)</td>
