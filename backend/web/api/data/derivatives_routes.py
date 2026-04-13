@@ -553,11 +553,10 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
                 "rollover_pct": round(rollover_pct, 2),
                 "rollover_cost": round(spread, 2),
                 "rollover_cost_pct": round(spread_pct, 2),
-                "near_oi": near_oi,
-                "total_oi": total_oi,
+                "near_oi": latest_r.near_month_oi,
+                "total_oi": latest_r.total_oi,
                 "price": near_price,
                 "near_price": near_price,
-                "next_price": next_price,
                 "price_chg_pct": round(price_chg_pct_today, 2),
                 "oi_chg_pct": round(oi_chg_pct_today, 2),
                 "history": history_arr
