@@ -628,26 +628,56 @@ def compute_volatility_analysis(db: Session = Depends(get_db), latest_metric_dat
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
 
         iv_records = db.query(
-            HistoricalATMIV.trade_date, HistoricalATMIV.symbol, HistoricalATMIV.atm_iv, HistoricalATMIV.iv_rank, HistoricalATMIV.iv_percentile
+            HistoricalATMIV.trade_date, HistoricalATMIV.symbol, HistoricalATMIV.atm_iv
         ).filter(HistoricalATMIV.trade_date.in_(dates_to_compute)).all()
+
+        # Need historic data up to max lookback (252) to compute IVP/IVR for each date
+        hist_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).limit(252).all()
+        hist_dates = [d[0] for d in hist_dates_query]
+
+        all_hist_ivs = db.query(
+            HistoricalATMIV.trade_date, HistoricalATMIV.symbol, HistoricalATMIV.atm_iv
+        ).filter(HistoricalATMIV.trade_date.in_(hist_dates)).all()
+
+        hist_iv_map = {}
+        for r in all_hist_ivs:
+            if r.symbol not in hist_iv_map:
+                hist_iv_map[r.symbol] = {}
+            hist_iv_map[r.symbol][r.trade_date] = float(r.atm_iv) if r.atm_iv is not None else 0.0
 
         metrics = []
         for r in iv_records:
             iv = float(r.atm_iv) if r.atm_iv else 0.0
-            p = float(r.iv_percentile) if r.iv_percentile else 0.0
+            sym = r.symbol
+            dt = r.trade_date
+
+            ivp = 0.0
+            ivr = 0.0
+
+            # Calculate IVP / IVR looking back from 'dt'
+            if sym in hist_iv_map:
+                past_ivs = [v for d, v in hist_iv_map[sym].items() if d <= dt]
+                if past_ivs:
+                    min_iv = min(past_ivs)
+                    max_iv = max(past_ivs)
+                    if max_iv > min_iv:
+                        ivr = ((iv - min_iv) / (max_iv - min_iv)) * 100
+
+                    days_below = sum(1 for v in past_ivs if v < iv)
+                    ivp = (days_below / len(past_ivs)) * 100
 
             interp = "Neutral"
-            if iv > 25 and p > 80: interp = "Extremely High Volatility"
-            elif p > 70: interp = "High Volatility"
-            elif p < 20: interp = "Low Volatility"
+            if iv > 25 and ivp > 80: interp = "Extremely High Volatility"
+            elif ivp > 70: interp = "High Volatility"
+            elif ivp < 20: interp = "Low Volatility"
 
             metrics.append({
-                "trade_date": r.trade_date,
-                "symbol": r.symbol,
+                "trade_date": dt,
+                "symbol": sym,
                 "current_iv": iv,
                 "iv_chg_pct": 0.0,
-                "ivp": p,
-                "ivr": float(r.iv_rank) if r.iv_rank else 0.0,
+                "ivp": ivp,
+                "ivr": ivr,
                 "rv_1mo": 0.0,
                 "rv_3mo": 0.0,
                 "rv_12mo": 0.0,

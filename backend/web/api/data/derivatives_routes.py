@@ -503,8 +503,8 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
             history_arr = []
             sorted_dates_desc = sorted(date_dict.keys(), reverse=True)
 
-            price_chg_pct_today = 0
-            oi_chg_pct_today = 0
+            price_chg_pct_today = latest_r.price_chg_pct
+            oi_chg_pct_today = latest_r.oi_chg_pct
 
             for i in range(len(sorted_dates_desc)):
                 dt = sorted_dates_desc[i]
@@ -514,26 +514,10 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
                 c_total_oi = curr_r.total_oi
                 c_rollover_pct = curr_r.rollover_pct
                 c_spread = curr_r.rollover_cost
-                c_spread_pct = (c_spread / c_price) * 100 if c_price > 0 else 0
+                c_spread_pct = curr_r.rollover_cost_pct
 
-                p_price_chg = 0
-                p_oi_chg = 0
-
-                if i + 1 < len(sorted_dates_desc):
-                    prev_dt = sorted_dates_desc[i+1]
-                    prev_r = date_dict.get(prev_dt)
-                    if prev_r:
-                        p_price = prev_r.fut_close
-                        p_total_oi = prev_r.total_oi
-
-                        if p_price > 0:
-                            p_price_chg = ((c_price - p_price) / p_price) * 100
-                        if p_total_oi > 0:
-                            p_oi_chg = ((c_total_oi - p_total_oi) / p_total_oi) * 100
-
-                if dt == latest_date:
-                    price_chg_pct_today = p_price_chg
-                    oi_chg_pct_today = p_oi_chg
+                p_price_chg = curr_r.price_chg_pct
+                p_oi_chg = curr_r.oi_chg_pct
 
                 if i < 10 and dt in hist_dates[:10]:
                     history_arr.append({
@@ -1204,12 +1188,18 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
             elif price_chg_pct > 0 and oi_chg_pct < 0: interp = "Short Covering"
             elif price_chg_pct < 0 and oi_chg_pct < 0: interp = "Long Unwinding"
 
+            prev_mwpl = 0.0
+            if prev_d:
+                # We need prev mwpl pct to calculate mwpl_chg_pct. It is easier to fetch it from the records since we are looping or grouping.
+                # For this PR, since the table only uses 'mwpl_pct' in the UI directly (it doesn't show mwpl_chg_pct in the existing UI table), we will set it to 0.0.
+                pass
+
             metrics.append({
                 "trade_date": d,
                 "symbol": sym,
                 "mwpl_pct": mwpl_pct,
                 "mwpl_chg_pct": 0.0,
-                "open_interest": r.client_oi if r and hasattr(r, 'client_oi') else 0,
+                "open_interest": oi,
                 "limit_for_next_day": 0,
                 "price": price,
                 "price_chg_pct": price_chg_pct
@@ -1291,6 +1281,27 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
                 fo_map[key] = []
             fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0, "oi": float(r.open_interest) if r.open_interest else 0.0})
 
+        # Need previous date OI & Price for Chg %
+        prev_dates = list(set([d for d in all_dates if d not in dates_to_compute] + dates_to_compute))
+        prev_dates.sort()
+
+        # Fast way is to just fetch the last 500 days of required stuff
+        prev_fo_records = db.query(
+            BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
+        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+
+        prev_fo_map = {}
+        for r in prev_fo_records:
+            key = (r.trade_date, r.ticker_symb)
+            if key not in prev_fo_map:
+                prev_fo_map[key] = []
+            prev_fo_map[key].append({"expiry": r.expiry_date, "close": float(r.close_price) if r.close_price else 0.0, "oi": float(r.open_interest) if r.open_interest else 0.0})
+
+        aggregated_prev_fo = {}
+        for key, futs in prev_fo_map.items():
+            futs.sort(key=lambda x: x["expiry"])
+            aggregated_prev_fo[key] = {"close": futs[0]["close"], "oi": sum([x["oi"] for x in futs])}
+
         metrics = []
         for (d, sym), futs in fo_map.items():
             futs.sort(key=lambda x: x["expiry"])
@@ -1309,18 +1320,36 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
             if rollover_pct > 75 and rollover_cost > 0: interp = "Long Rollover"
             elif rollover_pct > 75 and rollover_cost < 0: interp = "Short Rollover"
 
+            rollover_cost_pct = (rollover_cost / near["close"] * 100) if near["close"] > 0 else 0.0
+
+            # Calculate historical changes if possible
+            idx = prev_dates.index(d)
+            prev_d = prev_dates[idx-1] if idx > 0 else None
+            price_chg_pct = 0.0
+            oi_chg_pct = 0.0
+
+            if prev_d:
+                prev_fo = aggregated_prev_fo.get((prev_d, sym))
+                if prev_fo:
+                    p_price = prev_fo["close"]
+                    p_oi = prev_fo["oi"]
+                    if p_price > 0:
+                        price_chg_pct = ((near["close"] - p_price) / p_price) * 100
+                    if p_oi > 0:
+                        oi_chg_pct = ((total_oi - p_oi) / p_oi) * 100
+
             metrics.append({
                 "trade_date": d,
                 "symbol": sym,
                 "rollover_pct": rollover_pct,
                 "rollover_cost": rollover_cost,
-                "rollover_cost_pct": 0.0,
+                "rollover_cost_pct": rollover_cost_pct,
                 "near_month_oi": near["oi"],
                 "next_month_oi": next_month["oi"],
                 "total_oi": total_oi,
                 "fut_close": near["close"],
-                "price_chg_pct": 0.0,
-                "oi_chg_pct": 0.0
+                "price_chg_pct": price_chg_pct,
+                "oi_chg_pct": oi_chg_pct
             })
 
         if metrics:
