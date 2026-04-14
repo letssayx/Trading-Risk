@@ -258,28 +258,36 @@ async function loadOptionsAnalysis() {
                 textStyle: { color: '#ccc' }
             },
             grid: [
-                { left: '5%', right: '55%', bottom: '5%', top: '10%', containLabel: true },
-                { left: '45%', right: '45%', bottom: '5%', top: '10%', containLabel: false },
-                { left: '55%', right: '5%', bottom: '5%', top: '10%', containLabel: true }
+                { left: '2%', right: '55%', bottom: '5%', top: '10%', containLabel: true },
+                { left: '55%', right: '2%', bottom: '5%', top: '10%', containLabel: true }
             ],
             xAxis: [
                 {
                     type: 'value',
                     gridIndex: 0,
-                    inverse: true, // Calls extend leftwards
+                    inverse: true, // Calls inverted on the left
                     axisLabel: {
                         color: '#888',
-                        formatter: function (value) { return Math.abs(value); }
+                        formatter: function (value) {
+                            return Math.abs(value).toLocaleString();
+                        }
                     },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
                 },
                 {
                     type: 'value',
-                    gridIndex: 2,
+                    gridIndex: 1, // Puts normal on the right
                     axisLabel: {
-                        color: '#888'
+                        color: '#888',
+                        formatter: function (value) {
+                            return Math.abs(value).toLocaleString();
+                        }
                     },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
                 }
             ],
             yAxis: [
@@ -287,28 +295,26 @@ async function loadOptionsAnalysis() {
                     type: 'category',
                     gridIndex: 0,
                     data: strikes,
-                    axisLabel: { show: false }, // Hide left y-axis labels to prevent overlap
-                    axisLine: { show: false },
-                    axisTick: { show: false },
-                    splitLine: { show: true, lineStyle: { color: '#222' } }
-                },
-                {
-                    type: 'category',
-                    gridIndex: 1,
-                    data: strikes,
-                    axisLabel: { color: '#FFCC00', fontWeight: 'bold', align: 'center' }, // Center labels
+                    position: 'right',
+                    axisLabel: {
+                        show: true,
+                        color: '#FFCC00',
+                        fontWeight: 'bold',
+                        margin: 20, // Push labels right to center them
+                        align: 'center'
+                    },
                     axisLine: { show: false },
                     axisTick: { show: false },
                     splitLine: { show: false }
                 },
                 {
                     type: 'category',
-                    gridIndex: 2,
+                    gridIndex: 1,
                     data: strikes,
-                    axisLabel: { show: false }, // Hide right labels
+                    axisLabel: { show: false }, // Hide labels on right grid
                     axisLine: { show: false },
                     axisTick: { show: false },
-                    splitLine: { show: true, lineStyle: { color: '#222' } }
+                    splitLine: { show: false }
                 }
             ],
             series: [
@@ -317,15 +323,17 @@ async function loadOptionsAnalysis() {
                     type: 'bar',
                     xAxisIndex: 0,
                     yAxisIndex: 0,
-                    itemStyle: { color: '#E88B1E' }, // Orange Calls
-                    data: ce_oi.map(v => Math.abs(v))
+                    label: { show: false },
+                    itemStyle: { color: '#E88B1E' }, // Orange for Calls
+                    data: ce_oi.map(v => Math.abs(v)) // Pass absolute, axis inversion handles visualization
                 },
                 {
                     name: 'Put OI',
                     type: 'bar',
                     xAxisIndex: 1,
-                    yAxisIndex: 2,
-                    itemStyle: { color: '#3176B8' }, // Blue Puts
+                    yAxisIndex: 1,
+                    label: { show: false },
+                    itemStyle: { color: '#3176B8' }, // Blue for Puts
                     data: pe_oi
                 }
             ]
