@@ -51,9 +51,9 @@ async function loadOptionsAnalysis() {
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
             legend: { data: ['Price (FUT1)', 'Total OI', 'OI Change %', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
             grid: [
-                { left: '12%', right: '8%', top: '10%', height: '35%' },   // Top pane: Price
-                { left: '12%', right: '8%', top: '48%', height: '20%' },   // Middle pane: OI
-                { left: '12%', right: '8%', top: '72%', height: '15%' }    // Bottom pane: PCR
+                { left: '10%', right: '10%', top: '10%', height: '35%' },   // Top pane: Price
+                { left: '10%', right: '10%', top: '50%', height: '20%' },   // Middle pane: OI
+                { left: '10%', right: '10%', top: '75%', height: '15%' }    // Bottom pane: PCR
             ],
             axisPointer: { link: { xAxisIndex: 'all' }, label: { backgroundColor: '#777' } },
             xAxis: [
@@ -158,7 +158,7 @@ async function loadOptionsAnalysis() {
                         color: (params) => params.value >= 0 ? '#60a5fa' : '#f44336'
                     },
                     xAxisIndex: 1,
-                    yAxisIndex: 3, // Secondary Y axis for percentages
+                    yAxisIndex: 2, // Secondary Y axis for percentages
                     barGap: '0%',
                     label: {
                         show: true,

@@ -1611,7 +1611,8 @@
 
         // 1. Load FII/DII Chart (Side by side bars per user request)
         try {
-            const res = await fetch('/api/market-activity/cash-flow');
+            const days = document.getElementById('market-activity-days')?.value || '30';
+            const res = await fetch(`/api/market-activity/cash-flow?days=${days}`);
             const data = await res.json();
             if (fiiDiiChartInstance) fiiDiiChartInstance.destroy();
             const ctx = document.getElementById('fiiDiiChart').getContext('2d');
