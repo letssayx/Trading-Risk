@@ -227,7 +227,7 @@ async function loadOptionsAnalysis() {
         // Filter the original data to only include these top strikes, then sort by strike price
         const filteredData = allData
             .filter(row => topStrikesSet.has(row.strike))
-            .sort((a, b) => a.strike - b.strike);
+            .sort((a, b) => b.strike - a.strike);
 
         filteredData.forEach(row => {
             strikes.push(row.strike);

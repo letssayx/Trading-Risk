@@ -1599,7 +1599,7 @@
     let participantChartInstance = null;
 
     async function loadMarketActivity() {
-        const symbol = document.getElementById('market-activity-symbol').value.toUpperCase() || 'NIFTY';
+        const symbol = document.getElementById('market-activity-symbol') ? document.getElementById('market-activity-symbol').value.toUpperCase() : 'NIFTY';
 
         const loadBtn = document.getElementById('btn-load-market-activity');
         let originalText = '';
@@ -1753,9 +1753,9 @@
 
             const participants = [
                 { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
-                { key: 'dii', label: 'DII', color: '#60a5fa' },     // Blue
+                { key: 'dii', label: 'DII', color: '#4caf50' },     // Blue
                 { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
-                { key: 'client', label: 'CLI', color: '#60a5fa' },  // Blue
+                { key: 'client', label: 'CLI', color: '#00bcd4' },  // Blue
                 { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' } // Yellow
             ];
 
@@ -1841,6 +1841,7 @@
 
             // 5. Render FII Money Stats
             renderFiiMoneyStats(days);
+            if(typeof loadMarketOptionsCharts === 'function') loadMarketOptionsCharts();
 
         } catch(e) {
             console.error("Error loading Participant OI", e);
@@ -1866,9 +1867,9 @@ function renderParticipantHistorical(data) {
 
     const participants = [
         { key: 'fii', label: 'FII', color: '#E88B1E' },
-        { key: 'dii', label: 'DII', color: '#60a5fa' },
+        { key: 'dii', label: 'DII', color: '#4caf50' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
-        { key: 'client', label: 'CLI', color: '#60a5fa' }
+        { key: 'client', label: 'CLI', color: '#00bcd4' }
     ];
 
     metrics.forEach(m => {
@@ -2803,7 +2804,7 @@ function renderParticipantGranular(data) {
 
     const participants = [
         { key: 'fii', label: 'FII', color: '#E88B1E' },
-        { key: 'dii', label: 'DII', color: '#60a5fa' },
+        { key: 'dii', label: 'DII', color: '#4caf50' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
         { key: 'client', label: 'CLI', color: '#00bcd4' }
     ];
@@ -2851,7 +2852,9 @@ function renderParticipantGranular(data) {
     window.participantGranularChartInstance.setOption(option);
 }
 
-async function renderFiiMoneyStats(days) {
+async function renderFiiMoneyStats(baseDays) {
+    const daysSelect = document.getElementById('fii-money-days');
+    const days = daysSelect ? daysSelect.value : 1;
     const container = document.getElementById('fii-money-daily-summary');
     if (!container) return;
 
@@ -2870,34 +2873,163 @@ async function renderFiiMoneyStats(days) {
             return;
         }
 
-        const todayIdx = data.dates.length - 1;
-        const xAxisData = ['Index Futures', 'Index Options', 'Stock Futures', 'Stock Options'];
-
-        const seriesData = [
-            data.fut_idx ? data.fut_idx[todayIdx] : 0,
-            data.opt_idx ? data.opt_idx[todayIdx] : 0,
-            data.fut_stk ? data.fut_stk[todayIdx] : 0,
-            data.opt_stk ? data.opt_stk[todayIdx] : 0
+        const dates = data.dates;
+        const metrics = [
+            { key: 'fut_idx', label: 'Index Futures' },
+            { key: 'opt_idx', label: 'Index Options' },
+            { key: 'fut_stk', label: 'Stock Futures' },
+            { key: 'opt_stk', label: 'Stock Options' }
         ];
 
-        const option = {
-            backgroundColor: 'transparent',
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => '₹' + v.toLocaleString() + ' Cr' },
-            grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
-            xAxis: { type: 'category', data: xAxisData, axisLabel: { color: '#ccc', fontWeight: 'bold' } },
-            yAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, name: 'Crores', nameTextStyle: { color: '#888' } },
-            series: [{
-                name: 'FII Net (Cr)',
-                type: 'bar',
-                data: seriesData,
-                itemStyle: { color: p => p.value >= 0 ? '#60a5fa' : '#f44336' },
-                label: { show: true, position: 'top', color: '#ccc', formatter: p => '₹' + p.value.toLocaleString() + ' Cr' }
-            }]
-        };
+        let option;
+
+        if (dates.length === 1) {
+            // Single day (Today) - Original Bar Chart
+            const todayIdx = 0;
+            const xAxisData = metrics.map(m => m.label);
+            const seriesData = metrics.map(m => data[m.key] ? data[m.key][todayIdx] : 0);
+
+            option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => '₹' + v.toLocaleString() + ' Cr' },
+                grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
+                xAxis: { type: 'category', data: xAxisData, axisLabel: { color: '#ccc', fontWeight: 'bold' } },
+                yAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, name: 'Crores', nameTextStyle: { color: '#888' } },
+                series: [{
+                    name: 'FII Net (Cr)',
+                    type: 'bar',
+                    data: seriesData,
+                    itemStyle: { color: p => p.value >= 0 ? '#E88B1E' : '#3176B8' }, // Orange = Long/Pos, Blue = Short/Neg
+                    label: { show: true, position: 'top', color: '#ccc', formatter: p => '₹' + p.value.toLocaleString() + ' Cr' }
+                }]
+            };
+        } else {
+            // Multiple Days - Grouped Bar Chart per day
+            const series = metrics.map(m => {
+                return {
+                    name: m.label,
+                    type: 'bar',
+                    barGap: '0%', // Group closely
+                    data: data[m.key] || [],
+                    label: {
+                        show: false
+                    }
+                };
+            });
+
+            option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => '₹' + v.toLocaleString() + ' Cr' },
+                legend: { data: metrics.map(m => m.label), textStyle: { color: '#ccc' }, top: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                xAxis: { type: 'category', data: dates, axisLabel: { color: '#888' } },
+                yAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, name: 'Crores', nameTextStyle: { color: '#888' } },
+                dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
+                series: series
+            };
+        }
 
         window.fiiMoneyChartInstance.setOption(option);
     } catch(e) {
         console.error("Error loading FII money stats", e);
         window.fiiMoneyChartInstance.hideLoading();
+    }
+}
+
+
+async function loadMarketOptionsCharts() {
+    const symbol = document.getElementById('market-activity-index-symbol').value;
+    const lookback = document.getElementById('market-activity-opt-lookback').value;
+    const expiryOnly = document.getElementById('market-opt-expiry-only').checked;
+
+    const pcrContainer = document.getElementById('market-opt-pcr-chart');
+    const highOiContainer = document.getElementById('market-opt-high-oi-chart');
+
+    if (window.marketPcrChartInstance) window.marketPcrChartInstance.dispose();
+    if (window.marketHighOiChartInstance) window.marketHighOiChartInstance.dispose();
+
+    window.marketPcrChartInstance = echarts.init(pcrContainer);
+    window.marketHighOiChartInstance = echarts.init(highOiContainer);
+
+    window.marketPcrChartInstance.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
+    window.marketHighOiChartInstance.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
+
+    try {
+        const res = await fetch(`/api/options/analysis?symbol=${symbol}&lookback_days=${lookback}&expiry_only=${expiryOnly}`);
+        const data = await res.json();
+
+        window.marketPcrChartInstance.hideLoading();
+        window.marketHighOiChartInstance.hideLoading();
+
+        if (!data.history || data.history.length === 0) {
+            pcrContainer.innerHTML = '<p style="text-align:center; color:#888;">No historical data available.</p>';
+            highOiContainer.innerHTML = '<p style="text-align:center; color:#888;">No historical data available.</p>';
+            return;
+        }
+
+        // Render PCR Chart (Price vs OI vs PCR)
+        const dates = data.history.map(d => d.date);
+        const prices = data.history.map(d => d.close);
+        const pcrs = data.history.map(d => d.pcr);
+        const totalOi = data.history.map(d => d.total_oi);
+
+        const pcrOption = {
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            legend: { data: ['Total OI', 'Close Price', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
+            grid: { left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
+            xAxis: { type: 'category', data: dates, axisLabel: { color: '#888' } },
+            yAxis: [
+                { type: 'value', name: 'Close', position: 'left', axisLabel: { color: '#888' }, splitLine: { show: false }, scale: true },
+                { type: 'value', name: 'PCR', position: 'right', axisLabel: { color: '#888' }, splitLine: { show: false } },
+                { type: 'value', show: false, min: 0 } // For OI background
+            ],
+            dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
+            series: [
+                { name: 'Total OI', type: 'bar', yAxisIndex: 2, data: totalOi, itemStyle: { color: 'rgba(96, 165, 250, 0.2)' }, barWidth: '100%' },
+                { name: 'Close Price', type: 'line', yAxisIndex: 0, data: prices, itemStyle: { color: '#ffcc00' }, lineStyle: { width: 2 }, symbol: 'none' },
+                { name: 'PCR', type: 'line', yAxisIndex: 1, data: pcrs, itemStyle: { color: '#00e676' }, lineStyle: { width: 2 }, symbol: 'none' }
+            ]
+        };
+        window.marketPcrChartInstance.setOption(pcrOption);
+
+        // Render High OI Chart (CE vs PE)
+        const latest = data.history[data.history.length - 1];
+        if (latest.high_oi_strikes) {
+            // Fix: sort strikes low to high
+            const strikes = Object.keys(latest.high_oi_strikes).map(Number).sort((a,b) => b - a);
+            const callOi = strikes.map(s => latest.high_oi_strikes[s].CE || 0);
+            const putOi = strikes.map(s => latest.high_oi_strikes[s].PE || 0);
+
+            const butterflyOption = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: ['Put OI', 'Call OI'], textStyle: { color: '#ccc' }, top: 0 },
+                grid: [
+                    { left: '5%', right: '55%', bottom: '10%', top: '15%' }, // Puts (Left side)
+                    { left: '55%', right: '5%', bottom: '10%', top: '15%' }  // Calls (Right side)
+                ],
+                xAxis: [
+                    { type: 'value', gridIndex: 0, inverse: true, axisLabel: { show: false }, splitLine: { show: false } },
+                    { type: 'value', gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } }
+                ],
+                yAxis: [
+                    { type: 'category', gridIndex: 0, data: strikes, axisLabel: { color: '#888', margin: 20 }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
+                    { type: 'category', gridIndex: 1, data: strikes, axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false } }
+                ],
+                series: [
+                    { name: 'Put OI', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: putOi, itemStyle: { color: '#3176B8' }, label: { show: true, position: 'left', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } },
+                    { name: 'Call OI', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: callOi, itemStyle: { color: '#E88B1E' }, label: { show: true, position: 'right', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } }
+                ]
+            };
+            window.marketHighOiChartInstance.setOption(butterflyOption);
+        } else {
+            highOiContainer.innerHTML = '<p style="text-align:center; color:#888;">No high OI strike data available for latest date.</p>';
+        }
+
+    } catch(e) {
+        console.error("Error loading market options charts", e);
+        pcrContainer.innerHTML = `<p style="color:red;">Error: ${e.message}</p>`;
+        highOiContainer.innerHTML = `<p style="color:red;">Error: ${e.message}</p>`;
     }
 }

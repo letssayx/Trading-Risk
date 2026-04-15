@@ -287,7 +287,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
 
 
 @router.get("/api/data/analysis/oi")
-def get_aggregated_oi_analysis(days: int = Query(30), db: Session = Depends(get_db)):
+def get_aggregated_oi_analysis(days: int = Query(30), target_date: str = None, db: Session = Depends(get_db)):
     """
     Retrieves OI vs Price Quadrant Analysis.
     """
@@ -296,10 +296,12 @@ def get_aggregated_oi_analysis(days: int = Query(30), db: Session = Depends(get_
         from sqlalchemy import desc
 
         limit_days = min(days + 1, 60) # Limit to a max to be safe, get days+1 for calculations if needed
-        dates_query = db.query(OiAnalysisMetrics.trade_date)\
-            .distinct()\
-            .order_by(desc(OiAnalysisMetrics.trade_date))\
-            .limit(limit_days).all()
+
+        dq = db.query(OiAnalysisMetrics.trade_date).distinct()
+        if target_date:
+            dq = dq.filter(OiAnalysisMetrics.trade_date <= target_date)
+
+        dates_query = dq.order_by(desc(OiAnalysisMetrics.trade_date)).limit(limit_days).all()
 
         if not dates_query:
             return {"data": []}
@@ -388,51 +390,28 @@ def get_aggregated_oi_analysis(days: int = Query(30), db: Session = Depends(get_
         print(f"Error fetching aggregated OI analysis: {e}")
         return {"data": [], "error": str(e)}
 
+
 @router.get("/api/data/analysis/oi/{symbol}")
 def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
     """
     Computes OI vs Price Quadrant Analysis.
     """
     try:
+        from backend.ingest.nse_models import OiAnalysisMetrics
         symbol = symbol.upper()
 
-        # Get active futures for this symbol for the last 60 days
-        # We need trade_date, close_price, open_interest
-        # Use only Near Month to avoid aggregating all expiries, or sum them. Sum is better for "Total OI".
-        # We will use BhavcopyFO for futures.
+        # Fetch from persistent table
+        records = db.query(OiAnalysisMetrics).filter(
+            OiAnalysisMetrics.symbol == symbol
+        ).order_by(OiAnalysisMetrics.trade_date.asc()).all()
 
-        query = db.query(
-            BhavcopyFO.trade_date,
-            BhavcopyFO.close_price,
-            BhavcopyFO.open_interest
-        ).filter(
-            BhavcopyFO.ticker_symb == symbol,
-            BhavcopyFO.expiry_date >= BhavcopyFO.trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC'])
-        ).order_by(BhavcopyFO.trade_date.asc(), BhavcopyFO.expiry_date.asc()).all()
-
-        if not query:
+        if not records:
             return {"symbol": symbol, "history": []}
 
-        # Aggregate OI and get price (strictly using Near Month Futures / FUT 1 price)
-        dates = {}
-        for r in query:
-            dt = r.trade_date
-            if dt not in dates:
-                # First encountered row per trade_date is guaranteed to be active FUT 1
-                dates[dt] = {"price": float(r.close_price) if r.close_price else 0.0, "oi": 0}
-            # Sum OI across all expiries (FUT 1 + FUT 2 + FUT 3...)
-            dates[dt]["oi"] += (int(r.open_interest) if r.open_interest else 0)
-
-        sorted_dates = sorted(dates.keys())
-
         history = []
-        for i in range(1, len(sorted_dates)):
-            prev = dates[sorted_dates[i-1]]
-            curr = dates[sorted_dates[i]]
-
-            p_chg = ((curr["price"] - prev["price"]) / prev["price"] * 100) if prev["price"] > 0 else 0
-            oi_chg = ((curr["oi"] - prev["oi"]) / prev["oi"] * 100) if prev["oi"] > 0 else 0
+        for r in records:
+            p_chg = float(r.price_chg_pct) if r.price_chg_pct is not None else 0.0
+            oi_chg = float(r.fut_oi_chg_pct) if r.fut_oi_chg_pct is not None else 0.0
 
             interpretation = "Indecision"
             if p_chg > 0 and oi_chg > 0: interpretation = "Long Build Up"
@@ -441,7 +420,7 @@ def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
             elif p_chg < 0 and oi_chg < 0: interpretation = "Long Unwinding"
 
             history.append({
-                "time": sorted_dates[i].strftime('%Y-%m-%d'),
+                "time": str(r.trade_date),
                 "price_chg_pct": p_chg,
                 "oi_chg_pct": oi_chg,
                 "interpretation": interpretation

@@ -1567,8 +1567,6 @@
                     <div id="oi-options-charts-container" style="width: 100%; display: flex; flex-direction: column; gap: 20px; flex-shrink: 0;">
                         <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0; margin-top: 20px; border-top: 1px solid #333; padding-top: 20px;">
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Options Charts</h2>
-                            <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
-                            <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()">Load Charts</button>
                         </div>
 
                         <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
@@ -1577,8 +1575,8 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
+                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
-                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.pcrChartInstance) exportChartDataToCSV(window.pcrChartInstance, 'PCR_History'); else exportChartDataToCSV(window.pcrChartInstance, 'PCR_History')"><i class="fas fa-download"></i> CSV</button>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
                                             <option value="5">5 Days</option>
                                             <option value="30">30 Days</option>
@@ -1697,7 +1695,18 @@
                             <!-- Chart 3: FII Derivatives Statistics (Money Terms) -->
                             <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">FII Latest Daily Position in money terms</h3>
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Latest Daily Position in money terms</h3>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <select id="fii-money-days" class="history-input" style="padding: 2px 5px; font-size: 11px;" onchange="loadMarketActivity()">
+                                            <option value="1" selected>1 Day (Today)</option>
+                                            <option value="5">5 Days</option>
+                                            <option value="30">30 Days</option>
+                                            <option value="60">60 Days</option>
+                                            <option value="90">90 Days</option>
+                                            <option value="180">180 Days</option>
+                                            <option value="252">252 Days</option>
+                                            <option value="500">500 Days</option>
+                                        </select>
                                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiMoneyChartInstance) exportChartDataToCSV(window.fiiMoneyChartInstance, 'FII_Daily_Position_Money');"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="fii-money-daily-summary" style="flex: 1; width: 100%;"></div>
@@ -1710,7 +1719,44 @@
                                 <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Participant OI - Granular Bifurcation (Prev vs Today)</h3>
                                 <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Granular_OI');"><i class="fas fa-download"></i> CSV</button>
                             </div>
-                            <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
+
+                        <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
+                        </div>
+
+                        <!-- NEW: Price/OI/PCR and CE/PE Concentration Charts -->
+                        <div style="display: flex; flex-direction: column; gap: 20px; width: 100%; margin-bottom: 20px; border-top: 1px solid #333; padding-top: 20px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <h2 style="margin: 0; color: #fff; font-size: 16px;">Index Options Overview</h2>
+                                <select id="market-activity-index-symbol" class="history-input" style="width: 150px; padding: 4px;" onchange="loadMarketOptionsCharts()">
+                                    <option value="NIFTY" selected>NIFTY</option>
+                                    <option value="BANKNIFTY">BANKNIFTY</option>
+                                    <option value="FINNIFTY">FINNIFTY</option>
+                                    <option value="MIDCPNIFTY">MIDCPNIFTY</option>
+                                    <option value="NIFTYNXT50">NIFTYNXT50</option>
+                                </select>
+                                <select id="market-activity-opt-lookback" class="history-input" style="width: 100px; padding: 4px;" onchange="loadMarketOptionsCharts()">
+                                    <option value="5">5 Days</option>
+                                    <option value="30" selected>30 Days</option>
+                                    <option value="60">60 Days</option>
+                                    <option value="90">90 Days</option>
+                                    <option value="252">252 Days</option>
+                                    <option value="500">500 Days</option>
+                                </select>
+                                <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="market-opt-expiry-only" style="margin-right: 5px;" onchange="loadMarketOptionsCharts()"> Show Expiry Only</label>
+                            </div>
+
+                            <div style="display: flex; gap: 20px; width: 100%;">
+                                <!-- Trend Chart -->
+                                <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 500px; min-width: 0;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
+                                    <div id="market-opt-pcr-chart" style="flex: 1; width: 100%;"></div>
+                                </div>
+                                <!-- Butterfly Chart -->
+                                <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 500px; min-width: 0;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
+                                    <div id="market-opt-high-oi-chart" style="flex: 1; width: 100%;"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- 6 Historical Bar Charts with Index Overlay (2 per row) -->

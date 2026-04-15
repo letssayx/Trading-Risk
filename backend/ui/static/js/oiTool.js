@@ -194,13 +194,15 @@ const OiTool = {
         const dateDisplay = document.getElementById('oi-date-display');
         const daysFilter = document.getElementById('oi-days-filter');
         const days = daysFilter ? daysFilter.value : 30;
+        const dateInput = document.getElementById('oi-quadrant-date');
+        const targetDate = dateInput ? dateInput.value : '';
 
         if (!tbody || !chartArea) return;
 
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            const res = await fetch(`/api/data/analysis/oi?days=${days}`);
+            const res = await fetch(`/api/data/analysis/oi?days=${days}${targetDate ? '&target_date=' + targetDate : ''}`);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
 
@@ -352,7 +354,7 @@ const OiTool = {
                 html += `<tr class="oi-row" onclick="OiTool.toggleHistory('${d.symbol}'); document.getElementById('opt-analysis-symbol').value = '${d.symbol}'; loadOptionsAnalysis();">
                     <td style="padding: 8px; text-align: center; width: 30px;"><span id="oi-icon-${d.symbol}" style="font-size: 10px;">▶</span></td>
                     <td style="padding: 8px;"><b>${d.symbol}</b></td>
-                    <td style="padding: 8px; color: #aaa;">${d.date || d.history?.[0]?.date || '-'} (Latest)</td>
+                    <td style="padding: 8px; color: #aaa; white-space: nowrap;">${d.date || d.history?.[0]?.date || '-'}</td>
                     <td style="padding: 8px; color: #aaa;">${d.sector || ''}</td>
                     <td style="padding: 8px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 8px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
@@ -385,7 +387,7 @@ const OiTool = {
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
-                            <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
+                            <td style="padding: 6px 8px; color: #888; white-space: nowrap;">└ ${h.date}</td>
                             <td style="padding: 6px 8px; color: #ccc;">${h.sector || '-'}</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
