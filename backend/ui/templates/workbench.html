@@ -628,9 +628,10 @@
                             <input type="text" id="mr-author-name" class="history-input" value="Turtle Terminal Quant System" style="width: 100%; box-sizing: border-box;">
                         </div>
 
-                        <div style="display:flex; gap:10px;">
-                            <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
-                            <button class="btn btn-secondary" onclick="exportTableToCSV('mr-data-table', 'Data_Matrix')" style="padding: 8px; margin-bottom: 10px;" title="Download CSV"><i class="fas fa-download"></i></button>
+                        <div style="display:flex; gap:10px; align-items: center; margin-bottom: 10px;">
+                            <label style="color:#ccc; font-size:12px; margin-right: 5px;"><input type="checkbox" id="mr-force-refresh"> Force</label>
+                            <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
+                            <button class="btn btn-secondary" onclick="exportTableToCSV('mr-data-table', 'Data_Matrix')" style="padding: 8px;" title="Download CSV"><i class="fas fa-download"></i></button>
                         </div>
                         <button id="mr-generate-btn" class="btn btn-primary" style="margin-left: auto;" disabled>2. Generate PDF Report</button>
 
@@ -763,6 +764,7 @@
                 document.getElementById('mr-prepare-btn').addEventListener('click', async () => {
                     const targetDate = document.getElementById('mr-target-date').value;
                     const endDate = document.getElementById('mr-end-date').value;
+                    const forceRefresh = document.getElementById('mr-force-refresh').checked;
                     const statusText = document.getElementById('mr-status-text');
                     const prepBtn = document.getElementById('mr-prepare-btn');
                     const genBtn = document.getElementById('mr-generate-btn');
@@ -772,20 +774,30 @@
 
                     prepBtn.disabled = true;
                     prepBtn.style.opacity = '0.5';
-                    statusText.innerText = endDate ? 'Triggering historical range preparation task (this may take a while)...' : 'Triggering data preparation task...';
+                    statusText.innerHTML = endDate ? 'Triggering historical range preparation task... <div class="progress-bar-container" style="width: 100%; background: #333; height: 4px; margin-top: 10px; border-radius: 2px; overflow: hidden;"><div class="progress-bar-fill" style="width: 0%; height: 100%; background: #60a5fa; transition: width 0.3s ease;"></div></div>' : 'Triggering data preparation task... <div class="progress-bar-container" style="width: 100%; background: #333; height: 4px; margin-top: 10px; border-radius: 2px; overflow: hidden;"><div class="progress-bar-fill" style="width: 0%; height: 100%; background: #60a5fa; transition: width 0.3s ease;"></div></div>';
                     statusText.style.color = '#aaa';
+
+                    let simulatedProgress = 0;
+                    const progressInterval = setInterval(() => {
+                        simulatedProgress += Math.random() * 5;
+                        if (simulatedProgress > 90) simulatedProgress = 90;
+                        const bar = document.querySelector('.progress-bar-fill');
+                        if (bar) bar.style.width = `${simulatedProgress}%`;
+                    }, 500);
+
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888; padding: 20px;">Calculating composite metrics...</td></tr>';
 
                     try {
                         const res = await fetch('/api/morning-report/prepare', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ target_date: targetDate, end_date: endDate || null })
+                            body: JSON.stringify({ target_date: targetDate, end_date: endDate || null, force: forceRefresh })
                         });
                         const data = await res.json();
 
                         if(data.task_id) {
-                            statusText.innerText = 'Processing metrics...';
+                            // Update the interval to stop simulating and start tracking
+                            clearInterval(progressInterval);
                             mrPollingInterval = setInterval(() => checkPrepStatus(data.task_id, targetDate), 3000);
                         } else {
                             throw new Error('No task ID returned.');
@@ -808,8 +820,12 @@
 
                         if(data.state === 'SUCCESS' || data.status === 'SUCCESS') {
                             clearInterval(mrPollingInterval);
-                            statusText.innerText = 'Data Prepared Successfully.';
-                            statusText.style.color = '#28a745';
+                            const bar = document.querySelector('.progress-bar-fill');
+                            if (bar) bar.style.width = '100%';
+                            setTimeout(() => {
+                                statusText.innerText = data.skipped ? 'Data already exists (Skipped).' : 'Data Prepared Successfully.';
+                                statusText.style.color = '#28a745';
+                            }, 500);
 
                             prepBtn.disabled = false;
                             prepBtn.style.opacity = '1';
