@@ -671,7 +671,11 @@
                                     <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
-                                    <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                                                        <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                    <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">30D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Delivery<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
@@ -923,10 +927,10 @@
                             const ema200 = (row.ema_200_cash != null && !isNaN(Number(row.ema_200_cash))) ? Number(row.ema_200_cash).toFixed(2) : '-';
 
                             // Note: delivery fields don't exist in model, using '-'
-                            const del5 = '-';
-                            const del10 = '-';
-                            const del20 = '-';
-                            const del30 = '-';
+                            const del5 = (row.mavg_delivery_vol_pct_5d != null && !isNaN(Number(row.mavg_delivery_vol_pct_5d))) ? Number(row.mavg_delivery_vol_pct_5d).toFixed(2) + '%' : '-';
+                            const del10 = (row.mavg_delivery_vol_pct_10d != null && !isNaN(Number(row.mavg_delivery_vol_pct_10d))) ? Number(row.mavg_delivery_vol_pct_10d).toFixed(2) + '%' : '-';
+                            const del20 = (row.mavg_delivery_vol_pct_20d != null && !isNaN(Number(row.mavg_delivery_vol_pct_20d))) ? Number(row.mavg_delivery_vol_pct_20d).toFixed(2) + '%' : '-';
+                            const del30 = (row.mavg_delivery_vol_pct_30d != null && !isNaN(Number(row.mavg_delivery_vol_pct_30d))) ? Number(row.mavg_delivery_vol_pct_30d).toFixed(2) + '%' : '-';
 
                             let html = ``;
                             if(!isSnapshot) {
@@ -1027,7 +1031,11 @@
                                     <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
-                                    <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                                                        <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                    <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">30D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Delivery<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
@@ -1102,7 +1110,11 @@
                                     <th style="white-space: pre-wrap;">Near Fut<br>Close</th>
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
-                                    <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                                                        <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                    <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">30D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Delivery<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
