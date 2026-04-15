@@ -211,7 +211,7 @@ async def check_task_status(task_id: str):
 
 @router.get("/api/morning-report/data/{target_date}")
 def get_report_data(target_date: str, db: Session = Depends(get_db)):
-    from backend.ingest.nse_models import OiAnalysisMetrics, MwplAnalysisMetrics, RolloverAnalysisMetrics, BasisAnalysisMetrics, VolatilityAnalysisMetrics
+    from backend.ingest.nse_models import OiAnalysisMetrics, MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
     from sqlalchemy import case, desc
 
     # Primary source is OiAnalysisMetrics since it covers the F&O universe
@@ -222,7 +222,7 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
     # Fetch overlapping data from other persistent tables
     mwpl_records = {r.symbol: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.trade_date == target_date).all()}
     roll_records = {r.symbol: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date == target_date).all()}
-    basis_records = {r.symbol: r for r in db.query(BasisAnalysisMetrics).filter(BasisAnalysisMetrics.trade_date == target_date).all()}
+    basis_records = {}
     vol_records = {r.symbol: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.trade_date == target_date).all()}
 
     result = []
@@ -280,7 +280,7 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
 
 @router.get("/api/morning-report/timeseries")
 def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(get_db)):
-    from backend.ingest.nse_models import OiAnalysisMetrics, MwplAnalysisMetrics, RolloverAnalysisMetrics, BasisAnalysisMetrics, VolatilityAnalysisMetrics
+    from backend.ingest.nse_models import OiAnalysisMetrics, MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
 
     symbol = symbol.upper()
     oi_records = db.query(OiAnalysisMetrics).filter(
@@ -295,7 +295,7 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
     # Fetch overlapping data from persistent tables
     mwpl_records = {r.trade_date: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.symbol == symbol, MwplAnalysisMetrics.trade_date.in_(dates)).all()}
     roll_records = {r.trade_date: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.symbol == symbol, RolloverAnalysisMetrics.trade_date.in_(dates)).all()}
-    basis_records = {r.trade_date: r for r in db.query(BasisAnalysisMetrics).filter(BasisAnalysisMetrics.symbol == symbol, BasisAnalysisMetrics.trade_date.in_(dates)).all()}
+    basis_records = {r.trade_date: r for r in db.query(BasisAnalysisMetrics).filter(BasisAnalysisMetrics.symbol == symbol.trade_date.in_(dates)).all()}
     vol_records = {r.trade_date: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.symbol == symbol, VolatilityAnalysisMetrics.trade_date.in_(dates)).all()}
 
     result = []

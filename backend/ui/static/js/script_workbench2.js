@@ -3006,15 +3006,15 @@ async function loadMarketOptionsCharts() {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                 legend: { data: ['Put OI', 'Call OI'], textStyle: { color: '#ccc' }, top: 0 },
                 grid: [
-                    { left: '5%', right: '55%', bottom: '10%', top: '15%' }, // Puts (Left side)
-                    { left: '55%', right: '5%', bottom: '10%', top: '15%' }  // Calls (Right side)
+                    { left: '5%', right: '53%', bottom: '10%', top: '15%' }, // Left side
+                    { left: '53%', right: '5%', bottom: '10%', top: '15%' }  // Right side
                 ],
                 xAxis: [
                     { type: 'value', gridIndex: 0, inverse: true, axisLabel: { show: false }, splitLine: { show: false } },
                     { type: 'value', gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } }
                 ],
                 yAxis: [
-                    { type: 'category', gridIndex: 0, data: strikes, axisLabel: { color: '#888', margin: 20 }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
+                    { type: 'category', gridIndex: 0, data: strikes, axisLabel: { color: '#ccc', margin: 25, align: 'center' }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
                     { type: 'category', gridIndex: 1, data: strikes, axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false } }
                 ],
                 series: [

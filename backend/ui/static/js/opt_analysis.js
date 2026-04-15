@@ -257,9 +257,9 @@ async function loadOptionsAnalysis() {
                 data: ['Call OI', 'Put OI'],
                 textStyle: { color: '#ccc' }
             },
-            grid: [
-                { left: '2%', right: '55%', bottom: '5%', top: '10%', containLabel: true },
-                { left: '55%', right: '2%', bottom: '5%', top: '10%', containLabel: true }
+                        grid: [
+                { left: '5%', right: '53%', bottom: '5%', top: '10%', containLabel: false },
+                { left: '53%', right: '5%', bottom: '5%', top: '10%', containLabel: false }
             ],
             xAxis: [
                 {
