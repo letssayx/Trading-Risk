@@ -263,9 +263,9 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
 
         if sym in vol_records:
             vol = vol_records[sym]
-            d['iv_rank_252'] = vol.iv_rank_252
-            d['iv_percentile_252'] = vol.iv_percentile_252
-            d['daily_volatility'] = vol.rv_20 / 100.0 if vol.rv_20 else 0
+            d['iv_rank_252'] = vol.ivr
+            d['iv_percentile_252'] = vol.ivp
+            d['daily_volatility'] = vol.rv_1mo / 100.0 if vol.rv_1mo else 0
 
         result.append(d)
 
@@ -334,9 +334,9 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
 
         if td in vol_records:
             vol = vol_records[td]
-            d['iv_rank_252'] = vol.iv_rank_252
-            d['iv_percentile_252'] = vol.iv_percentile_252
-            d['daily_volatility'] = vol.rv_20 / 100.0 if vol.rv_20 else 0
+            d['iv_rank_252'] = vol.ivr
+            d['iv_percentile_252'] = vol.ivp
+            d['daily_volatility'] = vol.rv_1mo / 100.0 if vol.rv_1mo else 0
 
         result.append(d)
 
