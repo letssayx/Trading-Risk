@@ -1599,7 +1599,7 @@
     let participantChartInstance = null;
 
     async function loadMarketActivity() {
-        const symbol = document.getElementById('market-activity-symbol') ? document.getElementById('market-activity-symbol').value.toUpperCase() : 'NIFTY';
+        const symbol = document.getElementById('market-activity-index-symbol') ? document.getElementById('market-activity-index-symbol').value.toUpperCase() : 'NIFTY';
 
         const loadBtn = document.getElementById('btn-load-market-activity');
         let originalText = '';

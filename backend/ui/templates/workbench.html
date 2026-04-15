@@ -1576,6 +1576,7 @@
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
+                                        <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()">Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
                                             <option value="5">5 Days</option>
@@ -1681,26 +1682,26 @@
                             </div>
                         </div>
 
-                        <!-- Second Row: Participant OI (3 charts) + Index Options Overview (2 charts) -->
-                        <div style="display: flex; gap: 20px; height: 500px; margin-bottom: 20px;">
 
+                        <!-- Row 1: Smart Money (Contracts) + FII Position (Money) -->
+                        <div style="display: flex; gap: 20px; height: 350px; margin-bottom: 20px;">
                             <!-- Smart Money (Contracts) -->
-                            <div style="flex: 0 0 15%; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                    <h3 style="margin: 0; font-size: 12px; color: #ccc;">Smart Money<br>(Contracts)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Contracts');"><i class="fas fa-download"></i></button>
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money (Contracts)</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Contracts');"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="participant-oi-daily-summary" style="flex: 1; width: 100%;"></div>
                             </div>
 
                             <!-- FII Money Terms -->
-                            <div style="flex: 0 0 15%; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
                                 <div style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;">
                                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                        <h3 style="margin: 0; font-size: 12px; color: #ccc;">FII Position<br>(Money)</h3>
-                                        <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.fiiMoneyChartInstance) exportChartDataToCSV(window.fiiMoneyChartInstance, 'FII_Daily_Money');"><i class="fas fa-download"></i></button>
+                                        <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Money)</h3>
+                                        <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.fiiMoneyChartInstance) exportChartDataToCSV(window.fiiMoneyChartInstance, 'FII_Daily_Money');"><i class="fas fa-download"></i> CSV</button>
                                     </div>
-                                    <select id="fii-money-days" class="history-input" style="padding: 2px; font-size: 10px;" onchange="loadMarketActivity()">
+                                    <select id="fii-money-days" class="history-input" style="padding: 2px; font-size: 10px; width: 80px;" onchange="loadMarketActivity()">
                                         <option value="1" selected>1 Day</option>
                                         <option value="5">5 Days</option>
                                         <option value="30">30 Days</option>
@@ -1713,49 +1714,49 @@
                                 </div>
                                 <div id="fii-money-daily-summary" style="flex: 1; width: 100%;"></div>
                             </div>
+                        </div>
 
-                            <!-- Participant Granular -->
-                            <div style="flex: 0 0 15%; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
+                        <!-- Row 2: Participant OI Bifurcation -->
+                        <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">Participant OI Bifurcation</h3>
+                                <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Granular');"><i class="fas fa-download"></i> CSV</button>
+                            </div>
+                            <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
+                        </div>
+
+                        <!-- Row 3: Trend & High OI Strikes -->
+                        <div style="display: flex; gap: 20px; height: 400px; margin-bottom: 20px;">
+                            <!-- Trend Chart -->
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
                                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                    <h3 style="margin: 0; font-size: 12px; color: #ccc;">Participant OI<br>Bifurcation</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Granular');"><i class="fas fa-download"></i></button>
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <h3 style="margin: 0; font-size: 12px; color: #ccc;">Trend: Price & PCR vs OI</h3>
+                                        <select id="market-activity-index-symbol" class="history-input" style="width: 80px; padding: 2px; font-size: 10px;" onchange="loadMarketOptionsCharts()">
+                                            <option value="NIFTY" selected>NIFTY</option>
+                                            <option value="BANKNIFTY">BANKNIFTY</option>
+                                            <option value="FINNIFTY">FINNIFTY</option>
+                                            <option value="MIDCPNIFTY">MIDCPNIFTY</option>
+                                            <option value="NIFTYNXT50">NIFTYNXT50</option>
+                                        </select>
+                                        <select id="market-activity-opt-lookback" class="history-input" style="width: 60px; padding: 2px; font-size: 10px;" onchange="loadMarketOptionsCharts()">
+                                            <option value="5">5D</option>
+                                            <option value="30" selected>30D</option>
+                                            <option value="60">60D</option>
+                                            <option value="90">90D</option>
+                                            <option value="252">252D</option>
+                                            <option value="500">500D</option>
+                                        </select>
+                                        <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center;"><input type="checkbox" id="market-opt-expiry-only" style="margin-right: 2px;" onchange="loadMarketOptionsCharts()"> Expiry</label>
+                                    </div>
                                 </div>
-                                <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
+                                <div id="market-opt-pcr-chart" style="flex: 1; width: 100%;"></div>
                             </div>
 
-                            <!-- Index Options Overview (2 charts flexed together) -->
-                            <div style="flex: 1; display: flex; gap: 20px; min-width: 0;">
-                                <!-- Trend Chart -->
-                                <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                        <div style="display: flex; align-items: center; gap: 5px;">
-                                            <h3 style="margin: 0; font-size: 12px; color: #ccc;">Trend: Price & PCR vs OI</h3>
-                                            <select id="market-activity-index-symbol" class="history-input" style="width: 80px; padding: 2px; font-size: 10px;" onchange="loadMarketOptionsCharts()">
-                                                <option value="NIFTY" selected>NIFTY</option>
-                                                <option value="BANKNIFTY">BANKNIFTY</option>
-                                                <option value="FINNIFTY">FINNIFTY</option>
-                                                <option value="MIDCPNIFTY">MIDCPNIFTY</option>
-                                                <option value="NIFTYNXT50">NIFTYNXT50</option>
-                                            </select>
-                                            <select id="market-activity-opt-lookback" class="history-input" style="width: 60px; padding: 2px; font-size: 10px;" onchange="loadMarketOptionsCharts()">
-                                                <option value="5">5D</option>
-                                                <option value="30" selected>30D</option>
-                                                <option value="60">60D</option>
-                                                <option value="90">90D</option>
-                                                <option value="252">252D</option>
-                                                <option value="500">500D</option>
-                                            </select>
-                                            <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center;"><input type="checkbox" id="market-opt-expiry-only" style="margin-right: 2px;" onchange="loadMarketOptionsCharts()"> Expiry</label>
-                                        </div>
-                                    </div>
-                                    <div id="market-opt-pcr-chart" style="flex: 1; width: 100%;"></div>
-                                </div>
-
-                                <!-- Butterfly Chart -->
-                                <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                    <h3 style="margin: 0 0 5px 0; font-size: 12px; color: #ccc;">High OI Strikes (CE/PE)</h3>
-                                    <div id="market-opt-high-oi-chart" style="flex: 1; width: 100%;"></div>
-                                </div>
+                            <!-- Butterfly Chart -->
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
+                                <h3 style="margin: 0 0 5px 0; font-size: 12px; color: #ccc;">High OI Strikes (CE/PE)</h3>
+                                <div id="market-opt-high-oi-chart" style="flex: 1; width: 100%;"></div>
                             </div>
                         </div>
 

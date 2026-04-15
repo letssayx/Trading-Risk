@@ -295,7 +295,7 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
     # Fetch overlapping data from persistent tables
     mwpl_records = {r.trade_date: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.symbol == symbol, MwplAnalysisMetrics.trade_date.in_(dates)).all()}
     roll_records = {r.trade_date: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.symbol == symbol, RolloverAnalysisMetrics.trade_date.in_(dates)).all()}
-    basis_records = {r.trade_date: r for r in db.query(BasisAnalysisMetrics).filter(BasisAnalysisMetrics.symbol == symbol.trade_date.in_(dates)).all()}
+    basis_records = {}
     vol_records = {r.trade_date: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.symbol == symbol, VolatilityAnalysisMetrics.trade_date.in_(dates)).all()}
 
     result = []

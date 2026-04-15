@@ -51,80 +51,42 @@ async function loadOptionsAnalysis() {
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
             legend: { data: ['Price (FUT1)', 'Total OI', 'OI Change %', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
             grid: [
-                { left: '10%', right: '10%', top: '10%', height: '35%' },   // Top pane: Price
-                { left: '10%', right: '10%', top: '50%', height: '20%' },   // Middle pane: OI
-                { left: '10%', right: '10%', top: '75%', height: '15%' }    // Bottom pane: PCR
+                { left: '5%', right: '50%', bottom: '5%', top: '10%' },
+                { left: '50%', right: '5%', bottom: '5%', top: '10%' }
             ],
-            axisPointer: { link: { xAxisIndex: 'all' }, label: { backgroundColor: '#777' } },
             xAxis: [
                 {
-                    type: 'category',
-                    data: data.dates,
+                    type: 'value',
                     gridIndex: 0,
-                    axisLabel: { show: false },
-                    axisLine: { lineStyle: { color: '#333' } }
+                    inverse: true,
+                    axisLabel: { color: '#888', formatter: (value) => Math.abs(value).toLocaleString() },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
                 {
-                    type: 'category',
-                    data: data.dates,
+                    type: 'value',
                     gridIndex: 1,
-                    axisLabel: { show: false },
-                    axisLine: { lineStyle: { color: '#333' } }
-                },
-                {
-                    type: 'category',
-                    data: data.dates,
-                    gridIndex: 2,
-                    axisLabel: { color: '#888' },
-                    axisLine: { lineStyle: { color: '#333' } }
+                    axisLabel: { color: '#888', formatter: (value) => Math.abs(value).toLocaleString() },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 }
             ],
             yAxis: [
                 {
-                    type: 'value',
-                    name: 'Price (FUT1)',
-                    position: 'left',
+                    type: 'category',
                     gridIndex: 0,
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLabel: { color: '#888' },
-                    nameTextStyle: { color: '#888' },
-                    scale: true,
-                    min: function(value) { return Math.floor(value.min * 0.95); },
-                            max: function(value) { return Math.ceil(value.max * 1.05); }
-                },
-                {
-                    type: 'value',
-                    name: 'Total OI',
-                    position: 'left',
-                    gridIndex: 1,
-                    splitLine: { show: false },
-                    axisLabel: { color: '#888', formatter: (value) => (value/1000000).toFixed(1) + 'M' },
-                    nameTextStyle: { color: '#888' },
-                    scale: true,
-                    min: function(value) { return Math.floor(value.min * 0.95); },
-                            max: function(value) { return Math.ceil(value.max * 1.05); }
-                },
-                {
-                    type: 'value',
-                    name: 'OI/Price Chg %',
+                    data: strikes,
                     position: 'right',
-                    gridIndex: 1,
-                    scale: true,
-                    axisLabel: { color: '#888', formatter: '{value}%' },
-                    splitLine: { show: false },
-                    nameTextStyle: { color: '#888' }
+                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 15, align: 'center' },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
                 },
                 {
-                    type: 'value',
-                    name: 'PCR',
+                    type: 'category',
+                    gridIndex: 1,
+                    data: strikes,
                     position: 'left',
-                    gridIndex: 2,
-                    scale: true,
-                    min: function(value) { return Math.floor(value.min * 0.95); },
-                            max: function(value) { return Math.ceil(value.max * 1.05); },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLabel: { color: '#888' },
-                    nameTextStyle: { color: '#888' }
+                    axisLabel: { show: false },
+                    axisLine: { show: false },
+                    axisTick: { show: false }
                 }
             ],
             dataZoom: [
@@ -258,36 +220,22 @@ async function loadOptionsAnalysis() {
                 textStyle: { color: '#ccc' }
             },
                         grid: [
-                { left: '5%', right: '53%', bottom: '5%', top: '10%', containLabel: false },
-                { left: '53%', right: '5%', bottom: '5%', top: '10%', containLabel: false }
+                { left: '5%', right: '50%', bottom: '5%', top: '10%' },
+                { left: '50%', right: '5%', bottom: '5%', top: '10%' }
             ],
             xAxis: [
                 {
                     type: 'value',
                     gridIndex: 0,
-                    inverse: true, // Calls inverted on the left
-                    axisLabel: {
-                        color: '#888',
-                        formatter: function (value) {
-                            return Math.abs(value).toLocaleString();
-                        }
-                    },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLine: { show: false },
-                    axisTick: { show: false }
+                    inverse: true,
+                    axisLabel: { color: '#888', formatter: (value) => Math.abs(value).toLocaleString() },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 },
                 {
                     type: 'value',
-                    gridIndex: 1, // Puts normal on the right
-                    axisLabel: {
-                        color: '#888',
-                        formatter: function (value) {
-                            return Math.abs(value).toLocaleString();
-                        }
-                    },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } },
-                    axisLine: { show: false },
-                    axisTick: { show: false }
+                    gridIndex: 1,
+                    axisLabel: { color: '#888', formatter: (value) => Math.abs(value).toLocaleString() },
+                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
                 }
             ],
             yAxis: [
@@ -296,25 +244,18 @@ async function loadOptionsAnalysis() {
                     gridIndex: 0,
                     data: strikes,
                     position: 'right',
-                    axisLabel: {
-                        show: true,
-                        color: '#FFCC00',
-                        fontWeight: 'bold',
-                        margin: 20, // Push labels right to center them
-                        align: 'center'
-                    },
+                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 15, align: 'center' },
                     axisLine: { show: false },
-                    axisTick: { show: false },
-                    splitLine: { show: false }
+                    axisTick: { show: false }
                 },
                 {
                     type: 'category',
                     gridIndex: 1,
                     data: strikes,
-                    axisLabel: { show: false }, // Hide labels on right grid
+                    position: 'left',
+                    axisLabel: { show: false },
                     axisLine: { show: false },
-                    axisTick: { show: false },
-                    splitLine: { show: false }
+                    axisTick: { show: false }
                 }
             ],
             series: [
