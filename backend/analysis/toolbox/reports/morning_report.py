@@ -177,18 +177,19 @@ class MorningReportCalculator:
         return res
 
     def _get_delivery_averages(self, target_date: date, symbol: str) -> dict:
+        # Increase limit to 500 to fetch long term delivery averages
         query = text("""
             SELECT trade_date, quantity_traded, deliverable_qty
             FROM mto_delivery
             WHERE security_name = :sym AND trade_date <= :dt
             ORDER BY trade_date DESC
-            LIMIT 30
+            LIMIT 500
         """)
         # Fallback to symbol matching if security_name isn't perfectly mapped (MTO sometimes uses full names or symbols)
         # Assuming security_name matches symbol for now.
         result = self.db.execute(query, {"sym": symbol, "dt": target_date}).fetchall()
 
-        res = {"5d": 0.0, "10d": 0.0, "20d": 0.0, "30d": 0.0}
+        res = {"5d": 0.0, "10d": 0.0, "20d": 0.0, "30d": 0.0, "avg": 0.0, "high": 0.0}
         if not result:
             return res
 
@@ -199,6 +200,8 @@ class MorningReportCalculator:
         res['10d'] = df['pct'].head(10).mean() if len(df) >= 10 else res['5d']
         res['20d'] = df['pct'].head(20).mean() if len(df) >= 20 else res['10d']
         res['30d'] = df['pct'].head(30).mean() if len(df) >= 30 else res['20d']
+        res['avg'] = float(df['pct'].mean()) if not df.empty else 0.0
+        res['high'] = float(df['pct'].max()) if not df.empty else 0.0
 
         return res
 
@@ -631,6 +634,12 @@ class MorningReportCalculator:
             record.mavg_delivery_vol_pct_10d = self._safe_float(deliv['10d'])
             record.mavg_delivery_vol_pct_20d = self._safe_float(deliv['20d'])
             record.mavg_delivery_vol_pct_30d = self._safe_float(deliv['30d'])
+
+            # Store New Historical Stats
+            record.delivery_pct_avg = self._safe_float(deliv.get('avg', 0.0))
+            record.highest_delivery_pct = self._safe_float(deliv.get('high', 0.0))
+            record.eq_vol_avg = self._safe_float(stock_hist['volume'].mean()) if stock_hist is not None and not stock_hist.empty else 0.0
+            record.highest_eq_vol = self._safe_float(stock_hist['volume'].max()) if stock_hist is not None and not stock_hist.empty else 0.0
 
             processed_count += 1
 

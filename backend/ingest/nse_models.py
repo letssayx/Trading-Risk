@@ -526,6 +526,10 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     mavg_delivery_vol_pct_10d = Column(Float) # 10-day Avg Delivery %
     mavg_delivery_vol_pct_20d = Column(Float) # 20-day Avg Delivery %
     mavg_delivery_vol_pct_30d = Column(Float) # 30-day Avg Delivery %
+    delivery_pct_avg = Column(Float)          # 2Y Avg Delivery %
+    highest_delivery_pct = Column(Float)      # 2Y Highest Delivery %
+    eq_vol_avg = Column(Float)                # 2Y Avg EQ Vol
+    highest_eq_vol = Column(Float)            # 2Y Highest EQ Vol
 
     __table_args__ = (
         PrimaryKeyConstraint('trade_date', 'id'),

@@ -169,6 +169,8 @@ def calculate_implied_volatility(
 
         if sigma <= 0.001:  # Prevent negative or zero vol
             sigma = 0.001
+        elif sigma > 5.0:  # Cap maximum volatility to 500% to prevent scalar overflow in bs_price
+            sigma = 5.0
 
     # Fallback to Brent's method / bisection if Newton-Raphson fails?
     # For now, just return what we have or 0

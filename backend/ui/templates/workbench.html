@@ -673,11 +673,15 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">30D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Delivery<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">Delivery<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">Highest<br>Delivery (%)</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
@@ -853,7 +857,11 @@
                             const eqClose = (row.eq_close_price != null && !isNaN(Number(row.eq_close_price))) ? Number(row.eq_close_price).toFixed(2) : '-';
                             const vwap = (row.vwap != null && !isNaN(Number(row.vwap))) ? Number(row.vwap).toFixed(2) : '-';
                             const eqVol = (row.total_eq_volume != null && !isNaN(Number(row.total_eq_volume))) ? Number(row.total_eq_volume).toLocaleString() : '-';
+                            const eqVolAvg = (row.eq_vol_avg != null && !isNaN(Number(row.eq_vol_avg))) ? Number(row.eq_vol_avg).toLocaleString() : '-';
+                            const highestEqVol = (row.highest_eq_vol != null && !isNaN(Number(row.highest_eq_vol))) ? Number(row.highest_eq_vol).toLocaleString() : '-';
                             const delPct = (row.delivery_pct != null && !isNaN(Number(row.delivery_pct))) ? Number(row.delivery_pct).toFixed(2) + '%' : '-';
+                            const delPctAvg = (row.delivery_pct_avg != null && !isNaN(Number(row.delivery_pct_avg))) ? Number(row.delivery_pct_avg).toFixed(2) + '%' : '-';
+                            const highestDelPct = (row.highest_delivery_pct != null && !isNaN(Number(row.highest_delivery_pct))) ? Number(row.highest_delivery_pct).toFixed(2) + '%' : '-';
                             const fVol = (row.futures_total_vol != null && !isNaN(Number(row.futures_total_vol))) ? Number(row.futures_total_vol).toLocaleString() : '-';
                             const fOi = (row.futures_total_oi != null && !isNaN(Number(row.futures_total_oi))) ? Number(row.futures_total_oi).toLocaleString() : '-';
                             const pcr = (row.pcr_oi != null && !isNaN(Number(row.pcr_oi))) ? Number(row.pcr_oi).toFixed(2) : '-';
@@ -889,7 +897,9 @@
                             let mwpl = '0.00';
                             let maxMwpl = 0;
                             let maxClient = '';
-                            if (row.mwpl_array) {
+                            if (row.mwpl_pct != null && !isNaN(Number(row.mwpl_pct))) {
+                                mwpl = Number(row.mwpl_pct).toFixed(2);
+                            } else if (row.mwpl_array) {
                                 let arr = row.mwpl_array;
                                 if (typeof arr === 'string') {
                                     try { arr = JSON.parse(arr); } catch (e) { arr = []; }
@@ -962,11 +972,15 @@
                                 <td>${eqClose}</td>
                                 <td>${vwap}</td>
                                 <td>${eqVol}</td>
+                                <td>${eqVolAvg}</td>
+                                <td>${highestEqVol}</td>
                                 <td>${del5}</td>
                                 <td>${del10}</td>
                                 <td>${del20}</td>
                                 <td>${del30}</td>
                                 <td>${delPct}</td>
+                                <td>${delPctAvg}</td>
+                                <td>${highestDelPct}</td>
                                 <td>${fVol}</td>
                                 <td>${fOi}</td>
                                 <td>${pcr}</td>
@@ -1055,11 +1069,15 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">30D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Delivery<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">Delivery<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">Highest<br>Delivery (%)</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
@@ -1135,11 +1153,15 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">30D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Delivery<br>(%)</th>
+                                    <th style="white-space: pre-wrap;">Delivery<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">Highest<br>Delivery (%)</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total Vol</th>
                                     <th style="white-space: pre-wrap;">Futures<br>Total OI</th>
                                     <th style="white-space: pre-wrap;">Put-Call<br>Ratio (OI)</th>
