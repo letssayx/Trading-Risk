@@ -2993,13 +2993,38 @@ async function loadMarketOptionsCharts() {
         };
         window.marketPcrChartInstance.setOption(pcrOption);
 
-        // Render High OI Chart (CE vs PE)
-        const latest = data.history[data.history.length - 1];
-        if (latest.high_oi_strikes) {
-            // Fix: sort strikes low to high
-            const strikes = Object.keys(latest.high_oi_strikes).map(Number).sort((a,b) => b - a);
-            const callOi = strikes.map(s => latest.high_oi_strikes[s].CE || 0);
-            const putOi = strikes.map(s => latest.high_oi_strikes[s].PE || 0);
+        // Load High OI Chart (CE vs PE) via option_chain endpoint
+        const ocRes = await fetch(`/api/data/derivatives/option_chain?symbol=${symbol}`);
+        const ocData = await ocRes.json();
+
+        if (ocData && ocData.data && ocData.data.length > 0) {
+            // Instead of taking rigid +/- 20 strikes, we take the top 15 by Call OI and top 15 by Put OI, and union them.
+            const allData = [...ocData.data];
+
+            // Sort by CE OI descending
+            const topCe = [...allData].sort((a, b) => (b.CE.oi || 0) - (a.CE.oi || 0)).slice(0, 15);
+            // Sort by PE OI descending
+            const topPe = [...allData].sort((a, b) => (b.PE.oi || 0) - (a.PE.oi || 0)).slice(0, 15);
+
+            // Union the strikes using a Set to avoid duplicates
+            const topStrikesSet = new Set();
+            topCe.forEach(row => topStrikesSet.add(row.strike));
+            topPe.forEach(row => topStrikesSet.add(row.strike));
+
+            // Filter the original data to only include these top strikes, then sort by strike price
+            const filteredData = allData
+                .filter(row => topStrikesSet.has(row.strike))
+                .sort((a, b) => b.strike - a.strike);
+
+            const strikes = [];
+            const callOi = [];
+            const putOi = [];
+
+            filteredData.forEach(row => {
+                strikes.push(row.strike);
+                callOi.push(row.CE.oi || 0);
+                putOi.push(row.PE.oi || 0);
+            });
 
             const butterflyOption = {
                 backgroundColor: 'transparent',

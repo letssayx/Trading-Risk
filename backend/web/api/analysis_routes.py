@@ -207,60 +207,49 @@ async def check_task_status(task_id: str):
     else:
         return {"state": task_result.state, "status": task_result.info}
 
-
-
 @router.get("/api/morning-report/data/{target_date}")
 def get_report_data(target_date: str, db: Session = Depends(get_db)):
-    from backend.ingest.nse_models import OiAnalysisMetrics, MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
-    from sqlalchemy import case, desc
+    from backend.ingest.nse_models import DailyDerivativesAnalysis
+    from fastapi.concurrency import run_in_threadpool
 
-    # Primary source is OiAnalysisMetrics since it covers the F&O universe
-    oi_records = db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == target_date).all()
-    if not oi_records:
+    def fetch_data():
+        from sqlalchemy import case
+        return db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.trade_date == target_date
+        ).order_by(
+            case(
+                (DailyDerivativesAnalysis.symbol == 'NIFTY', 0),
+                (DailyDerivativesAnalysis.symbol == 'BANKNIFTY', 1),
+                else_=2
+            ),
+            DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()
+        ).all()
+
+    records = fetch_data()
+
+    if not records:
         return []
 
-    # Fetch overlapping data from other persistent tables
+    # Fetch overlapping data from persistent tables
+    from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
+
     mwpl_records = {r.symbol: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.trade_date == target_date).all()}
     roll_records = {r.symbol: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date == target_date).all()}
-    basis_records = {}
     vol_records = {r.symbol: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.trade_date == target_date).all()}
 
     result = []
-    for oi in oi_records:
-        sym = oi.symbol
-        d = {
-            "symbol": sym,
-            "trade_date": str(oi.trade_date),
-            "close_price": oi.price,
-            "futures_total_oi": oi.fut_oi,
-            "pcr_oi": oi.pcr,
-            "atm_iv_near": oi.atm_iv / 100.0 if oi.atm_iv else 0,
-            "total_options_call_oi": oi.call_oi,
-            "total_options_put_oi": oi.put_oi,
-            "chg_oi_futures": oi.fut_oi_chg,
-            "chg_oi_options": (oi.call_oi_chg or 0) + (oi.put_oi_chg or 0),
-            "price_pct_change": oi.price_chg_pct,
-            # Initialize empty fields that might not be in persistent tables
-            "mwpl_array": None, "rollover_pct": 0,
-            "basis_1_bps": 0, "basis_2_bps": 0, "calendar_spread_1_bps": 0, "calendar_spread_2_bps": 0,
-            "iv_rank_252": 0, "iv_percentile_252": 0, "daily_volatility": 0,
-            "highest_oi_strike_pe": 0, "highest_oi_strike_ce": 0,
-        }
+    for r in records:
+        d = dict(r.__dict__)
+        d.pop('_sa_instance_state', None)
 
+        sym = d['symbol']
+
+        # Override with persistent table data if available
         if sym in mwpl_records:
-            d['mwpl_array'] = mwpl_records[sym].mwpl_array
-
+            d['mwpl_pct'] = mwpl_records[sym].mwpl_pct
         if sym in roll_records:
             roll = roll_records[sym]
             d['rollover_pct'] = roll.rollover_pct / 100.0 if roll.rollover_pct else 0
-
-        if sym in basis_records:
-            basis = basis_records[sym]
-            d['basis_1_bps'] = basis.basis_1_bps
-            d['basis_2_bps'] = basis.basis_2_bps
-            d['calendar_spread_1_bps'] = basis.calendar_spread_1_bps
-            d['calendar_spread_2_bps'] = basis.calendar_spread_2_bps
-
         if sym in vol_records:
             vol = vol_records[sym]
             d['iv_rank_252'] = vol.ivr
@@ -269,69 +258,44 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
 
         result.append(d)
 
-    # Sort: NIFTY first, BANKNIFTY second, then by ATM IV Near descending
-    def sort_key(x):
-        sym_rank = 0 if x['symbol'] == 'NIFTY' else (1 if x['symbol'] == 'BANKNIFTY' else 2)
-        iv = x.get('atm_iv_near') or 0
-        return (sym_rank, -iv)
-
-    result.sort(key=sort_key)
     return result
 
 @router.get("/api/morning-report/timeseries")
 def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(get_db)):
-    from backend.ingest.nse_models import OiAnalysisMetrics, MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
+    from backend.ingest.nse_models import DailyDerivativesAnalysis
+    from fastapi.concurrency import run_in_threadpool
 
-    symbol = symbol.upper()
-    oi_records = db.query(OiAnalysisMetrics).filter(
-        OiAnalysisMetrics.symbol == symbol
-    ).order_by(OiAnalysisMetrics.trade_date.desc()).limit(limit).all()
+    def fetch_ts():
+        return db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.symbol == symbol.upper()
+        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
 
-    if not oi_records:
+    records = fetch_ts()
+
+    if not records:
         return []
 
-    dates = [r.trade_date for r in oi_records]
+    dates = [r.trade_date for r in records]
 
     # Fetch overlapping data from persistent tables
+    from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
     mwpl_records = {r.trade_date: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.symbol == symbol, MwplAnalysisMetrics.trade_date.in_(dates)).all()}
     roll_records = {r.trade_date: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.symbol == symbol, RolloverAnalysisMetrics.trade_date.in_(dates)).all()}
-    basis_records = {}
     vol_records = {r.trade_date: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.symbol == symbol, VolatilityAnalysisMetrics.trade_date.in_(dates)).all()}
 
     result = []
-    for oi in oi_records:
-        td = oi.trade_date
-        d = {
-            "symbol": symbol,
-            "trade_date": str(td),
-            "close_price": oi.price,
-            "futures_total_oi": oi.fut_oi,
-            "pcr_oi": oi.pcr,
-            "atm_iv_near": oi.atm_iv / 100.0 if oi.atm_iv else 0,
-            "total_options_call_oi": oi.call_oi,
-            "total_options_put_oi": oi.put_oi,
-            "chg_oi_futures": oi.fut_oi_chg,
-            "chg_oi_options": (oi.call_oi_chg or 0) + (oi.put_oi_chg or 0),
-            "price_pct_change": oi.price_chg_pct,
-            "mwpl_array": None, "rollover_pct": 0,
-            "basis_1_bps": 0, "basis_2_bps": 0, "calendar_spread_1_bps": 0, "calendar_spread_2_bps": 0,
-            "iv_rank_252": 0, "iv_percentile_252": 0, "daily_volatility": 0,
-        }
+    for r in records:
+        d = dict(r.__dict__)
+        d.pop('_sa_instance_state', None)
+        td = d['trade_date']
+        d['trade_date'] = str(td)
 
+        # Override with persistent table data if available
         if td in mwpl_records:
-            d['mwpl_array'] = mwpl_records[td].mwpl_array
-
+            d['mwpl_pct'] = mwpl_records[td].mwpl_pct
         if td in roll_records:
             roll = roll_records[td]
             d['rollover_pct'] = roll.rollover_pct / 100.0 if roll.rollover_pct else 0
-
-        if td in basis_records:
-            basis = basis_records[td]
-            d['basis_1_bps'] = basis.basis_1_bps
-            d['basis_2_bps'] = basis.basis_2_bps
-            d['calendar_spread_1_bps'] = basis.calendar_spread_1_bps
-            d['calendar_spread_2_bps'] = basis.calendar_spread_2_bps
-
         if td in vol_records:
             vol = vol_records[td]
             d['iv_rank_252'] = vol.ivr
