@@ -697,9 +697,9 @@
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
-                                    <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut 2<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut1-base">Fut 1<br>Close</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut2-base">Fut 2<br>Close</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut3-base">Fut 3<br>Close</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
@@ -878,9 +878,9 @@
                             const atmStraddleWeekly = (row.atm_straddle_weekly_nifty != null && !isNaN(Number(row.atm_straddle_weekly_nifty))) ? Number(row.atm_straddle_weekly_nifty).toFixed(2) : '-';
                             const chgOiOpt = (row.chg_oi_options != null && !isNaN(Number(row.chg_oi_options))) ? Number(row.chg_oi_options).toLocaleString() : '-';
                             const chgOiFut = (row.chg_oi_futures != null && !isNaN(Number(row.chg_oi_futures))) ? Number(row.chg_oi_futures).toLocaleString() : '-';
-                            const fut1Exp = row.near_expiry_date !== null ? row.near_expiry_date : '-';
-                            const fut2Exp = row.next_expiry_date !== null ? row.next_expiry_date : '-';
-                            const fut3Exp = row.far_expiry_date !== null ? row.far_expiry_date : '-';
+                            const fut1Exp = (row.near_fut_close != null && !isNaN(Number(row.near_fut_close))) ? Number(row.near_fut_close).toFixed(2) : '-';
+                            const fut2Exp = (row.next_fut_close != null && !isNaN(Number(row.next_fut_close))) ? Number(row.next_fut_close).toFixed(2) : '-';
+                            const fut3Exp = (row.far_fut_close != null && !isNaN(Number(row.far_fut_close))) ? Number(row.far_fut_close).toFixed(2) : '-';
                             const totCallOi = (row.total_options_call_oi != null && !isNaN(Number(row.total_options_call_oi))) ? Number(row.total_options_call_oi).toLocaleString() : '-';
                             const totPutOi = (row.total_options_put_oi != null && !isNaN(Number(row.total_options_put_oi))) ? Number(row.total_options_put_oi).toLocaleString() : '-';
 
@@ -1062,6 +1062,11 @@
                         }
 
                         if (snapshotMode) {
+                            const firstRow = data[0] || {};
+                            const fut1Header = firstRow.near_expiry_date ? `${firstRow.near_expiry_date}<br>Close` : `Fut 1<br>Close`;
+                            const fut2Header = firstRow.next_expiry_date ? `${firstRow.next_expiry_date}<br>Close` : `Fut 2<br>Close`;
+                            const fut3Header = firstRow.far_expiry_date ? `${firstRow.far_expiry_date}<br>Close` : `Fut 3<br>Close`;
+
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3;">Symbol</th>
@@ -1093,9 +1098,9 @@
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
-                                    <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut 2<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut1">${fut1Header}</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut2">${fut2Header}</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut3">${fut3Header}</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>
@@ -1141,10 +1146,24 @@
                                     statusText.innerText = `Loaded ${data.length} records.`;
                                     const genBtn = document.getElementById('mr-generate-btn');
                                     if(genBtn) { genBtn.disabled = false; genBtn.style.opacity = '1'; }
+
+                                    // Update base table headers dynamically from snapshot first row
+                                    const firstRow = data[0] || {};
+                                    const h1 = document.getElementById('th-fut1-base');
+                                    const h2 = document.getElementById('th-fut2-base');
+                                    const h3 = document.getElementById('th-fut3-base');
+                                    if(h1 && firstRow.near_expiry_date) h1.innerHTML = `${firstRow.near_expiry_date}<br>Close`;
+                                    if(h2 && firstRow.next_expiry_date) h2.innerHTML = `${firstRow.next_expiry_date}<br>Close`;
+                                    if(h3 && firstRow.far_expiry_date) h3.innerHTML = `${firstRow.far_expiry_date}<br>Close`;
                                 }
                             };
                             requestAnimationFrame(() => renderChunk(0));
                         } else {
+                            const firstRow = data[0] || {};
+                            const fut1Header = firstRow.near_expiry_date ? `${firstRow.near_expiry_date}<br>Close` : `Fut 1<br>Close`;
+                            const fut2Header = firstRow.next_expiry_date ? `${firstRow.next_expiry_date}<br>Close` : `Fut 2<br>Close`;
+                            const fut3Header = firstRow.far_expiry_date ? `${firstRow.far_expiry_date}<br>Close` : `Fut 3<br>Close`;
+
                             thead.innerHTML = `
                                 <tr>
                                     <th style="text-align: left; position: sticky; top: 0; left: 0; background: #1e1e1e; z-index: 3; min-width: 90px; max-width: 90px; width: 90px;">Date</th>
@@ -1177,9 +1196,9 @@
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
-                                    <th style="white-space: pre-wrap;">Fut 1<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut 2<br>Expiry</th>
-                                    <th style="white-space: pre-wrap;">Fut 3<br>Expiry</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut1">${fut1Header}</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut2">${fut2Header}</th>
+                                    <th style="white-space: pre-wrap;" id="th-fut3">${fut3Header}</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Call OI</th>
                                     <th style="white-space: pre-wrap;">Total Options<br>Put OI</th>
                                     <th style="white-space: pre-wrap;">ATM IV<br>(Near)</th>

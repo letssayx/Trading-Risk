@@ -30,10 +30,11 @@ class MorningReportCalculator:
     def _get_pe_ratio(self, target_date: date, symbol: str) -> float:
         """Fetch PE ratio from pe_ratio table."""
         record = self.db.query(PERatio).filter(
-            PERatio.date == target_date,
+            PERatio.date <= target_date,
             PERatio.symbol == symbol
-        ).first()
-        return record.symbol_pe if record else 0.0
+        ).order_by(PERatio.date.desc()).first()
+
+        return record.symbol_pe if record and record.symbol_pe is not None else 0.0
 
     def _get_mwpl_array(self, target_date: date, symbol: str) -> list:
         """Fetch MWPL client limits for the symbol as a JSON array."""
@@ -61,24 +62,35 @@ class MorningReportCalculator:
             LIMIT :lmt
         """)
         result = self.db.execute(query, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
-        if not result:
-            # Fallback to near futures for indices or stocks without EQ data
-            query_fo = text("""
-                SELECT * FROM (
-                    SELECT DISTINCT ON (trade_date) trade_date, close_price, high_price, low_price, total_trading_vol as volume
-                    FROM bhavcopy_fo
-                    WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK') AND trade_date <= :dt
-                    ORDER BY trade_date DESC, expiry_date ASC
-                ) AS distinct_dates
-                ORDER BY trade_date DESC
-                LIMIT :lmt
-            """)
-            result = self.db.execute(query_fo, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
+        if result:
+            df = pd.DataFrame(result, columns=['date', 'close', 'high', 'low', 'volume'])
+            for col in ['close', 'high', 'low', 'volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+            df = df.sort_values('date').reset_index(drop=True)
+            return df
+
+        # Fallback to near futures for indices or stocks without EQ data
+        query_fo = text("""
+            SELECT * FROM (
+                SELECT DISTINCT ON (trade_date) trade_date, close_price, high_price, low_price, total_trading_vol as volume
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK') AND trade_date <= :dt
+                ORDER BY trade_date DESC, expiry_date ASC
+            ) AS distinct_dates
+            ORDER BY trade_date DESC
+            LIMIT :lmt
+        """)
+        result = self.db.execute(query_fo, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
 
         if not result:
             return pd.DataFrame()
 
         df = pd.DataFrame(result, columns=['date', 'close', 'high', 'low', 'volume'])
+
+        # Replace string/object with float
+        for col in ['close', 'high', 'low', 'volume']:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+
         df = df.sort_values('date').reset_index(drop=True)
         return df
 
@@ -100,6 +112,7 @@ class MorningReportCalculator:
             return pd.DataFrame()
 
         df = pd.DataFrame(result, columns=['date', 'close'])
+        df['close'] = pd.to_numeric(df['close'], errors='coerce').fillna(0.0)
         df = df.sort_values(['date']).groupby('date').first().reset_index()
         return df.tail(days).reset_index(drop=True)
 
@@ -123,9 +136,12 @@ class MorningReportCalculator:
             cov_matrix = np.cov(window_df['ret_stock'], window_df['ret_nifty'])
             var_nifty = np.var(window_df['ret_nifty'], ddof=1)
             if var_nifty == 0: return 0.0, 0.0
-            beta = cov_matrix[0, 1] / var_nifty
+            beta = float(cov_matrix[0, 1] / var_nifty)
             corr_matrix = np.corrcoef(window_df['ret_stock'], window_df['ret_nifty'])
-            r_squared = corr_matrix[0, 1] ** 2
+            r_squared = float(corr_matrix[0, 1] ** 2)
+
+            if np.isnan(beta) or np.isinf(beta): beta = 0.0
+            if np.isnan(r_squared) or np.isinf(r_squared): r_squared = 0.0
             return beta, r_squared
 
         b252, r252 = run_regression(df.tail(252))
@@ -172,7 +188,9 @@ class MorningReportCalculator:
             tr2 = (high - prev_close).abs()
             tr3 = (low - prev_close).abs()
             tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-            res['atr_14'] = tr.rolling(window=14).mean().iloc[-1]
+            atr_14_abs = tr.rolling(window=14).mean().iloc[-1]
+            if close.iloc[-1] > 0:
+                res['atr_14'] = (atr_14_abs / close.iloc[-1]) * 100
 
         return res
 
@@ -519,8 +537,11 @@ class MorningReportCalculator:
                 if unique_strikes:
                     # Closest strike to spot with 0.5 delta logic
                     atm_strike = min(unique_strikes, key=lambda x: abs(x - ref_price))
-                    atm_ce_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type == 'CE'), 0.0)
-                    atm_pe_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type == 'PE'), 0.0)
+                    atm_ce_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type in ['CE', 'OPTIDX_CE', 'OPTSTK_CE']), 0.0)
+                    atm_pe_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type in ['PE', 'OPTIDX_PE', 'OPTSTK_PE']), 0.0)
+                    if not atm_ce_price and not atm_pe_price: # try strip/upper matching
+                        atm_ce_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type and o.option_type.strip().upper() == 'CE'), 0.0)
+                        atm_pe_price = next((o.close_price for o in straddle_near_opts if o.strike_price == atm_strike and o.option_type and o.option_type.strip().upper() == 'PE'), 0.0)
                     atm_straddle_near_month = atm_ce_price + atm_pe_price
 
             # Weekly NIFTY Straddle
@@ -544,8 +565,11 @@ class MorningReportCalculator:
                         weekly_strikes = list(set([o.strike_price for o in weekly_opts]))
                         if weekly_strikes:
                             weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - ref_price))
-                            w_ce_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type == 'CE'), 0.0)
-                            w_pe_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type == 'PE'), 0.0)
+                            w_ce_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type in ['CE', 'OPTIDX_CE', 'OPTSTK_CE']), 0.0)
+                            w_pe_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type in ['PE', 'OPTIDX_PE', 'OPTSTK_PE']), 0.0)
+                            if not w_ce_price and not w_pe_price:
+                                w_ce_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type and o.option_type.strip().upper() == 'CE'), 0.0)
+                                w_pe_price = next((o.close_price for o in weekly_opts if o.strike_price == weekly_atm_strike and o.option_type and o.option_type.strip().upper() == 'PE'), 0.0)
                             atm_straddle_weekly_nifty = w_ce_price + w_pe_price
 
             atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, ref_price, near_fut.expiry_date, target_date, proxy_ann_vol)
@@ -603,6 +627,9 @@ class MorningReportCalculator:
             record.near_expiry_date = near_fut.expiry_date if near_fut else None
             record.next_expiry_date = next_fut.expiry_date if next_fut else None
             record.far_expiry_date = far_fut.expiry_date if far_fut else None
+            record.near_fut_close = self._safe_float(near_fut.close_price) if near_fut else None
+            record.next_fut_close = self._safe_float(next_fut.close_price) if next_fut else None
+            record.far_fut_close = self._safe_float(far_fut.close_price) if far_fut else None
             record.total_options_call_oi = self._safe_float(call_oi)
             record.total_options_put_oi = self._safe_float(put_oi)
             record.atm_iv_near = self._safe_float(atm_iv_near)

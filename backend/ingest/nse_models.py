@@ -484,6 +484,9 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     near_expiry_date = Column(Date)        # Near Month Futures Expiry
     next_expiry_date = Column(Date)        # Next Month Futures Expiry
     far_expiry_date = Column(Date)         # Far Month Futures Expiry
+    near_fut_close = Column(Float)         # Near Month Futures actual close price
+    next_fut_close = Column(Float)         # Next Month Futures actual close price
+    far_fut_close = Column(Float)          # Far Month Futures actual close price
     total_options_call_oi = Column(BigInteger) # Total Futures Calls OI
     total_options_put_oi = Column(BigInteger)  # Total Futures Puts OI
 
