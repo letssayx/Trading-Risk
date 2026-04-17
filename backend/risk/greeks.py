@@ -75,8 +75,11 @@ def calculate_option_greeks(
     if T <= 0 or sigma <= 0:
         return {"delta": 0.0, "gamma": 0.0, "vega": 0.0, "theta": 0.0, "rho": 0.0}
 
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
+    try:
+        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+        d2 = d1 - sigma * np.sqrt(T)
+    except (ZeroDivisionError, FloatingPointError, OverflowError):
+        return {"delta": 0.0, "gamma": 0.0, "vega": 0.0, "theta": 0.0, "rho": 0.0}
 
     is_call = option_type.lower() == "call"
 
@@ -129,8 +132,11 @@ def bs_price(S: float, K: float, T: float, r: float, sigma: float, option_type: 
     if T <= 0 or sigma <= 0:
         return max(0, S - K) if option_type.lower() == "call" else max(0, K - S)
 
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
+    try:
+        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+        d2 = d1 - sigma * np.sqrt(T)
+    except (ZeroDivisionError, FloatingPointError, OverflowError):
+        return max(0, S - K) if option_type.lower() == "call" else max(0, K - S)
 
     is_call = option_type.lower() == "call"
 
@@ -162,10 +168,13 @@ def calculate_implied_volatility(
         vega_dict = calculate_option_greeks(S, K, T, r, sigma, option_type)
         vega = vega_dict.get("vega", 0.0) * 100.0  # Adjust back from 1% reporting
 
-        if vega == 0:
+        if abs(vega) < 1e-8:
             break
 
-        sigma = sigma + diff / vega
+        try:
+            sigma = sigma + diff / vega
+        except (ZeroDivisionError, FloatingPointError, OverflowError):
+            break
 
         if sigma <= 0.001:  # Prevent negative or zero vol
             sigma = 0.001

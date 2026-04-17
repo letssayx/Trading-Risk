@@ -231,11 +231,12 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
         return []
 
     # Fetch overlapping data from persistent tables
-    from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
+    from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics, OiAnalysisMetrics
 
     mwpl_records = {r.symbol: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.trade_date == target_date).all()}
     roll_records = {r.symbol: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date == target_date).all()}
     vol_records = {r.symbol: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.trade_date == target_date).all()}
+    oi_records = {r.symbol: r for r in db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == target_date).all()}
 
     result = []
     for r in records:
@@ -255,6 +256,15 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
             d['iv_rank_252'] = vol.ivr
             d['iv_percentile_252'] = vol.ivp
             d['daily_volatility'] = vol.rv_1mo / 100.0 if vol.rv_1mo else 0
+        if sym in oi_records:
+            oi = oi_records[sym]
+            d['pcr_oi'] = oi.pcr
+            d['futures_total_oi'] = oi.fut_oi
+            d['chg_oi_futures'] = oi.fut_oi * (oi.fut_oi_chg_pct / 100.0) if oi.fut_oi and oi.fut_oi_chg_pct else 0
+            d['total_options_call_oi'] = oi.call_oi
+            d['total_options_put_oi'] = oi.put_oi
+            d['chg_oi_options'] = (oi.call_oi * (oi.call_oi_chg_pct / 100.0) if oi.call_oi and oi.call_oi_chg_pct else 0) + \
+                                  (oi.put_oi * (oi.put_oi_chg_pct / 100.0) if oi.put_oi and oi.put_oi_chg_pct else 0)
 
         result.append(d)
 
@@ -278,10 +288,11 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
     dates = [r.trade_date for r in records]
 
     # Fetch overlapping data from persistent tables
-    from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics
+    from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics, OiAnalysisMetrics
     mwpl_records = {r.trade_date: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.symbol == symbol, MwplAnalysisMetrics.trade_date.in_(dates)).all()}
     roll_records = {r.trade_date: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.symbol == symbol, RolloverAnalysisMetrics.trade_date.in_(dates)).all()}
     vol_records = {r.trade_date: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.symbol == symbol, VolatilityAnalysisMetrics.trade_date.in_(dates)).all()}
+    oi_records = {r.trade_date: r for r in db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.symbol == symbol, OiAnalysisMetrics.trade_date.in_(dates)).all()}
 
     result = []
     for r in records:
@@ -301,6 +312,15 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
             d['iv_rank_252'] = vol.ivr
             d['iv_percentile_252'] = vol.ivp
             d['daily_volatility'] = vol.rv_1mo / 100.0 if vol.rv_1mo else 0
+        if td in oi_records:
+            oi = oi_records[td]
+            d['pcr_oi'] = oi.pcr
+            d['futures_total_oi'] = oi.fut_oi
+            d['chg_oi_futures'] = oi.fut_oi * (oi.fut_oi_chg_pct / 100.0) if oi.fut_oi and oi.fut_oi_chg_pct else 0
+            d['total_options_call_oi'] = oi.call_oi
+            d['total_options_put_oi'] = oi.put_oi
+            d['chg_oi_options'] = (oi.call_oi * (oi.call_oi_chg_pct / 100.0) if oi.call_oi and oi.call_oi_chg_pct else 0) + \
+                                  (oi.put_oi * (oi.put_oi_chg_pct / 100.0) if oi.put_oi and oi.put_oi_chg_pct else 0)
 
         result.append(d)
 
