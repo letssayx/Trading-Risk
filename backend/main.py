@@ -84,6 +84,24 @@ async def startup_event():
     print("Initializing Database...")
     try:
         Base.metadata.create_all(bind=engine)
+
+        # Patch newly added columns for existing schema because Alembic is currently bypassed
+        from sqlalchemy import text
+        cols = [
+            ("near_fut_close", "FLOAT"),
+            ("next_fut_close", "FLOAT"),
+            ("far_fut_close", "FLOAT"),
+            ("delivery_pct_avg", "FLOAT"),
+            ("highest_delivery_pct", "FLOAT"),
+            ("eq_vol_avg", "FLOAT"),
+            ("highest_eq_vol", "FLOAT")
+        ]
+        with engine.begin() as conn:
+            for col_name, col_type in cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE daily_derivatives_analysis ADD COLUMN IF NOT EXISTS {col_name} {col_type};"))
+                except Exception as e:
+                    pass
     except Exception as e:
         print(f"⚠️ Metadata Create Warning: {e}")
 
