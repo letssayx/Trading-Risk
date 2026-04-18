@@ -695,8 +695,12 @@
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
-                                    <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;" id="th-fut1-base">Fut 1<br>Close</th>
                                     <th style="white-space: pre-wrap;" id="th-fut2-base">Fut 2<br>Close</th>
                                     <th style="white-space: pre-wrap;" id="th-fut3-base">Fut 3<br>Close</th>
@@ -877,8 +881,12 @@
                             const hiOiCeOi = (row.highest_oi_ce_oi != null && !isNaN(Number(row.highest_oi_ce_oi))) ? Number(row.highest_oi_ce_oi).toLocaleString() : '-';
                             const atmStraddleNear = (row.atm_straddle_near_month != null && !isNaN(Number(row.atm_straddle_near_month))) ? Number(row.atm_straddle_near_month).toFixed(2) : '-';
                             const atmStraddleWeekly = (row.atm_straddle_weekly_nifty != null && !isNaN(Number(row.atm_straddle_weekly_nifty))) ? Number(row.atm_straddle_weekly_nifty).toFixed(2) : '-';
-                            const chgOiOpt = (row.chg_oi_options != null && !isNaN(Number(row.chg_oi_options))) ? Number(row.chg_oi_options).toLocaleString() : '-';
+                            const chgOiCE = (row.chg_oi_ce != null && !isNaN(Number(row.chg_oi_ce))) ? Number(row.chg_oi_ce).toLocaleString() : '-';
+                            const chgOiCEPct = (row.chg_oi_ce_pct != null && !isNaN(Number(row.chg_oi_ce_pct))) ? Number(row.chg_oi_ce_pct).toFixed(2) + '%' : '-';
+                            const chgOiPE = (row.chg_oi_pe != null && !isNaN(Number(row.chg_oi_pe))) ? Number(row.chg_oi_pe).toLocaleString() : '-';
+                            const chgOiPEPct = (row.chg_oi_pe_pct != null && !isNaN(Number(row.chg_oi_pe_pct))) ? Number(row.chg_oi_pe_pct).toFixed(2) + '%' : '-';
                             const chgOiFut = (row.chg_oi_futures != null && !isNaN(Number(row.chg_oi_futures))) ? Number(row.chg_oi_futures).toLocaleString() : '-';
+                            const chgOiFuturesPct = (row.chg_oi_fut_pct != null && !isNaN(Number(row.chg_oi_fut_pct))) ? Number(row.chg_oi_fut_pct).toFixed(2) + '%' : '-';
                             const fut1Exp = (row.near_fut_close != null && !isNaN(Number(row.near_fut_close))) ? Number(row.near_fut_close).toFixed(2) : '-';
                             const fut2Exp = (row.next_fut_close != null && !isNaN(Number(row.next_fut_close))) ? Number(row.next_fut_close).toFixed(2) : '-';
                             const fut3Exp = (row.far_fut_close != null && !isNaN(Number(row.far_fut_close))) ? Number(row.far_fut_close).toFixed(2) : '-';
@@ -996,8 +1004,12 @@
                                 <td>${pctAwayCe}</td>
                                 <td>${atmStraddleNear}</td>
                                 <td>${atmStraddleWeekly}</td>
-                                <td>${chgOiOpt}</td>
-                                <td>${chgOiFut}</td>
+                                <td style="color: ${Number(row.chg_oi_ce) < 0 ? '#ff4444' : '#00C851'}">${chgOiCE}</td>
+                                <td style="color: ${Number(row.chg_oi_ce_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiCEPct}</td>
+                                <td style="color: ${Number(row.chg_oi_pe) < 0 ? '#ff4444' : '#00C851'}">${chgOiPE}</td>
+                                <td style="color: ${Number(row.chg_oi_pe_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiPEPct}</td>
+                                <td style="color: ${Number(row.chg_oi_futures) < 0 ? '#ff4444' : '#00C851'}">${chgOiFut}</td>
+                                <td style="color: ${Number(row.chg_oi_fut_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiFuturesPct}</td>
                                 <td>${fut1Exp}</td>
                                 <td>${fut2Exp}</td>
                                 <td>${fut3Exp}</td>
@@ -1099,8 +1111,12 @@
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
-                                    <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;" id="th-fut1">${fut1Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut2">${fut2Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut3">${fut3Header}</th>
@@ -1198,8 +1214,12 @@
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
                                     <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
-                                    <th style="white-space: pre-wrap;">Change in OI<br>(Options)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
+                                    <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;">% Change OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;" id="th-fut1">${fut1Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut2">${fut2Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut3">${fut3Header}</th>

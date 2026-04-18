@@ -287,10 +287,15 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
             d['pcr_oi'] = oi.pcr
             d['futures_total_oi'] = oi.fut_oi
             d['chg_oi_futures'] = oi.fut_oi * (oi.fut_oi_chg_pct / 100.0) if oi.fut_oi and oi.fut_oi_chg_pct else 0
+            d['chg_oi_fut_pct'] = oi.fut_oi_chg_pct
             d['total_options_call_oi'] = oi.call_oi
             d['total_options_put_oi'] = oi.put_oi
             d['chg_oi_options'] = (oi.call_oi * (oi.call_oi_chg_pct / 100.0) if oi.call_oi and oi.call_oi_chg_pct else 0) + \
                                   (oi.put_oi * (oi.put_oi_chg_pct / 100.0) if oi.put_oi and oi.put_oi_chg_pct else 0)
+            d['chg_oi_ce'] = oi.call_oi * (oi.call_oi_chg_pct / 100.0) if oi.call_oi and oi.call_oi_chg_pct else 0
+            d['chg_oi_ce_pct'] = oi.call_oi_chg_pct
+            d['chg_oi_pe'] = oi.put_oi * (oi.put_oi_chg_pct / 100.0) if oi.put_oi and oi.put_oi_chg_pct else 0
+            d['chg_oi_pe_pct'] = oi.put_oi_chg_pct
 
         result.append(d)
 
@@ -343,10 +348,15 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
             d['pcr_oi'] = oi.pcr
             d['futures_total_oi'] = oi.fut_oi
             d['chg_oi_futures'] = oi.fut_oi * (oi.fut_oi_chg_pct / 100.0) if oi.fut_oi and oi.fut_oi_chg_pct else 0
+            d['chg_oi_fut_pct'] = oi.fut_oi_chg_pct
             d['total_options_call_oi'] = oi.call_oi
             d['total_options_put_oi'] = oi.put_oi
             d['chg_oi_options'] = (oi.call_oi * (oi.call_oi_chg_pct / 100.0) if oi.call_oi and oi.call_oi_chg_pct else 0) + \
                                   (oi.put_oi * (oi.put_oi_chg_pct / 100.0) if oi.put_oi and oi.put_oi_chg_pct else 0)
+            d['chg_oi_ce'] = oi.call_oi * (oi.call_oi_chg_pct / 100.0) if oi.call_oi and oi.call_oi_chg_pct else 0
+            d['chg_oi_ce_pct'] = oi.call_oi_chg_pct
+            d['chg_oi_pe'] = oi.put_oi * (oi.put_oi_chg_pct / 100.0) if oi.put_oi and oi.put_oi_chg_pct else 0
+            d['chg_oi_pe_pct'] = oi.put_oi_chg_pct
 
         result.append(d)
 

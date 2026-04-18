@@ -520,10 +520,10 @@ class MorningReportCalculator:
 
             # Underlying Cash Close
             eq_record = self.db.query(BhavcopyEQ).filter(
-                BhavcopyEQ.trade_date == target_date,
+                BhavcopyEQ.trade_date <= target_date,
                 BhavcopyEQ.symbol == symbol,
                 BhavcopyEQ.series == 'EQ'
-            ).first()
+            ).order_by(BhavcopyEQ.trade_date.desc()).first()
 
             cash_close = 0.0
             if eq_record and eq_record.close_price > 0:
@@ -539,9 +539,9 @@ class MorningReportCalculator:
                 }
                 from backend.ingest.nse_models import HistoricalIndexData
                 idx_record = self.db.query(HistoricalIndexData).filter(
-                    HistoricalIndexData.trade_date == target_date,
+                    HistoricalIndexData.trade_date <= target_date,
                     HistoricalIndexData.index_name == index_mapping.get(symbol, symbol)
-                ).first()
+                ).order_by(HistoricalIndexData.trade_date.desc()).first()
                 if idx_record and idx_record.close_price:
                     cash_close = idx_record.close_price
                 else:
