@@ -435,6 +435,13 @@ class NSEDataImporter:
 
         records = FieldMapper.map_to_records(df, format_info, trade_date)
 
+        if key == 'bhavcopy_fo':
+            for r in records:
+                if 'instrument_type' in r and isinstance(r['instrument_type'], str):
+                    r['instrument_type'] = r['instrument_type'].strip().upper()
+                if 'option_type' in r and isinstance(r['option_type'], str):
+                    r['option_type'] = r['option_type'].strip().upper()
+
         if not records:
             results[key] = {'status': 'EMPTY_PARSE', 'rows': 0}
             self._log_import(db, trade_date, key, 'SUCCESS', 0, 0, 'Parsed empty')

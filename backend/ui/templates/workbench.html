@@ -768,7 +768,7 @@
 
                 // Prepare Data Button Handler
                 document.getElementById('mr-prepare-btn').addEventListener('click', async () => {
-                    const targetDate = document.getElementById('mr-target-date').value;
+                    const targetDate = document.getElementById('mr-target-date').value || new Date().toISOString().split('T')[0];
                     const endDate = document.getElementById('mr-end-date').value;
                     const forceRefresh = document.getElementById('mr-force-refresh').checked;
                     const statusText = document.getElementById('mr-status-text');
@@ -1035,7 +1035,7 @@
                 }
 
                 async function loadTimeseriesData(snapshotMode = true) {
-                    const targetDate = document.getElementById('mr-target-date').value;
+                    const targetDate = document.getElementById('mr-target-date').value || new Date().toISOString().split('T')[0];
                     const symbolInput = document.getElementById('mr-symbol-input');
                     const symbol = symbolInput.value.toUpperCase() || 'NIFTY';
                     const tbody = document.getElementById('mr-data-body');
@@ -1323,7 +1323,7 @@
 
                 // Generate PDF Button Handler
                 document.getElementById('mr-generate-btn').addEventListener('click', async () => {
-                    const targetDate = document.getElementById('mr-target-date').value;
+                    const targetDate = document.getElementById('mr-target-date').value || new Date().toISOString().split('T')[0];
                     const author = document.getElementById('mr-author-name').value;
                     const statusText = document.getElementById('mr-status-text');
                     const generateBtn = document.getElementById('mr-generate-btn');

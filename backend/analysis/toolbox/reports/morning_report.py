@@ -28,13 +28,31 @@ class MorningReportCalculator:
         return record.applicable_daily_vol if record else 0.0
 
     def _get_pe_ratio(self, target_date: date, symbol: str) -> float:
-        """Fetch PE ratio from pe_ratio table."""
+        """Fetch PE ratio from pe_ratio table or historical_index_data."""
         record = self.db.query(PERatio).filter(
             PERatio.date <= target_date,
             PERatio.symbol == symbol
         ).order_by(PERatio.date.desc()).first()
 
-        return record.symbol_pe if record and record.symbol_pe is not None else 0.0
+        if record and record.symbol_pe is not None:
+            return float(record.symbol_pe)
+
+        index_mapping = {
+            'NIFTY': 'Nifty 50',
+            'BANKNIFTY': 'Nifty Bank',
+            'FINNIFTY': 'Nifty Financial Services',
+            'MIDCPNIFTY': 'NIFTY Midcap 100',
+            'NIFTYNXT50': 'Nifty Next 50'
+        }
+        if symbol in index_mapping:
+            from backend.ingest.nse_models import HistoricalIndexData
+            idx_record = self.db.query(HistoricalIndexData).filter(
+                HistoricalIndexData.trade_date <= target_date,
+                HistoricalIndexData.index_name == index_mapping[symbol]
+            ).order_by(HistoricalIndexData.trade_date.desc()).first()
+            if idx_record and idx_record.pe_ratio:
+                return float(idx_record.pe_ratio)
+        return 0.0
 
     def _get_mwpl_array(self, target_date: date, symbol: str) -> list:
         """Fetch MWPL client limits for the symbol as a JSON array."""
@@ -70,6 +88,14 @@ class MorningReportCalculator:
             return df
 
         # Check for historical index data (for indices) first
+        index_mapping = {
+            'NIFTY': 'Nifty 50',
+            'BANKNIFTY': 'Nifty Bank',
+            'FINNIFTY': 'Nifty Financial Services',
+            'MIDCPNIFTY': 'NIFTY Midcap 100',
+            'NIFTYNXT50': 'Nifty Next 50'
+        }
+        mapped_sym = index_mapping.get(symbol, symbol)
         query_idx = text("""
             SELECT trade_date, close_price, high_price, low_price, total_traded_qty as volume
             FROM historical_index_data
@@ -77,7 +103,7 @@ class MorningReportCalculator:
             ORDER BY trade_date DESC
             LIMIT :lmt
         """)
-        result = self.db.execute(query_idx, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
+        result = self.db.execute(query_idx, {"sym": mapped_sym, "dt": target_date, "lmt": days}).fetchall()
         if result:
             df = pd.DataFrame(result, columns=['date', 'close', 'high', 'low', 'volume'])
             for col in ['close', 'high', 'low', 'volume']:
@@ -90,7 +116,7 @@ class MorningReportCalculator:
             SELECT * FROM (
                 SELECT DISTINCT ON (trade_date) trade_date, close_price, high_price, low_price, total_trading_vol as volume
                 FROM bhavcopy_fo
-                WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK') AND trade_date <= :dt
+                WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK', 'IDF', 'STF') AND trade_date <= :dt
                 ORDER BY trade_date DESC, expiry_date ASC
             ) AS distinct_dates
             ORDER BY trade_date DESC
@@ -116,7 +142,7 @@ class MorningReportCalculator:
         query = text("""
             SELECT trade_date, close_price
             FROM bhavcopy_fo
-            WHERE ticker_symb = 'NIFTY' AND instrument_type = 'FUTIDX' AND trade_date <= :dt
+            WHERE ticker_symb = 'NIFTY' AND instrument_type IN ('FUTIDX', 'IDF') AND trade_date <= :dt
             -- Approximating spot via near fut for index if spot not in EQ
             ORDER BY trade_date DESC, expiry_date ASC
             LIMIT :lmt
@@ -504,10 +530,17 @@ class MorningReportCalculator:
                 cash_close = eq_record.close_price
             else:
                 # Check for historical index data (for indices)
+                index_mapping = {
+                    'NIFTY': 'Nifty 50',
+                    'BANKNIFTY': 'Nifty Bank',
+                    'FINNIFTY': 'Nifty Financial Services',
+                    'MIDCPNIFTY': 'NIFTY Midcap 100',
+                    'NIFTYNXT50': 'Nifty Next 50'
+                }
                 from backend.ingest.nse_models import HistoricalIndexData
                 idx_record = self.db.query(HistoricalIndexData).filter(
                     HistoricalIndexData.trade_date == target_date,
-                    HistoricalIndexData.index_name == symbol
+                    HistoricalIndexData.index_name == index_mapping.get(symbol, symbol)
                 ).first()
                 if idx_record and idx_record.close_price:
                     cash_close = idx_record.close_price
