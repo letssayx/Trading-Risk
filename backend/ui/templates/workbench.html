@@ -709,6 +709,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
+                                    <th style="white-space: pre-wrap;">Z-Score</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
                                     <th style="white-space: pre-wrap;">Highest MWPL<br>(%)</th>
                                     <th style="white-space: pre-wrap;">Basis 1<br>(bps)</th>
@@ -891,6 +892,7 @@
                             const skewNear = (row.skew_25d_near != null && !isNaN(Number(row.skew_25d_near))) ? (Number(row.skew_25d_near) * 100).toFixed(2) + '%' : '-';
                             const skewFar = (row.skew_25d_far != null && !isNaN(Number(row.skew_25d_far))) ? (Number(row.skew_25d_far) * 100).toFixed(2) + '%' : '-';
                             const vol1Sig = (row.daily_volatility != null && !isNaN(Number(row.daily_volatility))) ? (Number(row.daily_volatility) * 100).toFixed(2) + '%' : '-';
+                            const zScore = (row.z_score != null && !isNaN(Number(row.z_score))) ? Number(row.z_score).toFixed(2) : '-';
 
                             const roll = (row.rollover_pct != null && !isNaN(Number(row.rollover_pct))) ? (Number(row.rollover_pct) * 100).toFixed(2) + '%' : '-';
 
@@ -1008,6 +1010,7 @@
                                 <td>${skewNear}</td>
                                 <td>${skewFar}</td>
                                 <td>${vol1Sig}</td>
+                                <td>${zScore}</td>
                                 <td>${roll}</td>
                                 <td style="color: ${parseFloat(mwpl) > 20 ? '#ff4d4d' : 'inherit'};">${mwpl}</td>
                                 <td>${basis1}</td>
@@ -1110,6 +1113,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
+                                    <th style="white-space: pre-wrap;">Z-Score</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
 
                                     <th style="white-space: pre-wrap;">Highest MWPL<br>(%)</th>
@@ -1208,6 +1212,7 @@
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Near)</th>
                                     <th style="white-space: pre-wrap;">25-Delta Skew<br>(Far)</th>
                                     <th style="white-space: pre-wrap;">1-Sigma Daily<br>Volatility</th>
+                                    <th style="white-space: pre-wrap;">Z-Score</th>
                                     <th style="white-space: pre-wrap;">Rollover<br>Percentage</th>
 
                                     <th style="white-space: pre-wrap;">Highest MWPL<br>(%)</th>
@@ -1256,7 +1261,11 @@
 
                 document.getElementById('mr-clear-ts-btn').addEventListener('click', () => {
                     document.getElementById('mr-symbol-input').value = '';
-                    loadTimeseriesData(true);
+                    loadTimeseriesData(true).catch(e => {
+                        console.error('Clear failed', e);
+                        const tbody = document.getElementById('mr-data-body');
+                        if (tbody) tbody.innerHTML = `<tr><td colspan="46" style="text-align: center; color: red;">Failed to load snapshot data.</td></tr>`;
+                    });
                 });
 
                 document.getElementById('mr-export-btn').addEventListener('click', async () => {

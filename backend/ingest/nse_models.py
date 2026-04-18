@@ -498,6 +498,7 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     skew_25d_near = Column(Float)          # Near Month (Put 25d IV - Call 25d IV)
     skew_25d_far = Column(Float)           # Far Month (Put 25d IV - Call 25d IV)
     daily_volatility = Column(Float)       # 1 Sigma Daily Volatility (from fo_volatility)
+    z_score = Column(Float)                # 20-Day Z-Score
 
     # Limits & Carry
     rollover_pct = Column(Float)           # (Next OI + Far OI) / Total OI

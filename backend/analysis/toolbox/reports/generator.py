@@ -82,6 +82,7 @@ class MorningReportGenerator:
                     <th>Beta (252)</th>
                     <th>ATR (14)</th>
                     <th>1-Sig Vol</th>
+                    <th>Z-Score</th>
                 </tr>
             </thead>
             <tbody>
@@ -106,6 +107,7 @@ class MorningReportGenerator:
                     <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
                     <td>{{ "%.2f"|format(row.atr_14_cash or 0) }}</td>
                     <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
+                    <td>{{ "%.2f"|format(row.z_score or 0) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -141,6 +143,7 @@ class MorningReportGenerator:
                     <th>25d Skew (Near)</th>
                     <th>Roll %</th>
                     <th>1-Sig Vol</th>
+                    <th>Z-Score</th>
                     <th>Beta (252)</th>
                     <th>Del Vol 5d</th>
                     <th>EMA 50</th>
@@ -171,6 +174,7 @@ class MorningReportGenerator:
                     <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
                     <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
                     <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
+                    <td>{{ "%.2f"|format(row.z_score or 0) }}</td>
                     <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
                     <td>{{ "%.1f"|format(row.mavg_delivery_vol_5d or 0) }}%</td>
                     <td>{{ "%.2f"|format(row.ema_50_cash or 0) }}</td>

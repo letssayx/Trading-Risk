@@ -9,7 +9,8 @@ def add_columns():
         ("delivery_pct_avg", "FLOAT"),
         ("highest_delivery_pct", "FLOAT"),
         ("eq_vol_avg", "FLOAT"),
-        ("highest_eq_vol", "FLOAT")
+        ("highest_eq_vol", "FLOAT"),
+        ("z_score", "FLOAT")
     ]
     with engine.begin() as conn:
         for col_name, col_type in cols:

@@ -69,7 +69,23 @@ class MorningReportCalculator:
             df = df.sort_values('date').reset_index(drop=True)
             return df
 
-        # Fallback to near futures for indices or stocks without EQ data
+        # Check for historical index data (for indices) first
+        query_idx = text("""
+            SELECT trade_date, close_price, high_price, low_price, total_traded_qty as volume
+            FROM historical_index_data
+            WHERE index_name = :sym AND trade_date <= :dt
+            ORDER BY trade_date DESC
+            LIMIT :lmt
+        """)
+        result = self.db.execute(query_idx, {"sym": symbol, "dt": target_date, "lmt": days}).fetchall()
+        if result:
+            df = pd.DataFrame(result, columns=['date', 'close', 'high', 'low', 'volume'])
+            for col in ['close', 'high', 'low', 'volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+            df = df.sort_values('date').reset_index(drop=True)
+            return df
+
+        # Fallback to near futures for stocks without EQ data
         query_fo = text("""
             SELECT * FROM (
                 SELECT DISTINCT ON (trade_date) trade_date, close_price, high_price, low_price, total_trading_vol as volume
@@ -126,23 +142,36 @@ class MorningReportCalculator:
         if len(df) < 20:
             return {"beta_252": 0.0, "beta_500": 0.0, "r_squared_252": 0.0, "r_squared_500": 0.0}
 
+        # Ensure values are float and > 0 before taking log
+        df['close_stock'] = pd.to_numeric(df['close_stock'], errors='coerce').fillna(0)
+        df['close_nifty'] = pd.to_numeric(df['close_nifty'], errors='coerce').fillna(0)
+        df = df[(df['close_stock'] > 0) & (df['close_nifty'] > 0)].copy()
+
         # Calculate log returns: ln(P_t / P_{t-1})
         df['ret_stock'] = np.log(df['close_stock'] / df['close_stock'].shift(1))
         df['ret_nifty'] = np.log(df['close_nifty'] / df['close_nifty'].shift(1))
+
+        # Replace inf with nan, then drop nan
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df = df.dropna()
 
         def run_regression(window_df):
             if len(window_df) < 2: return 0.0, 0.0
-            cov_matrix = np.cov(window_df['ret_stock'], window_df['ret_nifty'])
-            var_nifty = np.var(window_df['ret_nifty'], ddof=1)
-            if var_nifty == 0: return 0.0, 0.0
-            beta = float(cov_matrix[0, 1] / var_nifty)
-            corr_matrix = np.corrcoef(window_df['ret_stock'], window_df['ret_nifty'])
-            r_squared = float(corr_matrix[0, 1] ** 2)
 
-            if np.isnan(beta) or np.isinf(beta): beta = 0.0
-            if np.isnan(r_squared) or np.isinf(r_squared): r_squared = 0.0
-            return beta, r_squared
+            try:
+                cov_matrix = np.cov(window_df['ret_stock'], window_df['ret_nifty'])
+                var_nifty = np.var(window_df['ret_nifty'], ddof=1)
+                if var_nifty == 0: return 0.0, 0.0
+
+                beta = float(cov_matrix[0, 1] / var_nifty)
+                corr_matrix = np.corrcoef(window_df['ret_stock'], window_df['ret_nifty'])
+                r_squared = float(corr_matrix[0, 1] ** 2)
+
+                if np.isnan(beta) or np.isinf(beta): beta = 0.0
+                if np.isnan(r_squared) or np.isinf(r_squared): r_squared = 0.0
+                return beta, r_squared
+            except Exception:
+                return 0.0, 0.0
 
         b252, r252 = run_regression(df.tail(252))
         b500, r500 = run_regression(df.tail(500))
@@ -155,10 +184,10 @@ class MorningReportCalculator:
         }
 
     def _calculate_technicals(self, df: pd.DataFrame) -> dict:
-        """Calculates 14-day ATR, EMAs, Price % Change, and Relative Volume."""
+        """Calculates 14-day ATR, EMAs, Price % Change, Z-Score, and Relative Volume."""
         res = {
             "atr_14": 0.0, "ema_20": 0.0, "ema_50": 0.0, "ema_100": 0.0, "ema_200": 0.0,
-            "price_pct_change": 0.0, "rel_vol_20d": 0.0
+            "price_pct_change": 0.0, "rel_vol_20d": 0.0, "z_score": 0.0
         }
         if df.empty:
             return res
@@ -166,10 +195,19 @@ class MorningReportCalculator:
         close = df['close']
 
         if len(df) >= 2:
-            res['price_pct_change'] = ((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2]) * 100
+            prev_c = close.iloc[-2]
+            if prev_c != 0:
+                res['price_pct_change'] = ((close.iloc[-1] - prev_c) / prev_c) * 100
 
         if len(df) >= 20:
             res['ema_20'] = close.ewm(span=20, adjust=False).mean().iloc[-1]
+
+            # 20-Day Z-Score
+            roll_mean = close.rolling(window=20).mean().iloc[-1]
+            roll_std = close.rolling(window=20).std().iloc[-1]
+            if roll_std > 0:
+                res['z_score'] = (close.iloc[-1] - roll_mean) / roll_std
+
             if 'volume' in df.columns:
                 vol_sma_20 = df['volume'].rolling(window=20).mean().iloc[-1]
                 if vol_sma_20 > 0:
@@ -180,17 +218,28 @@ class MorningReportCalculator:
         if len(df) >= 200: res['ema_200'] = close.ewm(span=200, adjust=False).mean().iloc[-1]
 
         # ATR
-        if len(df) > 1:
-            high = df['high']
-            low = df['low']
-            prev_close = close.shift(1)
+        if len(df) > 1 and 'high' in df.columns and 'low' in df.columns:
+            high = pd.to_numeric(df['high'], errors='coerce').fillna(0)
+            low = pd.to_numeric(df['low'], errors='coerce').fillna(0)
+            c = pd.to_numeric(close, errors='coerce').fillna(0)
+
+            prev_close = c.shift(1)
             tr1 = high - low
             tr2 = (high - prev_close).abs()
             tr3 = (low - prev_close).abs()
             tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-            atr_14_abs = tr.rolling(window=14).mean().iloc[-1]
-            if close.iloc[-1] > 0:
-                res['atr_14'] = (atr_14_abs / close.iloc[-1]) * 100
+
+            if len(tr) >= 14:
+                atr_14_abs = tr.rolling(window=14).mean().iloc[-1]
+                if c.iloc[-1] > 0 and not np.isnan(atr_14_abs):
+                    res['atr_14'] = (atr_14_abs / c.iloc[-1]) * 100
+
+        # Cast all results to float safely
+        for k in res:
+            try:
+                res[k] = float(res[k]) if not np.isnan(res[k]) else 0.0
+            except:
+                res[k] = 0.0
 
         return res
 
@@ -212,12 +261,21 @@ class MorningReportCalculator:
             return res
 
         df = pd.DataFrame(result, columns=['date', 'traded', 'delivered'])
-        df['pct'] = np.where(df['traded'] > 0, (df['delivered'] / df['traded']) * 100, 0)
 
-        res['5d'] = df['pct'].head(5).mean() if len(df) >= 1 else 0.0
-        res['10d'] = df['pct'].head(10).mean() if len(df) >= 10 else res['5d']
-        res['20d'] = df['pct'].head(20).mean() if len(df) >= 20 else res['10d']
-        res['30d'] = df['pct'].head(30).mean() if len(df) >= 30 else res['20d']
+        # Ensure numeric to avoid string divisions
+        df['traded'] = pd.to_numeric(df['traded'], errors='coerce').fillna(0)
+        df['delivered'] = pd.to_numeric(df['delivered'], errors='coerce').fillna(0)
+
+        # Avoid 100% bugs if delivered accidentally exceeds or equals traded indiscriminately
+        df['pct'] = np.where((df['traded'] > 0) & (df['delivered'] >= 0), (df['delivered'] / df['traded']) * 100, 0)
+
+        # Cap at 100 in case of dirty data
+        df['pct'] = np.where(df['pct'] > 100, 100, df['pct'])
+
+        res['5d'] = float(df['pct'].head(5).mean()) if len(df) >= 1 else 0.0
+        res['10d'] = float(df['pct'].head(10).mean()) if len(df) >= 10 else res['5d']
+        res['20d'] = float(df['pct'].head(20).mean()) if len(df) >= 20 else res['10d']
+        res['30d'] = float(df['pct'].head(30).mean()) if len(df) >= 30 else res['20d']
         res['avg'] = float(df['pct'].mean()) if not df.empty else 0.0
         res['high'] = float(df['pct'].max()) if not df.empty else 0.0
 
@@ -640,6 +698,7 @@ class MorningReportCalculator:
             record.skew_25d_far = self._safe_float(skew_far)
             record.rollover_pct = self._safe_float(rollover_pct)
             record.daily_volatility = self._safe_float(daily_vol)
+            record.z_score = self._safe_float(techs.get('z_score', 0.0))
             record.mwpl_array = mwpl_arr
             record.basis_1_bps = self._safe_float(basis_1)
             record.basis_2_bps = self._safe_float(basis_2)

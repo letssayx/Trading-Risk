@@ -565,21 +565,41 @@ class FieldMapper:
     @classmethod
     def _map_mto(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
+
+        # Determine if 'record type' header exists inside the data rows (pre-deduplication artifact)
+        # We can just skip those rows based on the 'Record Type' column value instead of forcing index 0
+        cols = [str(c).strip().lower() for c in df.columns]
+
+        def get_val_from_row(row, keywords):
+            for idx, c in enumerate(cols):
+                # For strict keyword matching like 'series', exact match is safer
+                # For others like 'name of security', 'in' is fine
+                if any((k == c if k == 'series' else k in c) for k in keywords):
+                    return row.iloc[idx]
+            return None
+
         for _, row in df.iterrows():
-            first_val = str(row.iloc[0]).strip()
-            if first_val.lower() == 'record type' or first_val == '':
+            # To handle both original parsing and deduplicated parsing (where 'Name of Security' becomes column 0),
+            # we should access columns by exact or partial names instead of fragile index positions.
+
+            rec_type = str(get_val_from_row(row, ['record type']) or '').strip().lower()
+            if rec_type == 'record type':
                 continue
 
             record = {
                 'trade_date': trade_date,
-                'settlement_type': 'N',
-                'sr_no': cls._clean_integer(row.iloc[1] if len(row) > 1 else None),
-                'security_name': str(row.iloc[2] if len(row) > 2 else '').strip(),
-                'quantity_traded': cls._clean_integer(row.iloc[3] if len(row) > 3 else None),
-                'deliverable_qty': cls._clean_integer(row.iloc[4] if len(row) > 4 else None),
-                'deliverable_pct': cls._clean_numeric(row.iloc[5] if len(row) > 5 else None),
+                'settlement_type': str(get_val_from_row(row, ['series']) or 'EQ').strip(),
+                'sr_no': cls._clean_integer(get_val_from_row(row, ['sr no', 'sr_no', 'serial'])),
+                'security_name': str(get_val_from_row(row, ['name of security', 'security_name']) or '').strip(),
+                'quantity_traded': cls._clean_integer(get_val_from_row(row, ['quantity traded', 'traded qty'])),
+                'deliverable_qty': cls._clean_integer(get_val_from_row(row, ['deliverable quantity', 'deliverable qty'])),
+                'deliverable_pct': cls._clean_numeric(get_val_from_row(row, ['% of deliverable', 'deliverable pct'])),
             }
-            if record['security_name']:
+            if record['security_name'] and record['settlement_type'] == 'EQ':
+                # Re-calculate accurate deliverable pct after deduplication sum (to prevent broken > 100% data)
+                if record['quantity_traded'] and record['deliverable_qty'] and record['quantity_traded'] > 0:
+                    record['deliverable_pct'] = round((record['deliverable_qty'] / record['quantity_traded']) * 100, 2)
+
                 records.append(record)
         return records
 

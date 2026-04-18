@@ -169,7 +169,15 @@ class NSELib:
                     break
 
             if header_idx != -1 and len(lines) > header_idx + 1:
+                # The MTO .DAT file has 6 header columns but 7 data columns (the 4th is 'Series' but missing from header)
+                # 'Record Type,Sr No,Name of Security,Quantity Traded,Deliverable Quantity,% of Deliverable'
+                # vs '20,1,0MOFSL27,N3,285,200,70.18'
                 header = lines[header_idx]
+                if header.count(',') == 5 and lines[header_idx+1].count(',') == 6:
+                    parts = header.split(',')
+                    parts.insert(3, 'Series')
+                    header = ','.join(parts)
+
                 data = lines[header_idx+1:]
                 csv_str = header + '\n' + '\n'.join(data)
                 df = pd.read_csv(io.StringIO(csv_str), low_memory=False)
