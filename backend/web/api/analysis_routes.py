@@ -148,8 +148,28 @@ class GenerateRequest(BaseModel):
 async def trigger_generate_report(request: GenerateRequest):
     """Triggers the Celery task to generate the PDF morning report using pre-calculated data."""
     from backend.ingest.tasks import generate_morning_report_task
-    task = generate_morning_report_task.delay(request.target_date, request.author)
-    return {"task_id": task.id, "status": "processing"}
+    import os
+
+    # Avoid attempting to hit Redis locally if no worker is running or if Redis is unreachable
+    # by directly invoking the function synchronously.
+    is_prod = os.getenv("ENVIRONMENT") == "production"
+
+    if is_prod:
+        try:
+            task = generate_morning_report_task.delay(request.target_date, request.author)
+            return {"task_id": task.id, "status": "processing"}
+        except Exception as e:
+            print(f"Celery dispatch failed: {e}. Executing synchronously...")
+            result = generate_morning_report_task(request.target_date, request.author)
+            return {"task_id": "sync-task-id", "status": "SUCCESS", "result": result}
+    else:
+        # In development/local environments (like WSL without Redis or Celery booted)
+        try:
+            result = generate_morning_report_task(request.target_date, request.author)
+            return {"task_id": "sync-task-id", "status": "SUCCESS", "result": result}
+        except Exception as e:
+            print(f"Synchronous generation failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/morning-report/download/{target_date}")
 async def download_report(target_date: str):
@@ -194,18 +214,24 @@ async def list_reports():
 
 @router.get("/api/morning-report/status/{task_id}")
 async def check_task_status(task_id: str):
-    from backend.celery_worker import app as celery_app
-    from celery.result import AsyncResult
-    task_result = AsyncResult(task_id, app=celery_app)
+    if task_id == "sync-task-id":
+        return {"state": "SUCCESS", "status": "SUCCESS"}
 
-    if task_result.state == 'PENDING':
-        return {"state": task_result.state, "status": "Pending"}
-    elif task_result.state == 'SUCCESS':
-        return {"state": task_result.state, "result": task_result.result}
-    elif task_result.state == 'FAILURE':
-        return {"state": task_result.state, "error": str(task_result.info)}
-    else:
-        return {"state": task_result.state, "status": task_result.info}
+    try:
+        from backend.celery_worker import app as celery_app
+        from celery.result import AsyncResult
+        task_result = AsyncResult(task_id, app=celery_app)
+
+        if task_result.state == 'PENDING':
+            return {"state": task_result.state, "status": "Pending"}
+        elif task_result.state == 'SUCCESS':
+            return {"state": task_result.state, "result": task_result.result}
+        elif task_result.state == 'FAILURE':
+            return {"state": task_result.state, "error": str(task_result.info)}
+        else:
+            return {"state": task_result.state, "status": task_result.info}
+    except Exception as e:
+        return {"state": "FAILURE", "error": str(e)}
 
 @router.get("/api/morning-report/data/{target_date}")
 def get_report_data(target_date: str, db: Session = Depends(get_db)):

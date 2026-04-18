@@ -94,14 +94,18 @@ async def startup_event():
             ("delivery_pct_avg", "FLOAT"),
             ("highest_delivery_pct", "FLOAT"),
             ("eq_vol_avg", "FLOAT"),
-            ("highest_eq_vol", "FLOAT")
+            ("highest_eq_vol", "FLOAT"),
+            ("z_score", "FLOAT")
         ]
-        with engine.begin() as conn:
-            for col_name, col_type in cols:
-                try:
-                    conn.execute(text(f"ALTER TABLE daily_derivatives_analysis ADD COLUMN IF NOT EXISTS {col_name} {col_type};"))
-                except Exception as e:
-                    pass
+        for col_name, col_type in cols:
+            try:
+                with engine.begin() as conn:
+                    # Execute raw SQL directly for safety against Alembic divergence
+                    conn.execute(text(f"ALTER TABLE daily_derivatives_analysis ADD COLUMN {col_name} {col_type};"))
+                    print(f"Successfully added column {col_name} to daily_derivatives_analysis")
+            except Exception as e:
+                # Ignore DuplicateColumn errors
+                pass
     except Exception as e:
         print(f"⚠️ Metadata Create Warning: {e}")
 

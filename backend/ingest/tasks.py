@@ -333,13 +333,37 @@ def generate_morning_report_task(self, target_date_str: str, author: str = "Syst
     # Run async function in sync context since Celery workers are synchronous
     try:
         loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we are already inside a running async event loop (e.g. FastAPI fallback),
+            # we need to create a nested task rather than run_until_complete which crashes.
+            import threading
+            with SessionLocal() as db:
+                generator = MorningReportGenerator(db, target_date)
+
+                # Run the async generator inside a separate thread's new loop
+                def run_in_thread(result_list):
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        result_list.append(new_loop.run_until_complete(generator.generate_report()))
+                    finally:
+                        new_loop.close()
+
+                results = []
+                t = threading.Thread(target=run_in_thread, args=(results,))
+                t.start()
+                t.join()
+                pdf_path = results[0] if results else None
+        else:
+            with SessionLocal() as db:
+                generator = MorningReportGenerator(db, target_date)
+                pdf_path = loop.run_until_complete(generator.generate_report())
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-
-    with SessionLocal() as db:
-        generator = MorningReportGenerator(db, target_date)
-        pdf_path = loop.run_until_complete(generator.generate_report())
+        with SessionLocal() as db:
+            generator = MorningReportGenerator(db, target_date)
+            pdf_path = loop.run_until_complete(generator.generate_report())
 
     return {
         "status": "SUCCESS",
