@@ -673,7 +673,7 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
-                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Last Trading Date)</th>
                                     <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
@@ -1089,7 +1089,7 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
-                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Last Trading Date)</th>
                                     <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
@@ -1281,6 +1281,10 @@
 
                 document.getElementById('mr-clear-ts-btn').addEventListener('click', () => {
                     document.getElementById('mr-symbol-input').value = '';
+                    const targetDateInput = document.getElementById('mr-target-date');
+                    if (!targetDateInput.value) {
+                        targetDateInput.value = new Date().toISOString().split('T')[0];
+                    }
                     loadTimeseriesData(true).catch(e => {
                         console.error('Clear failed', e);
                         const tbody = document.getElementById('mr-data-body');
