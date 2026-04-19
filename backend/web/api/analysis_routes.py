@@ -270,6 +270,8 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
         d.pop('_sa_instance_state', None)
 
         sym = d['symbol']
+        if 'highest_eq_vol_date' in d and d['highest_eq_vol_date']:
+            d['highest_eq_vol_date'] = str(d['highest_eq_vol_date'])
 
         # Override with persistent table data if available
         if sym in mwpl_records:
@@ -331,6 +333,8 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
         d.pop('_sa_instance_state', None)
         td = d['trade_date']
         d['trade_date'] = str(td)
+        if 'highest_eq_vol_date' in d and d['highest_eq_vol_date']:
+            d['highest_eq_vol_date'] = str(d['highest_eq_vol_date'])
 
         # Override with persistent table data if available
         if td in mwpl_records:

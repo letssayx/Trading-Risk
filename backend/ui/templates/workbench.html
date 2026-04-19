@@ -673,8 +673,10 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
-                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Last Trading Date)</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(20d SMA)</th>
+                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
                                     <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
+                                    <th style="white-space: pre-wrap;">Highest Vol<br>Date</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
@@ -726,7 +728,6 @@
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">Price %<br>Change</th>
-                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
                                     <th style="white-space: pre-wrap;">14-Day<br>ATR %</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
@@ -956,6 +957,7 @@
                             const r500 = (row.r_squared_500 != null && !isNaN(Number(row.r_squared_500))) ? Number(row.r_squared_500).toFixed(2) : '-';
                             const pxPct = (row.price_pct_change != null && !isNaN(Number(row.price_pct_change))) ? (Number(row.price_pct_change)).toFixed(2) + '%' : '-';
                             const relVol = (row.relative_volume_20d != null && !isNaN(Number(row.relative_volume_20d))) ? Number(row.relative_volume_20d).toFixed(2) : '-';
+                            const hiVolDate = row.highest_eq_vol_date ? row.highest_eq_vol_date : '-';
 
                             const atr = (row.atr_14_cash != null && !isNaN(Number(row.atr_14_cash))) ? Number(row.atr_14_cash).toFixed(2) : '-';
                             const ema20 = (row.ema_20_cash != null && !isNaN(Number(row.ema_20_cash))) ? Number(row.ema_20_cash).toFixed(2) : '-';
@@ -983,7 +985,9 @@
                                 <td>${vwap}</td>
                                 <td>${eqVol}</td>
                                 <td>${eqVolAvg}</td>
+                                <td>${relVol}</td>
                                 <td>${highestEqVol}</td>
+                                <td>${hiVolDate}</td>
                                 <td>${del5}</td>
                                 <td>${del10}</td>
                                 <td>${del20}</td>
@@ -1004,12 +1008,12 @@
                                 <td>${pctAwayCe}</td>
                                 <td>${atmStraddleNear}</td>
                                 <td>${atmStraddleWeekly}</td>
-                                <td style="color: ${Number(row.chg_oi_ce) < 0 ? '#ff4444' : '#00C851'}">${chgOiCE}</td>
-                                <td style="color: ${Number(row.chg_oi_ce_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiCEPct}</td>
-                                <td style="color: ${Number(row.chg_oi_pe) < 0 ? '#ff4444' : '#00C851'}">${chgOiPE}</td>
-                                <td style="color: ${Number(row.chg_oi_pe_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiPEPct}</td>
-                                <td style="color: ${Number(row.chg_oi_futures) < 0 ? '#ff4444' : '#00C851'}">${chgOiFut}</td>
-                                <td style="color: ${Number(row.chg_oi_fut_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiFuturesPct}</td>
+                                <td style="color: ${Number(row.chg_oi_ce) < 0 ? '#f87171' : '#60a5fa'}">${chgOiCE}</td>
+                                <td style="color: ${Number(row.chg_oi_ce_pct) < 0 ? '#f87171' : '#60a5fa'}">${chgOiCEPct}</td>
+                                <td style="color: ${Number(row.chg_oi_pe) < 0 ? '#f87171' : '#60a5fa'}">${chgOiPE}</td>
+                                <td style="color: ${Number(row.chg_oi_pe_pct) < 0 ? '#f87171' : '#60a5fa'}">${chgOiPEPct}</td>
+                                <td style="color: ${Number(row.chg_oi_futures) < 0 ? '#f87171' : '#60a5fa'}">${chgOiFut}</td>
+                                <td style="color: ${Number(row.chg_oi_fut_pct) < 0 ? '#f87171' : '#60a5fa'}">${chgOiFuturesPct}</td>
                                 <td>${fut1Exp}</td>
                                 <td>${fut2Exp}</td>
                                 <td>${fut3Exp}</td>
@@ -1035,7 +1039,6 @@
                                 <td>${r252}</td>
                                 <td>${r500}</td>
                                 <td>${pxPct}</td>
-                                <td>${relVol}</td>
                                 <td>${atr}</td>
                                 <td>${ema20}</td>
                                 <td>${ema50}</td>
@@ -1089,8 +1092,10 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
-                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Last Trading Date)</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(20d SMA)</th>
+                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
                                     <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
+                                    <th style="white-space: pre-wrap;">Highest Vol<br>Date</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
@@ -1143,7 +1148,6 @@
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">Price %<br>Change</th>
-                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
                                     <th style="white-space: pre-wrap;">14-Day<br>ATR %</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>
@@ -1192,8 +1196,10 @@
                                     <th style="white-space: pre-wrap;">EQ<br>Close</th>
                                     <th style="white-space: pre-wrap;">VWAP</th>
                                                                         <th style="white-space: pre-wrap;">Total EQ<br>Volume</th>
-                                    <th style="white-space: pre-wrap;">EQ Vol<br>(Avg)</th>
+                                    <th style="white-space: pre-wrap;">EQ Vol<br>(20d SMA)</th>
+                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
                                     <th style="white-space: pre-wrap;">Highest<br>EQ Vol</th>
+                                    <th style="white-space: pre-wrap;">Highest Vol<br>Date</th>
                                     <th style="white-space: pre-wrap;">5D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">10D Del<br>(%)</th>
                                     <th style="white-space: pre-wrap;">20D Del<br>(%)</th>
@@ -1246,7 +1252,6 @@
                                     <th style="white-space: pre-wrap;">R-Squared<br>(252d)</th>
                                     <th style="white-space: pre-wrap;">R-Squared<br>(500d)</th>
                                     <th style="white-space: pre-wrap;">Price %<br>Change</th>
-                                    <th style="white-space: pre-wrap;">Relative Vol<br>(20d)</th>
                                     <th style="white-space: pre-wrap;">14-Day<br>ATR %</th>
                                     <th style="white-space: pre-wrap;">20-Day<br>EMA</th>
                                     <th style="white-space: pre-wrap;">50-Day<br>EMA</th>

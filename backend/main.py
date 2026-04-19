@@ -100,7 +100,8 @@ async def startup_event():
             ("total_eq_volume", "FLOAT"),
             ("delivery_pct", "FLOAT"),
             ("atm_straddle_near_month", "FLOAT"),
-            ("atm_straddle_weekly_nifty", "FLOAT")
+            ("atm_straddle_weekly_nifty", "FLOAT"),
+            ("highest_eq_vol_date", "DATE")
         ]
         for col_name, col_type in cols:
             try:

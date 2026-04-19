@@ -539,6 +539,7 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     highest_delivery_pct = Column(Float)      # 2Y Highest Delivery %
     eq_vol_avg = Column(Float)                # 2Y Avg EQ Vol
     highest_eq_vol = Column(Float)            # 2Y Highest EQ Vol
+    highest_eq_vol_date = Column(Date)        # Date of Highest EQ Vol
 
     __table_args__ = (
         PrimaryKeyConstraint('trade_date', 'id'),
