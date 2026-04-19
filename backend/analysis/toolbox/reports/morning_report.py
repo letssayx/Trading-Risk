@@ -636,11 +636,15 @@ class MorningReportCalculator:
             if straddle_near_opts and ref_price > 0:
                 unique_strikes = list(set([o.strike_price for o in straddle_near_opts]))
                 if unique_strikes:
-                    # Closest strike to spot with 0.5 delta logic
-                    atm_strike = min(unique_strikes, key=lambda x: abs(x - ref_price))
+                    if symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']:
+                        # Indices need precise step rounding, e.g., NIFTY -> 50, BANKNIFTY -> 100
+                        step = 50 if symbol == 'NIFTY' else (100 if symbol == 'BANKNIFTY' else 50)
+                        atm_strike = round(ref_price / step) * step
+                    else:
+                        atm_strike = min(unique_strikes, key=lambda x: abs(x - ref_price))
 
-                    # Group to find specific options
-                    straddle_atm_opts = [o for o in straddle_near_opts if o.strike_price == atm_strike]
+                    straddle_atm_opts = [o for o in straddle_near_opts if float(o.strike_price) == float(atm_strike)]
+
                     atm_ce_price = sum([o.close_price for o in straddle_atm_opts if o.option_type and 'CE' in o.option_type.strip().upper()])
                     atm_pe_price = sum([o.close_price for o in straddle_atm_opts if o.option_type and 'PE' in o.option_type.strip().upper()])
                     atm_straddle_near_month = atm_ce_price + atm_pe_price
@@ -648,11 +652,9 @@ class MorningReportCalculator:
             # Weekly NIFTY Straddle
             atm_straddle_weekly_nifty = 0.0
             if ref_price > 0:
-                # Find all active expiries for options strictly after today if today is an expiry
                 sym_expiries = list(set([o.expiry_date for o in all_opts if o.expiry_date >= target_date]))
                 sym_expiries.sort()
 
-                # If today is the closest expiry, use the next one (next week)
                 if sym_expiries and sym_expiries[0] == target_date and len(sym_expiries) > 1:
                     closest_weekly_expiry = sym_expiries[1]
                 elif sym_expiries:
@@ -665,8 +667,13 @@ class MorningReportCalculator:
                     if weekly_opts:
                         weekly_strikes = list(set([o.strike_price for o in weekly_opts]))
                         if weekly_strikes:
-                            weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - ref_price))
-                            weekly_atm_opts = [o for o in weekly_opts if o.strike_price == weekly_atm_strike]
+                            if symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']:
+                                step = 50 if symbol == 'NIFTY' else (100 if symbol == 'BANKNIFTY' else 50)
+                                weekly_atm_strike = round(ref_price / step) * step
+                            else:
+                                weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - ref_price))
+
+                            weekly_atm_opts = [o for o in weekly_opts if float(o.strike_price) == float(weekly_atm_strike)]
                             w_ce_price = sum([o.close_price for o in weekly_atm_opts if o.option_type and 'CE' in o.option_type.strip().upper()])
                             w_pe_price = sum([o.close_price for o in weekly_atm_opts if o.option_type and 'PE' in o.option_type.strip().upper()])
                             atm_straddle_weekly_nifty = w_ce_price + w_pe_price
