@@ -468,6 +468,8 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
 
     # Core Price & OI Metrics
     close_price = Column(Float)            # Near Month Futures Close
+    eq_close_price = Column(Float)         # Cash Close Price
+    total_eq_volume = Column(Float)        # Cash Total Traded Volume
     futures_total_vol = Column(BigInteger) # Sum of Vol across all futures expiries
     futures_total_oi = Column(BigInteger)  # Sum of OI across all futures expiries
     pcr_oi = Column(Float)                 # Total Put OI / Total Call OI
@@ -477,6 +479,8 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     highest_oi_ce_value = Column(Float)
     highest_oi_pe_oi = Column(BigInteger)
     highest_oi_ce_oi = Column(BigInteger)
+    atm_straddle_near_month = Column(Float)
+    atm_straddle_weekly_nifty = Column(Float)
     pct_away_highest_pe = Column(Float)    # % Away (Highest PE Strike from Cash Close)
     pct_away_highest_ce = Column(Float)    # % Away (Highest CE Strike from Cash Close)
     chg_oi_options = Column(BigInteger)    # Total change in OI options
@@ -526,6 +530,7 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     ema_200_cash = Column(Float)           # 200-day EMA (Cash Close)
 
     # Cash Delivery (from mto)
+    delivery_pct = Column(Float)              # 1-day Delivery %
     mavg_delivery_vol_pct_5d = Column(Float)  # 5-day Avg Delivery %
     mavg_delivery_vol_pct_10d = Column(Float) # 10-day Avg Delivery %
     mavg_delivery_vol_pct_20d = Column(Float) # 20-day Avg Delivery %

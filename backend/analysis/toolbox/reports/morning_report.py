@@ -69,7 +69,7 @@ class MorningReportCalculator:
             arr.append({f"client_{i+1}": r.position_pct})
         return arr
 
-    def _fetch_cash_history(self, target_date: date, symbol: str, days: int = 500) -> pd.DataFrame:
+    def _fetch_cash_history(self, target_date: date, symbol: str, days: int = 1000) -> pd.DataFrame:
         """Fetches historical cash close prices for Regression, ATR, and EMA calculations."""
         # Using a raw query for speed over a large window
         query = text("""
@@ -136,7 +136,7 @@ class MorningReportCalculator:
         df = df.sort_values('date').reset_index(drop=True)
         return df
 
-    def _fetch_nifty_history(self, target_date: date, days: int = 500) -> pd.DataFrame:
+    def _fetch_nifty_history(self, target_date: date, days: int = 1000) -> pd.DataFrame:
         """Fetches NIFTY spot history to act as the regression benchmark."""
         # We try to get NIFTY 50 index from bhavcopy_eq (if available) or bhavcopy_fo
         query = text("""
