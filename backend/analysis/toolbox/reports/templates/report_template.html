@@ -1,154 +1,176 @@
-
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Morning Derivatives Report - {{ date }}</title>
+    <title>Institutional Derivatives Report - {{ date }}</title>
     <style>
         @page { size: A4 landscape; margin: 1cm; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #333; }
-        h1 { color: #1a365d; border-bottom: 2px solid #1a365d; padding-bottom: 5px; font-size: 18px; }
-        h2 { color: #2b6cb0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 9px; }
-        th, td { border: 1px solid #cbd5e0; padding: 4px; text-align: right; }
-        th { background-color: #f7fafc; color: #4a5568; font-weight: bold; text-align: center; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #1a202c; }
+        h1 { color: #2d3748; border-bottom: 2px solid #2b6cb0; padding-bottom: 5px; font-size: 18px; margin-top: 0;}
+        h2 { color: #2b6cb0; border-bottom: 1px solid #e2e8f0; font-size: 14px; margin-top: 20px;}
+        h3 { color: #4a5568; font-size: 12px; margin-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 9px; page-break-inside: avoid; }
+        th, td { border: 1px solid #e2e8f0; padding: 4px; text-align: right; }
+        th { background-color: #edf2f7; color: #4a5568; font-weight: bold; text-align: center; }
         .text-left { text-align: left; }
+        .text-center { text-align: center; }
         .highlight-green { color: #38a169; font-weight: bold; }
         .highlight-red { color: #e53e3e; font-weight: bold; }
-        .ai-inference { background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 15px; margin: 20px 0; font-style: italic; font-size: 11px; }
+        .summary-box { background-color: #f7fafc; border-left: 4px solid #2b6cb0; padding: 10px; margin: 10px 0; font-size: 10px; }
+        .ai-box { background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 10px; margin: 10px 0; font-style: italic; font-size: 10px; }
         .page-break { page-break-after: always; }
-        .chart-container { text-align: center; margin: 20px 0; }
-        .chart-container img { max-width: 80%; height: auto; }
-        .section { margin-bottom: 30px; }
+        .grid-container { display: table; width: 100%; margin-bottom: 20px; }
+        .grid-row { display: table-row; }
+        .grid-col { display: table-cell; padding: 5px; width: 20%; text-align: center; vertical-align: top; }
+        .chart-img { max-width: 100%; height: auto; border: 1px solid #e2e8f0; }
+        .footer-note { font-size: 8px; color: #718096; margin-top: 20px; font-style: italic; border-top: 1px solid #e2e8f0; padding-top: 5px; }
     </style>
 </head>
 <body>
-    <h1>Daily Derivatives Report - Institutional Matrix</h1>
-    <p><strong>Date:</strong> {{ date }}</p>
+    <!-- PAGE 1: EXECUTIVE DASHBOARD -->
+    <h1>Institutional Derivatives Report - {{ date }}</h1>
 
-    <div class="ai-inference">
-        <h3>Market Inference</h3>
-        <p>{{ ai_inference | replace('
-', '<br>') | safe }}</p>
+    <div class="summary-box">
+        <h3>Quantitative Market Read</h3>
+        <p>{{ quant_summary | replace('\n', '<br>') | safe }}</p>
     </div>
 
-    <div class="section">
-        <h2>Top 10 High Conviction Watchlist (by Highest ATM IV)</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th class="text-left">Symbol</th>
-                    <th>Near Fut Close</th>
-                    <th>EQ Close</th>
-                    <th>Basis 1 (bps)</th>
-                    <th>Rollover %</th>
-                    <th>MWPL (Top) %</th>
-                    <th>PCR (OI)</th>
-                    <th>ATM IV (Near)</th>
-                    <th>25d Skew (Near)</th>
-                    <th>Beta (252)</th>
-                    <th>ATR (14)</th>
-                    <th>1-Sig Vol</th>
-                    <th>Z-Score</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in top_10 %}
-                <tr>
-                    <td class="text-left"><strong>{{ row.symbol }}</strong></td>
-                    <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.eq_close_price or 0) }}</td>
-                    <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
-                    <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
-                    <td>
-                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
-                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
-                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
-                        {% else %}
-                            0.0%
-                        {% endif %}
-                    </td>
-                    <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
-                    <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
-                    <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
-                    <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.atr_14_cash or 0) }}</td>
-                    <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
-                    <td>{{ "%.2f"|format(row.z_score or 0) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
+    <div class="ai-box">
+        <h3>AI Executive Summary</h3>
+        <p>{{ ai_inference | replace('\n', '<br>') | safe }}</p>
+    </div>
+
+    {% if is_expiry_eve %}
+    <div class="summary-box" style="border-left-color: #ed8936; background-color: #fffaf0;">
+        <h3>Expiry Eve Analysis (DTE <= 1)</h3>
+        <table style="margin-bottom: 0;">
+            <tr>
+                <th class="text-left">Index</th>
+                <th>Estimated ATM</th>
+                <th>ATM Straddle Prem</th>
+                <th>Upper Bound Break</th>
+                <th>Lower Bound Break</th>
+            </tr>
+            {% for symbol, data in expiry_eve_data.items() %}
+            <tr>
+                <td class="text-left"><strong>{{ symbol }}</strong></td>
+                <td>{{ "%.0f"|format(data.atm) }}</td>
+                <td>{{ "%.1f"|format(data.straddle) }}</td>
+                <td class="highlight-green">{{ "%.0f"|format(data.upper_bound) }}</td>
+                <td class="highlight-red">{{ "%.0f"|format(data.lower_bound) }}</td>
+            </tr>
+            {% endfor %}
         </table>
+    </div>
+    {% endif %}
+
+    <div class="page-break"></div>
+
+    <!-- PAGE 2: TREND CHARTS (LONG/SHORT) -->
+    <h1>5-Day Action: Price vs OI Action</h1>
+
+    <h3>Top 5 Long Buildup (OI + Price Increase)</h3>
+    <div class="grid-container">
+        <div class="grid-row">
+            {% for chart in long_charts %}
+            <div class="grid-col">
+                <img src="file://{{ chart.path }}" class="chart-img">
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <h3>Top 5 Short Buildup (OI + Price Decrease)</h3>
+    <div class="grid-container">
+        <div class="grid-row">
+            {% for chart in short_charts %}
+            <div class="grid-col">
+                <img src="file://{{ chart.path }}" class="chart-img">
+            </div>
+            {% endfor %}
+        </div>
     </div>
 
     <div class="page-break"></div>
 
-    <div class="section chart-container">
-        <h2>Market Snapshot - IV Profile</h2>
-        <img src="file://{{ chart_path }}" alt="Market Snapshot Chart">
+    <!-- PAGE 3: OPTIONS WRITING CHARTS -->
+    <h1>5-Day Action: Options Writing</h1>
+
+    <h3>Top 5 Call Writers (Bearish Bias)</h3>
+    <div class="grid-container">
+        <div class="grid-row">
+            {% for chart in ce_charts %}
+            <div class="grid-col">
+                <img src="file://{{ chart.path }}" class="chart-img">
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <h3>Top 5 Put Writers (Bullish Bias)</h3>
+    <div class="grid-container">
+        <div class="grid-row">
+            {% for chart in pe_charts %}
+            <div class="grid-col">
+                <img src="file://{{ chart.path }}" class="chart-img">
+            </div>
+            {% endfor %}
+        </div>
     </div>
 
     <div class="page-break"></div>
 
-    <div class="section">
-        <h2>Full Market Data Dump</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th class="text-left">Symbol</th>
-                    <th>Near Fut Close</th>
-                    <th>EQ Close</th>
-                    <th>Total Vol</th>
-                    <th>Total OI</th>
-                    <th>PCR (OI)</th>
-                    <th>HI OI PE Value</th>
-                    <th>HI OI CE Value</th>
-                    <th>ATM Straddle</th>
-                    <th>Basis 1 (bps)</th>
-                    <th>MWPL (Top) %</th>
-                    <th>ATM IV (Near)</th>
-                    <th>25d Skew (Near)</th>
-                    <th>Roll %</th>
-                    <th>1-Sig Vol</th>
-                    <th>Z-Score</th>
-                    <th>Beta (252)</th>
-                    <th>Del Vol 5d</th>
-                    <th>EMA 50</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in all_data %}
-                <tr>
-                    <td class="text-left">{{ row.symbol }}</td>
-                    <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.eq_close_price or 0) }}</td>
-                    <td>{{ "{:,.0f}".format(row.futures_total_vol or 0) }}</td>
-                    <td>{{ "{:,.0f}".format(row.futures_total_oi or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.highest_oi_pe_value or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.highest_oi_ce_value or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.atm_straddle_near_month or 0) }}</td>
-                    <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
-                    <td>
-                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
-                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
-                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
-                        {% else %}
-                            0.0%
-                        {% endif %}
-                    </td>
-                    <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
-                    <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
-                    <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
-                    <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
-                    <td>{{ "%.2f"|format(row.z_score or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
-                    <td>{{ "%.1f"|format(row.mavg_delivery_vol_5d or 0) }}%</td>
-                    <td>{{ "%.2f"|format(row.ema_50_cash or 0) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- PAGE 4: FULL DATA MATRIX -->
+    <h1>Statistical & Sectoral Matrix</h1>
+    <table>
+        <thead>
+            <tr>
+                <th class="text-left">Symbol</th>
+                <th>Sector</th>
+                <th>EQ Close</th>
+                <th>1D % Chg</th>
+                <th>Beta (252)</th>
+                <th>Var (252)</th>
+                <th>CoVar (N50)</th>
+                <th>Rollover %</th>
+                <th>ATM IV</th>
+                <th>25D Skew</th>
+                <th>Basis (bps)</th>
+                <th>ATR (14)</th>
+                <th>Straddle (Near)</th>
+                <th>PCR (OI)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in all_data %}
+            <tr>
+                <td class="text-left"><strong>{{ row.symbol }}</strong></td>
+                <td class="text-center">{{ row.sector }}</td>
+                <td>{{ "%.2f"|format(row.eq_close_price or 0) }}</td>
+                <td class="{% if row.price_pct_change and row.price_pct_change > 0 %}highlight-green{% elif row.price_pct_change and row.price_pct_change < 0 %}highlight-red{% endif %}">
+                    {{ "%.2f"|format(row.price_pct_change or 0) }}%
+                </td>
+                <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
+                <td>{{ "%.6f"|format(row.variance_252 or 0) }}</td>
+                <td>{{ "%.6f"|format(row.covariance_252 or 0) }}</td>
+                <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
+                <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
+                <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
+                <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
+                <td>{{ "%.2f"|format(row.atr_14_cash or 0) }}</td>
+                <td>{{ "%.1f"|format(row.atm_straddle_near_month or 0) }}</td>
+                <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer-note">
+        <strong>Glossary:</strong><br>
+        <strong>25-Delta Skew:</strong> The difference in implied volatility between 25-delta puts and 25-delta calls. Extreme positive skew implies high demand for downside protection.<br>
+        <strong>IVR & IVP:</strong> Currently under active implementation phase (Backend).<br>
+        <strong>Beta & Covariance:</strong> Calculated using 252-day log returns against NIFTY 50.
     </div>
+
 </body>
 </html>

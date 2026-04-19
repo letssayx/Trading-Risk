@@ -3,18 +3,22 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 from sqlalchemy.orm import Session
-from datetime import date
+from sqlalchemy import func, text
+from datetime import date, timedelta
 import tempfile
 import json
 import asyncio
 
-from backend.ingest.nse_models import DailyDerivativesAnalysis
+from backend.ingest.nse_models import (
+    DailyDerivativesAnalysis, FAOParticipantOI, SymbolMaster, BhavcopyFO
+)
 
 class MorningReportGenerator:
-    """Generates the PDF report and handles AI inference using DeepSeek."""
+    """Generates the institutional multi-page PDF report."""
 
     def __init__(self, db: Session, target_date: date):
         self.db = db
@@ -25,189 +29,22 @@ class MorningReportGenerator:
 
         os.makedirs(self.template_dir, exist_ok=True)
         os.makedirs(self.reports_dir, exist_ok=True)
-        self.setup_templates()
+        self.chart_paths = []
 
-    def setup_templates(self):
-        """Creates the HTML template if it doesn't exist."""
-        template_path = os.path.join(self.template_dir, 'report_template.html')
-        if not os.path.exists(template_path):
-            with open(template_path, 'w') as f:
-                f.write("""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Morning Derivatives Report - {{ date }}</title>
-    <style>
-        @page { size: A4 landscape; margin: 1cm; }
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #333; }
-        h1 { color: #1a365d; border-bottom: 2px solid #1a365d; padding-bottom: 5px; font-size: 18px; }
-        h2 { color: #2b6cb0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 9px; }
-        th, td { border: 1px solid #cbd5e0; padding: 4px; text-align: right; }
-        th { background-color: #f7fafc; color: #4a5568; font-weight: bold; text-align: center; }
-        .text-left { text-align: left; }
-        .highlight-green { color: #38a169; font-weight: bold; }
-        .highlight-red { color: #e53e3e; font-weight: bold; }
-        .ai-inference { background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 15px; margin: 20px 0; font-style: italic; font-size: 11px; }
-        .page-break { page-break-after: always; }
-        .chart-container { text-align: center; margin: 20px 0; }
-        .chart-container img { max-width: 80%; height: auto; }
-        .section { margin-bottom: 30px; }
-    </style>
-</head>
-<body>
-    <h1>Daily Derivatives Report - Institutional Matrix</h1>
-    <p><strong>Date:</strong> {{ date }}</p>
+    def _cleanup_charts(self):
+        for path in self.chart_paths:
+            if os.path.exists(path):
+                os.remove(path)
 
-    <div class="ai-inference">
-        <h3>Market Inference</h3>
-        <p>{{ ai_inference | replace('\n', '<br>') | safe }}</p>
-    </div>
-
-    <div class="section">
-        <h2>Top 10 High Conviction Watchlist (by Highest ATM IV)</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th class="text-left">Symbol</th>
-                    <th>Near Fut Close</th>
-                    <th>EQ Close</th>
-                    <th>Basis 1 (bps)</th>
-                    <th>Rollover %</th>
-                    <th>MWPL (Top) %</th>
-                    <th>PCR (OI)</th>
-                    <th>ATM IV (Near)</th>
-                    <th>25d Skew (Near)</th>
-                    <th>Beta (252)</th>
-                    <th>ATR (14)</th>
-                    <th>1-Sig Vol</th>
-                    <th>Z-Score</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in top_10 %}
-                <tr>
-                    <td class="text-left"><strong>{{ row.symbol }}</strong></td>
-                    <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.eq_close_price or 0) }}</td>
-                    <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
-                    <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
-                    <td>
-                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
-                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
-                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
-                        {% else %}
-                            0.0%
-                        {% endif %}
-                    </td>
-                    <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
-                    <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
-                    <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
-                    <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.atr_14_cash or 0) }}</td>
-                    <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
-                    <td>{{ "%.2f"|format(row.z_score or 0) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="page-break"></div>
-
-    <div class="section chart-container">
-        <h2>Market Snapshot - IV Profile</h2>
-        <img src="file://{{ chart_path }}" alt="Market Snapshot Chart">
-    </div>
-
-    <div class="page-break"></div>
-
-    <div class="section">
-        <h2>Full Market Data Dump</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th class="text-left">Symbol</th>
-                    <th>Near Fut Close</th>
-                    <th>EQ Close</th>
-                    <th>Total Vol</th>
-                    <th>Total OI</th>
-                    <th>PCR (OI)</th>
-                    <th>HI OI PE Value</th>
-                    <th>HI OI CE Value</th>
-                    <th>ATM Straddle</th>
-                    <th>Basis 1 (bps)</th>
-                    <th>MWPL (Top) %</th>
-                    <th>ATM IV (Near)</th>
-                    <th>25d Skew (Near)</th>
-                    <th>Roll %</th>
-                    <th>1-Sig Vol</th>
-                    <th>Z-Score</th>
-                    <th>Beta (252)</th>
-                    <th>Del Vol 5d</th>
-                    <th>EMA 50</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in all_data %}
-                <tr>
-                    <td class="text-left">{{ row.symbol }}</td>
-                    <td>{{ "%.2f"|format(row.close_price or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.eq_close_price or 0) }}</td>
-                    <td>{{ "{:,.0f}".format(row.futures_total_vol or 0) }}</td>
-                    <td>{{ "{:,.0f}".format(row.futures_total_oi or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.highest_oi_pe_value or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.highest_oi_ce_value or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.atm_straddle_near_month or 0) }}</td>
-                    <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
-                    <td>
-                        {% if row.mwpl_array and row.mwpl_array|length > 0 %}
-                            {% set first_key = row.mwpl_array[0].keys()|list|first %}
-                            {{ "%.1f"|format(row.mwpl_array[0][first_key] or 0) }}%
-                        {% else %}
-                            0.0%
-                        {% endif %}
-                    </td>
-                    <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
-                    <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
-                    <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
-                    <td>{{ "%.1f"|format((row.daily_volatility or 0) * 100) }}%</td>
-                    <td>{{ "%.2f"|format(row.z_score or 0) }}</td>
-                    <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
-                    <td>{{ "%.1f"|format(row.mavg_delivery_vol_5d or 0) }}%</td>
-                    <td>{{ "%.2f"|format(row.ema_50_cash or 0) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</body>
-</html>
-""")
-
-    async def get_ai_inference(self, top_10_data: list) -> str:
-        """Calls DeepSeek to generate a summary inference based on the data."""
-        # Note: Since the real DeepSeek call might require environment variables we don't have,
-        # we will use a dummy prompt here. In real scenario, it integrates via OpenRouter.
+    async def get_ai_inference(self, quant_summary: str) -> str:
         try:
-            prompt = "Act as an institutional derivatives quant. Analyze the following Top 10 stocks based on IV, Skew, PCR and Basis, and provide a 2 paragraph high conviction trading call summary. Focus heavily on Volatility and Skew setups.\n\nData:\n"
-
-            for row in top_10_data:
-                mwpl_str = "0"
-                if row.mwpl_array and len(row.mwpl_array) > 0:
-                    first_key = list(row.mwpl_array[0].keys())[0]
-                    mwpl_str = str(row.mwpl_array[0][first_key])
-                prompt += f"{row.symbol}: ATM IV={row.atm_iv_near*100 if row.atm_iv_near else 0}%, Skew Near={row.skew_25d_near*100 if row.skew_25d_near else 0}%, Basis BPS={row.basis_1_bps}, PCR={row.pcr_oi}, MWPL={mwpl_str}%\n"
-
-            # Using OpenRouter DeepSeek (we'll implement the actual API call logic using litellm or httpx if needed)
+            prompt = f"""Act as an institutional derivatives quant. Review the following quantitative market read and provide a 2 paragraph high conviction executive summary. Focus heavily on FII Positioning, Volatility, and Index Action.\n\nQuantitative Read:\n{quant_summary}"""
             import httpx
             import os
 
             openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
             if not openrouter_api_key:
-                return "AI Inference skipped: OPENROUTER_API_KEY not found. Please review the Top 10 tables manually."
+                return "AI Inference skipped: OPENROUTER_API_KEY not found."
 
             headers = {
                 "Authorization": f"Bearer {openrouter_api_key}",
@@ -232,60 +69,160 @@ class MorningReportGenerator:
         except Exception as e:
             return f"Failed to generate AI inference: {str(e)}"
 
-    def generate_chart(self, top_10_data: list) -> str:
-        """Generates a bar chart of ATM IV for the top 10 stocks."""
-        symbols = [r.symbol for r in top_10_data]
-        ivs = [(r.atm_iv_near * 100) if r.atm_iv_near else 0 for r in top_10_data]
+    def _get_quant_summary(self, records: list) -> str:
+        # Fetch FII Data
+        fii_data = self.db.query(FAOParticipantOI).filter(
+            FAOParticipantOI.trade_date == self.target_date,
+            FAOParticipantOI.client_type == 'FII'
+        ).first()
 
-        plt.figure(figsize=(10, 6))
-        plt.bar(symbols, ivs, color='#e53e3e')
-        plt.title('Top 10 Stocks by ATM IV (Near)')
-        plt.xlabel('Symbol')
-        plt.ylabel('ATM IV (%)')
-        plt.xticks(rotation=45)
+        summary = ""
+        if fii_data:
+            idx_long = fii_data.future_index_long or 0
+            idx_short = fii_data.future_index_short or 0
+            idx_ratio = (idx_long / idx_short) if idx_short > 0 else 0
+            summary += f"FII Index Fut Ratio: {idx_ratio:.2f} (Longs: {idx_long}, Shorts: {idx_short}).\n"
+
+            call_net = (fii_data.option_index_call_long or 0) - (fii_data.option_index_call_short or 0)
+            put_net = (fii_data.option_index_put_long or 0) - (fii_data.option_index_put_short or 0)
+            summary += f"FII Index Options Net: Calls {call_net}, Puts {put_net}.\n"
+
+        nifty_rec = next((r for r in records if r.symbol == 'NIFTY'), None)
+        if nifty_rec:
+            summary += f"NIFTY: PCR {nifty_rec.pcr_oi:.2f}, IV {nifty_rec.atm_iv_near*100:.1f}%, Basis {nifty_rec.basis_1_bps} bps.\n"
+
+        bank_rec = next((r for r in records if r.symbol == 'BANKNIFTY'), None)
+        if bank_rec:
+            summary += f"BANKNIFTY: PCR {bank_rec.pcr_oi:.2f}, IV {bank_rec.atm_iv_near*100:.1f}%, Basis {bank_rec.basis_1_bps} bps.\n"
+
+        return summary
+
+    def _get_5_day_history(self, symbols: list) -> pd.DataFrame:
+        query = text("""
+            SELECT symbol, trade_date, close_price, futures_total_oi,
+                   chg_oi_ce_raw, chg_oi_pe_raw
+            FROM daily_derivatives_analysis
+            WHERE symbol IN :syms AND trade_date <= :dt
+            ORDER BY symbol, trade_date DESC
+        """)
+        # We need roughly 5 trading days. Limit won't work well with IN clause across symbols in raw SQL easily.
+        # Fetch last 15 days of data for the symbols and filter in pandas.
+        dt_start = self.target_date - timedelta(days=20)
+        res = self.db.execute(query, {"syms": tuple(symbols), "dt": self.target_date}).fetchall()
+        df = pd.DataFrame(res, columns=['symbol', 'trade_date', 'close_price', 'futures_total_oi', 'chg_oi_ce_raw', 'chg_oi_pe_raw'])
+
+        # Keep top 5 dates per symbol
+        df = df.sort_values(['symbol', 'trade_date'], ascending=[True, False])
+        df = df.groupby('symbol').head(5).reset_index(drop=True)
+        # Sort chronologically for charting
+        df = df.sort_values(['symbol', 'trade_date'], ascending=[True, True])
+        return df
+
+    def _generate_bar_chart(self, title, df_hist, symbol, y_col, color):
+        sym_df = df_hist[df_hist['symbol'] == symbol].copy()
+        if sym_df.empty: return None
+
+        plt.figure(figsize=(4, 2.5))
+        dates = sym_df['trade_date'].astype(str).str[5:] # MM-DD
+        vals = sym_df[y_col]
+
+        plt.bar(dates, vals, color=color)
+        plt.title(f"{symbol} - {title}", fontsize=9)
+        plt.xticks(rotation=45, fontsize=7)
+        plt.yticks(fontsize=7)
         plt.tight_layout()
 
-        chart_path = os.path.join(self.reports_dir, f'chart_{self.target_date.strftime("%Y-%m-%d")}.png')
-        plt.savefig(chart_path)
+        fd, path = tempfile.mkstemp(suffix='.png')
+        os.close(fd)
+        plt.savefig(path, dpi=100)
         plt.close()
-
-        return os.path.abspath(chart_path)
+        self.chart_paths.append(path)
+        return path
 
     async def generate_report(self) -> str:
-        """Generates the PDF report using Jinja2 and WeasyPrint."""
-
-        # 1. Fetch data
+        # 1. Fetch main data
         records = self.db.query(DailyDerivativesAnalysis).filter(
             DailyDerivativesAnalysis.trade_date == self.target_date
-        ).order_by(DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()).all()
+        ).all()
 
         if not records:
             raise ValueError(f"No DailyDerivativesAnalysis data found for {self.target_date}")
 
-        top_10 = records[:10]
+        # Symbol Mapping for Sectors
+        sym_master = self.db.query(SymbolMaster).all()
+        sector_map = {s.symbol: s.sector_index for s in sym_master}
+        for r in records:
+            r.sector = sector_map.get(r.symbol, 'Unknown')
 
-        # 2. Generate AI Inference
-        ai_inference = await self.get_ai_inference(top_10)
+        df = pd.DataFrame([r.__dict__ for r in records])
 
-        # 3. Generate Chart
-        chart_path = self.generate_chart(top_10)
+        # 2. Exec Summary
+        quant_summary = self._get_quant_summary(records)
+        ai_inference = await self.get_ai_inference(quant_summary)
 
-        # 4. Render HTML
+        # 3. Top 5 Longs/Shorts (Based on OI % Chg and Price Dir)
+        df['oi_chg_pct'] = pd.to_numeric(df['chg_oi_fut_pct'], errors='coerce').fillna(0)
+        df['price_chg'] = pd.to_numeric(df['price_pct_change'], errors='coerce').fillna(0)
+
+        longs = df[(df['oi_chg_pct'] > 0) & (df['price_chg'] > 0)].sort_values('oi_chg_pct', ascending=False).head(5)
+        shorts = df[(df['oi_chg_pct'] > 0) & (df['price_chg'] < 0)].sort_values('oi_chg_pct', ascending=False).head(5)
+
+        ce_writers = df.sort_values('chg_oi_ce_raw', ascending=False).head(5)
+        pe_writers = df.sort_values('chg_oi_pe_raw', ascending=False).head(5)
+
+        sym_to_fetch = list(set(longs['symbol'].tolist() + shorts['symbol'].tolist() +
+                               ce_writers['symbol'].tolist() + pe_writers['symbol'].tolist()))
+
+        hist_df = self._get_5_day_history(sym_to_fetch)
+
+        long_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Long)', hist_df, s, 'futures_total_oi', '#38a169')} for s in longs['symbol']]
+        short_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Short)', hist_df, s, 'futures_total_oi', '#e53e3e')} for s in shorts['symbol']]
+        ce_charts = [{'symbol': s, 'path': self._generate_bar_chart('CE Writing', hist_df, s, 'chg_oi_ce_raw', '#e53e3e')} for s in ce_writers['symbol']]
+        pe_charts = [{'symbol': s, 'path': self._generate_bar_chart('PE Writing', hist_df, s, 'chg_oi_pe_raw', '#38a169')} for s in pe_writers['symbol']]
+
+        # 4. Expiry Analysis (Check if target_date is near expiry)
+        near_expiry = next((r.near_expiry_date for r in records if r.symbol == 'NIFTY' and r.near_expiry_date), None)
+        is_expiry_eve = False
+        expiry_eve_data = {}
+        if near_expiry:
+            days_to_exp = (near_expiry - self.target_date).days
+            if days_to_exp <= 1:
+                is_expiry_eve = True
+                # Simple logic for ATM/Max pain estimation
+                idx_records = [r for r in records if r.symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY']]
+                for r in idx_records:
+                    atm = round(r.close_price / 50) * 50 if r.close_price else 0
+                    straddle = r.atm_straddle_near_month or 0
+                    expiry_eve_data[r.symbol] = {
+                        'atm': atm,
+                        'straddle': straddle,
+                        'upper_bound': atm + straddle,
+                        'lower_bound': atm - straddle
+                    }
+
+        # 5. Render
         env = Environment(loader=FileSystemLoader(self.template_dir))
         template = env.get_template('report_template.html')
 
         html_content = template.render(
             date=self.target_date.strftime("%Y-%m-%d"),
+            quant_summary=quant_summary,
             ai_inference=ai_inference,
-            top_10=top_10,
-            all_data=records,
-            chart_path=chart_path
+            long_charts=long_charts,
+            short_charts=short_charts,
+            ce_charts=ce_charts,
+            pe_charts=pe_charts,
+            is_expiry_eve=is_expiry_eve,
+            expiry_eve_data=expiry_eve_data,
+            all_data=records
         )
 
-        # 4. Convert to PDF
         filename = f"Morning_Report_{self.target_date.strftime('%Y-%m-%d')}.pdf"
         output_path = os.path.join(self.reports_dir, filename)
 
-        HTML(string=html_content).write_pdf(output_path)
+        try:
+            HTML(string=html_content, base_url=self.base_dir).write_pdf(output_path)
+        finally:
+            self._cleanup_charts()
 
         return output_path

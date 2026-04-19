@@ -974,3 +974,24 @@ def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
         "dii_net": pivot.get('DII', pd.Series(0, index=pivot.index)).tolist(),
         "nifty_close": nifty_close_list
     }
+
+@router.post("/api/morning-report/delete")
+async def delete_morning_reports(request: Request):
+    data = await request.json()
+    files = data.get("files", [])
+
+    reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../reports')
+    deleted = 0
+    errors = []
+
+    for f in files:
+        if f.endswith(".pdf") and ".." not in f and "/" not in f:
+            try:
+                os.remove(os.path.join(reports_dir, f))
+                deleted += 1
+            except Exception as e:
+                errors.append(str(e))
+
+    if errors:
+        return {"success": False, "error": "; ".join(errors)}
+    return {"success": True, "deleted": deleted}

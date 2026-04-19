@@ -514,7 +514,9 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
 
     # Statistical & Valuation
     pe_ratio = Column(Float)               # Directly from pe_ratio table
-    beta_252 = Column(Float)               # 252-day Log Return regression (Cash vs NIFTY)
+    beta_252 = Column(Float)
+    variance_252 = Column(Float)
+    covariance_252 = Column(Float)               # 252-day Log Return regression (Cash vs NIFTY)
     beta_500 = Column(Float)               # 500-day Log Return regression
     r_squared_252 = Column(Float)          # R-squared of 252-day regression
     r_squared_500 = Column(Float)          # R-squared of 500-day regression

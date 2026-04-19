@@ -161,12 +161,12 @@ class MorningReportCalculator:
     def _calculate_betas_and_rsquared(self, df_stock: pd.DataFrame, df_nifty: pd.DataFrame) -> dict:
         """Calculates Beta and R-Squared for 252 and 500 days using Log Returns."""
         if df_stock.empty or df_nifty.empty or len(df_stock) < 20 or len(df_nifty) < 20:
-            return {"beta_252": 0.0, "beta_500": 0.0, "r_squared_252": 0.0, "r_squared_500": 0.0}
+            return {"beta_252": 0.0, "beta_500": 0.0, "r_squared_252": 0.0, "r_squared_500": 0.0, "variance_252": 0.0, "covariance_252": 0.0}
 
         # Merge on date to align series
         df = pd.merge(df_stock[['date', 'close']], df_nifty[['date', 'close']], on='date', suffixes=('_stock', '_nifty'))
         if len(df) < 20:
-            return {"beta_252": 0.0, "beta_500": 0.0, "r_squared_252": 0.0, "r_squared_500": 0.0}
+            return {"beta_252": 0.0, "beta_500": 0.0, "r_squared_252": 0.0, "r_squared_500": 0.0, "variance_252": 0.0, "covariance_252": 0.0}
 
         # Ensure values are float and > 0 before taking log
         df['close_stock'] = pd.to_numeric(df['close_stock'], errors='coerce').fillna(0)
@@ -181,32 +181,42 @@ class MorningReportCalculator:
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df = df.dropna()
 
-        def run_regression(window_df):
-            if len(window_df) < 2: return 0.0, 0.0
+        def run_regression(window_df, return_vars=False):
+            if len(window_df) < 2:
+                return (0.0, 0.0, 0.0, 0.0) if return_vars else (0.0, 0.0)
 
             try:
                 cov_matrix = np.cov(window_df['ret_stock'], window_df['ret_nifty'])
                 var_nifty = np.var(window_df['ret_nifty'], ddof=1)
-                if var_nifty == 0: return 0.0, 0.0
+                var_stock = np.var(window_df['ret_stock'], ddof=1)
+                covar = cov_matrix[0, 1]
 
-                beta = float(cov_matrix[0, 1] / var_nifty)
+                if var_nifty == 0:
+                    return (0.0, 0.0, 0.0, 0.0) if return_vars else (0.0, 0.0)
+
+                beta = float(covar / var_nifty)
                 corr_matrix = np.corrcoef(window_df['ret_stock'], window_df['ret_nifty'])
                 r_squared = float(corr_matrix[0, 1] ** 2)
 
                 if np.isnan(beta) or np.isinf(beta): beta = 0.0
                 if np.isnan(r_squared) or np.isinf(r_squared): r_squared = 0.0
+
+                if return_vars:
+                    return beta, r_squared, float(var_stock), float(covar)
                 return beta, r_squared
             except Exception:
-                return 0.0, 0.0
+                return (0.0, 0.0, 0.0, 0.0) if return_vars else (0.0, 0.0)
 
-        b252, r252 = run_regression(df.tail(252))
+        b252, r252, var252, cov252 = run_regression(df.tail(252), return_vars=True)
         b500, r500 = run_regression(df.tail(500))
 
         return {
             "beta_252": b252,
             "beta_500": b500,
             "r_squared_252": r252,
-            "r_squared_500": r500
+            "r_squared_500": r500,
+            "variance_252": var252,
+            "covariance_252": cov252
         }
 
     def _calculate_technicals(self, df: pd.DataFrame) -> dict:
@@ -737,6 +747,8 @@ class MorningReportCalculator:
             record.calendar_spread_2_bps = self._safe_float(cal_spread_2)
             record.pe_ratio = self._safe_float(pe_val)
             record.beta_252 = self._safe_float(betas['beta_252'])
+            record.variance_252 = self._safe_float(betas.get('variance_252', 0.0))
+            record.covariance_252 = self._safe_float(betas.get('covariance_252', 0.0))
             record.beta_500 = self._safe_float(betas['beta_500'])
             record.r_squared_252 = self._safe_float(betas['r_squared_252'])
             record.r_squared_500 = self._safe_float(betas['r_squared_500'])
