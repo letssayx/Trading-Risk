@@ -636,12 +636,7 @@ class MorningReportCalculator:
             if straddle_near_opts and ref_price > 0:
                 unique_strikes = list(set([o.strike_price for o in straddle_near_opts]))
                 if unique_strikes:
-                    if symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']:
-                        # Indices need precise step rounding, e.g., NIFTY -> 50, BANKNIFTY -> 100
-                        step = 50 if symbol == 'NIFTY' else (100 if symbol == 'BANKNIFTY' else 50)
-                        atm_strike = round(ref_price / step) * step
-                    else:
-                        atm_strike = min(unique_strikes, key=lambda x: abs(x - ref_price))
+                    atm_strike = min(unique_strikes, key=lambda x: abs(x - ref_price))
 
                     straddle_atm_opts = [o for o in straddle_near_opts if float(o.strike_price) == float(atm_strike)]
 
@@ -667,11 +662,7 @@ class MorningReportCalculator:
                     if weekly_opts:
                         weekly_strikes = list(set([o.strike_price for o in weekly_opts]))
                         if weekly_strikes:
-                            if symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']:
-                                step = 50 if symbol == 'NIFTY' else (100 if symbol == 'BANKNIFTY' else 50)
-                                weekly_atm_strike = round(ref_price / step) * step
-                            else:
-                                weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - ref_price))
+                            weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - ref_price))
 
                             weekly_atm_opts = [o for o in weekly_opts if float(o.strike_price) == float(weekly_atm_strike)]
                             w_ce_price = sum([o.close_price for o in weekly_atm_opts if o.option_type and 'CE' in o.option_type.strip().upper()])

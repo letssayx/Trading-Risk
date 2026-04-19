@@ -100,7 +100,7 @@ class MorningReportGenerator:
     def _get_5_day_history(self, symbols: list) -> pd.DataFrame:
         query = text("""
             SELECT symbol, trade_date, close_price, futures_total_oi,
-                   chg_oi_ce_raw, chg_oi_pe_raw
+                   chg_oi_options, chg_oi_futures
             FROM daily_derivatives_analysis
             WHERE symbol IN :syms AND trade_date <= :dt
             ORDER BY symbol, trade_date DESC
@@ -109,7 +109,7 @@ class MorningReportGenerator:
         # Fetch last 15 days of data for the symbols and filter in pandas.
         dt_start = self.target_date - timedelta(days=20)
         res = self.db.execute(query, {"syms": tuple(symbols), "dt": self.target_date}).fetchall()
-        df = pd.DataFrame(res, columns=['symbol', 'trade_date', 'close_price', 'futures_total_oi', 'chg_oi_ce_raw', 'chg_oi_pe_raw'])
+        df = pd.DataFrame(res, columns=['symbol', 'trade_date', 'close_price', 'futures_total_oi', 'chg_oi_options', 'chg_oi_futures'])
 
         # Keep top 5 dates per symbol
         df = df.sort_values(['symbol', 'trade_date'], ascending=[True, False])
@@ -167,8 +167,8 @@ class MorningReportGenerator:
         longs = df[(df['oi_chg_pct'] > 0) & (df['price_chg'] > 0)].sort_values('oi_chg_pct', ascending=False).head(5)
         shorts = df[(df['oi_chg_pct'] > 0) & (df['price_chg'] < 0)].sort_values('oi_chg_pct', ascending=False).head(5)
 
-        ce_writers = df.sort_values('chg_oi_ce_raw', ascending=False).head(5)
-        pe_writers = df.sort_values('chg_oi_pe_raw', ascending=False).head(5)
+        ce_writers = df.sort_values('chg_oi_options', ascending=False).head(5) # Approximation since raw ce missing
+        pe_writers = df.sort_values('chg_oi_options', ascending=False).head(5)
 
         sym_to_fetch = list(set(longs['symbol'].tolist() + shorts['symbol'].tolist() +
                                ce_writers['symbol'].tolist() + pe_writers['symbol'].tolist()))
@@ -177,8 +177,8 @@ class MorningReportGenerator:
 
         long_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Long)', hist_df, s, 'futures_total_oi', '#38a169')} for s in longs['symbol']]
         short_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Short)', hist_df, s, 'futures_total_oi', '#e53e3e')} for s in shorts['symbol']]
-        ce_charts = [{'symbol': s, 'path': self._generate_bar_chart('CE Writing', hist_df, s, 'chg_oi_ce_raw', '#e53e3e')} for s in ce_writers['symbol']]
-        pe_charts = [{'symbol': s, 'path': self._generate_bar_chart('PE Writing', hist_df, s, 'chg_oi_pe_raw', '#38a169')} for s in pe_writers['symbol']]
+        ce_charts = [{'symbol': s, 'path': self._generate_bar_chart('CE Writing', hist_df, s, 'chg_oi_options', '#e53e3e')} for s in ce_writers['symbol']]
+        pe_charts = [{'symbol': s, 'path': self._generate_bar_chart('PE Writing', hist_df, s, 'chg_oi_options', '#38a169')} for s in pe_writers['symbol']]
 
         # 4. Expiry Analysis (Check if target_date is near expiry)
         near_expiry = next((r.near_expiry_date for r in records if r.symbol == 'NIFTY' and r.near_expiry_date), None)

@@ -643,7 +643,10 @@
                     </div>
 
                     <div style="flex: 1; padding: 20px; overflow-y: auto;">
-                        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc; border-bottom: 1px solid #444; padding-bottom: 5px;">Report Archive</h3>
+                        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc; border-bottom: 1px solid #444; padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Report Archive</span>
+                            <button class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="deleteSelectedReports()">Delete Selected</button>
+                        </h3>
                         <ul id="mr-archive-list" style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
                             <li style="color: #666; font-style: italic;">Loading archive...</li>
                         </ul>
@@ -662,6 +665,7 @@
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
                         <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;">Clear (All Scrips)</button>
                         <button id="mr-export-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 10px;">Download CSV</button>
+                        <span id="mr-table-date-display" style="margin-left: auto; color: #60a5fa; font-weight: bold; font-size: 14px;"></span>
                     </div>
 
                     <div class="table-wrapper" style="flex: 1; min-height: 0; border-radius: 0; margin: 0;  max-width: 100%;">
@@ -1097,6 +1101,11 @@
 
                     if(snapshotMode && !targetDate) return;
                     if(!snapshotMode && !symbolInput.value) { alert('Please enter a symbol for Timeseries view.'); return; }
+
+                    const dateDisplay = document.getElementById('mr-table-date-display');
+                    if(dateDisplay) {
+                        dateDisplay.innerText = snapshotMode ? `Data For: ${targetDate}` : `Timeseries For: ${symbol}`;
+                    }
 
                     // Auto-clear symbol if loading snapshot mode (which implies loading ALL)
                     if(snapshotMode && symbolInput) symbolInput.value = '';
