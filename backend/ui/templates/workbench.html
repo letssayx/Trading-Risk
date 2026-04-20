@@ -1095,7 +1095,8 @@
                 }
 
                 async function loadTimeseriesData(snapshotMode = true) {
-                    const targetDate = document.getElementById('mr-target-date').value || new Date().toISOString().split('T')[0];
+                    const endDate = document.getElementById('mr-end-date').value;
+                    const targetDate = endDate ? endDate : (document.getElementById('mr-target-date').value || new Date().toISOString().split('T')[0]);
                     const symbolInput = document.getElementById('mr-symbol-input');
                     const symbol = symbolInput.value.toUpperCase() || 'NIFTY';
                     const tbody = document.getElementById('mr-data-body');
@@ -1386,7 +1387,8 @@
                         const isSnapshot = thead.querySelectorAll('th')[0].innerText.includes('Symbol');
                         let filename = 'Derivatives_Analysis';
                         if (isSnapshot) {
-                            const targetDate = document.getElementById('mr-target-date').value || new Date().toISOString().slice(0,10);
+                            const endDate = document.getElementById('mr-end-date').value;
+                            const targetDate = endDate ? endDate : (document.getElementById('mr-target-date').value || new Date().toISOString().slice(0,10));
                             filename = `Derivatives_Analysis_Snapshot_${targetDate}`;
                         } else {
                             const symbol = document.getElementById('mr-symbol-input').value.toUpperCase() || 'NIFTY';
@@ -1408,7 +1410,8 @@
 
                 // Generate PDF Button Handler
                 document.getElementById('mr-generate-btn').addEventListener('click', async () => {
-                    const targetDate = document.getElementById('mr-target-date').value || new Date().toISOString().split('T')[0];
+                    const endDate = document.getElementById('mr-end-date').value;
+                    const targetDate = endDate ? endDate : (document.getElementById('mr-target-date').value || new Date().toISOString().split('T')[0]);
                     const author = document.getElementById('mr-author-name').value;
                     const statusText = document.getElementById('mr-status-text');
                     const generateBtn = document.getElementById('mr-generate-btn');

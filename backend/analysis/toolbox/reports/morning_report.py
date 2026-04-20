@@ -636,12 +636,14 @@ class MorningReportCalculator:
             if straddle_near_opts and ref_price > 0:
                 unique_strikes = list(set([o.strike_price for o in straddle_near_opts]))
                 if unique_strikes:
-                    atm_strike = min(unique_strikes, key=lambda x: abs(x - ref_price))
+                    atm_strike = min(unique_strikes, key=lambda x: abs(float(x) - ref_price))
 
                     straddle_atm_opts = [o for o in straddle_near_opts if float(o.strike_price) == float(atm_strike)]
 
-                    atm_ce_price = sum([o.close_price for o in straddle_atm_opts if o.option_type and 'CE' in o.option_type.strip().upper()])
-                    atm_pe_price = sum([o.close_price for o in straddle_atm_opts if o.option_type and 'PE' in o.option_type.strip().upper()])
+                    ce_opts = [o.close_price for o in straddle_atm_opts if o.option_type and 'CE' in o.option_type.strip().upper()]
+                    atm_ce_price = ce_opts[0] if ce_opts else 0.0
+                    pe_opts = [o.close_price for o in straddle_atm_opts if o.option_type and 'PE' in o.option_type.strip().upper()]
+                    atm_pe_price = pe_opts[0] if pe_opts else 0.0
                     atm_straddle_near_month = atm_ce_price + atm_pe_price
 
             # Weekly NIFTY Straddle
@@ -662,11 +664,13 @@ class MorningReportCalculator:
                     if weekly_opts:
                         weekly_strikes = list(set([o.strike_price for o in weekly_opts]))
                         if weekly_strikes:
-                            weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(x - ref_price))
+                            weekly_atm_strike = min(weekly_strikes, key=lambda x: abs(float(x) - ref_price))
 
                             weekly_atm_opts = [o for o in weekly_opts if float(o.strike_price) == float(weekly_atm_strike)]
-                            w_ce_price = sum([o.close_price for o in weekly_atm_opts if o.option_type and 'CE' in o.option_type.strip().upper()])
-                            w_pe_price = sum([o.close_price for o in weekly_atm_opts if o.option_type and 'PE' in o.option_type.strip().upper()])
+                            w_ce_opts = [o.close_price for o in weekly_atm_opts if o.option_type and 'CE' in o.option_type.strip().upper()]
+                            w_ce_price = w_ce_opts[0] if w_ce_opts else 0.0
+                            w_pe_opts = [o.close_price for o in weekly_atm_opts if o.option_type and 'PE' in o.option_type.strip().upper()]
+                            w_pe_price = w_pe_opts[0] if w_pe_opts else 0.0
                             atm_straddle_weekly_nifty = w_ce_price + w_pe_price
 
             atm_iv_near, skew_near = self.calculate_iv_and_skew(near_opts, ref_price, near_fut.expiry_date, target_date, proxy_ann_vol)
