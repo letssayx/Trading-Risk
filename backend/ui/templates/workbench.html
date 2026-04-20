@@ -701,14 +701,14 @@
                                     <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
-                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;" id="th-fut1-base">Near Month (Expiry)<br>Close</th>
                                     <th style="white-space: pre-wrap;" id="th-fut2-base">Fut 2<br>Close</th>
                                     <th style="white-space: pre-wrap;" id="th-fut3-base">Fut 3<br>Close</th>
@@ -1048,14 +1048,14 @@
                                 <td>${hiOiCeOi}</td>
                                 <td>${hiOiCeValue}</td>
                                 <td>${pctAwayCe}</td>
+                                <td style="color: ${Number(row.chg_oi_ce) < 0 ? '#ff4d4d' : (Number(row.chg_oi_ce) > 0 ? '#60a5fa' : '#ccc')}">${chgOiCE}</td>
+                                <td style="color: ${Number(row.chg_oi_ce_pct) < 0 ? '#ff4d4d' : (Number(row.chg_oi_ce_pct) > 0 ? '#60a5fa' : '#ccc')}">${chgOiCEPct}</td>
+                                <td style="color: ${Number(row.chg_oi_pe) < 0 ? '#ff4d4d' : (Number(row.chg_oi_pe) > 0 ? '#60a5fa' : '#ccc')}">${chgOiPE}</td>
+                                <td style="color: ${Number(row.chg_oi_pe_pct) < 0 ? '#ff4d4d' : (Number(row.chg_oi_pe_pct) > 0 ? '#60a5fa' : '#ccc')}">${chgOiPEPct}</td>
+                                <td style="color: ${Number(row.chg_oi_futures) < 0 ? '#ff4d4d' : (Number(row.chg_oi_futures) > 0 ? '#60a5fa' : '#ccc')}">${chgOiFut}</td>
+                                <td style="color: ${Number(row.chg_oi_fut_pct) < 0 ? '#ff4d4d' : (Number(row.chg_oi_fut_pct) > 0 ? '#60a5fa' : '#ccc')}">${chgOiFuturesPct}</td>
                                 <td>${atmStraddleNear}</td>
                                 <td>${atmStraddleWeekly}</td>
-                                <td style="color: ${Number(row.chg_oi_ce) < 0 ? '#ff4444' : '#00C851'}">${chgOiCE}</td>
-                                <td style="color: ${Number(row.chg_oi_ce_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiCEPct}</td>
-                                <td style="color: ${Number(row.chg_oi_pe) < 0 ? '#ff4444' : '#00C851'}">${chgOiPE}</td>
-                                <td style="color: ${Number(row.chg_oi_pe_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiPEPct}</td>
-                                <td style="color: ${Number(row.chg_oi_futures) < 0 ? '#ff4444' : '#00C851'}">${chgOiFut}</td>
-                                <td style="color: ${Number(row.chg_oi_fut_pct) < 0 ? '#ff4444' : '#00C851'}">${chgOiFuturesPct}</td>
                                 <td>${fut1Exp}</td>
                                 <td>${fut2Exp}</td>
                                 <td>${fut3Exp}</td>
@@ -1161,14 +1161,14 @@
                                     <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
-                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;" id="th-fut1">${fut1Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut2">${fut2Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut3">${fut3Header}</th>
@@ -1275,14 +1275,14 @@
                                     <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
-                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(PE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(Futures)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(Futures)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;" id="th-fut1">${fut1Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut2">${fut2Header}</th>
                                     <th style="white-space: pre-wrap;" id="th-fut3">${fut3Header}</th>

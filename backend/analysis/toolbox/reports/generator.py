@@ -98,17 +98,26 @@ class MorningReportGenerator:
         return summary
 
     def _get_5_day_history(self, symbols: list) -> pd.DataFrame:
-        query = text("""
-            SELECT symbol, trade_date, close_price, futures_total_oi,
-                   chg_oi_options, chg_oi_futures
-            FROM daily_derivatives_analysis
-            WHERE symbol IN :syms AND trade_date <= :dt
-            ORDER BY symbol, trade_date DESC
-        """)
-        # We need roughly 5 trading days. Limit won't work well with IN clause across symbols in raw SQL easily.
-        # Fetch last 15 days of data for the symbols and filter in pandas.
         dt_start = self.target_date - timedelta(days=20)
-        res = self.db.execute(query, {"syms": tuple(symbols), "dt": self.target_date}).fetchall()
+
+        records = self.db.query(
+            DailyDerivativesAnalysis.symbol,
+            DailyDerivativesAnalysis.trade_date,
+            DailyDerivativesAnalysis.close_price,
+            DailyDerivativesAnalysis.futures_total_oi,
+            DailyDerivativesAnalysis.chg_oi_options,
+            DailyDerivativesAnalysis.chg_oi_futures
+        ).filter(
+            DailyDerivativesAnalysis.symbol.in_(symbols),
+            DailyDerivativesAnalysis.trade_date >= dt_start,
+            DailyDerivativesAnalysis.trade_date <= self.target_date
+        ).order_by(
+            DailyDerivativesAnalysis.symbol,
+            DailyDerivativesAnalysis.trade_date.desc()
+        ).all()
+
+        # Convert ORM result objects to dictionary/tuple for pandas safely
+        res = [tuple(r) for r in records]
         df = pd.DataFrame(res, columns=['symbol', 'trade_date', 'close_price', 'futures_total_oi', 'chg_oi_options', 'chg_oi_futures'])
 
         # Keep top 5 dates per symbol
