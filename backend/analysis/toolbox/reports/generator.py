@@ -5,7 +5,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML, CSS
+try:
+    from weasyprint import HTML, CSS
+except ImportError:
+    HTML = None
+    CSS = None
+    import logging
+    logging.error("Weasyprint is not installed. Please run: pip install weasyprint. PDF generation will fail.")
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from datetime import date, timedelta
@@ -230,6 +237,8 @@ class MorningReportGenerator:
         output_path = os.path.join(self.reports_dir, filename)
 
         try:
+            if HTML is None:
+                raise ImportError("Weasyprint is missing. Please run 'pip install weasyprint' (and ensure Pango/Cairo C-libraries are installed on your OS) to generate PDF reports.")
             HTML(string=html_content, base_url=self.base_dir).write_pdf(output_path)
         finally:
             self._cleanup_charts()

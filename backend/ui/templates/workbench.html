@@ -755,6 +755,37 @@
                 document.getElementById('mr-target-date').valueAsDate = new Date();
                 let mrPollingInterval;
 
+                // Restore active task if page is refreshed
+                function restoreActiveTask() {
+                    const activeTaskStr = localStorage.getItem('mrActiveTask');
+                    if (activeTaskStr) {
+                        try {
+                            const task = JSON.parse(activeTaskStr);
+                            const statusText = document.getElementById('mr-status-text');
+                            const prepBtn = document.getElementById('mr-prepare-btn');
+                            const genBtn = document.getElementById('mr-generate-btn');
+                            const spinner = document.getElementById('mr-gen-spinner');
+
+                            if (task.type === 'prepare') {
+                                prepBtn.disabled = true;
+                                prepBtn.style.opacity = '0.5';
+                                statusText.innerHTML = 'Resuming preparation task poll... <div class="progress-bar-container" style="width: 100%; background: #333; height: 4px; margin-top: 10px; border-radius: 2px; overflow: hidden;"><div class="progress-bar-fill" style="width: 50%; height: 100%; background: #60a5fa; transition: width 0.3s ease;"></div></div>';
+                                mrPollingInterval = setInterval(() => checkPrepStatus(task.id, task.targetDate), 3000);
+                            } else if (task.type === 'generate') {
+                                genBtn.disabled = true;
+                                genBtn.style.opacity = '0.5';
+                                if (spinner) spinner.style.display = 'block';
+                                statusText.innerText = 'Resuming PDF generation poll...';
+                                mrPollingInterval = setInterval(() => checkGenStatus(task.id, task.targetDate), 3000);
+                            }
+                        } catch (e) {
+                            localStorage.removeItem('mrActiveTask');
+                        }
+                    }
+                }
+
+                restoreActiveTask();
+
                 // Load Archive
                 async function loadMrArchive() {
                     const list = document.getElementById('mr-archive-list');
@@ -874,6 +905,7 @@
 
                         if(data.state === 'SUCCESS' || data.status === 'SUCCESS') {
                             clearInterval(mrPollingInterval);
+                            localStorage.removeItem('mrActiveTask');
                             const bar = document.querySelector('.progress-bar-fill');
                             if (bar) bar.style.width = '100%';
                             setTimeout(() => {
@@ -890,6 +922,7 @@
                             loadTimeseriesData(true);
                         } else if(data.state === 'FAILURE' || data.status === 'FAILED' || data.status === 'FAILURE') {
                             clearInterval(mrPollingInterval);
+                            localStorage.removeItem('mrActiveTask');
                             statusText.innerText = `Preparation Failed: ${data.error || 'Unknown Error'}`;
                             statusText.style.color = 'red';
                             prepBtn.disabled = false;
@@ -1439,6 +1472,7 @@
                             const spinner = document.getElementById('mr-gen-spinner');
                             if (spinner) spinner.style.display = 'block';
 
+                            localStorage.setItem('mrActiveTask', JSON.stringify({id: data.task_id, type: 'generate', targetDate: targetDate}));
                             mrPollingInterval = setInterval(() => checkGenStatus(data.task_id, targetDate), 3000);
                         } else {
                             throw new Error('No task ID returned.');
@@ -1461,6 +1495,7 @@
 
                         if(data.state === 'SUCCESS' || data.status === 'SUCCESS') {
                             clearInterval(mrPollingInterval);
+                            localStorage.removeItem('mrActiveTask');
                             statusText.innerText = 'Report generated successfully!';
                             statusText.style.color = '#28a745';
 
@@ -1479,6 +1514,7 @@
                             loadMrArchive();
                         } else if(data.status === 'FAILED' || data.status === 'FAILURE') {
                             clearInterval(mrPollingInterval);
+                            localStorage.removeItem('mrActiveTask');
                             statusText.innerText = `Generation Failed: ${data.error || 'Unknown Error'}`;
                             statusText.style.color = 'red';
                             document.getElementById('mr-generate-btn').disabled = false;
