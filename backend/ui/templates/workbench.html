@@ -701,8 +701,8 @@
                                     <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
-                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
@@ -1131,6 +1131,8 @@
                             const fut1Header = firstRow.near_expiry_date ? `${firstRow.near_expiry_date}<br>Close` : `Near Month (Expiry)<br>Close`;
                             const fut2Header = firstRow.next_expiry_date ? `${firstRow.next_expiry_date}<br>Close` : `Fut 2<br>Close`;
                             const fut3Header = firstRow.far_expiry_date ? `${firstRow.far_expiry_date}<br>Close` : `Fut 3<br>Close`;
+                            const atmNearHeader = firstRow.near_expiry_date ? `ATM Straddle<br>(${firstRow.near_expiry_date})` : `ATM Straddle<br>(Near Month)`;
+                            const atmWeeklyHeader = `ATM Straddle<br>(Weekly)`;
 
                             thead.innerHTML = `
                                 <tr>
@@ -1159,8 +1161,8 @@
                                     <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
-                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>
@@ -1228,9 +1230,12 @@
                                     const h1 = document.getElementById('th-fut1-base');
                                     const h2 = document.getElementById('th-fut2-base');
                                     const h3 = document.getElementById('th-fut3-base');
+                                    const ha1 = document.getElementById('th-atm-near');
+
                                     if(h1 && firstRow.near_expiry_date) h1.innerHTML = `${firstRow.near_expiry_date}<br>Close`;
                                     if(h2 && firstRow.next_expiry_date) h2.innerHTML = `${firstRow.next_expiry_date}<br>Close`;
                                     if(h3 && firstRow.far_expiry_date) h3.innerHTML = `${firstRow.far_expiry_date}<br>Close`;
+                                    if(ha1 && firstRow.near_expiry_date) ha1.innerHTML = `ATM Straddle<br>(${firstRow.near_expiry_date})`;
                                 }
                             };
                             requestAnimationFrame(() => renderChunk(0));
@@ -1239,6 +1244,8 @@
                             const fut1Header = firstRow.near_expiry_date ? `${firstRow.near_expiry_date}<br>Close` : `Near Month (Expiry)<br>Close`;
                             const fut2Header = firstRow.next_expiry_date ? `${firstRow.next_expiry_date}<br>Close` : `Fut 2<br>Close`;
                             const fut3Header = firstRow.far_expiry_date ? `${firstRow.far_expiry_date}<br>Close` : `Fut 3<br>Close`;
+                            const atmNearHeader = firstRow.near_expiry_date ? `ATM Straddle<br>(${firstRow.near_expiry_date})` : `ATM Straddle<br>(Near Month)`;
+                            const atmWeeklyHeader = `ATM Straddle<br>(Weekly)`;
 
                             thead.innerHTML = `
                                 <tr>
@@ -1268,8 +1275,8 @@
                                     <th style="white-space: pre-wrap;">Highest OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Highest OI<br>Value (CE)</th>
                                     <th style="white-space: pre-wrap;">% Away<br>(CE)</th>
-                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Near Month)</th>
-                                    <th style="white-space: pre-wrap;">ATM Straddle<br>(Weekly NIFTY)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-near">ATM Straddle<br>(Near Month)</th>
+                                    <th style="white-space: pre-wrap;" id="th-atm-weekly">ATM Straddle<br>(Weekly)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">% Change OI<br>(CE)</th>
                                     <th style="white-space: pre-wrap;">Change in OI<br>(PE)</th>

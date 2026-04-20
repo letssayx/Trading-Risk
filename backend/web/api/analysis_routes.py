@@ -249,7 +249,7 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
 
     def fetch_data(resolved_date):
         from sqlalchemy import case
-        return db.query(DailyDerivativesAnalysis).filter(
+        records = db.query(DailyDerivativesAnalysis).filter(
             DailyDerivativesAnalysis.trade_date == resolved_date
         ).order_by(
             case(
@@ -257,8 +257,17 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
                 (DailyDerivativesAnalysis.symbol == 'BANKNIFTY', 1),
                 else_=2
             ),
-            DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()
+            DailyDerivativesAnalysis.id.desc() # Get latest if dupes exist
         ).all()
+
+        # Deduplicate in Python to avoid DISTINCT ON dialect issues
+        seen = set()
+        deduped = []
+        for r in records:
+            if r.symbol not in seen:
+                seen.add(r.symbol)
+                deduped.append(r)
+        return deduped
 
     # Find the latest available date <= target_date
     latest_date_tuple = db.query(DailyDerivativesAnalysis.trade_date).filter(
@@ -306,18 +315,20 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
             d['pcr_oi'] = oi.pcr
             d['futures_total_oi'] = oi.fut_oi
             d['chg_oi_fut_pct'] = oi.fut_oi_chg_pct
-            # Keep the raw exact change from DailyDerivativesAnalysis if present, otherwise approximate
-            d['chg_oi_futures'] = d['chg_oi_futures'] if d.get('chg_oi_futures') is not None else (oi.fut_oi - (oi.fut_oi / (1 + (oi.fut_oi_chg_pct / 100.0))) if oi.fut_oi and oi.fut_oi_chg_pct else 0)
+            # User confirmed the raw DB sum (chg_oi_futures / chg_oi_options) is "crap" because it aggregates ALL expiries/strikes
+            # improperly from the Bhavcopy. They want the specific matched metric from OiAnalysisMetrics derived from the percentages.
+            d['chg_oi_fut_pct'] = oi.fut_oi_chg_pct
+            d['chg_oi_futures'] = oi.fut_oi - (oi.fut_oi / (1 + (oi.fut_oi_chg_pct / 100.0))) if oi.fut_oi and oi.fut_oi_chg_pct else 0
 
             d['total_options_call_oi'] = oi.call_oi
             d['chg_oi_ce_pct'] = oi.call_oi_chg_pct
-            d['chg_oi_ce'] = d['chg_oi_ce'] if d.get('chg_oi_ce') is not None else (oi.call_oi - (oi.call_oi / (1 + (oi.call_oi_chg_pct / 100.0))) if oi.call_oi and oi.call_oi_chg_pct else 0)
+            d['chg_oi_ce'] = oi.call_oi - (oi.call_oi / (1 + (oi.call_oi_chg_pct / 100.0))) if oi.call_oi and oi.call_oi_chg_pct else 0
 
             d['total_options_put_oi'] = oi.put_oi
             d['chg_oi_pe_pct'] = oi.put_oi_chg_pct
-            d['chg_oi_pe'] = d['chg_oi_pe'] if d.get('chg_oi_pe') is not None else (oi.put_oi - (oi.put_oi / (1 + (oi.put_oi_chg_pct / 100.0))) if oi.put_oi and oi.put_oi_chg_pct else 0)
+            d['chg_oi_pe'] = oi.put_oi - (oi.put_oi / (1 + (oi.put_oi_chg_pct / 100.0))) if oi.put_oi and oi.put_oi_chg_pct else 0
 
-            d['chg_oi_options'] = d['chg_oi_options'] if d.get('chg_oi_options') is not None else (d['chg_oi_ce'] + d['chg_oi_pe'])
+            d['chg_oi_options'] = d['chg_oi_ce'] + d['chg_oi_pe']
 
         result.append(d)
 
@@ -329,9 +340,19 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
     from fastapi.concurrency import run_in_threadpool
 
     def fetch_ts():
-        return db.query(DailyDerivativesAnalysis).filter(
+        records = db.query(DailyDerivativesAnalysis).filter(
             DailyDerivativesAnalysis.symbol == symbol.upper()
-        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(limit).all()
+        ).order_by(DailyDerivativesAnalysis.trade_date.desc(), DailyDerivativesAnalysis.id.desc()).limit(limit * 2).all()
+
+        seen = set()
+        deduped = []
+        for r in records:
+            if r.trade_date not in seen:
+                seen.add(r.trade_date)
+                deduped.append(r)
+            if len(deduped) >= limit:
+                break
+        return deduped
 
     records = fetch_ts()
 
@@ -372,18 +393,20 @@ def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(g
             d['pcr_oi'] = oi.pcr
             d['futures_total_oi'] = oi.fut_oi
             d['chg_oi_fut_pct'] = oi.fut_oi_chg_pct
-            # Keep the raw exact change from DailyDerivativesAnalysis if present, otherwise approximate
-            d['chg_oi_futures'] = d['chg_oi_futures'] if d.get('chg_oi_futures') is not None else (oi.fut_oi - (oi.fut_oi / (1 + (oi.fut_oi_chg_pct / 100.0))) if oi.fut_oi and oi.fut_oi_chg_pct else 0)
+            # User confirmed the raw DB sum (chg_oi_futures / chg_oi_options) is "crap" because it aggregates ALL expiries/strikes
+            # improperly from the Bhavcopy. They want the specific matched metric from OiAnalysisMetrics derived from the percentages.
+            d['chg_oi_fut_pct'] = oi.fut_oi_chg_pct
+            d['chg_oi_futures'] = oi.fut_oi - (oi.fut_oi / (1 + (oi.fut_oi_chg_pct / 100.0))) if oi.fut_oi and oi.fut_oi_chg_pct else 0
 
             d['total_options_call_oi'] = oi.call_oi
             d['chg_oi_ce_pct'] = oi.call_oi_chg_pct
-            d['chg_oi_ce'] = d['chg_oi_ce'] if d.get('chg_oi_ce') is not None else (oi.call_oi - (oi.call_oi / (1 + (oi.call_oi_chg_pct / 100.0))) if oi.call_oi and oi.call_oi_chg_pct else 0)
+            d['chg_oi_ce'] = oi.call_oi - (oi.call_oi / (1 + (oi.call_oi_chg_pct / 100.0))) if oi.call_oi and oi.call_oi_chg_pct else 0
 
             d['total_options_put_oi'] = oi.put_oi
             d['chg_oi_pe_pct'] = oi.put_oi_chg_pct
-            d['chg_oi_pe'] = d['chg_oi_pe'] if d.get('chg_oi_pe') is not None else (oi.put_oi - (oi.put_oi / (1 + (oi.put_oi_chg_pct / 100.0))) if oi.put_oi and oi.put_oi_chg_pct else 0)
+            d['chg_oi_pe'] = oi.put_oi - (oi.put_oi / (1 + (oi.put_oi_chg_pct / 100.0))) if oi.put_oi and oi.put_oi_chg_pct else 0
 
-            d['chg_oi_options'] = d['chg_oi_options'] if d.get('chg_oi_options') is not None else (d['chg_oi_ce'] + d['chg_oi_pe'])
+            d['chg_oi_options'] = d['chg_oi_ce'] + d['chg_oi_pe']
 
         result.append(d)
 
