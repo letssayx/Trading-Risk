@@ -143,12 +143,21 @@ async def trigger_prepare_data(request: PrepareRequest):
 class GenerateRequest(BaseModel):
     target_date: str
     author: str = "System"
+    force: bool = False
 
 @router.post("/api/morning-report/generate")
 async def trigger_generate_report(request: GenerateRequest):
     """Triggers the Celery task to generate the PDF morning report using pre-calculated data."""
     from backend.ingest.tasks import generate_morning_report_task
     import os
+
+    # Check if report already exists
+    if not request.force:
+        reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../reports')
+        expected_filename = f"Morning_Report_{request.target_date}.pdf"
+        expected_path = os.path.join(reports_dir, expected_filename)
+        if os.path.exists(expected_path):
+            return {"task_id": "sync-task-id", "status": "SUCCESS", "result": expected_path}
 
     # Avoid attempting to hit Redis locally if no worker is running or if Redis is unreachable
     # by directly invoking the function synchronously.
@@ -238,10 +247,10 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
     from fastapi.concurrency import run_in_threadpool
 
-    def fetch_data():
+    def fetch_data(resolved_date):
         from sqlalchemy import case
         return db.query(DailyDerivativesAnalysis).filter(
-            DailyDerivativesAnalysis.trade_date == target_date
+            DailyDerivativesAnalysis.trade_date == resolved_date
         ).order_by(
             case(
                 (DailyDerivativesAnalysis.symbol == 'NIFTY', 0),
@@ -251,7 +260,15 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
             DailyDerivativesAnalysis.atm_iv_near.desc().nulls_last()
         ).all()
 
-    records = fetch_data()
+    # Find the latest available date <= target_date
+    latest_date_tuple = db.query(DailyDerivativesAnalysis.trade_date).filter(
+        DailyDerivativesAnalysis.trade_date <= target_date
+    ).order_by(DailyDerivativesAnalysis.trade_date.desc()).first()
+
+    resolved_target_date = latest_date_tuple[0] if latest_date_tuple else target_date
+    records = fetch_data(resolved_target_date)
+
+
 
     if not records:
         return []
@@ -259,10 +276,10 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
     # Fetch overlapping data from persistent tables
     from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics, VolatilityAnalysisMetrics, OiAnalysisMetrics
 
-    mwpl_records = {r.symbol: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.trade_date == target_date).all()}
-    roll_records = {r.symbol: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date == target_date).all()}
-    vol_records = {r.symbol: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.trade_date == target_date).all()}
-    oi_records = {r.symbol: r for r in db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == target_date).all()}
+    mwpl_records = {r.symbol: r for r in db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.trade_date == resolved_target_date).all()}
+    roll_records = {r.symbol: r for r in db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date == resolved_target_date).all()}
+    vol_records = {r.symbol: r for r in db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.trade_date == resolved_target_date).all()}
+    oi_records = {r.symbol: r for r in db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == resolved_target_date).all()}
 
     result = []
     for r in records:
@@ -986,6 +1003,7 @@ async def delete_morning_reports(request: Request):
     data = await request.json()
     files = data.get("files", [])
 
+    import os
     reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../reports')
     deleted = 0
     errors = []

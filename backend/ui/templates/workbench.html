@@ -634,7 +634,10 @@
                             <button id="mr-prepare-btn" class="btn btn-secondary" style="width: 100%; padding: 8px; border: 1px solid #555;">1. Prepare Data</button>
                             <button class="btn btn-secondary" onclick="exportTableToCSV('mr-data-table', 'Data_Matrix')" style="padding: 8px;" title="Download CSV"><i class="fas fa-download"></i></button>
                         </div>
-                        <button id="mr-generate-btn" class="btn btn-primary" style="margin-left: auto; display: flex; align-items: center; gap: 8px;" disabled><span>2. Generate PDF Report</span><div id="mr-gen-spinner" class="spinner" style="display: none; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid #fff; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite;"></div></button>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+                            <label style="color:#ccc; font-size:12px; margin:0;"><input type="checkbox" id="mr-force-pdf"> Force</label>
+                            <button id="mr-generate-btn" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px;"><span>2. Generate PDF Report</span><div id="mr-gen-spinner" class="spinner" style="display: none; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid #fff; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite;"></div></button>
+                        </div>
 
 
 
@@ -770,8 +773,8 @@
                             li.style.alignItems = 'center';
                             li.style.gap = '8px';
                             li.innerHTML = `
-                                <input type="checkbox" class="report-checkbox" value="${r}" style="cursor: pointer;">
-                                <a href="/reports/${r}" target="_blank" style="color: #60a5fa; text-decoration: none;">${r}</a>
+                                <input type="checkbox" class="report-checkbox" value="${r.filename}" style="cursor: pointer;">
+                                <a href="${r.url}" target="_blank" style="color: #60a5fa; text-decoration: none;">${r.filename}</a>
                             `;
                             list.appendChild(li);
                         });
@@ -789,7 +792,7 @@
                         return;
                     }
 
-                    if (!confirm(`Are you sure you want to delete ${filesToDelete.length} report(s)?`)) return;
+
 
                     try {
                         const res = await fetch('/api/morning-report/delete', {
@@ -1103,9 +1106,6 @@
                     if(!snapshotMode && !symbolInput.value) { alert('Please enter a symbol for Timeseries view.'); return; }
 
                     const dateDisplay = document.getElementById('mr-table-date-display');
-                    if(dateDisplay) {
-                        dateDisplay.innerText = snapshotMode ? `Data For: ${targetDate}` : `Timeseries For: ${symbol}`;
-                    }
 
                     // Auto-clear symbol if loading snapshot mode (which implies loading ALL)
                     if(snapshotMode && symbolInput) symbolInput.value = '';
@@ -1221,6 +1221,10 @@
 
                                     // Update base table headers dynamically from snapshot first row
                                     const firstRow = data[0] || {};
+                                    if(dateDisplay) {
+                                        const actualDate = firstRow.trade_date || targetDate;
+                                        dateDisplay.innerText = snapshotMode ? `Data For: ${actualDate}` : `Timeseries For: ${symbol}`;
+                                    }
                                     const h1 = document.getElementById('th-fut1-base');
                                     const h2 = document.getElementById('th-fut2-base');
                                     const h3 = document.getElementById('th-fut3-base');
@@ -1411,11 +1415,12 @@
                     statusText.innerText = 'Triggering PDF generation task...';
                     statusText.style.color = '#aaa';
 
+                    const forceGen = document.getElementById('mr-force-pdf')?.checked || false;
                     try {
                         const res = await fetch('/api/morning-report/generate', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ target_date: targetDate, author: author })
+                            body: JSON.stringify({ target_date: targetDate, author: author, force: forceGen })
                         });
                         const data = await res.json();
 
@@ -1452,7 +1457,7 @@
                             const downloadBtn = document.getElementById('mr-download-btn');
                             downloadBtn.style.display = 'block';
                             downloadBtn.onclick = () => {
-                                window.open(`/api/morning-report/download/${targetDate}`, '_blank');
+                                window.open(`/reports/Morning_Report_${targetDate}.pdf`, '_blank');
                             };
 
                             document.getElementById('mr-generate-btn').disabled = false;
