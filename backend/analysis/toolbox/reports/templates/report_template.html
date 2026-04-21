@@ -46,8 +46,13 @@
     </div>
 
     {% if is_expiry_eve %}
+    <div class="page-break"></div>
+
+    <!-- DEDICATED EXPIRY PAGE -->
+    <h1>Expiry Eve Analysis (DTE <= 1)</h1>
+
     <div class="summary-box" style="border-left-color: #ed8936; background-color: #fffaf0;">
-        <h3>Expiry Eve Analysis (DTE <= 1)</h3>
+        <h3>Index Expiry Dynamics</h3>
         <table style="margin-bottom: 0;">
             <tr>
                 <th class="text-left">Index</th>
@@ -66,6 +71,9 @@
             </tr>
             {% endfor %}
         </table>
+        <p style="margin-top: 10px; font-size: 9px; color: #718096;">
+            <em>* Note: Upper and lower bounds represent the implied 1-standard deviation move priced in by the ATM straddle premium for the nearest expiry.</em>
+        </p>
     </div>
     {% endif %}
 
@@ -135,15 +143,14 @@
                 <th>EQ Close</th>
                 <th>1D % Chg</th>
                 <th>Beta (252)</th>
-                <th>Var (252)</th>
-                <th>CoVar (N50)</th>
                 <th>Rollover %</th>
                 <th>ATM IV</th>
-                <th>25D Skew</th>
+                <th>IVR / IVP</th>
                 <th>Basis (bps)</th>
                 <th>ATR (14)</th>
-                <th>Straddle (Near)</th>
+                <th>Straddle</th>
                 <th>PCR (OI)</th>
+                <th class="text-left">AI Inference</th>
             </tr>
         </thead>
         <tbody>
@@ -156,15 +163,14 @@
                     {{ "%.2f"|format(row.price_pct_change or 0) }}%
                 </td>
                 <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
-                <td>{{ "%.6f"|format(row.variance_252 or 0) }}</td>
-                <td>{{ "%.6f"|format(row.covariance_252 or 0) }}</td>
                 <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
                 <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
-                <td>{{ "%.1f"|format((row.skew_25d_near or 0) * 100) }}%</td>
+                <td>{{ "%.1f"|format(row.ivr or 0) }} / {{ "%.1f"|format(row.ivp or 0) }}</td>
                 <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
                 <td>{{ "%.2f"|format(row.atr_14_cash or 0) }}</td>
                 <td>{{ "%.1f"|format(row.atm_straddle_near_month or 0) }}</td>
                 <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>
+                <td class="text-left" style="font-size: 8px; color: #4a5568;">{{ row.quant_insight }}</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -143,10 +143,17 @@ class MorningReportGenerator:
         dates = sym_df['trade_date'].astype(str).str[5:] # MM-DD
         vals = sym_df[y_col]
 
-        plt.bar(dates, vals, color=color)
+        # Use an array of colors to dynamically color positive/negative values
+        colors = ['#38a169' if v >= 0 else '#e53e3e' for v in vals]
+
+        plt.bar(dates, vals, color=colors)
         plt.title(f"{symbol} - {title}", fontsize=9)
         plt.xticks(rotation=45, fontsize=7)
         plt.yticks(fontsize=7)
+
+        # Turn off scientific notation
+        plt.ticklabel_format(style='plain', axis='y')
+
         plt.tight_layout()
 
         fd, path = tempfile.mkstemp(suffix='.png')
@@ -183,8 +190,9 @@ class MorningReportGenerator:
             ).all()
 
         # Fetch overlapping data from persistent tables
-        from backend.ingest.nse_models import OiAnalysisMetrics
+        from backend.ingest.nse_models import OiAnalysisMetrics, VolatilityAnalysisMetrics
         oi_records = {r.symbol: r for r in self.db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == actual_trade_date).all()}
+        vol_records = {r.symbol: r for r in self.db.query(VolatilityAnalysisMetrics).filter(VolatilityAnalysisMetrics.trade_date == actual_trade_date).all()}
 
         # Symbol Mapping for Sectors
         sym_master = self.db.query(SymbolMaster).all()
@@ -204,6 +212,41 @@ class MorningReportGenerator:
                 chg_oi_ce = oi.call_oi - (oi.call_oi / (1 + (oi.call_oi_chg_pct / 100.0))) if oi.call_oi and oi.call_oi_chg_pct else 0
                 chg_oi_pe = oi.put_oi - (oi.put_oi / (1 + (oi.put_oi_chg_pct / 100.0))) if oi.put_oi and oi.put_oi_chg_pct else 0
                 d['chg_oi_options'] = chg_oi_ce + chg_oi_pe
+
+            if sym in vol_records:
+                vol = vol_records[sym]
+                d['ivr'] = vol.ivr or 0
+                d['ivp'] = vol.ivp or 0
+
+            # Row-by-row AI/Quant Inferences
+            price_chg = d.get('price_pct_change') or 0
+            oi_chg_pct = d.get('chg_oi_fut_pct') or 0
+            pcr = d.get('pcr_oi') or 0
+            basis = d.get('basis_1_bps') or 0
+
+            insights = []
+            if price_chg > 0.5 and oi_chg_pct > 2:
+                insights.append("Long Buildup.")
+            elif price_chg < -0.5 and oi_chg_pct > 2:
+                insights.append("Short Buildup.")
+            elif price_chg > 0.5 and oi_chg_pct < -2:
+                insights.append("Short Covering.")
+            elif price_chg < -0.5 and oi_chg_pct < -2:
+                insights.append("Long Unwinding.")
+            else:
+                insights.append("Neutral.")
+
+            if pcr > 1.3:
+                insights.append("Overbought PCR.")
+            elif pcr > 0 and pcr < 0.6:
+                insights.append("Oversold PCR.")
+
+            if basis < -15:
+                insights.append("Discounted Basis.")
+            elif basis > 40:
+                insights.append("High Premium.")
+
+            d['quant_insight'] = " ".join(insights)
             record_dicts.append(d)
 
         df = pd.DataFrame(record_dicts)
@@ -291,7 +334,7 @@ class MorningReportGenerator:
             pe_charts=pe_charts,
             is_expiry_eve=is_expiry_eve,
             expiry_eve_data=expiry_eve_data,
-            all_data=records
+            all_data=record_dicts
         )
 
         filename = f"Morning_Report_{self.target_date.strftime('%Y-%m-%d')}.pdf"
