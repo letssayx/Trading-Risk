@@ -29,6 +29,11 @@
 <body>
     <!-- PAGE 1: EXECUTIVE DASHBOARD -->
     <h1>Institutional Derivatives Report - {{ date }}</h1>
+    {% if date_fallback_note %}
+    <div class="summary-box" style="border-left-color: #e53e3e; background-color: #fff5f5; color: #c53030;">
+        <strong>{{ date_fallback_note }}</strong>
+    </div>
+    {% endif %}
 
     <div class="summary-box">
         <h3>Quantitative Market Read</h3>

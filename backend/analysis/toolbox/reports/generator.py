@@ -77,9 +77,10 @@ class MorningReportGenerator:
             return f"Failed to generate AI inference: {str(e)}"
 
     def _get_quant_summary(self, records: list) -> str:
+        actual_trade_date = records[0].trade_date if records else self.target_date
         # Fetch FII Data
         fii_data = self.db.query(FAOParticipantOI).filter(
-            FAOParticipantOI.trade_date == self.target_date,
+            FAOParticipantOI.trade_date == actual_trade_date,
             FAOParticipantOI.client_type == 'FII'
         ).first()
 
@@ -161,8 +162,25 @@ class MorningReportGenerator:
             DailyDerivativesAnalysis.trade_date == self.target_date
         ).all()
 
+        actual_trade_date = self.target_date
+        date_fallback_note = ""
+
         if not records:
-            raise ValueError(f"No DailyDerivativesAnalysis data found for {self.target_date}")
+            # Fallback to the last available trade date
+            from sqlalchemy import desc
+            latest_record = self.db.query(DailyDerivativesAnalysis).filter(
+                DailyDerivativesAnalysis.trade_date <= self.target_date
+            ).order_by(desc(DailyDerivativesAnalysis.trade_date)).first()
+
+            if not latest_record:
+                raise ValueError(f"No DailyDerivativesAnalysis data found for {self.target_date} or earlier.")
+
+            actual_trade_date = latest_record.trade_date
+            date_fallback_note = f"Note: No data available for {self.target_date.strftime('%Y-%m-%d')}. Using last available data from {actual_trade_date.strftime('%Y-%m-%d')}."
+
+            records = self.db.query(DailyDerivativesAnalysis).filter(
+                DailyDerivativesAnalysis.trade_date == actual_trade_date
+            ).all()
 
         # Symbol Mapping for Sectors
         sym_master = self.db.query(SymbolMaster).all()
@@ -222,6 +240,7 @@ class MorningReportGenerator:
 
         html_content = template.render(
             date=self.target_date.strftime("%Y-%m-%d"),
+            date_fallback_note=date_fallback_note,
             quant_summary=quant_summary,
             ai_inference=ai_inference,
             long_charts=long_charts,
