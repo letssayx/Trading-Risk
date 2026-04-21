@@ -1502,7 +1502,7 @@
                             const downloadBtn = document.getElementById('mr-download-btn');
                             downloadBtn.style.display = 'block';
                             downloadBtn.onclick = () => {
-                                window.open(`/reports/Morning_Report_${targetDate}.pdf`, '_blank');
+                                window.open(`/api/morning-report/download/${targetDate}`, '_blank');
                             };
 
                             document.getElementById('mr-generate-btn').disabled = false;
