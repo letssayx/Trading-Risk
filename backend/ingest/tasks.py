@@ -341,18 +341,23 @@ def generate_morning_report_task(self, target_date_str: str, author: str = "Syst
                 generator = MorningReportGenerator(db, target_date)
 
                 # Run the async generator inside a separate thread's new loop
-                def run_in_thread(result_list):
+                def run_in_thread(result_list, error_list):
                     new_loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(new_loop)
                     try:
                         result_list.append(new_loop.run_until_complete(generator.generate_report()))
+                    except Exception as e:
+                        error_list.append(e)
                     finally:
                         new_loop.close()
 
                 results = []
-                t = threading.Thread(target=run_in_thread, args=(results,))
+                errors = []
+                t = threading.Thread(target=run_in_thread, args=(results, errors))
                 t.start()
                 t.join()
+                if errors:
+                    raise errors[0]
                 pdf_path = results[0] if results else None
         else:
             with SessionLocal() as db:
@@ -364,6 +369,13 @@ def generate_morning_report_task(self, target_date_str: str, author: str = "Syst
         with SessionLocal() as db:
             generator = MorningReportGenerator(db, target_date)
             pdf_path = loop.run_until_complete(generator.generate_report())
+    except Exception as e:
+        err_msg = str(e)
+        logger.error(f"Morning Report Generation Failed: {err_msg}")
+        import traceback
+        traceback.print_exc()
+        self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+        raise Exception(f"Morning Report Generation Failed: {err_msg}")
 
     return {
         "status": "SUCCESS",

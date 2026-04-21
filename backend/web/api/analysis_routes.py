@@ -169,13 +169,19 @@ async def trigger_generate_report(request: GenerateRequest):
             return {"task_id": task.id, "status": "processing"}
         except Exception as e:
             print(f"Celery dispatch failed: {e}. Executing synchronously...")
-            result = generate_morning_report_task(request.target_date, request.author)
-            return {"task_id": "sync-task-id", "status": "SUCCESS", "result": result}
+            try:
+                result = generate_morning_report_task(request.target_date, request.author)
+                return {"task_id": "sync-task-id", "status": "SUCCESS", "result": result}
+            except Exception as inner_e:
+                raise HTTPException(status_code=500, detail=str(inner_e))
     else:
         # In development/local environments (like WSL without Redis or Celery booted)
         try:
             result = generate_morning_report_task(request.target_date, request.author)
-            return {"task_id": "sync-task-id", "status": "SUCCESS", "result": result}
+            if result.get("status") == "SUCCESS":
+                return {"task_id": "sync-task-id", "status": "SUCCESS", "result": result}
+            else:
+                raise HTTPException(status_code=500, detail="Generation failed silently")
         except Exception as e:
             print(f"Synchronous generation failed: {e}")
             raise HTTPException(status_code=500, detail=str(e))
