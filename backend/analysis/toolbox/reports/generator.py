@@ -182,21 +182,63 @@ class MorningReportGenerator:
                 DailyDerivativesAnalysis.trade_date == actual_trade_date
             ).all()
 
+        # Fetch overlapping data from persistent tables
+        from backend.ingest.nse_models import OiAnalysisMetrics
+        oi_records = {r.symbol: r for r in self.db.query(OiAnalysisMetrics).filter(OiAnalysisMetrics.trade_date == actual_trade_date).all()}
+
         # Symbol Mapping for Sectors
         sym_master = self.db.query(SymbolMaster).all()
         sector_map = {s.symbol: s.sector_index for s in sym_master}
         for r in records:
             r.sector = sector_map.get(r.symbol, 'Unknown')
 
-        df = pd.DataFrame([r.__dict__ for r in records])
+        record_dicts = []
+        for r in records:
+            d = dict(r.__dict__)
+            sym = d['symbol']
+            if sym in oi_records:
+                oi = oi_records[sym]
+                d['chg_oi_fut_pct'] = oi.fut_oi_chg_pct
+                d['chg_oi_futures'] = oi.fut_oi - (oi.fut_oi / (1 + (oi.fut_oi_chg_pct / 100.0))) if oi.fut_oi and oi.fut_oi_chg_pct else 0
+
+                chg_oi_ce = oi.call_oi - (oi.call_oi / (1 + (oi.call_oi_chg_pct / 100.0))) if oi.call_oi and oi.call_oi_chg_pct else 0
+                chg_oi_pe = oi.put_oi - (oi.put_oi / (1 + (oi.put_oi_chg_pct / 100.0))) if oi.put_oi and oi.put_oi_chg_pct else 0
+                d['chg_oi_options'] = chg_oi_ce + chg_oi_pe
+            record_dicts.append(d)
+
+        df = pd.DataFrame(record_dicts)
 
         # 2. Exec Summary
         quant_summary = self._get_quant_summary(records)
         ai_inference = await self.get_ai_inference(quant_summary)
 
         # 3. Top 5 Longs/Shorts (Based on OI % Chg and Price Dir)
-        df['oi_chg_pct'] = pd.to_numeric(df['chg_oi_fut_pct'], errors='coerce').fillna(0)
-        df['price_chg'] = pd.to_numeric(df['price_pct_change'], errors='coerce').fillna(0)
+        # Calculate derived metrics safely
+        def calc_oi_pct(row):
+            try:
+                oi_chg = float(row.get('chg_oi_futures', 0))
+                total_oi = float(row.get('futures_total_oi', 0))
+                if total_oi - oi_chg == 0: return 0.0
+                return (oi_chg / (total_oi - oi_chg)) * 100.0
+            except:
+                return 0.0
+
+        def calc_price_pct(row):
+            # Fallback if price_pct_change isn't dynamically populated
+            try:
+                return float(row.get('price_pct_change', 0))
+            except:
+                return 0.0
+
+        if 'chg_oi_fut_pct' in df.columns:
+            df['oi_chg_pct'] = pd.to_numeric(df['chg_oi_fut_pct'], errors='coerce').fillna(0)
+        else:
+            df['oi_chg_pct'] = df.apply(calc_oi_pct, axis=1)
+
+        if 'price_pct_change' in df.columns:
+            df['price_chg'] = pd.to_numeric(df['price_pct_change'], errors='coerce').fillna(0)
+        else:
+            df['price_chg'] = df.apply(calc_price_pct, axis=1)
 
         longs = df[(df['oi_chg_pct'] > 0) & (df['price_chg'] > 0)].sort_values('oi_chg_pct', ascending=False).head(5)
         shorts = df[(df['oi_chg_pct'] > 0) & (df['price_chg'] < 0)].sort_values('oi_chg_pct', ascending=False).head(5)
