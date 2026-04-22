@@ -1,5 +1,5 @@
 """NSE Database Models - TimescaleDB Optimized"""
-from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func, text
+from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func, text, JSON
 from sqlalchemy.dialects.postgresql import TIMESTAMP, JSONB
 from backend.infrastructure.db import Base
 
@@ -727,3 +727,22 @@ class BasisWatchMetrics(Base, TimescaleMixin):
     __table_args__ = (
         UniqueConstraint('trade_date', 'symbol', name='uq_basis_watch_metrics_date_symbol'),
     )
+
+class PreMarketSnapshot(Base):
+    __tablename__ = "pre_market_snapshot"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_date = Column(Date, nullable=False, unique=True, index=True)
+    snapshot_data = Column(JSON, nullable=True)
+
+
+class EconomicEvent(Base):
+    __tablename__ = "economic_event"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    trade_date = Column(Date, nullable=False, index=True)
+    event_date = Column(DateTime, nullable=True)
+    country = Column(String(50), nullable=True)
+    event_name = Column(String(255), nullable=True)
+    actual = Column(String(50), nullable=True)
+    forecast = Column(String(50), nullable=True)
+    previous = Column(String(50), nullable=True)
+    impact = Column(String(50), nullable=True)

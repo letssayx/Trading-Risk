@@ -34,6 +34,7 @@ from backend.web.api import config_routes
 from backend.web.api.data import view_routes, derivatives_routes
 from backend.web.api import nse_routes
 from backend.web.api import audit_routes
+from backend.web.api import macro_routes
 from backend.web.ai.routes import ai_router
 
 # Import DB and Models for Initialization
@@ -76,11 +77,17 @@ app.include_router(opt_analysis_routes.router)
 app.include_router(volatility_routes.router)
 app.include_router(nse_routes.router, prefix="/api/v1/nse", tags=["nse"])
 app.include_router(audit_routes.router, prefix="/api/audit", tags=["audit"])
+app.include_router(macro_routes.router)
 app.include_router(ai_router)
+
 
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB
+    import backend.ingest.nse_models
+    from backend.infrastructure.db import engine, Base
+    Base.metadata.create_all(bind=engine)
+
     print("Initializing Database...")
     try:
         Base.metadata.create_all(bind=engine)
