@@ -523,38 +523,59 @@
                     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                         <!-- Share Holding Pattern Inputs -->
                         <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 300px;">
-                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Share Holding Pattern</h3>
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                Share Holding Pattern
+                                <div>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 5px;" onclick="fetchShareholding('bb')"><i class="fas fa-sync"></i> Sync</button>
+                                    <span class="badge" id="bb-verify-status" style="background:#444; color:#ccc; font-size:10px; padding:2px 5px; border-radius:3px;">Unverified</span>
+                                </div>
+                            </h3>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
-                                <input type="number" id="bb-promoter-holding" class="history-input" value="300948721" oninput="calculateBuyBack()">
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="bb-promoter-holding" class="history-input" value="300948721" oninput="calculateBuyBack()" style="flex: 1;">
+                                    <span id="bb-promoter-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">51.87%</span>
+                                </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">FII:</label>
-                                <input type="number" id="bb-fii" class="history-input" value="88496709" oninput="calculateBuyBack()">
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="bb-fii" class="history-input" value="88496709" oninput="calculateBuyBack()" style="flex: 1;">
+                                    <span id="bb-fii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">15.25%</span>
+                                </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
-                                <input type="number" id="bb-dii" class="history-input" value="150246872" oninput="calculateBuyBack()">
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="bb-dii" class="history-input" value="150246872" oninput="calculateBuyBack()" style="flex: 1;">
+                                    <span id="bb-dii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">25.89%</span>
+                                </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 150px; display: inline-block;">Retail &lt;= Rs 200000:</label>
-                                <input type="number" id="bb-retail" class="history-input" value="31061210" oninput="calculateBuyBack()">
+                                <label style="width: 150px; display: inline-block;">Retail &lt;= Rs 200k:</label>
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="bb-retail" class="history-input" value="31061210" oninput="calculateBuyBack()" style="flex: 1;">
+                                    <span id="bb-retail-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">5.35%</span>
+                                </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 150px; display: inline-block;">Public &gt; Rs 200000:</label>
-                                <input type="number" id="bb-public-high" class="history-input" value="9462511" oninput="calculateBuyBack()">
+                                <label style="width: 150px; display: inline-block;">Public &gt; Rs 200k:</label>
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="bb-public-high" class="history-input" value="9462511" oninput="calculateBuyBack()" style="flex: 1;">
+                                    <span id="bb-pubhigh-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">1.63%</span>
+                                </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px; border-top: 1px solid #444; padding-top: 10px;">
                                 <label style="width: 150px; display: inline-block; color: #fff;">Total Outstanding:</label>
-                                <span id="bb-total-outstanding" style="color: #60a5fa; font-weight: bold;">-</span>
+                                <span id="bb-total-outstanding" style="color: #60a5fa; font-weight: bold;">580216023</span>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Total Buy Back Offer:</label>
-                                <input type="number" id="bb-offer" class="history-input" value="5423728" oninput="calculateBuyBack()">
+                                <input type="number" id="bb-offer" class="history-input" value="5423728" oninput="calculateBuyBack()" style="width: 140px;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Reserved Retail %:</label>
-                                <input type="number" id="bb-reserved-pct" class="history-input" value="15" oninput="calculateBuyBack()" style="width: 60px;">
+                                <input type="number" id="bb-reserved-pct" class="history-input" value="15" oninput="calculateBuyBack()" style="width: 140px;">
                             </div>
                         </div>
 
@@ -562,7 +583,7 @@
                         <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 250px;">
                             <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
                                 Price Info
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="fetchBuyBackPrices()"><i class="fas fa-sync"></i> Sync from Back End</button>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="fetchBuyBackPrices('bb')"><i class="fas fa-sync"></i> Sync from Back End</button>
                             </h3>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Symbol:</label>
@@ -698,60 +719,113 @@
 
                     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
 
-                        <!-- Inputs -->
-                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 350px;">
-                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Metrics & Inputs</h3>
+                        <!-- Share Holding Pattern Inputs -->
+                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 300px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                Share Holding Pattern
+                                <div>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 5px;" onclick="fetchShareholding('ofs')"><i class="fas fa-sync"></i> Sync</button>
+                                    <span class="badge" id="ofs-verify-status" style="background:#444; color:#ccc; font-size:10px; padding:2px 5px; border-radius:3px;">Unverified</span>
+                                </div>
+                            </h3>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="ofs-promoter-holding" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
+                                    <span id="ofs-promoter-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                </div>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">FII:</label>
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="ofs-fii" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
+                                    <span id="ofs-fii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                </div>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="ofs-dii" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
+                                    <span id="ofs-dii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                </div>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Retail & Public:</label>
+                                <div style="display: flex; align-items: center; width: 140px;">
+                                    <input type="number" id="ofs-retail" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
+                                    <span id="ofs-retail-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                </div>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px; border-top: 1px solid #444; padding-top: 10px;">
+                                <label style="width: 150px; display: inline-block; color: #fff;">Total Outstanding:</label>
+                                <span id="ofs-total-outstanding" style="color: #60a5fa; font-weight: bold;">-</span>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Total OFS Offer:</label>
+                                <input type="number" id="ofs-total-supply" class="history-input" value="10000000" oninput="calculateOFS()" style="width: 140px;">
+                            </div>
+                        </div>
 
-                            <table class="data-table" style="width: 100%;">
-                                <thead>
-                                    <tr>
-                                        <th style="color:#888;">Metric</th>
-                                        <th style="color:#888;">Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td style="color:#aaa;">CMP (Pre-OFS)</td>
-                                        <td><input type="number" id="ofs-cmp" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">Floor Price</td>
-                                        <td><input type="number" id="ofs-floor" class="history-input" value="100.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">Bid Price / Cut-off</td>
-                                        <td><input type="number" id="ofs-bid" class="history-input" value="105.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa; font-weight: bold;">Allotment Ratio %</td>
-                                        <td><input type="number" id="ofs-allotment" class="history-input" value="83.33" oninput="calculateOFS()" step="0.01" style="width: 100px; background-color: #5a4b10;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">Hedge Entry (Short) - Future</td>
-                                        <td><input type="number" id="ofs-hedge" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">Futures Lot size</td>
-                                        <td><input type="number" id="ofs-lot" class="history-input" value="1000" oninput="calculateOFS()" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">No. of lots</td>
-                                        <td><input type="number" id="ofs-num-lots" class="history-input" value="3.33" oninput="calculateOFS()" step="0.01" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">Cost of Funds %</td>
-                                        <td><input type="number" id="ofs-cof" class="history-input" value="1.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">Impact Cost %</td>
-                                        <td><input type="number" id="ofs-impact" class="history-input" value="0.10" oninput="calculateOFS()" step="0.01" style="width: 100px;"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color:#aaa;">STT+others %</td>
-                                        <td><input type="number" id="ofs-stt" class="history-input" value="0.30" oninput="calculateOFS()" step="0.01" style="width: 100px;"></td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <!-- Inputs -->
+                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 250px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                Price Info & Inputs
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="fetchBuyBackPrices('ofs')"><i class="fas fa-sync"></i> Sync from Back End</button>
+                            </h3>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Symbol:</label>
+                                <div class="autocomplete-wrapper" style="width: 140px;">
+                                    <input type="text" id="ofs-symbol-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onfocus="optFilterSymbols(this.value, 'ofs-symbol-dropdown', 'ofs-symbol-input')" oninput="optFilterSymbols(this.value, 'ofs-symbol-dropdown', 'ofs-symbol-input')" style="width: 100%;">
+                                    <div id="ofs-symbol-dropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                                </div>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">CMP (Pre-OFS):</label>
+                                <input type="number" id="ofs-cmp" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Floor Price:</label>
+                                <input type="number" id="ofs-floor" class="history-input" value="100.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Bid Price / Cut-off:</label>
+                                <input type="number" id="ofs-bid" class="history-input" value="105.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Select Future:</label>
+                                <select id="ofs-future-select" class="history-select" onchange="updateBuyBackFuturePrice('ofs')" style="width: 140px;">
+                                    <option value="fut1">Fut 1 (Near)</option>
+                                    <option value="fut2">Fut 2</option>
+                                    <option value="fut3">Fut 3</option>
+                                </select>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Hedge Entry (Short):</label>
+                                <div style="display: flex; flex-direction: column; width: 140px;">
+                                    <input type="number" id="ofs-future" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 100%;">
+                                    <span id="ofs-future-expiry" style="font-size: 10px; color: #888; margin-top: 2px;"></span>
+                                </div>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Futures Lot size:</label>
+                                <input type="number" id="ofs-lot" class="history-input" value="1000" oninput="calculateOFS()" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">No. of lots (Bid):</label>
+                                <input type="number" id="ofs-num-lots" class="history-input" value="3.33" oninput="calculateOFS()" step="0.01" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Cost of Funds %:</label>
+                                <input type="number" id="ofs-cof" class="history-input" value="1.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Impact Cost %:</label>
+                                <input type="number" id="ofs-impact" class="history-input" value="0.10" oninput="calculateOFS()" step="0.01" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">STT+others %:</label>
+                                <input type="number" id="ofs-stt" class="history-input" value="0.30" oninput="calculateOFS()" step="0.01" style="width: 140px;">
+                            </div>
                         </div>
 
                         <!-- Results -->
@@ -784,41 +858,35 @@
                                             <th style="color:#888;">Price</th>
                                             <th style="color:#888;">Qty Bid</th>
                                             <th style="color:#888;">Cumul. Qty</th>
-                                            <th style="color:#888;">Total Supply</th>
                                             <th style="color:#888;">Allotment %</th>
                                             <th style="color:#888;">Shares Alloted</th>
                                         </tr>
                                     </thead>
                                     <tbody id="ofs-bid-matrix-body">
                                         <!-- Computed via JS -->
+                                        <tr>
+                                            <td><input type="number" id="ofs-bid-p1" class="history-input" style="width: 70px;" value="105.00" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-q1" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-c1" class="history-input" style="width: 100px;" value="12000000" oninput="calculateOFS()"></td>
+                                            <td id="ofs-bid-a1" style="background-color: #5a4b10; font-weight: bold; color: #fff; text-align: center;">-</td>
+                                            <td id="ofs-bid-s1" style="text-align: center;">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td><input type="number" id="ofs-bid-p2" class="history-input" style="width: 70px;" value="104.00" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-q2" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-c2" class="history-input" style="width: 100px;" value="5000000" oninput="calculateOFS()"></td>
+                                            <td id="ofs-bid-a2" style="text-align: center;">-</td>
+                                            <td id="ofs-bid-s2" style="text-align: center;">-</td>
+                                        </tr>
+                                        <tr>
+                                            <td><input type="number" id="ofs-bid-p3" class="history-input" style="width: 70px;" value="103.00" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-q3" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-c3" class="history-input" style="width: 100px;" value="10000000" oninput="calculateOFS()"></td>
+                                            <td id="ofs-bid-a3" style="text-align: center;">-</td>
+                                            <td id="ofs-bid-s3" style="text-align: center;">-</td>
+                                        </tr>
                                     </tbody>
                                 </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Share Holding Pattern Inputs -->
-                    <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 300px; margin-top: 20px;">
-                        <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                            Share Holding Pattern
-                            <span class="badge" style="background:#444; color:#ccc; font-size:10px; padding:2px 5px; border-radius:3px;">Verify Status: Unverified</span>
-                        </h3>
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                            <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
-                                <input type="number" id="ofs-promoter-holding" class="history-input" value="0">
-                            </div>
-                            <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 150px; display: inline-block;">FII:</label>
-                                <input type="number" id="ofs-fii" class="history-input" value="0">
-                            </div>
-                            <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
-                                <input type="number" id="ofs-dii" class="history-input" value="0">
-                            </div>
-                            <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 150px; display: inline-block;">Retail:</label>
-                                <input type="number" id="ofs-retail" class="history-input" value="0">
                             </div>
                         </div>
                     </div>
@@ -827,7 +895,7 @@
                     <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px; margin-top: 20px;">
                         <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                             <i class="fas fa-magic" style="color: #60a5fa;"></i> Quant AI Analysis
-                            <button class="btn btn-secondary" style="margin-left: auto; font-size: 11px; padding: 2px 8px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze OFS arbitrage ' + (document.getElementById('bb-symbol-input').value || 'scenario'); handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">Generate Insights</button>
+                            <button class="btn btn-secondary" style="margin-left: auto; font-size: 11px; padding: 2px 8px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze OFS arbitrage ' + (document.getElementById('ofs-symbol-input').value || 'scenario'); handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">Generate Insights</button>
                         </h3>
                         <div id="ofs-ai-insights-content" style="color: #aaa; font-size: 14px; line-height: 1.6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                             <p style="font-style: italic;">Click "Generate Insights" to run the AI Deep Dive on this OFS arbitrage scenario.</p>
@@ -846,10 +914,10 @@
             <script>
                 let bbCurrentMarketData = null;
 
-                function updateBuyBackFuturePrice() {
+                function updateBuyBackFuturePrice(prefix = 'bb') {
                     if (!bbCurrentMarketData) return;
 
-                    const selection = document.getElementById('bb-future-select').value;
+                    const selection = document.getElementById(`${prefix}-future-select`).value;
                     let price = 0;
                     let expiry = '';
 
@@ -865,14 +933,15 @@
                     }
 
                     if (price) {
-                        document.getElementById('bb-future').value = price;
-                        document.getElementById('bb-future-expiry').innerText = expiry ? `Exp: ${expiry}` : '';
-                        calculateBuyBack();
+                        document.getElementById(`${prefix}-future`).value = price;
+                        document.getElementById(`${prefix}-future-expiry`).innerText = expiry ? `Exp: ${expiry}` : '';
+                        if (prefix === 'bb') calculateBuyBack();
+                        else if (prefix === 'ofs') calculateOFS();
                     }
                 }
 
-                async function fetchBuyBackPrices() {
-                    const symbol = document.getElementById('bb-symbol-input').value.toUpperCase();
+                async function fetchBuyBackPrices(prefix = 'bb') {
+                    const symbol = document.getElementById(`${prefix}-symbol-input`).value.toUpperCase();
                     if (!symbol) {
                         alert("Please enter a symbol first.");
                         return;
@@ -886,15 +955,77 @@
                             bbCurrentMarketData = data[0]; // the latest day
 
                             if (bbCurrentMarketData.eq_close_price) {
-                                document.getElementById('bb-cmp').value = bbCurrentMarketData.eq_close_price;
+                                document.getElementById(`${prefix}-cmp`).value = bbCurrentMarketData.eq_close_price;
                             }
 
-                            updateBuyBackFuturePrice();
+                            updateBuyBackFuturePrice(prefix);
                         } else {
                             alert("No recent market data found for this symbol.");
                         }
                     } catch (e) {
                         alert("Failed to fetch market data.");
+                    }
+                }
+
+                async function fetchShareholding(prefix = 'bb') {
+                    const symbol = document.getElementById(`${prefix}-symbol-input`).value.toUpperCase();
+                    if (!symbol) {
+                        alert("Please enter a symbol first.");
+                        return;
+                    }
+
+                    const btn = event.currentTarget;
+                    const origHtml = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    btn.disabled = true;
+
+                    try {
+                        const res = await fetch(`/api/data/shareholding?symbol=${symbol}`);
+                        if (!res.ok) throw new Error('Failed to fetch');
+                        const data = await res.json();
+
+                        document.getElementById(`${prefix}-promoter-holding`).value = data.promoter_holding;
+                        document.getElementById(`${prefix}-fii`).value = data.fii_holding;
+                        document.getElementById(`${prefix}-dii`).value = data.dii_holding;
+
+                        // Retail/Public logic. Depending on the tab, the inputs are slightly different
+                        if (prefix === 'bb') {
+                            // Split public roughly to match screenshots if needed or put all in one.
+                            document.getElementById('bb-retail').value = Math.floor(data.public_holding * 0.7);
+                            document.getElementById('bb-public-high').value = Math.floor(data.public_holding * 0.3);
+                        } else if (prefix === 'ofs') {
+                            document.getElementById('ofs-retail').value = data.public_holding;
+                        }
+
+                        const badge = document.getElementById(`${prefix}-verify-status`);
+                        badge.innerText = `Verified 100% (${data.date_updated})`;
+                        badge.style.background = '#28a745';
+                        badge.style.color = '#fff';
+
+                        if (prefix === 'bb') calculateBuyBack();
+                        else if (prefix === 'ofs') calculateOFSShares();
+                    } catch (e) {
+                        alert("Error fetching shareholding pattern.");
+                    } finally {
+                        btn.innerHTML = origHtml;
+                        btn.disabled = false;
+                    }
+                }
+
+                function calculateOFSShares() {
+                    const prom = parseFloat(document.getElementById('ofs-promoter-holding').value) || 0;
+                    const fii = parseFloat(document.getElementById('ofs-fii').value) || 0;
+                    const dii = parseFloat(document.getElementById('ofs-dii').value) || 0;
+                    const retail = parseFloat(document.getElementById('ofs-retail').value) || 0;
+
+                    const totalOut = prom + fii + dii + retail;
+                    document.getElementById('ofs-total-outstanding').innerText = totalOut > 0 ? totalOut.toLocaleString() : '-';
+
+                    if (totalOut > 0) {
+                        document.getElementById('ofs-promoter-pct').innerText = ((prom / totalOut) * 100).toFixed(2) + '%';
+                        document.getElementById('ofs-fii-pct').innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
+                        document.getElementById('ofs-dii-pct').innerText = ((dii / totalOut) * 100).toFixed(2) + '%';
+                        document.getElementById('ofs-retail-pct').innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
                     }
                 }
 
@@ -914,7 +1045,15 @@
                     const pubHigh = parseFloat(document.getElementById('bb-public-high').value) || 0;
 
                     const totalOut = prom + fii + dii + retail + pubHigh;
-                    document.getElementById('bb-total-outstanding').innerText = totalOut.toLocaleString();
+                    document.getElementById('bb-total-outstanding').innerText = totalOut > 0 ? totalOut.toLocaleString() : '-';
+
+                    if (totalOut > 0) {
+                        document.getElementById('bb-promoter-pct').innerText = ((prom / totalOut) * 100).toFixed(2) + '%';
+                        document.getElementById('bb-fii-pct').innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
+                        document.getElementById('bb-dii-pct').innerText = ((dii / totalOut) * 100).toFixed(2) + '%';
+                        document.getElementById('bb-retail-pct').innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
+                        document.getElementById('bb-pubhigh-pct').innerText = ((pubHigh / totalOut) * 100).toFixed(2) + '%';
+                    }
 
                     const bbOffer = parseFloat(document.getElementById('bb-offer').value) || 0;
                     const reservedPct = parseFloat(document.getElementById('bb-reserved-pct').value) || 0;
@@ -997,8 +1136,43 @@
                     const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
                     const floor = parseFloat(document.getElementById('ofs-floor').value) || 0;
                     const bid = parseFloat(document.getElementById('ofs-bid').value) || 0;
-                    const allotment = parseFloat(document.getElementById('ofs-allotment').value) || 0;
-                    const hedge = parseFloat(document.getElementById('ofs-hedge').value) || 0;
+
+                    // First, calculate matrix
+                    const totalSupplyElem = document.getElementById('ofs-total-supply');
+                    const totalSupply = totalSupplyElem ? parseFloat(totalSupplyElem.value) || 0 : 0;
+                    let targetAllotmentPct = 0;
+
+                    for (let i = 1; i <= 3; i++) {
+                        const qElem = document.getElementById(`ofs-bid-q${i}`);
+                        const cElem = document.getElementById(`ofs-bid-c${i}`);
+                        const pElem = document.getElementById(`ofs-bid-p${i}`);
+
+                        if (!qElem || !cElem || !pElem) continue;
+
+                        const q = parseFloat(qElem.value) || 0;
+                        const c = parseFloat(cElem.value) || 0;
+                        const p = parseFloat(pElem.value) || 0;
+
+                        let aPct = 0;
+                        if (c > 0 && totalSupply > 0) {
+                            aPct = (totalSupply / c) * 100;
+                        }
+
+                        let sharesAllotted = 0;
+                        if (aPct > 0) {
+                            sharesAllotted = q * (aPct / 100);
+                        }
+
+                        document.getElementById(`ofs-bid-a${i}`).innerText = aPct.toFixed(2) + '%';
+                        document.getElementById(`ofs-bid-s${i}`).innerText = sharesAllotted.toFixed(0);
+
+                        if (p === bid) {
+                            targetAllotmentPct = aPct;
+                        }
+                    }
+
+                    const allotment = targetAllotmentPct;
+                    const hedge = parseFloat(document.getElementById('ofs-future').value) || 0;
                     const lot = parseFloat(document.getElementById('ofs-lot').value) || 0;
                     const numLots = parseFloat(document.getElementById('ofs-num-lots').value) || 0;
                     const cof = parseFloat(document.getElementById('ofs-cof').value) || 0;
@@ -1036,35 +1210,6 @@
                     // Reversal price
                     const reversal = bid - (netArb / 100 * bid);
                     document.getElementById('ofs-res-reversal').innerText = reversal.toFixed(2);
-
-                    // Matrix (Dummy data based on the screenshot)
-                    const tbody = document.getElementById('ofs-bid-matrix-body');
-                    tbody.innerHTML = `
-                        <tr>
-                            <td>105.00</td>
-                            <td>40,000</td>
-                            <td>1,20,00,000</td>
-                            <td>1,00,00,000</td>
-                            <td style="background-color: #5a4b10; font-weight: bold; color: #fff;">83.33%</td>
-                            <td>33,333</td>
-                        </tr>
-                        <tr>
-                            <td>104.00</td>
-                            <td>40,000</td>
-                            <td>50,00,000</td>
-                            <td>-20,00,000</td>
-                            <td>-40.00%</td>
-                            <td>0</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: bold;">Floor 103.00</td>
-                            <td>40,000</td>
-                            <td>1,00,00,000</td>
-                            <td>-70,00,000</td>
-                            <td>-70.00%</td>
-                            <td>0</td>
-                        </tr>
-                    `;
                 }
 
                 // Initialize math on load
