@@ -346,6 +346,11 @@
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
         <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
         <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
+        <div class="main-tab" data-target="special_arb" onclick="switchMainTab('special_arb')" title="Special Situation Arb">Special Situation Arb</div>
+        <div class="main-tab" data-target="fundamentals" onclick="switchMainTab('fundamentals')" title="Fundamental Analysis">Fundamental Analysis</div>
+        <div class="main-tab" data-target="commodities" onclick="switchMainTab('commodities')" title="Commodities">Commodities</div>
+        <div class="main-tab" data-target="crypto" onclick="switchMainTab('crypto')" title="Crypto">Crypto</div>
+        <div class="main-tab" data-target="retail_instruments" onclick="switchMainTab('retail_instruments')" title="Retail Instruments">Retail Instruments</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
@@ -495,6 +500,515 @@
         </div>
 
         <!-- TAB DERIVATIVES ANALYSIS -->
+
+        <!-- TAB SPECIAL SITUATION ARB -->
+        <div id="tab-special_arb" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
+            <!-- Sub-tab Navigation -->
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
+                <div class="wb-tab active" id="arb-tab-btn-buyback" onclick="switchArbTab('buyback')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Buy Back</div>
+                <div class="wb-tab" id="arb-tab-btn-rights" onclick="switchArbTab('rights')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rights</div>
+                <div class="wb-tab" id="arb-tab-btn-dividends" onclick="switchArbTab('dividends')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Dividends</div>
+                <div class="wb-tab" id="arb-tab-btn-bonds" onclick="switchArbTab('bonds')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Bonds ()</div>
+                <div class="wb-tab" id="arb-tab-btn-ofs" onclick="switchArbTab('ofs')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OFS</div>
+                <div class="wb-tab" id="arb-tab-btn-ppcm" onclick="switchArbTab('ppcm')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Partly Paid Call Money (PPCM)</div>
+            </div>
+
+            <!-- Sub-tab Contents Container -->
+            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: auto; display: flex; flex-direction: column; width: 100%; padding: 20px; box-sizing: border-box;">
+
+                <!-- SUB-TAB: Buy Back -->
+                <div id="arb-tab-buyback" class="arb-sub-tab active" style="height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px;">Buy Back Arbitrage Scenario</h2>
+
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <!-- Share Holding Pattern Inputs -->
+                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 300px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Share Holding Pattern</h3>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
+                                <input type="number" id="bb-promoter-holding" class="history-input" value="300948721" oninput="calculateBuyBack()">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">FII:</label>
+                                <input type="number" id="bb-fii" class="history-input" value="88496709" oninput="calculateBuyBack()">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
+                                <input type="number" id="bb-dii" class="history-input" value="150246872" oninput="calculateBuyBack()">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Retail &lt;= Rs 200000:</label>
+                                <input type="number" id="bb-retail" class="history-input" value="31061210" oninput="calculateBuyBack()">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Public &gt; Rs 200000:</label>
+                                <input type="number" id="bb-public-high" class="history-input" value="9462511" oninput="calculateBuyBack()">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px; border-top: 1px solid #444; padding-top: 10px;">
+                                <label style="width: 150px; display: inline-block; color: #fff;">Total Outstanding:</label>
+                                <span id="bb-total-outstanding" style="color: #60a5fa; font-weight: bold;">-</span>
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Total Buy Back Offer:</label>
+                                <input type="number" id="bb-offer" class="history-input" value="5423728" oninput="calculateBuyBack()">
+                            </div>
+                        </div>
+
+                        <!-- Price Info Inputs -->
+                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 250px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Price Info</h3>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Buy Back Price:</label>
+                                <input type="number" id="bb-price" class="history-input" value="1475" oninput="calculateBuyBack()">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">CMP:</label>
+                                <input type="number" id="bb-cmp" class="history-input" value="1391.7" oninput="calculateBuyBack()" step="0.1">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Future Price:</label>
+                                <input type="number" id="bb-future" class="history-input" value="1400.9" oninput="calculateBuyBack()" step="0.1">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Shares to calc:</label>
+                                <input type="number" id="bb-shares-calc" class="history-input" value="100" oninput="calculateBuyBack()">
+                            </div>
+                        </div>
+
+                        <!-- Results -->
+                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 350px; flex: 1;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Analysis Results</h3>
+
+                            <table class="data-table" style="width: 100%; margin-bottom: 15px;">
+                                <tbody>
+                                    <tr><td style="color:#aaa;">Reserved Retail Offer (15%)</td><td id="bb-res-retail">-</td></tr>
+                                    <tr><td style="color:#aaa;">Public Offer (minus retail)</td><td id="bb-pub-offer">-</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h4 style="color: #60a5fa; margin-bottom: 5px;">If Promoters Participate</h4>
+                            <table class="data-table" style="width: 100%; margin-bottom: 15px;">
+                                <tbody>
+                                    <tr><td style="color:#aaa;">Acceptance Ratio (Non-Retail)</td><td id="bb-ar-nonretail">-</td></tr>
+                                    <tr><td style="color:#aaa;">Profit/share (Non-Retail)</td><td id="bb-ps-nonretail">-</td></tr>
+                                    <tr><td style="color:#aaa;">Acceptance Ratio (Retail)</td><td id="bb-ar-retail">-</td></tr>
+                                    <tr><td style="color:#aaa;">Profit/share (Retail)</td><td id="bb-ps-retail">-</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h4 style="color: #60a5fa; margin-bottom: 5px;">Arbitrage Scenario</h4>
+                            <table class="data-table" style="width: 100%;">
+                                <tbody>
+                                    <tr><td style="color:#aaa;">Equity Profit</td><td id="bb-eq-profit">-</td></tr>
+                                    <tr><td style="color:#aaa;">Future Loss/Profit</td><td id="bb-fut-loss">-</td></tr>
+                                    <tr><td style="color:#aaa;">Net Profit</td><td id="bb-net-profit" style="font-weight: bold;">-</td></tr>
+                                    <tr><td style="color:#aaa;">Net %</td><td id="bb-net-pct" style="font-weight: bold;">-</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: Rights (Placeholder) -->
+                <div id="arb-tab-rights" class="arb-sub-tab" style="display:none; padding: 20px;">
+                    <h2 style="color: #fff; margin-top: 0;">Rights Issue Arbitrage</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Dividends (Placeholder) -->
+                <div id="arb-tab-dividends" class="arb-sub-tab" style="display:none; padding: 20px;">
+                    <h2 style="color: #fff; margin-top: 0;">Dividend Arbitrage</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Bonds (Placeholder) -->
+                <div id="arb-tab-bonds" class="arb-sub-tab" style="display:none; padding: 20px;">
+                    <h2 style="color: #fff; margin-top: 0;">Bonds Arbitrage</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: OFS (Placeholder) -->
+                <div id="arb-tab-ofs" class="arb-sub-tab" style="display:none; padding: 20px;">
+                    <h2 style="color: #fff; margin-top: 0;">Offer for Sale (OFS) Arbitrage</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: PPCM (Placeholder) -->
+                <div id="arb-tab-ppcm" class="arb-sub-tab" style="display:none; padding: 20px;">
+                    <h2 style="color: #fff; margin-top: 0;">Partly Paid Call Money (PPCM)</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+            </div>
+
+            <script>
+                function switchArbTab(tabId) {
+                    document.querySelectorAll('[id^="arb-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
+                    document.getElementById(`arb-tab-btn-${tabId}`).classList.add('active');
+
+                    document.querySelectorAll('.arb-sub-tab').forEach(tab => tab.style.display = 'none');
+                    document.getElementById(`arb-tab-${tabId}`).style.display = 'block';
+                }
+
+                function calculateBuyBack() {
+                    const prom = parseFloat(document.getElementById('bb-promoter-holding').value) || 0;
+                    const fii = parseFloat(document.getElementById('bb-fii').value) || 0;
+                    const dii = parseFloat(document.getElementById('bb-dii').value) || 0;
+                    const retail = parseFloat(document.getElementById('bb-retail').value) || 0;
+                    const pubHigh = parseFloat(document.getElementById('bb-public-high').value) || 0;
+
+                    const totalOut = prom + fii + dii + retail + pubHigh;
+                    document.getElementById('bb-total-outstanding').innerText = totalOut.toLocaleString();
+
+                    const bbOffer = parseFloat(document.getElementById('bb-offer').value) || 0;
+
+                    const resRetail = bbOffer * 0.15;
+                    const pubOffer = bbOffer - resRetail;
+
+                    document.getElementById('bb-res-retail').innerText = resRetail.toLocaleString(undefined, {maximumFractionDigits:2}) + ` (15%)`;
+                    document.getElementById('bb-pub-offer').innerText = pubOffer.toLocaleString(undefined, {maximumFractionDigits:2}) + ` (85%)`;
+
+                    const bbPrice = parseFloat(document.getElementById('bb-price').value) || 0;
+                    const cmp = parseFloat(document.getElementById('bb-cmp').value) || 0;
+                    const fut = parseFloat(document.getElementById('bb-future').value) || 0;
+                    const shares = parseFloat(document.getElementById('bb-shares-calc').value) || 100;
+
+                    // If promoters participate
+                    const nonRetailHolding = totalOut - retail;
+                    let arNonRetail = (pubOffer / nonRetailHolding);
+                    let arRetail = (resRetail / retail);
+
+                    document.getElementById('bb-ar-nonretail').innerText = (arNonRetail * 100).toFixed(2) + '%';
+                    document.getElementById('bb-ar-retail').innerText = (arRetail * 100).toFixed(2) + '%';
+
+                    let psNonRetail = arNonRetail * (bbPrice - cmp);
+                    let psRetail = arRetail * (bbPrice - cmp);
+
+                    document.getElementById('bb-ps-nonretail').innerText = '₹' + psNonRetail.toFixed(2);
+                    document.getElementById('bb-ps-retail').innerText = '₹' + psRetail.toFixed(2);
+
+                    // Arbitrage
+                    let eqProfit = shares * psNonRetail; // Assuming non-retail for general calc as per image
+                    let futLoss = shares * (cmp - fut); // Short future loss/profit
+                    let net = eqProfit + futLoss;
+                    let netPct = (net / (shares * cmp)) * 100;
+
+                    document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
+                    document.getElementById('bb-fut-loss').innerText = futLoss.toFixed(2);
+
+                    let netEl = document.getElementById('bb-net-profit');
+                    netEl.innerText = net.toFixed(2);
+                    netEl.style.color = net > 0 ? '#00e676' : '#ff4d4d';
+
+                    let netPctEl = document.getElementById('bb-net-pct');
+                    netPctEl.innerText = netPct.toFixed(2) + '%';
+                    netPctEl.style.color = net > 0 ? '#00e676' : '#ff4d4d';
+                }
+
+                // Initialize math on load
+                setTimeout(calculateBuyBack, 500);
+            </script>
+        </div>
+
+        <!-- TAB FUNDAMENTAL ANALYSIS -->
+        <div id="tab-fundamentals" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto;">
+
+                <!-- Header / Controls -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; background: #252526; padding: 15px; border-radius: 4px; border: 1px solid #333;">
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <h2 style="margin: 0; color: #fff; font-size: 20px;">Fundamental Analysis</h2>
+                        <input type="text" id="fa-symbol-input" class="history-input" placeholder="Search Symbol..." style="width: 200px;">
+                        <button class="btn btn-primary" onclick="loadFundamentalData()"><i class="fas fa-search"></i> Analyze</button>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary"><i class="fas fa-cloud-download-alt"></i> Import from NSE</button>
+                        <button class="btn btn-secondary" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze fundamentals ' + document.getElementById('fa-symbol-input').value; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Deep Dive</button>
+                    </div>
+                </div>
+
+                <!-- Main Content Area -->
+                <div id="fa-content-area" style="display: none; flex-direction: column; gap: 20px;">
+
+                    <!-- Company Overview & Pricing -->
+                    <div style="display: flex; gap: 20px;">
+                        <!-- Price Snapshot -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
+                            <h1 id="fa-company-name" style="margin: 0 0 5px 0; color: #fff; font-size: 24px;">AUROBINDO PHARMA LTD</h1>
+                            <div style="color: #888; font-size: 13px; margin-bottom: 15px;">NSE: <span id="fa-symbol">AUROPHARMA</span> | Sector: Pharmaceuticals</div>
+
+                            <div style="display: flex; align-items: baseline; gap: 15px; margin-bottom: 20px;">
+                                <span id="fa-cmp" style="font-size: 36px; font-weight: bold; color: #fff;">₹1,391.70</span>
+                                <span id="fa-change" style="font-size: 18px; color: #ff4d4d; font-weight: bold;">-24.30 (-1.72%)</span>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px;">
+                                <div><span style="color: #aaa;">Previous Close:</span> <strong id="fa-prev-close" style="color: #fff; float: right;">₹1,416.00</strong></div>
+                                <div><span style="color: #aaa;">Open:</span> <strong id="fa-open" style="color: #fff; float: right;">₹1,420.00</strong></div>
+                                <div><span style="color: #aaa;">High:</span> <strong id="fa-high" style="color: #fff; float: right;">₹1,428.50</strong></div>
+                                <div><span style="color: #aaa;">Low:</span> <strong id="fa-low" style="color: #fff; float: right;">₹1,385.00</strong></div>
+                                <div><span style="color: #aaa;">52W High:</span> <strong id="fa-52w-high" style="color: #fff; float: right;">₹1,533.00</strong></div>
+                                <div><span style="color: #aaa;">52W Low:</span> <strong id="fa-52w-low" style="color: #fff; float: right;">₹950.00</strong></div>
+                                <div><span style="color: #aaa;">Volume:</span> <strong id="fa-volume" style="color: #fff; float: right;">1.2M</strong></div>
+                                <div><span style="color: #aaa;">Market Cap:</span> <strong id="fa-mcap" style="color: #fff; float: right;">₹81,200 Cr</strong></div>
+                            </div>
+                        </div>
+
+                        <!-- Key Fundamentals / Ratios -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
+                            <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px;">Key Fundamentals</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px;">
+                                <div><span style="color: #aaa;">P/E Ratio (TTM):</span> <strong style="color: #fff; float: right;">25.4</strong></div>
+                                <div><span style="color: #aaa;">Sector P/E:</span> <strong style="color: #fff; float: right;">32.1</strong></div>
+                                <div><span style="color: #aaa;">P/B Ratio:</span> <strong style="color: #fff; float: right;">3.2</strong></div>
+                                <div><span style="color: #aaa;">Dividend Yield:</span> <strong style="color: #fff; float: right;">1.2%</strong></div>
+                                <div><span style="color: #aaa;">EPS (TTM):</span> <strong style="color: #fff; float: right;">₹54.8</strong></div>
+                                <div><span style="color: #aaa;">ROE:</span> <strong style="color: #fff; float: right;">14.5%</strong></div>
+                                <div><span style="color: #aaa;">ROCE:</span> <strong style="color: #fff; float: right;">16.2%</strong></div>
+                                <div><span style="color: #aaa;">Debt to Equity:</span> <strong style="color: #fff; float: right;">0.3</strong></div>
+                                <div><span style="color: #aaa;">Book Value/Share:</span> <strong style="color: #fff; float: right;">₹435.0</strong></div>
+                                <div><span style="color: #aaa;">Face Value:</span> <strong style="color: #fff; float: right;">₹1.0</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Statements & Shareholding -->
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+
+                        <!-- Financial Statements (Mini View) -->
+                        <div style="flex: 2; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px; min-width: 400px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 15px;">
+                                <h3 style="margin: 0; color: #ccc; font-size: 16px;">Financial Statements</h3>
+                                <div class="wb-tabs-header" style="border: none; margin: 0; padding: 0;">
+                                    <div class="wb-tab active" style="padding: 4px 10px; font-size: 12px; border: none; cursor: pointer;">Income</div>
+                                    <div class="wb-tab" style="padding: 4px 10px; font-size: 12px; border: none; cursor: pointer;">Balance Sheet</div>
+                                    <div class="wb-tab" style="padding: 4px 10px; font-size: 12px; border: none; cursor: pointer;">Cash Flow</div>
+                                </div>
+                            </div>
+
+                            <table class="data-table" style="width: 100%; text-align: right;">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align: left; color: #888;">(₹ in Cr)</th>
+                                        <th>Mar '23</th>
+                                        <th>Mar '22</th>
+                                        <th>Mar '21</th>
+                                        <th>Mar '20</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="text-align: left; color: #aaa;">Total Revenue</td>
+                                        <td>24,855</td>
+                                        <td>23,455</td>
+                                        <td>24,774</td>
+                                        <td>23,098</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: left; color: #aaa;">EBITDA</td>
+                                        <td>4,152</td>
+                                        <td>4,386</td>
+                                        <td>5,333</td>
+                                        <td>4,864</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: left; color: #aaa;">Net Income</td>
+                                        <td>1,927</td>
+                                        <td>2,647</td>
+                                        <td>5,334</td>
+                                        <td>2,831</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Shareholding Pattern -->
+                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px; min-width: 300px;">
+                            <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px;">Shareholding Pattern</h3>
+
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; font-size: 12px;">
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#E88B1E;border-radius:2px;"></div> Promoters (51.8%)</div>
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#3176B8;border-radius:2px;"></div> FII (15.2%)</div>
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#9370DB;border-radius:2px;"></div> DII (25.9%)</div>
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#60a5fa;border-radius:2px;"></div> Public (7.1%)</div>
+                            </div>
+
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="color: #888;">Category</th>
+                                        <th style="text-align: right; color: #888;">Jun '23</th>
+                                        <th style="text-align: right; color: #888;">Mar '23</th>
+                                        <th style="text-align: right; color: #888;">Dec '22</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="color: #aaa;">Promoters</td>
+                                        <td style="text-align: right;">51.8%</td>
+                                        <td style="text-align: right;">51.8%</td>
+                                        <td style="text-align: right;">51.8%</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #aaa;">FIIs</td>
+                                        <td style="text-align: right;">15.2%</td>
+                                        <td style="text-align: right;">14.8%</td>
+                                        <td style="text-align: right;">15.0%</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #aaa;">DIIs</td>
+                                        <td style="text-align: right;">25.9%</td>
+                                        <td style="text-align: right;">26.1%</td>
+                                        <td style="text-align: right;">25.5%</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #aaa;">Public</td>
+                                        <td style="text-align: right;">7.1%</td>
+                                        <td style="text-align: right;">7.3%</td>
+                                        <td style="text-align: right;">7.7%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- AI Insights Panel -->
+                    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-magic" style="color: #60a5fa;"></i> Quant AI Analysis
+                        </h3>
+                        <div style="color: #aaa; font-size: 14px; line-height: 1.6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p><strong>Strengths:</strong> Strong ROE and ROCE indicating efficient capital allocation. Promoter holding remains stable. High institutional interest (FII + DII holding > 40%).</p>
+                            <p><strong>Weaknesses:</strong> Debt levels require monitoring. Recent net income contraction YoY warrants deeper investigation into operating margins or one-off items.</p>
+                            <p><strong>Conclusion:</strong> Structurally sound, but current P/E suggests it might be fully priced based on TTM earnings. Wait for next quarter guidance.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div id="fa-empty-state" style="display: flex; flex: 1; align-items: center; justify-content: center; color: #666; flex-direction: column;">
+                    <i class="fas fa-search-dollar" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <p>Enter a symbol and click Analyze to fetch Fundamental Data</p>
+                </div>
+
+            </div>
+
+            <script>
+                function loadFundamentalData() {
+                    const symbol = document.getElementById('fa-symbol-input').value;
+                    if (!symbol) return;
+
+                    document.getElementById('fa-empty-state').style.display = 'none';
+                    document.getElementById('fa-content-area').style.display = 'flex';
+
+                    // Here we would normally fetch the data from API
+                    // For now, just update the headers to match search
+                    document.getElementById('fa-symbol').innerText = symbol.toUpperCase();
+                    document.getElementById('fa-company-name').innerText = symbol.toUpperCase() + " LTD.";
+                }
+            </script>
+        </div>
+
+        <!-- TAB COMMODITIES -->
+        <div id="tab-commodities" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
+            <!-- Sub-tab Navigation -->
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
+                <div class="wb-tab active" id="comm-tab-btn-bullion" onclick="switchCommTab('bullion')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Bullion</div>
+                <div class="wb-tab" id="comm-tab-btn-metals" onclick="switchCommTab('metals')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Metals</div>
+                <div class="wb-tab" id="comm-tab-btn-energy" onclick="switchCommTab('energy')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Energy</div>
+                <div class="wb-tab" id="comm-tab-btn-agri" onclick="switchCommTab('agri')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Agri</div>
+            </div>
+
+            <!-- Sub-tab Contents Container -->
+            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: auto; display: flex; flex-direction: column; width: 100%; padding: 20px; box-sizing: border-box;">
+
+                <!-- SUB-TAB: Bullion -->
+                <div id="comm-tab-bullion" class="comm-sub-tab active" style="height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">Bullion Commodities</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Metals -->
+                <div id="comm-tab-metals" class="comm-sub-tab" style="display:none; height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">Metals Commodities</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Energy -->
+                <div id="comm-tab-energy" class="comm-sub-tab" style="display:none; height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">Energy Commodities</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Agri -->
+                <div id="comm-tab-agri" class="comm-sub-tab" style="display:none; height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">Agriculture Commodities</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+            </div>
+
+            <script>
+                function switchCommTab(tabId) {
+                    document.querySelectorAll('[id^="comm-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
+                    document.getElementById(`comm-tab-btn-${tabId}`).classList.add('active');
+
+                    document.querySelectorAll('.comm-sub-tab').forEach(tab => tab.style.display = 'none');
+                    document.getElementById(`comm-tab-${tabId}`).style.display = 'block';
+                }
+            </script>
+        </div>
+
+        <!-- TAB CRYPTO -->
+        <div id="tab-crypto" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                <h2 style="color: #fff; margin-top: 0;">Crypto Assets</h2>
+                <p style="color: #888;">Module under construction.</p>
+            </div>
+        </div>
+
+        <!-- TAB RETAIL INSTRUMENTS -->
+        <div id="tab-retail_instruments" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
+            <!-- Sub-tab Navigation -->
+            <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
+                <div class="wb-tab active" id="retail-tab-btn-mf" onclick="switchRetailTab('mf')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Mutual Funds</div>
+                <div class="wb-tab" id="retail-tab-btn-bonds" onclick="switchRetailTab('bonds')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Bonds</div>
+                <div class="wb-tab" id="retail-tab-btn-reits" onclick="switchRetailTab('reits')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">REITs</div>
+            </div>
+
+            <!-- Sub-tab Contents Container -->
+            <div style="position: relative; flex: 1; height: calc(100% - 45px); overflow: auto; display: flex; flex-direction: column; width: 100%; padding: 20px; box-sizing: border-box;">
+
+                <!-- SUB-TAB: Mutual Funds -->
+                <div id="retail-tab-mf" class="retail-sub-tab active" style="height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">Mutual Funds</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Bonds -->
+                <div id="retail-tab-bonds" class="retail-sub-tab" style="display:none; height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">Bonds</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: REITs -->
+                <div id="retail-tab-reits" class="retail-sub-tab" style="display:none; height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">REITs</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+            </div>
+
+            <script>
+                function switchRetailTab(tabId) {
+                    document.querySelectorAll('[id^="retail-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
+                    document.getElementById(`retail-tab-btn-${tabId}`).classList.add('active');
+
+                    document.querySelectorAll('.retail-sub-tab').forEach(tab => tab.style.display = 'none');
+                    document.getElementById(`retail-tab-${tabId}`).style.display = 'block';
+                }
+            </script>
+        </div>
 
         <!-- TAB DIVIDENDS DATA BANK -->
         <div id="tab-dividends" class="main-tab-content">
