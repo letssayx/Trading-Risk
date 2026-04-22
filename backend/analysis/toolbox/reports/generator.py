@@ -144,7 +144,7 @@ class MorningReportGenerator:
         vals = sym_df[y_col]
 
         # Use an array of colors to dynamically color positive/negative values
-        colors = ['#38a169' if v >= 0 else '#e53e3e' for v in vals]
+        colors = ['#60a5fa' if v >= 0 else '#f87171' for v in vals]
 
         plt.bar(dates, vals, color=colors)
         plt.title(f"{symbol} - {title}", fontsize=9)
@@ -294,10 +294,10 @@ class MorningReportGenerator:
 
         hist_df = self._get_5_day_history(sym_to_fetch)
 
-        long_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Long)', hist_df, s, 'futures_total_oi', '#38a169')} for s in longs['symbol']]
-        short_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Short)', hist_df, s, 'futures_total_oi', '#e53e3e')} for s in shorts['symbol']]
-        ce_charts = [{'symbol': s, 'path': self._generate_bar_chart('CE Writing', hist_df, s, 'chg_oi_options', '#e53e3e')} for s in ce_writers['symbol']]
-        pe_charts = [{'symbol': s, 'path': self._generate_bar_chart('PE Writing', hist_df, s, 'chg_oi_options', '#38a169')} for s in pe_writers['symbol']]
+        long_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Long)', hist_df, s, 'futures_total_oi', '#60a5fa')} for s in longs['symbol']]
+        short_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Short)', hist_df, s, 'futures_total_oi', '#f87171')} for s in shorts['symbol']]
+        ce_charts = [{'symbol': s, 'path': self._generate_bar_chart('CE Writing', hist_df, s, 'chg_oi_options', '#f87171')} for s in ce_writers['symbol']]
+        pe_charts = [{'symbol': s, 'path': self._generate_bar_chart('PE Writing', hist_df, s, 'chg_oi_options', '#60a5fa')} for s in pe_writers['symbol']]
 
         # 4. Expiry Analysis (Check if target_date is near expiry)
         near_expiry = next((r.near_expiry_date for r in records if r.symbol == 'NIFTY' and r.near_expiry_date), None)
