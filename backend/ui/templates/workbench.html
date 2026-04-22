@@ -552,22 +552,47 @@
                                 <label style="width: 150px; display: inline-block;">Total Buy Back Offer:</label>
                                 <input type="number" id="bb-offer" class="history-input" value="5423728" oninput="calculateBuyBack()">
                             </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Reserved Retail %:</label>
+                                <input type="number" id="bb-reserved-pct" class="history-input" value="15" oninput="calculateBuyBack()" style="width: 60px;">
+                            </div>
                         </div>
 
                         <!-- Price Info Inputs -->
                         <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 250px;">
-                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Price Info</h3>
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                Price Info
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="fetchBuyBackPrices()"><i class="fas fa-sync"></i> Sync from Back End</button>
+                            </h3>
                             <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 120px; display: inline-block;">Buy Back Price:</label>
-                                <input type="number" id="bb-price" class="history-input" value="1475" oninput="calculateBuyBack()">
+                                <label style="width: 120px; display: inline-block;">Symbol:</label>
+                                <div class="autocomplete-wrapper" style="width: 140px;">
+                                    <input type="text" id="bb-symbol-input" class="history-input" placeholder="e.g. AUROPHARMA" autocomplete="off" onfocus="optFilterSymbols(this.value, 'bb-symbol-dropdown', 'bb-symbol-input')" oninput="optFilterSymbols(this.value, 'bb-symbol-dropdown', 'bb-symbol-input')" style="width: 100%;">
+                                    <div id="bb-symbol-dropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                                </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
-                                <label style="width: 120px; display: inline-block;">CMP:</label>
-                                <input type="number" id="bb-cmp" class="history-input" value="1391.7" oninput="calculateBuyBack()" step="0.1">
+                                <label style="width: 120px; display: inline-block;">Buy Back Price:</label>
+                                <input type="number" id="bb-price" class="history-input" value="1475" oninput="calculateBuyBack()" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">CMP (EQ):</label>
+                                <input type="number" id="bb-cmp" class="history-input" value="1391.7" oninput="calculateBuyBack()" step="0.1" style="width: 140px;">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 120px; display: inline-block;">Select Future:</label>
+                                <select id="bb-future-select" class="history-select" onchange="updateBuyBackFuturePrice()" style="width: 140px;">
+                                    <option value="fut1">Fut 1 (Near)</option>
+                                    <option value="fut2">Fut 2</option>
+                                    <option value="fut3">Fut 3</option>
+                                </select>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Future Price:</label>
-                                <input type="number" id="bb-future" class="history-input" value="1400.9" oninput="calculateBuyBack()" step="0.1">
+                                <div style="display: flex; flex-direction: column; width: 140px;">
+                                    <input type="number" id="bb-future" class="history-input" value="1400.9" oninput="calculateBuyBack()" step="0.1" style="width: 100%;">
+                                    <span id="bb-future-expiry" style="font-size: 10px; color: #888; margin-top: 2px;"></span>
+                                </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Shares to calc:</label>
@@ -642,6 +667,60 @@
             </div>
 
             <script>
+                let bbCurrentMarketData = null;
+
+                function updateBuyBackFuturePrice() {
+                    if (!bbCurrentMarketData) return;
+
+                    const selection = document.getElementById('bb-future-select').value;
+                    let price = 0;
+                    let expiry = '';
+
+                    if (selection === 'fut1' && bbCurrentMarketData.near_fut_close) {
+                        price = bbCurrentMarketData.near_fut_close;
+                        expiry = bbCurrentMarketData.near_expiry_date || '';
+                    } else if (selection === 'fut2' && bbCurrentMarketData.next_fut_close) {
+                        price = bbCurrentMarketData.next_fut_close;
+                        expiry = bbCurrentMarketData.next_expiry_date || '';
+                    } else if (selection === 'fut3' && bbCurrentMarketData.far_fut_close) {
+                        price = bbCurrentMarketData.far_fut_close;
+                        expiry = bbCurrentMarketData.far_expiry_date || '';
+                    }
+
+                    if (price) {
+                        document.getElementById('bb-future').value = price;
+                        document.getElementById('bb-future-expiry').innerText = expiry ? `Exp: ${expiry}` : '';
+                        calculateBuyBack();
+                    }
+                }
+
+                async function fetchBuyBackPrices() {
+                    const symbol = document.getElementById('bb-symbol-input').value.toUpperCase();
+                    if (!symbol) {
+                        alert("Please enter a symbol first.");
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`/api/morning-report/timeseries?symbol=${symbol}`);
+                        const data = await res.json();
+
+                        if (data && data.length > 0) {
+                            bbCurrentMarketData = data[0]; // the latest day
+
+                            if (bbCurrentMarketData.eq_close_price) {
+                                document.getElementById('bb-cmp').value = bbCurrentMarketData.eq_close_price;
+                            }
+
+                            updateBuyBackFuturePrice();
+                        } else {
+                            alert("No recent market data found for this symbol.");
+                        }
+                    } catch (e) {
+                        alert("Failed to fetch market data.");
+                    }
+                }
+
                 function switchArbTab(tabId) {
                     document.querySelectorAll('[id^="arb-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
                     document.getElementById(`arb-tab-btn-${tabId}`).classList.add('active');
@@ -661,12 +740,13 @@
                     document.getElementById('bb-total-outstanding').innerText = totalOut.toLocaleString();
 
                     const bbOffer = parseFloat(document.getElementById('bb-offer').value) || 0;
+                    const reservedPct = parseFloat(document.getElementById('bb-reserved-pct').value) || 0;
 
-                    const resRetail = bbOffer * 0.15;
+                    const resRetail = bbOffer * (reservedPct / 100);
                     const pubOffer = bbOffer - resRetail;
 
-                    document.getElementById('bb-res-retail').innerText = resRetail.toLocaleString(undefined, {maximumFractionDigits:2}) + ` (15%)`;
-                    document.getElementById('bb-pub-offer').innerText = pubOffer.toLocaleString(undefined, {maximumFractionDigits:2}) + ` (85%)`;
+                    document.getElementById('bb-res-retail').innerText = resRetail.toLocaleString(undefined, {maximumFractionDigits:2}) + ` (${reservedPct}%)`;
+                    document.getElementById('bb-pub-offer').innerText = pubOffer.toLocaleString(undefined, {maximumFractionDigits:2}) + ` (${100 - reservedPct}%)`;
 
                     const bbPrice = parseFloat(document.getElementById('bb-price').value) || 0;
                     const cmp = parseFloat(document.getElementById('bb-cmp').value) || 0;
@@ -722,7 +802,7 @@
                         <button class="btn btn-primary" onclick="loadFundamentalData()"><i class="fas fa-search"></i> Analyze</button>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-secondary"><i class="fas fa-cloud-download-alt"></i> Import from NSE</button>
+                            <button class="btn btn-secondary" onclick="loadFundamentalData()"><i class="fas fa-cloud-download-alt"></i> Import from Source</button>
                         <button class="btn btn-secondary" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze fundamentals ' + document.getElementById('fa-symbol-input').value; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Deep Dive</button>
                     </div>
                 </div>
@@ -734,23 +814,23 @@
                     <div style="display: flex; gap: 20px;">
                         <!-- Price Snapshot -->
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
-                            <h1 id="fa-company-name" style="margin: 0 0 5px 0; color: #fff; font-size: 24px;">AUROBINDO PHARMA LTD</h1>
-                            <div style="color: #888; font-size: 13px; margin-bottom: 15px;">NSE: <span id="fa-symbol">AUROPHARMA</span> | Sector: Pharmaceuticals</div>
+                            <h1 id="fa-company-name" style="margin: 0 0 5px 0; color: #fff; font-size: 24px;">-</h1>
+                            <div style="color: #888; font-size: 13px; margin-bottom: 15px;">NSE: <span id="fa-symbol">-</span> | Sector: <span id="fa-sector">-</span></div>
 
                             <div style="display: flex; align-items: baseline; gap: 15px; margin-bottom: 20px;">
-                                <span id="fa-cmp" style="font-size: 36px; font-weight: bold; color: #fff;">₹1,391.70</span>
-                                <span id="fa-change" style="font-size: 18px; color: #ff4d4d; font-weight: bold;">-24.30 (-1.72%)</span>
+                                <span id="fa-cmp" style="font-size: 36px; font-weight: bold; color: #fff;">-</span>
+                                <span id="fa-change" style="font-size: 18px; color: #ff4d4d; font-weight: bold;">-</span>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px;">
-                                <div><span style="color: #aaa;">Previous Close:</span> <strong id="fa-prev-close" style="color: #fff; float: right;">₹1,416.00</strong></div>
-                                <div><span style="color: #aaa;">Open:</span> <strong id="fa-open" style="color: #fff; float: right;">₹1,420.00</strong></div>
-                                <div><span style="color: #aaa;">High:</span> <strong id="fa-high" style="color: #fff; float: right;">₹1,428.50</strong></div>
-                                <div><span style="color: #aaa;">Low:</span> <strong id="fa-low" style="color: #fff; float: right;">₹1,385.00</strong></div>
-                                <div><span style="color: #aaa;">52W High:</span> <strong id="fa-52w-high" style="color: #fff; float: right;">₹1,533.00</strong></div>
-                                <div><span style="color: #aaa;">52W Low:</span> <strong id="fa-52w-low" style="color: #fff; float: right;">₹950.00</strong></div>
-                                <div><span style="color: #aaa;">Volume:</span> <strong id="fa-volume" style="color: #fff; float: right;">1.2M</strong></div>
-                                <div><span style="color: #aaa;">Market Cap:</span> <strong id="fa-mcap" style="color: #fff; float: right;">₹81,200 Cr</strong></div>
+                                <div><span style="color: #aaa;">Previous Close:</span> <strong id="fa-prev-close" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Open:</span> <strong id="fa-open" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">High:</span> <strong id="fa-high" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Low:</span> <strong id="fa-low" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">52W High:</span> <strong id="fa-52w-high" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">52W Low:</span> <strong id="fa-52w-low" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Volume:</span> <strong id="fa-volume" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Market Cap:</span> <strong id="fa-mcap" style="color: #fff; float: right;">-</strong></div>
                             </div>
                         </div>
 
@@ -758,16 +838,16 @@
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
                             <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px;">Key Fundamentals</h3>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px;">
-                                <div><span style="color: #aaa;">P/E Ratio (TTM):</span> <strong style="color: #fff; float: right;">25.4</strong></div>
-                                <div><span style="color: #aaa;">Sector P/E:</span> <strong style="color: #fff; float: right;">32.1</strong></div>
-                                <div><span style="color: #aaa;">P/B Ratio:</span> <strong style="color: #fff; float: right;">3.2</strong></div>
-                                <div><span style="color: #aaa;">Dividend Yield:</span> <strong style="color: #fff; float: right;">1.2%</strong></div>
-                                <div><span style="color: #aaa;">EPS (TTM):</span> <strong style="color: #fff; float: right;">₹54.8</strong></div>
-                                <div><span style="color: #aaa;">ROE:</span> <strong style="color: #fff; float: right;">14.5%</strong></div>
-                                <div><span style="color: #aaa;">ROCE:</span> <strong style="color: #fff; float: right;">16.2%</strong></div>
-                                <div><span style="color: #aaa;">Debt to Equity:</span> <strong style="color: #fff; float: right;">0.3</strong></div>
-                                <div><span style="color: #aaa;">Book Value/Share:</span> <strong style="color: #fff; float: right;">₹435.0</strong></div>
-                                <div><span style="color: #aaa;">Face Value:</span> <strong style="color: #fff; float: right;">₹1.0</strong></div>
+                                <div><span style="color: #aaa;">P/E Ratio (TTM):</span> <strong id="fa-pe-ratio" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Sector P/E:</span> <strong id="fa-sector-pe" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">P/B Ratio:</span> <strong id="fa-pb-ratio" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Dividend Yield:</span> <strong id="fa-div-yield" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">EPS (TTM):</span> <strong id="fa-eps" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">ROE:</span> <strong id="fa-roe" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">ROCE:</span> <strong id="fa-roce" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Debt to Equity:</span> <strong id="fa-dte" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Book Value/Share:</span> <strong id="fa-bv" style="color: #fff; float: right;">-</strong></div>
+                                <div><span style="color: #aaa;">Face Value:</span> <strong id="fa-face-value" style="color: #fff; float: right;">-</strong></div>
                             </div>
                         </div>
                     </div>
@@ -827,45 +907,35 @@
                             <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px;">Shareholding Pattern</h3>
 
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; font-size: 12px;">
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#E88B1E;border-radius:2px;"></div> Promoters (51.8%)</div>
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#3176B8;border-radius:2px;"></div> FII (15.2%)</div>
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#9370DB;border-radius:2px;"></div> DII (25.9%)</div>
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#60a5fa;border-radius:2px;"></div> Public (7.1%)</div>
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#E88B1E;border-radius:2px;"></div> Promoters (<span id="fa-sh-prom">-</span>%)</div>
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#3176B8;border-radius:2px;"></div> FII (<span id="fa-sh-fii">-</span>%)</div>
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#9370DB;border-radius:2px;"></div> DII (<span id="fa-sh-dii">-</span>%)</div>
+                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#60a5fa;border-radius:2px;"></div> Public (<span id="fa-sh-pub">-</span>%)</div>
                             </div>
 
                             <table class="data-table" style="width: 100%;">
                                 <thead>
                                     <tr>
                                         <th style="color: #888;">Category</th>
-                                        <th style="text-align: right; color: #888;">Jun '23</th>
-                                        <th style="text-align: right; color: #888;">Mar '23</th>
-                                        <th style="text-align: right; color: #888;">Dec '22</th>
+                                        <th style="text-align: right; color: #888;">Current</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td style="color: #aaa;">Promoters</td>
-                                        <td style="text-align: right;">51.8%</td>
-                                        <td style="text-align: right;">51.8%</td>
-                                        <td style="text-align: right;">51.8%</td>
+                                        <td style="text-align: right;" id="fa-tb-prom">-</td>
                                     </tr>
                                     <tr>
                                         <td style="color: #aaa;">FIIs</td>
-                                        <td style="text-align: right;">15.2%</td>
-                                        <td style="text-align: right;">14.8%</td>
-                                        <td style="text-align: right;">15.0%</td>
+                                        <td style="text-align: right;" id="fa-tb-fii">-</td>
                                     </tr>
                                     <tr>
                                         <td style="color: #aaa;">DIIs</td>
-                                        <td style="text-align: right;">25.9%</td>
-                                        <td style="text-align: right;">26.1%</td>
-                                        <td style="text-align: right;">25.5%</td>
+                                        <td style="text-align: right;" id="fa-tb-dii">-</td>
                                     </tr>
                                     <tr>
                                         <td style="color: #aaa;">Public</td>
-                                        <td style="text-align: right;">7.1%</td>
-                                        <td style="text-align: right;">7.3%</td>
-                                        <td style="text-align: right;">7.7%</td>
+                                        <td style="text-align: right;" id="fa-tb-pub">-</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -876,11 +946,10 @@
                     <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
                         <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                             <i class="fas fa-magic" style="color: #60a5fa;"></i> Quant AI Analysis
+                            <button class="btn btn-secondary" style="margin-left: auto; font-size: 11px; padding: 2px 8px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze fundamentals ' + document.getElementById('fa-symbol-input').value; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">Generate Insights</button>
                         </h3>
-                        <div style="color: #aaa; font-size: 14px; line-height: 1.6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                            <p><strong>Strengths:</strong> Strong ROE and ROCE indicating efficient capital allocation. Promoter holding remains stable. High institutional interest (FII + DII holding > 40%).</p>
-                            <p><strong>Weaknesses:</strong> Debt levels require monitoring. Recent net income contraction YoY warrants deeper investigation into operating margins or one-off items.</p>
-                            <p><strong>Conclusion:</strong> Structurally sound, but current P/E suggests it might be fully priced based on TTM earnings. Wait for next quarter guidance.</p>
+                        <div id="fa-ai-insights-content" style="color: #aaa; font-size: 14px; line-height: 1.6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p style="font-style: italic;">Click "Generate Insights" to run the AI Deep Dive on this stock's fundamentals.</p>
                         </div>
                     </div>
 
@@ -894,17 +963,70 @@
             </div>
 
             <script>
-                function loadFundamentalData() {
-                    const symbol = document.getElementById('fa-symbol-input').value;
+                async function loadFundamentalData() {
+                    const symbol = document.getElementById('fa-symbol-input').value.toUpperCase();
                     if (!symbol) return;
 
                     document.getElementById('fa-empty-state').style.display = 'none';
-                    document.getElementById('fa-content-area').style.display = 'flex';
+                    document.getElementById('fa-content-area').style.display = 'none';
 
-                    // Here we would normally fetch the data from API
-                    // For now, just update the headers to match search
-                    document.getElementById('fa-symbol').innerText = symbol.toUpperCase();
-                    document.getElementById('fa-company-name').innerText = symbol.toUpperCase() + " LTD.";
+                    const btn = document.querySelector('button[onclick="loadFundamentalData()"]');
+                    const origHtml = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                    btn.disabled = true;
+
+                    try {
+                        const res = await fetch(`/api/data/fundamentals?symbol=${symbol}`);
+                        if (!res.ok) throw new Error('Data fetch failed');
+                        const data = await res.json();
+
+                        document.getElementById('fa-company-name').innerText = data.company_name;
+                        document.getElementById('fa-symbol').innerText = data.symbol;
+                        document.getElementById('fa-sector').innerText = data.sector;
+
+                        document.getElementById('fa-cmp').innerText = `₹${data.cmp.toFixed(2)}`;
+                        const sign = data.change > 0 ? '+' : '';
+                        document.getElementById('fa-change').innerText = `${sign}${data.change.toFixed(2)} (${sign}${data.pct_change.toFixed(2)}%)`;
+                        document.getElementById('fa-change').style.color = data.change >= 0 ? '#60a5fa' : '#ff4d4d';
+
+                        document.getElementById('fa-prev-close').innerText = `₹${data.prev_close.toFixed(2)}`;
+                        document.getElementById('fa-open').innerText = `₹${data.open.toFixed(2)}`;
+                        document.getElementById('fa-high').innerText = `₹${data.high.toFixed(2)}`;
+                        document.getElementById('fa-low').innerText = `₹${data.low.toFixed(2)}`;
+                        document.getElementById('fa-52w-high').innerText = `₹${data['52w_high'].toFixed(2)}`;
+                        document.getElementById('fa-52w-low').innerText = `₹${data['52w_low'].toFixed(2)}`;
+                        document.getElementById('fa-volume').innerText = data.volume > 1000000 ? (data.volume/1000000).toFixed(1) + 'M' : data.volume.toLocaleString();
+                        document.getElementById('fa-mcap').innerText = `₹${data.mcap_cr.toLocaleString()} Cr`;
+
+                        document.getElementById('fa-pe-ratio').innerText = data.pe_ratio.toFixed(1);
+                        document.getElementById('fa-sector-pe').innerText = data.sector_pe.toFixed(1);
+                        document.getElementById('fa-pb-ratio').innerText = data.pb_ratio.toFixed(1);
+                        document.getElementById('fa-div-yield').innerText = `${data.div_yield.toFixed(1)}%`;
+                        document.getElementById('fa-eps').innerText = `₹${data.eps.toFixed(1)}`;
+                        document.getElementById('fa-roe').innerText = `${data.roe.toFixed(1)}%`;
+                        document.getElementById('fa-roce').innerText = `${data.roce.toFixed(1)}%`;
+                        document.getElementById('fa-dte').innerText = data.debt_to_equity.toFixed(1);
+                        document.getElementById('fa-bv').innerText = `₹${data.book_value.toFixed(1)}`;
+                        document.getElementById('fa-face-value').innerText = `₹${data.face_value.toFixed(1)}`;
+
+                        document.getElementById('fa-sh-prom').innerText = data.promoter_holding.toFixed(1);
+                        document.getElementById('fa-sh-fii').innerText = data.fii_holding.toFixed(1);
+                        document.getElementById('fa-sh-dii').innerText = data.dii_holding.toFixed(1);
+                        document.getElementById('fa-sh-pub').innerText = data.public_holding.toFixed(1);
+
+                        document.getElementById('fa-tb-prom').innerText = `${data.promoter_holding.toFixed(1)}%`;
+                        document.getElementById('fa-tb-fii').innerText = `${data.fii_holding.toFixed(1)}%`;
+                        document.getElementById('fa-tb-dii').innerText = `${data.dii_holding.toFixed(1)}%`;
+                        document.getElementById('fa-tb-pub').innerText = `${data.public_holding.toFixed(1)}%`;
+
+                        document.getElementById('fa-content-area').style.display = 'flex';
+                    } catch (e) {
+                        alert("Error loading fundamental data: " + e.message);
+                        document.getElementById('fa-empty-state').style.display = 'flex';
+                    } finally {
+                        btn.innerHTML = origHtml;
+                        btn.disabled = false;
+                    }
                 }
             </script>
         </div>

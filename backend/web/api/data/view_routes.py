@@ -20,6 +20,112 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+@router.get("/api/data/fundamentals")
+def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+    """Fetch fundamental placeholder data merged with latest actual price data."""
+    try:
+        from backend.ingest.nse_models import BhavcopyEQ
+        from sqlalchemy import desc
+
+        # Fetch latest price
+        latest_eq = db.query(BhavcopyEQ).filter(BhavcopyEQ.symbol == symbol.upper()).order_by(desc(BhavcopyEQ.trade_date)).first()
+
+        # We don't have a database table for fundamentals yet. The user wants to avoid fake data
+        # so we will use Yahoo Finance as a temporary real data source until NSE is reliable.
+        import yfinance as yf
+
+        ticker = yf.Ticker(f"{symbol.upper()}.NS")
+        info = ticker.info
+
+        if not info or 'regularMarketPrice' not in info and 'currentPrice' not in info:
+             # Fallback if no YF data found
+             cmp = float(latest_eq.close_price) if latest_eq and latest_eq.close_price else 0.0
+             prev_close = float(latest_eq.prev_close) if latest_eq and latest_eq.prev_close else cmp
+             open_price = float(latest_eq.open_price) if latest_eq and latest_eq.open_price else cmp
+             high_price = float(latest_eq.high_price) if latest_eq and latest_eq.high_price else cmp
+             low_price = float(latest_eq.low_price) if latest_eq and latest_eq.low_price else cmp
+             volume = float(latest_eq.total_traded_volume) if latest_eq and latest_eq.total_traded_volume else 0
+             change = cmp - prev_close
+             pct_change = (change / prev_close * 100) if prev_close else 0.0
+
+             return {
+                "symbol": symbol.upper(),
+                "company_name": f"{symbol.upper()} LTD",
+                "sector": "N/A",
+                "cmp": cmp,
+                "change": change,
+                "pct_change": pct_change,
+                "prev_close": prev_close,
+                "open": open_price,
+                "high": high_price,
+                "low": low_price,
+                "volume": volume,
+                "52w_high": 0,
+                "52w_low": 0,
+                "mcap_cr": 0,
+
+                "pe_ratio": 0,
+                "sector_pe": 0,
+                "pb_ratio": 0,
+                "div_yield": 0,
+                "eps": 0,
+                "roe": 0,
+                "roce": 0,
+                "debt_to_equity": 0,
+                "book_value": 0,
+                "face_value": 0,
+
+                "promoter_holding": 0,
+                "fii_holding": 0,
+                "dii_holding": 0,
+                "public_holding": 0,
+
+                "date": latest_eq.trade_date.isoformat() if latest_eq else datetime.now().strftime("%Y-%m-%d")
+             }
+
+        cmp = info.get('currentPrice', info.get('regularMarketPrice', 0))
+        prev_close = info.get('previousClose', 0)
+        change = cmp - prev_close
+        pct_change = (change / prev_close * 100) if prev_close else 0.0
+
+        return {
+            "symbol": symbol.upper(),
+            "company_name": info.get('longName', f"{symbol.upper()} LTD"),
+            "sector": info.get('sector', "General"),
+            "cmp": cmp,
+            "change": change,
+            "pct_change": pct_change,
+            "prev_close": prev_close,
+            "open": info.get('open', 0),
+            "high": info.get('dayHigh', 0),
+            "low": info.get('dayLow', 0),
+            "volume": info.get('volume', 0),
+            "52w_high": info.get('fiftyTwoWeekHigh', 0),
+            "52w_low": info.get('fiftyTwoWeekLow', 0),
+            "mcap_cr": info.get('marketCap', 0) / 10000000 if info.get('marketCap') else 0, # Convert to Crores
+
+            "pe_ratio": info.get('trailingPE', 0),
+            "sector_pe": 0, # YF doesn't readily provide sector PE
+            "pb_ratio": info.get('priceToBook', 0),
+            "div_yield": info.get('dividendYield', 0) * 100 if info.get('dividendYield') else 0,
+            "eps": info.get('trailingEps', 0),
+            "roe": info.get('returnOnEquity', 0) * 100 if info.get('returnOnEquity') else 0,
+            "roce": 0, # YF doesn't provide ROCE easily
+            "debt_to_equity": info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else 0,
+            "book_value": info.get('bookValue', 0),
+            "face_value": 0, # YF doesn't provide face value
+
+            "promoter_holding": info.get('heldPercentInsiders', 0) * 100 if info.get('heldPercentInsiders') else 0,
+            "fii_holding": info.get('heldPercentInstitutions', 0) * 100 if info.get('heldPercentInstitutions') else 0,
+            "dii_holding": 0, # Cannot reliably distinguish FII vs DII in YF
+            "public_holding": 100 - (info.get('heldPercentInsiders', 0) * 100) - (info.get('heldPercentInstitutions', 0) * 100) if info.get('heldPercentInsiders') else 0,
+
+            "date": datetime.now().strftime("%Y-%m-%d")
+        }
+    except Exception as e:
+        logger.error(f"Error fetching fundamentals for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Share a single NseSession instance for proxying
 _nse_session = None
 def get_nse_session():
