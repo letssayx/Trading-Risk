@@ -611,13 +611,42 @@
                                 </tbody>
                             </table>
 
-                            <h4 style="color: #60a5fa; margin-bottom: 5px;">If Promoters Participate</h4>
+                            <h4 style="color: #60a5fa; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
+                                <span>Promoter Participation</span>
+                                <label style="font-size: 12px; color: #ccc; font-weight: normal; cursor: pointer;">
+                                    <input type="checkbox" id="bb-promoter-participates" checked onchange="calculateBuyBack()"> Participates
+                                </label>
+                            </h4>
                             <table class="data-table" style="width: 100%; margin-bottom: 15px;">
+                                <thead>
+                                    <tr>
+                                        <th style="color:#888;">Category</th>
+                                        <th style="text-align: right; color:#888;">100% Part.</th>
+                                        <th style="text-align: right; color:#888;">90% Part.</th>
+                                        <th style="text-align: right; color:#888;">80% Part.</th>
+                                    </tr>
+                                </thead>
                                 <tbody>
-                                    <tr><td style="color:#aaa;">Acceptance Ratio (Non-Retail)</td><td id="bb-ar-nonretail">-</td></tr>
-                                    <tr><td style="color:#aaa;">Profit/share (Non-Retail)</td><td id="bb-ps-nonretail">-</td></tr>
-                                    <tr><td style="color:#aaa;">Acceptance Ratio (Retail)</td><td id="bb-ar-retail">-</td></tr>
-                                    <tr><td style="color:#aaa;">Profit/share (Retail)</td><td id="bb-ps-retail">-</td></tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Acc. Ratio (Non-Retail)</td>
+                                        <td id="bb-ar-nonretail-100" style="text-align: right;">-</td>
+                                        <td id="bb-ar-nonretail-90" style="text-align: right;">-</td>
+                                        <td id="bb-ar-nonretail-80" style="text-align: right;">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Profit/share (Non-Ret)</td>
+                                        <td id="bb-ps-nonretail-100" style="text-align: right;">-</td>
+                                        <td id="bb-ps-nonretail-90" style="text-align: right;">-</td>
+                                        <td id="bb-ps-nonretail-80" style="text-align: right;">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Acc. Ratio (Retail)</td>
+                                        <td id="bb-ar-retail" style="text-align: right;" colspan="3">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Profit/share (Retail)</td>
+                                        <td id="bb-ps-retail" style="text-align: right;" colspan="3">-</td>
+                                    </tr>
                                 </tbody>
                             </table>
 
@@ -630,6 +659,17 @@
                                     <tr><td style="color:#aaa;">Net %</td><td id="bb-net-pct" style="font-weight: bold;">-</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- AI Insights Panel -->
+                    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px; margin-top: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-magic" style="color: #60a5fa;"></i> Quant AI Analysis
+                            <button class="btn btn-secondary" style="margin-left: auto; font-size: 11px; padding: 2px 8px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze buyback arbitrage ' + (document.getElementById('bb-symbol-input').value || 'scenario'); handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">Generate Insights</button>
+                        </h3>
+                        <div id="bb-ai-insights-content" style="color: #aaa; font-size: 14px; line-height: 1.6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p style="font-style: italic;">Click "Generate Insights" to run the AI Deep Dive on this buyback arbitrage scenario.</p>
                         </div>
                     </div>
                 </div>
@@ -652,10 +692,147 @@
                     <p style="color: #888;">Module under construction.</p>
                 </div>
 
-                <!-- SUB-TAB: OFS (Placeholder) -->
-                <div id="arb-tab-ofs" class="arb-sub-tab" style="display:none; padding: 20px;">
-                    <h2 style="color: #fff; margin-top: 0;">Offer for Sale (OFS) Arbitrage</h2>
-                    <p style="color: #888;">Module under construction.</p>
+                <!-- SUB-TAB: OFS -->
+                <div id="arb-tab-ofs" class="arb-sub-tab" style="display:none; height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px;">Offer for Sale (OFS) Arbitrage Scenario</h2>
+
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+
+                        <!-- Inputs -->
+                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 350px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Metrics & Inputs</h3>
+
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="color:#888;">Metric</th>
+                                        <th style="color:#888;">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="color:#aaa;">CMP (Pre-OFS)</td>
+                                        <td><input type="number" id="ofs-cmp" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Floor Price</td>
+                                        <td><input type="number" id="ofs-floor" class="history-input" value="100.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Bid Price / Cut-off</td>
+                                        <td><input type="number" id="ofs-bid" class="history-input" value="105.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa; font-weight: bold;">Allotment Ratio %</td>
+                                        <td><input type="number" id="ofs-allotment" class="history-input" value="83.33" oninput="calculateOFS()" step="0.01" style="width: 100px; background-color: #5a4b10;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Hedge Entry (Short) - Future</td>
+                                        <td><input type="number" id="ofs-hedge" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Futures Lot size</td>
+                                        <td><input type="number" id="ofs-lot" class="history-input" value="1000" oninput="calculateOFS()" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">No. of lots</td>
+                                        <td><input type="number" id="ofs-num-lots" class="history-input" value="3.33" oninput="calculateOFS()" step="0.01" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Cost of Funds %</td>
+                                        <td><input type="number" id="ofs-cof" class="history-input" value="1.00" oninput="calculateOFS()" step="0.1" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">Impact Cost %</td>
+                                        <td><input type="number" id="ofs-impact" class="history-input" value="0.10" oninput="calculateOFS()" step="0.01" style="width: 100px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#aaa;">STT+others %</td>
+                                        <td><input type="number" id="ofs-stt" class="history-input" value="0.30" oninput="calculateOFS()" step="0.01" style="width: 100px;"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Results -->
+                        <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 350px; flex: 1;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Analysis Results</h3>
+
+                            <table class="data-table" style="width: 100%; margin-bottom: 15px;">
+                                <tbody>
+                                    <tr><td style="color:#aaa;">Gross Spread</td><td id="ofs-res-gross">-</td></tr>
+                                    <tr><td style="color:#aaa;">Arbitrage %</td><td id="ofs-res-arb-pct">-</td></tr>
+                                    <tr><td style="color:#aaa;">Shares alloted</td><td id="ofs-res-shares">-</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h4 style="color: #60a5fa; margin-bottom: 5px;">Net Outcomes</h4>
+                            <table class="data-table" style="width: 100%;">
+                                <tbody>
+                                    <tr><td style="color:#aaa;">Reversal price</td><td id="ofs-res-reversal" style="color: #ff4d4d; font-weight: bold;">-</td></tr>
+                                    <tr><td style="color:#aaa;">Futures Lot size (risk)</td><td id="ofs-res-risk-lots" style="color: #ff4d4d;">-</td></tr>
+                                    <tr><td style="color:#aaa;">Futures Lot size (risk) %</td><td id="ofs-res-risk-pct" style="color: #ff4d4d;">-</td></tr>
+                                    <tr><td style="color:#aaa;">Net Arbitrage %</td><td id="ofs-res-net-arb" style="color: #fff; font-weight: bold;">-</td></tr>
+                                </tbody>
+                            </table>
+
+                            <div style="margin-top: 20px;">
+                                <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Bid Allotment Matrix</h3>
+                                <table class="data-table" style="width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th style="color:#888;">Price</th>
+                                            <th style="color:#888;">Qty Bid</th>
+                                            <th style="color:#888;">Cumul. Qty</th>
+                                            <th style="color:#888;">Total Supply</th>
+                                            <th style="color:#888;">Allotment %</th>
+                                            <th style="color:#888;">Shares Alloted</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ofs-bid-matrix-body">
+                                        <!-- Computed via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Share Holding Pattern Inputs -->
+                    <div style="background: #252526; border: 1px solid #333; padding: 15px; border-radius: 4px; min-width: 300px; margin-top: 20px;">
+                        <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            Share Holding Pattern
+                            <span class="badge" style="background:#444; color:#ccc; font-size:10px; padding:2px 5px; border-radius:3px;">Verify Status: Unverified</span>
+                        </h3>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
+                                <input type="number" id="ofs-promoter-holding" class="history-input" value="0">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">FII:</label>
+                                <input type="number" id="ofs-fii" class="history-input" value="0">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
+                                <input type="number" id="ofs-dii" class="history-input" value="0">
+                            </div>
+                            <div class="control-group" style="margin-bottom: 10px;">
+                                <label style="width: 150px; display: inline-block;">Retail:</label>
+                                <input type="number" id="ofs-retail" class="history-input" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Insights Panel -->
+                    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px; margin-top: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-magic" style="color: #60a5fa;"></i> Quant AI Analysis
+                            <button class="btn btn-secondary" style="margin-left: auto; font-size: 11px; padding: 2px 8px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze OFS arbitrage ' + (document.getElementById('bb-symbol-input').value || 'scenario'); handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">Generate Insights</button>
+                        </h3>
+                        <div id="ofs-ai-insights-content" style="color: #aaa; font-size: 14px; line-height: 1.6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            <p style="font-style: italic;">Click "Generate Insights" to run the AI Deep Dive on this OFS arbitrage scenario.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- SUB-TAB: PPCM (Placeholder) -->
@@ -753,22 +930,53 @@
                     const fut = parseFloat(document.getElementById('bb-future').value) || 0;
                     const shares = parseFloat(document.getElementById('bb-shares-calc').value) || 100;
 
-                    // If promoters participate
-                    const nonRetailHolding = totalOut - retail;
-                    let arNonRetail = (pubOffer / nonRetailHolding);
+                    const promoterParticipates = document.getElementById('bb-promoter-participates').checked;
+
+                    let nonRetailHolding100 = totalOut - retail;
+                    if (!promoterParticipates) {
+                        nonRetailHolding100 = nonRetailHolding100 - prom;
+                    }
+
+                    // Public holding = totalOut - prom
+                    const publicShareHolding = totalOut - prom;
+
+                    // Calculate based on participation rates: 100%, 90%, 80%
+                    // The participation rate applies to the non-promoter public holding (and maybe prom if they participate)
+                    // If promoter participates, assume they participate 100%. The "participation %" generally refers to public participation.
+
+                    // 100% participation
+                    let nrH100 = promoterParticipates ? prom + (publicShareHolding - retail) : (publicShareHolding - retail);
+                    let arNonRetail100 = (pubOffer / nrH100);
+
+                    // 90% participation
+                    let nrH90 = promoterParticipates ? prom + ((publicShareHolding - retail) * 0.9) : ((publicShareHolding - retail) * 0.9);
+                    let arNonRetail90 = (pubOffer / nrH90);
+
+                    // 80% participation
+                    let nrH80 = promoterParticipates ? prom + ((publicShareHolding - retail) * 0.8) : ((publicShareHolding - retail) * 0.8);
+                    let arNonRetail80 = (pubOffer / nrH80);
+
                     let arRetail = (resRetail / retail);
 
-                    document.getElementById('bb-ar-nonretail').innerText = (arNonRetail * 100).toFixed(2) + '%';
+                    document.getElementById('bb-ar-nonretail-100').innerText = (arNonRetail100 * 100).toFixed(2) + '%';
+                    document.getElementById('bb-ar-nonretail-90').innerText = (arNonRetail90 * 100).toFixed(2) + '%';
+                    document.getElementById('bb-ar-nonretail-80').innerText = (arNonRetail80 * 100).toFixed(2) + '%';
+
                     document.getElementById('bb-ar-retail').innerText = (arRetail * 100).toFixed(2) + '%';
 
-                    let psNonRetail = arNonRetail * (bbPrice - cmp);
+                    let psNonRetail100 = arNonRetail100 * (bbPrice - cmp);
+                    let psNonRetail90 = arNonRetail90 * (bbPrice - cmp);
+                    let psNonRetail80 = arNonRetail80 * (bbPrice - cmp);
                     let psRetail = arRetail * (bbPrice - cmp);
 
-                    document.getElementById('bb-ps-nonretail').innerText = '₹' + psNonRetail.toFixed(2);
+                    document.getElementById('bb-ps-nonretail-100').innerText = '₹' + psNonRetail100.toFixed(2);
+                    document.getElementById('bb-ps-nonretail-90').innerText = '₹' + psNonRetail90.toFixed(2);
+                    document.getElementById('bb-ps-nonretail-80').innerText = '₹' + psNonRetail80.toFixed(2);
+
                     document.getElementById('bb-ps-retail').innerText = '₹' + psRetail.toFixed(2);
 
-                    // Arbitrage
-                    let eqProfit = shares * psNonRetail; // Assuming non-retail for general calc as per image
+                    // Arbitrage (using 100% participation scenario for general calc)
+                    let eqProfit = shares * psNonRetail100; // Assuming non-retail 100% participation for general calc
                     let futLoss = shares * (cmp - fut); // Short future loss/profit
                     let net = eqProfit + futLoss;
                     let netPct = (net / (shares * cmp)) * 100;
@@ -785,8 +993,85 @@
                     netPctEl.style.color = net > 0 ? '#00e676' : '#ff4d4d';
                 }
 
+                function calculateOFS() {
+                    const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
+                    const floor = parseFloat(document.getElementById('ofs-floor').value) || 0;
+                    const bid = parseFloat(document.getElementById('ofs-bid').value) || 0;
+                    const allotment = parseFloat(document.getElementById('ofs-allotment').value) || 0;
+                    const hedge = parseFloat(document.getElementById('ofs-hedge').value) || 0;
+                    const lot = parseFloat(document.getElementById('ofs-lot').value) || 0;
+                    const numLots = parseFloat(document.getElementById('ofs-num-lots').value) || 0;
+                    const cof = parseFloat(document.getElementById('ofs-cof').value) || 0;
+                    const impact = parseFloat(document.getElementById('ofs-impact').value) || 0;
+                    const stt = parseFloat(document.getElementById('ofs-stt').value) || 0;
+
+                    const grossSpread = hedge - bid;
+                    document.getElementById('ofs-res-gross').innerText = grossSpread.toFixed(2);
+
+                    // Assuming hedge entry is spot * (1 + arb%) roughly or similar. The image says: 2.86
+                    // Arb % = (Gross Spread / Bid) * 100 roughly
+                    const arbPct = (grossSpread / bid) * 100;
+                    document.getElementById('ofs-res-arb-pct').innerText = arbPct.toFixed(2) + '%';
+
+                    // Bid qty assumed to be lot * numLots?
+                    const bidQty = lot * numLots;
+                    const sharesAlloted = (allotment / 100) * bidQty;
+                    document.getElementById('ofs-res-shares').innerText = sharesAlloted.toFixed(0);
+
+                    // Net Arbitrage %
+                    const netArb = arbPct - cof - impact - stt;
+                    const netArbEl = document.getElementById('ofs-res-net-arb');
+                    netArbEl.innerText = netArb.toFixed(2) + '%';
+                    netArbEl.style.color = netArb > 0 ? '#00e676' : '#ff4d4d';
+
+                    // Risk
+                    // Lots allotted
+                    const allotedLots = sharesAlloted / lot;
+                    const riskLots = numLots - allotedLots;
+                    const riskPct = riskLots / numLots * 100;
+
+                    document.getElementById('ofs-res-risk-lots').innerText = riskLots.toFixed(2);
+                    document.getElementById('ofs-res-risk-pct').innerText = riskPct.toFixed(2) + '%';
+
+                    // Reversal price
+                    const reversal = bid - (netArb / 100 * bid);
+                    document.getElementById('ofs-res-reversal').innerText = reversal.toFixed(2);
+
+                    // Matrix (Dummy data based on the screenshot)
+                    const tbody = document.getElementById('ofs-bid-matrix-body');
+                    tbody.innerHTML = `
+                        <tr>
+                            <td>105.00</td>
+                            <td>40,000</td>
+                            <td>1,20,00,000</td>
+                            <td>1,00,00,000</td>
+                            <td style="background-color: #5a4b10; font-weight: bold; color: #fff;">83.33%</td>
+                            <td>33,333</td>
+                        </tr>
+                        <tr>
+                            <td>104.00</td>
+                            <td>40,000</td>
+                            <td>50,00,000</td>
+                            <td>-20,00,000</td>
+                            <td>-40.00%</td>
+                            <td>0</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: bold;">Floor 103.00</td>
+                            <td>40,000</td>
+                            <td>1,00,00,000</td>
+                            <td>-70,00,000</td>
+                            <td>-70.00%</td>
+                            <td>0</td>
+                        </tr>
+                    `;
+                }
+
                 // Initialize math on load
-                setTimeout(calculateBuyBack, 500);
+                setTimeout(() => {
+                    calculateBuyBack();
+                    calculateOFS();
+                }, 500);
             </script>
         </div>
 
