@@ -29,3 +29,4 @@ xlrd
 yfinance
 curl_cffi==0.7.4
 jinja2
+ccxt

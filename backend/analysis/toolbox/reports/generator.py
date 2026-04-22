@@ -14,6 +14,8 @@ except ImportError:
     logging.error("Weasyprint is not installed. Please run: pip install weasyprint. PDF generation will fail.")
 
 from dotenv import load_dotenv
+import httpx
+import httpx
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
