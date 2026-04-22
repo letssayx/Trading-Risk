@@ -598,6 +598,7 @@
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
                 <div class="wb-tab" id="deriv-tab-btn-advtech" onclick="switchDerivTab('advtech')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Adv Technicals</div>
+                <div class="wb-tab" id="deriv-tab-btn-macro" onclick="switchDerivTab('macro')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Macro & Events</div>
             </div>
 
             <!-- Sub-tab Contents Container -->
@@ -2033,6 +2034,57 @@
                             <button class="btn btn-secondary" onclick="if(window.echartInstance) exportChartDataToCSV(window.echartInstance, 'Adv_Technicals'); else exportChartDataToCSV(echartInstance, 'Adv_Technicals')"><i class="fas fa-download"></i> CSV</button>
                         </div>
                         <div id="echart-container" style="flex: 1; width: 100%; min-height: 900px; height: 900px;"></div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: Macro -->
+                <div id="deriv-tab-macro" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto; flex-direction: column; justify-content: flex-start; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                        <h2 style="margin: 0; color: #fff; font-size: 18px;">Macro & Economic Calendar <span id="macro-date-display" style="font-size: 12px; color: #888; font-weight: normal; margin-left: 10px;"></span></h2>
+                        <button class="btn btn-primary" id="btn-sync-macro" onclick="syncMacroData()">Sync Today's Data</button>
+                    </div>
+
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <!-- Pre-Market Snapshot Table -->
+                        <div style="flex: 1; min-width: 300px; background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Pre-Market Snapshot</h3>
+                            <div class="table-responsive">
+                                <table class="table" style="width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Asset</th>
+                                            <th>Price</th>
+                                            <th>Change %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="macro-snapshot-body">
+                                        <tr><td colspan="3" style="text-align: center; color: #888;">No data loaded.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Economic Events Table -->
+                        <div style="flex: 2; min-width: 500px; background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">High Impact Events</h3>
+                            <div class="table-responsive">
+                                <table class="table" style="width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Date (IST)</th>
+                                            <th>Country</th>
+                                            <th>Event</th>
+                                            <th>Actual</th>
+                                            <th>Forecast</th>
+                                            <th>Impact</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="macro-events-body">
+                                        <tr><td colspan="6" style="text-align: center; color: #888;">No data loaded.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -3960,6 +4012,79 @@ function exportChartDataToCSV(chartInstance, filename) {
             rangeBm.addEventListener("change", function() { rangeCa.checked = this.checked; });
         }
     });
+
+    // --- MACRO TAB LOGIC ---
+    async function syncMacroData() {
+        const btn = document.getElementById('btn-sync-macro');
+        if (!btn) return;
+        const origText = btn.innerText;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/macro/sync', { method: 'POST' });
+            if (!res.ok) throw new Error('Sync failed');
+            await loadMacroData(); // Refresh UI
+        } catch(e) {
+            alert("Error syncing Macro data: " + e.message);
+        } finally {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+        }
+    }
+
+    async function loadMacroData() {
+        try {
+            const res = await fetch('/api/macro/data');
+            if (!res.ok) return;
+            const data = await res.json();
+
+            if (data.date) {
+                const dateElem = document.getElementById('macro-date-display');
+                if (dateElem) dateElem.innerText = `Last Updated: ${data.date}`;
+            }
+
+            // Populate Snapshot
+            const snapBody = document.getElementById('macro-snapshot-body');
+            if (snapBody && data.snapshot) {
+                let html = '';
+                for (const [key, val] of Object.entries(data.snapshot)) {
+                    if (val && typeof val === 'object' && val.price !== undefined) {
+                        const pctColor = val.pct_change >= 0 ? '#60a5fa' : '#f87171';
+                        const sign = val.pct_change > 0 ? '+' : '';
+                        html += `<tr>
+                            <td style="text-transform: capitalize; color: #ccc;">${key.replace('_', ' ')}</td>
+                            <td>${val.price.toFixed(2)}</td>
+                            <td style="color: ${pctColor};">${sign}${val.pct_change.toFixed(2)}%</td>
+                        </tr>`;
+                    }
+                }
+                if (html) snapBody.innerHTML = html;
+            }
+
+            // Populate Events
+            const eventsBody = document.getElementById('macro-events-body');
+            if (eventsBody && data.events && data.events.length > 0) {
+                let html = '';
+                data.events.forEach(e => {
+                    const impactColor = e.impact === 'High' ? '#e53e3e' : (e.impact === 'Medium' ? '#ed8936' : '#718096');
+                    html += `<tr>
+                        <td style="color: #aaa; white-space: nowrap;">${e.date}</td>
+                        <td style="color: #ccc;">${e.country}</td>
+                        <td style="font-weight: bold;">${e.event}</td>
+                        <td>${e.actual || '-'}</td>
+                        <td>${e.forecast || '-'}</td>
+                        <td style="color: ${impactColor}; text-align: center;">${e.impact}</td>
+                    </tr>`;
+                });
+                eventsBody.innerHTML = html;
+            } else if (eventsBody) {
+                eventsBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No high impact events today.</td></tr>';
+            }
+        } catch(e) {
+            console.error("Failed to load macro data", e);
+        }
+    }
 </script>
 </body>
 </html>

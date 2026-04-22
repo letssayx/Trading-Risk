@@ -316,7 +316,7 @@ const RolloverTool = {
                     series: [{
                         name: 'Avg Rollover',
                         type: 'bar',
-                        itemStyle: { color: '#E88B1E' }, // Solid Orange
+                        itemStyle: { color: '#60a5fa' }, // Solid Blue
                         data: values,
                         label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
                     }]
@@ -353,7 +353,7 @@ const RolloverTool = {
                         series: [{
                             name: 'Rollover',
                             type: 'bar',
-                            itemStyle: { color: '#E88B1E' }, // Solid Orange
+                            itemStyle: { color: '#60a5fa' }, // Solid Blue
                             data: values,
                             label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
                         }]
@@ -385,7 +385,7 @@ const RolloverTool = {
                             type: 'line',
                             symbol: 'circle',
                             symbolSize: 8,
-                            itemStyle: { color: '#E88B1E' }, // Solid Orange
+                            itemStyle: { color: '#60a5fa' }, // Solid Blue
                             lineStyle: { width: 3 },
                             data: values,
                             label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }

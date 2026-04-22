@@ -13,6 +13,8 @@ except ImportError:
     import logging
     logging.error("Weasyprint is not installed. Please run: pip install weasyprint. PDF generation will fail.")
 
+from dotenv import load_dotenv
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from datetime import date, timedelta
@@ -21,7 +23,7 @@ import json
 import asyncio
 
 from backend.ingest.nse_models import (
-    DailyDerivativesAnalysis, FAOParticipantOI, SymbolMaster, BhavcopyFO
+    DailyDerivativesAnalysis, FAOParticipantOI, SymbolMaster, BhavcopyFO, PreMarketSnapshot, EconomicEvent
 )
 
 class MorningReportGenerator:
@@ -49,6 +51,7 @@ class MorningReportGenerator:
             import httpx
             import os
 
+            load_dotenv()
             openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
             if not openrouter_api_key:
                 return "AI Inference skipped: OPENROUTER_API_KEY not found."
@@ -75,6 +78,21 @@ class MorningReportGenerator:
                 return f"AI API Error: {response.text}"
         except Exception as e:
             return f"Failed to generate AI inference: {str(e)}"
+
+    def _get_fii_data(self, actual_trade_date: date):
+        fii_data = self.db.query(FAOParticipantOI).filter(
+            FAOParticipantOI.trade_date == actual_trade_date,
+            FAOParticipantOI.client_type == 'FII'
+        ).first()
+        if not fii_data:
+            return None
+
+        return {
+            'idx_long': fii_data.future_index_long or 0,
+            'idx_short': fii_data.future_index_short or 0,
+            'call_net': (fii_data.option_index_call_long or 0) - (fii_data.option_index_call_short or 0),
+            'put_net': (fii_data.option_index_put_long or 0) - (fii_data.option_index_put_short or 0),
+        }
 
     def _get_quant_summary(self, records: list) -> str:
         actual_trade_date = records[0].trade_date if records else self.target_date
@@ -143,10 +161,8 @@ class MorningReportGenerator:
         dates = sym_df['trade_date'].astype(str).str[5:] # MM-DD
         vals = sym_df[y_col]
 
-        # Use an array of colors to dynamically color positive/negative values
-        colors = ['#60a5fa' if v >= 0 else '#f87171' for v in vals]
-
-        plt.bar(dates, vals, color=colors)
+        # Use uniform standard blue for all chart bars (neutral styling)
+        plt.bar(dates, vals, color='#60a5fa')
         plt.title(f"{symbol} - {title}", fontsize=9)
         plt.xticks(rotation=45, fontsize=7)
         plt.yticks(fontsize=7)
@@ -215,8 +231,8 @@ class MorningReportGenerator:
 
             if sym in vol_records:
                 vol = vol_records[sym]
-                d['ivr'] = vol.ivr or 0
-                d['ivp'] = vol.ivp or 0
+                d['iv_rank_252'] = vol.ivr or 0
+                d['iv_percentile_252'] = vol.ivp or 0
 
             # Row-by-row AI/Quant Inferences
             price_chg = d.get('price_pct_change') or 0
@@ -254,6 +270,7 @@ class MorningReportGenerator:
         # 2. Exec Summary
         quant_summary = self._get_quant_summary(records)
         ai_inference = await self.get_ai_inference(quant_summary)
+        fii_stats = self._get_fii_data(actual_trade_date)
 
         # 3. Top 5 Longs/Shorts (Based on OI % Chg and Price Dir)
         # Calculate derived metrics safely
@@ -295,8 +312,8 @@ class MorningReportGenerator:
         hist_df = self._get_5_day_history(sym_to_fetch)
 
         long_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Long)', hist_df, s, 'futures_total_oi', '#60a5fa')} for s in longs['symbol']]
-        short_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Short)', hist_df, s, 'futures_total_oi', '#f87171')} for s in shorts['symbol']]
-        ce_charts = [{'symbol': s, 'path': self._generate_bar_chart('CE Writing', hist_df, s, 'chg_oi_options', '#f87171')} for s in ce_writers['symbol']]
+        short_charts = [{'symbol': s, 'path': self._generate_bar_chart('OI Buildup (Short)', hist_df, s, 'futures_total_oi', '#60a5fa')} for s in shorts['symbol']]
+        ce_charts = [{'symbol': s, 'path': self._generate_bar_chart('CE Writing', hist_df, s, 'chg_oi_options', '#60a5fa')} for s in ce_writers['symbol']]
         pe_charts = [{'symbol': s, 'path': self._generate_bar_chart('PE Writing', hist_df, s, 'chg_oi_options', '#60a5fa')} for s in pe_writers['symbol']]
 
         # 4. Expiry Analysis (Check if target_date is near expiry)
@@ -319,6 +336,36 @@ class MorningReportGenerator:
                         'lower_bound': atm - straddle
                     }
 
+
+        # Fetch Macro Events
+        macro_snapshot = self.db.query(PreMarketSnapshot).filter(PreMarketSnapshot.trade_date == actual_trade_date).first()
+        macro_data = macro_snapshot.snapshot_data if macro_snapshot else {}
+        macro_events = self.db.query(EconomicEvent).filter(EconomicEvent.trade_date == actual_trade_date).order_by(EconomicEvent.event_date.asc()).all()
+        macro_event_list = [{
+            'date': e.event_date.strftime("%Y-%m-%d %H:%M") if e.event_date else "",
+            'country': e.country,
+            'event': e.event_name,
+            'actual': e.actual,
+            'forecast': e.forecast,
+            'previous': e.previous,
+            'impact': e.impact
+        } for e in macro_events]
+
+
+        # Fetch Top 5 MWPL and Top 5 Rollovers
+        mwpl_data = []
+        rollover_data = []
+        try:
+            from backend.ingest.nse_models import MwplAnalysisMetrics, RolloverAnalysisMetrics
+            mwpl_records = self.db.query(MwplAnalysisMetrics).filter(MwplAnalysisMetrics.trade_date == actual_trade_date).order_by(MwplAnalysisMetrics.mwpl_pct.desc()).limit(5).all()
+            mwpl_data = [{'symbol': r.symbol, 'mwpl_pct': r.mwpl_pct} for r in mwpl_records]
+
+            rollover_records = self.db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date == actual_trade_date).order_by(RolloverAnalysisMetrics.rollover_pct.desc()).limit(5).all()
+            rollover_data = [{'symbol': r.symbol, 'rollover_pct': r.rollover_pct} for r in rollover_records]
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to fetch MWPL/Rollover data: {e}")
+
         # 5. Render
         env = Environment(loader=FileSystemLoader(self.template_dir))
         template = env.get_template('report_template.html')
@@ -328,12 +375,17 @@ class MorningReportGenerator:
             date_fallback_note=date_fallback_note,
             quant_summary=quant_summary,
             ai_inference=ai_inference,
+            fii_stats=fii_stats,
             long_charts=long_charts,
             short_charts=short_charts,
             ce_charts=ce_charts,
             pe_charts=pe_charts,
+            macro_data=macro_data,
+            macro_events=macro_event_list,
             is_expiry_eve=is_expiry_eve,
             expiry_eve_data=expiry_eve_data,
+            mwpl_data=mwpl_data,
+            rollover_data=rollover_data,
             all_data=record_dicts
         )
 

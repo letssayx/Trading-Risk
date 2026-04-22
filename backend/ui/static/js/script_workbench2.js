@@ -62,6 +62,9 @@
                     target.style.display = 'flex';
                 } else if (target.id === 'deriv-tab-oi') {
                     target.style.display = 'flex';
+                } else if (target.id === 'deriv-tab-macro') {
+                    target.style.display = 'flex';
+                    if (typeof loadMacroData === 'function') loadMacroData();
                 } else {
                     target.style.display = 'block';
                 }
@@ -2899,7 +2902,7 @@ async function renderFiiMoneyStats(baseDays) {
                     name: 'FII Net (Cr)',
                     type: 'bar',
                     data: seriesData,
-                    itemStyle: { color: p => p.value >= 0 ? '#E88B1E' : '#3176B8' }, // Orange = Long/Pos, Blue = Short/Neg
+                    itemStyle: { color: '#60a5fa' }, // Orange = Long/Pos, Blue = Short/Neg
                     label: { show: true, position: 'top', color: '#ccc', formatter: p => '₹' + p.value.toLocaleString() + ' Cr' }
                 }]
             };

@@ -36,8 +36,48 @@
     {% endif %}
 
     <div class="summary-box">
-        <h3>Quantitative Market Read</h3>
-        <p>{{ quant_summary | replace('\n', '<br>') | safe }}</p>
+                <h3>Quantitative Market Read & FII Flow</h3>
+        {% if fii_stats %}
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px;">
+            <thead>
+                <tr style="background-color: #f7fafc; color: #4a5568;">
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: left;">Metric</th>
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0;">FII Index Futures Longs</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right; color: #3182ce;">{{ fii_stats.idx_long }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0;">FII Index Futures Shorts</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right; color: #e53e3e;">{{ fii_stats.idx_short }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0;">FII Index Futures L/S Ratio</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">
+                        {% if fii_stats.idx_short > 0 %}
+                            {{ "%.2f"|format(fii_stats.idx_long / fii_stats.idx_short) }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0;">FII Index Options Call Net</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">{{ fii_stats.call_net }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0;">FII Index Options Put Net</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">{{ fii_stats.put_net }}</td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+        <div style="margin-top: 15px; padding: 10px; background-color: #f7fafc; border-left: 3px solid #3182ce; font-size: 11px;">
+            {{ quant_summary | replace('\n', '<br>') | safe }}
+        </div>
     </div>
 
     <div class="ai-box">
@@ -45,11 +85,61 @@
         <p>{{ ai_inference | replace('\n', '<br>') | safe }}</p>
     </div>
 
+
     {% if is_expiry_eve %}
     <div class="page-break"></div>
 
     <!-- DEDICATED EXPIRY PAGE -->
     <h1>Expiry Eve Analysis (DTE <= 1)</h1>
+
+    <div class="grid-container" style="margin-bottom: 20px;">
+        <div class="grid-row" style="display: flex; gap: 20px;">
+            {% if mwpl_data %}
+            <div class="summary-box" style="flex: 1; border-left-color: #e53e3e;">
+                <h3>Top 5 High MWPL Stocks (Ban Risk)</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                    <thead>
+                        <tr style="background-color: #f7fafc; color: #4a5568;">
+                            <th style="padding: 6px; border: 1px solid #e2e8f0; text-align: left;">Symbol</th>
+                            <th style="padding: 6px; border: 1px solid #e2e8f0; text-align: right;">MWPL %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in mwpl_data %}
+                        <tr>
+                            <td style="padding: 6px; border: 1px solid #e2e8f0; font-weight: bold;">{{ item.symbol }}</td>
+                            <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: right; color: {% if item.mwpl_pct >= 95 %}#e53e3e{% elif item.mwpl_pct >= 85 %}#ed8936{% else %}#718096{% endif %};">{{ "%.2f"|format(item.mwpl_pct) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            {% if rollover_data %}
+            <div class="summary-box" style="flex: 1; border-left-color: #3182ce;">
+                <h3>Top 5 High Rollover Activity</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                    <thead>
+                        <tr style="background-color: #f7fafc; color: #4a5568;">
+                            <th style="padding: 6px; border: 1px solid #e2e8f0; text-align: left;">Symbol</th>
+                            <th style="padding: 6px; border: 1px solid #e2e8f0; text-align: right;">Rollover %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in rollover_data %}
+                        <tr>
+                            <td style="padding: 6px; border: 1px solid #e2e8f0; font-weight: bold;">{{ item.symbol }}</td>
+                            <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: right; color: #3182ce;">{{ "%.2f"|format(item.rollover_pct) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
 
     <div class="summary-box" style="border-left-color: #ed8936; background-color: #fffaf0;">
         <h3>Index Expiry Dynamics</h3>
@@ -74,6 +164,37 @@
         <p style="margin-top: 10px; font-size: 9px; color: #718096;">
             <em>* Note: Upper and lower bounds represent the implied 1-standard deviation move priced in by the ATM straddle premium for the nearest expiry.</em>
         </p>
+    </div>
+    {% endif %}
+
+
+    {% if macro_events %}
+    <div class="summary-box" style="margin-top: 20px;">
+        <h3>Macro & Economic Events</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px;">
+            <thead>
+                <tr style="background-color: #f7fafc; color: #4a5568;">
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: left;">Date</th>
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: left;">Country</th>
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: left;">Event</th>
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">Actual</th>
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">Forecast</th>
+                    <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">Impact</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in macro_events %}
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0;">{{ event.date }}</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0;">{{ event.country }}</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">{{ event.event }}</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">{{ event.actual }}</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">{{ event.forecast }}</td>
+                    <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; color: {% if event.impact == 'High' %}#e53e3e{% elif event.impact == 'Medium' %}#ed8936{% else %}#718096{% endif %};">{{ event.impact }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
@@ -164,9 +285,9 @@
                 </td>
                 <td>{{ "%.2f"|format(row.beta_252 or 0) }}</td>
                 <td>{{ "%.1f"|format(row.rollover_pct or 0) }}%</td>
-                <td>{{ "%.1f"|format((row.atm_iv_near or 0) * 100) }}%</td>
-                <td>{{ "%.1f"|format(row.ivr or 0) }} / {{ "%.1f"|format(row.ivp or 0) }}</td>
-                <td>{{ "%.0f"|format(row.basis_1_bps or 0) }}</td>
+                <td>{{ "%.2f"|format((row.atm_iv_near or 0) * 100) }}%</td>
+                <td>{{ "%.2f"|format(row.iv_rank_252 or row.ivr or 0) }} / {{ "%.2f"|format(row.iv_percentile_252 or row.ivp or 0) }}</td>
+                <td>{{ "%.2f"|format(row.basis_1_bps or 0) }}</td>
                 <td>{{ "%.2f"|format(row.atr_14_cash or 0) }}</td>
                 <td>{{ "%.1f"|format(row.atm_straddle_near_month or 0) }}</td>
                 <td>{{ "%.2f"|format(row.pcr_oi or 0) }}</td>

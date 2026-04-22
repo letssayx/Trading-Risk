@@ -29,10 +29,7 @@ async function loadOptionsAnalysis() {
         if (window.pcrChartInstance) window.pcrChartInstance.dispose();
         window.pcrChartInstance = echarts.init(chartDom);
 
-        const oiColors = data.total_oi.map((val, idx) => {
-            if (idx === 0) return '#60a5fa';
-            return val > data.total_oi[idx - 1] ? '#E88B1E' : '#60a5fa'; // Orange for up, Blue for down
-        });
+        const oiColors = data.total_oi.map((val, idx) => { return '#60a5fa'; });
 
         // Calculate OI Change percentages
         const oiChangePct = data.total_oi.map((val, idx) => {
@@ -265,7 +262,7 @@ async function loadOptionsAnalysis() {
                     xAxisIndex: 0,
                     yAxisIndex: 0,
                     label: { show: false },
-                    itemStyle: { color: '#E88B1E' }, // Orange for Calls
+                    itemStyle: { color: '#60a5fa' }, // Blue for Calls
                     data: ce_oi.map(v => Math.abs(v)) // Pass absolute, axis inversion handles visualization
                 },
                 {
@@ -274,7 +271,7 @@ async function loadOptionsAnalysis() {
                     xAxisIndex: 1,
                     yAxisIndex: 1,
                     label: { show: false },
-                    itemStyle: { color: '#3176B8' }, // Blue for Puts
+                    itemStyle: { color: '#60a5fa' }, // Blue for Puts
                     data: pe_oi
                 }
             ]
