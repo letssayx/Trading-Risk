@@ -2,7 +2,6 @@ from celery import shared_task
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Dict, Any
-import json
 
 from backend.infrastructure.db import SessionLocal
 from backend.models.audit import SystemLog

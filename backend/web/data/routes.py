@@ -1,9 +1,7 @@
-from fastapi import APIRouter, Query, HTTPException, Depends
-from typing import List, Optional
+from fastapi import APIRouter, Depends
 from datetime import datetime, timedelta
 import pandas as pd
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy

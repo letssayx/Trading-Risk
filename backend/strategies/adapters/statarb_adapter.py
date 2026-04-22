@@ -1,7 +1,5 @@
 import uuid
-import pandas as pd
 import numpy as np
-import random
 
 class StatArbAdapter:
     def __init__(self, symbol1: str, symbol2: str, ratio: float = 1.0, z_threshold: float = 2.0):

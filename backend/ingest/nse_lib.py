@@ -1,5 +1,4 @@
 """NSE Library Adapter - Re-implementation of nselib logic"""
-import requests
 from curl_cffi import requests as cffi_requests
 import pandas as pd
 import io
@@ -7,7 +6,7 @@ import zipfile
 import logging
 import os
 from datetime import date
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 
 logger = logging.getLogger(__name__)
 

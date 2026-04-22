@@ -1,5 +1,5 @@
 """NSE Configuration - Based on nselib v2.4.3 and User Requirements"""
-from typing import Dict, Tuple, List, Union
+from typing import Dict, Tuple, List
 
 # Base URLs
 NSE_BASE_URL = "https://www.nseindia.com"

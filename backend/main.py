@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -38,10 +37,7 @@ from backend.web.api import macro_routes
 from backend.web.ai.routes import ai_router
 
 # Import DB and Models for Initialization
-from backend.infrastructure.db import engine, Base, SessionLocal
-from backend.domain.market.models import Bhavcopy
-from backend.ingest import nse_models # Ensure tables are created
-from backend.ingest.timescale import setup_all_timescale_policies as setup_timescale_policies
+from backend.infrastructure.db import engine, Base
 from backend.ingest.tick_vault import TickVault
 
 app = FastAPI(title="Turtle Terminal - Institutional Shell")
@@ -84,8 +80,6 @@ app.include_router(ai_router)
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB
-    import backend.ingest.nse_models
-    from backend.infrastructure.db import engine, Base
     Base.metadata.create_all(bind=engine)
 
     print("Initializing Database...")
@@ -116,7 +110,7 @@ async def startup_event():
                     # Execute raw SQL directly for safety against Alembic divergence
                     conn.execute(text(f"ALTER TABLE daily_derivatives_analysis ADD COLUMN {col_name} {col_type};"))
                     print(f"Successfully added column {col_name} to daily_derivatives_analysis")
-            except Exception as e:
+            except Exception:
                 # Ignore DuplicateColumn errors
                 pass
     except Exception as e:

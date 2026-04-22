@@ -1,7 +1,6 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from datetime import datetime
 import pandas as pd
-import numpy as np
 
 def generate_alpha_report(
     portfolio_summary: Dict[str, float],

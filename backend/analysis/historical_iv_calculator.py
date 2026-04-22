@@ -1,10 +1,6 @@
-import math
-from datetime import timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from backend.infrastructure.db import get_db
 from backend.ingest.nse_models import HistoricalATMIV
-import numpy as np
 
 def calculate_historical_atm_iv(db: Session, symbol: str, lookback_days: int = 500, force: bool = False):
     """

@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
-from backend.domain.portfolio.models import Portfolio, Trade, TradeStatus
+from backend.domain.portfolio.models import Portfolio, Trade
 from backend.domain.portfolio.schemas import PortfolioCreate, PortfolioResponse, TradeCreate, TradeResponse
 # from backend.domain.portfolio.vault import TradeVault # Assuming this exists or will be implemented
 from backend.dependencies import get_db

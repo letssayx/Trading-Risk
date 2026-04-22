@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime, date
+from datetime import datetime
 from backend.infrastructure.db import get_db
 from backend.ingest.nse_models import PreMarketSnapshot, EconomicEvent
 from backend.ingest.macro.fetcher import MacroDataFetcher
-import json
 
 router = APIRouter()
 

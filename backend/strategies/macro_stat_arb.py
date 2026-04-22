@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 import pandas as pd
 from sklearn.decomposition import PCA
 from backend.domain.toolbox.base import BaseSovereignTool

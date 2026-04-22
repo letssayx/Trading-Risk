@@ -1,8 +1,7 @@
-from celery import Celery, shared_task
+from celery import shared_task
 from celery.utils.log import get_task_logger
-from datetime import datetime, date, timedelta
-from typing import Any, List, Optional
-import time
+from datetime import datetime, timedelta
+from typing import List, Optional
 
 from backend.ingest.nse_importer import NSEDataImporter
 from backend.ingest.date_utils import NSEHolidayCalendar
@@ -306,7 +305,7 @@ def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = No
 
         return {
             "status": "SUCCESS",
-            "message": f"Data preparation completed for range" if end_date_str else f"Data preparation completed for {target_date_str}",
+            "message": "Data preparation completed for range" if end_date_str else f"Data preparation completed for {target_date_str}",
             "metrics": results[-1] if not end_date_str else {"batch_processed": len(results)}
         }
     except Exception as e:

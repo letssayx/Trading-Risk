@@ -8,7 +8,7 @@ import pandas as pd
 import io
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy import text, delete
+from sqlalchemy import delete
 
 from backend.infrastructure.db import SessionLocal
 from backend.ingest import nse_models as models

@@ -6,7 +6,7 @@ import zipfile
 import logging
 import pandas as pd
 from datetime import date
-from .constants import ARCHIVES_URL, BASE_URL
+from .constants import ARCHIVES_URL
 from .lib import NseSession
 
 logger = logging.getLogger(__name__)

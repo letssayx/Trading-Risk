@@ -1,6 +1,4 @@
-import pandas as pd
-from typing import Dict, Optional, List
-from backend.analysis.beta import calculate_beta
+from typing import Dict
 
 def calculate_index_hedge(
     portfolio_betas: Dict[str, float],

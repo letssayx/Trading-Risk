@@ -1,12 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, text
-from datetime import datetime, timedelta
-import pandas as pd
-import json
+from sqlalchemy import desc
 
 from backend.infrastructure.db import get_db
-from backend.ingest.nse_models import DailyDerivativesAnalysis, BhavcopyFO, BhavcopyEQ
+from backend.ingest.nse_models import BhavcopyFO, BhavcopyEQ
 
 router = APIRouter()
 
@@ -67,7 +64,6 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
         from sqlalchemy.dialects.postgresql import insert
         from backend.ingest.nse_models import OiAnalysisMetrics
         import datetime
-        from sqlalchemy import desc
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
@@ -386,7 +382,6 @@ def get_aggregated_oi_analysis(days: int = Query(30), target_date: str = None, d
 
         return {"data": output}
     except Exception as e:
-        import traceback
         print(f"Error fetching aggregated OI analysis: {e}")
         return {"data": [], "error": str(e)}
 
@@ -667,8 +662,6 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
     Returns current EQ price, Corporate Action (Ex-date), and the next 3 unexpired future contracts
     (Fut1, Fut2, Fut3) with their Price, Volume, OI, ATP, DTE, etc.
     """
-    from backend.ingest.nse_models import BhavcopyEQ
-    from backend.domain.market.models import Bhavcopy
     import datetime
 
     # Safely query to prevent 500 crashes
@@ -684,7 +677,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             if not latest_fo_date_row:
                 return {"data": {}}
             latest_fo_date = latest_fo_date_row[0]
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
         return {"data": {}}
@@ -896,7 +889,6 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
     """
     from backend.ingest.nse_models import BhavcopyFO, SymbolMaster
     from sqlalchemy import desc
-    import datetime
 
     # Get last 3 expiry dates
     latest_futs = db.query(BhavcopyFO.expiry_date)\
@@ -1226,7 +1218,7 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
 @router.post("/api/data/analysis/rollover/compute")
 def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
     try:
-        from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics, BhavcopyEQ
+        from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics
         from sqlalchemy.dialects.postgresql import insert
         import datetime
 
@@ -1376,7 +1368,7 @@ def sync_basis_watch(force: str = "false", db: Session = Depends(get_db)):
 @router.post("/api/data/analysis/basis/compute")
 def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str = None):
     try:
-        from backend.ingest.nse_models import BhavcopyFO, BasisWatchMetrics, BhavcopyEQ, HistoricalIndexData
+        from backend.ingest.nse_models import BhavcopyFO, BasisWatchMetrics, BhavcopyEQ
         from sqlalchemy.dialects.postgresql import insert
         import datetime
 

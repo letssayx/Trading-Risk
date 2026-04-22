@@ -1,4 +1,3 @@
-from typing import Dict, Optional
 
 def map_sector_classification(ticker: str) -> str:
     """

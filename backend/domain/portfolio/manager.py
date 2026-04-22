@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 from backend.domain.portfolio.models import Trade, TradeSide, Portfolio
 from backend.risk.greeks import calculate_total_greeks
 

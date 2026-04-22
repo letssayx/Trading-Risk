@@ -1,7 +1,6 @@
 import uuid
 import pandas as pd
-import numpy as np
-from typing import List, Dict, Optional
+from typing import List
 from backend.strategies.turtle import TurtleLegacyStrategy
 from backend.domain.portfolio.manager import PortfolioManager
 

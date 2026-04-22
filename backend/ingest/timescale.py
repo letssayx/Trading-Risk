@@ -3,7 +3,6 @@ import logging
 from typing import Any, Dict
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from backend.ingest import nse_models as models # Ensure models are imported so tables exist
 from backend.config.defaults.nse import TIMESCALE_RETENTION, TIMESCALE_COMPRESSION_AFTER_DAYS
 
 logger = logging.getLogger(__name__)

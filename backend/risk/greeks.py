@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 import numpy as np
 from scipy.stats import norm
 from backend.domain.portfolio.models import Trade, TradeSide, TradeStatus

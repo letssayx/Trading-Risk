@@ -1,5 +1,4 @@
 import os
-import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 from backend.web.api.config_routes import router

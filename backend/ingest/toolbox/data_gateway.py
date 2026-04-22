@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from datetime import datetime
 from backend.domain.toolbox.base import BaseSovereignTool
 from backend.ingest.adjustment import PriceAdjuster

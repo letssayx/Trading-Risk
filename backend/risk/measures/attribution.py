@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import Dict, Union, Tuple, Optional
+from typing import Dict, Union
 
 def calculate_factor_attribution(
     portfolio_returns: pd.Series,

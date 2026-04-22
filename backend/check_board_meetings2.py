@@ -1,4 +1,3 @@
-import asyncio
 from datetime import date
 from ingest.nse_lib import NSELib
 

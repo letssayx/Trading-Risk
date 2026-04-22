@@ -1,8 +1,7 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
+from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, asc
 from datetime import datetime, date
 
 from backend.infrastructure.db import get_db
@@ -251,7 +250,6 @@ async def check_task_status(task_id: str):
 @router.get("/api/morning-report/data/{target_date}")
 def get_report_data(target_date: str, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
-    from fastapi.concurrency import run_in_threadpool
 
     def fetch_data(resolved_date):
         from sqlalchemy import case
@@ -343,7 +341,6 @@ def get_report_data(target_date: str, db: Session = Depends(get_db)):
 @router.get("/api/morning-report/timeseries")
 def get_report_timeseries(symbol: str, limit: int = 300, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import DailyDerivativesAnalysis
-    from fastapi.concurrency import run_in_threadpool
 
     def fetch_ts():
         records = db.query(DailyDerivativesAnalysis).filter(
@@ -642,13 +639,12 @@ def get_fii_stats_money(days: int = 30, db: Session = Depends(get_db)):
     """
     from backend.ingest.nse_models import FIIDerivativesStat
     import pandas as pd
-    from sqlalchemy import func
 
     try:
         # Get the last X trading days
         dates_query = db.query(FIIDerivativesStat.date).distinct().order_by(FIIDerivativesStat.date.desc()).limit(days).all()
         dates = sorted([d[0] for d in dates_query])
-    except Exception as e:
+    except Exception:
         dates = []
 
     if not dates:
@@ -697,12 +693,10 @@ def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         dates = db.query(FAOParticipantOI.trade_date).distinct().order_by(FAOParticipantOI.trade_date.desc()).limit(days).all()
         dates = [d[0] for d in dates]
         dates.sort() # chronological
-    except Exception as e:
+    except Exception:
         dates = []
 
     import pandas as pd
-    import numpy as np
-    from datetime import date, timedelta
 
     if not dates:
          return {"dates": []}
@@ -951,12 +945,10 @@ def get_cash_market_flow(days: int = 30, db: Session = Depends(get_db)):
         dates_query = db.query(FIIDIICash.trade_date).distinct().order_by(FIIDIICash.trade_date.desc()).limit(days).all()
         dates = [d[0] for d in dates_query]
         dates.sort()
-    except Exception as e:
+    except Exception:
         dates = []
 
     import pandas as pd
-    import numpy as np
-    from datetime import date, timedelta
 
     if not dates:
          return {"dates": []}

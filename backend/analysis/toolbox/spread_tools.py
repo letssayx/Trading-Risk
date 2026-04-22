@@ -1,6 +1,5 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 import pandas as pd
-import numpy as np
 from backend.domain.toolbox.base import BaseSovereignTool
 
 class SpreadSynthesizer(BaseSovereignTool):

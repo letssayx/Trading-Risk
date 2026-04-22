@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 def get_risk_dashboard_data(
     portfolio_beta: float,

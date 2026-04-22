@@ -1,7 +1,5 @@
 import pandas as pd
-import numpy as np
 from typing import List, Dict, Any
-from backend.domain.market.contract_manager import ContractManager
 
 class PriceOiAnalyzer:
     """

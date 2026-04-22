@@ -1,6 +1,4 @@
-import asyncio
-from infrastructure.db import get_db, SessionLocal
-from ingest.nse_models import BoardMeeting
+from infrastructure.db import SessionLocal
 
 def main():
     db = SessionLocal()

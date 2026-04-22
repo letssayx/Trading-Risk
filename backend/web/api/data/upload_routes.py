@@ -7,10 +7,9 @@ import tempfile
 import pandas as pd
 import hashlib
 from datetime import datetime, date
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
+from typing import List, Optional
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 import json
 
@@ -18,7 +17,6 @@ from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy, ImportHistory
 from backend.ingest.nse_importer import NSEDataImporter
 from backend.ingest.field_mapper import FieldMapper
-from backend.ingest import nse_models as models
 
 router = APIRouter()
 
@@ -134,7 +132,7 @@ async def preview_bhavcopy(
 
         df = pd.read_csv(csv_path)
         if not validate_headers(df.columns.tolist()):
-            raise HTTPException(400, f"Invalid CSV format. Expected UDIFF headers.")
+            raise HTTPException(400, "Invalid CSV format. Expected UDIFF headers.")
 
         df = parse_bhavcopy_df(df)
 

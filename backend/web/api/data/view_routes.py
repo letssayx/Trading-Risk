@@ -11,12 +11,8 @@ from typing import Optional
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy
 from backend.ingest import nse_models as models
-from typing import Dict, Any, List
-from datetime import datetime
-import pandas as pd
 import logging
 import traceback
-import json
 
 from backend.nselib.lib import NseSession
 
@@ -246,7 +242,7 @@ def proxy_circulars(db: Session = Depends(get_db)):
                     link=item.get('circFilelink') or item.get('circFile')
                 )
                 db.add(circ)
-            except Exception as e:
+            except Exception:
                 db.rollback() # reset failed transaction if duplicate
                 pass # skip duplicates or parsing errors
         db.commit()
@@ -1070,7 +1066,7 @@ def get_ofs():
         res = session.get("https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities", headers=headers, timeout=10)
         data = res.json()
         return data if isinstance(data, list) else data.get("data", [])
-    except Exception as e:
+    except Exception:
         return []
 
 @router.get("/api/proxy/tender")
@@ -1086,5 +1082,5 @@ def get_tender():
         res = session.get("https://www.nseindia.com/api/corporate-further-issues-tender?index=equities", headers=headers, timeout=10)
         data = res.json()
         return data if isinstance(data, list) else data.get("data", [])
-    except Exception as e:
+    except Exception:
         return []

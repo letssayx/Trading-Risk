@@ -2,10 +2,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List, Dict, Set
 import asyncio
 import json
-from datetime import datetime
 
 # Import TickVault to read real ticks if available
-from backend.ingest.tick_vault import TickVault
 
 router = APIRouter()
 

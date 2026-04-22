@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional
-from backend.risk.measures.optimization import calculate_risk_contributions, calculate_component_var
+from typing import Dict, Optional
+from backend.risk.measures.optimization import calculate_risk_contributions
 
 class RiskManager:
     def __init__(self):

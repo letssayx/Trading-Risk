@@ -1,7 +1,6 @@
-import numpy as np
 import pandas as pd
 import logging
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple
 from backend.domain.toolbox.base import BaseSovereignTool
 
 logger = logging.getLogger(__name__)
@@ -58,7 +57,7 @@ class StatArbAlphaEngine(BaseSovereignTool):
         except ValueError as e:
             logger.warning(f"Validation Error in Alpha Engine: {e}")
             return {"error": str(e)}
-        except Exception as e:
+        except Exception:
             logger.exception("Unexpected Error in Alpha Engine")
             return {"error": "Internal Calculation Error"}
 

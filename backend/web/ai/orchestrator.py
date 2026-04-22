@@ -1,13 +1,11 @@
-import asyncio
 import json
 import re
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Callable
 from sqlalchemy.orm import Session
 from groq import AsyncGroq
 from google import genai
 from openai import AsyncOpenAI  # Used for OpenRouter
 from backend.web.ai.tools import fetch_bhavcopy_data, search_db_symbol, search_yfinance_symbol, fetch_detailed_db_data, fetch_yfinance_historical
-from backend.ingest.nse_models import AIPrediction
 
 class TerminalOrchestrator:
     def __init__(self, groq_key: str, openrouter_key: str, gemini_key: str, db: Session, session_id: str):
@@ -463,7 +461,7 @@ class TerminalOrchestrator:
                 elif "SELL" in action or "SHORT" in action:
                     if target > 0 and target >= current_price:
                         return {"status": "FAIL", "critique": f"Deterministic failure: Action is {action} but target price {target} is not less than current price {current_price}."}
-        except Exception as e:
+        except Exception:
             # If deterministic checks fail to parse numbers, we let the LLM Judge handle it.
             pass
 

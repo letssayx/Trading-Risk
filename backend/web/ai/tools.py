@@ -2,7 +2,7 @@ import logging
 import yfinance as yf
 from sqlalchemy import select, desc
 from sqlalchemy.orm import Session
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO
 
@@ -15,7 +15,7 @@ def search_db_symbol(db: Session, query: str) -> str:
     import difflib
 
     try:
-        from backend.ingest.nse_models import SymbolMaster, SecurityMaster, BhavcopyEQ
+        from backend.ingest.nse_models import SymbolMaster, SecurityMaster
 
         clean_query = query.strip().upper()
 

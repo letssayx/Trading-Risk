@@ -1,7 +1,6 @@
 import asyncio
 from datetime import date
 from ingest.nse_lib import NSELib
-import pandas as pd
 
 async def main():
     lib = NSELib()

@@ -1,5 +1,4 @@
-from playwright.sync_api import Page, expect, sync_playwright
-import time
+from playwright.sync_api import Page, sync_playwright
 import os
 
 def verify_feature(page: Page):

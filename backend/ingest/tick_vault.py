@@ -1,8 +1,5 @@
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-import pandas as pd
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, text
+from typing import List, Dict, Any
+from sqlalchemy import text
 from backend.infrastructure.db import engine
 
 class TickVault:

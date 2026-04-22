@@ -1,7 +1,5 @@
 import yfinance as yf
-import datetime
 import requests
-from bs4 import BeautifulSoup
 import xml.etree.ElementTree as ET
 
 class MacroDataFetcher:
@@ -46,9 +44,9 @@ class MacroDataFetcher:
                         result[name] = {"price": float(closes[0]), "pct_change": 0.0}
                     else:
                         result[name] = {"price": 0.0, "pct_change": 0.0}
-                except Exception as e:
+                except Exception:
                     result[name] = {"price": 0.0, "pct_change": 0.0}
-        except Exception as e:
+        except Exception:
             for name in symbols_dict.keys():
                 result[name] = {"price": 0.0, "pct_change": 0.0}
         return result
@@ -134,7 +132,7 @@ class MacroDataFetcher:
                             "previous": event.find('previous').text if event.find('previous') is not None else "",
                             "impact": final_impact
                         })
-        except Exception as e:
+        except Exception:
             pass
         return events
 

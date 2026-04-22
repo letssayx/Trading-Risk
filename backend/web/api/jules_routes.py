@@ -1,8 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 # Import the singleton instance directly
 from backend.jules.ai_assistant import jules
-import os
 
 router = APIRouter()
 

@@ -7,8 +7,6 @@ broker_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 app = Celery("turtle_worker", broker=broker_url)
 
 # Register tasks
-import backend.ingest.tasks
-import backend.ingest.audit_tasks
 
 @app.task
 def run_governance_rubric(portfolio_id: str):

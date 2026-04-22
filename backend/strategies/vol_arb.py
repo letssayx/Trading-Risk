@@ -1,5 +1,4 @@
-from typing import Dict, Any, List
-import numpy as np
+from typing import Dict, Any
 from backend.domain.toolbox.base import BaseSovereignTool
 
 class VolArbitrageStrategy(BaseSovereignTool):

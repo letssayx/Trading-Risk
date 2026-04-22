@@ -1,10 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.infrastructure.db import get_db
-import pandas as pd
 import numpy as np
-from datetime import datetime, date
 
 router = APIRouter()
 
@@ -37,7 +35,7 @@ def calc_bs_delta_vectorized(S, K, T, r, sigma, is_call):
 @router.get("/api/data/derivatives/pcr_history")
 def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db: Session = Depends(get_db)):
     try:
-        from backend.ingest.nse_models import OiAnalysisMetrics, BhavcopyFO
+        from backend.ingest.nse_models import OiAnalysisMetrics
         from sqlalchemy import desc
 
         symbol = symbol.upper()

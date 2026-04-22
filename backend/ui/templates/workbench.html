@@ -2045,20 +2045,21 @@
                     </div>
 
                     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                        <!-- Pre-Market Snapshot Table -->
-                        <div style="flex: 1; min-width: 300px; background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
-                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">Pre-Market Snapshot</h3>
-                            <div class="table-responsive">
-                                <table class="table" style="width: 100%;">
+                        <!-- World Market Snapshot Table -->
+                        <div style="flex: 1; min-width: 400px; background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">World Market Snapshot</h3>
+                            <div class="table-wrapper">
+                                <table class="data-table" style="width: 100%;">
                                     <thead>
                                         <tr>
                                             <th>Asset</th>
                                             <th>Price</th>
                                             <th>Change %</th>
+                                            <th>Date/Time</th>
                                         </tr>
                                     </thead>
                                     <tbody id="macro-snapshot-body">
-                                        <tr><td colspan="3" style="text-align: center; color: #888;">No data loaded.</td></tr>
+                                        <tr><td colspan="4" style="text-align: center; color: #888;">No data loaded.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -2067,8 +2068,8 @@
                         <!-- Economic Events Table -->
                         <div style="flex: 2; min-width: 500px; background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
                             <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px;">High Impact Events</h3>
-                            <div class="table-responsive">
-                                <table class="table" style="width: 100%;">
+                            <div class="table-wrapper">
+                                <table class="data-table" style="width: 100%;">
                                     <thead>
                                         <tr>
                                             <th>Date (IST)</th>
@@ -4056,6 +4057,7 @@ function exportChartDataToCSV(chartInstance, filename) {
                             <td style="text-transform: capitalize; color: #ccc;">${key.replace('_', ' ')}</td>
                             <td>${val.price.toFixed(2)}</td>
                             <td style="color: ${pctColor};">${sign}${val.pct_change.toFixed(2)}%</td>
+                            <td style="color: #aaa; font-size: 11px;">${data.date}</td>
                         </tr>`;
                     }
                 }

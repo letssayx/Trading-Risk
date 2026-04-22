@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.infrastructure.db import get_db
-import math
 import numpy as np
 
 router = APIRouter()
@@ -497,7 +496,7 @@ def get_pre_expiry_action(
             atm_iv_val = cone_data.get("atm_iv", [None])[0]
             if atm_iv_val is not None:
                 atm_iv_line[-1] = atm_iv_val  # Plot only on the last day (today)
-        except Exception as e:
+        except Exception:
             pass
 
         # Fetch actual historical India VIX for the exact dates
@@ -515,7 +514,7 @@ def get_pre_expiry_action(
 
             for i, d in enumerate(dates):
                 india_vix_line[i] = vix_dict.get(d, None)
-        except Exception as e:
+        except Exception:
             pass
 
         # Precalculate price change percentages
@@ -544,7 +543,7 @@ def get_pre_expiry_action(
 @router.get("/api/data/derivatives/volatility_summary_all")
 def get_volatility_summary_all(db: Session = Depends(get_db), expiry_type: str = Query("monthly", description="monthly or all")):
     try:
-        from backend.ingest.nse_models import VolatilityAnalysisMetrics, BhavcopyFO, BhavcopyEQ, HistoricalIndexData
+        from backend.ingest.nse_models import VolatilityAnalysisMetrics, BhavcopyEQ, HistoricalIndexData
         from sqlalchemy import func
 
         latest_date = db.query(func.max(VolatilityAnalysisMetrics.trade_date)).scalar()
@@ -605,10 +604,9 @@ def sync_volatility_analysis(force: str = "false", db: Session = Depends(get_db)
 @router.post("/api/data/analysis/volatility/compute")
 def compute_volatility_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
     try:
-        from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV, VolatilityAnalysisMetrics, BhavcopyEQ, HistoricalIndexData
+        from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV, VolatilityAnalysisMetrics
         from sqlalchemy.dialects.postgresql import insert
         import datetime
-        import pandas as pd
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, Optional, List
+from typing import Dict
 from sqlalchemy.orm import Session
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy

@@ -7,8 +7,7 @@ import logging
 
 from backend.infrastructure.db import get_db
 from backend.schemas.nse import (
-    NSEImportRequest, NSEImportResponse, TimeseriesQuery,
-    OITrendResponse, VolatilityCompareRequest, ImportStatsResponse
+    NSEImportRequest, OITrendResponse, ImportStatsResponse
 )
 from backend.ingest import queries
 from backend.ingest.tasks import (

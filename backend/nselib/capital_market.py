@@ -2,7 +2,6 @@
 backend/nselib/capital_market.py
 """
 import io
-import zipfile
 import logging
 import pandas as pd
 from datetime import date

@@ -3,7 +3,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
-import numpy as np
 from jinja2 import Environment, FileSystemLoader
 try:
     from weasyprint import HTML, CSS
@@ -14,18 +13,13 @@ except ImportError:
     logging.error("Weasyprint is not installed. Please run: pip install weasyprint. PDF generation will fail.")
 
 from dotenv import load_dotenv
-import httpx
-import httpx
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
 from datetime import date, timedelta
 import tempfile
-import json
-import asyncio
 
 from backend.ingest.nse_models import (
-    DailyDerivativesAnalysis, FAOParticipantOI, SymbolMaster, BhavcopyFO, PreMarketSnapshot, EconomicEvent
+    DailyDerivativesAnalysis, FAOParticipantOI, SymbolMaster, PreMarketSnapshot, EconomicEvent
 )
 
 class MorningReportGenerator:

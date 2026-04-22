@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 from backend.infrastructure.db import get_db
 from backend.ingest.nse_models import BhavcopyFO, BhavcopyEQ, HistoricalIndexData
 import math

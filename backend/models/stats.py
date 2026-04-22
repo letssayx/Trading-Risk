@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from backend.domain.toolbox.base import BaseSovereignTool
 
 # StatArbAlphaEngine moved to backend.strategies.stat_arb.alpha_engine

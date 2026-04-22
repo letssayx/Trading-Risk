@@ -1,23 +1,17 @@
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Optional, List, Any
+from fastapi import APIRouter
 import pandas as pd
-import numpy as np
 
 # Strategies
-from backend.strategies.turtle import TurtleLegacyStrategy
 from backend.strategies.convergence import check_convergence
-from backend.strategies.risk import get_risk_dashboard_data
 from backend.strategies.macro_stat_arb import calculate_pca_factors
 from backend.strategies.vol_arb import calculate_vol_spread
 
 # Analysis & Intelligence
 from backend.intelligence.sentiment_flow import analyze_sentiment_flow
-from backend.analysis.beta import calculate_beta
-from backend.risk.hedging import calculate_index_hedge, calculate_sentiment_hedge
 
 # Schemas (Refactored Location)
 from backend.api.schemas import (
-    StrategyRequest, SentimentRequest, ConvergenceRequest,
+    SentimentRequest, ConvergenceRequest,
     VolArbRequest, PCARequest
 )
 

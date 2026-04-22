@@ -1,5 +1,4 @@
-from typing import Dict, Any, List
-from backend.domain.market.contract_manager import ContractManager
+from typing import Dict, Any
 
 class RolloverAnalyzer:
     """

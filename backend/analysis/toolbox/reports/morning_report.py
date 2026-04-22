@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
 from sqlalchemy.orm import Session
-from datetime import date, timedelta
-from typing import Dict, Any, List
-from sqlalchemy import func, text
-import json
+from datetime import date
+from typing import Dict, Any
+from sqlalchemy import text
 
 from backend.ingest.nse_models import (
     BhavcopyFO, BhavcopyEQ, FOVolatility, MWPLClientPosition, DailyDerivativesAnalysis, PERatio, MTODelivery
@@ -432,7 +431,6 @@ class MorningReportCalculator:
         return val
 
     def _safe_float(self, val):
-        import numpy as np
         import math
         if val is None: return None
         try:
@@ -444,7 +442,6 @@ class MorningReportCalculator:
             return val
 
     def _safe_float(self, val):
-        import numpy as np
         import math
         if val is None: return None
         try:
@@ -456,7 +453,6 @@ class MorningReportCalculator:
             return val
 
     def _safe_float(self, val):
-        import numpy as np
         import math
         if val is None: return None
         try:
@@ -468,7 +464,6 @@ class MorningReportCalculator:
             return val
 
     def _safe_float(self, val):
-        import numpy as np
         import math
         if val is None: return None
         try:
@@ -480,7 +475,6 @@ class MorningReportCalculator:
             return val
 
     def _safe_float(self, val):
-        import numpy as np
         import math
         if val is None: return None
         try:
