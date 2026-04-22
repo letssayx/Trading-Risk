@@ -55,42 +55,43 @@ class MacroDataFetcher:
 
     @staticmethod
     def get_crypto():
-        result = {}
-        try:
-            import ccxt
-            exchange = ccxt.binance()
-            symbols = {'bitcoin': 'BTC/USDT', 'ethereum': 'ETH/USDT', 'solana': 'SOL/USDT'}
-            for name, symbol in symbols.items():
-                try:
-                    ticker = exchange.fetch_ticker(symbol)
-                    price = ticker.get('last', 0.0)
-                    pct = ticker.get('percentage', 0.0)
-                    result[name] = {"price": float(price), "pct_change": float(pct)}
-                except:
-                    result[name] = {"price": 0.0, "pct_change": 0.0}
-        except Exception as e:
-            for name in ['bitcoin', 'ethereum', 'solana']:
-                result[name] = {"price": 0.0, "pct_change": 0.0}
-        return result
+        # Replace ccxt binance with yfinance, as binance API restricts IPs and raises 451.
+        symbols = {'bitcoin': 'BTC-USD', 'ethereum': 'ETH-USD', 'solana': 'SOL-USD'}
+        return MacroDataFetcher._fetch_yf_batch(symbols)
 
     @staticmethod
     def get_gift_nifty():
-        """Scrape GIFT Nifty from a public source (Moneycontrol or similar)"""
-        # Note: GIFT Nifty is notoriously hard to scrape reliably as it's heavily protected by captchas on most Indian sites.
-        # We will attempt a standard request, but fallback gracefully.
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        """Fetch Nifty 50 Index as a proxy for GIFT Nifty using YFinance."""
         try:
-            # Example fallback URL
-            url = "https://www.google.com/finance/quote/NIFTY50_F:NSE"
-            # As a simpler alternative since this is an Institutional Shell, we can derive an approximation
-            # or allow the user to input it in the UI. For now, we return 0.0 to let the UI know it needs manual input.
-            return {"price": 0.0, "pct_change": 0.0, "status": "manual_input_required"}
-        except:
-            return {"price": 0.0, "pct_change": 0.0}
+            import pandas as pd
+            # ^NSEI is Nifty 50. While not exactly GIFT Nifty futures, it's the
+            # most reliable live proxy available without paid scrapers.
+            data = yf.download('^NSEI', period="5d", progress=False)
+
+            # Yfinance returns a DataFrame where columns might be MultiIndex if not careful,
+            # but for a single ticker it's usually flat. Let's handle both.
+            if isinstance(data.columns, pd.MultiIndex):
+                close_series = data['Close']['^NSEI']
+            else:
+                close_series = data['Close']
+
+            closes = close_series.dropna().values
+            if len(closes) >= 2:
+                current = float(closes[-1])
+                prev = float(closes[-2])
+                pct = ((current - prev) / prev) * 100
+                return {"price": current, "pct_change": pct}
+            elif len(closes) == 1:
+                return {"price": float(closes[0]), "pct_change": 0.0}
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to fetch GIFT Nifty proxy: {e}")
+            pass
+        return {"price": 0.0, "pct_change": 0.0}
 
     @staticmethod
     def get_economic_events(days_ahead=7):
-        """Fetch high-impact economic events from ForexFactory XML feed."""
+        """Fetch high-impact economic events from ForexFactory XML feed, prioritizing India and Central Banks."""
         events = []
         try:
             url = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
@@ -98,21 +99,40 @@ class MacroDataFetcher:
             resp = requests.get(url, headers=headers, timeout=10)
             if resp.status_code == 200:
                 root = ET.fromstring(resp.content)
-                target_countries = ['USD', 'EUR', 'GBP', 'JPY', 'INR', 'CNY']
+
+                # Priority countries: INR (India), USD (US), JPY (Japan), EUR (Europe), GBP (UK)
+                target_countries = ['INR', 'USD', 'JPY', 'EUR', 'GBP', 'CNY']
+
+                # Keywords to prioritize (Monetary policy, GDP, CPI)
+                high_priority_keywords = ['rate', 'cpi', 'gdp', 'inflation', 'fed', 'rbi', 'boj', 'ecb', 'minutes', 'pmi', 'employment']
 
                 for event in root.findall('event'):
                     impact = event.find('impact').text if event.find('impact') is not None else ""
                     country = event.find('country').text if event.find('country') is not None else ""
+                    title = event.find('title').text if event.find('title') is not None else ""
 
-                    if impact == "High" and country in target_countries:
+                    # Always include INR events regardless of impact.
+                    # For other target countries, include if Impact is High or Medium+ matches keywords.
+                    is_inr = country == 'INR'
+                    is_high_impact = impact == 'High' and country in target_countries
+
+                    is_priority_keyword = any(k in title.lower() for k in high_priority_keywords)
+                    is_medium_priority = impact == 'Medium' and country in target_countries and is_priority_keyword
+
+                    if is_inr or is_high_impact or is_medium_priority:
+                        # Override impact for INR so it always highlights if it's important
+                        final_impact = impact
+                        if is_inr:
+                            final_impact = "High" if is_priority_keyword else "Medium"
+
                         events.append({
                             "event_date": event.find('date').text + " " + event.find('time').text,
                             "country": country,
-                            "event_name": event.find('title').text,
+                            "event_name": title,
                             "actual": event.find('actual').text if event.find('actual') is not None else "",
                             "forecast": event.find('forecast').text if event.find('forecast') is not None else "",
                             "previous": event.find('previous').text if event.find('previous') is not None else "",
-                            "impact": impact
+                            "impact": final_impact
                         })
         except Exception as e:
             pass

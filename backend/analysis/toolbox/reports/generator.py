@@ -49,11 +49,14 @@ class MorningReportGenerator:
 
     async def get_ai_inference(self, quant_summary: str) -> str:
         try:
-            prompt = f"""Act as an institutional derivatives quant. Review the following quantitative market read and provide a 2 paragraph high conviction executive summary. Focus heavily on FII Positioning, Volatility, and Index Action.\n\nQuantitative Read:\n{quant_summary}"""
+            prompt = f"""Act as an institutional derivatives quant. Review the following quantitative market read and provide a 2 paragraph high conviction executive summary. Synthesize the FII flow trends, volatility, macroeconomic events, and index action into actionable insights. \n\nQuantitative Read:\n{quant_summary}"""
             import httpx
             import os
 
-            load_dotenv()
+            # Fix .env path loading to ensure API keys are injected correctly.
+            env_path = os.path.join(os.path.dirname(__file__), '../../../../.env')
+            load_dotenv(dotenv_path=env_path)
+
             openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
             if not openrouter_api_key:
                 return "AI Inference skipped: OPENROUTER_API_KEY not found."
@@ -103,6 +106,14 @@ class MorningReportGenerator:
             FAOParticipantOI.trade_date == actual_trade_date,
             FAOParticipantOI.client_type == 'FII'
         ).first()
+
+        # Fetch FII Historical Data (e.g., start of month for deeper insights)
+        start_of_month = date(actual_trade_date.year, actual_trade_date.month, 1)
+        fii_hist = self.db.query(FAOParticipantOI).filter(
+            FAOParticipantOI.trade_date >= start_of_month,
+            FAOParticipantOI.trade_date <= actual_trade_date,
+            FAOParticipantOI.client_type == 'FII'
+        ).order_by(FAOParticipantOI.trade_date.asc()).all()
 
         summary = ""
         if fii_data:
