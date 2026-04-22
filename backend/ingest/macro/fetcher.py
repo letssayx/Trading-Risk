@@ -1,5 +1,4 @@
 import yfinance as yf
-import ccxt
 import datetime
 import requests
 from bs4 import BeautifulSoup
@@ -58,6 +57,7 @@ class MacroDataFetcher:
     def get_crypto():
         result = {}
         try:
+            import ccxt
             exchange = ccxt.binance()
             symbols = {'bitcoin': 'BTC/USDT', 'ethereum': 'ETH/USDT', 'solana': 'SOL/USDT'}
             for name, symbol in symbols.items():
