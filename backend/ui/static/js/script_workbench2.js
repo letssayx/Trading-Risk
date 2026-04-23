@@ -3061,3 +3061,75 @@ async function loadMarketOptionsCharts() {
         highOiContainer.innerHTML = `<p style="color:red;">Error: ${e.message}</p>`;
     }
 }
+
+// --- MASTER SYNC LOGIC ---
+async function triggerMasterSync() {
+    const btn = document.getElementById('master-sync-btn');
+    if(!btn) return;
+
+    // Save original state
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    btn.disabled = true;
+
+    try {
+        console.log("Master Sync started...");
+
+        const promises = [];
+
+        // 1. Sync Macro Data (Turtle Tab)
+        if (typeof syncMacroData === 'function') promises.push(syncMacroData().catch(e => console.error("syncMacroData failed", e)));
+
+        // 2. Load Market Watch (Derivatives - Basis Watch)
+        if (typeof loadMarketWatch === 'function') promises.push(loadMarketWatch(true).catch(e => console.error("loadMarketWatch failed", e)));
+
+        // 3. Load Volatility Data
+        if (typeof fetchVolatilityData === 'function') promises.push(fetchVolatilityData(true).catch(e => console.error("fetchVolatilityData failed", e)));
+
+        // 4. F&O Data
+        if (typeof fetchFutureOI === 'function') promises.push(fetchFutureOI(true).catch(e => console.error("fetchFutureOI failed", e)));
+
+        // 5. MWPL Data
+        if (typeof loadMWPLAnalysis === 'function') promises.push(loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
+
+        // 6. OI Analysis
+        if (typeof loadOIAnalysis === 'function') promises.push(loadOIAnalysis(true).catch(e => console.error("loadOIAnalysis failed", e)));
+
+        // 7. Rollover Analysis
+        if (typeof loadRolloverAnalysis === 'function') promises.push(loadRolloverAnalysis(true).catch(e => console.error("loadRolloverAnalysis failed", e)));
+
+        // Clear main UI Matrix (from previous logic)
+        if (typeof clearMatrixUI === 'function') clearMatrixUI();
+
+        // NIFTY Data preload for UI
+        if (typeof loadTimeseriesData === 'function') {
+            document.getElementById('symbol-input').value = 'NIFTY';
+            promises.push(loadTimeseriesData().catch(e => console.error("loadTimeseriesData failed", e)));
+        }
+
+        // Wait for all to finish concurrently
+        await Promise.allSettled(promises);
+
+        console.log("Master Sync completed.");
+    } catch (e) {
+        console.error("Master Sync error:", e);
+        alert("Master Sync encountered an error. Check console.");
+    } finally {
+        btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i> Synced';
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }, 2000);
+    }
+}
+window.triggerMasterSync = triggerMasterSync;
+
+// Execute Master Sync automatically on initial page load
+document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(() => {
+        const btn = document.getElementById('master-sync-btn');
+        if(btn) {
+            triggerMasterSync();
+        }
+    }, 1000);
+});
