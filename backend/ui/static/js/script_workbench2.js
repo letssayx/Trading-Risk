@@ -1135,7 +1135,7 @@
                 // The 'latest' flag on the backend gets the max date. If we force limit=1, we only get ONE row (one symbol).
                 // We should pass limit=0 (unlimited) or a high number like 5000 if we want all symbols for that latest date.
                 let limit = isLatest ? 5000 : 500;
-                if (symbol && isLatest) limit = 1; // if symbol is specified and latest is checked, we only need 1 row
+                if (symbol && isLatest) limit = 5000;
                 let url = `/api/data/view/list?type=${type}&limit=${limit}`;
                 if (symbol) {
                     url += `&symbol=${symbol}`;
@@ -1178,46 +1178,51 @@
         function renderHistoryTable(data) {
             const tbody = document.getElementById('history-body');
             const thead = document.getElementById('history-head');
-            tbody.innerHTML = '';
-            thead.innerHTML = '';
+
+            // Efficiently clear existing DOM elements
+            while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+            while (thead.firstChild) thead.removeChild(thead.firstChild);
 
             if (!data || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="100" style="text-align:center; color:#888;">No Data Found</td></tr>';
                 return;
             }
 
+            // Limit the number of rows drawn directly to DOM to prevent extreme layout recalculation lags
+            // which freezes the browser when switching tabs.
+            const maxRowsToRender = 1000;
+            const renderData = data.slice(0, maxRowsToRender);
+
             // Headers
             const keys = Object.keys(data[0]);
             const trHead = document.createElement('tr');
             keys.forEach((key, index) => {
                 const th = document.createElement('th');
-
-                // Sort Indicator
                 let label = key.replace(/_/g, ' ').toUpperCase();
                 if (key === currentSortColumn) {
                     label += (currentSortOrder === 'asc' ? ' ▲' : ' ▼');
-                    th.style.color = '#fff'; // Highlight active sort column
+                    th.style.color = '#fff';
                 }
-
                 th.innerText = label;
-                th.onclick = () => sortHistoryTable(key); // Trigger Server-Side Sort
+                th.onclick = () => sortHistoryTable(key);
                 trHead.appendChild(th);
             });
             thead.appendChild(trHead);
 
+            // We can use a DocumentFragment for better DOM insertion performance
+            const fragment = document.createDocumentFragment();
+
             // Rows
-            data.forEach(row => {
+            renderData.forEach(row => {
                 const tr = document.createElement('tr');
                 keys.forEach(key => {
                     const td = document.createElement('td');
                     let val = row[key];
                     if (val === null || val === undefined) val = '-';
                     if (typeof val === 'number') {
-                         // Smart formatting
                          if (Number.isInteger(val)) {
                              td.innerText = val.toLocaleString();
                          } else {
-                             // Check for volatility columns or small numbers
                              if (key.includes('volatility') || key.includes('_vol') || key.includes('iv') || key.includes('rate')) {
                                  td.innerText = val.toFixed(4);
                              } else {
@@ -1230,8 +1235,20 @@
                     }
                     tr.appendChild(td);
                 });
-                tbody.appendChild(tr);
+                fragment.appendChild(tr);
             });
+
+            if (data.length > maxRowsToRender) {
+                 const trWarning = document.createElement('tr');
+                 const tdWarning = document.createElement('td');
+                 tdWarning.colSpan = keys.length;
+                 tdWarning.style.textAlign = 'center';
+                 tdWarning.style.color = '#ff9800';
+                 tdWarning.innerText = `... Showing first ${maxRowsToRender} rows to prevent browser lag. Export CSV to view all ${data.length} rows ...`;
+                 fragment.appendChild(trWarning);
+            }
+
+            tbody.appendChild(fragment);
         }
 
         function sortHistoryTable(key) {
