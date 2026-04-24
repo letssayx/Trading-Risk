@@ -2967,11 +2967,21 @@
 
             <script>
                 function switchRetailTab(tabId) {
-                    document.querySelectorAll('[id^="retail-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
-                    document.getElementById(`retail-tab-btn-${tabId}`).classList.add('active');
+                    document.querySelectorAll('[id^="retail-tab-btn-"]').forEach(btn => {
+                        btn.classList.remove('active');
+                        btn.style.borderBottomColor = 'transparent';
+                        btn.style.color = '#ccc';
+                    });
+                    const activeBtn = document.getElementById(`retail-tab-btn-${tabId}`);
+                    activeBtn.classList.add('active');
+                    activeBtn.style.borderBottomColor = '#60a5fa';
+                    activeBtn.style.color = '#fff';
 
                     document.querySelectorAll('.retail-sub-tab').forEach(tab => tab.style.display = 'none');
                     document.getElementById(`retail-tab-${tabId}`).style.display = 'block';
+                }
+            </script>
+        </div>
 
         <!-- TAB 2: HISTORICAL DATA -->
         <div id="tab-history" class="main-tab-content">
