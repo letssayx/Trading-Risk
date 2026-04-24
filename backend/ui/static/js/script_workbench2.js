@@ -3155,7 +3155,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const target = document.getElementById(`arb-tab-${tabName}`);
             const btn = document.getElementById(`arb-tab-btn-${tabName}`);
             if (target && btn) {
-                target.style.display = 'block';
+                target.style.display = tabName === 'ofs' ? 'flex' : 'block';
                 target.classList.add('active');
                 btn.classList.add('active');
                 btn.style.borderBottomColor = '#60a5fa';
