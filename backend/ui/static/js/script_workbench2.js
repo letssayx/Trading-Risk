@@ -3141,3 +3141,24 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }, 1000);
 });
+
+        // --- Special Situation Arb Tab Logic ---
+        function switchArbTab(tabName) {
+            document.querySelectorAll('.arb-sub-tab').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.arb-sub-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#tab-special_arb .wb-tab').forEach(el => {
+                el.classList.remove('active');
+                el.style.borderBottomColor = 'transparent';
+                el.style.color = '#888';
+            });
+
+            const target = document.getElementById(`arb-tab-${tabName}`);
+            const btn = document.getElementById(`arb-tab-btn-${tabName}`);
+            if (target && btn) {
+                target.style.display = 'block';
+                target.classList.add('active');
+                btn.classList.add('active');
+                btn.style.borderBottomColor = '#60a5fa';
+                btn.style.color = '#fff';
+            }
+        }
