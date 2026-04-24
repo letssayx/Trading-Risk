@@ -3093,10 +3093,18 @@ async function triggerMasterSync() {
         if (typeof loadMWPLAnalysis === 'function') promises.push(loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
 
         // 6. OI Analysis
-        if (typeof loadOIAnalysis === 'function') promises.push(loadOIAnalysis(true).catch(e => console.error("loadOIAnalysis failed", e)));
+        if (typeof OiTool !== 'undefined' && typeof OiTool.syncAndLoadAggregatedData === 'function') {
+            promises.push(OiTool.syncAndLoadAggregatedData().catch(e => console.error("OiTool sync failed", e)));
+        } else if (typeof loadOIAnalysis === 'function') {
+            promises.push(loadOIAnalysis(true).catch(e => console.error("loadOIAnalysis failed", e)));
+        }
 
         // 7. Rollover Analysis
-        if (typeof loadRolloverAnalysis === 'function') promises.push(loadRolloverAnalysis(true).catch(e => console.error("loadRolloverAnalysis failed", e)));
+        if (typeof RolloverTool !== 'undefined' && typeof RolloverTool.syncAndLoadAggregatedData === 'function') {
+            promises.push(RolloverTool.syncAndLoadAggregatedData().catch(e => console.error("RolloverTool sync failed", e)));
+        } else if (typeof loadRolloverAnalysis === 'function') {
+            promises.push(loadRolloverAnalysis(true).catch(e => console.error("loadRolloverAnalysis failed", e)));
+        }
 
         // Clear main UI Matrix (from previous logic)
         if (typeof clearMatrixUI === 'function') clearMatrixUI();

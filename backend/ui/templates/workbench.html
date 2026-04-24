@@ -1664,7 +1664,7 @@
                             <option value="252">252 Days</option>
                             <option value="500" selected>500 Days</option>
                         </select>
-                        <button class="btn btn-primary" id="btn-load-vol-analysis" onclick="loadVolatilityAnalysis(event)">Load</button>
+                        <button class="btn btn-primary" id="btn-load-vol-analysis" onclick="loadVolatilityAnalysis(event)"><i class="fas fa-sync"></i> Load</button>
                     </div>
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
@@ -2342,6 +2342,9 @@
                     <div id="tab-latest" class="import-tab-content active">
                         <div class="import-options">
                             <h4>Import Data for Latest Trading Day</h4>
+                            <div class="option-row" style="margin-bottom: 10px;">
+                                <label class="checkbox-label" style="font-weight: bold;"><input type="checkbox" id="latest-select-all" onclick="document.querySelectorAll('.latest-type').forEach(cb => cb.checked = this.checked)"> Select All</label>
+                            </div>
                             <div class="option-row">
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="bhavcopy_fo"> F&O Bhavcopy</label>
@@ -2374,6 +2377,9 @@
                             <div class="option-row" style="margin-bottom: 10px;">
                                 <label>Start:</label> <input type="date" id="range-start" class="history-input">
                                 <label style="margin-left:15px;">End:</label> <input type="date" id="range-end" class="history-input">
+                            </div>
+                            <div class="option-row" style="margin-bottom: 10px;">
+                                <label class="checkbox-label" style="font-weight: bold;"><input type="checkbox" id="range-select-all" onclick="document.querySelectorAll('.range-type').forEach(cb => cb.checked = this.checked)"> Select All</label>
                             </div>
                             <div class="option-row">
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="bhavcopy_eq"> Equity Bhavcopy</label>
