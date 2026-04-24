@@ -432,22 +432,32 @@ def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
 
     try:
         if is_index:
+            # Map index symbol to historical index data name
+            mapping = {'NIFTY': 'Nifty 50', 'BANKNIFTY': 'Nifty Bank', 'FINNIFTY': 'Nifty Financial Services', 'MIDCPNIFTY': 'NIFTY Midcap 100'}
+            idx_name = mapping.get(symbol, symbol)
             cash_query = text("""
-                SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
-                FROM historical_index_data
-                WHERE index_name = :sym
+                SELECT * FROM (
+                    SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
+                    FROM historical_index_data
+                    WHERE index_name = :sym
+                    ORDER BY trade_date DESC
+                    LIMIT 500
+                ) AS recent_dates
                 ORDER BY trade_date ASC
-                LIMIT 500
             """)
+            cash_results = db.execute(cash_query, {"sym": idx_name}).fetchall()
         else:
             cash_query = text("""
-                SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
-                FROM bhavcopy_eq
-                WHERE ticker_symb = :sym AND series = 'EQ'
+                SELECT * FROM (
+                    SELECT trade_date, open_price, high_price, low_price, close_price, total_traded_qty as volume
+                    FROM bhavcopy_eq
+                    WHERE ticker_symb = :sym AND series = 'EQ'
+                    ORDER BY trade_date DESC
+                    LIMIT 500
+                ) AS recent_dates
                 ORDER BY trade_date ASC
-                LIMIT 500
             """)
-        cash_results = db.execute(cash_query, {"sym": symbol}).fetchall()
+            cash_results = db.execute(cash_query, {"sym": symbol}).fetchall()
     except Exception:
         db.rollback()
         cash_results = []
@@ -461,10 +471,10 @@ def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
                     SELECT DISTINCT ON (trade_date) trade_date, open_price, high_price, low_price, close_price, total_trading_vol as volume
                     FROM bhavcopy_fo
                     WHERE ticker_symb = :sym AND instrument_type IN ('FUTIDX', 'FUTSTK', 'STF', 'IDF')
-                    ORDER BY trade_date ASC, expiry_date ASC
+                    ORDER BY trade_date DESC, expiry_date ASC
+                    LIMIT 500
                 ) AS distinct_dates
                 ORDER BY trade_date ASC
-                LIMIT 500
             """)
             cash_results = db.execute(fo_query, {"sym": symbol}).fetchall()
         except Exception:
@@ -503,42 +513,45 @@ def get_dynamic_chart_data(symbol: str, db: Session = Depends(get_db)):
         df = df.sort_values(['trade_date']).groupby('trade_date').first().reset_index()
         df.set_index('trade_date', inplace=True)
 
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.fillna(0, inplace=True)
+
     # 2. Technical Indicators
     # a. SMA 20 & Bollinger Bands (1, 2, 3 Sigma)
-    df['ma20'] = df['close'].rolling(window=20).mean()
+    df['ma20'] = df['close'].rolling(window=20).mean().round(2)
     df['std20'] = df['close'].rolling(window=20).std()
 
-    df['bb_upper_1'] = df['ma20'] + (df['std20'] * 1)
-    df['bb_lower_1'] = df['ma20'] - (df['std20'] * 1)
-    df['bb_upper_2'] = df['ma20'] + (df['std20'] * 2)
-    df['bb_lower_2'] = df['ma20'] - (df['std20'] * 2)
-    df['bb_upper_3'] = df['ma20'] + (df['std20'] * 3)
-    df['bb_lower_3'] = df['ma20'] - (df['std20'] * 3)
+    df['bb_upper_1'] = (df['ma20'] + (df['std20'] * 1)).round(2)
+    df['bb_lower_1'] = (df['ma20'] - (df['std20'] * 1)).round(2)
+    df['bb_upper_2'] = (df['ma20'] + (df['std20'] * 2)).round(2)
+    df['bb_lower_2'] = (df['ma20'] - (df['std20'] * 2)).round(2)
+    df['bb_upper_3'] = (df['ma20'] + (df['std20'] * 3)).round(2)
+    df['bb_lower_3'] = (df['ma20'] - (df['std20'] * 3)).round(2)
 
     # Donchian Channel
-    df['donchian_upper'] = df['high'].rolling(window=20).max()
-    df['donchian_lower'] = df['low'].rolling(window=20).min()
+    df['donchian_upper'] = df['high'].rolling(window=20).max().round(2)
+    df['donchian_lower'] = df['low'].rolling(window=20).min().round(2)
 
     # ATR
     df['tr0'] = abs(df['high'] - df['low'])
     df['tr1'] = abs(df['high'] - df['close'].shift())
     df['tr2'] = abs(df['low'] - df['close'].shift())
     df['tr'] = df[['tr0', 'tr1', 'tr2']].max(axis=1)
-    df['atr'] = df['tr'].rolling(window=14).mean()
+    df['atr'] = df['tr'].rolling(window=14).mean().round(2)
 
     # b. RSI (14)
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
-    df['rsi_14'] = 100 - (100 / (1 + rs))
+    df['rsi_14'] = (100 - (100 / (1 + rs))).round(2)
 
     # c. MACD (12, 26, 9)
     exp1 = df['close'].ewm(span=12, adjust=False).mean()
     exp2 = df['close'].ewm(span=26, adjust=False).mean()
-    df['macd'] = exp1 - exp2
-    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
-    df['macd_hist'] = df['macd'] - df['macd_signal']
+    df['macd'] = (exp1 - exp2).round(2)
+    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean().round(2)
+    df['macd_hist'] = (df['macd'] - df['macd_signal']).round(2)
 
     # 3. Fetch 500 days of Total Futures OI
     oi_query = text("""

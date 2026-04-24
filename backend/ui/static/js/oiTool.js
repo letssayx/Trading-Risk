@@ -321,6 +321,20 @@ const OiTool = {
 
         this.renderDerivedPanels(baseUniverse);
 
+        // If a specific symbol is searched, show its 30-day history path instead of general scatter
+        if (symbolFilter) {
+            // Find if we have history for this single symbol
+            const singleData = displayData.find(d => d.symbol === symbolFilter);
+            if (singleData && singleData.history && singleData.history.length > 0) {
+                // Re-use renderSingleChart instead of default scatter
+                this.renderSingleChart(document.getElementById('oi-chart-area'), singleData);
+            } else {
+                this.renderAggregatedChart(displayData);
+            }
+        } else {
+            this.renderAggregatedChart(displayData);
+        }
+
 
         // 1. Render Table
         const tbody = document.getElementById('oi-analysis-body');
@@ -332,17 +346,17 @@ const OiTool = {
             let html = '';
             displayData.forEach((d, index) => {
                 let color = '#888';
-                if (d.interpretation === 'Long Build Up') color = '#00bcd4'; // Green
-                if (d.interpretation === 'Short Covering') color = '#00bcd4'; // Blue/Cyan
-                if (d.interpretation === 'Short Build Up') color = '#f44336'; // Red
+                if (d.interpretation === 'Long Build Up') color = '#60a5fa'; // Blue
+                if (d.interpretation === 'Short Covering') color = '#60a5fa'; // Blue
+                if (d.interpretation === 'Short Build Up') color = '#ff4d4d'; // Red
                 if (d.interpretation === 'Long Unwinding') color = '#ff9800'; // Orange
 
-                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let pColor = d.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
+                let oColor = d.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
 
-                let futOColor = (d.fut_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
-                let callOColor = (d.call_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
-                let putOColor = (d.put_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+                let futOColor = (d.fut_oi_chg_pct || 0) >= 0 ? '#60a5fa' : '#ff4d4d';
+                let callOColor = (d.call_oi_chg_pct || 0) >= 0 ? '#60a5fa' : '#ff4d4d';
+                let putOColor = (d.put_oi_chg_pct || 0) >= 0 ? '#60a5fa' : '#ff4d4d';
 
                 // Use backend raw changes if available, else fallback to math
                 const baseFutOi = d.fut_oi !== undefined ? d.fut_oi : d.oi || 0;
@@ -378,12 +392,12 @@ const OiTool = {
                     const daysFilter = document.getElementById('oi-days-filter');
                     const days = daysFilter ? parseInt(daysFilter.value, 10) : 30;
                     d.history.slice(1, days).forEach(h => {
-                        let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hpColor = h.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
+                        let hoColor = h.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                         // Matching exact columns: [Icon, Symbol/Date, Sector, FUT Price, Price Chg %, OI, OI Chg %, Total OI, PCR, ATM IV, Quadrant]
-                        let futOColor = (h.fut_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
-                        let callOColor = (h.call_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
-                        let putOColor = (h.put_oi_chg_pct || 0) >= 0 ? '#00bcd4' : '#f44336';
+                        let futOColor = (h.fut_oi_chg_pct || 0) >= 0 ? '#60a5fa' : '#ff4d4d';
+                        let callOColor = (h.call_oi_chg_pct || 0) >= 0 ? '#60a5fa' : '#ff4d4d';
+                        let putOColor = (h.put_oi_chg_pct || 0) >= 0 ? '#60a5fa' : '#ff4d4d';
                         let baseFutOiH = h.fut_oi !== undefined ? h.fut_oi : h.oi || 0;
 
                         html += `<tr class="oi-history-row-${d.symbol}" style="background: #151515; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
@@ -412,8 +426,6 @@ const OiTool = {
             tbody.innerHTML = html;
         }
 
-        // 2. Render Scatter Plot
-        this.renderAggregatedChart(displayData);
     },
 
     renderDerivedPanels: function(universe) {
@@ -440,8 +452,8 @@ const OiTool = {
                 <tbody>`;
 
             dataSubset.forEach(d => {
-                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let oColor = d.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
+                let pColor = d.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
                     <td style="padding: 4px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
@@ -476,9 +488,9 @@ const OiTool = {
         const y = data.map(d => d.price_chg_pct);
         const text = data.map(d => d.symbol);
         const color = data.map(d => {
-            if (d.interpretation === 'Long Build Up') return '#00bcd4'; // Green
-            if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
-            if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
+            if (d.interpretation === 'Long Build Up') return '#60a5fa'; // Blue
+            if (d.interpretation === 'Short Covering') return '#60a5fa'; // Blue
+            if (d.interpretation === 'Short Build Up') return '#ff4d4d'; // Red
             if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
             return '#888';
         });
@@ -530,10 +542,10 @@ const OiTool = {
                 range: [-zoomRangeY, zoomRangeY]
             },
             annotations: [
-                { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
-                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#00bcd4', size: 16} },
+                { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#60a5fa', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#60a5fa', size: 16} },
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
-                { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
+                { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#ff4d4d', size: 16} }
             ],
             dragmode: 'zoom'
         };
@@ -613,9 +625,9 @@ const OiTool = {
         const y = history.map(d => d.price_chg_pct);
         const text = history.map(d => `${d.time}<br>${d.interpretation}`);
         const color = history.map(d => {
-            if (d.interpretation === 'Long Build Up') return '#00bcd4'; // Green
-            if (d.interpretation === 'Short Covering') return '#00bcd4'; // Blue/Cyan
-            if (d.interpretation === 'Short Build Up') return '#f44336'; // Red
+            if (d.interpretation === 'Long Build Up') return '#60a5fa'; // Blue
+            if (d.interpretation === 'Short Covering') return '#60a5fa'; // Blue
+            if (d.interpretation === 'Short Build Up') return '#ff4d4d'; // Red
             if (d.interpretation === 'Long Unwinding') return '#ff9800'; // Orange
             return '#888';
         });
@@ -675,10 +687,10 @@ const OiTool = {
                 gridcolor: '#333'
             },
             annotations: [
-                { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#00bcd4', size: 16} },
-                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#00bcd4', size: 16} },
+                { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#60a5fa', size: 16} },
+                { x: 0.95, y: 0.95, xref: 'paper', yref: 'paper', text: 'Long Build Up', showarrow: false, font: {color: '#60a5fa', size: 16} },
                 { x: 0.05, y: 0.05, xref: 'paper', yref: 'paper', text: 'Long Unwinding', showarrow: false, font: {color: '#ff9800', size: 16} },
-                { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#f44336', size: 16} }
+                { x: 0.95, y: 0.05, xref: 'paper', yref: 'paper', text: 'Short Build Up', showarrow: false, font: {color: '#ff4d4d', size: 16} }
             ]
         };
 

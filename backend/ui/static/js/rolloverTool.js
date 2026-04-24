@@ -218,10 +218,10 @@ const RolloverTool = {
         } else {
             let html = '';
             displayData.forEach(d => {
-                let costColor = d.rollover_cost >= 0 ? '#00bcd4' : '#f44336';
-                let rollColor = d.rollover_pct >= 80 ? '#00bcd4' : '#ccc';
-                let pColor = d.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                let oColor = d.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                let costColor = d.rollover_cost >= 0 ? '#60a5fa' : '#ff4d4d';
+                let rollColor = d.rollover_pct >= 80 ? '#60a5fa' : '#ccc';
+                let pColor = d.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
+                let oColor = d.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
 
                 html += `
                 <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
@@ -239,10 +239,10 @@ const RolloverTool = {
 
                 if (d.history && d.history.length > 1) {
                     d.history.slice(1, 7).forEach((h, idx) => {
-                        let hpColor = h.price_chg_pct >= 0 ? '#00bcd4' : '#f44336';
-                        let hoColor = h.oi_chg_pct >= 0 ? '#00bcd4' : '#f44336';
+                        let hpColor = h.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
+                        let hoColor = h.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                         let rowBg = '#151515';
-                        let hCostColor = h.rollover_cost >= 0 ? '#00bcd4' : '#f44336';
+                        let hCostColor = h.rollover_cost >= 0 ? '#60a5fa' : '#ff4d4d';
                         // Matching exact columns: [Icon, Symbol/Date, Rollover %, Spread, Cost %, FUT Price, Price Chg %, Total OI, OI Chg %]
                         html += `<tr class="roll-history-row-${d.symbol}" style="background: ${rowBg}; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
@@ -252,9 +252,9 @@ const RolloverTool = {
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
-                            <td style="padding: 6px 8px; color: ${hpColor}">${(h.price_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: ${hpColor};">${(h.price_chg_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px;">${(h.oi || 0).toLocaleString()}</td>
-                            <td style="padding: 6px 8px; color: ${hoColor}">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: ${hoColor};">${(h.oi_chg_pct || 0).toFixed(2)}%</td>
                         </tr>`;
                     });
                 }
@@ -462,11 +462,11 @@ const RolloverTool = {
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px;">
                     <div>
                         <div style="font-size: 0.9em; color: #888;">Rollover %</div>
-                        <div style="font-size: 1.5em; color: #00bcd4; font-weight: bold;">${data.rollover_pct}%</div>
+                        <div style="font-size: 1.5em; color: #60a5fa; font-weight: bold;">${data.rollover_pct}%</div>
                     </div>
                     <div>
                         <div style="font-size: 0.9em; color: #888;">Rollover Cost (Spread)</div>
-                        <div style="font-size: 1.5em; color: ${data.rollover_cost >= 0 ? '#00bcd4' : '#f44336'};">${data.rollover_cost} (${data.rollover_cost_pct}%)</div>
+                        <div style="font-size: 1.5em; color: ${data.rollover_cost >= 0 ? '#60a5fa' : '#ff4d4d'};">${data.rollover_cost} (${data.rollover_cost_pct}%)</div>
                     </div>
                 </div>
 
