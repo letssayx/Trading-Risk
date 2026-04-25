@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter
+from bs4 import BeautifulSoup
+import requests
+import yfinance as yf
+, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, defer
 from sqlalchemy import desc, asc, or_, func
@@ -128,10 +132,67 @@ def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depen
 
 @router.get("/api/data/shareholding")
 def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
-    """Fetch live shareholding pattern data from Yahoo Finance."""
+    """Fetch live shareholding pattern data from Screener (fallback to Yahoo Finance)."""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
     try:
+        from bs4 import BeautifulSoup
+        import requests
         import yfinance as yf
 
+        # Try screener first
+        res = requests.get(f"https://www.screener.in/company/{symbol.upper()}/consolidated/", headers=headers, timeout=10)
+        if res.status_code != 200:
+            res = requests.get(f"https://www.screener.in/company/{symbol.upper()}/", headers=headers, timeout=10)
+
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            sh_table = soup.find('section', id='shareholding')
+            if sh_table:
+                promoter_pct = 0
+                fii_pct = 0
+                dii_pct = 0
+                public_pct = 0
+                rows = sh_table.find_all('tr')
+                for row in rows:
+                    tds = row.find_all('td')
+                    if len(tds) >= 2:
+                        label = tds[0].text.strip().lower()
+                        val_str = tds[-1].text.strip().replace('%', '')
+                        try:
+                            val = float(val_str)
+                        except ValueError:
+                            continue
+
+                        if 'promoter' in label:
+                            promoter_pct = val
+                        elif 'fii' in label:
+                            fii_pct = val
+                        elif 'dii' in label:
+                            dii_pct = val
+                        elif 'public' in label:
+                            public_pct = val
+
+                # Fetch total outstanding shares from YFinance as a fallback for total shares
+                try:
+                    ticker = yf.Ticker(f"{symbol.upper()}.NS")
+                    info = ticker.info
+                    total_shares = info.get('sharesOutstanding', 0)
+                except Exception:
+                    total_shares = 0
+
+                if total_shares > 0:
+                    return {
+                        "symbol": symbol,
+                        "total_outstanding": total_shares,
+                        "promoter_holding": (promoter_pct / 100.0) * total_shares,
+                        "fii_holding": (fii_pct / 100.0) * total_shares,
+                        "dii_holding": (dii_pct / 100.0) * total_shares,
+                        "retail_holding": (public_pct / 100.0) * total_shares
+                    }
+
+        # Fallback to yfinance
         ticker = yf.Ticker(f"{symbol.upper()}.NS")
         info = ticker.info
 

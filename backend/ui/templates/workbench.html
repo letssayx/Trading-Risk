@@ -2499,7 +2499,7 @@
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">No. of lots (Bid):</label>
-                                <input type="number" id="ofs-num-lots" class="history-input" value="3.33" oninput="calculateOFS()" step="0.01" style="width: 140px;">
+                                <input type="number" id="ofs-num-lots" class="history-input" value="0" readonly style="width: 140px; background: #333;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Cost of Funds %:</label>
@@ -2530,9 +2530,7 @@
                             <h4 style="color: #60a5fa; margin-bottom: 5px;">Net Outcomes</h4>
                             <table class="data-table" style="width: 100%;">
                                 <tbody>
-                                    <tr><td style="color:#aaa;">Reversal price</td><td id="ofs-res-reversal" style="color: #ff4d4d; font-weight: bold;">-</td></tr>
-                                    <tr><td style="color:#aaa;">Futures Lot size (risk)</td><td id="ofs-res-risk-lots" style="color: #ff4d4d;">-</td></tr>
-                                    <tr><td style="color:#aaa;">Futures Lot size (risk) %</td><td id="ofs-res-risk-pct" style="color: #ff4d4d;">-</td></tr>
+
                                     <tr><td style="color:#aaa;">Net Arbitrage %</td><td id="ofs-res-net-arb" style="color: #fff; font-weight: bold;">-</td></tr>
                                 </tbody>
                             </table>
@@ -2767,22 +2765,83 @@
                     }
                 }
 
-                function calculateOFS() {
+                                function calculateOFS() {
+                    const totalSupply = parseFloat(document.getElementById('ofs-total-supply').value) || 0;
                     const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
                     const floor = parseFloat(document.getElementById('ofs-floor').value) || 0;
                     const bid = parseFloat(document.getElementById('ofs-bid').value) || 0;
                     const fut = parseFloat(document.getElementById('ofs-future').value) || 0;
 
                     const lotSize = parseFloat(document.getElementById('ofs-lot').value) || 0;
-                    const numLots = parseFloat(document.getElementById('ofs-num-lots').value) || 0;
+                    const cof = parseFloat(document.getElementById('ofs-cof').value) || 0;
+                    const impact = parseFloat(document.getElementById('ofs-impact').value) || 0;
+                    const stt = parseFloat(document.getElementById('ofs-stt').value) || 0;
 
-                    const totalShares = lotSize * numLots;
-                    const investment = totalShares * bid;
+                    let remainingSupply = totalSupply;
+                    let targetAllotmentPct = 0;
+                    let targetSharesAllotted = 0;
 
-                    if (totalShares > 0 && bid > 0) {
-                        const expectedProfit = (fut - bid) * totalShares;
-                        document.getElementById('ofs-gross-spread').innerText = expectedProfit >= 0 ? "+" + expectedProfit.toFixed(2) : expectedProfit.toFixed(2);
+                    for (let i = 1; i <= 3; i++) {
+                        const pInput = document.getElementById('ofs-bid-p' + i);
+                        const qInput = document.getElementById('ofs-bid-q' + i);
+                        const cInput = document.getElementById('ofs-bid-c' + i);
+
+                        if (!pInput || !qInput || !cInput) continue;
+
+                        const p = parseFloat(pInput.value) || 0;
+                        const q = parseFloat(qInput.value) || 0;
+                        const c = parseFloat(cInput.value) || 0;
+
+                        let allotmentPct = 0;
+                        if (c > 0 && remainingSupply > 0) {
+                            allotmentPct = remainingSupply / c;
+                        }
+
+                        if (allotmentPct > 1) allotmentPct = 1;
+                        if (allotmentPct < 0) allotmentPct = 0;
+
+                        remainingSupply -= c;
+
+                        const sharesAllotted = Math.floor(q * allotmentPct);
+
+                        const aCell = document.getElementById('ofs-bid-a' + i);
+                        const sCell = document.getElementById('ofs-bid-s' + i);
+
+                        if (aCell) aCell.innerText = (allotmentPct * 100).toFixed(2) + '%';
+                        if (sCell) sCell.innerText = sharesAllotted.toLocaleString();
+
+                        // Highlight row if price matches bid
+                        if (Math.abs(p - bid) < 0.01) {
+                            aCell.style.backgroundColor = '#5a4b10';
+                            targetAllotmentPct = allotmentPct;
+                            targetSharesAllotted = sharesAllotted;
+                        } else {
+                            aCell.style.backgroundColor = 'transparent';
+                        }
                     }
+
+                    // Top calculations
+                    const grossSpread = fut - bid;
+                    const arbPct = bid > 0 ? (grossSpread / bid) * 100 : 0;
+                    const netArbPct = arbPct - (cof + impact + stt);
+
+                    const numLots = lotSize > 0 ? Math.floor(targetSharesAllotted / lotSize) : 0;
+                    document.getElementById('ofs-num-lots').value = numLots;
+
+
+
+                    document.getElementById('ofs-res-gross').innerText = grossSpread.toFixed(2);
+                    document.getElementById('ofs-res-gross').style.color = grossSpread >= 0 ? '#28a745' : '#dc3545';
+
+                    document.getElementById('ofs-res-arb-pct').innerText = arbPct.toFixed(2) + '%';
+
+                    document.getElementById('ofs-res-shares').innerText = targetSharesAllotted.toLocaleString();
+
+
+
+
+                    document.getElementById('ofs-res-net-arb').innerText = netArbPct.toFixed(2) + '%';
+                    document.getElementById('ofs-res-net-arb').style.color = netArbPct >= 0 ? '#28a745' : '#dc3545';
                 }
 
                 function calculateOFSShares() {
