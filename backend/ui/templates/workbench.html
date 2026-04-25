@@ -2449,7 +2449,7 @@
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Total OFS Offer:</label>
-                                <input type="number" id="ofs-total-supply" class="history-input" value="10000000" oninput="calculateOFS()" style="width: 140px;">
+                                <input type="number" id="ofs-total-supply" class="history-input" value="10000000" oninput="calculateOFSShares(); calculateOFS()" style="width: 140px;">
                             </div>
                         </div>
 
@@ -2468,15 +2468,15 @@
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">CMP (Pre-OFS):</label>
-                                <input type="number" id="ofs-cmp" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                                <input type="number" id="ofs-cmp" class="history-input" value="108.00" oninput="calculateOFSShares(); calculateOFS()" step="0.1" style="width: 140px;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Floor Price:</label>
-                                <input type="number" id="ofs-floor" class="history-input" value="100.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                                <input type="number" id="ofs-floor" class="history-input" value="100.00" oninput="calculateOFSShares(); calculateOFS()" step="0.1" style="width: 140px;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Bid Price / Cut-off:</label>
-                                <input type="number" id="ofs-bid" class="history-input" value="105.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                                <input type="number" id="ofs-bid" class="history-input" value="105.00" oninput="calculateOFSShares(); calculateOFS()" step="0.1" style="width: 140px;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Select Future:</label>
@@ -2489,13 +2489,13 @@
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Hedge Entry (Short):</label>
                                 <div style="display: flex; flex-direction: column; width: 140px;">
-                                    <input type="number" id="ofs-future" class="history-input" value="108.00" oninput="calculateOFS()" step="0.1" style="width: 100%;">
+                                    <input type="number" id="ofs-future" class="history-input" value="108.00" oninput="calculateOFSShares(); calculateOFS()" step="0.1" style="width: 100%;">
                                     <span id="ofs-future-expiry" style="font-size: 10px; color: #888; margin-top: 2px;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Futures Lot size:</label>
-                                <input type="number" id="ofs-lot" class="history-input" value="1000" oninput="calculateOFS()" style="width: 140px;">
+                                <input type="number" id="ofs-lot" class="history-input" value="1000" oninput="calculateOFSShares(); calculateOFS()" style="width: 140px;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">No. of lots (Bid):</label>
@@ -2503,15 +2503,15 @@
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Cost of Funds %:</label>
-                                <input type="number" id="ofs-cof" class="history-input" value="1.00" oninput="calculateOFS()" step="0.1" style="width: 140px;">
+                                <input type="number" id="ofs-cof" class="history-input" value="1.00" oninput="calculateOFSShares(); calculateOFS()" step="0.1" style="width: 140px;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">Impact Cost %:</label>
-                                <input type="number" id="ofs-impact" class="history-input" value="0.10" oninput="calculateOFS()" step="0.01" style="width: 140px;">
+                                <input type="number" id="ofs-impact" class="history-input" value="0.10" oninput="calculateOFSShares(); calculateOFS()" step="0.01" style="width: 140px;">
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 120px; display: inline-block;">STT+others %:</label>
-                                <input type="number" id="ofs-stt" class="history-input" value="0.30" oninput="calculateOFS()" step="0.01" style="width: 140px;">
+                                <input type="number" id="ofs-stt" class="history-input" value="0.30" oninput="calculateOFSShares(); calculateOFS()" step="0.01" style="width: 140px;">
                             </div>
                         </div>
 
@@ -2550,23 +2550,23 @@
                                     <tbody id="ofs-bid-matrix-body">
                                         <!-- Computed via JS -->
                                         <tr>
-                                            <td><input type="number" id="ofs-bid-p1" class="history-input" style="width: 70px;" value="105.00" oninput="calculateOFS()"></td>
-                                            <td><input type="number" id="ofs-bid-q1" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFS()"></td>
-                                            <td><input type="number" id="ofs-bid-c1" class="history-input" style="width: 100px;" value="12000000" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-p1" class="history-input" style="width: 70px;" value="105.00" oninput="calculateOFSShares(); calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-q1" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFSShares(); calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-c1" class="history-input" style="width: 100px;" value="12000000" oninput="calculateOFSShares(); calculateOFS()"></td>
                                             <td id="ofs-bid-a1" style="background-color: #5a4b10; font-weight: bold; color: #fff; text-align: center;">-</td>
                                             <td id="ofs-bid-s1" style="text-align: center;">-</td>
                                         </tr>
                                         <tr>
-                                            <td><input type="number" id="ofs-bid-p2" class="history-input" style="width: 70px;" value="104.00" oninput="calculateOFS()"></td>
-                                            <td><input type="number" id="ofs-bid-q2" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFS()"></td>
-                                            <td><input type="number" id="ofs-bid-c2" class="history-input" style="width: 100px;" value="5000000" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-p2" class="history-input" style="width: 70px;" value="104.00" oninput="calculateOFSShares(); calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-q2" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFSShares(); calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-c2" class="history-input" style="width: 100px;" value="5000000" oninput="calculateOFSShares(); calculateOFS()"></td>
                                             <td id="ofs-bid-a2" style="text-align: center;">-</td>
                                             <td id="ofs-bid-s2" style="text-align: center;">-</td>
                                         </tr>
                                         <tr>
-                                            <td><input type="number" id="ofs-bid-p3" class="history-input" style="width: 70px;" value="103.00" oninput="calculateOFS()"></td>
-                                            <td><input type="number" id="ofs-bid-q3" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFS()"></td>
-                                            <td><input type="number" id="ofs-bid-c3" class="history-input" style="width: 100px;" value="10000000" oninput="calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-p3" class="history-input" style="width: 70px;" value="103.00" oninput="calculateOFSShares(); calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-q3" class="history-input" style="width: 80px;" value="40000" oninput="calculateOFSShares(); calculateOFS()"></td>
+                                            <td><input type="number" id="ofs-bid-c3" class="history-input" style="width: 100px;" value="10000000" oninput="calculateOFSShares(); calculateOFS()"></td>
                                             <td id="ofs-bid-a3" style="text-align: center;">-</td>
                                             <td id="ofs-bid-s3" style="text-align: center;">-</td>
                                         </tr>
@@ -2652,7 +2652,7 @@
                     }
                 }
 
-                async function fetchShareholding(prefix = 'bb') {
+                                async function fetchShareholding(prefix = 'bb') {
                     const symbol = document.getElementById(`${prefix}-symbol-input`).value.toUpperCase();
                     if (!symbol) {
                         alert("Please enter a symbol first.");
@@ -2666,115 +2666,154 @@
 
                     try {
                         const res = await fetch(`/api/data/shareholding?symbol=${symbol}`);
-                        if (!res.ok) throw new Error('Failed to fetch');
+                        if (!res.ok) throw new Error('Failed to fetch from backend');
                         const data = await res.json();
 
-                        document.getElementById(`${prefix}-promoter-holding`).value = data.promoter_holding;
-                        document.getElementById(`${prefix}-fii`).value = data.fii_holding;
-                        document.getElementById(`${prefix}-dii`).value = data.dii_holding;
+                        document.getElementById(`${prefix}-promoter-holding`).value = Math.floor(data.promoter_holding || 0);
+                        document.getElementById(`${prefix}-fii`).value = Math.floor(data.fii_holding || 0);
+                        document.getElementById(`${prefix}-dii`).value = Math.floor(data.dii_holding || 0);
 
-                        // Retail/Public logic. Depending on the tab, the inputs are slightly different
+                        const retailHolding = data.retail_holding || data.public_holding || 0;
+
                         if (prefix === 'bb') {
-                            // Split public roughly to match screenshots if needed or put all in one.
-                            document.getElementById('bb-retail').value = Math.floor(data.public_holding * 0.7);
-                            document.getElementById('bb-public-high').value = Math.floor(data.public_holding * 0.3);
+                            document.getElementById('bb-retail').value = Math.floor(retailHolding * 0.7);
+                            document.getElementById('bb-public-high').value = Math.floor(retailHolding * 0.3);
                         } else if (prefix === 'ofs') {
-                            document.getElementById('ofs-retail').value = data.public_holding;
+                            document.getElementById('ofs-retail').value = Math.floor(retailHolding);
                         }
 
                         const badge = document.getElementById(`${prefix}-verify-status`);
-                        badge.innerText = `Verified 100% (${data.date_updated})`;
-                        badge.style.background = '#28a745';
-                        badge.style.color = '#fff';
+                        if (badge) {
+                            badge.innerText = 'Verified 100% (Screener/YF)';
+                            badge.className = 'status-badge verified';
+                        }
 
+                        // Recalculate
                         if (prefix === 'bb') calculateBuyBack();
-                        else if (prefix === 'ofs') calculateOFSShares();
+                        else if (prefix === 'ofs') {
+                            calculateOFSShares();
+                            calculateOFS();
+                        }
                     } catch (e) {
-                        alert("Error fetching shareholding pattern.");
+                        console.error(e);
+                        alert("Error fetching shareholding pattern: " + e.message);
                     } finally {
                         btn.innerHTML = origHtml;
                         btn.disabled = false;
                     }
                 }
 
-                                function calculateBuyBack() {
+                function calculateBuyBack() {
                     const prom = parseFloat(document.getElementById('bb-promoter-holding').value) || 0;
                     const fii = parseFloat(document.getElementById('bb-fii').value) || 0;
                     const dii = parseFloat(document.getElementById('bb-dii').value) || 0;
                     const retail = parseFloat(document.getElementById('bb-retail').value) || 0;
                     const publicHigh = parseFloat(document.getElementById('bb-public-high').value) || 0;
                     const totalOut = prom + fii + dii + retail + publicHigh;
+
                     document.getElementById('bb-total-outstanding').innerText = totalOut > 0 ? totalOut.toLocaleString() : '-';
+
                     if (totalOut > 0) {
                         const promPct = prom / totalOut;
-                        document.getElementById('bb-promoter-pct').innerText = (promPct * 100).toFixed(2) + '%';
-                        document.getElementById('bb-fii-pct').innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
-                        document.getElementById('bb-dii-pct').innerText = ((dii / totalOut) * 100).toFixed(2) + '%';
-                        document.getElementById('bb-retail-pct').innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
-                        document.getElementById('bb-pubhigh-pct').innerText = ((publicHigh / totalOut) * 100).toFixed(2) + '%';
-                        const bbOffer = parseFloat(document.getElementById('bb-offer').value) || 0;
-                        const bbPrice = parseFloat(document.getElementById('bb-price').value) || 0;
-                        const bbCmp = parseFloat(document.getElementById('bb-cmp').value) || 0;
-                        const bbFuture = parseFloat(document.getElementById('bb-future').value) || 0;
-                        const participates = document.getElementById('bb-promoter-participates').checked;
-                        let postBuybackPromoterPct = 0;
-                        if (totalOut - bbOffer > 0) {
-                            if (participates) {
-                                postBuybackPromoterPct = (prom - (bbOffer * promPct)) / (totalOut - bbOffer);
-                            } else {
-                                postBuybackPromoterPct = prom / (totalOut - bbOffer);
-                            }
-                        }
+                        const pProm = document.getElementById('bb-promoter-pct');
+                        if (pProm) pProm.innerText = (promPct * 100).toFixed(2) + '%';
+                        const pFii = document.getElementById('bb-fii-pct');
+                        if (pFii) pFii.innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
+                        const pDii = document.getElementById('bb-dii-pct');
+                        if (pDii) pDii.innerText = ((dii / totalOut) * 100).toFixed(2) + '%';
+                        const pRet = document.getElementById('bb-retail-pct');
+                        if (pRet) pRet.innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
+                        const pPub = document.getElementById('bb-pubhigh-pct');
+                        if (pPub) pPub.innerText = ((publicHigh / totalOut) * 100).toFixed(2) + '%';
+                    }
 
+                    const bbOffer = parseFloat(document.getElementById('bb-offer').value) || 0;
+                    const bbPrice = parseFloat(document.getElementById('bb-price').value) || 0;
+                    const bbCmp = parseFloat(document.getElementById('bb-cmp').value) || 0;
+                    const bbFuture = parseFloat(document.getElementById('bb-future').value) || 0;
+                    const participates = document.getElementById('bb-promoter-participates').checked;
+
+                    if (totalOut > 0) {
                         const resRetailPct = parseFloat(document.getElementById('bb-reserved-pct').value) || 15;
-                        const reservedShares = bbOffer * (resRetailPct / 100);
-                        const nonReservedShares = bbOffer - reservedShares;
-                        document.getElementById('bb-reserved-shares').innerText = reservedShares.toLocaleString();
-                        document.getElementById('bb-nonreserved-shares').innerText = nonReservedShares.toLocaleString();
+                        const resRetail = Math.floor(bbOffer * (resRetailPct / 100));
+                        const pubOffer = bbOffer - resRetail;
+
+                        document.getElementById('bb-res-retail').innerText = resRetail.toLocaleString() + ` (${resRetailPct}%)`;
+                        document.getElementById('bb-pub-offer').innerText = pubOffer.toLocaleString() + ` (${100 - resRetailPct}%)`;
+
                         const retailDemand = retail;
                         const nonRetailDemand = participates ? (prom + fii + dii + publicHigh) : (fii + dii + publicHigh);
-                        document.getElementById('bb-res-demand').innerText = retailDemand.toLocaleString();
-                        document.getElementById('bb-nonres-demand').innerText = nonRetailDemand.toLocaleString();
-                        const expectedRetailTender = parseFloat(document.getElementById('bb-retail-tender').value) || 100;
-                        const expectedNonRetailTender = parseFloat(document.getElementById('bb-nonretail-tender').value) || 100;
-                        const tenderedRetail = retailDemand * (expectedRetailTender / 100);
-                        const tenderedNonRetail = nonRetailDemand * (expectedNonRetailTender / 100);
-                        const retailER = tenderedRetail > 0 ? (reservedShares / tenderedRetail) * 100 : 0;
-                        const nonRetailER = tenderedNonRetail > 0 ? (nonReservedShares / tenderedNonRetail) * 100 : 0;
-                        const finalRetailER = Math.min(retailER, 100);
-                        const finalNonRetailER = Math.min(nonRetailER, 100);
-                        document.getElementById('bb-retail-er').innerText = finalRetailER.toFixed(2) + '%';
-                        document.getElementById('bb-nonretail-er').innerText = finalNonRetailER.toFixed(2) + '%';
 
+                        const scenarios = [1.0, 0.9, 0.8]; // 100%, 90%, 80% participation
+
+                        // Acc Ratio = (Offer / Tendered) * 100
                         const lotSize = parseFloat(document.getElementById('bb-lot').value) || 0;
-                        if (lotSize > 0 && bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
-                            // Profit per share is Buyback Price - Future Price (not CMP, since we hedge)
-                            const profitPerShare = bbPrice - bbFuture;
-                            document.getElementById('bb-profit-ps').innerText = profitPerShare.toFixed(2);
 
-                            // Equity Profit = Total Accepted Shares * Profit per Share
-                            const totalAcceptedShares = lotSize * (finalNonRetailER / 100);
-                            const eqProfit = totalAcceptedShares * profitPerShare;
+                        scenarios.forEach((partRate, index) => {
+                            const multiplier = partRate;
+                            let idxStr = '';
+                            if (index === 0) idxStr = '100';
+                            else if (index === 1) idxStr = '90';
+                            else if (index === 2) idxStr = '80';
+
+                            const tenderedRetail = retailDemand * multiplier;
+                            const tenderedNonRetail = nonRetailDemand * multiplier;
+
+                            let arRetail = tenderedRetail > 0 ? (resRetail / tenderedRetail) : 0;
+                            let arNonRetail = tenderedNonRetail > 0 ? (pubOffer / tenderedNonRetail) : 0;
+
+                            if (arRetail > 1) arRetail = 1;
+                            if (arNonRetail > 1) arNonRetail = 1;
+
+                            const pArNon = document.getElementById(`bb-ar-nonretail-${idxStr}`);
+                            if (pArNon) pArNon.innerText = (arNonRetail * 100).toFixed(2) + '%';
+
+                            // For profit/share: = (AR * BB Price) + ((1 - AR) * Future Price) - CMP
+                            if (bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
+                                const profitPerShareNonRet = (arNonRetail * bbPrice) + ((1 - arNonRetail) * bbFuture) - bbCmp;
+                                const pPsNon = document.getElementById(`bb-ps-nonretail-${idxStr}`);
+                                if (pPsNon) pPsNon.innerText = '₹' + profitPerShareNonRet.toFixed(2);
+                            } else {
+                                const pPsNon = document.getElementById(`bb-ps-nonretail-${idxStr}`);
+                                if (pPsNon) pPsNon.innerText = '-';
+                            }
+
+                            // For retail we only display 100% participation row typically, but let's map it if needed or just use the 100% one
+                            if (index === 0) {
+                                document.getElementById('bb-ar-retail').innerText = (arRetail * 100).toFixed(2) + '%';
+                                if (bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
+                                    const profitPerShareRet = (arRetail * bbPrice) + ((1 - arRetail) * bbFuture) - bbCmp;
+                                    document.getElementById('bb-ps-retail').innerText = '₹' + profitPerShareRet.toFixed(2);
+                                } else {
+                                    document.getElementById('bb-ps-retail').innerText = '-';
+                                }
+                            }
+                        });
+
+                        // Arbitrage Scenario logic (taking 100% participation non-retail as base)
+                        if (lotSize > 0 && bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
+                            const tenderedNonRetail = nonRetailDemand * 1.0;
+                            let arNonRetail = tenderedNonRetail > 0 ? (pubOffer / tenderedNonRetail) : 0;
+                            if (arNonRetail > 1) arNonRetail = 1;
+
+                            const profitPerShareNonRet = (arNonRetail * bbPrice) + ((1 - arNonRetail) * bbFuture) - bbCmp;
+                            const totalAcceptedShares = Math.floor(lotSize * arNonRetail);
+
+                            const eqProfit = totalAcceptedShares * (bbPrice - bbCmp);
                             document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
 
-                            // Future Risk/Loss = Difference between CMP and Future (Basis risk) on unaccepted shares
                             const basis = bbCmp - bbFuture;
-                            // Loss is incurred on the shares we bought in cash but didn't get accepted,
-                            // AND we still hold the short future against them.
-                            // However, standard arb math usually books the basis loss upfront on the whole lot
                             const futLoss = basis * lotSize;
                             document.getElementById('bb-fut-loss').innerText = futLoss.toFixed(2);
 
-                            // Net Profit
                             const netProfit = eqProfit - futLoss;
                             document.getElementById('bb-net-profit').innerText = netProfit.toFixed(2);
 
-                            // Absolute Return % = (Net Profit / Capital Deployed)
                             const absReturn = (netProfit / (lotSize * bbCmp)) * 100;
                             document.getElementById('bb-net-pct').innerText = absReturn.toFixed(2) + '%';
                             document.getElementById('bb-net-pct').style.color = absReturn >= 0 ? '#28a745' : '#dc3545';
+                            document.getElementById('bb-net-profit').style.color = netProfit >= 0 ? '#28a745' : '#dc3545';
                         } else {
-                            document.getElementById('bb-profit-ps').innerText = '-';
                             document.getElementById('bb-eq-profit').innerText = '-';
                             document.getElementById('bb-fut-loss').innerText = '-';
                             document.getElementById('bb-net-profit').innerText = '-';
@@ -2783,7 +2822,8 @@
                     }
                 }
 
-                function calculateOFS() {
+                // Delete the old implementation if we are replacing it
+function calculateOFS() {
                     const totalSupply = parseFloat(document.getElementById('ofs-total-supply').value) || 0;
                     const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
                     const floor = parseFloat(document.getElementById('ofs-floor').value) || 0;
@@ -2862,7 +2902,7 @@
                     document.getElementById('ofs-res-net-arb').style.color = netArbPct >= 0 ? '#28a745' : '#dc3545';
                 }
 
-                function calculateOFSShares() {
+                                function calculateOFSShares() {
                     const prom = parseFloat(document.getElementById('ofs-promoter-holding').value) || 0;
                     const fii = parseFloat(document.getElementById('ofs-fii').value) || 0;
                     const dii = parseFloat(document.getElementById('ofs-dii').value) || 0;
@@ -2872,10 +2912,14 @@
                     document.getElementById('ofs-total-outstanding').innerText = totalOut > 0 ? totalOut.toLocaleString() : '-';
 
                     if (totalOut > 0) {
-                        document.getElementById('ofs-promoter-pct').innerText = ((prom / totalOut) * 100).toFixed(2) + '%';
-                        document.getElementById('ofs-fii-pct').innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
-                        document.getElementById('ofs-dii-pct').innerText = ((dii / totalOut) * 100).toFixed(2) + '%';
-                        document.getElementById('ofs-retail-pct').innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
+                        const pProm = document.getElementById('ofs-promoter-pct');
+                        if (pProm) pProm.innerText = ((prom / totalOut) * 100).toFixed(2) + '%';
+                        const pFii = document.getElementById('ofs-fii-pct');
+                        if (pFii) pFii.innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
+                        const pDii = document.getElementById('ofs-dii-pct');
+                        if (pDii) pDii.innerText = ((dii / totalOut) * 100).toFixed(2) + '%';
+                        const pRet = document.getElementById('ofs-retail-pct');
+                        if (pRet) pRet.innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
                     }
                 }
             </script>
@@ -2883,175 +2927,126 @@
 
 
         <!-- TAB FUNDAMENTAL ANALYSIS -->
-        <div id="tab-fundamentals" class="main-tab-content" >
-            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto;">
+        <div id="tab-fundamentals" class="main-tab-content">
+            <div style="padding: 20px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; overflow-y: auto;">
 
-                <!-- Header / Controls -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; background: #252526; padding: 15px; border-radius: 4px; border: 1px solid #333;">
-                    <div style="display: flex; gap: 15px; align-items: center;">
+                <!-- Header & Controls -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
                         <h2 style="margin: 0; color: #fff; font-size: 20px;">Fundamental Analysis</h2>
-                        <input type="text" id="fa-symbol-input" class="history-input" placeholder="Search Symbol..." style="width: 200px;">
-                        <button class="btn btn-primary" onclick="loadFundamentalData()"><i class="fas fa-search"></i> Analyze</button>
+                        <p style="margin: 5px 0 0 0; color: #888; font-size: 13px;">In-depth financial metrics, ratios, and valuation models</p>
                     </div>
-                    <div style="display: flex; gap: 10px;">
-                            <button class="btn btn-secondary" onclick="loadFundamentalData()"><i class="fas fa-cloud-download-alt"></i> Import from Source</button>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="fa-symbol-input" class="dark-input" placeholder="Symbol (e.g. RELIANCE)" style="width: 200px;">
+                        <button class="btn btn-primary" onclick="loadFundamentalData()"><i class="fas fa-search"></i> Analyze</button>
                         <button class="btn btn-secondary" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze fundamentals ' + document.getElementById('fa-symbol-input').value; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Deep Dive</button>
                     </div>
                 </div>
 
-                <!-- Main Content Area -->
+                <div id="fa-empty-state" style="display: flex; flex: 1; align-items: center; justify-content: center; color: #666; flex-direction: column;">
+                    <i class="fas fa-search-dollar" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <p>Enter a symbol and click Analyze to fetch Fundamental Data (Powered by Screener/YFinance)</p>
+                </div>
+
+                <!-- Content Area (Hidden by default) -->
                 <div id="fa-content-area" style="display: none; flex-direction: column; gap: 20px;">
 
-                    <!-- Company Overview & Pricing -->
-                    <div style="display: flex; gap: 20px;">
-                        <!-- Price Snapshot -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
-                            <h1 id="fa-company-name" style="margin: 0 0 5px 0; color: #fff; font-size: 24px;">-</h1>
-                            <div style="color: #888; font-size: 13px; margin-bottom: 15px;">NSE: <span id="fa-symbol">-</span> | Sector: <span id="fa-sector">-</span></div>
-
-                            <div style="display: flex; align-items: baseline; gap: 15px; margin-bottom: 20px;">
-                                <span id="fa-cmp" style="font-size: 36px; font-weight: bold; color: #fff;">-</span>
-                                <span id="fa-change" style="font-size: 18px; color: #ff4d4d; font-weight: bold;">-</span>
+                    <!-- Company Overview Profile -->
+                    <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <h1 id="fa-company-name" style="margin: 0 0 5px 0; color: #fff; font-size: 24px;">-</h1>
+                                <div style="display: flex; gap: 15px; color: #aaa; font-size: 14px;">
+                                    <span id="fa-symbol" style="background: #333; padding: 2px 8px; border-radius: 4px; color: #FFD700;">-</span>
+                                    <span id="fa-sector"><i class="fas fa-industry"></i> -</span>
+                                    <span id="fa-industry">-</span>
+                                </div>
                             </div>
-
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px;">
-                                <div><span style="color: #aaa;">Previous Close:</span> <strong id="fa-prev-close" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Open:</span> <strong id="fa-open" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">High:</span> <strong id="fa-high" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Low:</span> <strong id="fa-low" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">52W High:</span> <strong id="fa-52w-high" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">52W Low:</span> <strong id="fa-52w-low" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Volume:</span> <strong id="fa-volume" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Market Cap:</span> <strong id="fa-mcap" style="color: #fff; float: right;">-</strong></div>
+                            <div style="text-align: right;">
+                                <div id="fa-cmp" style="font-size: 28px; color: #fff; font-weight: bold;">-</div>
+                                <div id="fa-change" style="font-size: 14px; font-weight: bold;">-</div>
                             </div>
                         </div>
+                        <p id="fa-description" style="color: #bbb; font-size: 13px; line-height: 1.5; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;"></p>
+                    </div>
 
-                        <!-- Key Fundamentals / Ratios -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
-                            <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px;">Key Fundamentals</h3>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px;">
-                                <div><span style="color: #aaa;">P/E Ratio (TTM):</span> <strong id="fa-pe-ratio" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Sector P/E:</span> <strong id="fa-sector-pe" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">P/B Ratio:</span> <strong id="fa-pb-ratio" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Dividend Yield:</span> <strong id="fa-div-yield" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">EPS (TTM):</span> <strong id="fa-eps" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">ROE:</span> <strong id="fa-roe" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">ROCE:</span> <strong id="fa-roce" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Debt to Equity:</span> <strong id="fa-dte" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Book Value/Share:</span> <strong id="fa-bv" style="color: #fff; float: right;">-</strong></div>
-                                <div><span style="color: #aaa;">Face Value:</span> <strong id="fa-face-value" style="color: #fff; float: right;">-</strong></div>
-                            </div>
+                    <!-- Key Ratios Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">Market Cap (₹ Cr)</div>
+                            <div id="fa-mcap" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
+                        </div>
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">P/E Ratio (TTM)</div>
+                            <div id="fa-pe" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
+                        </div>
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">P/B Ratio</div>
+                            <div id="fa-pb" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
+                        </div>
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">Dividend Yield</div>
+                            <div id="fa-div-yield" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
+                        </div>
+
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">ROE %</div>
+                            <div id="fa-roe" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
+                        </div>
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">ROCE %</div>
+                            <div id="fa-roce" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
+                        </div>
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">Debt to Equity</div>
+                            <div id="fa-debt-eq" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
+                        </div>
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">EPS (TTM)</div>
+                            <div id="fa-eps" style="color: #fff; font-size: 18px; font-weight: bold;">-</div>
                         </div>
                     </div>
 
-                    <!-- Financial Statements & Shareholding -->
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-
-                        <!-- Financial Statements (Mini View) -->
-                        <div style="flex: 2; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px; min-width: 400px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 15px;">
-                                <h3 style="margin: 0; color: #ccc; font-size: 16px;">Financial Statements</h3>
-                                <div class="wb-tabs-header" style="border: none; margin: 0; padding: 0;">
-                                    <div class="wb-tab active" style="padding: 4px 10px; font-size: 12px; border: none; cursor: pointer;">Income</div>
-                                    <div class="wb-tab" style="padding: 4px 10px; font-size: 12px; border: none; cursor: pointer;">Balance Sheet</div>
-                                    <div class="wb-tab" style="padding: 4px 10px; font-size: 12px; border: none; cursor: pointer;">Cash Flow</div>
-                                </div>
-                            </div>
-
-                            <table class="data-table" style="width: 100%; text-align: right;">
-                                <thead>
-                                    <tr>
-                                        <th style="text-align: left; color: #888;">(₹ in Cr)</th>
-                                        <th>Mar '23</th>
-                                        <th>Mar '22</th>
-                                        <th>Mar '21</th>
-                                        <th>Mar '20</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td style="text-align: left; color: #aaa;">Total Revenue</td>
-                                        <td>24,855</td>
-                                        <td>23,455</td>
-                                        <td>24,774</td>
-                                        <td>23,098</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="text-align: left; color: #aaa;">EBITDA</td>
-                                        <td>4,152</td>
-                                        <td>4,386</td>
-                                        <td>5,333</td>
-                                        <td>4,864</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="text-align: left; color: #aaa;">Net Income</td>
-                                        <td>1,927</td>
-                                        <td>2,647</td>
-                                        <td>5,334</td>
-                                        <td>2,831</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Shareholding Pattern -->
-                        <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px; min-width: 300px;">
-                            <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px;">Shareholding Pattern</h3>
-
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; font-size: 12px;">
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#E88B1E;border-radius:2px;"></div> Promoters (<span id="fa-sh-prom">-</span>%)</div>
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#3176B8;border-radius:2px;"></div> FII (<span id="fa-sh-fii">-</span>%)</div>
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#9370DB;border-radius:2px;"></div> DII (<span id="fa-sh-dii">-</span>%)</div>
-                                <div style="display: flex; gap: 5px; align-items: center;"><div style="width:10px;height:10px;background:#60a5fa;border-radius:2px;"></div> Public (<span id="fa-sh-pub">-</span>%)</div>
-                            </div>
-
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+                        <!-- Financials Table -->
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 20px;">
+                            <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px;">Income Statement (Annual)</h3>
                             <table class="data-table" style="width: 100%;">
                                 <thead>
                                     <tr>
-                                        <th style="color: #888;">Category</th>
-                                        <th style="text-align: right; color: #888;">Current</th>
+                                        <th style="text-align: left;">Metric (₹ Cr)</th>
+                                        <th style="text-align: right;" id="fa-yr3">-</th>
+                                        <th style="text-align: right;" id="fa-yr2">-</th>
+                                        <th style="text-align: right;" id="fa-yr1">-</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td style="color: #aaa;">Promoters</td>
-                                        <td style="text-align: right;" id="fa-tb-prom">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #aaa;">FIIs</td>
-                                        <td style="text-align: right;" id="fa-tb-fii">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #aaa;">DIIs</td>
-                                        <td style="text-align: right;" id="fa-tb-dii">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #aaa;">Public</td>
-                                        <td style="text-align: right;" id="fa-tb-pub">-</td>
-                                    </tr>
+                                    <tr><td style="color: #aaa;">Total Revenue</td><td id="fa-rev3" style="text-align: right;">-</td><td id="fa-rev2" style="text-align: right;">-</td><td id="fa-rev1" style="text-align: right;">-</td></tr>
+                                    <tr><td style="color: #aaa;">EBITDA</td><td id="fa-ebitda3" style="text-align: right;">-</td><td id="fa-ebitda2" style="text-align: right;">-</td><td id="fa-ebitda1" style="text-align: right;">-</td></tr>
+                                    <tr><td style="color: #aaa;">Net Income</td><td id="fa-ni3" style="text-align: right;">-</td><td id="fa-ni2" style="text-align: right;">-</td><td id="fa-ni1" style="text-align: right;">-</td></tr>
                                 </tbody>
                             </table>
                         </div>
-                    </div>
 
-                    <!-- AI Insights Panel -->
-                    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 20px;">
-                        <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                            <i class="fas fa-magic" style="color: #60a5fa;"></i> Quant AI Analysis
-                            <button class="btn btn-secondary" style="margin-left: auto; font-size: 11px; padding: 2px 8px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze fundamentals ' + document.getElementById('fa-symbol-input').value; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">Generate Insights</button>
-                        </h3>
-                        <div id="fa-ai-insights-content" style="color: #aaa; font-size: 14px; line-height: 1.6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                            <p style="font-style: italic;">Click "Generate Insights" to run the AI Deep Dive on this stock's fundamentals.</p>
+                        <!-- Shareholding Pattern Summary -->
+                        <div style="background: #252526; border: 1px solid #333; border-radius: 4px; padding: 20px;">
+                            <h3 style="margin: 0 0 15px 0; color: #ccc; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between;">
+                                Shareholding Pattern
+                                <span id="fa-sh-badge" class="status-badge">Unverified</span>
+                            </h3>
+                            <table class="data-table" style="width: 100%;">
+                                <tbody>
+                                    <tr><td style="color: #aaa;">Promoter</td><td id="fa-sh-prom" style="text-align: right; font-weight: bold;">-</td></tr>
+                                    <tr><td style="color: #aaa;">FII</td><td id="fa-sh-fii" style="text-align: right; font-weight: bold;">-</td></tr>
+                                    <tr><td style="color: #aaa;">DII</td><td id="fa-sh-dii" style="text-align: right; font-weight: bold;">-</td></tr>
+                                    <tr><td style="color: #aaa;">Public/Retail</td><td id="fa-sh-pub" style="text-align: right; font-weight: bold;">-</td></tr>
+                                </tbody>
+                            </table>
+                            <div style="margin-top: 15px; text-align: center; font-size: 11px; color: #666;">Total Shares: <span id="fa-sh-total">-</span></div>
                         </div>
                     </div>
 
                 </div>
-
-                <div id="fa-empty-state" style="display: flex; flex: 1; align-items: center; justify-content: center; color: #666; flex-direction: column;">
-                    <i class="fas fa-search-dollar" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
-                    <p>Enter a symbol and click Analyze to fetch Fundamental Data</p>
-                </div>
-
             </div>
 
             <script>
@@ -3072,16 +3067,67 @@
                         if (!res.ok) throw new Error('Data fetch failed');
                         const data = await res.json();
 
-                        document.getElementById('fa-company-name').innerText = data.company_name;
+                        document.getElementById('fa-company-name').innerText = data.company_name || symbol;
                         document.getElementById('fa-symbol').innerText = data.symbol;
-                        document.getElementById('fa-sector').innerText = data.sector;
+                        document.getElementById('fa-sector').innerText = data.sector || 'N/A';
+                        document.getElementById('fa-industry').innerText = data.industry || 'N/A';
+                        document.getElementById('fa-description').innerText = data.description || '';
+                        document.getElementById('fa-description').title = data.description || '';
 
-                        document.getElementById('fa-cmp').innerText = `₹${data.cmp.toFixed(2)}`;
-                        const sign = data.change > 0 ? '+' : '';
-                        document.getElementById('fa-change').innerText = `${sign}${data.change.toFixed(2)} (${sign}${data.pct_change.toFixed(2)}%)`;
-                        document.getElementById('fa-change').style.color = data.change >= 0 ? '#60a5fa' : '#ff4d4d';
+                        document.getElementById('fa-cmp').innerText = '₹' + (data.cmp ? data.cmp.toFixed(2) : '0.00');
 
-                        document.getElementById('fa-prev-close').innerText = `₹${data.prev_close.toFixed(2)}`;
+                        const chgEl = document.getElementById('fa-change');
+                        const chg = data.change || 0;
+                        const pct = data.pct_change || 0;
+                        chgEl.innerText = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)} (${chg >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+                        chgEl.style.color = chg >= 0 ? '#28a745' : '#dc3545';
+
+                        document.getElementById('fa-mcap').innerText = data.market_cap ? (data.market_cap / 10000000).toFixed(2) : '-'; // Assuming YF returns raw numbers, convert to Cr
+                        document.getElementById('fa-pe').innerText = data.pe ? data.pe.toFixed(2) : '-';
+                        document.getElementById('fa-pb').innerText = data.pb ? data.pb.toFixed(2) : '-';
+                        document.getElementById('fa-div-yield').innerText = data.dividend_yield ? (data.dividend_yield * 100).toFixed(2) + '%' : '-';
+                        document.getElementById('fa-roe').innerText = data.roe ? (data.roe * 100).toFixed(2) + '%' : '-';
+                        document.getElementById('fa-roce').innerText = data.roce ? (data.roce * 100).toFixed(2) + '%' : '-';
+                        document.getElementById('fa-debt-eq').innerText = data.debt_to_equity ? data.debt_to_equity.toFixed(2) : '-';
+                        document.getElementById('fa-eps').innerText = data.eps ? data.eps.toFixed(2) : '-';
+
+                        // Check financials
+                        if (data.financials && data.financials.length > 0) {
+                            for(let i=0; i<Math.min(3, data.financials.length); i++) {
+                                const fin = data.financials[i];
+                                document.getElementById(`fa-yr${i+1}`).innerText = fin.year || '-';
+                                document.getElementById(`fa-rev${i+1}`).innerText = fin.revenue ? (fin.revenue/10000000).toFixed(2) : '-';
+                                document.getElementById(`fa-ebitda${i+1}`).innerText = fin.ebitda ? (fin.ebitda/10000000).toFixed(2) : '-';
+                                document.getElementById(`fa-ni${i+1}`).innerText = fin.net_income ? (fin.net_income/10000000).toFixed(2) : '-';
+                            }
+                        }
+
+                        // Also fetch shareholding specifically for this to populate the table properly
+                        const shRes = await fetch(`/api/data/shareholding?symbol=${symbol}`);
+                        if (shRes.ok) {
+                            const shData = await shRes.json();
+                            const total = shData.total_outstanding || 1;
+                            document.getElementById('fa-sh-prom').innerText = ((shData.promoter_holding / total) * 100).toFixed(2) + '%';
+                            document.getElementById('fa-sh-fii').innerText = ((shData.fii_holding / total) * 100).toFixed(2) + '%';
+                            document.getElementById('fa-sh-dii').innerText = ((shData.dii_holding / total) * 100).toFixed(2) + '%';
+                            document.getElementById('fa-sh-pub').innerText = ((shData.retail_holding / total) * 100).toFixed(2) + '%';
+                            document.getElementById('fa-sh-total').innerText = total.toLocaleString();
+                            document.getElementById('fa-sh-badge').innerText = 'Verified (Screener)';
+                            document.getElementById('fa-sh-badge').className = 'status-badge verified';
+                        }
+
+                        document.getElementById('fa-content-area').style.display = 'flex';
+                    } catch (e) {
+                        console.error(e);
+                        alert("Failed to load fundamental data.");
+                        document.getElementById('fa-empty-state').style.display = 'flex';
+                    } finally {
+                        btn.innerHTML = origHtml;
+                        btn.disabled = false;
+                    }
+                }
+            </script>
+        </div>
 
         <!-- TAB COMMODITIES -->
         <div id="tab-commodities" class="main-tab-content" >
