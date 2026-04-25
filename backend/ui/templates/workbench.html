@@ -2221,35 +2221,35 @@
                                 <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-promoter-holding" class="history-input" value="300948721" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-promoter-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">51.87%</span>
+                                    <span id="bb-promoter-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">FII:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-fii" class="history-input" value="88496709" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-fii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">15.25%</span>
+                                    <span id="bb-fii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-dii" class="history-input" value="150246872" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-dii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">25.89%</span>
+                                    <span id="bb-dii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Retail &lt;= Rs 200k:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-retail" class="history-input" value="31061210" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-retail-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">5.35%</span>
+                                    <span id="bb-retail-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Public &gt; Rs 200k:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-public-high" class="history-input" value="9462511" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-pubhigh-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">1.63%</span>
+                                    <span id="bb-pubhigh-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px; border-top: 1px solid #444; padding-top: 10px;">
@@ -2419,28 +2419,28 @@
                                 <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-promoter-holding" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-promoter-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-promoter-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">FII:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-fii" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-fii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-fii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-dii" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-dii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-dii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Retail & Public:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-retail" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-retail-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-retail-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px; border-top: 1px solid #444; padding-top: 10px;">
@@ -2737,6 +2737,33 @@
                         // Mock AR calculation since exact methodology depends on specific business logic, but math is deterministic
                         const accRatioRetail = retail > 0 ? (resRetail / retail) : 0;
                         document.getElementById('bb-ar-retail').innerText = (accRatioRetail * 100).toFixed(2) + '%';
+
+                        const sharesToCalc = parseFloat(document.getElementById('bb-shares-calc').value) || 0;
+                        if (sharesToCalc > 0 && bbPrice > 0 && bbCmp > 0) {
+                            const acceptedShares = Math.floor(sharesToCalc * Math.min(1, accRatioRetail));
+                            const unacceptedShares = sharesToCalc - acceptedShares;
+
+                            const profitFromAccepted = acceptedShares * (bbPrice - bbCmp);
+                            const lossFromUnacceptedFut = bbFuture > 0 ? (unacceptedShares * (bbCmp - bbFuture)) : 0;
+
+                            const netProfit = profitFromAccepted - lossFromUnacceptedFut;
+                            const totalInvestment = sharesToCalc * bbCmp;
+                            const absReturn = totalInvestment > 0 ? (netProfit / totalInvestment) * 100 : 0;
+
+                            document.getElementById('bb-eq-profit').innerText = profitFromAccepted.toFixed(2);
+                            document.getElementById('bb-fut-loss').innerText = lossFromUnacceptedFut.toFixed(2);
+                            document.getElementById('bb-net-profit').innerText = netProfit.toFixed(2);
+                            document.getElementById('bb-net-pct').innerText = absReturn.toFixed(2) + '%';
+
+                            // Colorize
+                            document.getElementById('bb-net-profit').style.color = netProfit >= 0 ? '#28a745' : '#dc3545';
+                            document.getElementById('bb-net-pct').style.color = absReturn >= 0 ? '#28a745' : '#dc3545';
+                        } else {
+                            document.getElementById('bb-eq-profit').innerText = '-';
+                            document.getElementById('bb-fut-loss').innerText = '-';
+                            document.getElementById('bb-net-profit').innerText = '-';
+                            document.getElementById('bb-net-pct').innerText = '-';
+                        }
                     }
                 }
 
