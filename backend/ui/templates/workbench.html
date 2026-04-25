@@ -2697,7 +2697,7 @@
                     }
                 }
 
-                function calculateBuyBack() {
+                                function calculateBuyBack() {
                     const prom = parseFloat(document.getElementById('bb-promoter-holding').value) || 0;
                     const fii = parseFloat(document.getElementById('bb-fii').value) || 0;
                     const dii = parseFloat(document.getElementById('bb-dii').value) || 0;
@@ -2725,38 +2725,56 @@
                                 postBuybackPromoterPct = prom / (totalOut - bbOffer);
                             }
                         }
-                        // We do not have UI slots specifically for postBuybackPromoterPct, but the math is executed here to satisfy requirements and prevent "random walk or fake" data.
-                        // We calculate reserved retail for the tables:
+
                         const resRetailPct = parseFloat(document.getElementById('bb-reserved-pct').value) || 15;
-                        const resRetail = Math.floor(bbOffer * (resRetailPct / 100));
-                        const pubOffer = bbOffer - resRetail;
-                        document.getElementById('bb-res-retail').innerText = resRetail.toLocaleString();
-                        document.getElementById('bb-pub-offer').innerText = pubOffer.toLocaleString();
-                        // Mock AR calculation since exact methodology depends on specific business logic, but math is deterministic
-                        const accRatioRetail = retail > 0 ? (resRetail / retail) : 0;
-                        document.getElementById('bb-ar-retail').innerText = (accRatioRetail * 100).toFixed(2) + '%';
+                        const reservedShares = bbOffer * (resRetailPct / 100);
+                        const nonReservedShares = bbOffer - reservedShares;
+                        document.getElementById('bb-reserved-shares').innerText = reservedShares.toLocaleString();
+                        document.getElementById('bb-nonreserved-shares').innerText = nonReservedShares.toLocaleString();
+                        const retailDemand = retail;
+                        const nonRetailDemand = participates ? (prom + fii + dii + publicHigh) : (fii + dii + publicHigh);
+                        document.getElementById('bb-res-demand').innerText = retailDemand.toLocaleString();
+                        document.getElementById('bb-nonres-demand').innerText = nonRetailDemand.toLocaleString();
+                        const expectedRetailTender = parseFloat(document.getElementById('bb-retail-tender').value) || 100;
+                        const expectedNonRetailTender = parseFloat(document.getElementById('bb-nonretail-tender').value) || 100;
+                        const tenderedRetail = retailDemand * (expectedRetailTender / 100);
+                        const tenderedNonRetail = nonRetailDemand * (expectedNonRetailTender / 100);
+                        const retailER = tenderedRetail > 0 ? (reservedShares / tenderedRetail) * 100 : 0;
+                        const nonRetailER = tenderedNonRetail > 0 ? (nonReservedShares / tenderedNonRetail) * 100 : 0;
+                        const finalRetailER = Math.min(retailER, 100);
+                        const finalNonRetailER = Math.min(nonRetailER, 100);
+                        document.getElementById('bb-retail-er').innerText = finalRetailER.toFixed(2) + '%';
+                        document.getElementById('bb-nonretail-er').innerText = finalNonRetailER.toFixed(2) + '%';
 
-                        const sharesToCalc = parseFloat(document.getElementById('bb-shares-calc').value) || 0;
-                        if (sharesToCalc > 0 && bbPrice > 0 && bbCmp > 0) {
-                            const acceptedShares = Math.floor(sharesToCalc * Math.min(1, accRatioRetail));
-                            const unacceptedShares = sharesToCalc - acceptedShares;
+                        const lotSize = parseFloat(document.getElementById('bb-lot').value) || 0;
+                        if (lotSize > 0 && bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
+                            // Profit per share is Buyback Price - Future Price (not CMP, since we hedge)
+                            const profitPerShare = bbPrice - bbFuture;
+                            document.getElementById('bb-profit-ps').innerText = profitPerShare.toFixed(2);
 
-                            const profitFromAccepted = acceptedShares * (bbPrice - bbCmp);
-                            const lossFromUnacceptedFut = bbFuture > 0 ? (unacceptedShares * (bbCmp - bbFuture)) : 0;
+                            // Equity Profit = Total Accepted Shares * Profit per Share
+                            const totalAcceptedShares = lotSize * (finalNonRetailER / 100);
+                            const eqProfit = totalAcceptedShares * profitPerShare;
+                            document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
 
-                            const netProfit = profitFromAccepted - lossFromUnacceptedFut;
-                            const totalInvestment = sharesToCalc * bbCmp;
-                            const absReturn = totalInvestment > 0 ? (netProfit / totalInvestment) * 100 : 0;
+                            // Future Risk/Loss = Difference between CMP and Future (Basis risk) on unaccepted shares
+                            const basis = bbCmp - bbFuture;
+                            // Loss is incurred on the shares we bought in cash but didn't get accepted,
+                            // AND we still hold the short future against them.
+                            // However, standard arb math usually books the basis loss upfront on the whole lot
+                            const futLoss = basis * lotSize;
+                            document.getElementById('bb-fut-loss').innerText = futLoss.toFixed(2);
 
-                            document.getElementById('bb-eq-profit').innerText = profitFromAccepted.toFixed(2);
-                            document.getElementById('bb-fut-loss').innerText = lossFromUnacceptedFut.toFixed(2);
+                            // Net Profit
+                            const netProfit = eqProfit - futLoss;
                             document.getElementById('bb-net-profit').innerText = netProfit.toFixed(2);
-                            document.getElementById('bb-net-pct').innerText = absReturn.toFixed(2) + '%';
 
-                            // Colorize
-                            document.getElementById('bb-net-profit').style.color = netProfit >= 0 ? '#28a745' : '#dc3545';
+                            // Absolute Return % = (Net Profit / Capital Deployed)
+                            const absReturn = (netProfit / (lotSize * bbCmp)) * 100;
+                            document.getElementById('bb-net-pct').innerText = absReturn.toFixed(2) + '%';
                             document.getElementById('bb-net-pct').style.color = absReturn >= 0 ? '#28a745' : '#dc3545';
                         } else {
+                            document.getElementById('bb-profit-ps').innerText = '-';
                             document.getElementById('bb-eq-profit').innerText = '-';
                             document.getElementById('bb-fut-loss').innerText = '-';
                             document.getElementById('bb-net-profit').innerText = '-';
@@ -2765,7 +2783,7 @@
                     }
                 }
 
-                                function calculateOFS() {
+                function calculateOFS() {
                     const totalSupply = parseFloat(document.getElementById('ofs-total-supply').value) || 0;
                     const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
                     const floor = parseFloat(document.getElementById('ofs-floor').value) || 0;

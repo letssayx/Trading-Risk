@@ -1,8 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Query
 from bs4 import BeautifulSoup
 import requests
 import yfinance as yf
-, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, defer
 from sqlalchemy import desc, asc, or_, func
