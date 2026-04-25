@@ -675,7 +675,7 @@
                     <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY" autocomplete="off">
+                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" autocomplete="off">
                         </div>
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
                         <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;">Clear (All Scrips)</button>
@@ -1653,7 +1653,7 @@
                     </h2>
 
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
-                        <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol">
+                        <input type="text" id="vol-analysis-symbol" class="history-input" style="width: 150px;" placeholder="Symbol">
                         <input type="hidden" id="vol-analysis-expiry-type" value="monthly">
                         <label style="color: #ccc; margin: 0; font-size: 14px;">Lookback Period:</label>
                         <select id="vol-analysis-lookback" class="history-input" >
@@ -1796,7 +1796,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
-                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
+                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()">Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
@@ -2034,7 +2034,7 @@
                 <!-- SUB-TAB 5: Adv Technicals -->
                 <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box;  flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
+                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" style="width: 150px;">
                         <button class="btn btn-secondary" id="btn-load-adv-tech" onclick="loadDynamicChart()">Load Chart</button>
                     </div>
 
@@ -2410,28 +2410,28 @@
                                 <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-promoter-holding" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-promoter-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-promoter-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">FII:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-fii" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-fii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-fii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-dii" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-dii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-dii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Retail & Public:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="ofs-retail" class="history-input" value="0" oninput="calculateOFSShares()" style="flex: 1;">
-                                    <span id="ofs-retail-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">0%</span>
+                                    <span id="ofs-retail-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px; border-top: 1px solid #444; padding-top: 10px;">
@@ -2907,7 +2907,7 @@
                         document.getElementById('fa-prev-close').innerText = `₹${data.prev_close.toFixed(2)}`;
 
         <!-- TAB COMMODITIES -->
-        <div id="tab-commodities" class="main-tab-content">
+        <div id="tab-commodities" class="main-tab-content" style="flex-direction: column; height: 100%;">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
                 <div class="wb-tab active" id="comm-tab-btn-bullion" onclick="switchCommTab('bullion')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Bullion</div>
@@ -2923,7 +2923,7 @@
                 <div id="comm-tab-bullion" class="comm-sub-tab active" style="height: 100%; width: 100%;">
 
         <!-- TAB CRYPTO -->
-        <div id="tab-crypto" class="main-tab-content">
+        <div id="tab-crypto" class="main-tab-content" style="flex-direction: column; height: 100%;">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
                 <h2 style="color: #fff; margin-top: 0;">Crypto Assets</h2>
                 <p style="color: #888;">Module under construction.</p>
@@ -2931,10 +2931,10 @@
         </div>
 
         <!-- TAB RETAIL INSTRUMENTS -->
-        <div id="tab-retail_instruments" class="main-tab-content">
+        <div id="tab-retail_instruments" class="main-tab-content" style="flex-direction: column; height: 100%;">
 
         <!-- TAB RETAIL INSTRUMENTS -->
-        <div id="tab-retail_instruments" class="main-tab-content">
+        <div id="tab-retail_instruments" class="main-tab-content" style="flex-direction: column; height: 100%;">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
                 <div class="wb-tab active" id="retail-tab-btn-mf" onclick="switchRetailTab('mf')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Mutual Funds</div>

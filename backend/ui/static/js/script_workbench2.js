@@ -3111,7 +3111,7 @@ async function triggerMasterSync() {
 
         // NIFTY Data preload for UI
         if (typeof loadTimeseriesData === 'function') {
-            document.getElementById('symbol-input').value = 'NIFTY';
+            // Removed default NIFTY override
             promises.push(loadTimeseriesData().catch(e => console.error("loadTimeseriesData failed", e)));
         }
 
@@ -3141,3 +3141,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }, 1000);
 });
+
+
+    window.switchArbTab = function(tabId) {
+        document.querySelectorAll('.ss-sub-tab').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('#tab-special_arb .wb-tab').forEach(el => el.classList.remove('active'));
+
+        const tabContent = document.getElementById('ss-tab-' + tabId);
+        if (tabContent) {
+            tabContent.classList.add('active');
+        }
+
+        const tabBtn = document.getElementById('ss-tab-btn-' + tabId);
+        if (tabBtn) {
+            tabBtn.classList.add('active');
+        }
+    };
