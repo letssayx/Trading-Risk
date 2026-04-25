@@ -3111,7 +3111,7 @@ async function triggerMasterSync() {
 
         // NIFTY Data preload for UI
         if (typeof loadTimeseriesData === 'function') {
-            // Removed default NIFTY override
+            // Removed NIFTY override
             promises.push(loadTimeseriesData().catch(e => console.error("loadTimeseriesData failed", e)));
         }
 
@@ -3142,18 +3142,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1000);
 });
 
+        // --- Special Situation Arb Tab Logic ---
+        function switchArbTab(tabName) {
+            document.querySelectorAll('.arb-sub-tab').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.arb-sub-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#tab-special_arb .wb-tab').forEach(el => {
+                el.classList.remove('active');
+                el.style.borderBottomColor = 'transparent';
+                el.style.color = '#888';
+            });
 
-    window.switchArbTab = function(tabId) {
-        document.querySelectorAll('.ss-sub-tab').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('#tab-special_arb .wb-tab').forEach(el => el.classList.remove('active'));
-
-        const tabContent = document.getElementById('ss-tab-' + tabId);
-        if (tabContent) {
-            tabContent.classList.add('active');
+            const target = document.getElementById(`arb-tab-${tabName}`);
+            const btn = document.getElementById(`arb-tab-btn-${tabName}`);
+            if (target && btn) {
+                target.style.display = tabName === 'ofs' ? 'flex' : 'block';
+                target.classList.add('active');
+                btn.classList.add('active');
+                btn.style.borderBottomColor = '#60a5fa';
+                btn.style.color = '#fff';
+            }
         }
-
-        const tabBtn = document.getElementById('ss-tab-btn-' + tabId);
-        if (tabBtn) {
-            tabBtn.classList.add('active');
-        }
-    };

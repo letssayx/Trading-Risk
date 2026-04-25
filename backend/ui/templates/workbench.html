@@ -675,7 +675,7 @@
                     <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" autocomplete="off">
+                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY" autocomplete="off">
                         </div>
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
                         <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;">Clear (All Scrips)</button>
@@ -1653,7 +1653,7 @@
                     </h2>
 
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
-                        <input type="text" id="vol-analysis-symbol" class="history-input" style="width: 150px;" placeholder="Symbol">
+                        <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol">
                         <input type="hidden" id="vol-analysis-expiry-type" value="monthly">
                         <label style="color: #ccc; margin: 0; font-size: 14px;">Lookback Period:</label>
                         <select id="vol-analysis-lookback" class="history-input" >
@@ -1796,7 +1796,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
-                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
+                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()">Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
@@ -2034,7 +2034,7 @@
                 <!-- SUB-TAB 5: Adv Technicals -->
                 <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box;  flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" style="width: 150px;">
+                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
                         <button class="btn btn-secondary" id="btn-load-adv-tech" onclick="loadDynamicChart()">Load Chart</button>
                     </div>
 
@@ -2212,35 +2212,35 @@
                                 <label style="width: 150px; display: inline-block;">Promoter Holding:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-promoter-holding" class="history-input" value="300948721" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-promoter-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">51.87%</span>
+                                    <span id="bb-promoter-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">FII:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-fii" class="history-input" value="88496709" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-fii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">15.25%</span>
+                                    <span id="bb-fii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">DII (MF+Insurance):</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-dii" class="history-input" value="150246872" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-dii-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">25.89%</span>
+                                    <span id="bb-dii-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Retail &lt;= Rs 200k:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-retail" class="history-input" value="31061210" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-retail-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">5.35%</span>
+                                    <span id="bb-retail-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px;">
                                 <label style="width: 150px; display: inline-block;">Public &gt; Rs 200k:</label>
                                 <div style="display: flex; align-items: center; width: 180px;">
                                     <input type="number" id="bb-public-high" class="history-input" value="9462511" oninput="calculateBuyBack()" style="flex: 1;">
-                                    <span id="bb-pubhigh-pct" style="color: #aaa; margin-left: 5px; font-size: 11px; width: 40px;">1.63%</span>
+                                    <span id="bb-pubhigh-pct" style="display:none;"></span>
                                 </div>
                             </div>
                             <div class="control-group" style="margin-bottom: 10px; border-top: 1px solid #444; padding-top: 10px;">
@@ -2690,6 +2690,24 @@
                     }
                 }
 
+                function calculateOFS() {
+                    const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
+                    const floor = parseFloat(document.getElementById('ofs-floor').value) || 0;
+                    const bid = parseFloat(document.getElementById('ofs-bid').value) || 0;
+                    const fut = parseFloat(document.getElementById('ofs-future').value) || 0;
+
+                    const lotSize = parseFloat(document.getElementById('ofs-lot').value) || 0;
+                    const numLots = parseFloat(document.getElementById('ofs-num-lots').value) || 0;
+
+                    const totalShares = lotSize * numLots;
+                    const investment = totalShares * bid;
+
+                    if (totalShares > 0 && bid > 0) {
+                        const expectedProfit = (fut - bid) * totalShares;
+                        document.getElementById('ofs-gross-spread').innerText = expectedProfit >= 0 ? "+" + expectedProfit.toFixed(2) : expectedProfit.toFixed(2);
+                    }
+                }
+
                 function calculateOFSShares() {
                     const prom = parseFloat(document.getElementById('ofs-promoter-holding').value) || 0;
                     const fii = parseFloat(document.getElementById('ofs-fii').value) || 0;
@@ -2706,7 +2724,7 @@
                         document.getElementById('ofs-retail-pct').innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
 
         <!-- TAB FUNDAMENTAL ANALYSIS -->
-        <div id="tab-fundamentals" class="main-tab-content" style="flex-direction: column; height: 100%;">
+        <div id="tab-fundamentals" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto;">
 
                 <!-- Header / Controls -->
@@ -2907,7 +2925,7 @@
                         document.getElementById('fa-prev-close').innerText = `₹${data.prev_close.toFixed(2)}`;
 
         <!-- TAB COMMODITIES -->
-        <div id="tab-commodities" class="main-tab-content" style="flex-direction: column; height: 100%;">
+        <div id="tab-commodities" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
                 <div class="wb-tab active" id="comm-tab-btn-bullion" onclick="switchCommTab('bullion')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Bullion</div>
@@ -2923,7 +2941,7 @@
                 <div id="comm-tab-bullion" class="comm-sub-tab active" style="height: 100%; width: 100%;">
 
         <!-- TAB CRYPTO -->
-        <div id="tab-crypto" class="main-tab-content" style="flex-direction: column; height: 100%;">
+        <div id="tab-crypto" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
                 <h2 style="color: #fff; margin-top: 0;">Crypto Assets</h2>
                 <p style="color: #888;">Module under construction.</p>
@@ -2931,10 +2949,7 @@
         </div>
 
         <!-- TAB RETAIL INSTRUMENTS -->
-        <div id="tab-retail_instruments" class="main-tab-content" style="flex-direction: column; height: 100%;">
-
-        <!-- TAB RETAIL INSTRUMENTS -->
-        <div id="tab-retail_instruments" class="main-tab-content" style="flex-direction: column; height: 100%;">
+        <div id="tab-retail_instruments" class="main-tab-content" style="display: none; flex-direction: column; height: 100%;">
             <!-- Sub-tab Navigation -->
             <div class="wb-tabs-header" style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
                 <div class="wb-tab active" id="retail-tab-btn-mf" onclick="switchRetailTab('mf')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Mutual Funds</div>
