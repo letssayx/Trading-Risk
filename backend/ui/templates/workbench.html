@@ -2934,14 +2934,29 @@
                     }
                 }
 
-
-
-
-
                 // Delete the old implementation if we are replacing it
 
 
+                                function calculateOFSShares() {
+                    const prom = parseFloat(document.getElementById('ofs-promoter-holding').value) || 0;
+                    const fii = parseFloat(document.getElementById('ofs-fii').value) || 0;
+                    const dii = parseFloat(document.getElementById('ofs-dii').value) || 0;
+                    const retail = parseFloat(document.getElementById('ofs-retail').value) || 0;
 
+                    const totalOut = prom + fii + dii + retail;
+                    document.getElementById('ofs-total-outstanding').innerText = totalOut > 0 ? totalOut.toLocaleString() : '-';
+
+                    if (totalOut > 0) {
+                        const pProm = document.getElementById('ofs-promoter-pct');
+                        if (pProm) pProm.innerText = ((prom / totalOut) * 100).toFixed(2) + '%';
+                        const pFii = document.getElementById('ofs-fii-pct');
+                        if (pFii) pFii.innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
+                        const pDii = document.getElementById('ofs-dii-pct');
+                        if (pDii) pDii.innerText = ((dii / totalOut) * 100).toFixed(2) + '%';
+                        const pRet = document.getElementById('ofs-retail-pct');
+                        if (pRet) pRet.innerText = ((retail / totalOut) * 100).toFixed(2) + '%';
+                    }
+                }
             </script>
         </div>
 
