@@ -2213,7 +2213,7 @@
                             <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
                                 Share Holding Pattern
                                 <div>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 5px;" onclick="fetchShareholding('bb')"><i class="fas fa-sync"></i> Sync</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 5px;" onclick="fetchShareholding('bb', event)"><i class="fas fa-sync"></i> Sync</button>
                                     <span class="badge" id="bb-verify-status" style="background:#444; color:#ccc; font-size:10px; padding:2px 5px; border-radius:3px;">Unverified</span>
                                 </div>
                             </h3>
@@ -2411,7 +2411,7 @@
                             <h3 style="margin-top: 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
                                 Share Holding Pattern
                                 <div>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 5px;" onclick="fetchShareholding('ofs')"><i class="fas fa-sync"></i> Sync</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 5px;" onclick="fetchShareholding('ofs', event)"><i class="fas fa-sync"></i> Sync</button>
                                     <span class="badge" id="ofs-verify-status" style="background:#444; color:#ccc; font-size:10px; padding:2px 5px; border-radius:3px;">Unverified</span>
                                 </div>
                             </h3>
@@ -2625,7 +2625,7 @@
                     }
                 }
 
-                async function fetchBuyBackPrices(prefix = 'bb') {
+                                async function fetchBuyBackPrices(prefix = 'bb') {
                     const symbol = document.getElementById(`${prefix}-symbol-input`).value.toUpperCase();
                     if (!symbol) {
                         alert("Please enter a symbol first.");
@@ -2634,6 +2634,7 @@
 
                     try {
                         const res = await fetch(`/api/morning-report/timeseries?symbol=${symbol}`);
+                        if (!res.ok) throw new Error('Data not found');
                         const data = await res.json();
 
                         if (data && data.length > 0) {
@@ -2645,21 +2646,22 @@
 
                             updateBuyBackFuturePrice(prefix);
                         } else {
-                            alert("No recent market data found for this symbol.");
+                            console.warn("No recent market data found for this symbol.");
                         }
                     } catch (e) {
-                        alert("Failed to fetch market data.");
+                        console.error("Failed to fetch market data.", e);
+                        // don't alert the user with a popup, just log it. Data might not exist.
                     }
                 }
 
-                                async function fetchShareholding(prefix = 'bb') {
+                                async function fetchShareholding(prefix = 'bb', event = null) {
                     const symbol = document.getElementById(`${prefix}-symbol-input`).value.toUpperCase();
                     if (!symbol) {
                         alert("Please enter a symbol first.");
                         return;
                     }
 
-                    const btn = event.currentTarget;
+                    const btn = event ? event.currentTarget : document.querySelector('button');
                     const origHtml = btn.innerHTML;
                     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                     btn.disabled = true;
