@@ -20,7 +20,14 @@
 
             // Trigger specific refreshes if needed
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
-            if (tabName === 'import' && window.uploader) window.uploader.open();
+
+            if (tabName === 'import') {
+                if (window.uploader) {
+                    window.uploader.open();
+                }
+                return; // Prevent switching the active UI tab to 'import', which has no UI div and causes a reset loop
+            }
+
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
             if (tabName === 'ai_analyze') fetchSystemAccuracy();
             if (tabName === 'derivatives') {
