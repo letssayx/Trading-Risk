@@ -2705,7 +2705,7 @@
                     }
                 }
 
-                function calculateBuyBack() {
+                                function calculateBuyBack() {
                     const prom = parseFloat(document.getElementById('bb-promoter-holding').value) || 0;
                     const fii = parseFloat(document.getElementById('bb-fii').value) || 0;
                     const dii = parseFloat(document.getElementById('bb-dii').value) || 0;
@@ -2713,12 +2713,11 @@
                     const publicHigh = parseFloat(document.getElementById('bb-public-high').value) || 0;
                     const totalOut = prom + fii + dii + retail + publicHigh;
 
-                    document.getElementById('bb-total-outstanding').innerText = totalOut > 0 ? totalOut.toLocaleString() : '-';
+                    document.getElementById('bb-total-outstanding').innerText = totalOut > 0 ? totalOut.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : '-';
 
                     if (totalOut > 0) {
-                        const promPct = prom / totalOut;
                         const pProm = document.getElementById('bb-promoter-pct');
-                        if (pProm) pProm.innerText = (promPct * 100).toFixed(2) + '%';
+                        if (pProm) pProm.innerText = ((prom / totalOut) * 100).toFixed(2) + '%';
                         const pFii = document.getElementById('bb-fii-pct');
                         if (pFii) pFii.innerText = ((fii / totalOut) * 100).toFixed(2) + '%';
                         const pDii = document.getElementById('bb-dii-pct');
@@ -2734,87 +2733,79 @@
                     const bbCmp = parseFloat(document.getElementById('bb-cmp').value) || 0;
                     const bbFuture = parseFloat(document.getElementById('bb-future').value) || 0;
                     const participates = document.getElementById('bb-promoter-participates').checked;
+                    const lotSize = parseFloat(document.getElementById('bb-lot').value) || 100; // Shares to calc
 
-                    if (totalOut > 0) {
+                    if (totalOut > 0 && bbOffer > 0) {
                         const resRetailPct = parseFloat(document.getElementById('bb-reserved-pct').value) || 15;
-                        const resRetail = Math.floor(bbOffer * (resRetailPct / 100));
+                        const resRetail = bbOffer * (resRetailPct / 100);
                         const pubOffer = bbOffer - resRetail;
 
-                        document.getElementById('bb-res-retail').innerText = resRetail.toLocaleString() + ` (${resRetailPct}%)`;
-                        document.getElementById('bb-pub-offer').innerText = pubOffer.toLocaleString() + ` (${100 - resRetailPct}%)`;
+                        document.getElementById('bb-res-retail').innerText = resRetail.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ` (${resRetailPct}%)`;
+                        document.getElementById('bb-pub-offer').innerText = pubOffer.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ` (${100 - resRetailPct}%)`;
 
-                        const retailDemand = retail;
-                        const nonRetailDemand = participates ? (prom + fii + dii + publicHigh) : (fii + dii + publicHigh);
+                        // From image: retail is 31061210. reserved is 813559.2. ar is 2.62% = 813559.2 / 31061210. Correct.
+                        let arRetail = retail > 0 ? (resRetail / retail) : 0;
+                        if (arRetail > 1) arRetail = 1;
 
-                        const scenarios = [1.0, 0.9, 0.8]; // 100%, 90%, 80% participation
+                        document.getElementById('bb-ar-retail').innerText = (arRetail * 100).toFixed(2) + '%';
 
-                        // Acc Ratio = (Offer / Tendered) * 100
-                        const lotSize = parseFloat(document.getElementById('bb-lot').value) || 0;
+                        if (bbPrice > 0 && bbCmp > 0) {
+                            const profitPerShareRet = (bbPrice - bbCmp) * arRetail;
+                            document.getElementById('bb-ps-retail').innerText = '₹' + profitPerShareRet.toFixed(2);
+                        } else {
+                            document.getElementById('bb-ps-retail').innerText = '-';
+                        }
 
-                        scenarios.forEach((partRate, index) => {
-                            const multiplier = partRate;
+                        // Non-Retail scenarios: 100%, 90%, 80% promoter participation
+                        const scenarios = [1.0, 0.9, 0.8];
+                        let baseArNonRetail = 0;
+
+                        scenarios.forEach((promPart, index) => {
                             let idxStr = '';
                             if (index === 0) idxStr = '100';
                             else if (index === 1) idxStr = '90';
                             else if (index === 2) idxStr = '80';
 
-                            const tenderedRetail = retailDemand * multiplier;
-                            const tenderedNonRetail = nonRetailDemand * multiplier;
+                            // NonRetail Demand = FII + DII + PublicHigh + (Promoter * ParticipationRate)
+                            const tenderedNonRetail = fii + dii + publicHigh + (participates ? (prom * promPart) : 0);
 
-                            let arRetail = tenderedRetail > 0 ? (resRetail / tenderedRetail) : 0;
                             let arNonRetail = tenderedNonRetail > 0 ? (pubOffer / tenderedNonRetail) : 0;
-
-                            if (arRetail > 1) arRetail = 1;
                             if (arNonRetail > 1) arNonRetail = 1;
+
+                            if (index === 0) baseArNonRetail = arNonRetail; // save for Arbitrage Scenario table
 
                             const pArNon = document.getElementById(`bb-ar-nonretail-${idxStr}`);
                             if (pArNon) pArNon.innerText = (arNonRetail * 100).toFixed(2) + '%';
 
-                            // For profit/share: = (AR * BB Price) + ((1 - AR) * Future Price) - CMP
-                            if (bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
-                                const profitPerShareNonRet = (arNonRetail * bbPrice) + ((1 - arNonRetail) * bbFuture) - bbCmp;
+                            if (bbPrice > 0 && bbCmp > 0) {
+                                const profitPerShareNonRet = (bbPrice - bbCmp) * arNonRetail;
                                 const pPsNon = document.getElementById(`bb-ps-nonretail-${idxStr}`);
                                 if (pPsNon) pPsNon.innerText = '₹' + profitPerShareNonRet.toFixed(2);
                             } else {
                                 const pPsNon = document.getElementById(`bb-ps-nonretail-${idxStr}`);
                                 if (pPsNon) pPsNon.innerText = '-';
                             }
-
-                            // For retail we only display 100% participation row typically, but let's map it if needed or just use the 100% one
-                            if (index === 0) {
-                                document.getElementById('bb-ar-retail').innerText = (arRetail * 100).toFixed(2) + '%';
-                                if (bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
-                                    const profitPerShareRet = (arRetail * bbPrice) + ((1 - arRetail) * bbFuture) - bbCmp;
-                                    document.getElementById('bb-ps-retail').innerText = '₹' + profitPerShareRet.toFixed(2);
-                                } else {
-                                    document.getElementById('bb-ps-retail').innerText = '-';
-                                }
-                            }
                         });
 
-                        // Arbitrage Scenario logic (taking 100% participation non-retail as base)
+                        // Arbitrage Scenario (from screenshot: 100 shares, AR=0.84%, CMP=1391.7, Buyback=1475)
+                        // Equity profit = (1475 - 1391.7) * 0.0084 * 100 = 69.97. The image says 69.93. Very close, rounding differences.
+                        // Future Loss/Profit = (1391.7 - 1400.9) * 100 = -920.00
                         if (lotSize > 0 && bbPrice > 0 && bbCmp > 0 && bbFuture > 0) {
-                            const tenderedNonRetail = nonRetailDemand * 1.0;
-                            let arNonRetail = tenderedNonRetail > 0 ? (pubOffer / tenderedNonRetail) : 0;
-                            if (arNonRetail > 1) arNonRetail = 1;
 
-                            const profitPerShareNonRet = (arNonRetail * bbPrice) + ((1 - arNonRetail) * bbFuture) - bbCmp;
-                            const totalAcceptedShares = Math.floor(lotSize * arNonRetail);
-
-                            const eqProfit = totalAcceptedShares * (bbPrice - bbCmp);
+                            const eqProfit = (bbPrice - bbCmp) * baseArNonRetail * lotSize;
                             document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
 
-                            const basis = bbCmp - bbFuture;
-                            const futLoss = basis * lotSize;
+                            const futLoss = (bbCmp - bbFuture) * lotSize;
                             document.getElementById('bb-fut-loss').innerText = futLoss.toFixed(2);
 
-                            const netProfit = eqProfit - futLoss;
+                            const netProfit = eqProfit + futLoss;
                             document.getElementById('bb-net-profit').innerText = netProfit.toFixed(2);
 
                             const absReturn = (netProfit / (lotSize * bbCmp)) * 100;
                             document.getElementById('bb-net-pct').innerText = absReturn.toFixed(2) + '%';
-                            document.getElementById('bb-net-pct').style.color = absReturn >= 0 ? '#28a745' : '#dc3545';
+
                             document.getElementById('bb-net-profit').style.color = netProfit >= 0 ? '#28a745' : '#dc3545';
+                            document.getElementById('bb-net-pct').style.color = netProfit >= 0 ? '#28a745' : '#dc3545';
                         } else {
                             document.getElementById('bb-eq-profit').innerText = '-';
                             document.getElementById('bb-fut-loss').innerText = '-';
@@ -2824,8 +2815,7 @@
                     }
                 }
 
-                // Delete the old implementation if we are replacing it
-function calculateOFS() {
+                function calculateOFS() {
                     const totalSupply = parseFloat(document.getElementById('ofs-total-supply').value) || 0;
                     const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
                     const floor = parseFloat(document.getElementById('ofs-floor').value) || 0;
@@ -3146,6 +3136,46 @@ function calculateOFS() {
 
                 <!-- SUB-TAB: Bullion -->
                 <div id="comm-tab-bullion" class="comm-sub-tab active" style="height: 100%; width: 100%;">
+                    <h2 style="color: #fff; margin-top: 0;">Bullion</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Metals -->
+                <div id="comm-tab-metals" class="comm-sub-tab" style="height: 100%; width: 100%; display: none;">
+                    <h2 style="color: #fff; margin-top: 0;">Base Metals</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Energy -->
+                <div id="comm-tab-energy" class="comm-sub-tab" style="height: 100%; width: 100%; display: none;">
+                    <h2 style="color: #fff; margin-top: 0;">Energy</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+
+                <!-- SUB-TAB: Agri -->
+                <div id="comm-tab-agri" class="comm-sub-tab" style="height: 100%; width: 100%; display: none;">
+                    <h2 style="color: #fff; margin-top: 0;">Agri Commodities</h2>
+                    <p style="color: #888;">Module under construction.</p>
+                </div>
+            </div>
+
+            <script>
+                function switchCommTab(tabId) {
+                    document.querySelectorAll('[id^="comm-tab-btn-"]').forEach(btn => {
+                        btn.classList.remove('active');
+                        btn.style.borderBottomColor = 'transparent';
+                        btn.style.color = '#ccc';
+                    });
+                    const activeBtn = document.getElementById(`comm-tab-btn-${tabId}`);
+                    activeBtn.classList.add('active');
+                    activeBtn.style.borderBottomColor = '#60a5fa';
+                    activeBtn.style.color = '#fff';
+
+                    document.querySelectorAll('.comm-sub-tab').forEach(tab => tab.style.display = 'none');
+                    document.getElementById(`comm-tab-${tabId}`).style.display = 'block';
+                }
+            </script>
+        </div>
 
         <!-- TAB CRYPTO -->
         <div id="tab-crypto" class="main-tab-content" >
@@ -3558,8 +3588,6 @@ function calculateOFS() {
                 <div id="config-status" style="margin-top: 10px; font-weight: bold;"></div>
             </div>
         </div>
-
-    </div>
 
     <!-- Global Status Bar -->
     <div class="global-status-bar">
