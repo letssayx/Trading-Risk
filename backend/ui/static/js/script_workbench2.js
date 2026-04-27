@@ -20,7 +20,7 @@
 
             // Trigger specific refreshes if needed
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
-            if (tabName === 'import' && window.uploader) window.uploader.open();
+            if (tabName === 'import' && window.uploader) { window.uploader.open(); return; }
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
             if (tabName === 'ai_analyze') fetchSystemAccuracy();
             if (tabName === 'derivatives') {
@@ -1515,7 +1515,7 @@
             // Override Layout shortcuts or Uploader open
             if(window.uploader) {
                 // We keep uploader logic for progress polling, but override open
-                // window.uploader.open = () => switchMainTab('import');
+                // // // window.uploader.open = () => switchMainTab('import');
             }
 
             // Initialize Chat Input Handler

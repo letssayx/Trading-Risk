@@ -80,11 +80,11 @@ app.include_router(ai_router)
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB
-    Base.metadata.create_all(bind=engine)
+    # Base.metadata.create_all(bind=engine)
 
     print("Initializing Database...")
     try:
-        Base.metadata.create_all(bind=engine)
+        # Base.metadata.create_all(bind=engine)
 
         # Patch newly added columns for existing schema because Alembic is currently bypassed
         from sqlalchemy import text
