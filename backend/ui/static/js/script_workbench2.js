@@ -20,14 +20,7 @@
 
             // Trigger specific refreshes if needed
             if (tabName === 'terminal' && window.ChartTabs) ChartTabs.resizeAll();
-
-            if (tabName === 'import') {
-                if (window.uploader) {
-                    window.uploader.open();
-                }
-                return; // Prevent switching the active UI tab to 'import', which has no UI div and causes a reset loop
-            }
-
+            if (tabName === 'import' && window.uploader) window.uploader.open();
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
             if (tabName === 'ai_analyze') fetchSystemAccuracy();
             if (tabName === 'derivatives') {
@@ -47,7 +40,9 @@
             // Re-render ECharts or resize them since they might have collapsed while hidden
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize'));
-            }, 10);
+                if (window.volConeChart) window.volConeChart.resize();
+                if (window.volPreExpiryChart) window.volPreExpiryChart.resize();
+            }, 50);
         }
 
         // --- Derivatives Sub-Tab Logic ---
@@ -103,7 +98,9 @@
                 // Re-render ECharts or resize them since they might have collapsed while hidden
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
-                }, 10);
+                    if (window.volConeChart) window.volConeChart.resize();
+                    if (window.volPreExpiryChart) window.volPreExpiryChart.resize();
+                }, 50);
             }
         }
 
@@ -1072,6 +1069,47 @@
             }
         });
 
+        // --- Fundamental Analysis logic ---
+        window.loadFundamentalData = async function() {
+            const symbol = document.getElementById('fund-symbol-input').value.toUpperCase().trim();
+            const tbody = document.getElementById('fund-body');
+
+            if (!symbol) {
+                alert("Please enter a symbol.");
+                return;
+            }
+
+            tbody.innerHTML = '<tr><td style="text-align: center; color: #888; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/data/fundamentals/${symbol}`);
+                if (!res.ok) throw new Error("Failed to fetch");
+                const data = await res.json();
+
+                let html = '';
+                for (const [key, val] of Object.entries(data)) {
+                    // Format large numbers
+                    let displayVal = val;
+                    if (typeof val === 'number' && !key.includes('pct') && val > 10000) {
+                        displayVal = val.toLocaleString();
+                    } else if (typeof val === 'number') {
+                        displayVal = val.toFixed(2);
+                    }
+
+                    html += `
+                        <tr style="border-bottom: 1px solid #333;">
+                            <td style="padding: 10px; color: #aaa; width: 30%; text-transform: capitalize;">${key.replace(/_/g, ' ')}</td>
+                            <td style="padding: 10px; color: #fff;">${displayVal}</td>
+                        </tr>
+                    `;
+                }
+                tbody.innerHTML = html;
+
+            } catch (e) {
+                tbody.innerHTML = `<tr><td style="text-align: center; color: red; padding: 20px;">Error: ${e.message}</td></tr>`;
+            }
+        };
+
         // --- History Logic (Ported from data_viewer.html) ---
         let currentHistoryData = [];
         let currentSortColumn = null;
@@ -1142,7 +1180,7 @@
                 // The 'latest' flag on the backend gets the max date. If we force limit=1, we only get ONE row (one symbol).
                 // We should pass limit=0 (unlimited) or a high number like 5000 if we want all symbols for that latest date.
                 let limit = isLatest ? 5000 : 500;
-                if (symbol && isLatest) limit = 5000;
+                if (symbol && isLatest) limit = 1; // if symbol is specified and latest is checked, we only need 1 row
                 let url = `/api/data/view/list?type=${type}&limit=${limit}`;
                 if (symbol) {
                     url += `&symbol=${symbol}`;
@@ -1185,51 +1223,46 @@
         function renderHistoryTable(data) {
             const tbody = document.getElementById('history-body');
             const thead = document.getElementById('history-head');
-
-            // Efficiently clear existing DOM elements
-            while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-            while (thead.firstChild) thead.removeChild(thead.firstChild);
+            tbody.innerHTML = '';
+            thead.innerHTML = '';
 
             if (!data || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="100" style="text-align:center; color:#888;">No Data Found</td></tr>';
                 return;
             }
 
-            // Limit the number of rows drawn directly to DOM to prevent extreme layout recalculation lags
-            // which freezes the browser when switching tabs.
-            const maxRowsToRender = 1000;
-            const renderData = data.slice(0, maxRowsToRender);
-
             // Headers
             const keys = Object.keys(data[0]);
             const trHead = document.createElement('tr');
             keys.forEach((key, index) => {
                 const th = document.createElement('th');
+
+                // Sort Indicator
                 let label = key.replace(/_/g, ' ').toUpperCase();
                 if (key === currentSortColumn) {
                     label += (currentSortOrder === 'asc' ? ' ▲' : ' ▼');
-                    th.style.color = '#fff';
+                    th.style.color = '#fff'; // Highlight active sort column
                 }
+
                 th.innerText = label;
-                th.onclick = () => sortHistoryTable(key);
+                th.onclick = () => sortHistoryTable(key); // Trigger Server-Side Sort
                 trHead.appendChild(th);
             });
             thead.appendChild(trHead);
 
-            // We can use a DocumentFragment for better DOM insertion performance
-            const fragment = document.createDocumentFragment();
-
             // Rows
-            renderData.forEach(row => {
+            data.forEach(row => {
                 const tr = document.createElement('tr');
                 keys.forEach(key => {
                     const td = document.createElement('td');
                     let val = row[key];
                     if (val === null || val === undefined) val = '-';
                     if (typeof val === 'number') {
+                         // Smart formatting
                          if (Number.isInteger(val)) {
                              td.innerText = val.toLocaleString();
                          } else {
+                             // Check for volatility columns or small numbers
                              if (key.includes('volatility') || key.includes('_vol') || key.includes('iv') || key.includes('rate')) {
                                  td.innerText = val.toFixed(4);
                              } else {
@@ -1242,20 +1275,8 @@
                     }
                     tr.appendChild(td);
                 });
-                fragment.appendChild(tr);
+                tbody.appendChild(tr);
             });
-
-            if (data.length > maxRowsToRender) {
-                 const trWarning = document.createElement('tr');
-                 const tdWarning = document.createElement('td');
-                 tdWarning.colSpan = keys.length;
-                 tdWarning.style.textAlign = 'center';
-                 tdWarning.style.color = '#ff9800';
-                 tdWarning.innerText = `... Showing first ${maxRowsToRender} rows to prevent browser lag. Export CSV to view all ${data.length} rows ...`;
-                 fragment.appendChild(trWarning);
-            }
-
-            tbody.appendChild(fragment);
         }
 
         function sortHistoryTable(key) {
@@ -1494,7 +1515,7 @@
             // Override Layout shortcuts or Uploader open
             if(window.uploader) {
                 // We keep uploader logic for progress polling, but override open
-                window.uploader.open = () => switchMainTab('import');
+                // window.uploader.open = () => switchMainTab('import');
             }
 
             // Initialize Chat Input Handler
@@ -1654,8 +1675,8 @@
                     type: 'bar',
                     yAxisID: 'y',
                     data: data.fii_net,
-                    backgroundColor: '#E88B1E',
-                    borderColor: '#E88B1E',
+                    backgroundColor: '#3176B8',
+                    borderColor: '#3176B8',
                     borderWidth: 0,
                     barPercentage: 1.0,
                     categoryPercentage: 0.8,
@@ -1682,19 +1703,19 @@
                     yAxisID: 'y1',
                     data: niftyData,
                     borderColor: '#FFFFFF',
-                    backgroundColor: 'transparent',
-                    borderWidth: 4,
-                    pointRadius: 2,
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 3,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#FFFFFF',
                     tension: 0.1,
-                    shadowColor: 'rgba(0, 0, 0, 0.5)',
-                    shadowBlur: 5
+                    datalabels: { display: false }
                 });
             }
 
             let minNifty = null;
             let maxNifty = null;
             if (niftyData.length > 0) {
-                const validNifty = niftyData.filter(v => v !== null && !isNaN(v));
+                const validNifty = niftyData.filter(v => v !== null && !isNaN(v) && v > 0);
                 if (validNifty.length > 0) {
                     const absMin = Math.min(...validNifty);
                     const absMax = Math.max(...validNifty);
@@ -1779,11 +1800,11 @@
             ];
 
             const participants = [
-                { key: 'fii', label: 'FII', color: '#E88B1E' },     // Orange
-                { key: 'dii', label: 'DII', color: '#4caf50' },     // Blue
+                { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' }, // Yellow
+                { key: 'fii', label: 'FII', color: '#3176B8' },     // Blue
+                { key: 'dii', label: 'DII', color: '#4caf50' },     // Green
                 { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
-                { key: 'client', label: 'CLI', color: '#00bcd4' },  // Blue
-                { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' } // Yellow
+                { key: 'client', label: 'CLI', color: '#00bcd4' }   // Cyan
             ];
 
             const xAxisData = metrics.map(m => m.label);
@@ -1893,7 +1914,7 @@ function renderParticipantHistorical(data) {
     ];
 
     const participants = [
-        { key: 'fii', label: 'FII', color: '#E88B1E' },
+        { key: 'fii', label: 'FII', color: '#3176B8' },
         { key: 'dii', label: 'DII', color: '#4caf50' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
         { key: 'client', label: 'CLI', color: '#00bcd4' }
@@ -2830,7 +2851,7 @@ function renderParticipantGranular(data) {
     ];
 
     const participants = [
-        { key: 'fii', label: 'FII', color: '#E88B1E' },
+        { key: 'fii', label: 'FII', color: '#3176B8' },
         { key: 'dii', label: 'DII', color: '#4caf50' },
         { key: 'pro', label: 'PRO', color: '#9B59B6' },
         { key: 'client', label: 'CLI', color: '#00bcd4' }
@@ -2965,7 +2986,7 @@ async function renderFiiMoneyStats(baseDays) {
 
 
 async function loadMarketOptionsCharts() {
-    const symbol = document.getElementById('market-activity-index-symbol').value;
+    const symbol = document.getElementById('market-activity-index-symbol').value.toUpperCase().trim();
     const lookback = document.getElementById('market-activity-opt-lookback').value;
     const expiryOnly = document.getElementById('market-opt-expiry-only').checked;
 
@@ -2982,23 +3003,23 @@ async function loadMarketOptionsCharts() {
     window.marketHighOiChartInstance.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
     try {
-        const res = await fetch(`/api/options/analysis?symbol=${symbol}&lookback_days=${lookback}&expiry_only=${expiryOnly}`);
+        const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=${lookback}&expiry_only=${expiryOnly}`);
         const data = await res.json();
 
         window.marketPcrChartInstance.hideLoading();
         window.marketHighOiChartInstance.hideLoading();
 
-        if (!data.history || data.history.length === 0) {
+        if (!data.dates || data.dates.length === 0) {
             pcrContainer.innerHTML = '<p style="text-align:center; color:#888;">No historical data available.</p>';
             highOiContainer.innerHTML = '<p style="text-align:center; color:#888;">No historical data available.</p>';
             return;
         }
 
         // Render PCR Chart (Price vs OI vs PCR)
-        const dates = data.history.map(d => d.date);
-        const prices = data.history.map(d => d.close);
-        const pcrs = data.history.map(d => d.pcr);
-        const totalOi = data.history.map(d => d.total_oi);
+        const dates = data.dates;
+        const prices = data.price;
+        const pcrs = data.pcr;
+        const totalOi = data.total_oi;
 
         const pcrOption = {
             backgroundColor: 'transparent',
@@ -3058,8 +3079,8 @@ async function loadMarketOptionsCharts() {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                 legend: { data: ['Put OI', 'Call OI'], textStyle: { color: '#ccc' }, top: 0 },
                 grid: [
-                    { left: '5%', right: '53%', bottom: '10%', top: '15%' }, // Left side
-                    { left: '53%', right: '5%', bottom: '10%', top: '15%' }  // Right side
+                    { left: '5%', right: '50%', bottom: '10%', top: '15%' }, // Left side
+                    { left: '50%', right: '5%', bottom: '10%', top: '15%' }  // Right side
                 ],
                 xAxis: [
                     { type: 'value', gridIndex: 0, inverse: true, axisLabel: { show: false }, splitLine: { show: false } },
@@ -3071,7 +3092,7 @@ async function loadMarketOptionsCharts() {
                 ],
                 series: [
                     { name: 'Put OI', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: putOi, itemStyle: { color: '#3176B8' }, label: { show: true, position: 'left', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } },
-                    { name: 'Call OI', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: callOi, itemStyle: { color: '#E88B1E' }, label: { show: true, position: 'right', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } }
+                    { name: 'Call OI', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: callOi, itemStyle: { color: '#ff4d4d' }, label: { show: true, position: 'right', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } }
                 ]
             };
             window.marketHighOiChartInstance.setOption(butterflyOption);
@@ -3117,25 +3138,24 @@ async function triggerMasterSync() {
         if (typeof loadMWPLAnalysis === 'function') promises.push(loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
 
         // 6. OI Analysis
-        if (typeof OiTool !== 'undefined' && typeof OiTool.syncAndLoadAggregatedData === 'function') {
-            promises.push(OiTool.syncAndLoadAggregatedData().catch(e => console.error("OiTool sync failed", e)));
-        } else if (typeof loadOIAnalysis === 'function') {
-            promises.push(loadOIAnalysis(true).catch(e => console.error("loadOIAnalysis failed", e)));
+        if (typeof window.OiTool !== 'undefined' && typeof window.OiTool.loadAggregatedData === 'function') {
+            promises.push(window.OiTool.syncAndLoadAggregatedData().catch(e => console.error("OiTool sync failed", e)));
         }
 
         // 7. Rollover Analysis
-        if (typeof RolloverTool !== 'undefined' && typeof RolloverTool.syncAndLoadAggregatedData === 'function') {
-            promises.push(RolloverTool.syncAndLoadAggregatedData().catch(e => console.error("RolloverTool sync failed", e)));
-        } else if (typeof loadRolloverAnalysis === 'function') {
-            promises.push(loadRolloverAnalysis(true).catch(e => console.error("loadRolloverAnalysis failed", e)));
+        if (typeof window.RolloverTool !== 'undefined' && typeof window.RolloverTool.loadAggregatedData === 'function') {
+            promises.push(window.RolloverTool.syncAndLoadAggregatedData().catch(e => console.error("RolloverTool sync failed", e)));
         }
+
+        // 8. Volatility Analysis (All F&O)
+        if (typeof loadAllIVSummary === 'function') promises.push(loadAllIVSummary(new Event('sync')).catch(e => console.error("loadAllIVSummary failed", e)));
 
         // Clear main UI Matrix (from previous logic)
         if (typeof clearMatrixUI === 'function') clearMatrixUI();
 
         // NIFTY Data preload for UI
         if (typeof loadTimeseriesData === 'function') {
-            // Removed NIFTY override
+            document.getElementById('symbol-input').value = 'NIFTY';
             promises.push(loadTimeseriesData().catch(e => console.error("loadTimeseriesData failed", e)));
         }
 
@@ -3165,24 +3185,3 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }, 1000);
 });
-
-        // --- Special Situation Arb Tab Logic ---
-        function switchArbTab(tabName) {
-            document.querySelectorAll('.arb-sub-tab').forEach(el => el.style.display = 'none');
-            document.querySelectorAll('.arb-sub-tab').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('#tab-special_arb .wb-tab').forEach(el => {
-                el.classList.remove('active');
-                el.style.borderBottomColor = 'transparent';
-                el.style.color = '#888';
-            });
-
-            const target = document.getElementById(`arb-tab-${tabName}`);
-            const btn = document.getElementById(`arb-tab-btn-${tabName}`);
-            if (target && btn) {
-                target.style.display = tabName === 'ofs' ? 'flex' : 'block';
-                target.classList.add('active');
-                btn.classList.add('active');
-                btn.style.borderBottomColor = '#60a5fa';
-                btn.style.color = '#fff';
-            }
-        }

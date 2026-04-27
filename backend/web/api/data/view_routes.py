@@ -1,7 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from bs4 import BeautifulSoup
-import requests
-import yfinance as yf
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, defer
 from sqlalchemy import desc, asc, or_, func
@@ -25,131 +22,116 @@ router = APIRouter()
 
 @router.get("/api/data/fundamentals")
 def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
-    """Fetch fundamental data including financials and metrics via Yahoo Finance."""
+    """Fetch fundamental placeholder data merged with latest actual price data."""
     try:
         from backend.ingest.nse_models import BhavcopyEQ
         from sqlalchemy import desc
-        import yfinance as yf
 
-        # Fetch latest price from our DB as fallback/reference
+        # Fetch latest price
         latest_eq = db.query(BhavcopyEQ).filter(BhavcopyEQ.symbol == symbol.upper()).order_by(desc(BhavcopyEQ.trade_date)).first()
+
+        # We don't have a database table for fundamentals yet. The user wants to avoid fake data
+        # so we will use Yahoo Finance as a temporary real data source until NSE is reliable.
+        import yfinance as yf
 
         ticker = yf.Ticker(f"{symbol.upper()}.NS")
         info = ticker.info
 
-        cmp = info.get('currentPrice', info.get('regularMarketPrice', 0))
-        if cmp == 0 and latest_eq:
-             cmp = float(latest_eq.close_price or 0.0)
-             prev_close = float(latest_eq.prev_close or cmp)
-        else:
-             prev_close = info.get('previousClose', cmp)
+        if not info or 'regularMarketPrice' not in info and 'currentPrice' not in info:
+             # Fallback if no YF data found
+             cmp = float(latest_eq.close_price) if latest_eq and latest_eq.close_price else 0.0
+             prev_close = float(latest_eq.prev_close) if latest_eq and latest_eq.prev_close else cmp
+             open_price = float(latest_eq.open_price) if latest_eq and latest_eq.open_price else cmp
+             high_price = float(latest_eq.high_price) if latest_eq and latest_eq.high_price else cmp
+             low_price = float(latest_eq.low_price) if latest_eq and latest_eq.low_price else cmp
+             volume = float(latest_eq.total_traded_volume) if latest_eq and latest_eq.total_traded_volume else 0
+             change = cmp - prev_close
+             pct_change = (change / prev_close * 100) if prev_close else 0.0
 
+             return {
+                "symbol": symbol.upper(),
+                "company_name": f"{symbol.upper()} LTD",
+                "sector": "N/A",
+                "cmp": cmp,
+                "change": change,
+                "pct_change": pct_change,
+                "prev_close": prev_close,
+                "open": open_price,
+                "high": high_price,
+                "low": low_price,
+                "volume": volume,
+                "52w_high": 0,
+                "52w_low": 0,
+                "mcap_cr": 0,
+
+                "pe_ratio": 0,
+                "sector_pe": 0,
+                "pb_ratio": 0,
+                "div_yield": 0,
+                "eps": 0,
+                "roe": 0,
+                "roce": 0,
+                "debt_to_equity": 0,
+                "book_value": 0,
+                "face_value": 0,
+
+                "promoter_holding": 0,
+                "fii_holding": 0,
+                "dii_holding": 0,
+                "public_holding": 0,
+
+                "date": latest_eq.trade_date.isoformat() if latest_eq else datetime.now().strftime("%Y-%m-%d")
+             }
+
+        cmp = info.get('currentPrice', info.get('regularMarketPrice', 0))
+        prev_close = info.get('previousClose', 0)
         change = cmp - prev_close
         pct_change = (change / prev_close * 100) if prev_close else 0.0
 
-        # Extract financials
-        financials_list = []
-        try:
-            inc = ticker.income_stmt
-            if not inc.empty:
-                for date in inc.columns[:3]:  # Last 3 years
-                    year_data = inc[date]
-                    financials_list.append({
-                        "year": str(date.year),
-                        "revenue": float(year_data.get('Total Revenue', 0)),
-                        "ebitda": float(year_data.get('EBITDA', 0)),
-                        "net_income": float(year_data.get('Net Income', 0))
-                    })
-        except Exception as e:
-            logger.warning(f"Failed to parse financials for {symbol}: {e}")
-
         return {
             "symbol": symbol.upper(),
-            "company_name": info.get('longName', info.get('shortName', f"{symbol.upper()} LTD")),
-            "sector": info.get('sector', 'N/A'),
-            "industry": info.get('industry', 'N/A'),
-            "description": info.get('longBusinessSummary', ''),
+            "company_name": info.get('longName', f"{symbol.upper()} LTD"),
+            "sector": info.get('sector', "General"),
             "cmp": cmp,
             "change": change,
             "pct_change": pct_change,
-            "market_cap": info.get('marketCap', 0),
-            "pe": info.get('trailingPE', 0),
-            "pb": info.get('priceToBook', 0),
-            "dividend_yield": info.get('dividendYield', 0),
-            "roe": info.get('returnOnEquity', 0),
-            "roce": info.get('returnOnAssets', 0), # YF usually gives ROA not ROCE easily, proxying or leaving
-            "debt_to_equity": info.get('debtToEquity', 0),
-            "eps": info.get('trailingEps', 0),
-            "financials": financials_list
-        }
+            "prev_close": prev_close,
+            "open": info.get('open', 0),
+            "high": info.get('dayHigh', 0),
+            "low": info.get('dayLow', 0),
+            "volume": info.get('volume', 0),
+            "52w_high": info.get('fiftyTwoWeekHigh', 0),
+            "52w_low": info.get('fiftyTwoWeekLow', 0),
+            "mcap_cr": info.get('marketCap', 0) / 10000000 if info.get('marketCap') else 0, # Convert to Crores
 
+            "pe_ratio": info.get('trailingPE', 0),
+            "sector_pe": 0, # YF doesn't readily provide sector PE
+            "pb_ratio": info.get('priceToBook', 0),
+            "div_yield": info.get('dividendYield', 0) * 100 if info.get('dividendYield') else 0,
+            "eps": info.get('trailingEps', 0),
+            "roe": info.get('returnOnEquity', 0) * 100 if info.get('returnOnEquity') else 0,
+            "roce": 0, # YF doesn't provide ROCE easily
+            "debt_to_equity": info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else 0,
+            "book_value": info.get('bookValue', 0),
+            "face_value": 0, # YF doesn't provide face value
+
+            "promoter_holding": info.get('heldPercentInsiders', 0) * 100 if info.get('heldPercentInsiders') else 0,
+            "fii_holding": info.get('heldPercentInstitutions', 0) * 100 if info.get('heldPercentInstitutions') else 0,
+            "dii_holding": 0, # Cannot reliably distinguish FII vs DII in YF
+            "public_holding": 100 - (info.get('heldPercentInsiders', 0) * 100) - (info.get('heldPercentInstitutions', 0) * 100) if info.get('heldPercentInsiders') else 0,
+
+            "date": datetime.now().strftime("%Y-%m-%d")
+        }
     except Exception as e:
         logger.error(f"Error fetching fundamentals for {symbol}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch fundamental data")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/data/shareholding")
 def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
-    """Fetch live shareholding pattern data from Screener (fallback to Yahoo Finance)."""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    }
+    """Fetch live shareholding pattern data from Yahoo Finance."""
     try:
-        from bs4 import BeautifulSoup
-        import requests
         import yfinance as yf
 
-        # Try screener first
-        res = requests.get(f"https://www.screener.in/company/{symbol.upper()}/consolidated/", headers=headers, timeout=10)
-        if res.status_code != 200:
-            res = requests.get(f"https://www.screener.in/company/{symbol.upper()}/", headers=headers, timeout=10)
-
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            sh_table = soup.find('section', id='shareholding')
-            if sh_table:
-                promoter_pct = 0
-                fii_pct = 0
-                dii_pct = 0
-                public_pct = 0
-                rows = sh_table.find_all('tr')
-                for row in rows:
-                    tds = row.find_all('td')
-                    if len(tds) >= 2:
-                        label = tds[0].text.strip().lower()
-                        val_str = tds[-1].text.strip().replace('%', '')
-                        try:
-                            val = float(val_str)
-                        except ValueError:
-                            continue
-
-                        if 'promoter' in label:
-                            promoter_pct = val
-                        elif 'fii' in label:
-                            fii_pct = val
-                        elif 'dii' in label:
-                            dii_pct = val
-                        elif 'public' in label:
-                            public_pct = val
-
-                # Fetch total outstanding shares from YFinance as a fallback for total shares
-                try:
-                    ticker = yf.Ticker(f"{symbol.upper()}.NS")
-                    info = ticker.info
-                    total_shares = info.get('sharesOutstanding', 0)
-                except Exception:
-                    total_shares = 0
-
-                if total_shares > 0:
-                    return {
-                        "symbol": symbol,
-                        "total_outstanding": total_shares,
-                        "promoter_holding": int((promoter_pct / 100.0) * total_shares),
-                        "fii_holding": int((fii_pct / 100.0) * total_shares),
-                        "dii_holding": int((dii_pct / 100.0) * total_shares),
-                        "retail_holding": int((public_pct / 100.0) * total_shares)
-                    }
-
-        # Fallback to yfinance
         ticker = yf.Ticker(f"{symbol.upper()}.NS")
         info = ticker.info
 
