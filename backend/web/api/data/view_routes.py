@@ -129,29 +129,63 @@ def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depen
 
 @router.get("/api/data/shareholding")
 def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
-    """Fetch live shareholding pattern data from Yahoo Finance."""
+    """Fetch live shareholding pattern data from Screener.in."""
     try:
+        import requests
+        from bs4 import BeautifulSoup
         import yfinance as yf
 
-        ticker = yf.Ticker(f"{symbol.upper()}.NS")
-        info = ticker.info
+        # Scrape screener.in
+        url = f"https://www.screener.in/company/{symbol.upper()}/consolidated/"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-        # yfinance gives percentage held (e.g., 0.518 for 51.8%)
-        insider_pct = info.get('heldPercentInsiders', 0)
-        inst_pct = info.get('heldPercentInstitutions', 0)
+        response = requests.get(url, headers=headers)
 
-        # Convert to percentage (0.518 -> 51.80) and format to 2 decimals
-        promoter_pct = round(insider_pct * 100, 2)
-        inst_pct_total = round(inst_pct * 100, 2)
+        if response.status_code != 200:
+            # Fallback to standalone if consolidated doesn't exist
+            url = f"https://www.screener.in/company/{symbol.upper()}/"
+            response = requests.get(url, headers=headers)
 
-        # We don't have exact FII/DII split from simple info, fake a split or just use DII
-        fii_pct = round(inst_pct_total * 0.4, 2)
-        dii_pct = round(inst_pct_total * 0.6, 2)
+        promoter_pct = 0.0
+        fii_pct = 0.0
+        dii_pct = 0.0
+        retail_pct = 0.0
 
-        retail_pct = round(100 - (promoter_pct + inst_pct_total), 2)
-        if retail_pct < 0: retail_pct = 0.0
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            sh_section = soup.find('section', id='shareholding')
 
-        total_shares = info.get('sharesOutstanding', 0)
+            if sh_section:
+                table = sh_section.find('table')
+                if table:
+                    rows = table.find_all('tr')
+                    for row in rows:
+                        cols = [col.text.strip() for col in row.find_all(['th', 'td'])]
+                        if not cols: continue
+
+                        label = cols[0].replace('+', '').strip().lower()
+                        if len(cols) > 1:
+                            val_str = cols[-1].replace('%', '')
+                            try:
+                                val = float(val_str)
+                                if label == 'promoters':
+                                    promoter_pct = val
+                                elif label == 'fiis':
+                                    fii_pct = val
+                                elif label == 'diis':
+                                    dii_pct = val
+                                elif label == 'public':
+                                    retail_pct = val
+                            except ValueError:
+                                pass
+
+        # Get total shares from yfinance
+        total_shares = 0
+        try:
+            ticker = yf.Ticker(f"{symbol.upper()}.NS")
+            total_shares = ticker.info.get('sharesOutstanding', 0)
+        except Exception:
+            pass
 
         return {
             "symbol": symbol.upper(),

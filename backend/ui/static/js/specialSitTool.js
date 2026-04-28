@@ -97,22 +97,17 @@ function calculateBuyback(fromPct = false) {
     const accNon100 = eligibleNonRetail > 0 ? (pubOffer / eligibleNonRetail) : 0;
     const accRet100 = retail > 0 ? (resRetailOffer / retail) : 0;
 
-    // Is the user calculating for retail or non-retail? Based on total value
-    const isRetail = (sharesCalc * cmp) <= 200000;
-    const baseAccRatio = isRetail ? accRet100 : accNon100;
+    // Arbitrage Scenario is for Institutional/Non-Retail
+    const baseAccRatio = accNon100 > 1 ? 1 : accNon100;
 
     const acceptedShares = sharesCalc * baseAccRatio;
     const unacceptedShares = sharesCalc - acceptedShares;
 
     // 1. Profit from accepted shares
-    // (Buyback Price - CMP) * total_shares * acceptance_ratio
     const eqProfit = (buybackPrice - cmp) * sharesCalc * baseAccRatio;
 
-
     // 2. Future P&L
-    // user said "loss is 3*no of unaccepted shares" for CMP 200, FUT 203. (200 - 203 = -3).
     const futLoss = unacceptedShares * (cmp - futPrice);
-
 
     const netProfit = eqProfit + futLoss;
 
@@ -132,13 +127,36 @@ function calculateBuyback(fromPct = false) {
     netPctEl.innerText = netPct.toFixed(2) + '%';
     netPctEl.style.color = netProfit >= 0 ? '#10b981' : '#f44336';
 
+    // Populate Participation Table
+    const accNon90 = accNon100 / 0.9 > 1 ? 1 : accNon100 / 0.9;
+    const accNon80 = accNon100 / 0.8 > 1 ? 1 : accNon100 / 0.8;
+
     document.getElementById('bb-acc-non-100').innerText = (accNon100 * 100).toFixed(2) + '%';
-    document.getElementById('bb-acc-non-90').innerText = (accNon100 * 100 / 0.9).toFixed(2) + '%';
-    document.getElementById('bb-acc-non-80').innerText = (accNon100 * 100 / 0.8).toFixed(2) + '%';
+    document.getElementById('bb-acc-non-90').innerText = (accNon90 * 100).toFixed(2) + '%';
+    document.getElementById('bb-acc-non-80').innerText = (accNon80 * 100).toFixed(2) + '%';
+
+    const profNon100 = (buybackPrice - cmp) * accNon100 + (1 - accNon100) * (cmp - futPrice);
+    const profNon90 = (buybackPrice - cmp) * accNon90 + (1 - accNon90) * (cmp - futPrice);
+    const profNon80 = (buybackPrice - cmp) * accNon80 + (1 - accNon80) * (cmp - futPrice);
+
+    document.getElementById('bb-prof-non-100').innerText = '₹' + profNon100.toFixed(2);
+    document.getElementById('bb-prof-non-90').innerText = '₹' + profNon90.toFixed(2);
+    document.getElementById('bb-prof-non-80').innerText = '₹' + profNon80.toFixed(2);
+
+    const accRet90 = accRet100 / 0.9 > 1 ? 1 : accRet100 / 0.9;
+    const accRet80 = accRet100 / 0.8 > 1 ? 1 : accRet100 / 0.8;
 
     document.getElementById('bb-acc-ret-100').innerText = (accRet100 * 100).toFixed(2) + '%';
-    document.getElementById('bb-acc-ret-90').innerText = (accRet100 * 100 / 0.9).toFixed(2) + '%';
-    document.getElementById('bb-acc-ret-80').innerText = (accRet100 * 100 / 0.8).toFixed(2) + '%';
+    document.getElementById('bb-acc-ret-90').innerText = (accRet90 * 100).toFixed(2) + '%';
+    document.getElementById('bb-acc-ret-80').innerText = (accRet80 * 100).toFixed(2) + '%';
+
+    const profRet100 = (buybackPrice - cmp) * accRet100 + (1 - accRet100) * (cmp - futPrice);
+    const profRet90 = (buybackPrice - cmp) * accRet90 + (1 - accRet90) * (cmp - futPrice);
+    const profRet80 = (buybackPrice - cmp) * accRet80 + (1 - accRet80) * (cmp - futPrice);
+
+    document.getElementById('bb-prof-ret-100').innerText = '₹' + profRet100.toFixed(2);
+    document.getElementById('bb-prof-ret-90').innerText = '₹' + profRet90.toFixed(2);
+    document.getElementById('bb-prof-ret-80').innerText = '₹' + profRet80.toFixed(2);
 }
 
 
@@ -148,7 +166,14 @@ function calculateBuyback(fromPct = false) {
 
 
 
-async function syncBuybackHoldings() {
+async function syncBuybackHoldings(event) {
+    let btn = event ? event.currentTarget : null;
+    let originalHtml = '';
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.disabled = true;
+    }
     const symbol = document.getElementById('bb-symbol').value.toUpperCase();
     if (!symbol) {
         alert("Please enter a symbol in Price Info to sync holdings.");
@@ -175,10 +200,22 @@ async function syncBuybackHoldings() {
     } catch (e) {
         console.error("Error syncing fundamentals", e);
         alert("Failed to sync holdings from Backend. Check console.");
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 }
 
-async function syncBuybackPrices() {
+async function syncBuybackPrices(event) {
+    let btn = event ? event.currentTarget : null;
+    let originalHtml = '';
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.disabled = true;
+    }
     const symbol = document.getElementById('bb-symbol').value.toUpperCase();
     if (!symbol) return;
 
@@ -196,6 +233,11 @@ async function syncBuybackPrices() {
         }
     } catch (e) {
         console.error("Error fetching price", e);
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -390,7 +432,14 @@ function calculateOFS(fromPct = false) {
 
 
 
-async function syncOFSHoldings() {
+async function syncOFSHoldings(event) {
+    let btn = event ? event.currentTarget : null;
+    let originalHtml = '';
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.disabled = true;
+    }
     const symbol = document.getElementById('ofs-symbol').value.toUpperCase();
     if (!symbol) {
         alert("Please enter a symbol in Price Info to sync holdings.");
@@ -417,10 +466,22 @@ async function syncOFSHoldings() {
     } catch (e) {
         console.error("Error syncing OFS fundamentals", e);
         alert("Failed to sync holdings from Backend. Check console.");
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 }
 
-async function syncOFSPrices() {
+async function syncOFSPrices(event) {
+    let btn = event ? event.currentTarget : null;
+    let originalHtml = '';
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.disabled = true;
+    }
     const symbol = document.getElementById('ofs-symbol').value.toUpperCase();
     if (!symbol) return;
 
@@ -436,6 +497,11 @@ async function syncOFSPrices() {
         }
     } catch (e) {
         console.error("Error fetching OFS price", e);
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 }
 
