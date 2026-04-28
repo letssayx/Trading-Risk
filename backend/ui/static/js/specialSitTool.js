@@ -19,7 +19,22 @@ function switchSpecialSitTab(tabName) {
     }
 }
 
-function calculateBuyback() {
+
+function calculateBuyback(fromPct = false) {
+    const totalOutEl = document.getElementById('bb-total-out');
+    // If we only have percentages (e.g. from sync), we need a baseline Total Outstanding to convert to shares.
+    // Sync will provide totalOutstanding in memory or via an attribute, or we assume a base if total is set.
+    let currentTotal = parseFloat(totalOutEl.innerText.replace(/,/g, '')) || 0;
+
+    // We get values depending on where the input came from to keep them synced
+    if (fromPct && currentTotal > 0) {
+        document.getElementById('bb-promoter').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-promoter-pct').value) || 0) / 100);
+        document.getElementById('bb-fii').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-fii-pct').value) || 0) / 100);
+        document.getElementById('bb-dii').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-dii-pct').value) || 0) / 100);
+        document.getElementById('bb-retail').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-retail-pct-input').value) || 0) / 100);
+        document.getElementById('bb-public').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-public-pct').value) || 0) / 100);
+    }
+
     const promoter = parseFloat(document.getElementById('bb-promoter').value) || 0;
     const fii = parseFloat(document.getElementById('bb-fii').value) || 0;
     const dii = parseFloat(document.getElementById('bb-dii').value) || 0;
@@ -27,7 +42,17 @@ function calculateBuyback() {
     const publicVal = parseFloat(document.getElementById('bb-public').value) || 0;
 
     const totalOut = promoter + fii + dii + retail + publicVal;
-    document.getElementById('bb-total-out').innerText = totalOut.toLocaleString();
+
+    // Update percentages if input came from shares
+    if (!fromPct && totalOut > 0) {
+        document.getElementById('bb-promoter-pct').value = ((promoter / totalOut) * 100).toFixed(2);
+        document.getElementById('bb-fii-pct').value = ((fii / totalOut) * 100).toFixed(2);
+        document.getElementById('bb-dii-pct').value = ((dii / totalOut) * 100).toFixed(2);
+        document.getElementById('bb-retail-pct-input').value = ((retail / totalOut) * 100).toFixed(2);
+        document.getElementById('bb-public-pct').value = ((publicVal / totalOut) * 100).toFixed(2);
+    }
+
+    totalOutEl.innerText = totalOut.toLocaleString();
 
     const totalOffer = parseFloat(document.getElementById('bb-total-offer').value) || 0;
     const retailPct = parseFloat(document.getElementById('bb-retail-pct').value) || 15;
@@ -43,7 +68,6 @@ function calculateBuyback() {
     const cmp = parseFloat(document.getElementById('bb-cmp').value) || 0;
     const futPrice = parseFloat(document.getElementById('bb-fut-price').value) || 0;
     const sharesCalc = parseFloat(document.getElementById('bb-shares-calc').value) || 100;
-
 
     // Promoter Post Event Math
     const participates = document.getElementById('bb-promoter-participates').checked;
@@ -65,38 +89,31 @@ function calculateBuyback() {
     document.getElementById('bb-promoter-post-pct').innerText = postPromoterPct.toFixed(2) + '%';
 
     // Participation Table logic
-    // Eligible Non-Retail = Total - Retail
-    // If Promoter doesn't participate, their shares are removed from the eligible pool for acceptance ratio
     let eligibleNonRetail = totalOut - retail;
     if (!participates) {
         eligibleNonRetail -= promoter;
     }
 
-    // Calculate base acceptance ratios
     const accNon100 = eligibleNonRetail > 0 ? (pubOffer / eligibleNonRetail) : 0;
     const accRet100 = retail > 0 ? (resRetailOffer / retail) : 0;
 
-    // Calculate accepted shares out of the 'sharesCalc' (which represents user's total shares)
-    // We need to know if the user is retail or non-retail. We'll calculate for both or assume based on shares value?
-    // Let's assume the user is retail if their total value (shares * CMP) <= 200,000, otherwise non-retail.
+    // Is the user calculating for retail or non-retail? Based on total value
     const isRetail = (sharesCalc * cmp) <= 200000;
     const baseAccRatio = isRetail ? accRet100 : accNon100;
 
-    // We will calculate scenario based on 100% participation for simplicity, or we can use the exact baseAccRatio
     const acceptedShares = sharesCalc * baseAccRatio;
     const unacceptedShares = sharesCalc - acceptedShares;
 
-    // Calculate Arbitrage Scenario
     // 1. Profit from accepted shares
-    const eqProfit = acceptedShares * (buybackPrice - cmp);
-    // 2. Future P&L from hedging unaccepted shares (Future P&L = unhedged shares * (CMP - Future Price) for short future)
-    // Actually the user stated: future P&L be calculated = unhedged shares*CMP (FUT1 or 2 or 3 as per user selection)
-    // Wait, future P&L is profit/loss. If we short future at FUT_PRICE and square off at CMP?
-    // User said: "future P&L be calculated = unhedged shares*CMP" - that might be a typo for (FUT_PRICE - CMP) or something.
-    // Standard hedge: short future at futPrice, close at cmp. Profit = futPrice - cmp.
-    const futLoss = unacceptedShares * (cmp - futPrice); // This is CMP - Fut Price. If Fut is 105, CMP is 100, loss is -5. So shorting at 105 and buying at 100 gives +5. It should be (futPrice - cmp) if we shorted.
-    // Wait, the existing code: const futLoss = sharesCalc * (cmp - futPrice); Let's keep it but apply to unacceptedShares
-    // Let's use user's explicit instruction: unhedged shares * (cmp - futPrice)
+    // (Buyback Price - CMP) * total_shares * acceptance_ratio
+    const eqProfit = (buybackPrice - cmp) * sharesCalc * baseAccRatio;
+
+
+    // 2. Future P&L
+    // user said "loss is 3*no of unaccepted shares" for CMP 200, FUT 203. (200 - 203 = -3).
+    const futLoss = unacceptedShares * (cmp - futPrice);
+
+
     const netProfit = eqProfit + futLoss;
 
     let netPct = 0;
@@ -116,14 +133,20 @@ function calculateBuyback() {
     netPctEl.style.color = netProfit >= 0 ? '#10b981' : '#f44336';
 
     document.getElementById('bb-acc-non-100').innerText = (accNon100 * 100).toFixed(2) + '%';
-    document.getElementById('bb-acc-non-90').innerText = (accNon100 * 100 / 0.9).toFixed(2) + '%'; // If 90% participate, ratio goes up
+    document.getElementById('bb-acc-non-90').innerText = (accNon100 * 100 / 0.9).toFixed(2) + '%';
     document.getElementById('bb-acc-non-80').innerText = (accNon100 * 100 / 0.8).toFixed(2) + '%';
 
     document.getElementById('bb-acc-ret-100').innerText = (accRet100 * 100).toFixed(2) + '%';
     document.getElementById('bb-acc-ret-90').innerText = (accRet100 * 100 / 0.9).toFixed(2) + '%';
     document.getElementById('bb-acc-ret-80').innerText = (accRet100 * 100 / 0.8).toFixed(2) + '%';
-
 }
+
+
+
+
+
+
+
 
 async function syncBuybackHoldings() {
     const symbol = document.getElementById('bb-symbol').value.toUpperCase();
@@ -133,17 +156,21 @@ async function syncBuybackHoldings() {
     }
 
     try {
-        const res = await fetch(`/api/data/fundamentals?symbol=${symbol}`);
+        const res = await fetch(`/api/data/shareholding?symbol=${symbol}`);
+        if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
 
-        if (data && data.promoter_holding !== undefined) {
-            document.getElementById('bb-promoter').value = data.promoter_holding || 0;
-            document.getElementById('bb-fii').value = data.fii_holding || 0;
-            document.getElementById('bb-dii').value = data.dii_holding || 0;
-            document.getElementById('bb-public').value = data.public_holding || 0;
+        if (data && data.total_outstanding) {
+            document.getElementById('bb-total-out').innerText = data.total_outstanding;
 
-            // Re-trigger calculation
-            calculateBuyback();
+            document.getElementById('bb-promoter-pct').value = data.promoter_holding || 0;
+            document.getElementById('bb-fii-pct').value = data.fii_holding || 0;
+            document.getElementById('bb-dii-pct').value = data.dii_holding || 0;
+            document.getElementById('bb-public-pct').value = data.public_holding || 0;
+
+            calculateBuyback(true);
+        } else {
+             alert("No shareholding data returned.");
         }
     } catch (e) {
         console.error("Error syncing fundamentals", e);
@@ -156,8 +183,6 @@ async function syncBuybackPrices() {
     if (!symbol) return;
 
     try {
-        // Using snapshot endpoint to get latest cash and future price
-        const ts = new Date().toISOString().split('T')[0];
         const res = await fetch(`/api/morning-report/timeseries?symbol=${symbol}`);
         const data = await res.json();
 
@@ -179,16 +204,32 @@ window.calculateBuyback = calculateBuyback;
 window.syncBuybackHoldings = syncBuybackHoldings;
 window.syncBuybackPrices = syncBuybackPrices;
 
+function calculateOFS(fromPct = false) {
+    const totalOutEl = document.getElementById('ofs-total-out');
+    let currentTotal = parseFloat(totalOutEl.innerText.replace(/,/g, '')) || 0;
 
+    if (fromPct && currentTotal > 0) {
+        document.getElementById('ofs-promoter').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-promoter-pct').value) || 0) / 100);
+        document.getElementById('ofs-fii').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-fii-pct').value) || 0) / 100);
+        document.getElementById('ofs-dii').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-dii-pct').value) || 0) / 100);
+        document.getElementById('ofs-retail').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-retail-pct-input').value) || 0) / 100);
+    }
 
-function calculateOFS() {
     const promoter = parseFloat(document.getElementById('ofs-promoter').value) || 0;
     const fii = parseFloat(document.getElementById('ofs-fii').value) || 0;
     const dii = parseFloat(document.getElementById('ofs-dii').value) || 0;
     const retail = parseFloat(document.getElementById('ofs-retail').value) || 0;
 
     const totalOut = promoter + fii + dii + retail;
-    document.getElementById('ofs-total-out').innerText = totalOut.toLocaleString();
+
+    if (!fromPct && totalOut > 0) {
+        document.getElementById('ofs-promoter-pct').value = ((promoter / totalOut) * 100).toFixed(2);
+        document.getElementById('ofs-fii-pct').value = ((fii / totalOut) * 100).toFixed(2);
+        document.getElementById('ofs-dii-pct').value = ((dii / totalOut) * 100).toFixed(2);
+        document.getElementById('ofs-retail-pct-input').value = ((retail / totalOut) * 100).toFixed(2);
+    }
+
+    totalOutEl.innerText = totalOut.toLocaleString();
 
     const totalOffer = parseFloat(document.getElementById('ofs-total-offer').value) || 0;
     const retailPct = parseFloat(document.getElementById('ofs-retail-pct').value) || 10;
@@ -220,7 +261,6 @@ function calculateOFS() {
     document.getElementById('ofs-arb-pct').innerText = arbPct.toFixed(2) + '%';
 
     // Waterfall Allocation Matrix
-    // We will dynamically read the inputs from the matrix if they exist, otherwise use defaults
     let bid1 = bidPrice;
     let bid2 = bidPrice - 1;
     let bid3 = bidPrice - 2;
@@ -235,7 +275,6 @@ function calculateOFS() {
 
     const tbody = document.getElementById('ofs-matrix-body');
     if (tbody && tbody.children.length > 0) {
-        // Try to read existing values so they persist during oninput
         try {
             bid1 = parseFloat(tbody.children[0].querySelectorAll('input')[0].value) || bid1;
             qty1 = parseFloat(tbody.children[0].querySelectorAll('input')[1].value) || qty1;
@@ -251,10 +290,8 @@ function calculateOFS() {
         } catch (e) {}
     }
 
-    // Waterfall calculation
     let remainingSupply = availableSupply;
 
-    // Level 1
     let allot1 = 0;
     if (cum1 > 0) {
         allot1 = (remainingSupply / cum1) * 100;
@@ -264,7 +301,6 @@ function calculateOFS() {
     remainingSupply = Math.max(0, remainingSupply - allocatedAt1);
     const shareAllot1 = Math.floor(qty1 * (allot1 / 100));
 
-    // Level 2
     let allot2 = 0;
     if (cum2 > 0 && remainingSupply > 0) {
         allot2 = (remainingSupply / cum2) * 100;
@@ -274,7 +310,6 @@ function calculateOFS() {
     remainingSupply = Math.max(0, remainingSupply - allocatedAt2);
     const shareAllot2 = Math.floor(qty2 * (allot2 / 100));
 
-    // Level 3
     let allot3 = 0;
     if (cum3 > 0 && remainingSupply > 0) {
         allot3 = (remainingSupply / cum3) * 100;
@@ -326,36 +361,35 @@ function calculateOFS() {
         `;
     }
 
-    // We will use shareAllot1 as the 'shares allotted' for the top summary (assuming user bid at bid1)
     document.getElementById('ofs-shares-allotted').innerText = shareAllot1;
 
-    // Reversal price
     const unhedged = totalSharesBid - shareAllot1;
     let reversal = 0;
     if (unhedged > 0 && shareAllot1 > 0) {
-        // Reversal price = Hedge Entry - (Gross Spread * shareAllot1 / unhedged)
         reversal = hedgeEntry - (grossSpread * shareAllot1 / unhedged);
     } else {
         reversal = hedgeEntry;
     }
     document.getElementById('ofs-reversal-price').innerText = reversal.toFixed(2);
 
-    // Fut risk
     const futRisk = (unhedged / (lotSize || 1));
     document.getElementById('ofs-fut-risk').innerText = futRisk.toFixed(2);
 
-    // Fut risk %
     let futRiskPct = 0;
     if (totalSharesBid > 0) {
         futRiskPct = (unhedged / totalSharesBid) * 100;
     }
     document.getElementById('ofs-fut-risk-pct').innerText = futRiskPct.toFixed(2) + '%';
 
-    // Net Arbitrage %
     const totalCosts = cof + impact + stt;
     const netArbPct = arbPct - totalCosts;
     document.getElementById('ofs-net-arb-pct').innerText = netArbPct.toFixed(2) + '%';
 }
+
+
+
+
+
 async function syncOFSHoldings() {
     const symbol = document.getElementById('ofs-symbol').value.toUpperCase();
     if (!symbol) {
@@ -364,19 +398,25 @@ async function syncOFSHoldings() {
     }
 
     try {
-        const res = await fetch(`/api/data/fundamentals?symbol=${symbol}`);
+        const res = await fetch(`/api/data/shareholding?symbol=${symbol}`);
+        if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
 
-        if (data && data.promoter_holding !== undefined) {
-            document.getElementById('ofs-promoter').value = data.promoter_holding || 0;
-            document.getElementById('ofs-fii').value = data.fii_holding || 0;
-            document.getElementById('ofs-dii').value = data.dii_holding || 0;
-            document.getElementById('ofs-retail').value = data.public_holding || 0;
+        if (data && data.total_outstanding) {
+            document.getElementById('ofs-total-out').innerText = data.total_outstanding;
 
-            calculateOFS();
+            document.getElementById('ofs-promoter-pct').value = data.promoter_holding || 0;
+            document.getElementById('ofs-fii-pct').value = data.fii_holding || 0;
+            document.getElementById('ofs-dii-pct').value = data.dii_holding || 0;
+            document.getElementById('ofs-retail-pct-input').value = data.public_holding || 0;
+
+            calculateOFS(true);
+        } else {
+            alert("No shareholding data returned.");
         }
     } catch (e) {
         console.error("Error syncing OFS fundamentals", e);
+        alert("Failed to sync holdings from Backend. Check console.");
     }
 }
 

@@ -126,6 +126,7 @@ def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depen
         logger.error(f"Error fetching fundamentals for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/api/data/shareholding")
 def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     """Fetch live shareholding pattern data from Yahoo Finance."""
@@ -139,30 +140,31 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
         insider_pct = info.get('heldPercentInsiders', 0)
         inst_pct = info.get('heldPercentInstitutions', 0)
 
+        # Convert to percentage (0.518 -> 51.80) and format to 2 decimals
+        promoter_pct = round(insider_pct * 100, 2)
+        inst_pct_total = round(inst_pct * 100, 2)
+
+        # We don't have exact FII/DII split from simple info, fake a split or just use DII
+        fii_pct = round(inst_pct_total * 0.4, 2)
+        dii_pct = round(inst_pct_total * 0.6, 2)
+
+        retail_pct = round(100 - (promoter_pct + inst_pct_total), 2)
+        if retail_pct < 0: retail_pct = 0.0
+
         total_shares = info.get('sharesOutstanding', 0)
-
-        # Calculate derived share amounts
-        promoter_shares = int(total_shares * insider_pct)
-        inst_shares = int(total_shares * inst_pct)
-        # Assuming all institutions are DII for this basic proxy (or splitting 50/50 if needed). YF doesn't split FII/DII reliably.
-        # But let's split it somewhat arbitrarily to populate fields if FII/DII split is needed, or just dump into FII for now.
-        fii_shares = int(inst_shares * 0.4) # Mock split
-        dii_shares = int(inst_shares * 0.6) # Mock split
-
-        public_shares = total_shares - promoter_shares - inst_shares
 
         return {
             "symbol": symbol.upper(),
-            "total_outstanding": total_shares,
-            "promoter_holding": promoter_shares,
-            "fii_holding": fii_shares,
-            "dii_holding": dii_shares,
-            "public_holding": public_shares,
-            "date_updated": datetime.now().strftime("%Y-%m-%d")
+            "promoter_holding": promoter_pct,
+            "fii_holding": fii_pct,
+            "dii_holding": dii_pct,
+            "public_holding": retail_pct,
+            "total_outstanding": total_shares
         }
     except Exception as e:
         logger.error(f"Error fetching shareholding for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # Share a single NseSession instance for proxying
 _nse_session = None
