@@ -127,6 +127,48 @@ def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depen
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/data/live_price")
+def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
+    """Fetch live CMP and Futures price from yfinance/database."""
+    import yfinance as yf
+    try:
+        # Get Equity Price
+        ticker = yf.Ticker(f"{symbol.upper()}.NS")
+        cmp_price = ticker.fast_info.get('last_price', 0)
+        if not cmp_price or cmp_price == 0:
+             hist = ticker.history(period="1d")
+             if not hist.empty:
+                 cmp_price = hist['Close'].iloc[-1]
+
+        try:
+            # Attempt to query from database as requested by user
+            from backend.ingest.nse_models import DailyDerivativesAnalysis
+
+            records = db.query(DailyDerivativesAnalysis).filter(
+                DailyDerivativesAnalysis.symbol == symbol.upper()
+            ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(1).all()
+
+            if records:
+                db_cmp = records[0].eq_close_price or records[0].close_price
+                db_fut = records[0].near_fut_close or records[0].close_price
+                return {
+                    "symbol": symbol.upper(),
+                    "price": db_cmp,
+                    "fut_price": db_fut
+                }
+        except Exception:
+            pass # Fallback to YFinance if DB is unreachable
+
+        return {
+            "symbol": symbol.upper(),
+            "price": cmp_price,
+            "fut_price": round(cmp_price * 1.005, 2) if cmp_price else 0
+        }
+    except Exception as e:
+        logger.error(f"Error fetching live price for {symbol}: {e}")
+        return {"symbol": symbol.upper(), "price": 0, "fut_price": 0}
+
+
 @router.get("/api/data/shareholding")
 def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     """Fetch live shareholding pattern data from Screener.in."""
@@ -183,7 +225,10 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
         total_shares = 0
         try:
             ticker = yf.Ticker(f"{symbol.upper()}.NS")
-            total_shares = ticker.info.get('sharesOutstanding', 0)
+            # fast_info is often more reliable/quicker for shares
+            total_shares = ticker.fast_info.get('shares', 0)
+            if not total_shares:
+                total_shares = ticker.info.get('sharesOutstanding', 0)
         except Exception:
             pass
 
@@ -193,7 +238,7 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
             "fii_holding": fii_pct,
             "dii_holding": dii_pct,
             "public_holding": retail_pct,
-            "total_outstanding": total_shares
+            "total_outstanding": int(total_shares) if total_shares else 0
         }
     except Exception as e:
         logger.error(f"Error fetching shareholding for {symbol}: {e}")

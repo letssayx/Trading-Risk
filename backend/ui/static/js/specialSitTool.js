@@ -107,9 +107,13 @@ function calculateBuyback(fromPct = false) {
     const eqProfit = (buybackPrice - cmp) * sharesCalc * baseAccRatio;
 
     // 2. Future P&L
+    // The user sells futures to hedge the unaccepted shares.
+    // Loss per unaccepted share = (CMP - Fut Price)
+    // Positive means a loss, negative means a profit.
     const futLoss = unacceptedShares * (cmp - futPrice);
 
-    const netProfit = eqProfit + futLoss;
+    // Net Profit = Equity Profit - Future Loss
+    const netProfit = eqProfit - futLoss;
 
     let netPct = 0;
     if (cmp > 0) {
@@ -117,6 +121,7 @@ function calculateBuyback(fromPct = false) {
     }
 
     document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
+    // Display futLoss directly (which represents the loss amount)
     document.getElementById('bb-fut-profit').innerText = futLoss.toFixed(2);
 
     const netProfitEl = document.getElementById('bb-net-profit');
@@ -135,9 +140,9 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-acc-non-90').innerText = (accNon90 * 100).toFixed(2) + '%';
     document.getElementById('bb-acc-non-80').innerText = (accNon80 * 100).toFixed(2) + '%';
 
-    const profNon100 = (buybackPrice - cmp) * accNon100 + (1 - accNon100) * (cmp - futPrice);
-    const profNon90 = (buybackPrice - cmp) * accNon90 + (1 - accNon90) * (cmp - futPrice);
-    const profNon80 = (buybackPrice - cmp) * accNon80 + (1 - accNon80) * (cmp - futPrice);
+    const profNon100 = (buybackPrice - cmp) * accNon100 - (1 - accNon100) * (cmp - futPrice);
+    const profNon90 = (buybackPrice - cmp) * accNon90 - (1 - accNon90) * (cmp - futPrice);
+    const profNon80 = (buybackPrice - cmp) * accNon80 - (1 - accNon80) * (cmp - futPrice);
 
     document.getElementById('bb-prof-non-100').innerText = '₹' + profNon100.toFixed(2);
     document.getElementById('bb-prof-non-90').innerText = '₹' + profNon90.toFixed(2);
@@ -150,9 +155,9 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-acc-ret-90').innerText = (accRet90 * 100).toFixed(2) + '%';
     document.getElementById('bb-acc-ret-80').innerText = (accRet80 * 100).toFixed(2) + '%';
 
-    const profRet100 = (buybackPrice - cmp) * accRet100 + (1 - accRet100) * (cmp - futPrice);
-    const profRet90 = (buybackPrice - cmp) * accRet90 + (1 - accRet90) * (cmp - futPrice);
-    const profRet80 = (buybackPrice - cmp) * accRet80 + (1 - accRet80) * (cmp - futPrice);
+    const profRet100 = (buybackPrice - cmp) * accRet100 - (1 - accRet100) * (cmp - futPrice);
+    const profRet90 = (buybackPrice - cmp) * accRet90 - (1 - accRet90) * (cmp - futPrice);
+    const profRet80 = (buybackPrice - cmp) * accRet80 - (1 - accRet80) * (cmp - futPrice);
 
     document.getElementById('bb-prof-ret-100').innerText = '₹' + profRet100.toFixed(2);
     document.getElementById('bb-prof-ret-90').innerText = '₹' + profRet90.toFixed(2);
@@ -220,16 +225,19 @@ async function syncBuybackPrices(event) {
     if (!symbol) return;
 
     try {
-        const res = await fetch(`/api/morning-report/timeseries?symbol=${symbol}`);
+        // Since YFinance is being used as a live fallback when DB is down, we can hit the dedicated live_price endpoint
+        const res = await fetch(`/api/data/live_price?symbol=${symbol}`);
+        if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
 
-        if (data.history && data.history.length > 0) {
-            const latest = data.history[0];
-            document.getElementById('bb-cmp').value = latest.price || 0;
-            if (latest.fut_price) {
-                document.getElementById('bb-fut-price').value = latest.fut_price;
+        if (data && data.price) {
+            document.getElementById('bb-cmp').value = parseFloat(data.price).toFixed(2) || 0;
+            if (data.fut_price) {
+                document.getElementById('bb-fut-price').value = parseFloat(data.fut_price).toFixed(2);
             }
             calculateBuyback();
+        } else {
+             alert("No price data returned.");
         }
     } catch (e) {
         console.error("Error fetching price", e);
@@ -486,14 +494,17 @@ async function syncOFSPrices(event) {
     if (!symbol) return;
 
     try {
-        const res = await fetch(`/api/morning-report/timeseries?symbol=${symbol}`);
+        const res = await fetch(`/api/data/live_price?symbol=${symbol}`);
+        if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
 
-        if (data.history && data.history.length > 0) {
-            const latest = data.history[0];
-            document.getElementById('ofs-cmp').value = latest.price || 0;
-            document.getElementById('ofs-hedge-entry').value = latest.price || 0;
+        if (data && data.price) {
+            const price = parseFloat(data.price).toFixed(2);
+            document.getElementById('ofs-cmp').value = price || 0;
+            document.getElementById('ofs-hedge-entry').value = price || 0;
             calculateOFS();
+        } else {
+             alert("No price data returned.");
         }
     } catch (e) {
         console.error("Error fetching OFS price", e);
