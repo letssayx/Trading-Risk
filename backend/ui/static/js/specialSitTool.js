@@ -196,9 +196,20 @@ async function syncBuybackHoldings(event) {
             document.getElementById('bb-promoter-pct').value = data.promoter_holding || 0;
             document.getElementById('bb-fii-pct').value = data.fii_holding || 0;
             document.getElementById('bb-dii-pct').value = data.dii_holding || 0;
+            document.getElementById('bb-retail-pct-input').value = data.retail_holding || 0;
             document.getElementById('bb-public-pct').value = data.public_holding || 0;
 
-            calculateBuyback(true);
+            // If absolute values were provided by the API (e.g. from exact NSE XBRL parser)
+            if (data.promoter_shares !== undefined) {
+                document.getElementById('bb-promoter').value = data.promoter_shares || 0;
+                document.getElementById('bb-fii').value = data.fii_shares || 0;
+                document.getElementById('bb-dii').value = data.dii_shares || 0;
+                document.getElementById('bb-retail').value = data.retail_shares || 0;
+                document.getElementById('bb-public').value = data.public_shares || 0;
+                calculateBuyback(false); // Math using exact absolute shares
+            } else {
+                calculateBuyback(true); // Math falls back to percentage conversion
+            }
         } else {
              alert("No shareholding data returned.");
         }
@@ -213,6 +224,21 @@ async function syncBuybackHoldings(event) {
     }
 }
 
+// Store fetched futures prices globally so they can be swapped dynamically when selection changes
+let fetchedFutures = {
+    '1': 0,
+    '2': 0,
+    '3': 0
+};
+
+function handleFutureSelectionChange() {
+    const sel = document.getElementById('bb-future-sel').value;
+    if (fetchedFutures[sel]) {
+        document.getElementById('bb-fut-price').value = parseFloat(fetchedFutures[sel]).toFixed(2);
+    }
+    calculateBuyback();
+}
+
 async function syncBuybackPrices(event) {
     let btn = event ? event.currentTarget : null;
     let originalHtml = '';
@@ -225,15 +251,21 @@ async function syncBuybackPrices(event) {
     if (!symbol) return;
 
     try {
-        // Since YFinance is being used as a live fallback when DB is down, we can hit the dedicated live_price endpoint
         const res = await fetch(`/api/data/live_price?symbol=${symbol}`);
         if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
 
         if (data && data.price) {
             document.getElementById('bb-cmp').value = parseFloat(data.price).toFixed(2) || 0;
-            if (data.fut_price) {
-                document.getElementById('bb-fut-price').value = parseFloat(data.fut_price).toFixed(2);
+
+            // Store prices
+            fetchedFutures['1'] = data.near_fut_price || 0;
+            fetchedFutures['2'] = data.next_fut_price || 0;
+            fetchedFutures['3'] = data.far_fut_price || 0;
+
+            const sel = document.getElementById('bb-future-sel').value;
+            if (fetchedFutures[sel]) {
+                document.getElementById('bb-fut-price').value = parseFloat(fetchedFutures[sel]).toFixed(2);
             }
             calculateBuyback();
         } else {
@@ -467,7 +499,16 @@ async function syncOFSHoldings(event) {
             document.getElementById('ofs-dii-pct').value = data.dii_holding || 0;
             document.getElementById('ofs-retail-pct-input').value = data.public_holding || 0;
 
-            calculateOFS(true);
+            if (data.promoter_shares !== undefined) {
+                document.getElementById('ofs-promoter').value = data.promoter_shares || 0;
+                document.getElementById('ofs-fii').value = data.fii_shares || 0;
+                document.getElementById('ofs-dii').value = data.dii_shares || 0;
+                // For OFS, retail is currently just capturing the generic public block
+                document.getElementById('ofs-retail').value = data.public_shares || 0;
+                calculateOFS(false);
+            } else {
+                calculateOFS(true);
+            }
         } else {
             alert("No shareholding data returned.");
         }

@@ -129,62 +129,112 @@ def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depen
 
 @router.get("/api/data/live_price")
 def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
-    """Fetch live CMP and Futures price from yfinance/database."""
-    import yfinance as yf
+    """Fetch CMP and Futures price from the backend database."""
     try:
-        # Get Equity Price
-        ticker = yf.Ticker(f"{symbol.upper()}.NS")
-        cmp_price = ticker.fast_info.get('last_price', 0)
-        if not cmp_price or cmp_price == 0:
-             hist = ticker.history(period="1d")
-             if not hist.empty:
-                 cmp_price = hist['Close'].iloc[-1]
+        from backend.ingest.nse_models import DailyDerivativesAnalysis
 
-        try:
-            # Attempt to query from database as requested by user
-            from backend.ingest.nse_models import DailyDerivativesAnalysis
+        records = db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.symbol == symbol.upper()
+        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(1).all()
 
-            records = db.query(DailyDerivativesAnalysis).filter(
-                DailyDerivativesAnalysis.symbol == symbol.upper()
-            ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(1).all()
-
-            if records:
-                db_cmp = records[0].eq_close_price or records[0].close_price
-                db_fut = records[0].near_fut_close or records[0].close_price
-                return {
-                    "symbol": symbol.upper(),
-                    "price": db_cmp,
-                    "fut_price": db_fut
-                }
-        except Exception:
-            pass # Fallback to YFinance if DB is unreachable
-
+        if records:
+            db_cmp = records[0].eq_close_price or records[0].close_price
+            return {
+                "symbol": symbol.upper(),
+                "price": db_cmp,
+                "near_fut_price": records[0].near_fut_close or db_cmp,
+                "next_fut_price": records[0].next_fut_close or db_cmp,
+                "far_fut_price": records[0].far_fut_close or db_cmp
+            }
+        else:
+            return {
+                "symbol": symbol.upper(),
+                "price": 0,
+                "near_fut_price": 0,
+                "next_fut_price": 0,
+                "far_fut_price": 0
+            }
+    except Exception as e:
+        logger.error(f"Error fetching price for {symbol}: {e}")
         return {
             "symbol": symbol.upper(),
-            "price": cmp_price,
-            "fut_price": round(cmp_price * 1.005, 2) if cmp_price else 0
+            "price": 0,
+            "near_fut_price": 0,
+            "next_fut_price": 0,
+            "far_fut_price": 0
         }
-    except Exception as e:
-        logger.error(f"Error fetching live price for {symbol}: {e}")
-        return {"symbol": symbol.upper(), "price": 0, "fut_price": 0}
 
 
 @router.get("/api/data/shareholding")
 def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
-    """Fetch live shareholding pattern data from Screener.in."""
+    """Fetch live shareholding pattern data."""
     try:
         import requests
+        import xml.etree.ElementTree as ET
+
+        # Try fetching from NSE API first for absolute exact share counts
+        try:
+            url = f"https://www.nseindia.com/api/corporate-share-holdings-master?index=equities&symbol={symbol.upper()}"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+            session = requests.Session()
+            session.get('https://www.nseindia.com', headers=headers, timeout=5)
+            response = session.get(url, headers=headers, timeout=5)
+
+            if response.status_code == 200:
+                data = response.json()
+                if data and isinstance(data, list):
+                    xbrl_url = data[0].get('xbrl')
+                    if xbrl_url:
+                        res_xml = session.get(xbrl_url, headers=headers, timeout=5)
+                        if res_xml.status_code == 200:
+                            root = ET.fromstring(res_xml.text)
+                            def get_shares(context_id):
+                                for elem in root:
+                                    tag_name = elem.tag.split('}')[-1]
+                                    if tag_name == 'NumberOfShares' and elem.attrib.get('contextRef') == context_id:
+                                        return float(elem.text)
+                                return 0
+
+                            promoter = get_shares('ShareholdingOfPromoterAndPromoterGroup_ContextI')
+                            fii = get_shares('InstitutionsForeign_ContextI')
+                            dii = get_shares('InstitutionsDomestic_ContextI')
+                            retail_less_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalUpToRsTwoLakh_ContextI')
+                            public_gt_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalInExcessOfRsTwoLakh_ContextI')
+                            total_out = get_shares('ShareholdingPattern_ContextI')
+
+                            if total_out > 0:
+                                return {
+                                    "symbol": symbol.upper(),
+                                    "promoter_holding": round((promoter/total_out)*100, 2),
+                                    "fii_holding": round((fii/total_out)*100, 2),
+                                    "dii_holding": round((dii/total_out)*100, 2),
+                                    "retail_holding": round((retail_less_200k/total_out)*100, 2),
+                                    "public_holding": round((public_gt_200k/total_out)*100, 2),
+                                    "total_outstanding": int(total_out),
+
+                                    # Absolute values
+                                    "promoter_shares": int(promoter),
+                                    "fii_shares": int(fii),
+                                    "dii_shares": int(dii),
+                                    "retail_shares": int(retail_less_200k),
+                                    "public_shares": int(public_gt_200k)
+                                }
+        except Exception as e:
+            logger.warning(f"Failed to fetch XBRL from NSE for {symbol}: {e}")
+
+        # Fallback to Screener.in if NSE fails
         from bs4 import BeautifulSoup
         import yfinance as yf
 
-        # Scrape screener.in
         url = f"https://www.screener.in/company/{symbol.upper()}/consolidated/"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-
         response = requests.get(url, headers=headers)
 
         if response.status_code != 200:
-            # Fallback to standalone if consolidated doesn't exist
             url = f"https://www.screener.in/company/{symbol.upper()}/"
             response = requests.get(url, headers=headers)
 
@@ -196,7 +246,6 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
             sh_section = soup.find('section', id='shareholding')
-
             if sh_section:
                 table = sh_section.find('table')
                 if table:
@@ -204,7 +253,6 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
                     for row in rows:
                         cols = [col.text.strip() for col in row.find_all(['th', 'td'])]
                         if not cols: continue
-
                         label = cols[0].replace('+', '').strip().lower()
                         if len(cols) > 1:
                             val_str = cols[-1].replace('%', '')
@@ -221,11 +269,9 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
                             except ValueError:
                                 pass
 
-        # Get total shares from yfinance
         total_shares = 0
         try:
             ticker = yf.Ticker(f"{symbol.upper()}.NS")
-            # fast_info is often more reliable/quicker for shares
             total_shares = ticker.fast_info.get('shares', 0)
             if not total_shares:
                 total_shares = ticker.info.get('sharesOutstanding', 0)
@@ -237,8 +283,11 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
             "promoter_holding": promoter_pct,
             "fii_holding": fii_pct,
             "dii_holding": dii_pct,
+            "retail_holding": 0, # Cannot reliably distinguish from screener fallback
             "public_holding": retail_pct,
-            "total_outstanding": int(total_shares) if total_shares else 0
+            "total_outstanding": int(total_shares) if total_shares else 0,
+
+            # Since absolute values aren't known, don't return them so frontend falls back to pct math
         }
     except Exception as e:
         logger.error(f"Error fetching shareholding for {symbol}: {e}")
