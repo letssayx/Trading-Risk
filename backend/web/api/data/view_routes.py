@@ -149,36 +149,28 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
             if latest_idx:
                 db_cmp = latest_idx.close_price
 
-        # 2. Fetch Futures from BhavcopyFO
+        # 2. Fetch Futures from DailyDerivativesAnalysis
         near_fut = 0.0
         next_fut = 0.0
         far_fut = 0.0
 
-        # We need the latest trade date in BhavcopyFO for this symbol to get active futures
-        latest_fo_date_record = db.query(BhavcopyFO).filter(
-            BhavcopyFO.ticker_symb == symbol.upper(),
-            BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
-        ).order_by(BhavcopyFO.trade_date.desc()).first()
+        from backend.ingest.nse_models import DailyDerivativesAnalysis
 
-        if latest_fo_date_record:
-            latest_fo_date = latest_fo_date_record.trade_date
-            futures = db.query(BhavcopyFO).filter(
-                BhavcopyFO.ticker_symb == symbol.upper(),
-                BhavcopyFO.trade_date == latest_fo_date,
-                BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
-            ).order_by(BhavcopyFO.expiry_date.asc()).limit(3).all()
+        latest_deriv = db.query(DailyDerivativesAnalysis).filter(
+            DailyDerivativesAnalysis.symbol == symbol.upper()
+        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).first()
 
-            if len(futures) > 0: near_fut = futures[0].close_price
-            if len(futures) > 1: next_fut = futures[1].close_price
-            if len(futures) > 2: far_fut = futures[2].close_price
+        if latest_deriv:
+            near_fut = latest_deriv.close_price or latest_deriv.near_fut_close or 0.0
+            next_fut = latest_deriv.next_fut_close or 0.0
+            far_fut = latest_deriv.far_fut_close or 0.0
 
-        # Fallback to CMP if no future exists
         return {
             "symbol": symbol.upper(),
             "price": db_cmp,
-            "near_fut_price": near_fut or db_cmp,
-            "next_fut_price": next_fut or db_cmp,
-            "far_fut_price": far_fut or db_cmp
+            "near_fut_price": near_fut,
+            "next_fut_price": next_fut,
+            "far_fut_price": far_fut
         }
     except Exception as e:
         logger.error(f"Error fetching price for {symbol}: {e}")
@@ -228,20 +220,19 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
                         fii = get_shares('InstitutionsForeign_ContextI')
                         dii = get_shares('InstitutionsDomestic_ContextI')
                         retail_less_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalUpToRsTwoLakh_ContextI')
+                        public_gt_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalInExcessOfRsTwoLakh_ContextI')
+                        adrs = get_shares('OverseasDepositories_ContextI')
+                        others_trusts = get_shares('EmployeeBenefitsTrusts_ContextI')
                         total_out = get_shares('ShareholdingPattern_ContextI')
 
                         if total_out > 0:
-                            # Calculate Public / Others dynamically as a residual
-                            public_gt_200k = total_out - (promoter + fii + dii + retail_less_200k)
-                            public_gt_200k = max(0, public_gt_200k)
-
                             promoter_holding = round((promoter/total_out)*100, 2)
                             fii_holding = round((fii/total_out)*100, 2)
                             dii_holding = round((dii/total_out)*100, 2)
                             retail_holding = round((retail_less_200k/total_out)*100, 2)
-
-                            public_holding = 100.0 - (promoter_holding + fii_holding + dii_holding + retail_holding)
-                            public_holding = round(max(0, public_holding), 2)
+                            public_holding = round((public_gt_200k/total_out)*100, 2)
+                            adr_holding = round((adrs/total_out)*100, 2)
+                            others_holding = round((others_trusts/total_out)*100, 2)
 
                             return {
                                 "symbol": symbol.upper(),
@@ -250,12 +241,16 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
                                 "dii_holding": dii_holding,
                                 "retail_holding": retail_holding,
                                 "public_holding": public_holding,
+                                "adr_holding": adr_holding,
+                                "others_holding": others_holding,
                                 "total_outstanding": int(total_out),
                                 "promoter_shares": int(promoter),
                                 "fii_shares": int(fii),
                                 "dii_shares": int(dii),
                                 "retail_shares": int(retail_less_200k),
-                                "public_shares": int(public_gt_200k)
+                                "public_shares": int(public_gt_200k),
+                                "adr_shares": int(adrs),
+                                "others_shares": int(others_trusts)
                             }
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail="NSE shareholding fetch failed or no data returned. Fallbacks are disabled.")
