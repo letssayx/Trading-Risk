@@ -89,13 +89,9 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-promoter-post-pct').innerText = postPromoterPct.toFixed(2) + '%';
 
     // Participation Table logic
-    let eligibleNonRetail;
-    if (participates) {
-        // As per the user's spreadsheet, when promoters participate, the general acceptance ratio is calculated over the entire outstanding shares
-        eligibleNonRetail = totalOut;
-    } else {
-        // When promoters do not participate, it is calculated over (Total - Promoter - Retail)
-        eligibleNonRetail = totalOut - promoter - retail;
+    let eligibleNonRetail = totalOut - retail;
+    if (!participates) {
+        eligibleNonRetail -= promoter;
     }
 
     const accNon100 = eligibleNonRetail > 0 ? (pubOffer / eligibleNonRetail) : 0;
@@ -114,10 +110,10 @@ function calculateBuyback(fromPct = false) {
     // The user sells futures to hedge the unaccepted shares.
     // Loss per unaccepted share = (CMP - Fut Price)
     // Positive means a loss, negative means a profit.
-    const futProfit = unacceptedShares * (futPrice - cmp);
+    const futLoss = unacceptedShares * (cmp - futPrice);
 
     // Net Profit = Equity Profit - Future Loss
-    const netProfit = eqProfit + futProfit;
+    const netProfit = eqProfit - futLoss;
 
     let netPct = 0;
     if (cmp > 0) {
@@ -125,10 +121,8 @@ function calculateBuyback(fromPct = false) {
     }
 
     document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
-    // Display futProfit and color it
-    const futProfitEl = document.getElementById('bb-fut-profit');
-    futProfitEl.innerText = futProfit.toFixed(2);
-    futProfitEl.style.color = futProfit >= 0 ? '#10b981' : '#f44336';
+    // Display futLoss directly (which represents the loss amount)
+    document.getElementById('bb-fut-profit').innerText = futLoss.toFixed(2);
 
     const netProfitEl = document.getElementById('bb-net-profit');
     netProfitEl.innerText = netProfit.toFixed(2);
@@ -146,9 +140,9 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-acc-non-90').innerText = (accNon90 * 100).toFixed(2) + '%';
     document.getElementById('bb-acc-non-80').innerText = (accNon80 * 100).toFixed(2) + '%';
 
-    const profNon100 = (buybackPrice - cmp) * accNon100 + (1 - accNon100) * (futPrice - cmp);
-    const profNon90 = (buybackPrice - cmp) * accNon90 + (1 - accNon90) * (futPrice - cmp);
-    const profNon80 = (buybackPrice - cmp) * accNon80 + (1 - accNon80) * (futPrice - cmp);
+    const profNon100 = (buybackPrice - cmp) * accNon100 - (1 - accNon100) * (cmp - futPrice);
+    const profNon90 = (buybackPrice - cmp) * accNon90 - (1 - accNon90) * (cmp - futPrice);
+    const profNon80 = (buybackPrice - cmp) * accNon80 - (1 - accNon80) * (cmp - futPrice);
 
     document.getElementById('bb-prof-non-100').innerText = '₹' + profNon100.toFixed(2);
     document.getElementById('bb-prof-non-90').innerText = '₹' + profNon90.toFixed(2);
@@ -161,9 +155,9 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-acc-ret-90').innerText = (accRet90 * 100).toFixed(2) + '%';
     document.getElementById('bb-acc-ret-80').innerText = (accRet80 * 100).toFixed(2) + '%';
 
-    const profRet100 = (buybackPrice - cmp) * accRet100 + (1 - accRet100) * (futPrice - cmp);
-    const profRet90 = (buybackPrice - cmp) * accRet90 + (1 - accRet90) * (futPrice - cmp);
-    const profRet80 = (buybackPrice - cmp) * accRet80 + (1 - accRet80) * (futPrice - cmp);
+    const profRet100 = (buybackPrice - cmp) * accRet100 - (1 - accRet100) * (cmp - futPrice);
+    const profRet90 = (buybackPrice - cmp) * accRet90 - (1 - accRet90) * (cmp - futPrice);
+    const profRet80 = (buybackPrice - cmp) * accRet80 - (1 - accRet80) * (cmp - futPrice);
 
     document.getElementById('bb-prof-ret-100').innerText = '₹' + profRet100.toFixed(2);
     document.getElementById('bb-prof-ret-90').innerText = '₹' + profRet90.toFixed(2);
@@ -503,14 +497,14 @@ async function syncOFSHoldings(event) {
             document.getElementById('ofs-promoter-pct').value = data.promoter_holding || 0;
             document.getElementById('ofs-fii-pct').value = data.fii_holding || 0;
             document.getElementById('ofs-dii-pct').value = data.dii_holding || 0;
-            document.getElementById('ofs-retail-pct-input').value = ((data.retail_holding || 0) + (data.public_holding || 0)).toFixed(2);
+            document.getElementById('ofs-retail-pct-input').value = data.public_holding || 0;
 
             if (data.promoter_shares !== undefined) {
                 document.getElementById('ofs-promoter').value = data.promoter_shares || 0;
                 document.getElementById('ofs-fii').value = data.fii_shares || 0;
                 document.getElementById('ofs-dii').value = data.dii_shares || 0;
-                // For OFS, retail is a combination of both retail and public blocks
-                document.getElementById('ofs-retail').value = (data.retail_shares || 0) + (data.public_shares || 0);
+                // For OFS, retail is currently just capturing the generic public block
+                document.getElementById('ofs-retail').value = data.public_shares || 0;
                 calculateOFS(false);
             } else {
                 calculateOFS(true);
@@ -527,20 +521,6 @@ async function syncOFSHoldings(event) {
             btn.disabled = false;
         }
     }
-}
-
-let fetchedOFSFutures = {
-    '1': 0,
-    '2': 0,
-    '3': 0
-};
-
-function handleOFSFutureSelectionChange() {
-    const sel = document.getElementById('ofs-future-sel').value;
-    if (fetchedOFSFutures[sel]) {
-        document.getElementById('ofs-hedge-entry').value = parseFloat(fetchedOFSFutures[sel]).toFixed(2);
-    }
-    calculateOFS();
 }
 
 async function syncOFSPrices(event) {
@@ -562,19 +542,7 @@ async function syncOFSPrices(event) {
         if (data && data.price) {
             const price = parseFloat(data.price).toFixed(2);
             document.getElementById('ofs-cmp').value = price || 0;
-
-            // Store prices
-            fetchedOFSFutures['1'] = data.near_fut_price || price;
-            fetchedOFSFutures['2'] = data.next_fut_price || price;
-            fetchedOFSFutures['3'] = data.far_fut_price || price;
-
-            const sel = document.getElementById('ofs-future-sel').value;
-            if (fetchedOFSFutures[sel]) {
-                document.getElementById('ofs-hedge-entry').value = parseFloat(fetchedOFSFutures[sel]).toFixed(2);
-            } else {
-                document.getElementById('ofs-hedge-entry').value = price || 0;
-            }
-
+            document.getElementById('ofs-hedge-entry').value = price || 0;
             calculateOFS();
         } else {
              alert("No price data returned.");
@@ -592,4 +560,3 @@ async function syncOFSPrices(event) {
 window.calculateOFS = calculateOFS;
 window.syncOFSHoldings = syncOFSHoldings;
 window.syncOFSPrices = syncOFSPrices;
-window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;
