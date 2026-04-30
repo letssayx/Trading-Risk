@@ -157,7 +157,7 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
         # We need the latest trade date in BhavcopyFO for this symbol to get active futures
         latest_fo_date_record = db.query(BhavcopyFO).filter(
             BhavcopyFO.ticker_symb == symbol.upper(),
-            BhavcopyFO.instrument_type.like('FUT%')
+            BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
         ).order_by(BhavcopyFO.trade_date.desc()).first()
 
         if latest_fo_date_record:
@@ -165,7 +165,7 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
             futures = db.query(BhavcopyFO).filter(
                 BhavcopyFO.ticker_symb == symbol.upper(),
                 BhavcopyFO.trade_date == latest_fo_date,
-                BhavcopyFO.instrument_type.like('FUT%')
+                BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
             ).order_by(BhavcopyFO.expiry_date.asc()).limit(3).all()
 
             if len(futures) > 0: near_fut = futures[0].close_price

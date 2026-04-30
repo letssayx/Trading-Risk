@@ -33,6 +33,8 @@ function calculateBuyback(fromPct = false) {
         document.getElementById('bb-dii').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-dii-pct').value) || 0) / 100);
         document.getElementById('bb-retail').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-retail-pct-input').value) || 0) / 100);
         document.getElementById('bb-public').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-public-pct').value) || 0) / 100);
+        document.getElementById('bb-others').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-others-pct').value) || 0) / 100);
+        document.getElementById('bb-adr').value = Math.round(currentTotal * (parseFloat(document.getElementById('bb-adr-pct').value) || 0) / 100);
     }
 
     const promoter = parseFloat(document.getElementById('bb-promoter').value) || 0;
@@ -40,8 +42,10 @@ function calculateBuyback(fromPct = false) {
     const dii = parseFloat(document.getElementById('bb-dii').value) || 0;
     const retail = parseFloat(document.getElementById('bb-retail').value) || 0;
     const publicVal = parseFloat(document.getElementById('bb-public').value) || 0;
+    const others = parseFloat(document.getElementById('bb-others').value) || 0;
+    const adr = parseFloat(document.getElementById('bb-adr').value) || 0;
 
-    const totalOut = promoter + fii + dii + retail + publicVal;
+    const totalOut = promoter + fii + dii + retail + publicVal + others + adr;
 
     // Update percentages if input came from shares
     if (!fromPct && totalOut > 0) {
@@ -50,6 +54,8 @@ function calculateBuyback(fromPct = false) {
         document.getElementById('bb-dii-pct').value = ((dii / totalOut) * 100).toFixed(2);
         document.getElementById('bb-retail-pct-input').value = ((retail / totalOut) * 100).toFixed(2);
         document.getElementById('bb-public-pct').value = ((publicVal / totalOut) * 100).toFixed(2);
+        document.getElementById('bb-others-pct').value = ((others / totalOut) * 100).toFixed(2);
+        document.getElementById('bb-adr-pct').value = ((adr / totalOut) * 100).toFixed(2);
     }
 
     totalOutEl.innerText = totalOut.toLocaleString();
@@ -198,6 +204,8 @@ async function syncBuybackHoldings(event) {
             document.getElementById('bb-dii-pct').value = data.dii_holding || 0;
             document.getElementById('bb-retail-pct-input').value = data.retail_holding || 0;
             document.getElementById('bb-public-pct').value = data.public_holding || 0;
+            document.getElementById('bb-others-pct').value = data.others_holding || 0;
+            document.getElementById('bb-adr-pct').value = data.adr_holding || 0;
 
             // If absolute values were provided by the API (e.g. from exact NSE XBRL parser)
             if (data.promoter_shares !== undefined) {
@@ -206,6 +214,8 @@ async function syncBuybackHoldings(event) {
                 document.getElementById('bb-dii').value = data.dii_shares || 0;
                 document.getElementById('bb-retail').value = data.retail_shares || 0;
                 document.getElementById('bb-public').value = data.public_shares || 0;
+                document.getElementById('bb-others').value = data.others_shares || 0;
+                document.getElementById('bb-adr').value = data.adr_shares || 0;
                 calculateBuyback(false); // Math using exact absolute shares
             } else {
                 calculateBuyback(true); // Math falls back to percentage conversion
@@ -295,20 +305,23 @@ function calculateOFS(fromPct = false) {
         document.getElementById('ofs-fii').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-fii-pct').value) || 0) / 100);
         document.getElementById('ofs-dii').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-dii-pct').value) || 0) / 100);
         document.getElementById('ofs-retail').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-retail-pct-input').value) || 0) / 100);
+        document.getElementById('ofs-others').value = Math.round(currentTotal * (parseFloat(document.getElementById('ofs-others-pct').value) || 0) / 100);
     }
 
     const promoter = parseFloat(document.getElementById('ofs-promoter').value) || 0;
     const fii = parseFloat(document.getElementById('ofs-fii').value) || 0;
     const dii = parseFloat(document.getElementById('ofs-dii').value) || 0;
     const retail = parseFloat(document.getElementById('ofs-retail').value) || 0;
+    const others = parseFloat(document.getElementById('ofs-others').value) || 0;
 
-    const totalOut = promoter + fii + dii + retail;
+    const totalOut = promoter + fii + dii + retail + others;
 
     if (!fromPct && totalOut > 0) {
         document.getElementById('ofs-promoter-pct').value = ((promoter / totalOut) * 100).toFixed(2);
         document.getElementById('ofs-fii-pct').value = ((fii / totalOut) * 100).toFixed(2);
         document.getElementById('ofs-dii-pct').value = ((dii / totalOut) * 100).toFixed(2);
         document.getElementById('ofs-retail-pct-input').value = ((retail / totalOut) * 100).toFixed(2);
+        document.getElementById('ofs-others-pct').value = ((others / totalOut) * 100).toFixed(2);
     }
 
     totalOutEl.innerText = totalOut.toLocaleString();
@@ -497,14 +510,16 @@ async function syncOFSHoldings(event) {
             document.getElementById('ofs-promoter-pct').value = data.promoter_holding || 0;
             document.getElementById('ofs-fii-pct').value = data.fii_holding || 0;
             document.getElementById('ofs-dii-pct').value = data.dii_holding || 0;
-            document.getElementById('ofs-retail-pct-input').value = data.public_holding || 0;
+            document.getElementById('ofs-retail-pct-input').value = (data.public_holding + data.retail_holding).toFixed(2) || 0;
+            document.getElementById('ofs-others-pct').value = (data.others_holding + data.adr_holding).toFixed(2) || 0;
 
             if (data.promoter_shares !== undefined) {
                 document.getElementById('ofs-promoter').value = data.promoter_shares || 0;
                 document.getElementById('ofs-fii').value = data.fii_shares || 0;
                 document.getElementById('ofs-dii').value = data.dii_shares || 0;
-                // For OFS, retail is currently just capturing the generic public block
-                document.getElementById('ofs-retail').value = data.public_shares || 0;
+                // For OFS, combining retail and public block into one
+                document.getElementById('ofs-retail').value = (data.public_shares + data.retail_shares) || 0;
+                document.getElementById('ofs-others').value = (data.others_shares + data.adr_shares) || 0;
                 calculateOFS(false);
             } else {
                 calculateOFS(true);
