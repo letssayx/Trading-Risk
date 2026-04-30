@@ -114,10 +114,10 @@ function calculateBuyback(fromPct = false) {
     // The user sells futures to hedge the unaccepted shares.
     // Loss per unaccepted share = (CMP - Fut Price)
     // Positive means a loss, negative means a profit.
-    const futLoss = unacceptedShares * (cmp - futPrice);
+    const futProfit = unacceptedShares * (futPrice - cmp);
 
     // Net Profit = Equity Profit - Future Loss
-    const netProfit = eqProfit - futLoss;
+    const netProfit = eqProfit + futProfit;
 
     let netPct = 0;
     if (cmp > 0) {
@@ -125,8 +125,10 @@ function calculateBuyback(fromPct = false) {
     }
 
     document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
-    // Display futLoss directly (which represents the loss amount)
-    document.getElementById('bb-fut-profit').innerText = futLoss.toFixed(2);
+    // Display futProfit and color it
+    const futProfitEl = document.getElementById('bb-fut-profit');
+    futProfitEl.innerText = futProfit.toFixed(2);
+    futProfitEl.style.color = futProfit >= 0 ? '#10b981' : '#f44336';
 
     const netProfitEl = document.getElementById('bb-net-profit');
     netProfitEl.innerText = netProfit.toFixed(2);
@@ -144,9 +146,9 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-acc-non-90').innerText = (accNon90 * 100).toFixed(2) + '%';
     document.getElementById('bb-acc-non-80').innerText = (accNon80 * 100).toFixed(2) + '%';
 
-    const profNon100 = (buybackPrice - cmp) * accNon100 - (1 - accNon100) * (cmp - futPrice);
-    const profNon90 = (buybackPrice - cmp) * accNon90 - (1 - accNon90) * (cmp - futPrice);
-    const profNon80 = (buybackPrice - cmp) * accNon80 - (1 - accNon80) * (cmp - futPrice);
+    const profNon100 = (buybackPrice - cmp) * accNon100 + (1 - accNon100) * (futPrice - cmp);
+    const profNon90 = (buybackPrice - cmp) * accNon90 + (1 - accNon90) * (futPrice - cmp);
+    const profNon80 = (buybackPrice - cmp) * accNon80 + (1 - accNon80) * (futPrice - cmp);
 
     document.getElementById('bb-prof-non-100').innerText = '₹' + profNon100.toFixed(2);
     document.getElementById('bb-prof-non-90').innerText = '₹' + profNon90.toFixed(2);
@@ -159,9 +161,9 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-acc-ret-90').innerText = (accRet90 * 100).toFixed(2) + '%';
     document.getElementById('bb-acc-ret-80').innerText = (accRet80 * 100).toFixed(2) + '%';
 
-    const profRet100 = (buybackPrice - cmp) * accRet100 - (1 - accRet100) * (cmp - futPrice);
-    const profRet90 = (buybackPrice - cmp) * accRet90 - (1 - accRet90) * (cmp - futPrice);
-    const profRet80 = (buybackPrice - cmp) * accRet80 - (1 - accRet80) * (cmp - futPrice);
+    const profRet100 = (buybackPrice - cmp) * accRet100 + (1 - accRet100) * (futPrice - cmp);
+    const profRet90 = (buybackPrice - cmp) * accRet90 + (1 - accRet90) * (futPrice - cmp);
+    const profRet80 = (buybackPrice - cmp) * accRet80 + (1 - accRet80) * (futPrice - cmp);
 
     document.getElementById('bb-prof-ret-100').innerText = '₹' + profRet100.toFixed(2);
     document.getElementById('bb-prof-ret-90').innerText = '₹' + profRet90.toFixed(2);

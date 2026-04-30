@@ -1,0 +1,31 @@
+--- /app/backend/ui/static/js/specialSitTool.js
++++ /app/backend/ui/static/js/specialSitTool.js
+@@ -114,20 +114,26 @@
+     // In a buyback arb, you buy cash and short futures.
+     // If CMP is 430 and Future is 435, shorting future at 435 and cash at 430 means the spread is 5.
+     // But wait, the unaccepted shares are returned to you. You hold them at CMP. You shorted future at futPrice.
+-    const futLoss = unacceptedShares * (cmp - futPrice);
++    // If you short future at futPrice and hold cash at CMP, your profit on the hedge is (futPrice - cmp)
++    const futProfit = unacceptedShares * (futPrice - cmp);
+
+-    // Net Profit = Equity Profit - Future Loss
+-    const netProfit = eqProfit - futLoss;
++    // Net Profit = Equity Profit + Future Profit
++    const netProfit = eqProfit + futProfit;
+
+     let netPct = 0;
+     if (cmp > 0) {
+         netPct = (netProfit / (cmp * sharesCalc)) * 100;
+     }
+
+     document.getElementById('bb-eq-profit').innerText = eqProfit.toFixed(2);
+-    // Display futLoss directly (which represents the loss amount)
+-    document.getElementById('bb-fut-profit').innerText = futLoss.toFixed(2);
++
++    // Display futProfit and color it
++    const futProfitEl = document.getElementById('bb-fut-profit');
++    futProfitEl.innerText = futProfit.toFixed(2);
++    futProfitEl.style.color = futProfit >= 0 ? '#10b981' : '#f44336';
+
+     const netProfitEl = document.getElementById('bb-net-profit');
+     netProfitEl.innerText = netProfit.toFixed(2);
