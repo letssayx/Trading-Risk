@@ -131,29 +131,55 @@ def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depen
 def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     """Fetch CMP and Futures price from the backend database."""
     try:
-        from backend.ingest.nse_models import DailyDerivativesAnalysis
+        from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData
 
-        records = db.query(DailyDerivativesAnalysis).filter(
-            DailyDerivativesAnalysis.symbol == symbol.upper()
-        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).limit(1).all()
+        # 1. Fetch CMP from BhavcopyEQ
+        latest_eq = db.query(BhavcopyEQ).filter(
+            BhavcopyEQ.symbol == symbol.upper(),
+            BhavcopyEQ.series == 'EQ'
+        ).order_by(BhavcopyEQ.trade_date.desc()).first()
 
-        if records:
-            db_cmp = records[0].eq_close_price or records[0].close_price
-            return {
-                "symbol": symbol.upper(),
-                "price": db_cmp,
-                "near_fut_price": records[0].near_fut_close or db_cmp,
-                "next_fut_price": records[0].next_fut_close or db_cmp,
-                "far_fut_price": records[0].far_fut_close or db_cmp
-            }
-        else:
-            return {
-                "symbol": symbol.upper(),
-                "price": 0,
-                "near_fut_price": 0,
-                "next_fut_price": 0,
-                "far_fut_price": 0
-            }
+        db_cmp = latest_eq.close_price if latest_eq else 0.0
+
+        # If CMP is 0, try fetching from HistoricalIndexData
+        if db_cmp == 0.0:
+            latest_idx = db.query(HistoricalIndexData).filter(
+                HistoricalIndexData.index_name == symbol.upper()
+            ).order_by(HistoricalIndexData.trade_date.desc()).first()
+            if latest_idx:
+                db_cmp = latest_idx.close_price
+
+        # 2. Fetch Futures from BhavcopyFO
+        near_fut = 0.0
+        next_fut = 0.0
+        far_fut = 0.0
+
+        # We need the latest trade date in BhavcopyFO for this symbol to get active futures
+        latest_fo_date_record = db.query(BhavcopyFO).filter(
+            BhavcopyFO.ticker_symb == symbol.upper(),
+            BhavcopyFO.instrument_type.like('FUT%')
+        ).order_by(BhavcopyFO.trade_date.desc()).first()
+
+        if latest_fo_date_record:
+            latest_fo_date = latest_fo_date_record.trade_date
+            futures = db.query(BhavcopyFO).filter(
+                BhavcopyFO.ticker_symb == symbol.upper(),
+                BhavcopyFO.trade_date == latest_fo_date,
+                BhavcopyFO.instrument_type.like('FUT%')
+            ).order_by(BhavcopyFO.expiry_date.asc()).limit(3).all()
+
+            if len(futures) > 0: near_fut = futures[0].close_price
+            if len(futures) > 1: next_fut = futures[1].close_price
+            if len(futures) > 2: far_fut = futures[2].close_price
+
+        # Fallback to CMP if no future exists
+        return {
+            "symbol": symbol.upper(),
+            "price": db_cmp,
+            "near_fut_price": near_fut or db_cmp,
+            "next_fut_price": next_fut or db_cmp,
+            "far_fut_price": far_fut or db_cmp
+        }
     except Exception as e:
         logger.error(f"Error fetching price for {symbol}: {e}")
         return {
