@@ -7,14 +7,14 @@ def test_ui():
         page.goto("http://localhost:8000/workbench")
 
         # Click Historical Data tab
-        page.evaluate("switchMainTab('historical')")
+        page.locator(".main-tab[data-target='historical']").click()
         page.wait_for_timeout(1000)
-        # page.locator("#dataType").click()
+        page.locator("#dataType").click()
         page.wait_for_timeout(500)
         page.screenshot(path="/home/jules/verification/historical_fii_dii.png", full_page=True)
 
         # Click Import Data tab
-        page.evaluate("switchMainTab('import')")
+        page.locator(".main-tab[data-target='import']").click()
         page.wait_for_timeout(1000)
         page.screenshot(path="/home/jules/verification/import_fii_dii.png", full_page=True)
 
