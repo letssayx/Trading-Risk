@@ -89,9 +89,13 @@ function calculateBuyback(fromPct = false) {
     document.getElementById('bb-promoter-post-pct').innerText = postPromoterPct.toFixed(2) + '%';
 
     // Participation Table logic
-    let eligibleNonRetail = totalOut - retail;
-    if (!participates) {
-        eligibleNonRetail -= promoter;
+    let eligibleNonRetail;
+    if (participates) {
+        // As per the user's spreadsheet, when promoters participate, the general acceptance ratio is calculated over the entire outstanding shares
+        eligibleNonRetail = totalOut;
+    } else {
+        // When promoters do not participate, it is calculated over (Total - Promoter - Retail)
+        eligibleNonRetail = totalOut - promoter - retail;
     }
 
     const accNon100 = eligibleNonRetail > 0 ? (pubOffer / eligibleNonRetail) : 0;
@@ -497,14 +501,14 @@ async function syncOFSHoldings(event) {
             document.getElementById('ofs-promoter-pct').value = data.promoter_holding || 0;
             document.getElementById('ofs-fii-pct').value = data.fii_holding || 0;
             document.getElementById('ofs-dii-pct').value = data.dii_holding || 0;
-            document.getElementById('ofs-retail-pct-input').value = data.public_holding || 0;
+            document.getElementById('ofs-retail-pct-input').value = ((data.retail_holding || 0) + (data.public_holding || 0)).toFixed(2);
 
             if (data.promoter_shares !== undefined) {
                 document.getElementById('ofs-promoter').value = data.promoter_shares || 0;
                 document.getElementById('ofs-fii').value = data.fii_shares || 0;
                 document.getElementById('ofs-dii').value = data.dii_shares || 0;
-                // For OFS, retail is currently just capturing the generic public block
-                document.getElementById('ofs-retail').value = data.public_shares || 0;
+                // For OFS, retail is a combination of both retail and public blocks
+                document.getElementById('ofs-retail').value = (data.retail_shares || 0) + (data.public_shares || 0);
                 calculateOFS(false);
             } else {
                 calculateOFS(true);
@@ -521,6 +525,20 @@ async function syncOFSHoldings(event) {
             btn.disabled = false;
         }
     }
+}
+
+let fetchedOFSFutures = {
+    '1': 0,
+    '2': 0,
+    '3': 0
+};
+
+function handleOFSFutureSelectionChange() {
+    const sel = document.getElementById('ofs-future-sel').value;
+    if (fetchedOFSFutures[sel]) {
+        document.getElementById('ofs-hedge-entry').value = parseFloat(fetchedOFSFutures[sel]).toFixed(2);
+    }
+    calculateOFS();
 }
 
 async function syncOFSPrices(event) {
@@ -542,7 +560,19 @@ async function syncOFSPrices(event) {
         if (data && data.price) {
             const price = parseFloat(data.price).toFixed(2);
             document.getElementById('ofs-cmp').value = price || 0;
-            document.getElementById('ofs-hedge-entry').value = price || 0;
+
+            // Store prices
+            fetchedOFSFutures['1'] = data.near_fut_price || price;
+            fetchedOFSFutures['2'] = data.next_fut_price || price;
+            fetchedOFSFutures['3'] = data.far_fut_price || price;
+
+            const sel = document.getElementById('ofs-future-sel').value;
+            if (fetchedOFSFutures[sel]) {
+                document.getElementById('ofs-hedge-entry').value = parseFloat(fetchedOFSFutures[sel]).toFixed(2);
+            } else {
+                document.getElementById('ofs-hedge-entry').value = price || 0;
+            }
+
             calculateOFS();
         } else {
              alert("No price data returned.");
@@ -560,3 +590,4 @@ async function syncOFSPrices(event) {
 window.calculateOFS = calculateOFS;
 window.syncOFSHoldings = syncOFSHoldings;
 window.syncOFSPrices = syncOFSPrices;
+window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;

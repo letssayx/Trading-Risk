@@ -786,8 +786,10 @@
                                 <input type="number" id="ofs-bid-price" class="history-input" value="105.00" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Select Future:</label>
-                                <select id="ofs-future-sel" class="history-input" onchange="calculateOFS()">
+                                <select id="ofs-future-sel" class="history-input" onchange="handleOFSFutureSelectionChange()">
                                     <option value="1">Fut 1 (Near)</option>
+                                    <option value="2">Fut 2 (Next)</option>
+                                    <option value="3">Fut 3 (Far)</option>
                                 </select>
 
                                 <label style="color: #aaa; font-size: 13px;">Hedge Entry (Short):</label>
