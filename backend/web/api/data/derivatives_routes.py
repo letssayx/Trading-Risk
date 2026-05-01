@@ -1416,6 +1416,8 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
                 spot = near["close"]
 
             fut_price = near["close"]
+            next_fut_price = futs[1]["close"] if len(futs) > 1 else 0.0
+            far_fut_price = futs[2]["close"] if len(futs) > 2 else 0.0
             basis = fut_price - spot
             basis_pct = (basis / spot * 100) if spot > 0 else 0
 
@@ -1435,6 +1437,8 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
                 "basis_value": basis,
                 "basis_pct": basis_pct,
                 "near_fut_close": fut_price,
+                "next_fut_close": next_fut_price,
+                "far_fut_close": far_fut_price,
                 "cash_close": spot,
                 "price_chg_pct": 0.0,
                 "carry_cost_annualized": annualized
@@ -1448,6 +1452,8 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
                     'basis_value': stmt.excluded.basis_value,
                     'basis_pct': stmt.excluded.basis_pct,
                     'near_fut_close': stmt.excluded.near_fut_close,
+                    'next_fut_close': stmt.excluded.next_fut_close,
+                    'far_fut_close': stmt.excluded.far_fut_close,
                     'cash_close': stmt.excluded.cash_close,
                     'price_chg_pct': stmt.excluded.price_chg_pct,
                     'carry_cost_annualized': stmt.excluded.carry_cost_annualized

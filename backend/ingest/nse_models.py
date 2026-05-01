@@ -720,6 +720,8 @@ class BasisWatchMetrics(Base, TimescaleMixin):
     basis_value = Column(Float)
     basis_pct = Column(Float)
     near_fut_close = Column(Float)
+    next_fut_close = Column(Float)
+    far_fut_close = Column(Float)
     cash_close = Column(Float)
     price_chg_pct = Column(Float)
     carry_cost_annualized = Column(Float)
