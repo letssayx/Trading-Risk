@@ -529,10 +529,16 @@
                         <!-- Share Holding Pattern -->
                         <div style="flex: 1; min-width: 300px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">Share Holding Pattern</h3>
-                                <div style="display: flex; gap: 5px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Share Holding Pattern</h3>
+                                    <span id="bb-report-date" style="font-size: 11px; color: #aaa;"></span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
                                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="syncBuybackHoldings(event)"><i class="fas fa-sync"></i> Sync</button>
-                                    <span style="font-size: 10px; color: #888; border: 1px solid #444; padding: 2px 4px; border-radius: 3px;">Unverified</span>
+                                    <label style="font-size: 11px; color: #ccc; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                        <input type="checkbox" id="bb-verify-chk" onchange="toggleBuybackVerification()"> Verify
+                                    </label>
+                                    <span id="bb-verify-badge" style="font-size: 10px; color: #ff4d4d; border: 1px solid #ff4d4d; padding: 2px 4px; border-radius: 3px;">Unverified</span>
                                 </div>
                             </div>
 
@@ -731,10 +737,16 @@
                         <!-- Share Holding Pattern -->
                         <div style="flex: 1; min-width: 300px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">Share Holding Pattern</h3>
-                                <div style="display: flex; gap: 5px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Share Holding Pattern</h3>
+                                    <span id="ofs-report-date" style="font-size: 11px; color: #aaa;"></span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
                                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="syncOFSHoldings(event)"><i class="fas fa-sync"></i> Sync</button>
-                                    <span style="font-size: 10px; color: #888; border: 1px solid #444; padding: 2px 4px; border-radius: 3px;">Unverified</span>
+                                    <label style="font-size: 11px; color: #ccc; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                        <input type="checkbox" id="ofs-verify-chk" onchange="toggleOFSVerification()"> Verify
+                                    </label>
+                                    <span id="ofs-verify-badge" style="font-size: 10px; color: #ff4d4d; border: 1px solid #ff4d4d; padding: 2px 4px; border-radius: 3px;">Unverified</span>
                                 </div>
                             </div>
 

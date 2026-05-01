@@ -215,6 +215,7 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
         if response.status_code == 200:
             data = response.json()
             if data and isinstance(data, list):
+                report_date = data[0].get('date', '')
                 xbrl_url = data[0].get('xbrl')
                 if xbrl_url:
                     res_xml = session.get(xbrl_url, headers=headers, timeout=5)
@@ -263,6 +264,7 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
 
                             return {
                                 "symbol": symbol.upper(),
+                                "report_date": report_date,
                                 "promoter_holding": promoter_holding,
                                 "fii_holding": fii_holding,
                                 "dii_holding": dii_holding,

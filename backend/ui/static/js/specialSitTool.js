@@ -199,6 +199,11 @@ async function syncBuybackHoldings(event) {
         if (data && data.total_outstanding) {
             document.getElementById('bb-total-out').innerText = data.total_outstanding;
 
+            if (data.report_date) {
+                const rd = document.getElementById('bb-report-date');
+                if (rd) rd.innerText = `Report Date: ${data.report_date}`;
+            }
+
             document.getElementById('bb-promoter-pct').value = data.promoter_holding || 0;
             document.getElementById('bb-fii-pct').value = data.fii_holding || 0;
             document.getElementById('bb-dii-pct').value = data.dii_holding || 0;
@@ -507,6 +512,11 @@ async function syncOFSHoldings(event) {
         if (data && data.total_outstanding) {
             document.getElementById('ofs-total-out').innerText = data.total_outstanding;
 
+            if (data.report_date) {
+                const rd = document.getElementById('ofs-report-date');
+                if (rd) rd.innerText = `Report Date: ${data.report_date}`;
+            }
+
             document.getElementById('ofs-promoter-pct').value = data.promoter_holding || 0;
             document.getElementById('ofs-fii-pct').value = data.fii_holding || 0;
             document.getElementById('ofs-dii-pct').value = data.dii_holding || 0;
@@ -575,3 +585,95 @@ async function syncOFSPrices(event) {
 window.calculateOFS = calculateOFS;
 window.syncOFSHoldings = syncOFSHoldings;
 window.syncOFSPrices = syncOFSPrices;
+
+function toggleBuybackVerification() {
+    const chk = document.getElementById('bb-verify-chk');
+    const badge = document.getElementById('bb-verify-badge');
+    if(chk && badge) {
+        if(chk.checked) {
+            badge.innerText = 'Verified';
+            badge.style.color = '#10b981';
+            badge.style.borderColor = '#10b981';
+        } else {
+            badge.innerText = 'Unverified';
+            badge.style.color = '#ff4d4d';
+            badge.style.borderColor = '#ff4d4d';
+        }
+    }
+}
+
+function toggleOFSVerification() {
+    const chk = document.getElementById('ofs-verify-chk');
+    const badge = document.getElementById('ofs-verify-badge');
+    if(chk && badge) {
+        if(chk.checked) {
+            badge.innerText = 'Verified';
+            badge.style.color = '#10b981';
+            badge.style.borderColor = '#10b981';
+        } else {
+            badge.innerText = 'Unverified';
+            badge.style.color = '#ff4d4d';
+            badge.style.borderColor = '#ff4d4d';
+        }
+    }
+}
+
+function exportSpecialSitCSV(type) {
+    let csv = [];
+    if (type === 'buyback') {
+        csv.push("Share Holding Pattern,No. of shares,% holding");
+        csv.push(`Promoter Holding,${document.getElementById('bb-promoter').value},${document.getElementById('bb-promoter-pct').value}%`);
+        csv.push(`FII,${document.getElementById('bb-fii').value},${document.getElementById('bb-fii-pct').value}%`);
+        csv.push(`DII,${document.getElementById('bb-dii').value},${document.getElementById('bb-dii-pct').value}%`);
+        csv.push(`Others (EPF Trust),${document.getElementById('bb-others').value},${document.getElementById('bb-others-pct').value}%`);
+        csv.push(`Retail holding (<=2L),${document.getElementById('bb-retail').value},${document.getElementById('bb-retail-pct').value}%`);
+        csv.push(`Public (>2L),${document.getElementById('bb-public').value},${document.getElementById('bb-public-pct').value}%`);
+        csv.push(`ADR shares,${document.getElementById('bb-adr').value},${document.getElementById('bb-adr-pct').value}%`);
+        csv.push(`Total outstanding,${document.getElementById('bb-total-out').innerText.replace(/,/g, '')},100.00%`);
+        csv.push("");
+        csv.push("Arbitrage");
+        csv.push(`Buy Back price,${document.getElementById('bb-price').value}`);
+        csv.push(`CMP,${document.getElementById('bb-cmp').value}`);
+        csv.push(`Future price,${document.getElementById('bb-future').value}`);
+        csv.push("");
+        csv.push(`Total Buy Back offer,${document.getElementById('bb-total-offer').value}`);
+        csv.push(`Reserved retail %,${document.getElementById('bb-retail-rsv-pct').value}%`);
+        csv.push(`Reserved retail shares,${document.getElementById('bb-retail-rsv-shares').innerText.replace(/,/g, '')}`);
+        csv.push("");
+        csv.push("If promoters participate");
+        csv.push(`Acceptance Ratio (Non-Retail),${document.getElementById('bb-non-retail-acc-y').innerText}%`);
+        csv.push(`Profit/share (Non-Retail),${document.getElementById('bb-non-retail-profit-y').innerText}`);
+        csv.push(`Acceptance Ratio (Retail),${document.getElementById('bb-retail-acc-y').innerText}%`);
+        csv.push(`Profit/share (Retail),${document.getElementById('bb-retail-profit-y').innerText}`);
+        csv.push("");
+        csv.push("If promoters don't participate");
+        csv.push(`Acceptance Ratio (Non-Retail),${document.getElementById('bb-non-retail-acc-n').innerText}%`);
+        csv.push(`Profit/share (Non-Retail),${document.getElementById('bb-non-retail-profit-n').innerText}`);
+        csv.push(`Acceptance Ratio (Retail),${document.getElementById('bb-retail-acc-n').innerText}%`);
+        csv.push(`Profit/share (Retail),${document.getElementById('bb-retail-profit-n').innerText}`);
+    } else if (type === 'ofs') {
+        csv.push("Share Holding Pattern,No. of shares,% holding");
+        csv.push(`Promoter Holding,${document.getElementById('ofs-promoter').value},${document.getElementById('ofs-promoter-pct').value}%`);
+        csv.push(`FII,${document.getElementById('ofs-fii').value},${document.getElementById('ofs-fii-pct').value}%`);
+        csv.push(`DII,${document.getElementById('ofs-dii').value},${document.getElementById('ofs-dii-pct').value}%`);
+        csv.push(`Others (EPF Trust),${document.getElementById('ofs-others').value},${document.getElementById('ofs-others-pct').value}%`);
+        csv.push(`Retail holding (<=2L),${document.getElementById('ofs-retail').value},${document.getElementById('ofs-retail-pct').value}%`);
+        csv.push(`Public (>2L),${document.getElementById('ofs-public').value},${document.getElementById('ofs-public-pct').value}%`);
+        csv.push(`Total outstanding,${document.getElementById('ofs-total-out').innerText.replace(/,/g, '')},100.00%`);
+        csv.push("");
+        csv.push("Arbitrage");
+        csv.push(`Floor Price,${document.getElementById('ofs-floor-price').value}`);
+        csv.push(`CMP,${document.getElementById('ofs-cmp').value}`);
+        csv.push(`Future price,${document.getElementById('ofs-future').value}`);
+    }
+
+    let blob = new Blob([csv.join("\n")], { type: 'text/csv;charset=utf-8;' });
+    let link = document.createElement("a");
+    let url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${type}_arbitrage.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
