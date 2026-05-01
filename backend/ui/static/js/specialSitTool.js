@@ -231,12 +231,27 @@ let fetchedFutures = {
     '3': 0
 };
 
+let fetchedOFSFutures = {
+    '1': 0,
+    '2': 0,
+    '3': 0
+};
+
 function handleFutureSelectionChange() {
     const sel = document.getElementById('bb-future-sel').value;
     if (fetchedFutures[sel]) {
         document.getElementById('bb-fut-price').value = parseFloat(fetchedFutures[sel]).toFixed(2);
     }
     calculateBuyback();
+}
+
+function handleOFSFutureSelectionChange() {
+    const sel = document.getElementById('ofs-future-sel').value;
+    if (fetchedOFSFutures[sel]) {
+        document.getElementById('ofs-fut-price').value = parseFloat(fetchedOFSFutures[sel]).toFixed(2);
+        document.getElementById('ofs-hedge-entry').value = parseFloat(fetchedOFSFutures[sel]).toFixed(2);
+    }
+    calculateOFS();
 }
 
 async function syncBuybackPrices(event) {
@@ -542,7 +557,22 @@ async function syncOFSPrices(event) {
         if (data && data.price) {
             const price = parseFloat(data.price).toFixed(2);
             document.getElementById('ofs-cmp').value = price || 0;
-            document.getElementById('ofs-hedge-entry').value = price || 0;
+
+            // Store OFS prices
+            fetchedOFSFutures['1'] = data.near_fut_price || 0;
+            fetchedOFSFutures['2'] = data.next_fut_price || 0;
+            fetchedOFSFutures['3'] = data.far_fut_price || 0;
+
+            const sel = document.getElementById('ofs-future-sel').value;
+            if (fetchedOFSFutures[sel] && parseFloat(fetchedOFSFutures[sel]) > 0) {
+                const futPrice = parseFloat(fetchedOFSFutures[sel]).toFixed(2);
+                document.getElementById('ofs-fut-price').value = futPrice;
+                document.getElementById('ofs-hedge-entry').value = futPrice;
+            } else {
+                document.getElementById('ofs-hedge-entry').value = price || 0;
+                document.getElementById('ofs-fut-price').value = price || 0;
+            }
+
             calculateOFS();
         } else {
              alert("No price data returned.");
@@ -560,3 +590,151 @@ async function syncOFSPrices(event) {
 window.calculateOFS = calculateOFS;
 window.syncOFSHoldings = syncOFSHoldings;
 window.syncOFSPrices = syncOFSPrices;
+window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;
+
+
+function exportBuybackDataToCSV() {
+    let csvData = [];
+    csvData.push(["Metric", "Value"]);
+
+    // Inputs
+    csvData.push(["Symbol", document.getElementById('bb-symbol').value]);
+    csvData.push(["CMP", document.getElementById('bb-cmp').value]);
+    csvData.push(["Buyback Price", document.getElementById('bb-price').value]);
+    csvData.push(["Total Outstanding", document.getElementById('bb-total-out').innerText]);
+    csvData.push(["Total Offer", document.getElementById('bb-total-offer').value]);
+    csvData.push(["Retail Reserved %", document.getElementById('bb-retail-pct').value]);
+    csvData.push(["Shares Calculated", document.getElementById('bb-shares-calc').value]);
+    csvData.push(["Promoter Shares", document.getElementById('bb-promoter').value]);
+    csvData.push(["FII Shares", document.getElementById('bb-fii').value]);
+    csvData.push(["DII Shares", document.getElementById('bb-dii').value]);
+    csvData.push(["Retail Shares", document.getElementById('bb-retail').value]);
+    csvData.push(["Public Shares", document.getElementById('bb-public').value]);
+    csvData.push(["Promoter Participates", document.getElementById('bb-promoter-participates').checked ? "Yes" : "No"]);
+
+    // Future details
+    const futureSel = document.getElementById('bb-future-sel');
+    csvData.push(["Selected Future", futureSel.options[futureSel.selectedIndex].text]);
+    csvData.push(["Future Price", document.getElementById('bb-fut-price').value]);
+
+    // Computed outputs
+    csvData.push(["Post Buyback Promoter %", document.getElementById('bb-res-promoter-post').innerText]);
+    csvData.push(["Base Acceptance Ratio %", document.getElementById('bb-res-base-acc-ratio').innerText]);
+
+    csvData.push(["", ""]);
+    csvData.push(["Scenario", "Acceptance Ratio", "Equity Profit", "Future Profit", "Net Profit"]);
+
+    csvData.push([
+        "Non-Retail (Promoter Participates)",
+        document.getElementById('bb-acc-non-100').innerText,
+        document.getElementById('bb-eq-prof-non-100').innerText,
+        document.getElementById('bb-fut-prof-non-100').innerText,
+        document.getElementById('bb-net-prof-non-100').innerText
+    ]);
+    csvData.push([
+        "Non-Retail (90% Accept)",
+        document.getElementById('bb-acc-non-90').innerText,
+        document.getElementById('bb-eq-prof-non-90').innerText,
+        document.getElementById('bb-fut-prof-non-90').innerText,
+        document.getElementById('bb-net-prof-non-90').innerText
+    ]);
+    csvData.push([
+        "Non-Retail (80% Accept)",
+        document.getElementById('bb-acc-non-80').innerText,
+        document.getElementById('bb-eq-prof-non-80').innerText,
+        document.getElementById('bb-fut-prof-non-80').innerText,
+        document.getElementById('bb-net-prof-non-80').innerText
+    ]);
+
+    csvData.push([
+        "Retail (100% Acceptance)",
+        document.getElementById('bb-acc-ret-100').innerText,
+        document.getElementById('bb-eq-prof-ret-100').innerText,
+        document.getElementById('bb-fut-prof-ret-100').innerText,
+        document.getElementById('bb-net-prof-ret-100').innerText
+    ]);
+    csvData.push([
+        "Retail (90% Acceptance)",
+        document.getElementById('bb-acc-ret-90').innerText,
+        document.getElementById('bb-eq-prof-ret-90').innerText,
+        document.getElementById('bb-fut-prof-ret-90').innerText,
+        document.getElementById('bb-net-prof-ret-90').innerText
+    ]);
+    csvData.push([
+        "Retail (80% Acceptance)",
+        document.getElementById('bb-acc-ret-80').innerText,
+        document.getElementById('bb-eq-prof-ret-80').innerText,
+        document.getElementById('bb-fut-prof-ret-80').innerText,
+        document.getElementById('bb-net-prof-ret-80').innerText
+    ]);
+
+    const csvContent = csvData.map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "Buyback_Analysis.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function exportOFSDataToCSV() {
+    let csvData = [];
+    csvData.push(["Metric", "Value"]);
+
+    // Inputs
+    csvData.push(["Symbol", document.getElementById('ofs-symbol').value]);
+    csvData.push(["CMP", document.getElementById('ofs-cmp').value]);
+    csvData.push(["Floor Price", document.getElementById('ofs-floor-price').value]);
+    csvData.push(["Bid Price / Cut-off", document.getElementById('ofs-bid-price').value]);
+    csvData.push(["Hedge Entry (Short)", document.getElementById('ofs-hedge-entry').value]);
+    csvData.push(["Futures Lot size", document.getElementById('ofs-lot-size').value]);
+    csvData.push(["No. of lots (Bid)", document.getElementById('ofs-lots').value]);
+    csvData.push(["Cost of Funds %", document.getElementById('ofs-cof').value]);
+    csvData.push(["Impact Cost %", document.getElementById('ofs-impact').value]);
+    csvData.push(["STT+others %", document.getElementById('ofs-stt').value]);
+
+    csvData.push(["Total Outstanding", document.getElementById('ofs-total-out').innerText]);
+    csvData.push(["Total OFS Offer", document.getElementById('ofs-total-offer').value]);
+    csvData.push(["Reserved Retail %", document.getElementById('ofs-retail-pct').value]);
+
+    // Future details
+    const futureSel = document.getElementById('ofs-future-sel');
+    csvData.push(["Selected Future", futureSel.options[futureSel.selectedIndex].text]);
+    csvData.push(["Future Price", document.getElementById('ofs-fut-price').value]);
+
+    // Computed Net Outcomes
+    csvData.push(["Gross Spread", document.getElementById('ofs-gross-spread').innerText]);
+    csvData.push(["Arbitrage %", document.getElementById('ofs-arb-pct').innerText]);
+    csvData.push(["Shares Allotted", document.getElementById('ofs-shares-allotted').innerText]);
+    csvData.push(["Reversal Price", document.getElementById('ofs-reversal-price').innerText]);
+    csvData.push(["Futures Risk Amount", document.getElementById('ofs-fut-risk').innerText]);
+    csvData.push(["Futures Risk %", document.getElementById('ofs-fut-risk-pct').innerText]);
+    csvData.push(["Net Arbitrage %", document.getElementById('ofs-net-arb-pct').innerText]);
+
+    // Matrix
+    csvData.push(["", ""]);
+    csvData.push(["Price", "Qty Bid", "Cumul. Qty", "Allotment %", "Shares Allotted"]);
+
+    const matrixBody = document.getElementById('ofs-matrix-body');
+    const rows = matrixBody.querySelectorAll('tr');
+    rows.forEach(row => {
+        let rowData = [];
+        row.querySelectorAll('td').forEach(cell => rowData.push(cell.innerText));
+        csvData.push(rowData);
+    });
+
+    const csvContent = csvData.map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "OFS_Analysis.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+window.exportBuybackDataToCSV = exportBuybackDataToCSV;
+window.exportOFSDataToCSV = exportOFSDataToCSV;

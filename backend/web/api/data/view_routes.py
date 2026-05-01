@@ -132,6 +132,14 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
     """Fetch CMP and Futures price from the backend database."""
     try:
         from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData
+        from backend.web.api.data.derivatives_routes import sync_basis_watch
+
+        # Force sync basis watch when querying for live prices from special situations
+        # This matches the 'forced logic that we use in OI analysis while refreshing'
+        try:
+            sync_basis_watch(force="true", db=db)
+        except Exception as e:
+            logger.error(f"Error syncing basis watch during live price fetch: {e}")
 
         # 1. Fetch CMP from BhavcopyEQ
         latest_eq = db.query(BhavcopyEQ).filter(
@@ -166,11 +174,21 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
                 BhavcopyFO.ticker_symb == symbol.upper(),
                 BhavcopyFO.trade_date == latest_fo_date,
                 BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
-            ).order_by(BhavcopyFO.expiry_date.asc()).limit(3).all()
+            ).order_by(BhavcopyFO.expiry_date.asc()).all()
 
-            if len(futures) > 0: near_fut = futures[0].close_price
-            if len(futures) > 1: next_fut = futures[1].close_price
-            if len(futures) > 2: far_fut = futures[2].close_price
+            # Group and sort safely since there might be multiple entries for index vs stock
+            unique_futures = []
+            seen_expiries = set()
+            for f in futures:
+                if f.expiry_date not in seen_expiries:
+                    unique_futures.append(f)
+                    seen_expiries.add(f.expiry_date)
+
+            unique_futures.sort(key=lambda x: x.expiry_date)
+
+            if len(unique_futures) > 0: near_fut = unique_futures[0].close_price
+            if len(unique_futures) > 1: next_fut = unique_futures[1].close_price
+            if len(unique_futures) > 2: far_fut = unique_futures[2].close_price
 
         return {
             "symbol": symbol.upper(),

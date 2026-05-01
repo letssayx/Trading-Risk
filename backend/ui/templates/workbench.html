@@ -704,7 +704,10 @@
                     <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; margin-top: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h3 style="margin: 0; font-size: 14px; color: #ccc;">Quant AI Analysis</h3>
-                            <button class="btn btn-secondary" style="padding: 4px 10px;">Generate Insights</button>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-secondary" style="padding: 4px 10px;">Generate Insights</button>
+                                <button class="btn btn-secondary" style="padding: 4px 10px;" onclick="exportBuybackDataToCSV()">Export CSV</button>
+                            </div>
                         </div>
                         <p style="color: #888; font-size: 12px; font-style: italic; margin: 0;">Click "Generate Insights" to run the AI Deep Dive on this buyback arbitrage scenario.</p>
                     </div>
@@ -786,9 +789,14 @@
                                 <input type="number" id="ofs-bid-price" class="history-input" value="105.00" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Select Future:</label>
-                                <select id="ofs-future-sel" class="history-input" onchange="calculateOFS()">
+                                <select id="ofs-future-sel" class="history-input" onchange="handleOFSFutureSelectionChange()">
                                     <option value="1">Fut 1 (Near)</option>
+                                    <option value="2">Fut 2 (Next)</option>
+                                    <option value="3">Fut 3 (Far)</option>
                                 </select>
+
+                                <label style="color: #aaa; font-size: 13px;">Future Price:</label>
+                                <input type="number" id="ofs-fut-price" class="history-input" value="108.00" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Hedge Entry (Short):</label>
                                 <input type="number" id="ofs-hedge-entry" class="history-input" value="108.00" oninput="calculateOFS()">
