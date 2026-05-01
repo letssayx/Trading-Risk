@@ -132,14 +132,6 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
     """Fetch CMP and Futures price from the backend database."""
     try:
         from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData
-        from backend.web.api.data.derivatives_routes import sync_basis_watch
-
-        # Force sync basis watch when querying for live prices from special situations
-        # This matches the 'forced logic that we use in OI analysis while refreshing'
-        try:
-            sync_basis_watch(force="true", db=db)
-        except Exception as e:
-            logger.error(f"Error syncing basis watch during live price fetch: {e}")
 
         # 1. Fetch CMP from BhavcopyEQ
         latest_eq = db.query(BhavcopyEQ).filter(
@@ -162,33 +154,27 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
         next_fut = 0.0
         far_fut = 0.0
 
-        # We need the latest trade date in BhavcopyFO for this symbol to get active futures
-        latest_fo_date_record = db.query(BhavcopyFO).filter(
+        # Get the latest trade date for this symbol in FO
+        latest_fo_date = db.query(BhavcopyFO.trade_date).filter(
             BhavcopyFO.ticker_symb == symbol.upper(),
             BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
         ).order_by(BhavcopyFO.trade_date.desc()).first()
 
-        if latest_fo_date_record:
-            latest_fo_date = latest_fo_date_record.trade_date
-            futures = db.query(BhavcopyFO).filter(
+        if latest_fo_date:
+            latest_date = latest_fo_date[0]
+            # Fetch all futures for this date ordered by expiry
+            futs = db.query(BhavcopyFO).filter(
                 BhavcopyFO.ticker_symb == symbol.upper(),
-                BhavcopyFO.trade_date == latest_fo_date,
+                BhavcopyFO.trade_date == latest_date,
                 BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
-            ).order_by(BhavcopyFO.expiry_date.asc()).all()
+            ).order_by(BhavcopyFO.expiry_date.asc()).limit(3).all()
 
-            # Group and sort safely since there might be multiple entries for index vs stock
-            unique_futures = []
-            seen_expiries = set()
-            for f in futures:
-                if f.expiry_date not in seen_expiries:
-                    unique_futures.append(f)
-                    seen_expiries.add(f.expiry_date)
-
-            unique_futures.sort(key=lambda x: x.expiry_date)
-
-            if len(unique_futures) > 0: near_fut = unique_futures[0].close_price
-            if len(unique_futures) > 1: next_fut = unique_futures[1].close_price
-            if len(unique_futures) > 2: far_fut = unique_futures[2].close_price
+            if len(futs) > 0:
+                near_fut = futs[0].close_price
+            if len(futs) > 1:
+                next_fut = futs[1].close_price
+            if len(futs) > 2:
+                far_fut = futs[2].close_price
 
         return {
             "symbol": symbol.upper(),
@@ -229,12 +215,24 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
         if response.status_code == 200:
             data = response.json()
             if data and isinstance(data, list):
+                report_date = data[0].get('date', '')
                 xbrl_url = data[0].get('xbrl')
                 if xbrl_url:
                     res_xml = session.get(xbrl_url, headers=headers, timeout=5)
                     if res_xml.status_code == 200:
                         root = ET.fromstring(res_xml.text)
                         def get_shares(context_id):
+                            # Try Demat form first
+                            for elem in root:
+                                tag_name = elem.tag.split('}')[-1]
+                                if tag_name == 'NumberOfEquitySharesHeldInDematerializedForm' and elem.attrib.get('contextRef') == context_id:
+                                    return float(elem.text)
+                            # Fallback to fully paid up
+                            for elem in root:
+                                tag_name = elem.tag.split('}')[-1]
+                                if tag_name == 'NumberOfFullyPaidUpEquityShares' and elem.attrib.get('contextRef') == context_id:
+                                    return float(elem.text)
+                            # Fallback to shares
                             for elem in root:
                                 tag_name = elem.tag.split('}')[-1]
                                 if tag_name == 'NumberOfShares' and elem.attrib.get('contextRef') == context_id:
@@ -242,17 +240,18 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
                             return 0
 
                         promoter = get_shares('ShareholdingOfPromoterAndPromoterGroup_ContextI')
+                        # FII (FPI Category I and II fallback)
                         fii = get_shares('InstitutionsForeignPortfolioInvestorCategoryOne_ContextI') + get_shares('InstitutionsForeignPortfolioInvestorCategoryTwo_ContextI')
+                        # DII (Domestic + Govt)
                         dii = get_shares('InstitutionsDomestic_ContextI') + get_shares('Governments_ContextI')
                         retail_less_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalUpToRsTwoLakh_ContextI')
-                        public_gt_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalInExcessOfRsTwoLakh_ContextI')
-                        if public_gt_200k == 0:
-                            non_inst = get_shares('NonInstitutions_ContextI')
-                            public_gt_200k = non_inst - retail_less_200k
-
                         adrs = get_shares('OverseasDepositories_ContextI')
                         others_trusts = get_shares('EmployeeBenefitsTrusts_ContextI')
                         total_out = get_shares('ShareholdingPattern_ContextI')
+
+                        # Public calculated as Non-Institutions - Retail
+                        non_inst = get_shares('NonInstitutions_ContextI')
+                        public_gt_200k = non_inst - retail_less_200k
 
                         if total_out > 0:
                             promoter_holding = round((promoter/total_out)*100, 2)
@@ -505,6 +504,7 @@ def proxy_board_meetings():
 @router.get("/api/proxy/corporate-actions")
 def proxy_corporate_actions():
     """Fetches Corporate Actions directly from NSE API endpoint."""
+    import requests
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
