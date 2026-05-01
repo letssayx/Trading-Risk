@@ -19,22 +19,22 @@ from backend.nselib.lib import NseSession
 def get_model_for_type(data_type: str):
     import backend.ingest.nse_models as models
     model_mapping = {
-        "bhavcopy_eq": models.BhavcopyEQ,
-        "bhavcopy_fo": models.BhavcopyFO,
-        "participant_oi": models.ParticipantOI,
-        "fii_derivatives": models.FIIDerivatives,
-        "fii_cash": models.FIICash,
-        "india_vix": models.IndiaVix,
-        "mwpl": models.MWPLClientPosition,
-        "historical_index": models.HistoricalIndexData,
-        "deliverable_volume": models.DeliverableVolume,
-        "gross_deliverable": models.GrossDeliverable,
-        "board_meetings": models.BoardMeeting,
-        "corporate_actions": models.CorporateAction,
-        "block_deals": models.BlockDeal,
-        "shareholding": models.ShareholdingPattern,
-        "financial_results": models.FinancialResults,
-        "dividend": models.Dividend,
+        "bhavcopy_eq": getattr(models, "BhavcopyEQ", None),
+        "bhavcopy_fo": getattr(models, "BhavcopyFO", None),
+        "participant_oi": getattr(models, "ParticipantOI", getattr(models, "FAOParticipantOI", None)),
+        "fii_derivatives": getattr(models, "FIIDerivatives", None),
+        "fii_cash": getattr(models, "FIICash", None),
+        "india_vix": getattr(models, "IndiaVix", None),
+        "mwpl": getattr(models, "MWPLClientPosition", None),
+        "historical_index": getattr(models, "HistoricalIndexData", None),
+        "deliverable_volume": getattr(models, "DeliverableVolume", None),
+        "gross_deliverable": getattr(models, "GrossDeliverable", None),
+        "board_meetings": getattr(models, "BoardMeeting", None),
+        "corporate_actions": getattr(models, "CorporateAction", None),
+        "block_deals": getattr(models, "BlockDeal", None),
+        "shareholding": getattr(models, "ShareholdingPattern", None),
+        "financial_results": getattr(models, "FinancialResults", None),
+        "dividend": getattr(models, "Dividend", None),
     }
     return model_mapping.get(data_type)
 
