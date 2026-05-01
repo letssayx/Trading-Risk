@@ -149,21 +149,32 @@ def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends
             if latest_idx:
                 db_cmp = latest_idx.close_price
 
-        # 2. Fetch Futures from DailyDerivativesAnalysis
+        # 2. Fetch Futures from BhavcopyFO
         near_fut = 0.0
         next_fut = 0.0
         far_fut = 0.0
 
-        from backend.ingest.nse_models import DailyDerivativesAnalysis
+        # Get the latest trade date for this symbol in FO
+        latest_fo_date = db.query(BhavcopyFO.trade_date).filter(
+            BhavcopyFO.ticker_symb == symbol.upper(),
+            BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
+        ).order_by(BhavcopyFO.trade_date.desc()).first()
 
-        latest_deriv = db.query(DailyDerivativesAnalysis).filter(
-            DailyDerivativesAnalysis.symbol == symbol.upper()
-        ).order_by(DailyDerivativesAnalysis.trade_date.desc()).first()
+        if latest_fo_date:
+            latest_date = latest_fo_date[0]
+            # Fetch all futures for this date ordered by expiry
+            futs = db.query(BhavcopyFO).filter(
+                BhavcopyFO.ticker_symb == symbol.upper(),
+                BhavcopyFO.trade_date == latest_date,
+                BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX'])
+            ).order_by(BhavcopyFO.expiry_date.asc()).limit(3).all()
 
-        if latest_deriv:
-            near_fut = latest_deriv.close_price or latest_deriv.near_fut_close or 0.0
-            next_fut = latest_deriv.next_fut_close or 0.0
-            far_fut = latest_deriv.far_fut_close or 0.0
+            if len(futs) > 0:
+                near_fut = futs[0].close_price
+            if len(futs) > 1:
+                next_fut = futs[1].close_price
+            if len(futs) > 2:
+                far_fut = futs[2].close_price
 
         return {
             "symbol": symbol.upper(),
@@ -210,6 +221,17 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
                     if res_xml.status_code == 200:
                         root = ET.fromstring(res_xml.text)
                         def get_shares(context_id):
+                            # Try Demat form first
+                            for elem in root:
+                                tag_name = elem.tag.split('}')[-1]
+                                if tag_name == 'NumberOfEquitySharesHeldInDematerializedForm' and elem.attrib.get('contextRef') == context_id:
+                                    return float(elem.text)
+                            # Fallback to fully paid up
+                            for elem in root:
+                                tag_name = elem.tag.split('}')[-1]
+                                if tag_name == 'NumberOfFullyPaidUpEquityShares' and elem.attrib.get('contextRef') == context_id:
+                                    return float(elem.text)
+                            # Fallback to shares
                             for elem in root:
                                 tag_name = elem.tag.split('}')[-1]
                                 if tag_name == 'NumberOfShares' and elem.attrib.get('contextRef') == context_id:
@@ -217,13 +239,18 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
                             return 0
 
                         promoter = get_shares('ShareholdingOfPromoterAndPromoterGroup_ContextI')
-                        fii = get_shares('InstitutionsForeign_ContextI')
-                        dii = get_shares('InstitutionsDomestic_ContextI')
+                        # FII (FPI Category I and II fallback)
+                        fii = get_shares('InstitutionsForeignPortfolioInvestorCategoryOne_ContextI') + get_shares('InstitutionsForeignPortfolioInvestorCategoryTwo_ContextI')
+                        # DII (Domestic + Govt)
+                        dii = get_shares('InstitutionsDomestic_ContextI') + get_shares('Governments_ContextI')
                         retail_less_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalUpToRsTwoLakh_ContextI')
-                        public_gt_200k = get_shares('ResidentIndividualShareholdersHoldingNominalShareCapitalInExcessOfRsTwoLakh_ContextI')
                         adrs = get_shares('OverseasDepositories_ContextI')
                         others_trusts = get_shares('EmployeeBenefitsTrusts_ContextI')
                         total_out = get_shares('ShareholdingPattern_ContextI')
+
+                        # Public calculated as Non-Institutions - Retail
+                        non_inst = get_shares('NonInstitutions_ContextI')
+                        public_gt_200k = non_inst - retail_less_200k
 
                         if total_out > 0:
                             promoter_holding = round((promoter/total_out)*100, 2)
