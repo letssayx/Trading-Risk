@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional
 import requests
 import requests
+import requests
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy
