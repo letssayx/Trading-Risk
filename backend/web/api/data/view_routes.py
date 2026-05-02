@@ -1297,3 +1297,26 @@ def get_tender():
         return data if isinstance(data, list) else data.get("data", [])
     except Exception:
         return []
+
+import requests
+
+def get_nse_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+    })
+    return session
+
+def get_model_for_type(type_str: str):
+    from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData, PreMarketSnapshot, VIXHistory, DailyDerivativesAnalysis
+    models = {
+        'bhavcopy_eq': BhavcopyEQ,
+        'bhavcopy_fo': BhavcopyFO,
+        'historical_index': HistoricalIndexData,
+        'pre_market': PreMarketSnapshot,
+        'vix': VIXHistory,
+        'derivatives_analysis': DailyDerivativesAnalysis
+    }
+    return models.get(type_str)
