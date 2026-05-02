@@ -1,4 +1,32 @@
 // Javascript for Special Situation Arb
+
+function toggleBBVerification() {
+    const chk = document.getElementById('bb-verify-chk');
+    const badge = document.getElementById('bb-verify-badge');
+    if (chk.checked) {
+        badge.innerText = 'Verified';
+        badge.style.color = '#10b981';
+        badge.style.borderColor = '#10b981';
+    } else {
+        badge.innerText = 'Unverified';
+        badge.style.color = '#ff4d4d';
+        badge.style.borderColor = '#ff4d4d';
+    }
+}
+
+function toggleOFSVerification() {
+    const chk = document.getElementById('ofs-verify-chk');
+    const badge = document.getElementById('ofs-verify-badge');
+    if (chk.checked) {
+        badge.innerText = 'Verified';
+        badge.style.color = '#10b981';
+        badge.style.borderColor = '#10b981';
+    } else {
+        badge.innerText = 'Unverified';
+        badge.style.color = '#ff4d4d';
+        badge.style.borderColor = '#ff4d4d';
+    }
+}
 function switchSpecialSitTab(tabName) {
     document.querySelectorAll('.ss-sub-tab').forEach(el => {
         el.style.display = 'none';
@@ -191,6 +219,11 @@ async function syncBuybackHoldings(event) {
         const data = await res.json();
 
         if (data && data.total_outstanding) {
+            if (data.report_date) {
+                document.getElementById('bb-report-date').innerText = `As of ${data.report_date}`;
+            } else {
+                document.getElementById('bb-report-date').innerText = '';
+            }
             document.getElementById('bb-total-out').innerText = data.total_outstanding;
 
             document.getElementById('bb-promoter-pct').value = data.promoter_holding || 0;
@@ -492,6 +525,11 @@ async function syncOFSHoldings(event) {
         const data = await res.json();
 
         if (data && data.total_outstanding) {
+            if (data.report_date) {
+                document.getElementById('ofs-report-date').innerText = `As of ${data.report_date}`;
+            } else {
+                document.getElementById('ofs-report-date').innerText = '';
+            }
             document.getElementById('ofs-total-out').innerText = data.total_outstanding;
 
             document.getElementById('ofs-promoter-pct').value = data.promoter_holding || 0;
@@ -557,6 +595,72 @@ async function syncOFSPrices(event) {
     }
 }
 
+function exportSpecialSitCSV(type) {
+    let csv = [];
+    if (type === 'buyback') {
+        csv.push("Share Holding Pattern,No. of shares,% holding");
+        csv.push(`Promoter Holding,${document.getElementById('bb-promoter').value},${document.getElementById('bb-promoter-pct').value}%`);
+        csv.push(`FII,${document.getElementById('bb-fii').value},${document.getElementById('bb-fii-pct').value}%`);
+        csv.push(`DII,${document.getElementById('bb-dii').value},${document.getElementById('bb-dii-pct').value}%`);
+        csv.push(`Retail holding (<=2L),${document.getElementById('bb-retail').value},${document.getElementById('bb-retail-pct-input').value}%`);
+        csv.push(`Public (>2L),${document.getElementById('bb-public').value},${document.getElementById('bb-public-pct').value}%`);
+        csv.push(`Total outstanding,${document.getElementById('bb-total-out').innerText.replace(/,/g, '')},100.00%`);
+        csv.push("");
+        csv.push("Arbitrage");
+        csv.push(`Symbol,${document.getElementById('bb-symbol').value}`);
+        csv.push(`Buy Back Price,${document.getElementById('bb-price').value}`);
+        csv.push(`CMP (EQ),${document.getElementById('bb-cmp').value}`);
+        csv.push(`Future price,${document.getElementById('bb-fut-price').value}`);
+        csv.push("");
+        csv.push(`Total Buy Back offer,${document.getElementById('bb-total-offer').value}`);
+        csv.push(`Reserved retail %,${document.getElementById('bb-retail-pct').value}%`);
+        csv.push("");
+        csv.push("Participation Scenario (100%)");
+        csv.push(`Acceptance Ratio (Non-Retail),${document.getElementById('bb-acc-non-100').innerText}`);
+        csv.push(`Acceptance Ratio (Retail),${document.getElementById('bb-acc-ret-100').innerText}`);
+        csv.push(`Equity Profit,${document.getElementById('bb-eq-profit').innerText}`);
+        csv.push(`Future Profit,${document.getElementById('bb-fut-profit').innerText}`);
+        csv.push(`Net Profit,${document.getElementById('bb-net-profit').innerText}`);
+    } else if (type === 'ofs') {
+        csv.push("Share Holding Pattern,No. of shares,% holding");
+        csv.push(`Promoter Holding,${document.getElementById('ofs-promoter').value},${document.getElementById('ofs-promoter-pct').value}%`);
+        csv.push(`FII,${document.getElementById('ofs-fii').value},${document.getElementById('ofs-fii-pct').value}%`);
+        csv.push(`DII,${document.getElementById('ofs-dii').value},${document.getElementById('ofs-dii-pct').value}%`);
+        csv.push(`Retail & Public,${document.getElementById('ofs-retail').value},${document.getElementById('ofs-retail-pct-input').value}%`);
+        csv.push(`Total outstanding,${document.getElementById('ofs-total-out').innerText.replace(/,/g, '')},100.00%`);
+        csv.push("");
+        csv.push("Arbitrage");
+        csv.push(`Symbol,${document.getElementById('ofs-symbol').value}`);
+        csv.push(`CMP (Pre-OFS),${document.getElementById('ofs-cmp').value}`);
+        csv.push(`Floor Price,${document.getElementById('ofs-floor-price').value}`);
+        csv.push(`Bid Price / Cut-off,${document.getElementById('ofs-bid-price').value}`);
+        csv.push(`Hedge Entry (Short),${document.getElementById('ofs-hedge-entry').value}`);
+        csv.push(`Futures Lot size,${document.getElementById('ofs-lot-size').value}`);
+        csv.push(`No. of lots (Bid),${document.getElementById('ofs-lots').value}`);
+        csv.push(`Cost of Funds %,${document.getElementById('ofs-cof').value}%`);
+        csv.push(`Impact Cost %,${document.getElementById('ofs-impact').value}%`);
+        csv.push(`STT+others %,${document.getElementById('ofs-stt').value}%`);
+        csv.push("");
+        csv.push("Analysis Results");
+        csv.push(`Gross Spread (Bid vs Hedge),${document.getElementById('ofs-gross-spread').innerText}`);
+        csv.push(`Arbitrage %,${document.getElementById('ofs-arb-pct').innerText}`);
+        csv.push(`Shares Allotted,${document.getElementById('ofs-shares-allotted').innerText}`);
+        csv.push(`Reversal Price,${document.getElementById('ofs-reversal-price').innerText}`);
+        csv.push(`Unhedged Futures Risk,${document.getElementById('ofs-fut-risk').innerText}`);
+        csv.push(`Unhedged Risk %,${document.getElementById('ofs-fut-risk-pct').innerText}`);
+        csv.push(`Net Arbitrage %,${document.getElementById('ofs-net-arb-pct').innerText}`);
+    }
+
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Arbitrage_${type}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+window.exportSpecialSitCSV = exportSpecialSitCSV;
 window.calculateOFS = calculateOFS;
 window.syncOFSHoldings = syncOFSHoldings;
 window.syncOFSPrices = syncOFSPrices;

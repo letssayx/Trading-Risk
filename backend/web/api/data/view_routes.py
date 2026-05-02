@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, defer
 from sqlalchemy import desc, asc, or_, func
 from sqlalchemy.exc import ProgrammingError, OperationalError
 import pandas as pd
+import requests
 import io
 from datetime import datetime
 from typing import Optional
@@ -211,12 +212,24 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
         if response.status_code == 200:
             data = response.json()
             if data and isinstance(data, list):
+                report_date = data[0].get('date', '')
                 xbrl_url = data[0].get('xbrl')
                 if xbrl_url:
                     res_xml = session.get(xbrl_url, headers=headers, timeout=5)
                     if res_xml.status_code == 200:
                         root = ET.fromstring(res_xml.text)
                         def get_shares(context_id):
+                            # Try Demat form first
+                            for elem in root:
+                                tag_name = elem.tag.split('}')[-1]
+                                if tag_name == 'NumberOfEquitySharesHeldInDematerializedForm' and elem.attrib.get('contextRef') == context_id:
+                                    return float(elem.text)
+                            # Fallback to fully paid up
+                            for elem in root:
+                                tag_name = elem.tag.split('}')[-1]
+                                if tag_name == 'NumberOfFullyPaidUpEquityShares' and elem.attrib.get('contextRef') == context_id:
+                                    return float(elem.text)
+                            # Fallback to shares
                             for elem in root:
                                 tag_name = elem.tag.split('}')[-1]
                                 if tag_name == 'NumberOfShares' and elem.attrib.get('contextRef') == context_id:
@@ -270,6 +283,48 @@ def get_shareholding(symbol: str = Query(..., min_length=1), db: Session = Depen
         from fastapi import HTTPException
         logger.error(f"Error fetching shareholding for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=f"NSE shareholding fetch error: {str(e)}")
+
+
+# Share a single NseSession instance for proxying
+_nse_session = None
+def get_nse_session():
+    global _nse_session
+    if _nse_session is None:
+        _nse_session = NseSession()
+    return _nse_session
+
+def get_model_for_type(data_type: str):
+    mapping = {
+        'bhavcopy': Bhavcopy,
+        'bhavcopy_eq': models.BhavcopyEQ,
+        'bhavcopy_fo': models.BhavcopyFO,
+        'participant_oi': models.FAOParticipantOI,
+        'fao_participant_oi': models.FAOParticipantOI,
+        'fo_volatility': models.FOVolatility,
+        'fii_stats': models.FIIDerivativesStat,
+        'bulk_deals': models.BulkDeal,
+        'block_deals': models.BlockDeal,
+        'mto': models.MTODelivery,
+        'mwpl': models.MWPLClientPosition,
+        'pe_ratio': models.PERatio,
+        'pe_ratio_idx': models.IndexPERatio,
+        'india_vix': models.IndiaVIX,
+        'var_stats': models.VaRStat,
+        'contract_delta': models.ContractDelta,
+        'margin_trading': models.MarginTrading,
+        'fii_dii_cash': models.FIIDIICash,
+        'security_master': models.SecurityMaster,
+        'historical_index_data': models.HistoricalIndexData,
+        'auctions': models.Auction, # Added auctions just in case
+        'historical_index_data': models.HistoricalIndexData
+    }
+    # Safely get CorporateAction if it exists in models (may be unmerged)
+    if data_type in ['corporate_actions', 'dividend'] and hasattr(models, 'CorporateAction'):
+        return getattr(models, 'CorporateAction')
+    if data_type in ['board_meetings', 'board_meeting'] and hasattr(models, 'BoardMeeting'):
+        return getattr(models, 'BoardMeeting')
+
+    return mapping.get(data_type)
 
 
 @router.get("/api/proxy/rights")
