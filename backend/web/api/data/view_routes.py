@@ -7,6 +7,8 @@ import pandas as pd
 import io
 from datetime import datetime
 from typing import Optional
+import requests
+import requests
 
 from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy
@@ -131,7 +133,7 @@ def get_fundamentals(symbol: str = Query(..., min_length=1), db: Session = Depen
 def get_live_price(symbol: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     """Fetch CMP and Futures price from the backend database."""
     try:
-        from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData, BasisWatchMetrics
+        from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData, BasisWatchMetrics, BasisWatchMetrics
 
         # 1. Fetch CMP from BhavcopyEQ
         latest_eq = db.query(BhavcopyEQ).filter(
@@ -1298,8 +1300,6 @@ def get_tender():
     except Exception:
         return []
 
-import requests
-
 def get_nse_session():
     session = requests.Session()
     session.headers.update({
@@ -1310,7 +1310,7 @@ def get_nse_session():
     return session
 
 def get_model_for_type(type_str: str):
-    from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData, PreMarketSnapshot, VIXHistory, DailyDerivativesAnalysis
+    from backend.ingest.nse_models import BhavcopyEQ, BhavcopyFO, HistoricalIndexData, BasisWatchMetrics, PreMarketSnapshot, VIXHistory, DailyDerivativesAnalysis
     models = {
         'bhavcopy_eq': BhavcopyEQ,
         'bhavcopy_fo': BhavcopyFO,
