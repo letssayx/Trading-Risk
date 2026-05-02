@@ -513,10 +513,10 @@
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
                     <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
                         <div class="wb-tab active" id="ss-tab-btn-buyback" onclick="switchSpecialSitTab('buyback')" style="padding: 6px 15px; border-radius: 4px;">Buy Back</div>
+                        <div class="wb-tab" id="ss-tab-btn-ofs" onclick="switchSpecialSitTab('ofs')" style="padding: 6px 15px; border-radius: 4px;">OFS</div>
                         <div class="wb-tab" id="ss-tab-btn-rights" onclick="switchSpecialSitTab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
                         <div class="wb-tab" id="ss-tab-btn-dividends" onclick="switchSpecialSitTab('dividends')" style="padding: 6px 15px; border-radius: 4px;">Dividends</div>
                         <div class="wb-tab" id="ss-tab-btn-bonds" onclick="switchSpecialSitTab('bonds')" style="padding: 6px 15px; border-radius: 4px;">Bonds ()</div>
-                        <div class="wb-tab" id="ss-tab-btn-ofs" onclick="switchSpecialSitTab('ofs')" style="padding: 6px 15px; border-radius: 4px;">OFS</div>
                         <div class="wb-tab" id="ss-tab-btn-ppcm" onclick="switchSpecialSitTab('ppcm')" style="padding: 6px 15px; border-radius: 4px;">Partly Paid Call Money (PPCM)</div>
                     </div>
                 </div>
@@ -564,14 +564,6 @@
                                 <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Public > Rs 200k:</label>
                                 <input type="number" id="bb-public" class="history-input" value="0" oninput="calculateBuyback()">
                                 <input type="number" id="bb-public-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
-
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Others (Trusts):</label>
-                                <input type="number" id="bb-others" class="history-input" value="0" oninput="calculateBuyback()">
-                                <input type="number" id="bb-others-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
-
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">ADR Shares:</label>
-                                <input type="number" id="bb-adr" class="history-input" value="0" oninput="calculateBuyback()">
-                                <input type="number" id="bb-adr-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
                             </div>
 
                             <hr style="border-color: #333; margin: 15px 0;">
@@ -765,21 +757,9 @@
                                 <input type="number" id="ofs-dii" class="history-input" value="0" oninput="calculateOFS()">
                                 <input type="number" id="ofs-dii-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
 
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Retail <= Rs 200k:</label>
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Retail & Public:</label>
                                 <input type="number" id="ofs-retail" class="history-input" value="0" oninput="calculateOFS()">
                                 <input type="number" id="ofs-retail-pct-input" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
-
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Public > Rs 200k:</label>
-                                <input type="number" id="ofs-public" class="history-input" value="0" oninput="calculateOFS()">
-                                <input type="number" id="ofs-public-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
-
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Others (Trusts):</label>
-                                <input type="number" id="ofs-others" class="history-input" value="0" oninput="calculateOFS()">
-                                <input type="number" id="ofs-others-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
-
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">ADR Shares:</label>
-                                <input type="number" id="ofs-adr" class="history-input" value="0" oninput="calculateOFS()">
-                                <input type="number" id="ofs-adr-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
                             </div>
 
                             <hr style="border-color: #333; margin: 15px 0;">
@@ -789,7 +769,7 @@
                                 <span id="ofs-total-out" style="color: #60a5fa; font-weight: bold;">0</span>
 
                                 <label style="color: #aaa; font-size: 13px;">Total OFS Offer:</label>
-                                <input type="number" id="ofs-total-offer" class="history-input" value="10000000" oninput="calculateOFS()">
+                                <input type="number" id="ofs-total-offer" class="history-input" value="" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Reserved Retail %:</label>
                                 <input type="number" id="ofs-retail-pct" class="history-input" value="10" oninput="calculateOFS()">
@@ -820,10 +800,8 @@
                                 <input type="number" id="ofs-bid-price" class="history-input" value="105.00" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Select Future:</label>
-                                <select id="ofs-future-sel" class="history-input" onchange="handleOFSFutureSelectionChange()">
+                                <select id="ofs-future-sel" class="history-input" onchange="calculateOFS()">
                                     <option value="1">Fut 1 (Near)</option>
-                                    <option value="2">Fut 2 (Next)</option>
-                                    <option value="3">Fut 3 (Far)</option>
                                 </select>
 
                                 <label style="color: #aaa; font-size: 13px;">Hedge Entry (Short):</label>
@@ -1111,7 +1089,7 @@
                     <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY" autocomplete="off">
+                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. RELIANCE" style="width: 150px;" value="" autocomplete="off">
                         </div>
                         <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
                         <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;" onclick="document.getElementById('mr-symbol-input').value = ''; if (typeof loadTimeseriesData === 'function') loadTimeseriesData(true);">Clear (All Scrips)</button>
@@ -2089,7 +2067,7 @@
                     </h2>
 
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
-                        <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol">
+                        <input type="text" id="vol-analysis-symbol" class="history-input" value="" style="width: 150px;" placeholder="Symbol">
                         <input type="hidden" id="vol-analysis-expiry-type" value="monthly">
                         <label style="color: #ccc; margin: 0; font-size: 14px;">Lookback Period:</label>
                         <select id="vol-analysis-lookback" class="history-input" >
@@ -2232,7 +2210,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
-                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
+                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., RELIANCE)" value="" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
@@ -2392,7 +2370,7 @@
 
                                         <!-- Keep dropdown for quick selection, but add autocomplete for searching any symbol -->
                                         <div class="autocomplete-wrapper">
-                                            <input type="text" id="market-activity-index-symbol" class="history-input" style="width: 100px; padding: 2px; font-size: 10px;" value="NIFTY" placeholder="Search Symbol" onkeydown="if(event.key === 'Enter') loadMarketOptionsCharts()">
+                                            <input type="text" id="market-activity-index-symbol" class="history-input" style="width: 100px; padding: 2px; font-size: 10px;" value="" placeholder="Search Symbol" onkeydown="if(event.key === 'Enter') loadMarketOptionsCharts()">
                                         </div>
                                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="loadMarketOptionsCharts()"><i class="fas fa-search"></i></button>
 
@@ -2470,7 +2448,7 @@
                 <!-- SUB-TAB 5: Adv Technicals -->
                 <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box;  flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
+                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., RELIANCE)" value="" style="width: 150px;">
                         <button class="btn btn-secondary" id="btn-load-adv-tech" onclick="loadDynamicChart()">Load Chart</button>
                     </div>
 
