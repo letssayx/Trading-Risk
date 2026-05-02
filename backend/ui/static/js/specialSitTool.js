@@ -247,8 +247,16 @@ async function syncBuybackHoldings(event) {
                 document.getElementById('bb-dii').value = data.dii_shares || 0;
                 document.getElementById('bb-retail').value = data.retail_shares || 0;
                 document.getElementById('bb-public').value = data.public_shares || 0;
-                document.getElementById('bb-others').value = data.others_shares || 0;
-                document.getElementById('bb-adr').value = data.adr_shares || 0;
+
+                // Live shareholding pattern data must calculate 'Others' dynamically as a residual
+                const adrShares = data.adr_shares || 0;
+                document.getElementById('bb-adr').value = adrShares;
+
+                const otherKnown = (data.promoter_shares || 0) + (data.fii_shares || 0) + (data.dii_shares || 0) + (data.retail_shares || 0) + (data.public_shares || 0) + adrShares;
+                let residualOthers = data.total_outstanding - otherKnown;
+                if (residualOthers < 0) residualOthers = 0;
+                document.getElementById('bb-others').value = residualOthers;
+
                 calculateBuyback(false); // Math using exact absolute shares
             } else {
                 calculateBuyback(true); // Math falls back to percentage conversion
@@ -321,16 +329,12 @@ async function syncBuybackPrices(event) {
         const resMW = await fetch(`/api/data/derivatives/marketwatch?custom_symbols=${symbol}`);
         if (resMW.ok) {
             const dataMW = await resMW.json();
-            const mwData = dataMW.data && dataMW.data[symbol] ? dataMW.data[symbol] : [];
+            const mwData = dataMW.data && dataMW.data[symbol] ? dataMW.data[symbol] : {};
 
-            // Assume market watch returns sorted by expiry (Fut1, Fut2, Fut3)
-            if (mwData.length > 0) {
-                // Ensure we don't pick EQ from market watch if it's there, but MW usually returns futures
-                const futures = mwData.filter(item => item.instrument_type && item.instrument_type.includes('FUT'));
-                if (futures.length >= 1) fetchedFutures['1'] = futures[0].price || 0;
-                if (futures.length >= 2) fetchedFutures['2'] = futures[1].price || 0;
-                if (futures.length >= 3) fetchedFutures['3'] = futures[2].price || 0;
-            }
+            const futures = mwData.futures || [];
+            if (futures.length >= 1) fetchedFutures['1'] = futures[0].price || 0;
+            if (futures.length >= 2) fetchedFutures['2'] = futures[1].price || 0;
+            if (futures.length >= 3) fetchedFutures['3'] = futures[2].price || 0;
         }
 
         const sel = document.getElementById('bb-future-sel').value;
@@ -589,8 +593,15 @@ async function syncOFSHoldings(event) {
                 document.getElementById('ofs-dii').value = data.dii_shares || 0;
                 document.getElementById('ofs-retail').value = data.retail_shares || 0;
                 document.getElementById('ofs-public').value = data.public_shares || 0;
-                document.getElementById('ofs-others').value = data.others_shares || 0;
-                document.getElementById('ofs-adr').value = data.adr_shares || 0;
+
+                const adrShares = data.adr_shares || 0;
+                document.getElementById('ofs-adr').value = adrShares;
+
+                const otherKnown = (data.promoter_shares || 0) + (data.fii_shares || 0) + (data.dii_shares || 0) + (data.retail_shares || 0) + (data.public_shares || 0) + adrShares;
+                let residualOthers = data.total_outstanding - otherKnown;
+                if (residualOthers < 0) residualOthers = 0;
+                document.getElementById('ofs-others').value = residualOthers;
+
                 calculateOFS(false);
             } else {
                 calculateOFS(true);
@@ -636,15 +647,12 @@ async function syncOFSPrices(event) {
         const resMW = await fetch(`/api/data/derivatives/marketwatch?custom_symbols=${symbol}`);
         if (resMW.ok) {
             const dataMW = await resMW.json();
-            const mwData = dataMW.data && dataMW.data[symbol] ? dataMW.data[symbol] : [];
+            const mwData = dataMW.data && dataMW.data[symbol] ? dataMW.data[symbol] : {};
 
-            // Assume market watch returns sorted by expiry (Fut1, Fut2, Fut3)
-            if (mwData.length > 0) {
-                const futures = mwData.filter(item => item.instrument_type && item.instrument_type.includes('FUT'));
-                if (futures.length >= 1) fetchedOFSFutures['1'] = futures[0].price || 0;
-                if (futures.length >= 2) fetchedOFSFutures['2'] = futures[1].price || 0;
-                if (futures.length >= 3) fetchedOFSFutures['3'] = futures[2].price || 0;
-            }
+            const futures = mwData.futures || [];
+            if (futures.length >= 1) fetchedOFSFutures['1'] = futures[0].price || 0;
+            if (futures.length >= 2) fetchedOFSFutures['2'] = futures[1].price || 0;
+            if (futures.length >= 3) fetchedOFSFutures['3'] = futures[2].price || 0;
         }
 
         const sel = document.getElementById('ofs-future-sel').value;
