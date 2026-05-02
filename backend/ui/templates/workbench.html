@@ -512,16 +512,18 @@
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto;">
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
                     <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <div class="wb-tab active" id="ss-tab-btn-buyback" onclick="switchSpecialSitTab('buyback')" style="padding: 6px 15px; border-radius: 4px;">Buy Back</div>
+                        <div class="wb-tab active" id="ss-tab-btn-dividends" onclick="switchSpecialSitTab('dividends')" style="padding: 6px 15px; border-radius: 4px;">Dividends</div>
+                        <div class="wb-tab" id="ss-tab-btn-buyback" onclick="switchSpecialSitTab('buyback')" style="padding: 6px 15px; border-radius: 4px;">Buy Back</div>
                         <div class="wb-tab" id="ss-tab-btn-ofs" onclick="switchSpecialSitTab('ofs')" style="padding: 6px 15px; border-radius: 4px;">OFS</div>
                         <div class="wb-tab" id="ss-tab-btn-rights" onclick="switchSpecialSitTab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
-                        <div class="wb-tab" id="ss-tab-btn-dividends" onclick="switchSpecialSitTab('dividends')" style="padding: 6px 15px; border-radius: 4px;">Dividends</div>
                         <div class="wb-tab" id="ss-tab-btn-bonds" onclick="switchSpecialSitTab('bonds')" style="padding: 6px 15px; border-radius: 4px;">Bonds ()</div>
                         <div class="wb-tab" id="ss-tab-btn-ppcm" onclick="switchSpecialSitTab('ppcm')" style="padding: 6px 15px; border-radius: 4px;">Partly Paid Call Money (PPCM)</div>
                     </div>
                 </div>
 
-                <div id="ss-tab-buyback" class="ss-sub-tab active" style="display: flex; flex-direction: column; gap: 20px;">
+                <div id="ss-tab-dividends" class="ss-sub-tab active" style="padding: 20px; text-align: center; color: #888; font-size: 1.2em;">Dividends module is under construction...</div>
+
+                <div id="ss-tab-buyback" class="ss-sub-tab" style="display: none; flex-direction: column; gap: 20px;">
                     <h2 style="margin: 0; color: #fff; font-size: 20px;">Buy Back Arbitrage Scenario</h2>
 
                     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
@@ -564,6 +566,14 @@
                                 <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Public > Rs 200k:</label>
                                 <input type="number" id="bb-public" class="history-input" value="0" oninput="calculateBuyback()">
                                 <input type="number" id="bb-public-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Others (Trusts):</label>
+                                <input type="number" id="bb-others" class="history-input" value="0" oninput="calculateBuyback()">
+                                <input type="number" id="bb-others-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">ADR Shares:</label>
+                                <input type="number" id="bb-adr" class="history-input" value="0" oninput="calculateBuyback()">
+                                <input type="number" id="bb-adr-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
                             </div>
 
                             <hr style="border-color: #333; margin: 15px 0;">
@@ -718,7 +728,6 @@
                 </div>
 
                 <div id="ss-tab-rights" class="ss-sub-tab" style="display: none; padding: 20px; text-align: center; color: #888; font-size: 1.2em;">Rights module is under construction...</div>
-                <div id="ss-tab-dividends" class="ss-sub-tab" style="display: none; padding: 20px; text-align: center; color: #888; font-size: 1.2em;">Dividends module is under construction...</div>
                 <div id="ss-tab-bonds" class="ss-sub-tab" style="display: none; padding: 20px; text-align: center; color: #888; font-size: 1.2em;">Bonds module is under construction...</div>
 
                 <div id="ss-tab-ofs" class="ss-sub-tab" style="display: none; flex-direction: column; gap: 20px;">
@@ -757,9 +766,21 @@
                                 <input type="number" id="ofs-dii" class="history-input" value="0" oninput="calculateOFS()">
                                 <input type="number" id="ofs-dii-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
 
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Retail & Public:</label>
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Retail <= Rs 200k:</label>
                                 <input type="number" id="ofs-retail" class="history-input" value="0" oninput="calculateOFS()">
                                 <input type="number" id="ofs-retail-pct-input" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Public > Rs 200k:</label>
+                                <input type="number" id="ofs-public" class="history-input" value="0" oninput="calculateOFS()">
+                                <input type="number" id="ofs-public-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Others (Trusts):</label>
+                                <input type="number" id="ofs-others" class="history-input" value="0" oninput="calculateOFS()">
+                                <input type="number" id="ofs-others-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">ADR Shares:</label>
+                                <input type="number" id="ofs-adr" class="history-input" value="0" oninput="calculateOFS()">
+                                <input type="number" id="ofs-adr-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
                             </div>
 
                             <hr style="border-color: #333; margin: 15px 0;">
@@ -800,8 +821,10 @@
                                 <input type="number" id="ofs-bid-price" class="history-input" value="105.00" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Select Future:</label>
-                                <select id="ofs-future-sel" class="history-input" onchange="calculateOFS()">
+                                <select id="ofs-future-sel" class="history-input" onchange="handleOFSFutureSelectionChange()">
                                     <option value="1">Fut 1 (Near)</option>
+                                    <option value="2">Fut 2 (Next)</option>
+                                    <option value="3">Fut 3 (Far)</option>
                                 </select>
 
                                 <label style="color: #aaa; font-size: 13px;">Hedge Entry (Short):</label>
@@ -887,7 +910,7 @@
                 <h2 style="margin-top: 0;">Fundamental Analysis</h2>
                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
                     <input type="text" id="fund-symbol-input" class="history-input" placeholder="e.g. RELIANCE" style="width: 200px;">
-                    <button class="btn btn-primary" onclick="loadFundamentalData()">Load Fundamentals</button>
+                    <button class="btn btn-primary" onclick="loadFundamentalData()"><i class="fas fa-sync"></i> Load Fundamentals</button>
                     <button class="btn btn-secondary" onclick="exportTableToCSV('fund-table', 'Fundamentals')"><i class="fas fa-download"></i> CSV</button>
                 </div>
                 <div class="table-wrapper" style="flex: 1;">
@@ -1089,9 +1112,9 @@
                     <div style="padding: 10px; background: #252526; border-bottom: 1px solid #333; display: flex; gap: 10px; align-items: center;">
                         <span style="color: #aaa; font-size: 13px;">Symbol Timeseries:</span>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. RELIANCE" style="width: 150px;" value="" autocomplete="off">
+                            <input type="text" id="mr-symbol-input" class="history-input" placeholder="e.g. NIFTY" style="width: 150px;" value="NIFTY" autocomplete="off">
                         </div>
-                        <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;">Load Timeseries</button>
+                        <button id="mr-fetch-ts-btn" class="btn btn-secondary" style="padding: 4px 10px;"><i class="fas fa-sync"></i> Load Timeseries</button>
                         <button id="mr-clear-ts-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 5px;" onclick="document.getElementById('mr-symbol-input').value = ''; if (typeof loadTimeseriesData === 'function') loadTimeseriesData(true);">Clear (All Scrips)</button>
                         <button id="mr-export-btn" class="btn btn-secondary" style="padding: 4px 10px; margin-left: 10px;">Download CSV</button>
                         <span id="mr-table-date-display" style="margin-left: auto; color: #60a5fa; font-weight: bold; font-size: 14px;"></span>
@@ -2006,7 +2029,7 @@
                             <div id="opt-symbol-dropdown" class="autocomplete-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 99; max-height: 300px; overflow-y: auto; background-color: #333; border: 1px solid #444; border-radius: 4px;"></div>
                         </div>
                         <select id="opt-expiry-select" class="form-control history-select" style="width: 150px; background: #2a2a2a; color: white; border: 1px solid #444; display: none;" onchange="loadOptionChain()"></select>
-                        <button class="btn btn-primary" id="btn-load-option-chain" onclick="loadOptionChain()">Load Chain</button>
+                        <button class="btn btn-primary" id="btn-load-option-chain" onclick="loadOptionChain()"><i class="fas fa-sync"></i> Load Chain</button>
                         <button class="btn btn-secondary" onclick="exportTableToCSV('option-chain-table', 'Option_Chain')"><i class="fas fa-download"></i> CSV</button>
 
                         <div style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end;">
@@ -2067,7 +2090,7 @@
                     </h2>
 
                     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
-                        <input type="text" id="vol-analysis-symbol" class="history-input" value="" style="width: 150px;" placeholder="Symbol">
+                        <input type="text" id="vol-analysis-symbol" class="history-input" value="NIFTY" style="width: 150px;" placeholder="Symbol">
                         <input type="hidden" id="vol-analysis-expiry-type" value="monthly">
                         <label style="color: #ccc; margin: 0; font-size: 14px;">Lookback Period:</label>
                         <select id="vol-analysis-lookback" class="history-input" >
@@ -2078,7 +2101,7 @@
                             <option value="252">252 Days</option>
                             <option value="500" selected>500 Days</option>
                         </select>
-                        <button class="btn btn-primary" id="btn-load-vol-analysis" onclick="loadVolatilityAnalysis(event)">Load</button>
+                        <button class="btn btn-primary" id="btn-load-vol-analysis" onclick="loadVolatilityAnalysis(event)"><i class="fas fa-sync"></i> Load</button>
                     </div>
 
                     <!-- Chart 1: Pre-Expiry Price Action -->
@@ -2210,7 +2233,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
-                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., RELIANCE)" value="" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
+                                        <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
@@ -2370,7 +2393,7 @@
 
                                         <!-- Keep dropdown for quick selection, but add autocomplete for searching any symbol -->
                                         <div class="autocomplete-wrapper">
-                                            <input type="text" id="market-activity-index-symbol" class="history-input" style="width: 100px; padding: 2px; font-size: 10px;" value="" placeholder="Search Symbol" onkeydown="if(event.key === 'Enter') loadMarketOptionsCharts()">
+                                            <input type="text" id="market-activity-index-symbol" class="history-input" style="width: 100px; padding: 2px; font-size: 10px;" value="NIFTY" placeholder="Search Symbol" onkeydown="if(event.key === 'Enter') loadMarketOptionsCharts()">
                                         </div>
                                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="loadMarketOptionsCharts()"><i class="fas fa-search"></i></button>
 
@@ -2448,8 +2471,8 @@
                 <!-- SUB-TAB 5: Adv Technicals -->
                 <div id="deriv-tab-advtech" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box;  flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., RELIANCE)" value="" style="width: 150px;">
-                        <button class="btn btn-secondary" id="btn-load-adv-tech" onclick="loadDynamicChart()">Load Chart</button>
+                        <input type="text" id="market-activity-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px;">
+                        <button class="btn btn-secondary" id="btn-load-adv-tech" onclick="loadDynamicChart()"><i class="fas fa-sync"></i> Load Chart</button>
                     </div>
 
                     <!-- Technical Multi-Axis Chart (ECharts) -->
@@ -2466,7 +2489,7 @@
                 <div id="deriv-tab-macro" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; flex-direction: column; justify-content: flex-start; display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; flex-wrap: wrap; gap: 10px; width: 100%;">
                         <h2 style="margin: 0; color: #fff; font-size: 18px;">Macro & Economic Calendar <span id="macro-date-display" style="font-size: 12px; color: #888; font-weight: normal; margin-left: 10px;"></span></h2>
-                        <button class="btn btn-primary" id="btn-sync-macro" onclick="syncMacroData()" style="white-space: nowrap;">Sync Today's Data</button>
+                        <button class="btn btn-primary" id="btn-sync-macro" onclick="syncMacroData()" style="white-space: nowrap;"><i class="fas fa-sync"></i> Sync Today's Data</button>
                     </div>
 
                     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
@@ -2599,8 +2622,7 @@
                 <div class="control-group">
                     <label>Data Type:</label>
                     <select id="data-type" class="history-select" onchange="updateHistoryControls(); loadHistoryData();">
-                        <option value="" selected></option>
-                        <option value="bhavcopy_eq">Equity Bhavcopy (New)</option>
+                        <option value="bhavcopy_eq" selected>Equity Bhavcopy (New)</option>
                         <option value="bhavcopy_fo">F&O Bhavcopy (New)</option>
                         <!-- Legacy Removed -->
                         <option value="fao_participant_oi">Participant OI</option>
@@ -2644,7 +2666,7 @@
                     <label>To:</label>
                     <input type="date" id="end-date" class="history-input" onchange="handleDateRangeChange()">
                 </div>
-                <button onclick="loadHistoryData()" class="btn btn-primary">Load Data</button>
+                <button onclick="loadHistoryData()" class="btn btn-primary"><i class="fas fa-sync"></i> Load Data</button>
                 <button onclick="exportHistoryData()" class="btn btn-secondary">Export CSV</button>
 
                 <div class="control-group" style="display:flex; align-items:center; gap: 5px; margin-left: 15px;">
@@ -2899,7 +2921,7 @@
                         <option value="WARNING">WARNING</option>
                         <option value="ERROR">ERROR</option>
                     </select>
-                    <button class="btn btn-secondary" onclick="loadAuditHistory()">Load History</button>
+                    <button class="btn btn-secondary" onclick="loadAuditHistory()"><i class="fas fa-sync"></i> Load History</button>
                     <button class="btn btn-secondary" onclick="downloadLogs()">Download Logs</button>
                 </div>
                 <div class="table-wrapper">

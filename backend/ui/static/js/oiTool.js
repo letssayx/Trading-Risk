@@ -620,7 +620,7 @@ const OiTool = {
     renderSingleChart: function(container, data) {
         container.innerHTML = '';
 
-        const history = data.history || [];
+        const history = (data.history || []).slice().reverse(); // Reverse so latest is last in array
         const x = history.map(d => d.oi_chg_pct);
         const y = history.map(d => d.price_chg_pct);
         const text = history.map(d => `${d.time}<br>${d.interpretation}`);

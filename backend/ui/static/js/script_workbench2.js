@@ -98,9 +98,11 @@
                 // Re-render ECharts or resize them since they might have collapsed while hidden
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
+            if (typeof volConeChart !== 'undefined' && volConeChart) volConeChart.resize();
+            if (typeof volPreExpiryChart !== 'undefined' && volPreExpiryChart) volPreExpiryChart.resize();
                     if (window.volConeChart) window.volConeChart.resize();
                     if (window.volPreExpiryChart) window.volPreExpiryChart.resize();
-                }, 50);
+        }, 200);
             }
         }
 
@@ -3153,11 +3155,14 @@ async function triggerMasterSync() {
         // Clear main UI Matrix (from previous logic)
         if (typeof clearMatrixUI === 'function') clearMatrixUI();
 
-        // NIFTY Data preload for UI
-        if (typeof loadTimeseriesData === 'function') {
-            document.getElementById('symbol-input').value = 'NIFTY';
-            promises.push(loadTimeseriesData().catch(e => console.error("loadTimeseriesData failed", e)));
-        }
+        // Data Matrix (Load Timeseries / Snapshot view for Data Matrix)
+        if (typeof loadTimeseriesData === 'function') promises.push(loadTimeseriesData(true).catch(e => console.error("loadTimeseriesData failed", e)));
+
+        // Options Chain
+        if (typeof loadOptionChain === 'function') promises.push(loadOptionChain().catch(e => console.error("loadOptionChain failed", e)));
+
+        // Market Activity / Macro & Events (loadMarketOptionsCharts usually triggers market activity charts)
+        if (typeof loadMarketOptionsCharts === 'function') promises.push(loadMarketOptionsCharts().catch(e => console.error("loadMarketOptionsCharts failed", e)));
 
         // Wait for all to finish concurrently
         await Promise.allSettled(promises);
