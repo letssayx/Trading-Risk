@@ -564,6 +564,14 @@
                                 <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Public > Rs 200k:</label>
                                 <input type="number" id="bb-public" class="history-input" value="0" oninput="calculateBuyback()">
                                 <input type="number" id="bb-public-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Others (Trusts):</label>
+                                <input type="number" id="bb-others" class="history-input" value="0" oninput="calculateBuyback()">
+                                <input type="number" id="bb-others-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">ADR Shares:</label>
+                                <input type="number" id="bb-adr" class="history-input" value="0" oninput="calculateBuyback()">
+                                <input type="number" id="bb-adr-pct" class="history-input" value="0" step="0.01" oninput="calculateBuyback(true)">
                             </div>
 
                             <hr style="border-color: #333; margin: 15px 0;">
@@ -757,9 +765,21 @@
                                 <input type="number" id="ofs-dii" class="history-input" value="0" oninput="calculateOFS()">
                                 <input type="number" id="ofs-dii-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
 
-                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Retail & Public:</label>
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Retail <= Rs 200k:</label>
                                 <input type="number" id="ofs-retail" class="history-input" value="0" oninput="calculateOFS()">
                                 <input type="number" id="ofs-retail-pct-input" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Public > Rs 200k:</label>
+                                <input type="number" id="ofs-public" class="history-input" value="0" oninput="calculateOFS()">
+                                <input type="number" id="ofs-public-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">Others (Trusts):</label>
+                                <input type="number" id="ofs-others" class="history-input" value="0" oninput="calculateOFS()">
+                                <input type="number" id="ofs-others-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
+
+                                <label style="color: #aaa; font-size: 13px; line-height: 1.1;">ADR Shares:</label>
+                                <input type="number" id="ofs-adr" class="history-input" value="0" oninput="calculateOFS()">
+                                <input type="number" id="ofs-adr-pct" class="history-input" value="0" step="0.01" oninput="calculateOFS(true)">
                             </div>
 
                             <hr style="border-color: #333; margin: 15px 0;">
@@ -800,8 +820,10 @@
                                 <input type="number" id="ofs-bid-price" class="history-input" value="105.00" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Select Future:</label>
-                                <select id="ofs-future-sel" class="history-input" onchange="calculateOFS()">
+                                <select id="ofs-future-sel" class="history-input" onchange="handleOFSFutureSelectionChange()">
                                     <option value="1">Fut 1 (Near)</option>
+                                    <option value="2">Fut 2 (Next)</option>
+                                    <option value="3">Fut 3 (Far)</option>
                                 </select>
 
                                 <label style="color: #aaa; font-size: 13px;">Hedge Entry (Short):</label>

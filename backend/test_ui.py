@@ -7,7 +7,7 @@ def test_ui():
         page.goto("http://localhost:8000/workbench")
 
         # Click Historical Data tab
-        page.locator(".main-tab[data-target='historical']").click()
+        page.evaluate("switchMainTab('historical')")
         page.wait_for_timeout(1000)
         page.locator("#dataType").click()
         page.wait_for_timeout(500)
