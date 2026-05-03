@@ -13,16 +13,28 @@ router = APIRouter()
 
 @router.get("/api/special-sit/dividends")
 def get_special_sit_dividends(db: Session = Depends(get_db)):
-    # 1. Fetch all F&O stocks and their lot sizes from SecurityMaster
-    fo_securities = db.query(SecurityMaster.symbol, SecurityMaster.market_lot).filter(
-        SecurityMaster.derivative_liquidity_tier != None
-    ).all()
+    # 1. Fetch all F&O stocks from the latest FO bhavcopy to determine F&O universe
+    latest_fo_date = db.query(func.max(BhavcopyFO.trade_date)).scalar()
 
-    if not fo_securities:
+    if not latest_fo_date:
         return []
 
-    symbols = [s.symbol.upper() for s in fo_securities]
-    lot_size_map = {s.symbol.upper(): s.market_lot for s in fo_securities}
+    fo_tickers = db.query(BhavcopyFO.ticker_symb).filter(
+        BhavcopyFO.trade_date == latest_fo_date,
+        BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+    ).distinct().all()
+
+    symbols = [t[0].upper() for t in fo_tickers]
+
+    if not symbols:
+        return []
+
+    # Fetch lot sizes from SecurityMaster
+    sm_records = db.query(SecurityMaster.ticker_symb, SecurityMaster.new_brd_lot_qty).filter(
+        SecurityMaster.ticker_symb.in_(symbols)
+    ).all()
+
+    lot_size_map = {s.ticker_symb.upper(): s.new_brd_lot_qty for s in sm_records}
 
     # 2. Fetch Spot prices from latest BhavcopyEQ
     latest_eq_date = db.query(func.max(BhavcopyEQ.trade_date)).scalar()
@@ -53,9 +65,9 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     ten_years_ago = datetime.date.today() - datetime.timedelta(days=365*10)
     ca_records = db.query(CorporateAction).filter(
         CorporateAction.symbol.in_(symbols),
-        CorporateAction.ex_date >= ten_years_ago,
+        CorporateAction.date >= ten_years_ago,
         CorporateAction.parsed_dividend_amount != None
-    ).order_by(desc(CorporateAction.ex_date)).all()
+    ).order_by(desc(CorporateAction.date)).all()
 
     # Group by symbol
     ca_by_symbol = defaultdict(list)
