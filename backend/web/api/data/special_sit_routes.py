@@ -7,7 +7,7 @@ from collections import defaultdict
 import numpy as np
 
 from backend.infrastructure.db import get_db
-from backend.domain.models import SecurityMaster, BhavcopyFO, BhavcopyEQ, CorporateAction
+from backend.ingest.nse_models import SecurityMaster, BhavcopyFO, BhavcopyEQ, CorporateAction
 
 router = APIRouter()
 
