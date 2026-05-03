@@ -521,7 +521,43 @@
                     </div>
                 </div>
 
-                <div id="ss-tab-dividends" class="ss-sub-tab active" style="padding: 20px; text-align: center; color: #888; font-size: 1.2em;">Dividends module is under construction...</div>
+                <div id="ss-tab-dividends" class="ss-sub-tab active" style="display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1e1e1e; border-bottom: 1px solid #333;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <h2 style="margin: 0; color: #fff; font-size: 18px;">Dividend Arbitrage Scenario</h2>
+                            <div class="search-box">
+                                <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 8px; border-radius: 4px;" onkeyup="filterSSDividends()">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="loadSSDividends()"><i class="fas fa-sync"></i> Refresh Data</button>
+                    </div>
+
+                    <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
+                        <table class="data-table" id="ss-div-table">
+                            <thead>
+                                <tr>
+                                    <th>Index / Scrip</th>
+                                    <th>Lot size</th>
+                                    <th>Spot</th>
+                                    <th>Future 1</th>
+                                    <th>Future 2</th>
+                                    <th>Future 3</th>
+                                    <th style="background: #2b3a4a;">Type</th>
+                                    <th style="background: #2b3a4a;">Ex-date</th>
+                                    <th style="background: #2b3a4a;">Amount</th>
+                                    <th>Is above 2%<br>(Extra-ordinary)</th>
+                                    <th style="background: #334d3d;">Expected<br>Amount</th>
+                                    <th style="background: #334d3d;">Expected Dividend<br>highly likely</th>
+                                    <th style="background: #6b6021;">Expected Dividend<br>Less Likely</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ss-div-tbody">
+                                <tr><td colspan="14" style="text-align: center; padding: 20px;">Click 'Refresh Data' to load</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <div id="ss-tab-buyback" class="ss-sub-tab" style="display: none; flex-direction: column; gap: 20px;">
                     <h2 style="margin: 0; color: #fff; font-size: 20px;">Buy Back Arbitrage Scenario</h2>

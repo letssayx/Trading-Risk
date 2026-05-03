@@ -41,9 +41,17 @@ function switchSpecialSitTab(tabName) {
     const btn = document.getElementById(`ss-tab-btn-${tabName}`);
 
     if (target && btn) {
-        target.style.display = 'flex';
+        if(tabName === 'buyback' || tabName === 'ofs' || tabName === 'dividends') {
+            target.style.display = 'flex';
+        } else {
+            target.style.display = 'block';
+        }
         target.classList.add('active');
         btn.classList.add('active');
+
+        if (tabName === 'dividends' && ssDivData.length === 0) {
+             loadSSDividends();
+        }
     }
 }
 
@@ -368,6 +376,9 @@ window.switchSpecialSitTab = switchSpecialSitTab;
 window.calculateBuyback = calculateBuyback;
 window.syncBuybackHoldings = syncBuybackHoldings;
 window.syncBuybackPrices = syncBuybackPrices;
+window.loadSSDividends = loadSSDividends;
+window.filterSSDividends = filterSSDividends;
+window.toggleSSDivHistory = toggleSSDivHistory;
 
 function calculateOFS(fromPct = false) {
     const totalOutEl = document.getElementById('ofs-total-out');
@@ -756,3 +767,129 @@ window.syncOFSHoldings = syncOFSHoldings;
 window.syncOFSPrices = syncOFSPrices;
 window.handleFutureSelectionChange = handleFutureSelectionChange;
 window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;
+
+// ==== Special Sit Dividends Logic ====
+
+let ssDivData = [];
+
+async function loadSSDividends() {
+    const btn = document.querySelector('#ss-tab-dividends button[onclick="loadSSDividends()"]');
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+
+    try {
+        const res = await fetch('/api/special-sit/dividends');
+        if (!res.ok) throw new Error("Failed to fetch special sit dividends");
+        ssDivData = await res.json();
+        renderSSDividends();
+    } catch (err) {
+        console.error("Error loading SS Dividends:", err);
+        const tbody = document.getElementById('ss-div-tbody');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="14" style="color:red; text-align:center;">Error: ${err.message}</td></tr>`;
+    } finally {
+        if (btn) btn.innerHTML = '<i class="fas fa-sync"></i> Refresh Data';
+    }
+}
+
+function filterSSDividends() {
+    renderSSDividends();
+}
+
+function toggleSSDivHistory(symbol) {
+    const row = document.getElementById(`ss-div-hist-${symbol}`);
+    if (row) {
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+
+function renderSSDividends() {
+    const tbody = document.getElementById('ss-div-tbody');
+    const searchInput = document.getElementById('ss-div-search');
+    if (!tbody) return;
+
+    let filter = searchInput ? searchInput.value.trim().toUpperCase() : '';
+
+    if (!ssDivData || ssDivData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;">No data available</td></tr>';
+        return;
+    }
+
+    let html = '';
+    ssDivData.forEach(item => {
+        if (filter && !item.symbol.includes(filter)) return;
+
+        let futuresHTML = '';
+        if (item.futures && item.futures.length > 0) {
+            futuresHTML += `<td>${item.futures[0] ? item.futures[0].toFixed(2) : '-'}</td>`;
+            futuresHTML += `<td>${item.futures[1] ? item.futures[1].toFixed(2) : '-'}</td>`;
+            futuresHTML += `<td>${item.futures[2] ? item.futures[2].toFixed(2) : '-'}</td>`;
+        } else {
+            futuresHTML += `<td>-</td><td>-</td><td>-</td>`;
+        }
+
+        const isAbove2 = item.is_above_2_percent;
+        const above2Cell = isAbove2 ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
+
+        html += `
+            <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
+                <td style="font-weight: bold; color: #fff;">${item.symbol}</td>
+                <td>${item.lot_size || '-'}</td>
+                <td>${item.spot ? item.spot.toFixed(2) : '-'}</td>
+                ${futuresHTML}
+                <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${item.last_ex_date || '-'}</td>
+                <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-'}</td>
+                ${above2Cell}
+                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${item.expected_amount ? parseFloat(item.expected_amount).toFixed(2) : '-'}</td>
+                <td style="background: rgba(51, 77, 61, 0.4);">${item.expected_highly_likely || '-'}</td>
+                <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;">${item.expected_less_likely || '-'}</td>
+                <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); alert('AI Analyze feature coming soon')"><i class="fas fa-robot"></i> AI Analyze</button></td>
+            </tr>
+        `;
+
+        if (item.history && item.history.length > 0) {
+            let histRows = '';
+            item.history.forEach(h => {
+                const histAbove2 = h.is_above_2_percent ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
+                histRows += `
+                    <tr>
+                        <td>${h.ex_date || '-'}</td>
+                        <td>${h.dividend_type || '-'}</td>
+                        <td>${h.purpose || '-'}</td>
+                        <td style="font-weight: bold; color: #60a5fa;">${h.amount ? parseFloat(h.amount).toFixed(2) : '-'}</td>
+                        ${histAbove2}
+                    </tr>
+                `;
+            });
+
+            html += `
+            <tr id="ss-div-hist-${item.symbol}" style="display: none; background: #1a1a1a;">
+                <td colspan="14" style="padding: 15px;">
+                    <div style="border-left: 3px solid #3176B8; padding-left: 15px; margin-left: 20px;">
+                        <h4 style="margin: 0 0 10px 0; color: #ccc;">Historical Dividends (Last 10 Years)</h4>
+                        <table class="data-table" style="width: 50%; min-width: 400px; background: #222;">
+                            <thead>
+                                <tr>
+                                    <th>Ex-Date</th>
+                                    <th>Type</th>
+                                    <th>Purpose</th>
+                                    <th>Amount</th>
+                                    <th>>2%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${histRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }
+    });
+
+    tbody.innerHTML = html;
+}
