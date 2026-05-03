@@ -26,7 +26,7 @@ const WorkbookManager = {
 
         // Render standalone main tabs directly into their containers
         const oiContainer = document.getElementById('oi-tool-container');
-        if (oiContainer) {
+        if (oiContainer && !oiContainer.innerHTML.includes('oi-symbol')) {
             this.modules['oi_analysis'].render(oiContainer);
         }
 

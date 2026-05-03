@@ -2215,7 +2215,7 @@
                 </div>
 
                 <!-- SUB-TAB 2: OI Analysis -->
-                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
+                <div id="deriv-tab-oi" class="deriv-sub-tab" style="padding: 20px; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
                     <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; flex-shrink: 0; min-height: 500px;">
                         <!-- Content loaded by workbookManager.js / OiTool -->
@@ -2234,7 +2234,7 @@
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
-                                        <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
+                                        <button class="btn btn-primary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
                                             <option value="5">5 Days</option>
@@ -2253,7 +2253,7 @@
                             <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-primary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
                                 </div>
                                 <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%; min-height: 500px;"></div>
 

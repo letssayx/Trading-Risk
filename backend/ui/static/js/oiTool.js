@@ -34,7 +34,12 @@ const OiTool = {
             <div style="color: #ccc; display: flex; flex-direction: column; flex-shrink: 0; min-width: 0;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">OI Analysis</h2>
-                    <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px;" oninput="OiTool.filterData()">
+                    <div style="position: relative; display: inline-flex; align-items: center;">
+                        <input type="text" id="oi-symbol" class="form-control history-input" placeholder="Search Symbol" style="width: 120px; padding: 4px; padding-right: 24px;" oninput="OiTool.filterData()">
+                        <button id="oi-symbol-clear" style="position: absolute; right: 4px; background: none; border: none; color: #888; cursor: pointer; display: none; font-size: 14px; padding: 0;" onclick="document.getElementById('oi-symbol').value = ''; OiTool.filterData();">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                     <select id="oi-sector-filter" class="form-control history-input" style="width: 130px; padding: 4px;" onchange="OiTool.filterData()">
                         <option value="">All Sectors</option>
                     </select>
@@ -132,10 +137,20 @@ const OiTool = {
 
         // Add enter key support
         const input = document.getElementById('oi-symbol');
+        const clearBtn = document.getElementById('oi-symbol-clear');
         if (input) {
             if (typeof setupAutocomplete === 'function') {
                 setupAutocomplete('oi-symbol');
             }
+
+            input.addEventListener('input', () => {
+                if (input.value.trim() !== '') {
+                    clearBtn.style.display = 'block';
+                } else {
+                    clearBtn.style.display = 'none';
+                }
+            });
+
             input.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     if (input.value.trim() === '') {
@@ -561,6 +576,11 @@ const OiTool = {
     },
 
     filterData: function() {
+        const input = document.getElementById('oi-symbol');
+        const clearBtn = document.getElementById('oi-symbol-clear');
+        if (input && clearBtn) {
+            clearBtn.style.display = input.value.trim() !== '' ? 'block' : 'none';
+        }
         if (!this.allData || this.allData.length === 0) {
             this.loadAggregatedData();
         } else {
