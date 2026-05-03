@@ -6,8 +6,8 @@ import datetime
 from collections import defaultdict
 import numpy as np
 
-from infrastructure.db import get_db
-from domain.models import SecurityMaster, BhavcopyFO, BhavcopyEQ, CorporateAction
+from backend.infrastructure.db import get_db
+from backend.domain.models import SecurityMaster, BhavcopyFO, BhavcopyEQ, CorporateAction
 
 router = APIRouter()
 
