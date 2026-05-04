@@ -953,6 +953,7 @@ function exportSSDivPDF() {
     printWindow.document.write('</style>');
     printWindow.document.write('</head><body>');
     printWindow.document.write('<div class="no-print" style="margin-bottom: 15px; text-align: right;"><button onclick="window.print()" style="padding: 8px 16px; background: #60a5fa; color: #fff; border: none; cursor: pointer; border-radius: 4px; font-weight: bold;">Print Document</button></div>');
+    printWindow.document.write('<div style="text-align: center; font-size: 14px; color: #fff; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">Turtle Terminal vishal@underroot.xyz | +91 9867215754</div>');
     printWindow.document.write('<div style="display: flex; justify-content: space-between; align-items: baseline;">');
     printWindow.document.write('<h2>Dividend Arbitrage Scenario</h2>');
     if (eqDateStr) printWindow.document.write('<div style="font-size: 14px; color: #888;">' + eqDateStr + '</div>');
@@ -960,23 +961,6 @@ function exportSSDivPDF() {
 
     // Create a clone of the table but remove the 'Action' column and hidden history rows
     const cloneTable = table.cloneNode(true);
-
-    // Add header to every page via thead
-    const thead = cloneTable.querySelector('thead');
-    if (thead) {
-        const headerRow = document.createElement('tr');
-        const headerCell = document.createElement('th');
-        headerCell.colSpan = 20; // Enough to cover all columns
-        headerCell.style.textAlign = 'center';
-        headerCell.style.fontSize = '12px';
-        headerCell.style.padding = '8px';
-        headerCell.style.background = '#1e1e1e';
-        headerCell.style.color = '#888';
-        headerCell.style.border = 'none';
-        headerCell.style.borderBottom = '1px solid #444';
-        headerCell.innerHTML = 'Turtle Terminal vishal@underroot.xyz | +91 9867215754';
-        thead.insertBefore(headerRow, thead.firstChild);
-    }
 
     // Remove history rows that are NOT expanded
     const historyRows = cloneTable.querySelectorAll('tr[id^="ss-div-hist-"]');
