@@ -828,7 +828,11 @@ function clearSSDivSearch() {
 
 function exportSSDivCSV() {
     if (!ssDivData || ssDivData.length === 0) return;
-    let csv = 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely\n';
+        const eqDateEl = document.getElementById('ss-div-date-display');
+    const eqDateStr = eqDateEl && eqDateEl.textContent ? eqDateEl.textContent.trim() : '';
+    let csv = "Turtle Terminal vishal@underroot.xyz | +91 9867215754\n";
+    if (eqDateStr) csv += "Date: " + eqDateStr + "\n\n";
+    csv += 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely\n';
 
     const filter = document.getElementById('ss-div-search').value.trim().toUpperCase();
 
@@ -929,29 +933,50 @@ function exportSSDivPDF() {
     const table = document.getElementById('ss-div-table');
     if (!table) return;
 
-    const printWindow = window.open('', '', 'height=600,width=800');
+    const eqDateEl = document.getElementById('ss-div-date-display');
+    const eqDateStr = eqDateEl && eqDateEl.textContent ? eqDateEl.textContent.trim() : '';
+
+    const printWindow = window.open('', '', 'height=800,width=1200');
     printWindow.document.write('<html><head><title>Dividend Arbitrage Scenario</title>');
     printWindow.document.write('<style>');
-    printWindow.document.write('body { background: #1e1e1e; color: #ccc; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; margin: 20px; }');
-    printWindow.document.write('h2 { color: #d4d4d4; }');
-    printWindow.document.write('.data-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; color: #d4d4d4; }');
-    printWindow.document.write('.data-table th, .data-table td { border: 1px solid #3e3e42; padding: 4px 8px; text-align: left; }');
-    printWindow.document.write('.data-table th { background: #252526; font-weight: normal; }');
-    printWindow.document.write('.data-table tr { background: #1e1e1e; }');
-    printWindow.document.write('.data-table tr:hover { background: #2a2d2e; }');
-    printWindow.document.write('.mwpl-blue { color: #3176B8; font-weight: bold; }');
-    printWindow.document.write('.mwpl-red { color: #ff4d4d; font-weight: bold; }');
-    // Ensure table scale handles many columns, add header to every page, add print button to UI.
-    printWindow.document.write('@page { size: landscape; margin: 15mm; }');
-    printWindow.document.write('@media print { .no-print { display: none; } #print-header { position: fixed; top: 0; width: 100%; text-align: center; } table { page-break-inside: auto; zoom: 0.85; } tr { page-break-inside: avoid; page-break-after: auto; } }');
+    printWindow.document.write('html, body { background: #1e1e1e; color: #ccc; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }');
+    printWindow.document.write('h2 { color: #d4d4d4; margin-bottom: 5px; }');
+    printWindow.document.write('.data-table { width: 100%; border-collapse: collapse; font-size: 9px; white-space: nowrap; color: #d4d4d4; table-layout: auto; }');
+    printWindow.document.write('.data-table th, .data-table td { border: 1px solid #3e3e42; padding: 3px 5px; text-align: left; }');
+    printWindow.document.write('.data-table th { background: #252526 !important; font-weight: normal; color: #fff; }');
+    printWindow.document.write('.data-table tr { background: #1e1e1e !important; }');
+    printWindow.document.write('.data-table tr:nth-child(even) { background: #222222 !important; }');
+    printWindow.document.write('.mwpl-blue { color: #60a5fa !important; font-weight: bold; }');
+    printWindow.document.write('.mwpl-red { color: #ff4d4d !important; font-weight: bold; }');
+    printWindow.document.write('@page { size: A4 landscape; margin: 0; }');
+    printWindow.document.write('@media print { .no-print { display: none; } body { padding: 0; } table { page-break-inside: auto; zoom: 0.8; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } }');
     printWindow.document.write('</style>');
     printWindow.document.write('</head><body>');
-    printWindow.document.write('<div id="print-header" style="font-size: 10px; color: #888; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 10px; text-align: center;">Turtle Terminal vishal@underroot.xyz | +91 9867215754</div>');
-    printWindow.document.write('<div class="no-print" style="margin-bottom: 15px;"><button onclick="window.print()" style="padding: 6px 12px; background: #60a5fa; color: #fff; border: none; cursor: pointer; border-radius: 4px;">Print PDF</button></div>');
+    printWindow.document.write('<div class="no-print" style="margin-bottom: 15px; text-align: right;"><button onclick="window.print()" style="padding: 8px 16px; background: #60a5fa; color: #fff; border: none; cursor: pointer; border-radius: 4px; font-weight: bold;">Print Document</button></div>');
+    printWindow.document.write('<div style="display: flex; justify-content: space-between; align-items: baseline;">');
     printWindow.document.write('<h2>Dividend Arbitrage Scenario</h2>');
+    if (eqDateStr) printWindow.document.write('<div style="font-size: 14px; color: #888;">' + eqDateStr + '</div>');
+    printWindow.document.write('</div>');
 
     // Create a clone of the table but remove the 'Action' column and hidden history rows
     const cloneTable = table.cloneNode(true);
+
+    // Add header to every page via thead
+    const thead = cloneTable.querySelector('thead');
+    if (thead) {
+        const headerRow = document.createElement('tr');
+        const headerCell = document.createElement('th');
+        headerCell.colSpan = 20; // Enough to cover all columns
+        headerCell.style.textAlign = 'center';
+        headerCell.style.fontSize = '12px';
+        headerCell.style.padding = '8px';
+        headerCell.style.background = '#1e1e1e';
+        headerCell.style.color = '#888';
+        headerCell.style.border = 'none';
+        headerCell.style.borderBottom = '1px solid #444';
+        headerCell.innerHTML = 'Turtle Terminal vishal@underroot.xyz | +91 9867215754';
+        thead.insertBefore(headerRow, thead.firstChild);
+    }
 
     // Remove history rows that are NOT expanded
     const historyRows = cloneTable.querySelectorAll('tr[id^="ss-div-hist-"]');
@@ -1001,7 +1026,12 @@ function exportSSDivPDF() {
     printWindow.document.write(cloneTable.outerHTML);
     printWindow.document.write('</body></html>');
     printWindow.document.close();
-    printWindow.print();
+
+    // Automatically trigger print after a short delay to allow rendering
+    setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+    }, 500);
 }
 
 function toggleSSDivHistory(symbol) {
