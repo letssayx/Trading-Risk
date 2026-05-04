@@ -97,8 +97,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     if held_shares > 0:
                         ratio = held_shares / (held_shares + bonus_shares)
             elif r.dividend_type == 'Split':
-                # e.g., "Face Value Split from Rs.10 to Rs.5"
-                match = re.search(r'from\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?)\s*to\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
+                # e.g., "Face Value Split from Rs.10 to Rs.5" or "From Rs 10/- Per Share To Rs 5/- Per Share"
+                match = re.search(r'from\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
                 if match:
                     old_fv = float(match.group(1))
                     new_fv = float(match.group(2))

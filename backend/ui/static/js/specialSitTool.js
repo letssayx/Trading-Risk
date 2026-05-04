@@ -923,10 +923,10 @@ function toggleSSDivHistory(symbol) {
     if (row) {
         if (row.style.display === 'none') {
             row.style.display = 'table-row';
-            if (caret) caret.className = 'fas fa-caret-down';
+            if (caret) caret.innerHTML = '&#9660;'; // Downward triangle ▼
         } else {
             row.style.display = 'none';
-            if (caret) caret.className = 'fas fa-caret-right';
+            if (caret) caret.innerHTML = '&#9654;'; // Rightward triangle ▶
         }
     }
 }
@@ -993,7 +993,7 @@ function renderSSDividends() {
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
                 <td style="font-weight: bold; color: #fff;">
-                    <i class="fas fa-caret-right" style="margin-right: 5px; color: #888;" id="caret-${item.symbol}"></i>${item.symbol}
+                    <span style="margin-right: 5px; color: #888; font-size: 10px; display: inline-block; width: 12px;" id="caret-${item.symbol}">&#9654;</span>${item.symbol}
                 </td>
                 <td>${item.lot_size || '-'}</td>
                 <td>${item.spot ? item.spot.toFixed(2) : '-'}</td>
