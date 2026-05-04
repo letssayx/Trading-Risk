@@ -783,7 +783,25 @@ async function loadSSDividends() {
     try {
         const res = await fetch('/api/special-sit/dividends');
         if (!res.ok) throw new Error("Failed to fetch special sit dividends");
-        ssDivData = await res.json();
+        const payload = await res.json();
+
+        if (payload.date) {
+            document.getElementById('ss-div-date-display').innerText = `(EQ Data: ${payload.eq_date})`;
+        } else if (payload.eq_date) {
+            document.getElementById('ss-div-date-display').innerText = `(EQ Data: ${payload.eq_date})`;
+        }
+
+        ssDivData = payload.data || payload; // fallback for older format if necessary
+
+        // Extract unique sectors and populate dropdown
+        const sectorMenu = document.getElementById('ss-div-sector-menu');
+        if (sectorMenu && ssDivData.length > 0) {
+            const sectors = [...new Set(ssDivData.map(item => item.sector || '-'))].filter(s => s && s !== '-').sort();
+            sectorMenu.innerHTML = sectors.map(s =>
+                `<label><input type="checkbox" value="${s}" onchange="filterSSDividends()"> ${s}</label>`
+            ).join('');
+        }
+
         renderSSDividends();
     } catch (err) {
         console.error("Error loading SS Dividends:", err);
@@ -810,14 +828,63 @@ function clearSSDivSearch() {
 
 function exportSSDivCSV() {
     if (!ssDivData || ssDivData.length === 0) return;
-    let csv = 'Index / Scrip,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely\n';
+    let csv = 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely\n';
 
     const filter = document.getElementById('ss-div-search').value.trim().toUpperCase();
 
+    // Get selected sectors
+    const sectorCheckboxes = document.querySelectorAll('#ss-div-sector-dropdown input[type="checkbox"]:checked');
+    const selectedSectors = Array.from(sectorCheckboxes).map(cb => cb.value);
+
+    // Get selected months
+    const monthCheckboxes = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]:checked');
+    const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.parentElement.textContent.trim()); // Values are full month names
+
     ssDivData.forEach(item => {
         if (filter && !item.symbol.includes(filter)) return;
+
+        // Sector filtering
+        if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
+            return;
+        }
+
+        // Month filtering based on expected_highly_likely date
+        if (selectedMonths.length > 0) {
+            let dateStr = item.expected_highly_likely || '';
+            if (!dateStr || dateStr === '-') return; // Filter out if no valid date
+
+            if (dateStr.includes('Announced')) {
+                if (dateStr.includes('Announced:')) {
+                    dateStr = dateStr.replace('Announced: ', '').trim();
+                } else {
+                    return;
+                }
+            }
+
+            const parts = dateStr.split('-');
+            if (parts.length >= 2) {
+                const mPart = parts[1];
+                let extractedMonthName = "";
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                if (!isNaN(mPart)) {
+                    let mIndex = parseInt(mPart, 10) - 1;
+                    if (mIndex >= 0 && mIndex < 12) {
+                        extractedMonthName = monthNames[mIndex];
+                    }
+                } else {
+                    let mStr = mPart.substring(0, 3).toLowerCase();
+                    const found = monthNames.find(mn => mn.toLowerCase().startsWith(mStr));
+                    if (found) extractedMonthName = found;
+                }
+                if (!selectedMonths.includes(extractedMonthName)) return;
+            } else {
+                return;
+            }
+        }
+
         let row = [];
         row.push(item.symbol || '-');
+        row.push(item.sector || '-');
         row.push(item.lot_size || '-');
         row.push(item.spot ? item.spot.toFixed(2) : '-');
         row.push(item.futures && item.futures[0] && item.futures[0].price ? item.futures[0].price.toFixed(2) : '-');
@@ -874,8 +941,13 @@ function exportSSDivPDF() {
     printWindow.document.write('.data-table tr:hover { background: #2a2d2e; }');
     printWindow.document.write('.mwpl-blue { color: #3176B8; font-weight: bold; }');
     printWindow.document.write('.mwpl-red { color: #ff4d4d; font-weight: bold; }');
+    // Ensure table scale handles many columns, add header to every page, add print button to UI.
+    printWindow.document.write('@page { size: landscape; margin: 15mm; }');
+    printWindow.document.write('@media print { .no-print { display: none; } #print-header { position: fixed; top: 0; width: 100%; text-align: center; } table { page-break-inside: auto; zoom: 0.85; } tr { page-break-inside: avoid; page-break-after: auto; } }');
     printWindow.document.write('</style>');
     printWindow.document.write('</head><body>');
+    printWindow.document.write('<div id="print-header" style="font-size: 10px; color: #888; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 10px; text-align: center;">Turtle Terminal vishal@underroot.xyz | +91 9867215754</div>');
+    printWindow.document.write('<div class="no-print" style="margin-bottom: 15px;"><button onclick="window.print()" style="padding: 6px 12px; background: #60a5fa; color: #fff; border: none; cursor: pointer; border-radius: 4px;">Print PDF</button></div>');
     printWindow.document.write('<h2>Dividend Arbitrage Scenario</h2>');
 
     // Create a clone of the table but remove the 'Action' column and hidden history rows
@@ -976,14 +1048,23 @@ function renderSSDividends() {
     const monthCheckboxes = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]:checked');
     const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.parentElement.textContent.trim()); // Values are full month names
 
+    // Get selected sectors
+    const sectorCheckboxes = document.querySelectorAll('#ss-div-sector-dropdown input[type="checkbox"]:checked');
+    const selectedSectors = Array.from(sectorCheckboxes).map(cb => cb.value);
+
     if (!ssDivData || ssDivData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;">No data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;">No data available</td></tr>';
         return;
     }
 
     let html = '';
     ssDivData.forEach(item => {
         if (filter && !item.symbol.includes(filter)) return;
+
+        // Sector filtering
+        if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
+            return;
+        }
 
         // Month filtering based on expected_highly_likely date
         if (selectedMonths.length > 0) {
@@ -1087,6 +1168,7 @@ function renderSSDividends() {
                 <td style="font-weight: bold; color: #fff;">
                     <span style="margin-right: 5px; color: #888; font-size: 10px; display: inline-block; width: 12px;" id="caret-${item.symbol}">&#9654;</span>${item.symbol}
                 </td>
+                <td>${item.sector || '-'}</td>
                 <td>${item.lot_size || '-'}</td>
                 <td>${item.spot ? item.spot.toFixed(2) : '-'}</td>
                 ${futuresHTML}
@@ -1118,7 +1200,7 @@ function renderSSDividends() {
 
             html += `
             <tr id="ss-div-hist-${item.symbol}" style="display: none; background: #1a1a1a;">
-                <td colspan="14" style="padding: 15px;">
+                <td colspan="15" style="padding: 15px;">
                     <div style="border-left: 3px solid #3176B8; padding-left: 15px; margin-left: 20px;">
                         <h4 style="margin: 0 0 10px 0; color: #ccc;">Historical Dividends (Last 10 Years)</h4>
                         <table class="data-table" style="width: 50%; min-width: 400px; background: #222;">

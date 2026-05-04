@@ -7,7 +7,7 @@ from collections import defaultdict
 import numpy as np
 
 from backend.infrastructure.db import get_db
-from backend.ingest.nse_models import SecurityMaster, BhavcopyFO, BhavcopyEQ, CorporateAction
+from backend.ingest.nse_models import SecurityMaster, BhavcopyFO, BhavcopyEQ, CorporateAction, SymbolMaster
 
 router = APIRouter()
 
@@ -35,6 +35,13 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     ).all()
 
     lot_size_map = {s.ticker_symb.upper(): s.new_brd_lot_qty for s in sm_records}
+
+    # Fetch sectors from SymbolMaster
+    symbol_master_records = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).filter(
+        SymbolMaster.symbol.in_(symbols)
+    ).all()
+
+    sector_map = {s.symbol.upper(): s.sector_index for s in symbol_master_records}
 
     # 2. Fetch Spot prices from latest BhavcopyEQ
     latest_eq_date = db.query(func.max(BhavcopyEQ.trade_date)).scalar()
@@ -305,6 +312,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "symbol": sym,
             "lot_size": lot_size_map.get(sym),
             "spot": spot,
+            "sector": sector_map.get(sym, "-"),
             "futures": futures[:3], # take up to Future 3
             "last_type": last_type,
             "last_ex_date": last_ex_date,
@@ -319,4 +327,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     # Sort alphabetical by symbol
     results.sort(key=lambda x: x['symbol'])
 
-    return results
+    return {
+        "eq_date": latest_eq_date.strftime('%Y-%m-%d') if latest_eq_date else None,
+        "data": results
+    }

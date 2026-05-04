@@ -525,10 +525,20 @@
                 <div id="ss-tab-dividends" class="ss-sub-tab active" style="display: flex; flex-direction: column; overflow: hidden; height: 100%;">
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1e1e1e; border-bottom: 1px solid #333;">
                         <div style="display: flex; align-items: center; gap: 15px;">
-                            <h2 style="margin: 0; color: #fff; font-size: 18px;">Dividend Arbitrage Scenario</h2>
+                            <h2 style="margin: 0; color: #fff; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+                                Dividend Arbitrage Scenario
+                                <span id="ss-div-date-display" style="font-size: 12px; color: #60a5fa; font-weight: normal;"></span>
+                            </h2>
                             <div class="search-box" style="position: relative; display: flex; align-items: center;">
                                 <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 28px 4px 8px; border-radius: 4px;" onkeyup="filterSSDividends()">
                                 <span style="position: absolute; right: 8px; cursor: pointer; color: #888; font-weight: bold; font-family: sans-serif;" onclick="clearSSDivSearch()" title="Clear">&#x2715;</span>
+                            </div>
+
+                            <div class="custom-dropdown" id="ss-div-sector-dropdown" style="margin-left: 15px;">
+                                <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-sector-dropdown')">Select Sectors</div>
+                                <div class="dropdown-menu" id="ss-div-sector-menu">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
                             </div>
 
                             <div class="custom-dropdown" id="ss-div-month-dropdown" style="margin-left: 15px;">
@@ -561,6 +571,7 @@
                             <thead>
                                 <tr>
                                     <th>Index / Scrip</th>
+                                    <th>Sector</th>
                                     <th>Lot size</th>
                                     <th>Spot</th>
                                     <th id="ss-div-fut1-th">Future 1</th>
@@ -577,7 +588,7 @@
                                 </tr>
                             </thead>
                             <tbody id="ss-div-tbody">
-                                <tr><td colspan="14" style="text-align: center; padding: 20px;">Click 'Refresh Data' to load</td></tr>
+                                <tr><td colspan="15" style="text-align: center; padding: 20px;">Click 'Refresh Data' to load</td></tr>
                             </tbody>
                         </table>
                     </div>
