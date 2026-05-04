@@ -61,25 +61,89 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         for r in fo_records:
             futures_map[r.ticker_symb.upper()].append(r.close_price)
 
-    # 4. Fetch Corporate Actions (Dividends) for the last 10 years
+    # 4. Fetch Corporate Actions (Dividends, Splits, Bonuses) for the last 10 years
     today = datetime.date.today()
     ten_years_ago = today - datetime.timedelta(days=365*10)
+
+    # We also need splits and bonuses to adjust historical dividends.
+    # dividend_type captures "Bonus" and "Split" from our ingest logic.
     ca_records = db.query(CorporateAction).filter(
         CorporateAction.symbol.in_(symbols),
         CorporateAction.date >= ten_years_ago,
-        CorporateAction.parsed_dividend_amount != None
+        or_(
+            CorporateAction.parsed_dividend_amount != None,
+            CorporateAction.dividend_type.in_(['Bonus', 'Split'])
+        )
     ).order_by(desc(CorporateAction.date)).all()
+
+    import re
 
     # Group by symbol
     ca_by_symbol = defaultdict(list)
+    adjustments_by_symbol = defaultdict(list)
     for r in ca_records:
-        ca_by_symbol[r.symbol.upper()].append({
-            "ex_date": r.date.strftime("%Y-%m-%d") if r.date else None,
-            "ex_date_obj": r.date,
-            "dividend_type": r.dividend_type,
-            "purpose": r.purpose,
-            "amount": r.parsed_dividend_amount
-        })
+        sym = r.symbol.upper()
+
+        if r.dividend_type in ['Bonus', 'Split']:
+            # Extract ratio from purpose
+            ratio = 1.0
+            purpose_lower = (r.purpose or "").lower()
+            if r.dividend_type == 'Bonus':
+                # e.g., "Bonus 1:2" means for every 2 shares held, 1 bonus is given -> factor is (2+1)/2 = 1.5
+                match = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
+                if match:
+                    bonus_shares = float(match.group(1))
+                    held_shares = float(match.group(2))
+                    if held_shares > 0:
+                        ratio = held_shares / (held_shares + bonus_shares)
+            elif r.dividend_type == 'Split':
+                # e.g., "Face Value Split from Rs.10 to Rs.5"
+                match = re.search(r'from\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?)\s*to\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
+                if match:
+                    old_fv = float(match.group(1))
+                    new_fv = float(match.group(2))
+                    if old_fv > 0:
+                        ratio = new_fv / old_fv
+                else:
+                    # fallback ratio e.g., "Sub-division 1:10"
+                    match2 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
+                    if match2:
+                        new_shares = float(match2.group(1))
+                        old_shares = float(match2.group(2))
+                        # often it's old:new or new:old depending on format. Usually old:new = 1:10
+                        if old_shares > 0 and new_shares > 0:
+                            if new_shares > old_shares:
+                                ratio = old_shares / new_shares
+                            else:
+                                ratio = new_shares / old_shares
+
+            if ratio != 1.0 and r.date:
+                adjustments_by_symbol[sym].append({
+                    "date": r.date,
+                    "ratio": ratio
+                })
+        elif r.parsed_dividend_amount is not None:
+            ca_by_symbol[sym].append({
+                "ex_date": r.date.strftime("%Y-%m-%d") if r.date else None,
+                "ex_date_obj": r.date,
+                "dividend_type": r.dividend_type,
+                "purpose": r.purpose,
+                "amount": r.parsed_dividend_amount,
+                "raw_amount": r.parsed_dividend_amount
+            })
+
+    # Adjust historical dividends for bonuses and splits
+    for sym, history in ca_by_symbol.items():
+        adjustments = adjustments_by_symbol.get(sym, [])
+        if adjustments:
+            for h in history:
+                if h['ex_date_obj']:
+                    adjusted_amount = h['raw_amount']
+                    # Apply adjustments that happened AFTER this dividend
+                    for adj in adjustments:
+                        if adj['date'] > h['ex_date_obj']:
+                            adjusted_amount *= adj['ratio']
+                    h['amount'] = adjusted_amount
 
     # 5. Process data and generate "guesstimates" using Seasonal Cycle Detection
     results = []
@@ -121,7 +185,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
 
-            # Cluster historical dividends into "Cycles"
+            # Cluster historical dividends into "Cycles" based on Month mapping (approximate)
+            # We will use the month of the ex_date as the primary key for cycles
+            # To account for dividends shifting by a few days (e.g. May 30th to June 2nd)
+            # We map the Month, but with a +/- 30 day tolerance.
+
             clusters = []
             five_years_ago = today - datetime.timedelta(days=365*5)
             recent_hist = [h for h in history_asc if h['ex_date_obj'] and h['ex_date_obj'] >= five_years_ago]
@@ -131,10 +199,13 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 placed = False
                 for c in clusters:
                     mean_doy = sum(get_doy(x['ex_date_obj']) for x in c) / len(c)
-                    if circ_diff(doy, mean_doy) <= 55: # 55 days threshold to group shifting months
-                        c.append(h)
-                        placed = True
-                        break
+                    if circ_diff(doy, mean_doy) <= 45: # 45 days threshold to group shifting months
+                        # Avoid clustering multiple dividends from the exact same year in one cluster
+                        # (e.g. if there's a special and final in the same month)
+                        if not any(x['ex_date_obj'].year == h['ex_date_obj'].year for x in c):
+                            c.append(h)
+                            placed = True
+                            break
                 if not placed:
                     clusters.append([h])
 
@@ -149,10 +220,34 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     next_date = mr_date
                     is_announced = True
                 else:
-                    # Project forward
-                    next_date = mr_date + datetime.timedelta(days=364)
+                    # Project forward using the median historical date for this cycle
+                    # Extract month and day from the cluster
+                    historical_days = []
+                    for h in c:
+                        # normalize to a leap year for calculation
+                        norm_d = datetime.date(2020, h['ex_date_obj'].month, h['ex_date_obj'].day)
+                        historical_days.append(norm_d.timetuple().tm_yday)
+
+                    median_doy = int(np.median(historical_days))
+                    # construct a normalized date from doy
+                    norm_median_date = datetime.date(2020, 1, 1) + datetime.timedelta(days=median_doy - 1)
+
+                    # Next expected year is mr_date.year + 1
+                    next_year = mr_date.year + 1
+
+                    try:
+                        next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day)
+                    except ValueError:
+                        # handle leap day edge case
+                        next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day - 1)
+
                     while next_date < today - datetime.timedelta(days=15): # grace period
-                        next_date += datetime.timedelta(days=364)
+                        next_year += 1
+                        try:
+                            next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day)
+                        except ValueError:
+                            next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day - 1)
+
                     is_announced = False
 
                 # Calculate cycle growth

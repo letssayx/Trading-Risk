@@ -379,6 +379,9 @@ window.syncBuybackPrices = syncBuybackPrices;
 window.loadSSDividends = loadSSDividends;
 window.filterSSDividends = filterSSDividends;
 window.toggleSSDivHistory = toggleSSDivHistory;
+window.clearSSDivSearch = clearSSDivSearch;
+window.exportSSDivCSV = exportSSDivCSV;
+window.exportSSDivPDF = exportSSDivPDF;
 
 function calculateOFS(fromPct = false) {
     const totalOutEl = document.getElementById('ofs-total-out');
@@ -770,6 +773,7 @@ window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;
 
 // ==== Special Sit Dividends Logic ====
 
+
 let ssDivData = [];
 
 async function loadSSDividends() {
@@ -828,6 +832,19 @@ function exportSSDivCSV() {
         row.push(item.expected_less_likely || '-');
 
         csv += '"' + row.join('","') + '"\n';
+
+        // Check if history is currently expanded
+        const histRow = document.getElementById(`ss-div-hist-${item.symbol}`);
+        if (histRow && histRow.style.display !== 'none') {
+            if (item.history && item.history.length > 0) {
+                csv += ',"--- Historical Data ---"\n';
+                csv += ',Ex-Date,Type,Purpose,Amount,>2%\n';
+                item.history.forEach(h => {
+                    csv += `,"${h.ex_date || '-'}","${h.dividend_type || '-'}","${h.purpose || '-'}","${h.amount || '-'}","${h.is_above_2_percent ? 'Yes' : 'No'}"\n`;
+                });
+                csv += ',"-----------------------"\n';
+            }
+        }
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -860,14 +877,36 @@ function exportSSDivPDF() {
     // Create a clone of the table but remove the 'Action' column and hidden history rows
     const cloneTable = table.cloneNode(true);
 
-    // Remove history rows
+    // Remove history rows that are NOT expanded
     const historyRows = cloneTable.querySelectorAll('tr[id^="ss-div-hist-"]');
-    historyRows.forEach(r => r.parentNode.removeChild(r));
+    historyRows.forEach(r => {
+        if (r.style.display === 'none') {
+            r.parentNode.removeChild(r);
+        } else {
+            // Keep it but reset its display so it shows in print, and make text black for light bg
+            r.style.display = 'table-row';
+            r.style.background = '#fff';
+            r.style.color = '#000';
+            const innerTable = r.querySelector('table');
+            if (innerTable) {
+                innerTable.style.background = '#fff';
+                innerTable.style.color = '#000';
+            }
+            const innerH4 = r.querySelector('h4');
+            if (innerH4) {
+                innerH4.style.color = '#333';
+            }
+        }
+    });
 
-    // Remove last column (Action) from header and body
+    // Remove last column (Action) from header and body of MAIN rows only
     const trs = cloneTable.querySelectorAll('tr');
     trs.forEach(tr => {
-        if(tr.children.length > 0) {
+        // We only want to remove the last column from the main table, not the nested history tables
+        // The nested history tables have fewer columns. The main table row has 10 columns (0-9 indices).
+        // Since the main table itself might have the class .data-table, closest won't work if they share classes.
+        // We can just rely on the column count because the inner tables only have 5 columns.
+        if (tr.children.length > 9) {
             tr.removeChild(tr.lastElementChild);
         }
     });
@@ -880,11 +919,14 @@ function exportSSDivPDF() {
 
 function toggleSSDivHistory(symbol) {
     const row = document.getElementById(`ss-div-hist-${symbol}`);
+    const caret = document.getElementById(`caret-${symbol}`);
     if (row) {
         if (row.style.display === 'none') {
             row.style.display = 'table-row';
+            if (caret) caret.className = 'fas fa-caret-down';
         } else {
             row.style.display = 'none';
+            if (caret) caret.className = 'fas fa-caret-right';
         }
     }
 }
@@ -929,9 +971,10 @@ function renderSSDividends() {
                 let exDateObj = new Date(exDateStr);
                 let today = new Date();
                 today.setHours(0,0,0,0);
+                // Ex-date still ahead (or today) - mark as blue
                 if (exDateObj >= today) {
-                    lastAmountHtml = `<span style="color: #60a5fa;">${lastAmountHtml}</span>`;
-                    lastExDateHtml = `<span style="color: #60a5fa;">${lastExDateHtml}</span>`;
+                    lastAmountHtml = `<span style="color: #60a5fa; font-weight: bold;">${lastAmountHtml}</span>`;
+                    lastExDateHtml = `<span style="color: #60a5fa; font-weight: bold;">${lastExDateHtml}</span>`;
                 }
             }
         }
@@ -949,7 +992,9 @@ function renderSSDividends() {
 
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
-                <td style="font-weight: bold; color: #fff;">${item.symbol}</td>
+                <td style="font-weight: bold; color: #fff;">
+                    <i class="fas fa-caret-right" style="margin-right: 5px; color: #888;" id="caret-${item.symbol}"></i>${item.symbol}
+                </td>
                 <td>${item.lot_size || '-'}</td>
                 <td>${item.spot ? item.spot.toFixed(2) : '-'}</td>
                 ${futuresHTML}
@@ -958,7 +1003,7 @@ function renderSSDividends() {
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
                 ${above2Cell}
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${expectedAmountHTML}</td>
-                <td style="background: rgba(51, 77, 61, 0.4);">${item.expected_highly_likely || '-'}</td>
+                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${item.expected_highly_likely || '-'}</td>
                 <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;">${item.expected_less_likely || '-'}</td>
                 <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); alert('AI Analyze feature coming soon')"><i class="fas fa-robot"></i> AI Analyze</button></td>
             </tr>
