@@ -794,6 +794,90 @@ function filterSSDividends() {
     renderSSDividends();
 }
 
+
+
+function clearSSDivSearch() {
+    const input = document.getElementById('ss-div-search');
+    if (input) {
+        input.value = '';
+        filterSSDividends();
+    }
+}
+
+function exportSSDivCSV() {
+    if (!ssDivData || ssDivData.length === 0) return;
+    let csv = 'Index / Scrip,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely\n';
+
+    const filter = document.getElementById('ss-div-search').value.trim().toUpperCase();
+
+    ssDivData.forEach(item => {
+        if (filter && !item.symbol.includes(filter)) return;
+        let row = [];
+        row.push(item.symbol || '-');
+        row.push(item.lot_size || '-');
+        row.push(item.spot ? item.spot.toFixed(2) : '-');
+        row.push(item.futures && item.futures[0] ? item.futures[0].toFixed(2) : '-');
+        row.push(item.futures && item.futures[1] ? item.futures[1].toFixed(2) : '-');
+        row.push(item.futures && item.futures[2] ? item.futures[2].toFixed(2) : '-');
+        row.push(item.last_type || '-');
+        row.push(item.last_ex_date || '-');
+        row.push(item.last_amount || '-');
+        row.push(item.is_above_2_percent ? 'Yes' : 'No');
+        row.push(item.expected_amount || '-');
+        row.push(item.expected_highly_likely || '-');
+        row.push(item.expected_less_likely || '-');
+
+        csv += '"' + row.join('","') + '"\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'dividend_arbitrage.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+function exportSSDivPDF() {
+    const table = document.getElementById('ss-div-table');
+    if (!table) return;
+
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Dividend Arbitrage Scenario</title>');
+    printWindow.document.write('<style>');
+    printWindow.document.write('table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; }');
+    printWindow.document.write('th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }');
+    printWindow.document.write('th { background-color: #f2f2f2; }');
+    printWindow.document.write('.mwpl-blue { color: #3176B8; font-weight: bold; }');
+    printWindow.document.write('.mwpl-red { color: #ff4d4d; font-weight: bold; }');
+    printWindow.document.write('</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write('<h2>Dividend Arbitrage Scenario</h2>');
+
+    // Create a clone of the table but remove the 'Action' column and hidden history rows
+    const cloneTable = table.cloneNode(true);
+
+    // Remove history rows
+    const historyRows = cloneTable.querySelectorAll('tr[id^="ss-div-hist-"]');
+    historyRows.forEach(r => r.parentNode.removeChild(r));
+
+    // Remove last column (Action) from header and body
+    const trs = cloneTable.querySelectorAll('tr');
+    trs.forEach(tr => {
+        if(tr.children.length > 0) {
+            tr.removeChild(tr.lastElementChild);
+        }
+    });
+
+    printWindow.document.write(cloneTable.outerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.print();
+}
+
 function toggleSSDivHistory(symbol) {
     const row = document.getElementById(`ss-div-hist-${symbol}`);
     if (row) {
@@ -833,6 +917,36 @@ function renderSSDividends() {
         const isAbove2 = item.is_above_2_percent;
         const above2Cell = isAbove2 ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
 
+        let lastAmountHtml = item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-';
+        let lastExDateHtml = item.last_ex_date || '-';
+
+        // Color ex-date and amount blue if it hasn't happened yet (is in the future or today)
+        if (item.history && item.history.length > 0) {
+            let lastHist = item.history[0];
+            if (lastHist.ex_date_obj) {
+                let exDateStr = lastHist.ex_date_obj;
+                // exDateStr comes from backend e.g. "2026-06-19" or ISO string
+                let exDateObj = new Date(exDateStr);
+                let today = new Date();
+                today.setHours(0,0,0,0);
+                if (exDateObj >= today) {
+                    lastAmountHtml = `<span style="color: #60a5fa;">${lastAmountHtml}</span>`;
+                    lastExDateHtml = `<span style="color: #60a5fa;">${lastExDateHtml}</span>`;
+                }
+            }
+        }
+
+        let expectedAmountHTML = item.expected_amount ? parseFloat(item.expected_amount).toFixed(2) : '-';
+        if (item.expected_amount && item.last_amount) {
+            let numExpected = parseFloat(item.expected_amount);
+            let numLast = parseFloat(item.last_amount);
+            if (numExpected > numLast) {
+                expectedAmountHTML = `${expectedAmountHTML} <span style="color: #60a5fa; margin-left: 5px;">&#8593;</span>`; // Up arrow blue
+            } else if (numExpected < numLast) {
+                expectedAmountHTML = `${expectedAmountHTML} <span style="color: #ff4d4d; margin-left: 5px;">&#8595;</span>`; // Down arrow red
+            }
+        }
+
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
                 <td style="font-weight: bold; color: #fff;">${item.symbol}</td>
@@ -840,10 +954,10 @@ function renderSSDividends() {
                 <td>${item.spot ? item.spot.toFixed(2) : '-'}</td>
                 ${futuresHTML}
                 <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
-                <td style="background: rgba(43, 58, 74, 0.4);">${item.last_ex_date || '-'}</td>
-                <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-'}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
+                <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
                 ${above2Cell}
-                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${item.expected_amount ? parseFloat(item.expected_amount).toFixed(2) : '-'}</td>
+                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${expectedAmountHTML}</td>
                 <td style="background: rgba(51, 77, 61, 0.4);">${item.expected_highly_likely || '-'}</td>
                 <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;">${item.expected_less_likely || '-'}</td>
                 <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); alert('AI Analyze feature coming soon')"><i class="fas fa-robot"></i> AI Analyze</button></td>

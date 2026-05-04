@@ -62,7 +62,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             futures_map[r.ticker_symb.upper()].append(r.close_price)
 
     # 4. Fetch Corporate Actions (Dividends) for the last 10 years
-    ten_years_ago = datetime.date.today() - datetime.timedelta(days=365*10)
+    today = datetime.date.today()
+    ten_years_ago = today - datetime.timedelta(days=365*10)
     ca_records = db.query(CorporateAction).filter(
         CorporateAction.symbol.in_(symbols),
         CorporateAction.date >= ten_years_ago,
@@ -73,15 +74,21 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     ca_by_symbol = defaultdict(list)
     for r in ca_records:
         ca_by_symbol[r.symbol.upper()].append({
-            "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
-            "ex_date_obj": r.ex_date,
+            "ex_date": r.date.strftime("%Y-%m-%d") if r.date else None,
+            "ex_date_obj": r.date,
             "dividend_type": r.dividend_type,
             "purpose": r.purpose,
             "amount": r.parsed_dividend_amount
         })
 
-    # 5. Process data and generate "guesstimates"
+    # 5. Process data and generate "guesstimates" using Seasonal Cycle Detection
     results = []
+
+    def get_doy(d): return d.timetuple().tm_yday
+    def circ_diff(d1, d2):
+        diff = abs(d1 - d2)
+        return min(diff, 365 - diff)
+
     for sym in symbols:
         history = ca_by_symbol.get(sym, [])
         spot = spot_prices.get(sym)
@@ -104,55 +111,93 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         expected_less_likely = None
 
         if history:
+            # Most recent overall dividend (just for table display purposes)
             last = history[0]
             last_type = last['dividend_type'] or '-'
             last_ex_date = last['ex_date'] or '-'
             last_amount = last['amount']
             is_above_2_percent = last['is_above_2_percent']
 
-            # Guesstimate Algorithm
-            # Group by cycle (approximate by month of ex_date) over last 5 years
-            five_years_ago = datetime.date.today() - datetime.timedelta(days=365*5)
-            recent_hist = [h for h in history if h['ex_date_obj'] and h['ex_date_obj'] >= five_years_ago]
+            # Sort ascending for cycle processing
+            history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
 
-            if recent_hist and last['ex_date_obj']:
-                last_month = last['ex_date_obj'].month
+            # Cluster historical dividends into "Cycles"
+            clusters = []
+            five_years_ago = today - datetime.timedelta(days=365*5)
+            recent_hist = [h for h in history_asc if h['ex_date_obj'] and h['ex_date_obj'] >= five_years_ago]
 
-                # Find dividends in the same cycle (same month +/- 1)
-                cycle_divs = []
-                for h in recent_hist:
-                    m = h['ex_date_obj'].month
-                    if m == last_month or m == (last_month % 12) + 1 or m == (last_month - 2) % 12 + 1:
-                        cycle_divs.append(h)
+            for h in recent_hist:
+                doy = get_doy(h['ex_date_obj'])
+                placed = False
+                for c in clusters:
+                    mean_doy = sum(get_doy(x['ex_date_obj']) for x in c) / len(c)
+                    if circ_diff(doy, mean_doy) <= 55: # 55 days threshold to group shifting months
+                        c.append(h)
+                        placed = True
+                        break
+                if not placed:
+                    clusters.append([h])
 
-                # Sort ascending for growth calculation
-                cycle_divs.sort(key=lambda x: x['ex_date_obj'])
+            # For each cycle, find its next upcoming date
+            upcoming_cycles = []
+            for c in clusters:
+                most_recent = c[-1]
+                mr_date = most_recent['ex_date_obj']
 
-                # Calculate YoY growth
-                growth_rates = []
-                for i in range(1, len(cycle_divs)):
-                    prev_amt = cycle_divs[i-1]['amount']
-                    curr_amt = cycle_divs[i]['amount']
-                    if prev_amt and curr_amt and prev_amt > 0:
-                        growth = (curr_amt - prev_amt) / prev_amt
-                        growth_rates.append(growth)
-
-                if growth_rates:
-                    avg_growth = np.mean(growth_rates)
-                    expected_amount = last_amount * (1 + avg_growth)
+                if mr_date >= today:
+                    # Already announced for future
+                    next_date = mr_date
+                    is_announced = True
                 else:
-                    expected_amount = last_amount
+                    # Project forward
+                    next_date = mr_date + datetime.timedelta(days=364)
+                    while next_date < today - datetime.timedelta(days=15): # grace period
+                        next_date += datetime.timedelta(days=364)
+                    is_announced = False
 
-                # Project Dates
-                # Highly likely = exactly 364 days from last ex-date (to match day of week)
-                highly_likely_date = last['ex_date_obj'] + datetime.timedelta(days=364)
+                # Calculate cycle growth
+                growth_rates = []
+                for i in range(1, len(c)):
+                    prev_amt = c[i-1]['amount']
+                    curr_amt = c[i]['amount']
+                    days_diff = (c[i]['ex_date_obj'] - c[i-1]['ex_date_obj']).days
+                    if 300 <= days_diff <= 430 and prev_amt and curr_amt and prev_amt > 0:
+                        growth_rates.append((curr_amt - prev_amt) / prev_amt)
 
-                # If highly likely date has already passed, they might be looking at the next cycle
-                if highly_likely_date < datetime.date.today():
-                     highly_likely_date = highly_likely_date + datetime.timedelta(days=364)
+                avg_growth = np.mean(growth_rates) if growth_rates else 0
+                exp_amt = most_recent['amount'] * (1 + avg_growth) if most_recent['amount'] else None
 
-                expected_highly_likely = highly_likely_date.strftime("%d-%m-%Y")
-                expected_less_likely = highly_likely_date.strftime("%b-%Y")
+                # Less likely months
+                highly_likely_month = next_date.month
+                all_months = set(x['ex_date_obj'].month for x in c)
+                less_likely_m = all_months - {highly_likely_month}
+
+                upcoming_cycles.append({
+                    'next_date': next_date,
+                    'is_announced': is_announced,
+                    'exp_amt': exp_amt,
+                    'highly_likely_month': highly_likely_month,
+                    'less_likely_months': less_likely_m
+                })
+
+            # Pick the chronologically next cycle
+            if upcoming_cycles:
+                upcoming_cycles.sort(key=lambda x: x['next_date'])
+                next_cycle = upcoming_cycles[0]
+
+                if next_cycle['exp_amt'] is not None:
+                    expected_amount = round(next_cycle['exp_amt'], 2)
+
+                if next_cycle['is_announced']:
+                    expected_highly_likely = f"Announced: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
+                    expected_less_likely = "Confirmed"
+                else:
+                    expected_highly_likely = next_cycle['next_date'].strftime('%d-%m-%Y')
+                    if next_cycle['less_likely_months']:
+                        m_names = [datetime.date(2000, m, 1).strftime('%b') for m in next_cycle['less_likely_months']]
+                        expected_less_likely = ", ".join(m_names)
+                    else:
+                        expected_less_likely = "-"
 
         results.append({
             "symbol": sym,
@@ -169,8 +214,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "history": history
         })
 
-    # Sort results to put ones with upcoming dividends at the top (or just alphabetical)
-    # For now, sort alphabetically by symbol
+    # Sort alphabetical by symbol
     results.sort(key=lambda x: x['symbol'])
 
     return results

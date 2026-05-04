@@ -525,11 +525,16 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1e1e1e; border-bottom: 1px solid #333;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <h2 style="margin: 0; color: #fff; font-size: 18px;">Dividend Arbitrage Scenario</h2>
-                            <div class="search-box">
-                                <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 8px; border-radius: 4px;" onkeyup="filterSSDividends()">
+                            <div class="search-box" style="position: relative; display: flex; align-items: center;">
+                                <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 28px 4px 8px; border-radius: 4px;" onkeyup="filterSSDividends()">
+                                <i class="fas fa-times" style="position: absolute; right: 8px; cursor: pointer; color: #888;" onclick="clearSSDivSearch()" title="Clear"></i>
                             </div>
                         </div>
-                        <button class="btn btn-primary" onclick="loadSSDividends()"><i class="fas fa-sync"></i> Refresh Data</button>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-secondary" onclick="exportSSDivCSV()"><i class="fas fa-file-csv"></i> Download CSV</button>
+                            <button class="btn btn-secondary" onclick="exportSSDivPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                            <button class="btn btn-primary" onclick="loadSSDividends()"><i class="fas fa-sync"></i> Refresh Data</button>
+                        </div>
                     </div>
 
                     <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
