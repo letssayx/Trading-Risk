@@ -59,7 +59,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         ).order_by(BhavcopyFO.ticker_symb, BhavcopyFO.expiry_date).all()
 
         for r in fo_records:
-            futures_map[r.ticker_symb.upper()].append(r.close_price)
+            # Append dict containing both price and expiry date
+            futures_map[r.ticker_symb.upper()].append({
+                "price": r.close_price,
+                "expiry": r.expiry_date.strftime("%d-%b") if r.expiry_date else None
+            })
 
     # 4. Fetch Corporate Actions (Dividends, Splits, Bonuses) for the last 10 years
     today = datetime.date.today()

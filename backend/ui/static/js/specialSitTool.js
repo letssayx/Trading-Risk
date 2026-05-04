@@ -820,9 +820,9 @@ function exportSSDivCSV() {
         row.push(item.symbol || '-');
         row.push(item.lot_size || '-');
         row.push(item.spot ? item.spot.toFixed(2) : '-');
-        row.push(item.futures && item.futures[0] ? item.futures[0].toFixed(2) : '-');
-        row.push(item.futures && item.futures[1] ? item.futures[1].toFixed(2) : '-');
-        row.push(item.futures && item.futures[2] ? item.futures[2].toFixed(2) : '-');
+        row.push(item.futures && item.futures[0] && item.futures[0].price ? item.futures[0].price.toFixed(2) : '-');
+        row.push(item.futures && item.futures[1] && item.futures[1].price ? item.futures[1].price.toFixed(2) : '-');
+        row.push(item.futures && item.futures[2] && item.futures[2].price ? item.futures[2].price.toFixed(2) : '-');
         row.push(item.last_type || '-');
         row.push(item.last_ex_date || '-');
         row.push(item.last_amount || '-');
@@ -934,13 +934,32 @@ function toggleSSDivHistory(symbol) {
 function renderSSDividends() {
     const tbody = document.getElementById('ss-div-tbody');
     const searchInput = document.getElementById('ss-div-search');
+
+    // Update Future Headers with Expiry Dates
+    if (ssDivData && ssDivData.length > 0) {
+        // Find the first item with valid futures
+        const itemWithFutures = ssDivData.find(item => item.futures && item.futures.length > 0);
+        if (itemWithFutures) {
+            const f1 = itemWithFutures.futures[0];
+            const f2 = itemWithFutures.futures[1];
+            const f3 = itemWithFutures.futures[2];
+
+            const th1 = document.getElementById('ss-div-fut1-th');
+            const th2 = document.getElementById('ss-div-fut2-th');
+            const th3 = document.getElementById('ss-div-fut3-th');
+
+            if (th1) th1.innerHTML = 'Future 1' + (f1 && f1.expiry ? '<br><small style="color: #60a5fa; font-weight: normal;">' + f1.expiry + '</small>' : '');
+            if (th2) th2.innerHTML = 'Future 2' + (f2 && f2.expiry ? '<br><small style="color: #60a5fa; font-weight: normal;">' + f2.expiry + '</small>' : '');
+            if (th3) th3.innerHTML = 'Future 3' + (f3 && f3.expiry ? '<br><small style="color: #60a5fa; font-weight: normal;">' + f3.expiry + '</small>' : '');
+        }
+    }
     if (!tbody) return;
 
     let filter = searchInput ? searchInput.value.trim().toUpperCase() : '';
 
     // Get selected months
     const monthCheckboxes = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]:checked');
-    const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.value); // Values are like "01", "02", etc.
+    const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.parentElement.textContent.trim()); // Values are full month names
 
     if (!ssDivData || ssDivData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;">No data available</td></tr>';
@@ -953,38 +972,42 @@ function renderSSDividends() {
 
         // Month filtering based on expected_highly_likely date
         if (selectedMonths.length > 0) {
-            if (!item.expected_highly_likely || item.expected_highly_likely === '-' || item.expected_highly_likely.includes('Announced')) {
-                // If it's not a standard date format or Announced is prefixed, maybe we skip filtering or parse carefully.
-                // Assuming format is dd-mm-yyyy or "Announced: dd-mm-yyyy"
-                let dateStr = item.expected_highly_likely;
+            let dateStr = item.expected_highly_likely;
+            if (!dateStr || dateStr === '-') return; // Filter out if no valid date
+
+            // Handle "Announced" prefix
+            if (dateStr.includes('Announced')) {
                 if (dateStr.includes('Announced:')) {
                     dateStr = dateStr.replace('Announced: ', '').trim();
+                } else {
+                    return; // Invalid format
                 }
-                if (dateStr === '-') return; // Skip if no expected date and months are selected
+            }
 
-                const parts = dateStr.split('-');
-                if (parts.length >= 2) {
-                    const month = parts[1]; // mm
-                    if (!selectedMonths.includes(month)) return;
-                } else {
-                    return; // Unparseable, filter out
-                }
+            const parts = dateStr.split('-');
+            if (parts.length >= 2) {
+                const monthMap = {
+                    'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April',
+                    'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August',
+                    'Sep': 'September', 'Oct': 'October', 'Nov': 'November', 'Dec': 'December'
+                };
+
+                const fullMonth = monthMap[parts[1]] || parts[1];
+
+                if (!selectedMonths.includes(fullMonth)) return;
             } else {
-                const parts = item.expected_highly_likely.split('-');
-                if (parts.length >= 2) {
-                    const month = parts[1]; // mm
-                    if (!selectedMonths.includes(month)) return;
-                } else {
-                    return;
-                }
+                return; // Unparseable, filter out
             }
         }
 
         let futuresHTML = '';
         if (item.futures && item.futures.length > 0) {
-            futuresHTML += `<td>${item.futures[0] ? item.futures[0].toFixed(2) : '-'}</td>`;
-            futuresHTML += `<td>${item.futures[1] ? item.futures[1].toFixed(2) : '-'}</td>`;
-            futuresHTML += `<td>${item.futures[2] ? item.futures[2].toFixed(2) : '-'}</td>`;
+            const f1 = item.futures[0];
+            const f2 = item.futures[1];
+            const f3 = item.futures[2];
+            futuresHTML += `<td>${f1 && f1.price ? f1.price.toFixed(2) : '-'}</td>`;
+            futuresHTML += `<td>${f2 && f2.price ? f2.price.toFixed(2) : '-'}</td>`;
+            futuresHTML += `<td>${f3 && f3.price ? f3.price.toFixed(2) : '-'}</td>`;
         } else {
             futuresHTML += `<td>-</td><td>-</td><td>-</td>`;
         }
