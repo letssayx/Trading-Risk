@@ -938,6 +938,10 @@ function renderSSDividends() {
 
     let filter = searchInput ? searchInput.value.trim().toUpperCase() : '';
 
+    // Get selected months
+    const monthCheckboxes = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]:checked');
+    const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.value); // Values are like "01", "02", etc.
+
     if (!ssDivData || ssDivData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;">No data available</td></tr>';
         return;
@@ -946,6 +950,35 @@ function renderSSDividends() {
     let html = '';
     ssDivData.forEach(item => {
         if (filter && !item.symbol.includes(filter)) return;
+
+        // Month filtering based on expected_highly_likely date
+        if (selectedMonths.length > 0) {
+            if (!item.expected_highly_likely || item.expected_highly_likely === '-' || item.expected_highly_likely.includes('Announced')) {
+                // If it's not a standard date format or Announced is prefixed, maybe we skip filtering or parse carefully.
+                // Assuming format is dd-mm-yyyy or "Announced: dd-mm-yyyy"
+                let dateStr = item.expected_highly_likely;
+                if (dateStr.includes('Announced:')) {
+                    dateStr = dateStr.replace('Announced: ', '').trim();
+                }
+                if (dateStr === '-') return; // Skip if no expected date and months are selected
+
+                const parts = dateStr.split('-');
+                if (parts.length >= 2) {
+                    const month = parts[1]; // mm
+                    if (!selectedMonths.includes(month)) return;
+                } else {
+                    return; // Unparseable, filter out
+                }
+            } else {
+                const parts = item.expected_highly_likely.split('-');
+                if (parts.length >= 2) {
+                    const month = parts[1]; // mm
+                    if (!selectedMonths.includes(month)) return;
+                } else {
+                    return;
+                }
+            }
+        }
 
         let futuresHTML = '';
         if (item.futures && item.futures.length > 0) {
@@ -1005,7 +1038,7 @@ function renderSSDividends() {
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${expectedAmountHTML}</td>
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${item.expected_highly_likely || '-'}</td>
                 <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;">${item.expected_less_likely || '-'}</td>
-                <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); alert('AI Analyze feature coming soon')"><i class="fas fa-robot"></i> AI Analyze</button></td>
+                <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${item.symbol}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Analyze</button></td>
             </tr>
         `;
 

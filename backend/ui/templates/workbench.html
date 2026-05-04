@@ -530,6 +530,24 @@
                                 <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 28px 4px 8px; border-radius: 4px;" onkeyup="filterSSDividends()">
                                 <span style="position: absolute; right: 8px; cursor: pointer; color: #888; font-weight: bold; font-family: sans-serif;" onclick="clearSSDivSearch()" title="Clear">&#x2715;</span>
                             </div>
+
+                            <div class="custom-dropdown" id="ss-div-month-dropdown" style="margin-left: 15px;">
+                                <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-month-dropdown')">Select Months</div>
+                                <div class="dropdown-menu">
+                                    <label><input type="checkbox" value="01" onchange="filterSSDividends()"> January</label>
+                                    <label><input type="checkbox" value="02" onchange="filterSSDividends()"> February</label>
+                                    <label><input type="checkbox" value="03" onchange="filterSSDividends()"> March</label>
+                                    <label><input type="checkbox" value="04" onchange="filterSSDividends()"> April</label>
+                                    <label><input type="checkbox" value="05" onchange="filterSSDividends()"> May</label>
+                                    <label><input type="checkbox" value="06" onchange="filterSSDividends()"> June</label>
+                                    <label><input type="checkbox" value="07" onchange="filterSSDividends()"> July</label>
+                                    <label><input type="checkbox" value="08" onchange="filterSSDividends()"> August</label>
+                                    <label><input type="checkbox" value="09" onchange="filterSSDividends()"> September</label>
+                                    <label><input type="checkbox" value="10" onchange="filterSSDividends()"> October</label>
+                                    <label><input type="checkbox" value="11" onchange="filterSSDividends()"> November</label>
+                                    <label><input type="checkbox" value="12" onchange="filterSSDividends()"> December</label>
+                                </div>
+                            </div>
                         </div>
                         <div style="display: flex; gap: 10px;">
                             <button class="btn btn-secondary" onclick="exportSSDivCSV()"><i class="fas fa-file-csv"></i> Download CSV</button>

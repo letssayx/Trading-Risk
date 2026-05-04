@@ -98,7 +98,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         ratio = held_shares / (held_shares + bonus_shares)
             elif r.dividend_type == 'Split':
                 # e.g., "Face Value Split from Rs.10 to Rs.5" or "From Rs 10/- Per Share To Rs 5/- Per Share"
-                match = re.search(r'from\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
+                match = re.search(r'from\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
                 if match:
                     old_fv = float(match.group(1))
                     new_fv = float(match.group(2))
@@ -250,14 +250,17 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                     is_announced = False
 
-                # Calculate cycle growth
+                # Calculate cycle growth (using CAGR to handle skipped years)
                 growth_rates = []
                 for i in range(1, len(c)):
                     prev_amt = c[i-1]['amount']
                     curr_amt = c[i]['amount']
                     days_diff = (c[i]['ex_date_obj'] - c[i-1]['ex_date_obj']).days
-                    if 300 <= days_diff <= 430 and prev_amt and curr_amt and prev_amt > 0:
-                        growth_rates.append((curr_amt - prev_amt) / prev_amt)
+                    years_diff = round(days_diff / 365)
+
+                    if years_diff >= 1 and prev_amt and curr_amt and prev_amt > 0:
+                        cagr = ((curr_amt / prev_amt) ** (1 / years_diff)) - 1
+                        growth_rates.append(cagr)
 
                 avg_growth = np.mean(growth_rates) if growth_rates else 0
                 exp_amt = most_recent['amount'] * (1 + avg_growth) if most_recent['amount'] else None
