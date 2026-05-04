@@ -1106,5 +1106,9 @@ function renderSSDividends() {
         }
     });
 
+    if (html === '') {
+        html = '<tr><td colspan="14" style="text-align:center;">No data available for selected criteria</td></tr>';
+    }
+
     tbody.innerHTML = html;
 }
