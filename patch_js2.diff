@@ -1,0 +1,38 @@
+--- backend/ui/static/js/specialSitTool.js
++++ backend/ui/static/js/specialSitTool.js
+@@ -972,7 +972,7 @@
+
+         // Month filtering based on expected_highly_likely date
+         if (selectedMonths.length > 0) {
+-            let dateStr = item.expected_highly_likely;
++            let dateStr = item.expected_highly_likely || '';
+             if (!dateStr || dateStr === '-') return; // Filter out if no valid date
+
+             // Handle "Announced" prefix
+@@ -986,7 +986,16 @@
+             }
+
+             const parts = dateStr.split('-');
+-            if (parts.length >= 2) {
++            let targetMonth = null;
++            if (parts.length === 3) {
++               // DD-MM-YYYY format
++               targetMonth = parts[1];
++            } else if (parts.length === 2 && isNaN(parts[1])) {
++               // DD-Mon format
++               targetMonth = parts[1];
++            }
++
++            if (targetMonth) {
+                 const monthMap = {
+                     'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April',
+                     'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August',
+@@ -1004,7 +1013,7 @@
+                     '12': 'December'
+                 };
+
+-                const fullMonth = monthMap[parts[1]] || parts[1];
++                const fullMonth = monthMap[targetMonth] || targetMonth;
+
+                 if (!selectedMonths.includes(fullMonth)) return;
+             } else {

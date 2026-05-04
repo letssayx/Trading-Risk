@@ -972,7 +972,7 @@ function renderSSDividends() {
 
         // Month filtering based on expected_highly_likely date
         if (selectedMonths.length > 0) {
-            let dateStr = item.expected_highly_likely || '';
+            let dateStr = item.expected_highly_likely;
             if (!dateStr || dateStr === '-') return; // Filter out if no valid date
 
             // Handle "Announced" prefix
@@ -985,16 +985,7 @@ function renderSSDividends() {
             }
 
             const parts = dateStr.split('-');
-            let targetMonth = null;
-            if (parts.length === 3) {
-               // DD-MM-YYYY format
-               targetMonth = parts[1];
-            } else if (parts.length === 2 && isNaN(parts[1])) {
-               // DD-Mon format
-               targetMonth = parts[1];
-            }
-
-            if (targetMonth) {
+            if (parts.length >= 2) {
                 const monthMap = {
                     'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April',
                     'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August',
@@ -1013,7 +1004,7 @@ function renderSSDividends() {
                     '12': 'December'
                 };
 
-                const fullMonth = monthMap[targetMonth] || targetMonth;
+                const fullMonth = monthMap[parts[1]] || parts[1];
 
                 if (!selectedMonths.includes(fullMonth)) return;
             } else {
