@@ -865,9 +865,13 @@ function exportSSDivPDF() {
     const printWindow = window.open('', '', 'height=600,width=800');
     printWindow.document.write('<html><head><title>Dividend Arbitrage Scenario</title>');
     printWindow.document.write('<style>');
-    printWindow.document.write('table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; }');
-    printWindow.document.write('th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }');
-    printWindow.document.write('th { background-color: #f2f2f2; }');
+    printWindow.document.write('body { background: #1e1e1e; color: #ccc; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; margin: 20px; }');
+    printWindow.document.write('h2 { color: #d4d4d4; }');
+    printWindow.document.write('.data-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; color: #d4d4d4; }');
+    printWindow.document.write('.data-table th, .data-table td { border: 1px solid #3e3e42; padding: 4px 8px; text-align: left; }');
+    printWindow.document.write('.data-table th { background: #252526; font-weight: normal; }');
+    printWindow.document.write('.data-table tr { background: #1e1e1e; }');
+    printWindow.document.write('.data-table tr:hover { background: #2a2d2e; }');
     printWindow.document.write('.mwpl-blue { color: #3176B8; font-weight: bold; }');
     printWindow.document.write('.mwpl-red { color: #ff4d4d; font-weight: bold; }');
     printWindow.document.write('</style>');
@@ -883,18 +887,29 @@ function exportSSDivPDF() {
         if (r.style.display === 'none') {
             r.parentNode.removeChild(r);
         } else {
-            // Keep it but reset its display so it shows in print, and make text black for light bg
+            // Keep it but reset its display so it shows in print
             r.style.display = 'table-row';
-            r.style.background = '#fff';
-            r.style.color = '#000';
+            // We no longer override with white/black because we want the dark theme
+            r.style.background = '#1e1e1e';
+            r.style.color = '#d4d4d4';
             const innerTable = r.querySelector('table');
             if (innerTable) {
-                innerTable.style.background = '#fff';
-                innerTable.style.color = '#000';
+                innerTable.style.background = '#1e1e1e';
+                innerTable.style.color = '#d4d4d4';
+                // Add border styling for inner table to match Excel look
+                innerTable.style.borderCollapse = 'collapse';
+                innerTable.querySelectorAll('th, td').forEach(cell => {
+                     cell.style.border = '1px solid #3e3e42';
+                     cell.style.padding = '4px 8px';
+                });
+                innerTable.querySelectorAll('th').forEach(th => {
+                     th.style.background = '#252526';
+                     th.style.fontWeight = 'normal';
+                });
             }
             const innerH4 = r.querySelector('h4');
             if (innerH4) {
-                innerH4.style.color = '#333';
+                innerH4.style.color = '#ccc';
             }
         }
     });
