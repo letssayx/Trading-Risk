@@ -529,7 +529,66 @@ class NSELib:
                 data = resp.json()
                 if not data:
                      return pd.DataFrame()
-                df = pd.DataFrame(data)
+
+                # Fetch XBRL dividends for matching symbols
+                enriched_data = []
+                import xml.etree.ElementTree as ET
+                for item in data:
+                    item['EXTRACTED_DIVIDEND_AMOUNT'] = None
+                    item['EXTRACTED_DIVIDEND_TYPE'] = None
+
+                    purpose = str(item.get('bm_purpose', '')).lower()
+                    desc = str(item.get('bm_desc', '')).lower()
+                    if 'dividend' in purpose or 'dividend' in desc or 'financial results' in purpose:
+                        symbol = item.get('bm_symbol')
+                        if symbol:
+                            ann_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&symbol={symbol}&from_date={from_date_str}&to_date={to_date_str}"
+                            ann_resp = self.get(ann_url)
+                            if ann_resp and ann_resp.status_code == 200:
+                                try:
+                                    ann_data = ann_resp.json()
+                                    for ann in ann_data:
+                                        if ann.get('hasXbrl') and ('outcome' in str(ann.get('desc')).lower() or 'dividend' in str(ann.get('desc')).lower()):
+                                            xbrl_api = f"{self.BASE_URL}/api/corporate-announcements-xbrl?seq_id={ann.get('seq_id')}"
+                                            xbrl_resp = self.get(xbrl_api)
+                                            if xbrl_resp and xbrl_resp.status_code == 200:
+                                                try:
+                                                    xbrl_json = xbrl_resp.json()
+                                                    if isinstance(xbrl_json, list) and len(xbrl_json) > 0:
+                                                        xml_url = xbrl_json[0].get('xbrl')
+                                                        if xml_url:
+                                                            xml_resp = self.get(xml_url)
+                                                            if xml_resp and xml_resp.status_code == 200:
+                                                                root = ET.fromstring(xml_resp.content)
+                                                                amount = 0.0
+                                                                div_type = 'Final'
+                                                                for elem in root.iter():
+                                                                    tag = elem.tag.split('}')[-1]
+                                                                    if tag in [
+                                                                        'RateOfFinalDividendRecommendedPerEquityShare',
+                                                                        'RateOfInterimDividendDeclaredPerEquityShare',
+                                                                        'RateOfDividendRecommendedPerEquityShare',
+                                                                        'RateOfSpecialDividendDeclaredPerEquityShare',
+                                                                        'DividendPerShare'
+                                                                    ]:
+                                                                        try:
+                                                                            amount += float(elem.text)
+                                                                        except:
+                                                                            pass
+                                                                    if tag == 'TypeOfDividend' and elem.text:
+                                                                        div_type = elem.text
+                                                                if amount > 0:
+                                                                    item['EXTRACTED_DIVIDEND_AMOUNT'] = amount
+                                                                    item['EXTRACTED_DIVIDEND_TYPE'] = div_type
+                                                                    break
+                                                except:
+                                                    pass
+                                except:
+                                    pass
+
+                    enriched_data.append(item)
+
+                df = pd.DataFrame(enriched_data)
                 # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
                 mapping = {
                     'bm_symbol': 'SYMBOL',
