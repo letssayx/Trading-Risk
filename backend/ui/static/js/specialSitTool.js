@@ -1062,6 +1062,10 @@ function updateSSDivData(symbol, field, value) {
                item._edited_expected_amount = value;
             }
         } else {
+            if (field === 'expected_highly_likely' && typeof value === 'string') {
+                // Strip out the extra-ordinary threshold text if it got captured by innerText during edit
+                value = value.split('\n(Extra-ordinary')[0].trim();
+            }
             item[field] = value;
         }
 
@@ -1223,6 +1227,18 @@ function renderSSDividends() {
             }
         }
 
+        let expectedHighlyLikelyHtml = item.expected_highly_likely || '-';
+        if (item.expected_amount && item.spot) {
+            let numExpected = parseFloat(item.expected_amount);
+            let numSpot = parseFloat(item.spot);
+            if (!isNaN(numExpected) && !isNaN(numSpot) && numSpot > 0) {
+                if ((numExpected / numSpot) > 0.02) {
+                    let thresholdPrice = (numExpected / 0.02).toFixed(2);
+                    expectedHighlyLikelyHtml += `<br><span style="color: #ff4d4d; font-size: 0.85em;">(Extra-ordinary, Threshold: ₹${thresholdPrice})</span>`;
+                }
+            }
+        }
+
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
                 <td style="font-weight: bold; color: #fff;">
@@ -1237,7 +1253,7 @@ function renderSSDividends() {
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
                 ${above2Cell}
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_amount', this.innerHTML)" onclick="event.stopPropagation();">${expectedAmountHTML}</td>
-                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${item.expected_highly_likely || '-'}</td>
+                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${expectedHighlyLikelyHtml}</td>
                 <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_less_likely', this.innerText)" onclick="event.stopPropagation();">${item.expected_less_likely || '-'}</td>
                 <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${item.symbol}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Analyze</button></td>
             </tr>
