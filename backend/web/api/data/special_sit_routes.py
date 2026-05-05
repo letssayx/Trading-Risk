@@ -184,6 +184,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         expected_amount = None
         expected_highly_likely = None
         expected_less_likely = None
+        expected_type = None
+        expected_amount_compare = None
 
         if history:
             # Most recent overall dividend (just for table display purposes)
@@ -196,35 +198,44 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
 
-            # Cluster historical dividends into "Cycles" based on Month mapping (approximate)
-            # We will use the month of the ex_date as the primary key for cycles
-            # To account for dividends shifting by a few days (e.g. May 30th to June 2nd)
-            # We map the Month, but with a +/- 30 day tolerance.
+            final_cluster = []
+            interim_clusters = []
 
-            clusters = []
             five_years_ago = today - datetime.timedelta(days=365*5)
             recent_hist = [h for h in history_asc if h['ex_date_obj'] and h['ex_date_obj'] >= five_years_ago]
 
             for h in recent_hist:
-                doy = get_doy(h['ex_date_obj'])
-                placed = False
-                for c in clusters:
-                    mean_doy = sum(get_doy(x['ex_date_obj']) for x in c) / len(c)
-                    if circ_diff(doy, mean_doy) <= 45: # 45 days threshold to group shifting months
-                        # Avoid clustering multiple dividends from the exact same year in one cluster
-                        # (e.g. if there's a special and final in the same month)
-                        if not any(x['ex_date_obj'].year == h['ex_date_obj'].year for x in c):
-                            c.append(h)
-                            placed = True
-                            break
-                if not placed:
-                    clusters.append([h])
+                # Skip special dividends entirely for forecasting
+                if 'special' in (h.get('purpose') or '').lower() or h.get('dividend_type') == 'Special':
+                    continue
+
+                if h.get('dividend_type') == 'Final':
+                    final_cluster.append(h)
+                else:
+                    doy = get_doy(h['ex_date_obj'])
+                    placed = False
+                    for c in interim_clusters:
+                        mean_doy = sum(get_doy(x['ex_date_obj']) for x in c) / len(c)
+                        if circ_diff(doy, mean_doy) <= 90: # 90 days threshold to handle larger shifts like May->June
+                            if not any(x['ex_date_obj'].year == h['ex_date_obj'].year for x in c):
+                                c.append(h)
+                                placed = True
+                                break
+                    if not placed:
+                        interim_clusters.append([h])
+
+            clusters = [final_cluster] + interim_clusters if final_cluster else interim_clusters
 
             # For each cycle, find its next upcoming date
             upcoming_cycles = []
             for c in clusters:
+                if not c: continue
                 most_recent = c[-1]
                 mr_date = most_recent['ex_date_obj']
+
+                # Skip clusters that haven't paid in the last 2 years (kill the cycle)
+                if mr_date.year < today.year - 1:
+                    continue
 
                 if mr_date >= today:
                     # Already announced for future
@@ -271,6 +282,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                     if years_diff >= 1 and prev_amt and curr_amt and prev_amt > 0:
                         cagr = ((curr_amt / prev_amt) ** (1 / years_diff)) - 1
+                        cagr = min(max(cagr, -1.0), 0.5) # Cap CAGR between -100% and +50%
                         growth_rates.append(cagr)
 
                 avg_growth = np.mean(growth_rates) if growth_rates else 0
@@ -284,9 +296,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 upcoming_cycles.append({
                     'next_date': next_date,
                     'is_announced': is_announced,
-                    'exp_amt': exp_amt,
+                    'exp_amt': None if is_announced else exp_amt,
                     'highly_likely_month': highly_likely_month,
-                    'less_likely_months': less_likely_m
+                    'less_likely_months': less_likely_m,
+                    'type': most_recent.get('dividend_type') or 'Interim',
+                    'last_amt_in_cycle': most_recent['amount']
                 })
 
             # Pick the chronologically next cycle
@@ -296,6 +310,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                 if next_cycle['exp_amt'] is not None:
                     expected_amount = round(next_cycle['exp_amt'], 2)
+                    expected_amount_compare = next_cycle['last_amt_in_cycle']
+                    expected_type = next_cycle['type']
 
                 if next_cycle['is_announced']:
                     expected_highly_likely = f"Announced: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
@@ -319,6 +335,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "last_amount": last_amount,
             "is_above_2_percent": is_above_2_percent,
             "expected_amount": expected_amount,
+            "expected_amount_compare": expected_amount_compare,
+            "expected_type": expected_type,
             "expected_highly_likely": expected_highly_likely,
             "expected_less_likely": expected_less_likely,
             "history": history

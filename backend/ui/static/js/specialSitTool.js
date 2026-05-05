@@ -898,7 +898,8 @@ function exportSSDivCSV() {
         row.push(item.last_ex_date || '-');
         row.push(item.last_amount || '-');
         row.push(item.is_above_2_percent ? 'Yes' : 'No');
-        row.push(item.expected_amount || '-');
+        let expectedCSV = item.expected_amount ? `${item.expected_amount} (${item.expected_type || 'Interim'})` : '-';
+        row.push(expectedCSV);
         row.push(item.expected_highly_likely || '-');
         row.push(item.expected_less_likely || '-');
 
@@ -1166,10 +1167,10 @@ function renderSSDividends() {
             }
         }
 
-        let expectedAmountHTML = item.expected_amount ? parseFloat(item.expected_amount).toFixed(2) : '-';
-        if (item.expected_amount && item.last_amount) {
+        let expectedAmountHTML = item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-';
+        if (item.expected_amount && item.expected_amount_compare) {
             let numExpected = parseFloat(item.expected_amount);
-            let numLast = parseFloat(item.last_amount);
+            let numLast = parseFloat(item.expected_amount_compare);
             if (numExpected > numLast) {
                 expectedAmountHTML = `${expectedAmountHTML} <span style="color: #60a5fa; margin-left: 5px;">&#8593;</span>`; // Up arrow blue
             } else if (numExpected < numLast) {
