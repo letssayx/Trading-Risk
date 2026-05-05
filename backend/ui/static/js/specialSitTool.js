@@ -1228,16 +1228,6 @@ function renderSSDividends() {
         }
 
         let expectedHighlyLikelyHtml = item.expected_highly_likely || '-';
-        if (item.expected_amount && item.spot) {
-            let numExpected = parseFloat(item.expected_amount);
-            let numSpot = parseFloat(item.spot);
-            if (!isNaN(numExpected) && !isNaN(numSpot) && numSpot > 0) {
-                if ((numExpected / numSpot) > 0.02) {
-                    let thresholdPrice = (numExpected / 0.02).toFixed(2);
-                    expectedHighlyLikelyHtml += `<br><span style="color: #ff4d4d; font-size: 0.85em;">(Extra-ordinary, Threshold: ₹${thresholdPrice})</span>`;
-                }
-            }
-        }
 
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">

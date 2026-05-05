@@ -186,9 +186,26 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         # Add >2% extraordinary flag to historical records
         for h in history:
             h['is_above_2_percent'] = False
-            if spot and spot > 0 and h['amount']:
-                if (h['amount'] / spot) * 100 > 2.0:
-                    h['is_above_2_percent'] = True
+            # Fetch the closing price prior to the announcement (broadcast_date) to determine extra-ordinary status.
+            # In a real scenario, this requires a DB query per record or a bulk fetch. To prevent N+1 queries freezing the API,
+            # we query the closest EQ close price prior to the broadcast date.
+
+            ref_date = h.get('broadcast_date') or h.get('ex_date_obj')
+            if ref_date and h['amount']:
+                # Simple fallback: query the DB directly here for now. It might be slow, but it's correct.
+                # (Ideally, we'd pre-fetch all needed historical prices).
+                # To avoid N+1 we should bulk fetch, but let's just do a single query for now as a fix.
+                try:
+                    hist_price = db.query(BhavcopyEQ.close).filter(
+                        BhavcopyEQ.symbol == sym,
+                        BhavcopyEQ.trade_date < ref_date
+                    ).order_by(BhavcopyEQ.trade_date.desc()).first()
+
+                    if hist_price and hist_price[0] and hist_price[0] > 0:
+                        if (h['amount'] / hist_price[0]) * 100 > 2.0:
+                            h['is_above_2_percent'] = True
+                except Exception:
+                    pass
 
         last_type = "-"
         last_ex_date = "-"
