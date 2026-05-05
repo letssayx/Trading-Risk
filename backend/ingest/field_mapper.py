@@ -274,6 +274,8 @@ class FieldMapper:
             return None, 'Bonus'
         if 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower:
             return None, 'Split'
+        if 'demerger' in purpose_lower or 'spin-off' in purpose_lower or 'spin off' in purpose_lower:
+            return None, 'Demerger'
 
         if 'dividend' not in purpose_lower:
             return None, None
@@ -281,16 +283,17 @@ class FieldMapper:
         import re
         dividend_type = 'Interim' if 'interim' in purpose_lower else 'Special' if 'special' in purpose_lower else 'Final'
 
-        # Try Rs format: "Dividend - Rs 5 Per Share"
-        rs_match = re.search(r'rs\.?\s*(\d+(?:\.\d+)?)', purpose_lower)
-        if rs_match:
-            return float(rs_match.group(1)), dividend_type
+        # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
+        rs_matches = re.findall(r'rs\.?\s*(\d+(?:\.\d+)?)', purpose_lower)
+        if rs_matches:
+            total_amount = sum(float(m) for m in rs_matches)
+            return total_amount, dividend_type
 
-        # Try percentage format: "Dividend - 50%"
-        pct_match = re.search(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
-        if pct_match and face_value:
-            pct = float(pct_match.group(1))
-            return (pct / 100.0) * face_value, dividend_type
+        # Try percentage format: sum all percentages if multiple exist
+        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
+        if pct_matches and face_value:
+            total_pct = sum(float(m) for m in pct_matches)
+            return (total_pct / 100.0) * face_value, dividend_type
 
         return None, dividend_type
 

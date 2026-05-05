@@ -1033,6 +1033,27 @@ function toggleSSDivHistory(symbol) {
     }
 }
 
+
+
+function updateSSDivData(symbol, field, value) {
+    if (!ssDivData) return;
+    const item = ssDivData.find(x => x.symbol === symbol);
+    if (item) {
+        if (field === 'expected_amount') {
+            // Strip out non-numeric chars in case they edited formatting
+            let num = value.replace(/[^0-9.]/g, '');
+            if (num) {
+               item.expected_amount = parseFloat(num);
+               item._edited_expected_amount = value; // Store raw HTML for rendering
+            } else {
+               item.expected_amount = null;
+               item._edited_expected_amount = value;
+            }
+        } else {
+            item[field] = value;
+        }
+    }
+}
 function renderSSDividends() {
     const tbody = document.getElementById('ss-div-tbody');
     const searchInput = document.getElementById('ss-div-search');
@@ -1167,8 +1188,8 @@ function renderSSDividends() {
             }
         }
 
-        let expectedAmountHTML = item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-';
-        if (item.expected_amount && item.expected_amount_compare) {
+        let expectedAmountHTML = item._edited_expected_amount || (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-');
+        if (item.expected_amount && item.expected_amount_compare && !item._edited_expected_amount) {
             let numExpected = parseFloat(item.expected_amount);
             let numLast = parseFloat(item.expected_amount_compare);
             if (numExpected > numLast) {
@@ -1191,9 +1212,9 @@ function renderSSDividends() {
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
                 ${above2Cell}
-                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${expectedAmountHTML}</td>
-                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;">${item.expected_highly_likely || '-'}</td>
-                <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;">${item.expected_less_likely || '-'}</td>
+                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_amount', this.innerHTML)" onclick="event.stopPropagation();">${expectedAmountHTML}</td>
+                <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${item.expected_highly_likely || '-'}</td>
+                <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_less_likely', this.innerText)" onclick="event.stopPropagation();">${item.expected_less_likely || '-'}</td>
                 <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${item.symbol}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Analyze</button></td>
             </tr>
         `;

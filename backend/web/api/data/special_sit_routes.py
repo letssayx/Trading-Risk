@@ -83,7 +83,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         CorporateAction.date >= ten_years_ago,
         or_(
             CorporateAction.parsed_dividend_amount != None,
-            CorporateAction.dividend_type.in_(['Bonus', 'Split'])
+            CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger'])
         )
     ).order_by(desc(CorporateAction.date)).all()
 
@@ -95,7 +95,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     for r in ca_records:
         sym = r.symbol.upper()
 
-        if r.dividend_type in ['Bonus', 'Split']:
+        if r.dividend_type in ['Bonus', 'Split', 'Demerger']:
             # Extract ratio from purpose
             ratio = 1.0
             purpose_lower = (r.purpose or "").lower()
@@ -127,6 +127,20 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                                 ratio = old_shares / new_shares
                             else:
                                 ratio = new_shares / old_shares
+            elif r.dividend_type == 'Demerger':
+                # Demergers typically split value, hard to parse ratio accurately from string usually.
+                # A common placeholder is 0.5 or checking the specific text.
+                # Let's see if there's a ratio in the string e.g. "1:1"
+                match3 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
+                if match3:
+                    new_shares = float(match3.group(1))
+                    old_shares = float(match3.group(2))
+                    if old_shares > 0 and new_shares > 0:
+                        ratio = old_shares / (old_shares + new_shares)
+                else:
+                    # Default heuristic for demerger: reduce historical dividends by half
+                    # to prevent massive over-forecasting unless manually overridden.
+                    ratio = 0.5
 
             if ratio != 1.0 and r.date:
                 adjustments_by_symbol[sym].append({
