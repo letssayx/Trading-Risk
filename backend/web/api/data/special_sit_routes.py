@@ -256,33 +256,22 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     next_date = mr_date
                     is_announced = True
                 else:
-                    # Project forward using the median historical date for this cycle
-                    # Extract month and day from the cluster
-                    historical_days = []
-                    for h in c:
-                        # normalize to a leap year for calculation
-                        norm_d = datetime.date(2020, h['ex_date_obj'].month, h['ex_date_obj'].day)
-                        historical_days.append(norm_d.timetuple().tm_yday)
-
-                    median_doy = int(np.median(historical_days))
-                    # construct a normalized date from doy
-                    norm_median_date = datetime.date(2020, 1, 1) + datetime.timedelta(days=median_doy - 1)
-
+                    # Project forward using the exact month and day of the most recent dividend in this cycle
                     # Next expected year is mr_date.year + 1
                     next_year = mr_date.year + 1
 
                     try:
-                        next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day)
+                        next_date = datetime.date(next_year, mr_date.month, mr_date.day)
                     except ValueError:
                         # handle leap day edge case
-                        next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day - 1)
+                        next_date = datetime.date(next_year, mr_date.month, mr_date.day - 1)
 
                     while next_date < today - datetime.timedelta(days=15): # grace period
                         next_year += 1
                         try:
-                            next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day)
+                            next_date = datetime.date(next_year, mr_date.month, mr_date.day)
                         except ValueError:
-                            next_date = datetime.date(next_year, norm_median_date.month, norm_median_date.day - 1)
+                            next_date = datetime.date(next_year, mr_date.month, mr_date.day - 1)
 
                     is_announced = False
 

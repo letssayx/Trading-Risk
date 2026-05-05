@@ -793,6 +793,18 @@ async function loadSSDividends() {
 
         ssDivData = payload.data || payload; // fallback for older format if necessary
 
+        // Apply overrides from localStorage
+        let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
+        ssDivData.forEach(item => {
+            if (overrides[item.symbol]) {
+                const o = overrides[item.symbol];
+                if (o.expected_amount !== undefined) item.expected_amount = o.expected_amount;
+                if (o._edited_expected_amount !== undefined) item._edited_expected_amount = o._edited_expected_amount;
+                if (o.expected_highly_likely !== undefined) item.expected_highly_likely = o.expected_highly_likely;
+                if (o.expected_less_likely !== undefined) item.expected_less_likely = o.expected_less_likely;
+            }
+        });
+
         // Extract unique sectors and populate dropdown
         const sectorMenu = document.getElementById('ss-div-sector-menu');
         if (sectorMenu && ssDivData.length > 0) {
@@ -1052,6 +1064,18 @@ function updateSSDivData(symbol, field, value) {
         } else {
             item[field] = value;
         }
+
+        // Persist to localStorage
+        let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
+        if (!overrides[symbol]) overrides[symbol] = {};
+
+        if (field === 'expected_amount') {
+            overrides[symbol]['expected_amount'] = item.expected_amount;
+            overrides[symbol]['_edited_expected_amount'] = item._edited_expected_amount;
+        } else {
+            overrides[symbol][field] = value;
+        }
+        localStorage.setItem('ssDivOverrides', JSON.stringify(overrides));
     }
 }
 function renderSSDividends() {
