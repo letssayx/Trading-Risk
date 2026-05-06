@@ -349,7 +349,8 @@ class FieldMapper:
                 'purpose': str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip(),
                 'bm_desc': str(cls._get_val(row, ['BM_DESC', 'Description']) or '').strip(),
                 'extracted_dividend_amount': cls._get_val(row, ['EXTRACTED_DIVIDEND_AMOUNT']),
-                'extracted_dividend_type': cls._get_val(row, ['EXTRACTED_DIVIDEND_TYPE'])
+                'extracted_dividend_type': cls._get_val(row, ['EXTRACTED_DIVIDEND_TYPE']),
+                'extracted_record_date': cls._get_val(row, ['EXTRACTED_RECORD_DATE'])
             }
             if record['symbol'] and record['date']:
                 records.append(record)

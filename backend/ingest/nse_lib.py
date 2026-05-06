@@ -565,6 +565,34 @@ class NSELib:
 
                                     if ann_resp and ann_resp.status_code == 200:
                                         ann_data = ann_resp.json()
+
+                                        # Parse text fallbacks
+                                        import re
+                                        found_amount = None
+                                        found_record_date = None
+
+                                        for ann in ann_data:
+                                            if not isinstance(ann, dict): continue
+                                            desc = str(ann.get('desc', '')).lower()
+                                            text = str(ann.get('attchmntText', ''))
+
+                                            if not found_amount and ('outcome' in desc or 'dividend' in desc):
+                                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
+                                                if match:
+                                                    found_amount = float(match.group(1))
+
+                                            if not found_record_date and ('record date' in desc or 'dividend' in desc):
+                                                match = re.search(r'(?:is|on)\s+(\d{1,2}[-\s][A-Za-z]{3,}[-\s]\d{2,4})', text, re.IGNORECASE)
+                                                if match:
+                                                    found_record_date = match.group(1)
+
+                                        if found_amount:
+                                            item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
+                                            item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
+                                        if found_record_date:
+                                            item['EXTRACTED_RECORD_DATE'] = found_record_date
+
+                                        # Also attempt XBRL as primary if available
                                         for ann in ann_data:
                                             if isinstance(ann, dict) and ann.get('hasXbrl') and ('outcome' in str(ann.get('desc')).lower() or 'dividend' in str(ann.get('desc')).lower()):
                                                 xbrl_api = f"{self.BASE_URL}/api/corporate-announcements-xbrl?seq_id={ann.get('seq_id')}"
@@ -604,11 +632,33 @@ class NSELib:
                                                                         if tag == 'TypeOfDividend' and elem.text:
                                                                             div_type = elem.text
                                                                     if amount > 0:
+                                                                        # Override fallback with exact XBRL amount
                                                                         item['EXTRACTED_DIVIDEND_AMOUNT'] = amount
                                                                         item['EXTRACTED_DIVIDEND_TYPE'] = div_type
                                                                         break
                                                     except ValueError:
                                                         pass
+
+                                        # Final Fallback: Fetch from Corporate Actions Data Bank if still missing
+                                        if not item.get('EXTRACTED_DIVIDEND_AMOUNT'):
+                                            ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&symbol={symbol}"
+                                            try:
+                                                ca_resp = cffi_requests.get(ca_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                if ca_resp.status_code == 200:
+                                                    ca_data = ca_resp.json()
+                                                    for ca in ca_data:
+                                                        sub = str(ca.get('subject', '')).lower()
+                                                        if 'dividend' in sub:
+                                                            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', sub, re.IGNORECASE)
+                                                            if match:
+                                                                item['EXTRACTED_DIVIDEND_AMOUNT'] = float(match.group(1))
+                                                                item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
+                                                                if ca.get('exDate') and ca.get('exDate') != '-':
+                                                                    item['EXTRACTED_RECORD_DATE'] = ca.get('exDate')
+                                                                break
+                                            except Exception as ca_e:
+                                                pass
+
                                 except Exception as e:
                                     logger.error(f"Failed to fetch XBRL for {symbol}: {e}")
 
