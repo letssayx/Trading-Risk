@@ -76,7 +76,14 @@ class NSELib:
                 # Use curl_cffi to bypass Bot protections (e.g. for archives and static CSVs)
                 return cffi_requests.get(url, impersonate="chrome110", timeout=30, headers=self.HEADERS)
             except Exception as e:
-                logger.error(f"curl_cffi get failed for {url}: {e}")
+                logger.warning(f"curl_cffi get failed for {url}, falling back to standard requests: {e}")
+                import requests as std_requests
+                try:
+                    resp = std_requests.get(url, headers=self.HEADERS, timeout=30)
+                    if resp.status_code == 200:
+                        return resp
+                except:
+                    pass
                 return None
 
         self._ensure_session()
@@ -87,7 +94,15 @@ class NSELib:
             self.session.headers['Referer'] = self.BASE_URL
 
         try:
-            resp = self.session.get(url, timeout=30)
+            try:
+                resp = self.session.get(url, timeout=30)
+            except Exception as e:
+                logger.warning(f"session.get failed for {url}, recreating session: {e}")
+                self.session = cffi_requests.Session(impersonate="chrome110")
+                self.session.headers.update(self.HEADERS)
+                self._cookies_primed = False
+                self._ensure_session()
+                resp = self.session.get(url, timeout=30)
 
             # Retry on 401/403 once
             if resp.status_code in (401, 403):
@@ -529,7 +544,150 @@ class NSELib:
                 data = resp.json()
                 if not data:
                      return pd.DataFrame()
-                df = pd.DataFrame(data)
+
+                # Fetch XBRL dividends for matching symbols
+                enriched_data = []
+                import xml.etree.ElementTree as ET
+
+                # Fetch announcements for all symbols in this batch at once to avoid hitting the API N times
+                # If there are too many, this might fail, so we will only fetch for those explicitly mentioning dividend.
+                # To avoid N+1 queries, we only query for rows that explicitly have "dividend"
+                for item in data:
+                    item['EXTRACTED_DIVIDEND_AMOUNT'] = None
+                    item['EXTRACTED_DIVIDEND_TYPE'] = None
+
+                    purpose = str(item.get('bm_purpose', '')).lower()
+                    desc = str(item.get('bm_desc', '')).lower()
+
+                    # We are only interested if dividend is explicitly mentioned. 'financial results' alone creates too many false positive API calls.
+                    if 'dividend' in purpose or 'dividend' in desc:
+                        symbol = item.get('bm_symbol')
+                        if symbol:
+                            # Instead of from/to date spanning 180 days which makes parsing hundreds of rows,
+                            # limit search to the exact meeting date or closely surrounding dates.
+                            meeting_date_str = item.get('bm_date')
+                            if meeting_date_str:
+                                ann_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&symbol={symbol}&from_date={meeting_date_str}&to_date={meeting_date_str}"
+                                try:
+                                    # Use self.get(..., use_curl=True) to bypass 403 blocks from Akamai bot protection.
+                                    # Since use_curl handles the request via curl_cffi, we need to pass a shorter timeout locally.
+                                    # To prevent hanging the celery task, we explicitly use requests.get if use_curl fails, but with short timeout.
+                                    try:
+                                        import curl_cffi.requests as cffi_requests
+                                        ann_resp = cffi_requests.get(ann_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                    except:
+                                        import requests as std_requests
+                                        ann_resp = std_requests.get(ann_url, timeout=10, headers=self.HEADERS)
+
+                                    if ann_resp and ann_resp.status_code == 200:
+                                        ann_data = ann_resp.json()
+
+                                        # Parse text fallbacks
+                                        import re
+                                        found_amount = None
+                                        found_record_date = None
+
+                                        for ann in ann_data:
+                                            if not isinstance(ann, dict): continue
+                                            desc = str(ann.get('desc', '')).lower()
+                                            text = str(ann.get('attchmntText', ''))
+
+                                            if not found_amount and ('outcome' in desc or 'dividend' in desc):
+                                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
+                                                if match:
+                                                    found_amount = float(match.group(1))
+
+                                            if not found_record_date and ('record date' in desc or 'dividend' in desc):
+                                                match = re.search(r'(?:is|on)\s+(\d{1,2}[-\s][A-Za-z]{3,}[-\s]\d{2,4})', text, re.IGNORECASE)
+                                                if match:
+                                                    found_record_date = match.group(1)
+
+                                        if found_amount:
+                                            item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
+                                            item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
+                                        if found_record_date:
+                                            item['EXTRACTED_RECORD_DATE'] = found_record_date
+
+                                        # Also attempt XBRL as primary if available
+                                        for ann in ann_data:
+                                            if isinstance(ann, dict) and ann.get('hasXbrl') and ('outcome' in str(ann.get('desc')).lower() or 'dividend' in str(ann.get('desc')).lower()):
+                                                xbrl_api = f"{self.BASE_URL}/api/corporate-announcements-xbrl?seq_id={ann.get('seq_id')}"
+                                                try:
+                                                    xbrl_resp = cffi_requests.get(xbrl_api, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                except:
+                                                    import requests as std_requests
+                                                    xbrl_resp = std_requests.get(xbrl_api, timeout=10, headers=self.HEADERS)
+
+                                                if xbrl_resp and xbrl_resp.status_code == 200:
+                                                    try:
+                                                        xbrl_json = xbrl_resp.json()
+                                                        if isinstance(xbrl_json, list) and len(xbrl_json) > 0:
+                                                            xml_url = xbrl_json[0].get('xbrl')
+                                                            if xml_url:
+                                                                try:
+                                                                    xml_resp = cffi_requests.get(xml_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                                except:
+                                                                    import requests as std_requests
+                                                                    xml_resp = std_requests.get(xml_url, timeout=10, headers=self.HEADERS)
+
+                                                                if xml_resp and xml_resp.status_code == 200:
+                                                                    root = ET.fromstring(xml_resp.content)
+                                                                    amount = 0.0
+                                                                    div_type = 'Final'
+                                                                    for elem in root.iter():
+                                                                        tag = elem.tag.split('}')[-1]
+                                                                        if tag in [
+                                                                            'RateOfFinalDividendRecommendedPerEquityShare',
+                                                                            'RateOfInterimDividendDeclaredPerEquityShare',
+                                                                            'RateOfDividendRecommendedPerEquityShare',
+                                                                            'RateOfSpecialDividendDeclaredPerEquityShare',
+                                                                            'DividendPerShare'
+                                                                        ]:
+                                                                            try:
+                                                                                amount += float(elem.text)
+                                                                            except:
+                                                                                pass
+                                                                        if tag == 'TypeOfDividend' and elem.text:
+                                                                            div_type = elem.text
+                                                                    if amount > 0:
+                                                                        # Override fallback with exact XBRL amount
+                                                                        item['EXTRACTED_DIVIDEND_AMOUNT'] = amount
+                                                                        item['EXTRACTED_DIVIDEND_TYPE'] = div_type
+                                                                        break
+                                                    except ValueError:
+                                                        pass
+
+                                        # Final Fallback: Fetch from Corporate Actions Data Bank if still missing
+                                        if not item.get('EXTRACTED_DIVIDEND_AMOUNT'):
+                                            ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&symbol={symbol}"
+                                            try:
+                                                ca_resp = cffi_requests.get(ca_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                            except:
+                                                import requests as std_requests
+                                                ca_resp = std_requests.get(ca_url, timeout=10, headers=self.HEADERS)
+
+                                            try:
+                                                if ca_resp.status_code == 200:
+                                                    ca_data = ca_resp.json()
+                                                    for ca in ca_data:
+                                                        sub = str(ca.get('subject', '')).lower()
+                                                        if 'dividend' in sub:
+                                                            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', sub, re.IGNORECASE)
+                                                            if match:
+                                                                item['EXTRACTED_DIVIDEND_AMOUNT'] = float(match.group(1))
+                                                                item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
+                                                                if ca.get('exDate') and ca.get('exDate') != '-':
+                                                                    item['EXTRACTED_RECORD_DATE'] = ca.get('exDate')
+                                                                break
+                                            except Exception as ca_e:
+                                                pass
+
+                                except Exception as e:
+                                    logger.error(f"Failed to fetch XBRL for {symbol}: {e}")
+
+                    enriched_data.append(item)
+
+                df = pd.DataFrame(enriched_data)
                 # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
                 mapping = {
                     'bm_symbol': 'SYMBOL',
