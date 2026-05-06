@@ -554,21 +554,36 @@ class NSELib:
                             if meeting_date_str:
                                 ann_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&symbol={symbol}&from_date={meeting_date_str}&to_date={meeting_date_str}"
                                 try:
-                                    # Use session.get directly with a very short timeout to avoid blocking Celery queue for minutes on NSE rate limits
-                                    ann_resp = self.session.get(ann_url, timeout=5)
+                                    # Use self.get(..., use_curl=True) to bypass 403 blocks from Akamai bot protection.
+                                    # Since use_curl handles the request via curl_cffi, we need to pass a shorter timeout locally.
+                                    # To prevent hanging the celery task, we explicitly use requests.get if use_curl fails, but with short timeout.
+                                    try:
+                                        import curl_cffi.requests as cffi_requests
+                                        ann_resp = cffi_requests.get(ann_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                    except:
+                                        ann_resp = self.session.get(ann_url, timeout=10)
+
                                     if ann_resp and ann_resp.status_code == 200:
                                         ann_data = ann_resp.json()
                                         for ann in ann_data:
                                             if isinstance(ann, dict) and ann.get('hasXbrl') and ('outcome' in str(ann.get('desc')).lower() or 'dividend' in str(ann.get('desc')).lower()):
                                                 xbrl_api = f"{self.BASE_URL}/api/corporate-announcements-xbrl?seq_id={ann.get('seq_id')}"
-                                                xbrl_resp = self.session.get(xbrl_api, timeout=5)
+                                                try:
+                                                    xbrl_resp = cffi_requests.get(xbrl_api, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                except:
+                                                    xbrl_resp = self.session.get(xbrl_api, timeout=10)
+
                                                 if xbrl_resp and xbrl_resp.status_code == 200:
                                                     try:
                                                         xbrl_json = xbrl_resp.json()
                                                         if isinstance(xbrl_json, list) and len(xbrl_json) > 0:
                                                             xml_url = xbrl_json[0].get('xbrl')
                                                             if xml_url:
-                                                                xml_resp = self.session.get(xml_url, timeout=5)
+                                                                try:
+                                                                    xml_resp = cffi_requests.get(xml_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                                except:
+                                                                    xml_resp = self.session.get(xml_url, timeout=10)
+
                                                                 if xml_resp and xml_resp.status_code == 200:
                                                                     root = ET.fromstring(xml_resp.content)
                                                                     amount = 0.0
