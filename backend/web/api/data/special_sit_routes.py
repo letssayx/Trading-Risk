@@ -157,6 +157,32 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 "raw_amount": r.parsed_dividend_amount
             })
 
+    # Deduplicate synthesized "Record date not yet declared" records if an official record exists
+    for sym, history in ca_by_symbol.items():
+        synthesized = [h for h in history if h['purpose'] and 'not yet declared' in h['purpose'].lower()]
+        official = [h for h in history if not (h['purpose'] and 'not yet declared' in h['purpose'].lower())]
+
+        filtered_history = []
+        for syn in synthesized:
+            # Check if there is an official record within 90 days after this synthesized record's date
+            # with the exact same amount.
+            has_official = False
+            syn_date = syn['ex_date_obj']
+            if syn_date:
+                for off in official:
+                    off_date = off['ex_date_obj']
+                    if off_date and syn_date <= off_date <= syn_date + datetime.timedelta(days=90):
+                        if abs(off['raw_amount'] - syn['raw_amount']) < 0.01:
+                            has_official = True
+                            break
+            if not has_official:
+                filtered_history.append(syn)
+
+        filtered_history.extend(official)
+        # Sort back by date descending
+        filtered_history.sort(key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min, reverse=True)
+        ca_by_symbol[sym] = filtered_history
+
     # Adjust historical dividends for bonuses and splits
     for sym, history in ca_by_symbol.items():
         adjustments = adjustments_by_symbol.get(sym, [])
