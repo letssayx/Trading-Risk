@@ -533,58 +533,69 @@ class NSELib:
                 # Fetch XBRL dividends for matching symbols
                 enriched_data = []
                 import xml.etree.ElementTree as ET
+
+                # Fetch announcements for all symbols in this batch at once to avoid hitting the API N times
+                # If there are too many, this might fail, so we will only fetch for those explicitly mentioning dividend.
+                # To avoid N+1 queries, we only query for rows that explicitly have "dividend"
                 for item in data:
                     item['EXTRACTED_DIVIDEND_AMOUNT'] = None
                     item['EXTRACTED_DIVIDEND_TYPE'] = None
 
                     purpose = str(item.get('bm_purpose', '')).lower()
                     desc = str(item.get('bm_desc', '')).lower()
-                    if 'dividend' in purpose or 'dividend' in desc or 'financial results' in purpose:
+
+                    # We are only interested if dividend is explicitly mentioned. 'financial results' alone creates too many false positive API calls.
+                    if 'dividend' in purpose or 'dividend' in desc:
                         symbol = item.get('bm_symbol')
                         if symbol:
-                            ann_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&symbol={symbol}&from_date={from_date_str}&to_date={to_date_str}"
-                            ann_resp = self.get(ann_url)
-                            if ann_resp and ann_resp.status_code == 200:
+                            # Instead of from/to date spanning 180 days which makes parsing hundreds of rows,
+                            # limit search to the exact meeting date or closely surrounding dates.
+                            meeting_date_str = item.get('bm_date')
+                            if meeting_date_str:
+                                ann_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&symbol={symbol}&from_date={meeting_date_str}&to_date={meeting_date_str}"
                                 try:
-                                    ann_data = ann_resp.json()
-                                    for ann in ann_data:
-                                        if ann.get('hasXbrl') and ('outcome' in str(ann.get('desc')).lower() or 'dividend' in str(ann.get('desc')).lower()):
-                                            xbrl_api = f"{self.BASE_URL}/api/corporate-announcements-xbrl?seq_id={ann.get('seq_id')}"
-                                            xbrl_resp = self.get(xbrl_api)
-                                            if xbrl_resp and xbrl_resp.status_code == 200:
-                                                try:
-                                                    xbrl_json = xbrl_resp.json()
-                                                    if isinstance(xbrl_json, list) and len(xbrl_json) > 0:
-                                                        xml_url = xbrl_json[0].get('xbrl')
-                                                        if xml_url:
-                                                            xml_resp = self.get(xml_url)
-                                                            if xml_resp and xml_resp.status_code == 200:
-                                                                root = ET.fromstring(xml_resp.content)
-                                                                amount = 0.0
-                                                                div_type = 'Final'
-                                                                for elem in root.iter():
-                                                                    tag = elem.tag.split('}')[-1]
-                                                                    if tag in [
-                                                                        'RateOfFinalDividendRecommendedPerEquityShare',
-                                                                        'RateOfInterimDividendDeclaredPerEquityShare',
-                                                                        'RateOfDividendRecommendedPerEquityShare',
-                                                                        'RateOfSpecialDividendDeclaredPerEquityShare',
-                                                                        'DividendPerShare'
-                                                                    ]:
-                                                                        try:
-                                                                            amount += float(elem.text)
-                                                                        except:
-                                                                            pass
-                                                                    if tag == 'TypeOfDividend' and elem.text:
-                                                                        div_type = elem.text
-                                                                if amount > 0:
-                                                                    item['EXTRACTED_DIVIDEND_AMOUNT'] = amount
-                                                                    item['EXTRACTED_DIVIDEND_TYPE'] = div_type
-                                                                    break
-                                                except:
-                                                    pass
-                                except:
-                                    pass
+                                    # Use session.get directly with a very short timeout to avoid blocking Celery queue for minutes on NSE rate limits
+                                    ann_resp = self.session.get(ann_url, timeout=5)
+                                    if ann_resp and ann_resp.status_code == 200:
+                                        ann_data = ann_resp.json()
+                                        for ann in ann_data:
+                                            if isinstance(ann, dict) and ann.get('hasXbrl') and ('outcome' in str(ann.get('desc')).lower() or 'dividend' in str(ann.get('desc')).lower()):
+                                                xbrl_api = f"{self.BASE_URL}/api/corporate-announcements-xbrl?seq_id={ann.get('seq_id')}"
+                                                xbrl_resp = self.session.get(xbrl_api, timeout=5)
+                                                if xbrl_resp and xbrl_resp.status_code == 200:
+                                                    try:
+                                                        xbrl_json = xbrl_resp.json()
+                                                        if isinstance(xbrl_json, list) and len(xbrl_json) > 0:
+                                                            xml_url = xbrl_json[0].get('xbrl')
+                                                            if xml_url:
+                                                                xml_resp = self.session.get(xml_url, timeout=5)
+                                                                if xml_resp and xml_resp.status_code == 200:
+                                                                    root = ET.fromstring(xml_resp.content)
+                                                                    amount = 0.0
+                                                                    div_type = 'Final'
+                                                                    for elem in root.iter():
+                                                                        tag = elem.tag.split('}')[-1]
+                                                                        if tag in [
+                                                                            'RateOfFinalDividendRecommendedPerEquityShare',
+                                                                            'RateOfInterimDividendDeclaredPerEquityShare',
+                                                                            'RateOfDividendRecommendedPerEquityShare',
+                                                                            'RateOfSpecialDividendDeclaredPerEquityShare',
+                                                                            'DividendPerShare'
+                                                                        ]:
+                                                                            try:
+                                                                                amount += float(elem.text)
+                                                                            except:
+                                                                                pass
+                                                                        if tag == 'TypeOfDividend' and elem.text:
+                                                                            div_type = elem.text
+                                                                    if amount > 0:
+                                                                        item['EXTRACTED_DIVIDEND_AMOUNT'] = amount
+                                                                        item['EXTRACTED_DIVIDEND_TYPE'] = div_type
+                                                                        break
+                                                    except ValueError:
+                                                        pass
+                                except Exception as e:
+                                    logger.error(f"Failed to fetch XBRL for {symbol}: {e}")
 
                     enriched_data.append(item)
 
