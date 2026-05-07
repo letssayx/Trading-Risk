@@ -529,7 +529,7 @@ class NSELib:
 
     def get_board_meetings(self, trade_date: date) -> pd.DataFrame:
         """Get Board Meetings."""
-        from datetime import timedelta
+        from datetime import timedelta, datetime
         import re
 
         from_date_str = trade_date.strftime("%d-%m-%Y")
@@ -547,10 +547,16 @@ class NSELib:
                 if not data:
                      return pd.DataFrame()
 
-                # Pre-fetch broad corporate announcements for Dividend and Record Date to avoid N+1 API calls
-                global_announcements = {}
+                # Filter down to just elements that have "dividend"
+                dividend_items = []
+                for item in data:
+                    purpose = str(item.get('bm_purpose', '')).lower()
+                    desc = str(item.get('bm_desc', '')).lower()
+                    if 'dividend' in purpose or 'dividend' in desc:
+                        dividend_items.append(item)
+
+                # Fetch specific symbol announcements for just these to be fast, bypassing N+1 full loops if possible
                 try:
-                    # We use cffi_requests if possible to bypass Akamai
                     try:
                         import curl_cffi.requests as cffi_requests
                         req_mod = cffi_requests
@@ -558,23 +564,11 @@ class NSELib:
                     except ImportError:
                         import requests as req_mod
                         kwargs = {"timeout": 5, "headers": self.HEADERS}
+                except Exception:
+                    pass
 
-                    div_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
-                    rd_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
-
-                    for ann_url in [div_url, rd_url]:
-                        ann_resp = req_mod.get(ann_url, **kwargs)
-                        if ann_resp.status_code == 200:
-                            for ann in ann_resp.json():
-                                if not isinstance(ann, dict): continue
-                                sym = ann.get('symbol')
-                                if sym:
-                                    if sym not in global_announcements:
-                                        global_announcements[sym] = []
-                                    global_announcements[sym].append(ann)
-                except Exception as e:
-                    logger.error(f"Failed to pre-fetch global corporate announcements: {e}")
-
+                # Cache of symbol -> announcements
+                symbol_announcements = {}
                 enriched_data = []
 
                 for item in data:
@@ -587,38 +581,45 @@ class NSELib:
 
                     if 'dividend' in purpose or 'dividend' in desc:
                         symbol = item.get('bm_symbol')
-                        if symbol and symbol in global_announcements:
+
+                        if symbol and symbol not in symbol_announcements:
+                            try:
+                                ann_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&symbol={symbol}"
+                                ann_resp = req_mod.get(ann_url, **kwargs)
+                                if ann_resp.status_code == 200:
+                                    symbol_announcements[symbol] = ann_resp.json()
+                                else:
+                                    symbol_announcements[symbol] = []
+                            except Exception as e:
+                                logger.error(f"Failed to fetch announcements for {symbol}: {e}")
+                                symbol_announcements[symbol] = []
+
+                        if symbol and symbol in symbol_announcements:
                             found_amount = None
                             found_record_date = None
                             found_type = 'Final'
 
-                            # We only want announcements that occurred on or after the board meeting date
                             try:
-                                from datetime import datetime
                                 bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
                             except ValueError:
                                 bm_date_obj = None
 
-                            for ann in global_announcements[symbol]:
-                                # Check date constraints to prevent stale older announcements from bleeding into a new board meeting
+                            for ann in symbol_announcements[symbol]:
+                                if not isinstance(ann, dict): continue
+
                                 if bm_date_obj:
                                     an_dt_str = ann.get('an_dt', '')
                                     try:
-                                        # an_dt format: '07-May-2026 12:47:12'
                                         an_dt_obj = datetime.strptime(an_dt_str[:11], "%d-%b-%Y").date()
-                                        # Only accept announcements that happened ON or AFTER the board meeting,
-                                        # or at most 1 day before (timezone issues).
-                                        # AND no more than 10 days after.
                                         days_diff = (an_dt_obj - bm_date_obj).days
                                         if days_diff < -1 or days_diff > 10:
-                                            continue  # Skip stale announcements
+                                            continue
                                     except ValueError:
                                         pass
 
                                 ann_desc = str(ann.get('desc', '')).lower()
                                 text = str(ann.get('attchmntText', ''))
 
-                                # Memory instruction: For dividends, use re.findall to parse and sum all matching amounts
                                 if not found_amount and ('dividend' in ann_desc or 'dividend' in text.lower() or 'outcome' in ann_desc):
                                     matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
                                     if matches:
@@ -640,7 +641,6 @@ class NSELib:
                     enriched_data.append(item)
 
                 df = pd.DataFrame(enriched_data)
-                # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
                 mapping = {
                     'bm_symbol': 'SYMBOL',
                     'sm_name': 'COMPANY NAME',
