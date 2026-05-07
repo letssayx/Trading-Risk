@@ -592,7 +592,25 @@ class NSELib:
                             found_record_date = None
                             found_type = 'Final'
 
+                            # We only want announcements that occurred on or after the board meeting date
+                            try:
+                                from datetime import datetime
+                                bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
+                            except ValueError:
+                                bm_date_obj = None
+
                             for ann in global_announcements[symbol]:
+                                # Check date constraints to prevent stale older announcements from bleeding into a new board meeting
+                                if bm_date_obj:
+                                    an_dt_str = ann.get('an_dt', '')
+                                    try:
+                                        # an_dt format: '07-May-2026 12:47:12'
+                                        an_dt_obj = datetime.strptime(an_dt_str[:11], "%d-%b-%Y").date()
+                                        if an_dt_obj < bm_date_obj:
+                                            continue  # Skip stale announcements
+                                    except ValueError:
+                                        pass
+
                                 ann_desc = str(ann.get('desc', '')).lower()
                                 text = str(ann.get('attchmntText', ''))
 
