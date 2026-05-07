@@ -547,28 +547,27 @@ class NSELib:
                 if not data:
                      return pd.DataFrame()
 
-                # Filter down to just elements that have "dividend"
-                dividend_items = []
-                for item in data:
-                    purpose = str(item.get('bm_purpose', '')).lower()
-                    desc = str(item.get('bm_desc', '')).lower()
-                    if 'dividend' in purpose or 'dividend' in desc:
-                        dividend_items.append(item)
-
-                # Fetch specific symbol announcements for just these to be fast, bypassing N+1 full loops if possible
-                try:
+                # Get all CA events globally in one request rather than N+1
+                ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+                ca_resp = self.get(ca_url)
+                ca_data = []
+                if ca_resp and ca_resp.status_code == 200:
                     try:
-                        import curl_cffi.requests as cffi_requests
-                        req_mod = cffi_requests
-                        kwargs = {"impersonate": "chrome110", "timeout": 5, "headers": self.HEADERS}
-                    except ImportError:
-                        import requests as req_mod
-                        kwargs = {"timeout": 5, "headers": self.HEADERS}
-                except Exception:
-                    pass
+                        ca_data = ca_resp.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse global CA response: {e}")
 
-                # Cache of symbol -> announcements
-                symbol_announcements = {}
+                # Build a mapping of symbol -> list of dividend CA events
+                symbol_ca_map = {}
+                for ca in ca_data:
+                    subject = str(ca.get('subject', '')).lower()
+                    if 'dividend' in subject:
+                        sym = ca.get('symbol')
+                        if sym:
+                            if sym not in symbol_ca_map:
+                                symbol_ca_map[sym] = []
+                            symbol_ca_map[sym].append(ca)
+
                 enriched_data = []
 
                 for item in data:
@@ -581,62 +580,57 @@ class NSELib:
 
                     if 'dividend' in purpose or 'dividend' in desc:
                         symbol = item.get('bm_symbol')
+                        found_amount = None
+                        found_record_date = None
+                        found_type = 'Final'
 
-                        if symbol and symbol not in symbol_announcements:
-                            try:
-                                ann_url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&symbol={symbol}"
-                                ann_resp = req_mod.get(ann_url, **kwargs)
-                                if ann_resp.status_code == 200:
-                                    symbol_announcements[symbol] = ann_resp.json()
-                                else:
-                                    symbol_announcements[symbol] = []
-                            except Exception as e:
-                                logger.error(f"Failed to fetch announcements for {symbol}: {e}")
-                                symbol_announcements[symbol] = []
+                        # We don't have the exact announcement text anymore without N+1, but we CAN use the CA data.
+                        # Wait, the Board Meeting is usually earlier than the CA exDate. If we have a CA matching this symbol
+                        # and the date is reasonably close (e.g. exDate is in the future), we might be able to map it.
+                        # However, since the user expects extracting amount and date, we can also extract it from `desc` directly if it's there.
+                        # Usually, `bm_purpose` doesn't have the exact amount. Let's see if we can match against `symbol_ca_map`.
 
-                        if symbol and symbol in symbol_announcements:
-                            found_amount = None
-                            found_record_date = None
-                            found_type = 'Final'
-
+                        if symbol and symbol in symbol_ca_map:
                             try:
                                 bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
                             except ValueError:
                                 bm_date_obj = None
 
-                            for ann in symbol_announcements[symbol]:
-                                if not isinstance(ann, dict): continue
+                            for ca in symbol_ca_map[symbol]:
+                                ca_ex_date_str = str(ca.get('exDate', ''))
+                                try:
+                                    ca_ex_date_obj = datetime.strptime(ca_ex_date_str, "%d-%b-%Y").date()
+                                except ValueError:
+                                    ca_ex_date_obj = None
 
-                                if bm_date_obj:
-                                    an_dt_str = ann.get('an_dt', '')
-                                    try:
-                                        an_dt_obj = datetime.strptime(an_dt_str[:11], "%d-%b-%Y").date()
-                                        days_diff = (an_dt_obj - bm_date_obj).days
-                                        if days_diff < -1 or days_diff > 10:
-                                            continue
-                                    except ValueError:
-                                        pass
+                                # Usually the CA is valid if the ex-date is after the board meeting
+                                if bm_date_obj and ca_ex_date_obj:
+                                    days_diff = (ca_ex_date_obj - bm_date_obj).days
+                                    # the exDate should be at least on or after the BM date
+                                    if days_diff < -1:
+                                        continue
 
-                                ann_desc = str(ann.get('desc', '')).lower()
-                                text = str(ann.get('attchmntText', ''))
+                                subject = str(ca.get('subject', ''))
 
-                                if not found_amount and ('dividend' in ann_desc or 'dividend' in text.lower() or 'outcome' in ann_desc):
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
-                                    if matches:
-                                        found_amount = sum(float(m) for m in matches)
-                                        if 'interim' in text.lower(): found_type = 'Interim'
-                                        elif 'special' in text.lower(): found_type = 'Special'
+                                # Extract amount from the CA subject: e.g. 'Dividend - Rs 31 Per Share'
+                                matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', subject, re.IGNORECASE)
+                                if matches:
+                                    found_amount = sum(float(m) for m in matches)
+                                    if 'interim' in subject.lower(): found_type = 'Interim'
+                                    elif 'special' in subject.lower(): found_type = 'Special'
 
-                                if not found_record_date and ('record date' in ann_desc or 'dividend' in ann_desc or 'record date' in text.lower()):
-                                    match = re.search(r'(?:is|on)\s+(\d{1,2}[-\s][A-Za-z]{3,}[-\s]\d{2,4})', text, re.IGNORECASE)
-                                    if match:
-                                        found_record_date = match.group(1)
+                                rec_date = ca.get('recDate')
+                                if rec_date and rec_date != '-':
+                                    found_record_date = rec_date
 
-                            if found_amount:
-                                item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
-                                item['EXTRACTED_DIVIDEND_TYPE'] = found_type
-                            if found_record_date:
-                                item['EXTRACTED_RECORD_DATE'] = found_record_date
+                                if found_amount or found_record_date:
+                                    break # Matched the first valid future CA for this symbol
+
+                        if found_amount:
+                            item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
+                            item['EXTRACTED_DIVIDEND_TYPE'] = found_type
+                        if found_record_date:
+                            item['EXTRACTED_RECORD_DATE'] = found_record_date
 
                     enriched_data.append(item)
 

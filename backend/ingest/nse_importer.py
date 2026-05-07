@@ -89,8 +89,8 @@ class NSEDataImporter:
             'margin_trading': ['date', 'symbol'],
             # Bulk/Block deals and Corporate Actions/Board Meetings:
             # No unique fields for upsert anymore (we do delete-insert)
-            'corporate_actions': ['date', 'symbol'],
-            'board_meetings': ['date', 'symbol'],
+            'corporate_actions': ['date', 'symbol', 'purpose'],
+            'board_meetings': ['date', 'symbol', 'purpose'],
             'fii_dii_cash': ['trade_date', 'category'],
             'historical_index_data': ['trade_date', 'index_name'],
         }

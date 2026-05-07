@@ -454,7 +454,7 @@ class BoardMeeting(Base, TimescaleMixin):
 
     __table_args__ = (
         PrimaryKeyConstraint('date', 'id'),
-        UniqueConstraint('date', 'symbol', name='uq_board_meeting_unique'),
+        UniqueConstraint('date', 'symbol', 'purpose', name='uq_board_meeting_unique'),
     )
 
 
