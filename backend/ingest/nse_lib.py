@@ -606,7 +606,11 @@ class NSELib:
                                     try:
                                         # an_dt format: '07-May-2026 12:47:12'
                                         an_dt_obj = datetime.strptime(an_dt_str[:11], "%d-%b-%Y").date()
-                                        if an_dt_obj < bm_date_obj:
+                                        # Only accept announcements that happened ON or AFTER the board meeting,
+                                        # or at most 1 day before (timezone issues).
+                                        # AND no more than 10 days after.
+                                        days_diff = (an_dt_obj - bm_date_obj).days
+                                        if days_diff < -1 or days_diff > 10:
                                             continue  # Skip stale announcements
                                     except ValueError:
                                         pass
