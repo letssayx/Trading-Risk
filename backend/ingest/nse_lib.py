@@ -656,9 +656,12 @@ class NSELib:
                                                                         break
                                                     except ValueError:
                                                         pass
+                                except Exception as e:
+                                    logger.error(f"Failed to fetch XBRL for {symbol}: {e}")
 
-                                        # Final Fallback: Fetch from Corporate Actions Data Bank if still missing
-                                        if not item.get('EXTRACTED_DIVIDEND_AMOUNT'):
+                                try:
+                                    # Final Fallback: Fetch from Corporate Actions Data Bank if still missing
+                                    if not item.get('EXTRACTED_DIVIDEND_AMOUNT'):
                                             ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&symbol={symbol}"
                                             try:
                                                 ca_resp = cffi_requests.get(ca_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
@@ -683,7 +686,7 @@ class NSELib:
                                                 pass
 
                                 except Exception as e:
-                                    logger.error(f"Failed to fetch XBRL for {symbol}: {e}")
+                                    logger.error(f"Failed to fetch fallback Corporate Actions for {symbol}: {e}")
 
                     enriched_data.append(item)
 

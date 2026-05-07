@@ -433,9 +433,13 @@ class NSEDataImporter:
         if key == 'pe_ratio_idx' and format_info['type'] == 'historical_index_data':
             format_info['type'] = 'pe_ratio_idx'
 
+
         records = FieldMapper.map_to_records(df, format_info, trade_date)
 
+
+
         # Synthesize CorporateAction records for parsed dividends
+
         synthesized_ca_records = []
         if key == 'board_meetings':
             for r in records:
@@ -467,8 +471,10 @@ class NSEDataImporter:
                 # We can't just delete for trade_date because it would wipe out actual corporate actions.
                 # Instead, we will upsert them using simple ON CONFLICT DO NOTHING (or just _insert_batch).
                 try:
-                    self._insert_batch(db, ca_model, synthesized_ca_records)
-                    logger.info(f"Inserted {len(synthesized_ca_records)} synthesized corporate actions for dividends from board meetings.")
+                    # We MUST upsert here, not just insert on conflict do nothing,
+                    # otherwise existing corporate actions without dividend amounts will block our parsed updates.
+                    self._upsert_batch(db, ca_model, synthesized_ca_records, ca_unique)
+                    logger.info(f"Upserted {len(synthesized_ca_records)} synthesized corporate actions for dividends from board meetings.")
                 except Exception as e:
                     logger.error(f"Failed to insert synthesized corporate actions: {e}")
 
