@@ -549,6 +549,9 @@ class NSELib:
                 enriched_data = []
                 import xml.etree.ElementTree as ET
 
+                # Cache databank calls per symbol so we don't repeat API hits for the same stock
+                ca_databank_cache = {}
+
                 # Fetch announcements for all symbols in this batch at once to avoid hitting the API N times
                 # If there are too many, this might fail, so we will only fetch for those explicitly mentioning dividend.
                 # To avoid N+1 queries, we only query for rows that explicitly have "dividend"
@@ -574,10 +577,13 @@ class NSELib:
                                     # To prevent hanging the celery task, we explicitly use requests.get if use_curl fails, but with short timeout.
                                     try:
                                         import curl_cffi.requests as cffi_requests
-                                        ann_resp = cffi_requests.get(ann_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                        ann_resp = cffi_requests.get(ann_url, impersonate="chrome110", timeout=3, headers=self.HEADERS)
                                     except:
                                         import requests as std_requests
-                                        ann_resp = std_requests.get(ann_url, timeout=10, headers=self.HEADERS)
+                                        try:
+                                            ann_resp = std_requests.get(ann_url, timeout=3, headers=self.HEADERS)
+                                        except:
+                                            ann_resp = None
 
                                     if ann_resp and ann_resp.status_code == 200:
                                         ann_data = ann_resp.json()
@@ -613,10 +619,13 @@ class NSELib:
                                             if isinstance(ann, dict) and ann.get('hasXbrl') and ('outcome' in str(ann.get('desc')).lower() or 'dividend' in str(ann.get('desc')).lower()):
                                                 xbrl_api = f"{self.BASE_URL}/api/corporate-announcements-xbrl?seq_id={ann.get('seq_id')}"
                                                 try:
-                                                    xbrl_resp = cffi_requests.get(xbrl_api, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                    xbrl_resp = cffi_requests.get(xbrl_api, impersonate="chrome110", timeout=3, headers=self.HEADERS)
                                                 except:
                                                     import requests as std_requests
-                                                    xbrl_resp = std_requests.get(xbrl_api, timeout=10, headers=self.HEADERS)
+                                                    try:
+                                                        xbrl_resp = std_requests.get(xbrl_api, timeout=3, headers=self.HEADERS)
+                                                    except:
+                                                        xbrl_resp = None
 
                                                 if xbrl_resp and xbrl_resp.status_code == 200:
                                                     try:
@@ -625,10 +634,13 @@ class NSELib:
                                                             xml_url = xbrl_json[0].get('xbrl')
                                                             if xml_url:
                                                                 try:
-                                                                    xml_resp = cffi_requests.get(xml_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                                    xml_resp = cffi_requests.get(xml_url, impersonate="chrome110", timeout=3, headers=self.HEADERS)
                                                                 except:
                                                                     import requests as std_requests
-                                                                    xml_resp = std_requests.get(xml_url, timeout=10, headers=self.HEADERS)
+                                                                    try:
+                                                                        xml_resp = std_requests.get(xml_url, timeout=3, headers=self.HEADERS)
+                                                                    except:
+                                                                        xml_resp = None
 
                                                                 if xml_resp and xml_resp.status_code == 200:
                                                                     root = ET.fromstring(xml_resp.content)
@@ -662,28 +674,37 @@ class NSELib:
                                 try:
                                     # Final Fallback: Fetch from Corporate Actions Data Bank if still missing
                                     if not item.get('EXTRACTED_DIVIDEND_AMOUNT'):
+                                        if symbol not in ca_databank_cache:
                                             ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&symbol={symbol}"
                                             try:
-                                                ca_resp = cffi_requests.get(ca_url, impersonate="chrome110", timeout=10, headers=self.HEADERS)
+                                                # Reduce timeout drastically for the fallback to prevent hanging the celery task
+                                                ca_resp = cffi_requests.get(ca_url, impersonate="chrome110", timeout=3, headers=self.HEADERS)
                                             except:
                                                 import requests as std_requests
-                                                ca_resp = std_requests.get(ca_url, timeout=10, headers=self.HEADERS)
+                                                try:
+                                                    ca_resp = std_requests.get(ca_url, timeout=3, headers=self.HEADERS)
+                                                except:
+                                                    ca_resp = None
 
-                                            try:
-                                                if ca_resp.status_code == 200:
-                                                    ca_data = ca_resp.json()
-                                                    for ca in ca_data:
-                                                        sub = str(ca.get('subject', '')).lower()
-                                                        if 'dividend' in sub:
-                                                            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', sub, re.IGNORECASE)
-                                                            if match:
-                                                                item['EXTRACTED_DIVIDEND_AMOUNT'] = float(match.group(1))
-                                                                item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
-                                                                if ca.get('exDate') and ca.get('exDate') != '-':
-                                                                    item['EXTRACTED_RECORD_DATE'] = ca.get('exDate')
-                                                                break
-                                            except Exception as ca_e:
-                                                pass
+                                            if ca_resp and ca_resp.status_code == 200:
+                                                try:
+                                                    ca_databank_cache[symbol] = ca_resp.json()
+                                                except:
+                                                    ca_databank_cache[symbol] = []
+                                            else:
+                                                ca_databank_cache[symbol] = []
+
+                                        ca_data = ca_databank_cache.get(symbol, [])
+                                        for ca in ca_data:
+                                            sub = str(ca.get('subject', '')).lower()
+                                            if 'dividend' in sub:
+                                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', sub, re.IGNORECASE)
+                                                if match:
+                                                    item['EXTRACTED_DIVIDEND_AMOUNT'] = float(match.group(1))
+                                                    item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
+                                                    if ca.get('exDate') and ca.get('exDate') != '-':
+                                                        item['EXTRACTED_RECORD_DATE'] = ca.get('exDate')
+                                                    break
 
                                 except Exception as e:
                                     logger.error(f"Failed to fetch fallback Corporate Actions for {symbol}: {e}")
