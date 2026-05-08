@@ -451,8 +451,6 @@ class BoardMeeting(Base, TimescaleMixin):
     purpose = Column(Text)
     bm_desc = Column(Text)
     broadcast_date = Column(DateTime)
-    extracted_dividend_amount = Column(Float)
-    extracted_dividend_type = Column(String(50))
 
     __table_args__ = (
         PrimaryKeyConstraint('date', 'id'),

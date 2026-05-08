@@ -438,6 +438,45 @@ class NSEDataImporter:
 
 
 
+        # Synthesize CorporateAction records for parsed dividends
+
+        synthesized_ca_records = []
+        if key == 'board_meetings':
+            for r in records:
+                ext_amt = r.get('extracted_dividend_amount')
+                if ext_amt is not None and ext_amt > 0:
+                    ext_rec_date_str = r.get('extracted_record_date')
+                    parsed_rec_date = None
+                    if ext_rec_date_str:
+                        from backend.ingest.field_mapper import parse_nse_date
+                        parsed_rec_date = parse_nse_date(ext_rec_date_str)
+
+                    purpose_str = f"Dividend ({r.get('purpose', '')})".strip() if parsed_rec_date else f"Dividend - Record date not yet declared ({r.get('purpose', '')})".strip()
+
+                    synthesized_ca_records.append({
+                        'date': r.get('date'),
+                        'symbol': r.get('symbol'),
+                        'company_name': r.get('company_name'),
+                        'purpose': purpose_str,
+                        'parsed_dividend_amount': ext_amt,
+                        'dividend_type': r.get('extracted_dividend_type') or 'Final',
+                        'ex_date': parsed_rec_date,
+                        'record_date': parsed_rec_date,
+                    })
+            if synthesized_ca_records:
+                ca_model = self._get_model_class('corporate_actions')
+                ca_unique = self._get_unique_fields('corporate_actions')
+                synthesized_ca_records = self._deduplicate_records(synthesized_ca_records, ca_unique)
+                # Since bulk deals, board meetings and corp actions use delete-then-insert now:
+                # We can't just delete for trade_date because it would wipe out actual corporate actions.
+                # Instead, we will upsert them using simple ON CONFLICT DO NOTHING (or just _insert_batch).
+                try:
+                    # We MUST upsert here, not just insert on conflict do nothing,
+                    # otherwise existing corporate actions without dividend amounts will block our parsed updates.
+                    self._upsert_batch(db, ca_model, synthesized_ca_records, ca_unique)
+                    logger.info(f"Upserted {len(synthesized_ca_records)} synthesized corporate actions for dividends from board meetings.")
+                except Exception as e:
+                    logger.error(f"Failed to insert synthesized corporate actions: {e}")
 
         if key == 'bhavcopy_fo':
             for r in records:

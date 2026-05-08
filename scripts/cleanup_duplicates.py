@@ -28,7 +28,6 @@ try:
         purpose = r.purpose or ""
         # The synthesized strings start with "Dividend" or "Dividend - Record date" and ALWAYS end with a closing parenthesis ')'
         # AND contain an opening parenthesis '('
-        # Let's verify it matches the exact synthesis logic: it was a wrapper around the original purpose.
         if purpose.startswith("Dividend (") and purpose.endswith(")"):
             db.delete(r)
             deleted_count += 1
