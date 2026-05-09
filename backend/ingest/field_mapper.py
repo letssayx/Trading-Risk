@@ -284,7 +284,7 @@ class FieldMapper:
         dividend_type = 'Interim' if 'interim' in purpose_lower else 'Special' if 'special' in purpose_lower else 'Final'
 
         # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
-        rs_matches = re.findall(r'rs\.?\s*(\d+(?:\.\d+)?)', purpose_lower)
+        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', purpose_lower)
         if rs_matches:
             total_amount = sum(float(m) for m in rs_matches)
             return total_amount, dividend_type

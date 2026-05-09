@@ -3231,6 +3231,21 @@ function renderDividendsData() {
                                     hasLinkedAction = true;
                                     break;
                                 }
+
+                                // Check if this is an incomplete corporate action from the backend that lacks dates
+                                // but has 'dividend' in its purpose/subject. If we match it, we mark it as linked
+                                // AND inject the extracted amount before breaking out of the loop.
+                                const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).toLowerCase();
+                                if (!aDate && aPurpose.includes('dividend')) {
+                                    if (a.parsed_dividend_amount == null && m.extracted_dividend_amount) {
+                                        a.parsed_dividend_amount = m.extracted_dividend_amount;
+                                    }
+                                    if (!a.dividend_type || a.dividend_type === '-') {
+                                        a.dividend_type = m.extracted_dividend_type || 'Final';
+                                    }
+                                    hasLinkedAction = true;
+                                    break;
+                                }
                             }
                         }
                     }
