@@ -181,18 +181,44 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         filtered_history = []
         for syn in synthesized:
-            # Check if there is an official record within 90 days after this synthesized record's date
-            # with the exact same amount.
+            # Check if there is an official record within 90 days after this synthesized record's date.
             has_official = False
             # Fallback to announcement_date_obj if ex_date_obj is missing
             syn_date = syn['ex_date_obj'] or syn.get('announcement_date_obj')
             if syn_date:
                 for off in official:
                     off_date = off['ex_date_obj']
+                    # We match if the official record's ex-date falls within a 90 day window after the synthesized announcement
                     if off_date and syn_date <= off_date <= syn_date + datetime.timedelta(days=90):
-                        if abs(off['raw_amount'] - syn['raw_amount']) < 0.01:
+                        # Merge conditions:
+                        # 1. Exact amount match OR
+                        # 2. Official amount is missing/0 and we are confident they map to the same event type
+                        syn_amt = syn['raw_amount'] or 0.0
+                        off_amt = off['raw_amount'] or 0.0
+
+                        if abs(off_amt - syn_amt) < 0.01:
                             has_official = True
                             break
+                        elif off_amt == 0.0 and syn_amt > 0:
+                            # The official NSE subject lacked the amount (e.g. just "Financial Results/Dividend").
+                            # Since it fell in the 90-day window for this exact symbol and type, we transfer the synthesized amount!
+                            off['raw_amount'] = syn_amt
+                            off['amount'] = syn_amt
+                            has_official = True
+                            break
+                    elif not off_date:
+                        # If the official record STILL has no ex-date (e.g. it is just another announcement variant)
+                        # but they share the exact same announcement date (or very close), merge the amount into it.
+                        off_ann_date = off.get('announcement_date_obj')
+                        if off_ann_date and abs((syn_date - off_ann_date).days) <= 10:
+                            syn_amt = syn['raw_amount'] or 0.0
+                            off_amt = off['raw_amount'] or 0.0
+                            if off_amt == 0.0 and syn_amt > 0:
+                                off['raw_amount'] = syn_amt
+                                off['amount'] = syn_amt
+                                has_official = True
+                                break
+
             if not has_official:
                 filtered_history.append(syn)
 
