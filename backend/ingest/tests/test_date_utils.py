@@ -29,13 +29,14 @@ def test_format_nse_date_happy_paths(dt_obj, format_str, expected):
     """
     assert format_nse_date(dt_obj, format_str) == expected
 
-def test_format_nse_date_exception_fallback(mocker):
+def test_format_nse_date_exception_fallback(monkeypatch):
     """
     Test that an invalid format string triggers the exception block
     and falls back to the default "%d%m%Y" format.
     """
     # Mock logger to suppress output during test
-    mocker.patch("backend.ingest.date_utils.logger.error")
+    import logging
+    monkeypatch.setattr("backend.ingest.date_utils.logger.error", lambda x: None)
 
     dt = date(2026, 2, 6)
 

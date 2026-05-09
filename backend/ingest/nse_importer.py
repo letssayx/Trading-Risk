@@ -467,14 +467,19 @@ class NSEDataImporter:
                 ca_model = self._get_model_class('corporate_actions')
                 ca_unique = self._get_unique_fields('corporate_actions')
                 synthesized_ca_records = self._deduplicate_records(synthesized_ca_records, ca_unique)
-                # Since bulk deals, board meetings and corp actions use delete-then-insert now:
-                # We can't just delete for trade_date because it would wipe out actual corporate actions.
-                # Instead, we will upsert them using simple ON CONFLICT DO NOTHING (or just _insert_batch).
+
+                # Delete old synthesized records before inserting to prevent duplicates
+                # We identify synthesized records by their specific "Dividend" format string
                 try:
-                    # We MUST upsert here, not just insert on conflict do nothing,
-                    # otherwise existing corporate actions without dividend amounts will block our parsed updates.
-                    self._upsert_batch(db, ca_model, synthesized_ca_records, ca_unique)
-                    logger.info(f"Upserted {len(synthesized_ca_records)} synthesized corporate actions for dividends from board meetings.")
+                    from sqlalchemy import delete
+                    stmt = delete(ca_model).where(
+                        ca_model.date == trade_date,
+                        ca_model.purpose.like('Dividend%')
+                    )
+                    db.execute(stmt)
+
+                    self._insert_batch(db, ca_model, synthesized_ca_records)
+                    logger.info(f"Inserted {len(synthesized_ca_records)} synthesized corporate actions for dividends from board meetings.")
                 except Exception as e:
                     logger.error(f"Failed to insert synthesized corporate actions: {e}")
 
