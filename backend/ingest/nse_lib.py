@@ -557,6 +557,45 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse global CA response: {e}")
 
+                # Get corporate announcements globally to extract XBRL attachment texts
+                # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
+                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
+                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
+
+                div_announcements = []
+                rec_announcements = []
+
+                resp_div = self.get(announcement_url_div)
+                if resp_div and resp_div.status_code == 200:
+                    try:
+                        div_announcements = resp_div.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse dividend announcements: {e}")
+
+                resp_rec = self.get(announcement_url_rec)
+                if resp_rec and resp_rec.status_code == 200:
+                    try:
+                        rec_announcements = resp_rec.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse record date announcements: {e}")
+
+                # Build lookup dictionaries by symbol
+                symbol_announcements = {}
+
+                for ann in div_announcements:
+                    sym = ann.get('symbol')
+                    if sym:
+                        if sym not in symbol_announcements:
+                            symbol_announcements[sym] = []
+                        symbol_announcements[sym].append(ann)
+
+                for ann in rec_announcements:
+                    sym = ann.get('symbol')
+                    if sym:
+                        if sym not in symbol_announcements:
+                            symbol_announcements[sym] = []
+                        symbol_announcements[sym].append(ann)
+
                 # Build a mapping of symbol -> list of dividend CA events
                 symbol_ca_map = {}
                 for ca in ca_data:
@@ -584,12 +623,7 @@ class NSELib:
                         found_record_date = None
                         found_type = 'Final'
 
-                        # We don't have the exact announcement text anymore without N+1, but we CAN use the CA data.
-                        # Wait, the Board Meeting is usually earlier than the CA exDate. If we have a CA matching this symbol
-                        # and the date is reasonably close (e.g. exDate is in the future), we might be able to map it.
-                        # However, since the user expects extracting amount and date, we can also extract it from `desc` directly if it's there.
-                        # Usually, `bm_purpose` doesn't have the exact amount. Let's see if we can match against `symbol_ca_map`.
-
+                        # First try mapping to CA data for dates
                         if symbol and symbol in symbol_ca_map:
                             try:
                                 bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
@@ -626,8 +660,42 @@ class NSELib:
                                 if found_amount or found_record_date:
                                     break # Matched the first valid future CA for this symbol
 
-                        # If CA failed, try extracting natively from the description/purpose
-                        if not found_amount:
+                        # Fallback 1: Announcements API
+                        if symbol and symbol in symbol_announcements:
+                            try:
+                                bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
+                            except ValueError:
+                                bm_date_obj = None
+
+                            for ann in symbol_announcements[symbol]:
+                                # Check if announcement is within 10 days of board meeting
+                                ann_date_str = ann.get('an_dt', '')
+                                try:
+                                    # Format: "16-Apr-2026 13:07:29"
+                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 10:
+                                        attchmntText = ann.get('attchmntText', '')
+
+                                        # Extract Amount
+                                        if found_amount is None:
+                                            div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
+                                            matches = div_pattern.findall(attchmntText)
+                                            if matches:
+                                                found_amount = sum(float(m) for m in matches)
+
+                                        # Extract Record Date
+                                        if found_record_date is None:
+                                            # "Record date for the purpose of Dividend is 14-May-2026."
+                                            date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
+                                            date_match = date_pattern.search(attchmntText)
+                                            if date_match and 'record date' in attchmntText.lower():
+                                                found_record_date = date_match.group(1)
+
+                                except ValueError:
+                                    pass
+
+                        # Fallback 2: Extracting from bm_desc and bm_purpose
+                        if found_amount is None:
                             text_to_search = f"{purpose} {desc}"
                             # Extract using the common UI regex patterns
                             ui_patterns = [
