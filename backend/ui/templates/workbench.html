@@ -3221,22 +3221,13 @@ function renderDividendsData() {
                                     hasLinkedAction = true;
                                     break;
                                 }
-                                // If the backend already generated a synthetic action (e.g. record date not declared), consider it linked
-                                if (!aDate && (a.purpose || '').toLowerCase().includes('not yet declared')) {
-                                    hasLinkedAction = true;
-                                    break;
-                                }
-                                // Also catch the case where backend synthesis succeeded but with just "Dividend (...)"
-                                if (!aDate && (a.purpose || '').toLowerCase().startsWith('dividend (') && (a.purpose || '').endsWith(')')) {
-                                    hasLinkedAction = true;
-                                    break;
-                                }
-
-                                // Check if this is an incomplete corporate action from the backend that lacks dates
-                                // but has 'dividend' in its purpose/subject. If we match it, we mark it as linked
-                                // AND inject the extracted amount before breaking out of the loop.
                                 const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).toLowerCase();
-                                if (!aDate && aPurpose.includes('dividend')) {
+
+                                // If the backend generated a synthetic action or incomplete action without dates, consider it linked
+                                // AND inject the extracted amount before breaking out of the loop.
+                                if (!aDate && (aPurpose.includes('not yet declared') ||
+                                              (aPurpose.startsWith('dividend (') && aPurpose.endsWith(')')) ||
+                                              aPurpose.includes('dividend'))) {
                                     if (a.parsed_dividend_amount == null && m.extracted_dividend_amount) {
                                         a.parsed_dividend_amount = m.extracted_dividend_amount;
                                     }
