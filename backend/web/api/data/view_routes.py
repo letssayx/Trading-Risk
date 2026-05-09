@@ -583,6 +583,14 @@ async def delete_data_range(
     try:
         # 1. Determine the date column name in the model
         date_col = getattr(model, 'date', getattr(model, 'trade_date', None))
+        if date_col is None:
+            if hasattr(model, 'board_meeting_date'):
+                date_col = model.board_meeting_date
+            elif hasattr(model, 'meeting_date'):
+                date_col = model.meeting_date
+            elif hasattr(model, 'ex_date'):
+                date_col = model.ex_date
+
         table_name = model.__tablename__
 
         def execute_delete():
