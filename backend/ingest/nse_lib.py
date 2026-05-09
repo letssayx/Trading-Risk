@@ -626,6 +626,26 @@ class NSELib:
                                 if found_amount or found_record_date:
                                     break # Matched the first valid future CA for this symbol
 
+                        # If CA failed, try extracting natively from the description/purpose
+                        if not found_amount:
+                            text_to_search = f"{purpose} {desc}"
+                            # Extract using the common UI regex patterns
+                            ui_patterns = [
+                                r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)',
+                                r'(\d+(?:\.\d+)?)\s*\/\-',
+                                r'dividend\s+of\s+(\d+(?:\.\d+)?)',
+                                r'dividend.*?\s+(\d+(?:\.\d+)?)\s+per'
+                            ]
+                            for pat in ui_patterns:
+                                matches = re.findall(pat, text_to_search, re.IGNORECASE)
+                                if matches:
+                                    found_amount = sum(float(m) for m in matches)
+                                    break
+
+                            if found_amount:
+                                if 'interim' in text_to_search.lower(): found_type = 'Interim'
+                                elif 'special' in text_to_search.lower(): found_type = 'Special'
+
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
                             item['EXTRACTED_DIVIDEND_TYPE'] = found_type

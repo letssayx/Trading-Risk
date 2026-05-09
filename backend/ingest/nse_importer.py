@@ -472,11 +472,14 @@ class NSEDataImporter:
                 # We identify synthesized records by their specific "Dividend" format string
                 try:
                     from sqlalchemy import delete
-                    stmt = delete(ca_model).where(
-                        ca_model.date == trade_date,
-                        ca_model.purpose.like('Dividend%')
-                    )
-                    db.execute(stmt)
+                    # To effectively deduplicate synthesized corporate actions that might have
+                    # drifted across different `trade_date` imports but belong to the same symbol/purpose:
+                    for rec in synthesized_ca_records:
+                        stmt = delete(ca_model).where(
+                            ca_model.symbol == rec['symbol'],
+                            ca_model.purpose == rec['purpose']
+                        )
+                        db.execute(stmt)
 
                     self._insert_batch(db, ca_model, synthesized_ca_records)
                     logger.info(f"Inserted {len(synthesized_ca_records)} synthesized corporate actions for dividends from board meetings.")
