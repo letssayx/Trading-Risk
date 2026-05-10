@@ -1051,6 +1051,11 @@ function updateSSDivData(symbol, field, value) {
     if (!ssDivData) return;
     const item = ssDivData.find(x => x.symbol === symbol);
     if (item) {
+        if (field === 'is_above_2_percent') {
+            const lowerVal = value.trim().toLowerCase();
+            item.is_above_2_percent = (lowerVal === 'yes' || lowerVal === 'true' || lowerVal === '1');
+            // Allow it to fall through to saving logic below
+        }
         if (field === 'expected_amount') {
             // Strip out non-numeric chars in case they edited formatting
             let num = value.replace(/[^0-9.]/g, '');
@@ -1194,7 +1199,9 @@ function renderSSDividends() {
         }
 
         const isAbove2 = item.is_above_2_percent;
-        const above2Cell = isAbove2 ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
+        const above2Cell = isAbove2
+            ? `<td contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.innerText)" onclick="event.stopPropagation();" style="color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1); border-bottom: 1px dashed #555; cursor: text;">Yes</td>`
+            : `<td contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.innerText)" onclick="event.stopPropagation();" style="border-bottom: 1px dashed #555; cursor: text;">No</td>`;
 
         let lastAmountHtml = item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-';
         let lastExDateHtml = item.last_ex_date || '-';
@@ -1252,6 +1259,7 @@ function renderSSDividends() {
         if (item.history && item.history.length > 0) {
             let histRows = '';
             item.history.forEach(h => {
+                // We don't make history editable, only the main row. But to be consistent:
                 const histAbove2 = h.is_above_2_percent ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
                 histRows += `
                     <tr>

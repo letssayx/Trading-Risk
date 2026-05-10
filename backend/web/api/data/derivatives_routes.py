@@ -796,14 +796,15 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         ca_records = db.query(
             CorporateAction.symbol,
             CorporateAction.ex_date,
-            CorporateAction.purpose
+            CorporateAction.purpose,
+            CorporateAction.parsed_dividend_amount
         ).filter(
             CorporateAction.ex_date >= latest_fo_date,
             CorporateAction.ex_date <= next_month,
             CorporateAction.parsed_dividend_amount != None
         ).all()
         for r in ca_records:
-            ca_map[r.symbol] = f"{r.ex_date.strftime('%d-%b')} Div"
+            ca_map[r.symbol] = f"{r.ex_date.strftime('%d-%b')} Div (Rs {r.parsed_dividend_amount})"
     except Exception:
         pass
 

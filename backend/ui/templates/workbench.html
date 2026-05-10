@@ -2074,8 +2074,10 @@
                                     <th style="padding: 8px;">Price</th>
                                     <th style="padding: 8px;">% Change</th>
                                     <th style="padding: 8px;">BPS</th>
-                                    <th style="padding: 8px; display: none;">Ann. Yield</th>
-                                    <th style="padding: 8px;">Volume</th>
+                                    <th style="padding: 8px;">Rollover Spread</th>
+                                    <th style="padding: 8px;">Rollover Yield</th>
+                                    <th style="padding: 8px;">Ann. Yield</th>
+                                    <th style="padding: 8px;">Volume (Contracts)</th>
                                     <th style="padding: 8px;">ATP</th>
                                     <th style="padding: 8px;">OI</th>
                                     <th style="padding: 8px;">% Chg OI</th>
@@ -4536,7 +4538,9 @@ function exportChartDataToCSV(chartInstance, filename) {
                     <td style="font-weight: bold;">${eq.price != null && !isNaN(eq.price) ? eq.price.toFixed(2) : '-'}</td>
                     <td style="color: ${eqChangeColor}; font-weight: bold;">${eqChangeStr}</td>
                     <td>-</td>
-                    <td style="display: none;">-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
                     <td style="color: #ccc;">${eq.vol > 0 ? (eq.vol).toLocaleString() : '-'}</td>
                     <td style="color: #ccc;">${eq.atp > 0 ? eq.atp.toFixed(2) : '-'}</td>
                     <td>-</td>
@@ -4568,13 +4572,26 @@ function exportChartDataToCSV(chartInstance, filename) {
                     const prevDte = idx === 0 ? 0 : futs[idx-1].dte;
                     const days = idx === 0 ? f.dte : (f.dte - prevDte);
 
+                    let rollSpread = '-';
+                    let rollYield = '-';
+                    if (idx > 0) {
+                        const prevPrice = futs[idx-1].price;
+                        if (prevPrice > 0 && f.price > 0) {
+                            const spread = f.price - prevPrice;
+                            rollSpread = spread.toFixed(2);
+                            rollYield = ((spread / prevPrice) * 100).toFixed(2);
+                        }
+                    }
+
                     futTr.innerHTML = `
                         <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #aaa;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
                         <td style="color: #aaa;">${reportDate}</td>
                         <td>${priceVal.toFixed(2)}</td>
                         <td>${futChangeStr}</td>
                         <td style="color: #e6a23c;">${bpsVal.toFixed(2)} (${days}d)</td>
-                        <td style="color: ${yieldColor}; display: none;">${yld.toFixed(2)}%</td>
+                        <td>${rollSpread}</td>
+                        <td>${rollYield !== '-' ? rollYield + '%' : '-'}</td>
+                        <td style="color: ${yieldColor};">${yld.toFixed(2)}%</td>
                         <td style="color: #ccc;">${(f.vol).toLocaleString()}</td>
                         <td style="color: #ccc;">-</td>
                         <td style="color: #ccc;">${(f.oi).toLocaleString()}</td>

@@ -240,10 +240,25 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 # (Ideally, we'd pre-fetch all needed historical prices).
                 # To avoid N+1 we should bulk fetch, but let's just do a single query for now as a fix.
                 try:
-                    hist_price = db.query(BhavcopyEQ.close).filter(
-                        BhavcopyEQ.symbol == sym,
-                        BhavcopyEQ.trade_date < ref_date
-                    ).order_by(BhavcopyEQ.trade_date.desc()).first()
+                    import datetime
+                    # If broadcast date has a time after 15:30:00, use <= ref_date.date()
+                    # If broadcast date has a time before 15:30:00, use < ref_date.date()
+                    # If ref_date is just a date, use < ref_date
+
+                    price_query = db.query(BhavcopyEQ.close).filter(
+                        BhavcopyEQ.symbol == sym
+                    )
+
+                    if isinstance(ref_date, datetime.datetime):
+                        target_time = datetime.time(15, 30, 0)
+                        if ref_date.time() >= target_time:
+                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
+                        else:
+                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
+                    else:
+                        price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date)
+
+                    hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
 
                     if hist_price and hist_price[0] and hist_price[0] > 0:
                         if (h['amount'] / hist_price[0]) * 100 > 2.0:
