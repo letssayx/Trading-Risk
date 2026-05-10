@@ -3248,6 +3248,7 @@ function renderDividendsData() {
 
                         // Parse dividend amount if available (e.g., "Rs. 54 per share" or "54/-")
                         let amount = m.extracted_dividend_amount || null;
+                        if (amount == null && m.parsed_dividend_amount) amount = m.parsed_dividend_amount;
                         let divType = '-';
                         if (purpose.includes('dividend')) {
                              divType = 'Dividend';
