@@ -3297,7 +3297,108 @@ function renderDividendsData() {
             });
         });
 
-        let filteredActions = combinedActions.filter(d => {
+        // Deduplicate combinedActions by symbol and time proximity (e.g. within 60 days)
+        // Group by symbol
+        let groupedActions = {};
+        combinedActions.forEach(action => {
+            const sym = action.symbol;
+            if (!groupedActions[sym]) {
+                groupedActions[sym] = [];
+            }
+            groupedActions[sym].push(action);
+        });
+
+        let finalCombinedActions = [];
+
+        Object.keys(groupedActions).forEach(sym => {
+            let actionsForSym = groupedActions[sym];
+
+            // Sort by earliest relevant date first so we process them chronologically
+            actionsForSym.sort((a, b) => {
+                const getSortTime = (item) => {
+                    if (item.ex_date) return new Date(item.ex_date).getTime();
+                    if (item.record_date) return new Date(item.record_date).getTime();
+                    if (item.broadcast_date) return new Date(item.broadcast_date).getTime();
+                    if (item._matchedMeeting && item._matchedMeeting.meeting_date) return new Date(item._matchedMeeting.meeting_date).getTime();
+                    return 0;
+                };
+                return getSortTime(a) - getSortTime(b);
+            });
+
+            // Iterate and merge actions that are within ~60 days of each other
+            let mergedActions = [];
+            for (let i = 0; i < actionsForSym.length; i++) {
+                const currentAction = actionsForSym[i];
+                let merged = false;
+
+                for (let j = 0; j < mergedActions.length; j++) {
+                    const existingAction = mergedActions[j];
+
+                    const getTime = (item) => {
+                        if (item.ex_date) return new Date(item.ex_date).getTime();
+                        if (item.record_date) return new Date(item.record_date).getTime();
+                        if (item.broadcast_date) return new Date(item.broadcast_date).getTime();
+                        if (item._matchedMeeting && item._matchedMeeting.meeting_date) return new Date(item._matchedMeeting.meeting_date).getTime();
+                        if (item.date) return new Date(item.date).getTime();
+                        return 0;
+                    };
+
+                    const timeCurrent = getTime(currentAction);
+                    const timeExisting = getTime(existingAction);
+
+                    // If both times are valid and within 60 days, merge them
+                    if (timeCurrent > 0 && timeExisting > 0) {
+                        const diffDays = Math.abs(timeCurrent - timeExisting) / (1000 * 60 * 60 * 24);
+                        if (diffDays <= 60) {
+                            // Merge currentAction INTO existingAction (current is newer chronologically based on our sort)
+
+                            // Prefer real dates over nulls
+                            if (currentAction.ex_date) existingAction.ex_date = currentAction.ex_date;
+                            if (currentAction.record_date) existingAction.record_date = currentAction.record_date;
+                            if (currentAction.broadcast_date) existingAction.broadcast_date = currentAction.broadcast_date;
+
+                            // Prefer specific amounts
+                            if (currentAction.parsed_dividend_amount && currentAction.parsed_dividend_amount !== "-") {
+                                existingAction.parsed_dividend_amount = currentAction.parsed_dividend_amount;
+                            }
+
+                            // Prefer actual corporate action over synthetic, or latest purpose
+                            // Synthetic means it came from our frontend board meeting synthesis
+                            // Not synthetic could be from DB (real or backend synthetic)
+                            if (currentAction.purpose && currentAction.purpose.toLowerCase() !== 'dividend') {
+                                // If the current action has a more descriptive purpose than just "Dividend", keep it.
+                                existingAction.purpose = currentAction.purpose;
+                                existingAction.subject = currentAction.subject || currentAction.purpose;
+                            } else if (!existingAction.purpose || existingAction.purpose.toLowerCase().includes('not yet declared')) {
+                                existingAction.purpose = currentAction.purpose || existingAction.purpose;
+                                existingAction.subject = currentAction.subject || existingAction.subject;
+                            }
+
+                            if (currentAction.dividend_type && currentAction.dividend_type !== '-') {
+                                existingAction.dividend_type = currentAction.dividend_type;
+                            }
+
+                            // If we merge a real action over a synthetic one, mark it as real
+                            if (!currentAction.is_synthetic) {
+                                existingAction.is_synthetic = false;
+                            }
+
+                            merged = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!merged) {
+                    // Create a shallow copy so we don't mutate the raw data arrays directly
+                    mergedActions.push({...currentAction});
+                }
+            }
+
+            finalCombinedActions.push(...mergedActions);
+        });
+
+        let filteredActions = finalCombinedActions.filter(d => {
             const matchSymbol = !searchFilter ||
                 (d.symbol && d.symbol.toUpperCase().includes(searchFilter)) ||
                 (d.company_name && d.company_name.toUpperCase().includes(searchFilter));

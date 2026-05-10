@@ -482,7 +482,6 @@ class NSEDataImporter:
                         from sqlalchemy import or_
                         stmt = delete(ca_model).where(
                             ca_model.symbol == rec['symbol'],
-                            ca_model.parsed_dividend_amount == rec['parsed_dividend_amount'],
                             or_(
                                 ca_model.purpose.like('%not yet declared%'),
                                 ca_model.purpose.like('Dividend (%'),
