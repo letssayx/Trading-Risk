@@ -3313,13 +3313,29 @@ function renderDividendsData() {
         Object.keys(groupedActions).forEach(sym => {
             let actionsForSym = groupedActions[sym];
 
+            const parseDateString = (dateString) => {
+                if (!dateString || dateString === '-' || String(dateString).toLowerCase() === 'null') return 0;
+                if (String(dateString).match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const t = new Date(dateString).getTime();
+                    if (!isNaN(t)) return t;
+                }
+                if (String(dateString).match(/^\d{2}-[a-zA-Z0-9]{2,3}-\d{4}$/)) {
+                    const parts = String(dateString).split('-');
+                    const t = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+                    if (!isNaN(t)) return t;
+                }
+                const fallback = new Date(dateString).getTime();
+                return isNaN(fallback) ? 0 : fallback;
+            };
+
             // Sort by earliest relevant date first so we process them chronologically
             actionsForSym.sort((a, b) => {
                 const getSortTime = (item) => {
-                    if (item.ex_date) return new Date(item.ex_date).getTime();
-                    if (item.record_date) return new Date(item.record_date).getTime();
-                    if (item.broadcast_date) return new Date(item.broadcast_date).getTime();
-                    if (item._matchedMeeting && item._matchedMeeting.meeting_date) return new Date(item._matchedMeeting.meeting_date).getTime();
+                    let t = parseDateString(item.ex_date); if (t > 0) return t;
+                    t = parseDateString(item.record_date); if (t > 0) return t;
+                    t = parseDateString(item.broadcast_date); if (t > 0) return t;
+                    if (item._matchedMeeting) { t = parseDateString(item._matchedMeeting.meeting_date); if (t > 0) return t; }
+                    t = parseDateString(item.date); if (t > 0) return t;
                     return 0;
                 };
                 return getSortTime(a) - getSortTime(b);
@@ -3335,11 +3351,11 @@ function renderDividendsData() {
                     const existingAction = mergedActions[j];
 
                     const getTime = (item) => {
-                        if (item.ex_date) return new Date(item.ex_date).getTime();
-                        if (item.record_date) return new Date(item.record_date).getTime();
-                        if (item.broadcast_date) return new Date(item.broadcast_date).getTime();
-                        if (item._matchedMeeting && item._matchedMeeting.meeting_date) return new Date(item._matchedMeeting.meeting_date).getTime();
-                        if (item.date) return new Date(item.date).getTime();
+                        let t = parseDateString(item.ex_date); if (t > 0) return t;
+                        t = parseDateString(item.record_date); if (t > 0) return t;
+                        t = parseDateString(item.broadcast_date); if (t > 0) return t;
+                        if (item._matchedMeeting) { t = parseDateString(item._matchedMeeting.meeting_date); if (t > 0) return t; }
+                        t = parseDateString(item.date); if (t > 0) return t;
                         return 0;
                     };
 
@@ -3442,11 +3458,26 @@ function renderDividendsData() {
         filteredActions.sort((a, b) => {
             let valA, valB;
             if (divSortCol === 'ex_date') {
+                const parseDateStringSort = (dateString) => {
+                    if (!dateString || dateString === '-' || String(dateString).toLowerCase() === 'null') return 0;
+                    if (String(dateString).match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        const t = new Date(dateString).getTime();
+                        if (!isNaN(t)) return t;
+                    }
+                    if (String(dateString).match(/^\d{2}-[a-zA-Z0-9]{2,3}-\d{4}$/)) {
+                        const parts = String(dateString).split('-');
+                        const t = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+                        if (!isNaN(t)) return t;
+                    }
+                    const fallback = new Date(dateString).getTime();
+                    return isNaN(fallback) ? 0 : fallback;
+                };
                 const getSortTime = (item) => {
-                    if (item.ex_date) return new Date(item.ex_date).getTime();
-                    if (item.record_date) return new Date(item.record_date).getTime();
-                    if (item.broadcast_date) return new Date(item.broadcast_date).getTime();
-                    if (item._matchedMeeting && item._matchedMeeting.meeting_date) return new Date(item._matchedMeeting.meeting_date).getTime();
+                    let t = parseDateStringSort(item.ex_date); if (t > 0) return t;
+                    t = parseDateStringSort(item.record_date); if (t > 0) return t;
+                    t = parseDateStringSort(item.broadcast_date); if (t > 0) return t;
+                    if (item._matchedMeeting) { t = parseDateStringSort(item._matchedMeeting.meeting_date); if (t > 0) return t; }
+                    t = parseDateStringSort(item.date); if (t > 0) return t;
                     return 0; // Epoch 0 fallback
                 };
                 valA = getSortTime(a);
