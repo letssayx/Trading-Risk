@@ -2712,6 +2712,8 @@
                                     <option value="historical_index_data">Historical Index Data</option>
                         <option value="margin_trading">Margin Trading</option>
                         <option value="security_master">Security Master</option>
+                        <option value="board_meetings">Board Meetings</option>
+                        <option value="corporate_actions">Corporate Actions</option>
 
                     </select>
                 </div>
@@ -3221,7 +3223,7 @@ function renderDividendsData() {
                                     hasLinkedAction = true;
                                     break;
                                 }
-                                const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).toLowerCase();
+                                const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).trim().toLowerCase();
 
                                 // If the backend generated a synthetic action or incomplete action without dates, consider it linked
                                 // AND inject the extracted amount before breaking out of the loop.
