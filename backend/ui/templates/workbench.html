@@ -3233,10 +3233,8 @@ function renderDividendsData() {
 
                                     // Make sure we only link if the broadcast date / meeting date roughly matches, to avoid linking to very old dummy actions
                                     let isTimeMatch = true;
-                                    // Check meeting date matching if broadcast_date is available, else fallback to date
-                                    const actionDateToCompare = a.broadcast_date || a.date;
-                                    if (actionDateToCompare && m.meeting_date) {
-                                        const bDate = new Date(actionDateToCompare);
+                                    if (a.broadcast_date && m.meeting_date) {
+                                        const bDate = new Date(a.broadcast_date);
                                         const meetDate = new Date(m.meeting_date);
                                         const diffDays = Math.abs(bDate - meetDate) / (1000 * 60 * 60 * 24);
                                         if (diffDays > 30) isTimeMatch = false; // Must be within 30 days
@@ -3348,7 +3346,6 @@ function renderDividendsData() {
                     if (item.record_date) return new Date(item.record_date).getTime();
                     if (item.broadcast_date) return new Date(item.broadcast_date).getTime();
                     if (item._matchedMeeting && item._matchedMeeting.meeting_date) return new Date(item._matchedMeeting.meeting_date).getTime();
-                    if (item.date) return new Date(item.date).getTime();
                     return 0; // Epoch 0 fallback
                 };
                 valA = getSortTime(a);

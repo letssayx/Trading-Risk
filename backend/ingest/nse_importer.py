@@ -451,7 +451,11 @@ class NSEDataImporter:
                         from backend.ingest.field_mapper import parse_nse_date
                         parsed_rec_date = parse_nse_date(ext_rec_date_str)
 
-                    purpose_str = f"Dividend ({r.get('purpose', '')})".strip() if parsed_rec_date else f"Dividend - Record date not yet declared ({r.get('purpose', '')})".strip()
+                    # By strictly using exact strings without the appended board meeting purpose,
+                    # we allow the generic unique constraints ['date', 'symbol', 'purpose']
+                    # to squash multiple same-day board meeting updates (e.g. Intimations + Financial Results)
+                    # into a single upcoming dividend record.
+                    purpose_str = "Dividend" if parsed_rec_date else "Dividend - Record date not yet declared"
 
                     synthesized_ca_records.append({
                         'date': r.get('date'),
@@ -481,7 +485,8 @@ class NSEDataImporter:
                             ca_model.parsed_dividend_amount == rec['parsed_dividend_amount'],
                             or_(
                                 ca_model.purpose.like('%not yet declared%'),
-                                ca_model.purpose.like('Dividend (%')
+                                ca_model.purpose.like('Dividend (%'),
+                                ca_model.purpose == 'Dividend'
                             )
                         )
                         db.execute(stmt)
