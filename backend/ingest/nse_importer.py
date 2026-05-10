@@ -475,10 +475,14 @@ class NSEDataImporter:
                     # To effectively deduplicate synthesized corporate actions that might have
                     # drifted across different `trade_date` imports but belong to the same symbol/purpose:
                     for rec in synthesized_ca_records:
+                        from sqlalchemy import or_
                         stmt = delete(ca_model).where(
                             ca_model.symbol == rec['symbol'],
                             ca_model.parsed_dividend_amount == rec['parsed_dividend_amount'],
-                            ca_model.purpose.like('%not yet declared%')
+                            or_(
+                                ca_model.purpose.like('%not yet declared%'),
+                                ca_model.purpose.like('Dividend (%')
+                            )
                         )
                         db.execute(stmt)
 
