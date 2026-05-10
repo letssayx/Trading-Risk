@@ -3227,17 +3227,29 @@ function renderDividendsData() {
 
                                 // If the backend generated a synthetic action or incomplete action without dates, consider it linked
                                 // AND inject the extracted amount before breaking out of the loop.
-                                if (!aDate && (aPurpose.includes('not yet declared') ||
-                                              (aPurpose.startsWith('dividend (') && aPurpose.endsWith(')')) ||
+                                if (!aDate && (a.is_synthetic || aPurpose.includes('not yet declared') ||
+                                              aPurpose.includes('dividend (') ||
                                               aPurpose.includes('dividend'))) {
-                                    if (a.parsed_dividend_amount == null && m.extracted_dividend_amount) {
-                                        a.parsed_dividend_amount = m.extracted_dividend_amount;
+
+                                    // Make sure we only link if the broadcast date / meeting date roughly matches, to avoid linking to very old dummy actions
+                                    let isTimeMatch = true;
+                                    if (a.broadcast_date && m.meeting_date) {
+                                        const bDate = new Date(a.broadcast_date);
+                                        const meetDate = new Date(m.meeting_date);
+                                        const diffDays = Math.abs(bDate - meetDate) / (1000 * 60 * 60 * 24);
+                                        if (diffDays > 30) isTimeMatch = false; // Must be within 30 days
                                     }
-                                    if (!a.dividend_type || a.dividend_type === '-') {
-                                        a.dividend_type = m.extracted_dividend_type || 'Final';
+
+                                    if (isTimeMatch) {
+                                        if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
+                                            a.parsed_dividend_amount = m.extracted_dividend_amount;
+                                        }
+                                        if (!a.dividend_type || a.dividend_type === '-') {
+                                            a.dividend_type = m.extracted_dividend_type || 'Final';
+                                        }
+                                        hasLinkedAction = true;
+                                        break;
                                     }
-                                    hasLinkedAction = true;
-                                    break;
                                 }
                             }
                         }
@@ -3247,7 +3259,7 @@ function renderDividendsData() {
                         // Create a synthetic action
 
                         // Parse dividend amount if available (e.g., "Rs. 54 per share" or "54/-")
-                        let amount = m.extracted_dividend_amount || null;
+                        let amount = parseFloat(m.extracted_dividend_amount) || null;
                         if (amount == null && m.parsed_dividend_amount) amount = m.parsed_dividend_amount;
                         let divType = '-';
                         if (purpose.includes('dividend')) {
@@ -3329,8 +3341,15 @@ function renderDividendsData() {
         filteredActions.sort((a, b) => {
             let valA, valB;
             if (divSortCol === 'ex_date') {
-                valA = a.ex_date ? new Date(a.ex_date).getTime() : 0;
-                valB = b.ex_date ? new Date(b.ex_date).getTime() : 0;
+                const getSortTime = (item) => {
+                    if (item.ex_date) return new Date(item.ex_date).getTime();
+                    if (item.record_date) return new Date(item.record_date).getTime();
+                    if (item.broadcast_date) return new Date(item.broadcast_date).getTime();
+                    if (item._matchedMeeting && item._matchedMeeting.meeting_date) return new Date(item._matchedMeeting.meeting_date).getTime();
+                    return 0; // Epoch 0 fallback
+                };
+                valA = getSortTime(a);
+                valB = getSortTime(b);
             } else if (divSortCol === 'symbol') {
                 valA = a.symbol || '';
                 valB = b.symbol || '';

@@ -477,7 +477,8 @@ class NSEDataImporter:
                     for rec in synthesized_ca_records:
                         stmt = delete(ca_model).where(
                             ca_model.symbol == rec['symbol'],
-                            ca_model.purpose == rec['purpose']
+                            ca_model.parsed_dividend_amount == rec['parsed_dividend_amount'],
+                            ca_model.purpose.like('%not yet declared%')
                         )
                         db.execute(stmt)
 

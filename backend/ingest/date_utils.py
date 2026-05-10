@@ -55,7 +55,7 @@ def format_nse_date(dt: date, format_str: str) -> str:
 
 def parse_nse_datetime(date_str: str) -> Optional[datetime]:
     """Parse NSE datetime strings"""
-    if pd.isna(date_str) or not date_str:
+    if pd.isna(date_str) or not date_str or str(date_str).strip().lower() == "nan":
         return None
     date_str = str(date_str).strip()
     if date_str in ["", "-"]:
@@ -80,7 +80,7 @@ def parse_nse_datetime(date_str: str) -> Optional[datetime]:
 
 def parse_nse_date(date_str: str) -> Optional[date]:
     """Parse NSE dates - handles multiple formats"""
-    if pd.isna(date_str) or not date_str:
+    if pd.isna(date_str) or not date_str or str(date_str).strip().lower() == "nan":
         return None
 
     date_str = str(date_str).strip()
