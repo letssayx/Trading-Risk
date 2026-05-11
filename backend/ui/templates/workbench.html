@@ -534,6 +534,15 @@
                                 <span style="position: absolute; right: 8px; cursor: pointer; color: #888; font-weight: bold; font-family: sans-serif;" onclick="clearSSDivSearch()" title="Clear">&#x2715;</span>
                             </div>
 
+                            <div style="display: flex; align-items: center; gap: 15px; margin-left: 15px;">
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #ccc;">
+                                    <input type="checkbox" id="ss-div-filter-ex-announced" checked onchange="filterSSDividends()"> Ex-Announced
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #ccc;">
+                                    <input type="checkbox" id="ss-div-filter-ex-awaited" checked onchange="filterSSDividends()"> Ex-Awaited
+                                </label>
+                            </div>
+
                             <div class="custom-dropdown" id="ss-div-sector-dropdown" style="margin-left: 15px;">
                                 <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-sector-dropdown')">Select Sectors</div>
                                 <div class="dropdown-menu" id="ss-div-sector-menu">
@@ -2058,6 +2067,14 @@
                             <div style="display: flex; gap: 10px; align-items: center;">
                                 <input type="text" id="mw-custom-symbol" class="form-control history-input" placeholder="Add custom symbol" style="width:150px; padding: 4px;" onkeydown="if(event.key === 'Enter') addCustomMarketWatchSymbol()">
                                 <button class="btn btn-primary" onclick="addCustomMarketWatchSymbol()">Add</button>
+
+                                <div class="custom-dropdown" id="mw-sector-dropdown" style="margin-left: 10px; width: 150px;">
+                                    <div class="dropdown-toggle" onclick="toggleDropdown('mw-sector-dropdown')" style="padding: 4px 8px; font-size: 13px;">Select Sectors</div>
+                                    <div class="dropdown-menu" id="mw-sector-menu">
+                                        <!-- Populated dynamically via JS -->
+                                    </div>
+                                </div>
+
                                 <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="mw-force-refresh"> Force</label>
                                 <button class="btn btn-secondary" onclick="loadMarketWatch(true)"><i class="fas fa-sync"></i> Refresh Basis</button>
                                 <button class="btn btn-secondary" onclick="exportTableToCSV('marketwatch-table', 'Basis_Watch')"><i class="fas fa-download"></i> CSV</button>
@@ -4514,12 +4531,53 @@ function exportChartDataToCSV(chartInstance, filename) {
                 return;
             }
 
-            const reportDate = result.date || '-';
+            // Populate MW Sectors dynamically if not already done
+            const sectorMenu = document.getElementById('mw-sector-menu');
+            if (sectorMenu && sectorMenu.children.length === 0) {
+                const uniqueSectors = new Set();
+                Object.values(data).forEach(d => {
+                    if (d.eq && d.eq.sector && d.eq.sector !== '-') uniqueSectors.add(d.eq.sector);
+                });
+                const sortedSectors = Array.from(uniqueSectors).sort();
+                sortedSectors.forEach(sec => {
+                    const lbl = document.createElement('label');
+                    lbl.style.display = 'block';
+                    lbl.innerHTML = `<input type="checkbox" value="${sec}" onchange="renderMarketWatchCache()"> ${sec}`;
+                    sectorMenu.appendChild(lbl);
+                });
+            }
+
+            // Cache data globally so we can re-render when sectors change
+            window.marketWatchDataCache = data;
+
+            renderMarketWatchCache();
+        } catch(e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#f44336;">Error loading Market Watch data</td></tr>';
+        }
+    }
+
+    function renderMarketWatchCache() {
+        const tbody = document.getElementById('marketwatch-body');
+        const data = window.marketWatchDataCache;
+        if (!data) return;
+
+        // Get selected sectors
+        const sectorCheckboxes = document.querySelectorAll('#mw-sector-dropdown input[type="checkbox"]:checked');
+        const selectedSectors = Array.from(sectorCheckboxes).map(cb => cb.value);
+
+        tbody.innerHTML = '';
+        let totalRowsRendered = 0;
 
             Object.keys(data).sort().forEach(sym => {
                 const item = data[sym];
                 const eq = item.eq;
                 const futs = item.futures;
+
+                if (selectedSectors.length > 0 && (!eq.sector || !selectedSectors.includes(eq.sector))) {
+                    return; // skip this row
+                }
+                totalRowsRendered++;
 
                 // --- EQ Row ---
                 const eqTr = document.createElement('tr');
@@ -4604,7 +4662,11 @@ function exportChartDataToCSV(chartInstance, filename) {
                     `;
                     tbody.appendChild(futTr);
                 });
-            });
+            }); // end Object.keys().forEach
+
+            if (totalRowsRendered === 0) {
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No data matches the selected filters.</td></tr>';
+            }
 
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;

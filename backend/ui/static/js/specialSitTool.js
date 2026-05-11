@@ -859,6 +859,43 @@ function exportSSDivCSV() {
     ssDivData.forEach(item => {
         if (filter && !item.symbol.includes(filter)) return;
 
+
+        // Filter by Ex-date Status
+        const showExAnnounced = document.getElementById('ss-div-filter-ex-announced') ? document.getElementById('ss-div-filter-ex-announced').checked : true;
+        const showExAwaited = document.getElementById('ss-div-filter-ex-awaited') ? document.getElementById('ss-div-filter-ex-awaited').checked : true;
+
+        let exDateObj = item.expected_highly_likely || '';
+        let isAwaited = false;
+        let isAnnounced = false;
+
+        // Define 'Announced' as having a real ex-date coming up or already passed
+        // Define 'Awaited' as having an intimation/board meeting but 'not yet declared'
+        if (item.history && item.history.length > 0) {
+            let latestHistory = item.history[0];
+            if (latestHistory.ex_date && latestHistory.ex_date.toLowerCase().includes('not yet declared')) {
+                isAwaited = true;
+            } else if (latestHistory.ex_date) {
+                isAnnounced = true;
+            }
+        }
+
+        // Also check the main highly likely column
+        if (exDateObj.includes('Announced:') || exDateObj.includes('Announced')) {
+            isAnnounced = true;
+        }
+
+        // If it's pure forecasting (no history and no 'Announced' tag), we might default to showing it if Awaited is checked,
+        // but wait, 'Awaited' strictly means we know it's coming (board meeting happened).
+        // Let's hide rows if user only wants Awaited and it's not Awaited.
+        // If neither is checked, hide everything.
+        if (!showExAnnounced && !showExAwaited) return;
+
+        // If they want exclusively announced, and this is awaited, filter out.
+        if (showExAnnounced && !showExAwaited && isAwaited) return;
+
+        // If they want exclusively awaited, and this is announced (or just a forecast), filter out.
+        if (showExAwaited && !showExAnnounced && !isAwaited) return;
+
         // Sector filtering
         if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
             return;
@@ -1130,6 +1167,43 @@ function renderSSDividends() {
     ssDivData.forEach(item => {
         if (filter && !item.symbol.includes(filter)) return;
 
+
+        // Filter by Ex-date Status
+        const showExAnnounced = document.getElementById('ss-div-filter-ex-announced') ? document.getElementById('ss-div-filter-ex-announced').checked : true;
+        const showExAwaited = document.getElementById('ss-div-filter-ex-awaited') ? document.getElementById('ss-div-filter-ex-awaited').checked : true;
+
+        let exDateObj = item.expected_highly_likely || '';
+        let isAwaited = false;
+        let isAnnounced = false;
+
+        // Define 'Announced' as having a real ex-date coming up or already passed
+        // Define 'Awaited' as having an intimation/board meeting but 'not yet declared'
+        if (item.history && item.history.length > 0) {
+            let latestHistory = item.history[0];
+            if (latestHistory.ex_date && latestHistory.ex_date.toLowerCase().includes('not yet declared')) {
+                isAwaited = true;
+            } else if (latestHistory.ex_date) {
+                isAnnounced = true;
+            }
+        }
+
+        // Also check the main highly likely column
+        if (exDateObj.includes('Announced:') || exDateObj.includes('Announced')) {
+            isAnnounced = true;
+        }
+
+        // If it's pure forecasting (no history and no 'Announced' tag), we might default to showing it if Awaited is checked,
+        // but wait, 'Awaited' strictly means we know it's coming (board meeting happened).
+        // Let's hide rows if user only wants Awaited and it's not Awaited.
+        // If neither is checked, hide everything.
+        if (!showExAnnounced && !showExAwaited) return;
+
+        // If they want exclusively announced, and this is awaited, filter out.
+        if (showExAnnounced && !showExAwaited && isAwaited) return;
+
+        // If they want exclusively awaited, and this is announced (or just a forecast), filter out.
+        if (showExAwaited && !showExAnnounced && !isAwaited) return;
+
         // Sector filtering
         if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
             return;
@@ -1200,8 +1274,8 @@ function renderSSDividends() {
 
         const isAbove2 = item.is_above_2_percent;
         const above2Cell = isAbove2
-            ? `<td contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.innerText)" onclick="event.stopPropagation();" style="color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1); border-bottom: 1px dashed #555; cursor: text;">Yes</td>`
-            : `<td contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.innerText)" onclick="event.stopPropagation();" style="border-bottom: 1px dashed #555; cursor: text;">No</td>`;
+            ? `<td onclick="event.stopPropagation(); updateSSDivData('${item.symbol}', 'is_above_2_percent', 'No'); renderSSDividends();" style="color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1); border-bottom: 1px dashed #555; cursor: pointer; user-select: none;">Yes</td>`
+            : `<td onclick="event.stopPropagation(); updateSSDivData('${item.symbol}', 'is_above_2_percent', 'Yes'); renderSSDividends();" style="border-bottom: 1px dashed #555; cursor: pointer; user-select: none;">No</td>`;
 
         let lastAmountHtml = item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-';
         let lastExDateHtml = item.last_ex_date || '-';

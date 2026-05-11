@@ -261,7 +261,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
 
                     if hist_price and hist_price[0] and hist_price[0] > 0:
-                        if (h['amount'] / hist_price[0]) * 100 > 2.0:
+                        if (h['amount'] / hist_price[0]) * 100 >= 2.0:
                             h['is_above_2_percent'] = True
                 except Exception:
                     pass
@@ -360,9 +360,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     years_diff = round(days_diff / 365)
 
                     if years_diff >= 1 and prev_amt and curr_amt and prev_amt > 0:
-                        cagr = ((curr_amt / prev_amt) ** (1 / years_diff)) - 1
-                        cagr = min(max(cagr, -1.0), 0.5) # Cap CAGR between -100% and +50%
-                        growth_rates.append(cagr)
+                        pct_change = (curr_amt - prev_amt) / prev_amt
+                        # Annualize the percent change roughly if it spans multiple years
+                        annualized_pct_change = pct_change / years_diff
+                        annualized_pct_change = min(max(annualized_pct_change, -1.0), 0.5) # Cap between -100% and +50%
+                        growth_rates.append(annualized_pct_change)
 
                 avg_growth = np.mean(growth_rates) if growth_rates else 0
                 exp_amt = most_recent['amount'] * (1 + avg_growth) if most_recent['amount'] else None

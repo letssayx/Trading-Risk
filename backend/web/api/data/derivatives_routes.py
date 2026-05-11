@@ -786,13 +786,31 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
     for sym in fut_map:
         fut_map[sym].sort(key=lambda x: x["expiry"])
 
-    # 3. Fetch Corporate Actions (Dividends with upcoming ex-dates)
-    # Just look for active dividends within next month
+    # 3. Fetch Corporate Actions and Board Meetings
     ca_map = {}
+    sector_map = {}
     try:
-        from backend.ingest.nse_models import CorporateAction
+        from backend.ingest.nse_models import CorporateAction, BoardMeeting, SecurityMaster
         import datetime
         next_month = latest_fo_date + datetime.timedelta(days=30)
+
+        # Sector Mapping
+        sec_masters = db.query(SecurityMaster.ticker_symb, SecurityMaster.sector).filter(
+            SecurityMaster.sector != None
+        ).all()
+        for sm in sec_masters:
+            sector_map[sm.ticker_symb] = sm.sector
+
+        # Upcoming Board Meetings
+        bm_records = db.query(BoardMeeting).filter(
+            BoardMeeting.meeting_date >= latest_fo_date,
+            BoardMeeting.meeting_date <= next_month
+        ).all()
+        for bm in bm_records:
+            if bm.purpose and ('dividend' in bm.purpose.lower() or 'financial' in bm.purpose.lower()):
+                ca_map[bm.symbol] = f"BM {bm.meeting_date.strftime('%d-%b')}"
+
+        # Corporate Actions (Overrides BM if CA is announced)
         ca_records = db.query(
             CorporateAction.symbol,
             CorporateAction.ex_date,
@@ -840,6 +858,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                 "pct_change": eq_data.get("pct_change", 0.0),
                 "vol": eq_data["vol"],
                 "atp": eq_data["atp"],
+                "sector": sector_map.get(sym, "-"),
                 "ca": ca_map.get(sym, "")
             },
             "futures": futs
@@ -875,6 +894,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                             "pct_change": pct_change,
                             "vol": int(custom_eq_record.total_traded_qty) if custom_eq_record.total_traded_qty else 0,
                             "atp": float(custom_eq_record.avg_price) if custom_eq_record.avg_price else 0.0,
+                            "sector": sector_map.get(csym, "-"),
                             "ca": ca_map.get(csym, "")
                         },
                         "futures": []  # No futures since it's a cash custom addition
