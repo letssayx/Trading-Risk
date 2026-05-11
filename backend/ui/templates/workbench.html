@@ -593,6 +593,7 @@
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
                                     <th style="background: #334d3d;">Expected Dividend<br>highly likely</th>
                                     <th style="background: #6b6021;">Expected Dividend<br>Less Likely</th>
+                                    <th>Note</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -2094,7 +2095,7 @@
                                     <th style="padding: 8px;">Rollover Spread</th>
                                     <th style="padding: 8px;">Rollover Yield</th>
                                     <th style="padding: 8px;">Ann. Yield</th>
-                                    <th style="padding: 8px;">Volume (Contracts)</th>
+                                    <th style="padding: 8px;">Volume (Shares)</th>
                                     <th style="padding: 8px;">ATP</th>
                                     <th style="padding: 8px;">OI</th>
                                     <th style="padding: 8px;">% Chg OI</th>
@@ -4569,6 +4570,7 @@ function exportChartDataToCSV(chartInstance, filename) {
         tbody.innerHTML = '';
         let totalRowsRendered = 0;
 
+        try {
             Object.keys(data).sort().forEach(sym => {
                 const item = data[sym];
                 const eq = item.eq;

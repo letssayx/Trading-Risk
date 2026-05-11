@@ -802,6 +802,8 @@ async function loadSSDividends() {
                 if (o._edited_expected_amount !== undefined) item._edited_expected_amount = o._edited_expected_amount;
                 if (o.expected_highly_likely !== undefined) item.expected_highly_likely = o.expected_highly_likely;
                 if (o.expected_less_likely !== undefined) item.expected_less_likely = o.expected_less_likely;
+                if (o.is_above_2_percent !== undefined) item.is_above_2_percent = o.is_above_2_percent;
+                if (o.note !== undefined) item.note = o.note;
             }
         });
 
@@ -844,7 +846,7 @@ function exportSSDivCSV() {
     const eqDateStr = eqDateEl && eqDateEl.textContent ? eqDateEl.textContent.trim() : '';
     let csv = "Turtle Terminal vishal@underroot.xyz | +91 9867215754\n";
     if (eqDateStr) csv += "Date: " + eqDateStr + "\n\n";
-    csv += 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely\n';
+    csv += 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely,Note\n';
 
     const filter = document.getElementById('ss-div-search').value.trim().toUpperCase();
 
@@ -951,6 +953,7 @@ function exportSSDivCSV() {
         row.push(expectedCSV);
         row.push(item.expected_highly_likely || '-');
         row.push(item.expected_less_likely || '-');
+        row.push(item.note || '-');
 
         csv += '"' + row.join('","') + '"\n';
 
@@ -1049,11 +1052,11 @@ function exportSSDivPDF() {
     const trs = cloneTable.querySelectorAll('tr');
     trs.forEach(tr => {
         // We only want to remove the last column from the main table, not the nested history tables
-        // The nested history tables have fewer columns. The main table row has 10 columns (0-9 indices).
+        // The nested history tables have fewer columns. The main table row has > 9 columns.
         // Since the main table itself might have the class .data-table, closest won't work if they share classes.
         // We can just rely on the column count because the inner tables only have 5 columns.
         if (tr.children.length > 9) {
-            tr.removeChild(tr.lastElementChild);
+            tr.removeChild(tr.lastElementChild); // Remove Action column
         }
     });
 
@@ -1273,9 +1276,14 @@ function renderSSDividends() {
         }
 
         const isAbove2 = item.is_above_2_percent;
-        const above2Cell = isAbove2
-            ? `<td onclick="event.stopPropagation(); updateSSDivData('${item.symbol}', 'is_above_2_percent', 'No'); renderSSDividends();" style="color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1); border-bottom: 1px dashed #555; cursor: pointer; user-select: none;">Yes</td>`
-            : `<td onclick="event.stopPropagation(); updateSSDivData('${item.symbol}', 'is_above_2_percent', 'Yes'); renderSSDividends();" style="border-bottom: 1px dashed #555; cursor: pointer; user-select: none;">No</td>`;
+        // User requested a dropdown instead of accidental click to toggle Yes/No
+        const overrideColor = isAbove2 ? "color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1);" : "";
+        const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
+            <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; width: 100%; cursor: pointer;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
+                <option style="background: #1e1e1e; color: #fff;" value="No" ${!isAbove2 ? 'selected' : ''}>No</option>
+                <option style="background: #1e1e1e; color: #fff;" value="Yes" ${isAbove2 ? 'selected' : ''}>Yes</option>
+            </select>
+        </td>`;
 
         let lastAmountHtml = item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-';
         let lastExDateHtml = item.last_ex_date || '-';
@@ -1326,6 +1334,7 @@ function renderSSDividends() {
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_amount', this.innerHTML)" onclick="event.stopPropagation();">${expectedAmountHTML}</td>
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${expectedHighlyLikelyHtml}</td>
                 <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_less_likely', this.innerText)" onclick="event.stopPropagation();">${item.expected_less_likely || '-'}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'note', this.innerText)" onclick="event.stopPropagation();">${item.note || '-'}</td>
                 <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${item.symbol}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Analyze</button></td>
             </tr>
         `;

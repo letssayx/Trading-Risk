@@ -88,6 +88,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     ).order_by(desc(CorporateAction.date)).all()
 
     import re
+    import datetime
 
     # Group by symbol
     ca_by_symbol = defaultdict(list)
@@ -252,8 +253,10 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     if isinstance(ref_date, datetime.datetime):
                         target_time = datetime.time(15, 30, 0)
                         if ref_date.time() >= target_time:
+                            # after or exactly at market close, we can use the same day's closing price
                             price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
                         else:
+                            # before or during market hours, we MUST use the previous day's closing price
                             price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
                     else:
                         price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date)

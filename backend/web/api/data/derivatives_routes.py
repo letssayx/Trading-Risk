@@ -789,17 +789,19 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
     # 3. Fetch Corporate Actions and Board Meetings
     ca_map = {}
     sector_map = {}
+    lot_size_map = {}
     try:
         from backend.ingest.nse_models import CorporateAction, BoardMeeting, SecurityMaster
         import datetime
         next_month = latest_fo_date + datetime.timedelta(days=30)
 
-        # Sector Mapping
-        sec_masters = db.query(SecurityMaster.ticker_symb, SecurityMaster.sector).filter(
-            SecurityMaster.sector != None
-        ).all()
+        # Sector and Lot Size Mapping
+        sec_masters = db.query(SecurityMaster.ticker_symb, SecurityMaster.sector, SecurityMaster.new_brd_lot_qty).all()
         for sm in sec_masters:
-            sector_map[sm.ticker_symb] = sm.sector
+            if sm.sector:
+                sector_map[sm.ticker_symb] = sm.sector
+            if sm.new_brd_lot_qty:
+                lot_size_map[sm.ticker_symb] = sm.new_brd_lot_qty
 
         # Upcoming Board Meetings
         bm_records = db.query(BoardMeeting).filter(
@@ -808,7 +810,8 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         ).all()
         for bm in bm_records:
             if bm.purpose and ('dividend' in bm.purpose.lower() or 'financial' in bm.purpose.lower()):
-                ca_map[bm.symbol] = f"BM {bm.meeting_date.strftime('%d-%b')}"
+                amt_str = f" (Rs {bm.extracted_dividend_amount})" if bm.extracted_dividend_amount else ""
+                ca_map[bm.symbol] = f"BM {bm.meeting_date.strftime('%d-%b')}{amt_str}"
 
         # Corporate Actions (Overrides BM if CA is announced)
         ca_records = db.query(
@@ -850,6 +853,10 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
 
             if days > 0:
                 futs[i]["yield"] = (futs[i]["bps"] / 10000) * (365 / days) * 100
+
+            # Convert Futures Volume from contracts to total shares
+            lot_sz = lot_size_map.get(sym, 1)
+            futs[i]["vol"] = futs[i]["vol"] * lot_sz
 
         result[sym] = {
             "eq": {
