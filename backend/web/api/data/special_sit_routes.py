@@ -285,7 +285,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_type = last['dividend_type'] or '-'
             last_ex_date = last['ex_date'] or '-'
             last_amount = last['amount']
-            is_above_2_percent = last['is_above_2_percent']
+            is_above_2_percent = last.get('is_above_2_percent', False)
 
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
@@ -391,21 +391,40 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 upcoming_cycles.sort(key=lambda x: x['next_date'])
                 next_cycle = upcoming_cycles[0]
 
-                if next_cycle['exp_amt'] is not None:
-                    expected_amount = round(next_cycle['exp_amt'], 2)
+                if next_cycle['is_announced']:
+                    # Use the actual announced amount as the "expected" amount
+                    expected_amount = next_cycle['last_amt_in_cycle']
                     expected_amount_compare = next_cycle['last_amt_in_cycle']
                     expected_type = next_cycle['type']
-
-                if next_cycle['is_announced']:
                     expected_highly_likely = f"Announced: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
                     expected_less_likely = "Confirmed"
                 else:
+                    if next_cycle['exp_amt'] is not None:
+                        expected_amount = round(next_cycle['exp_amt'], 2)
+                        expected_amount_compare = next_cycle['last_amt_in_cycle']
+                        expected_type = next_cycle['type']
+
+                        # Add note to check for >2% if forecasted amount is high
+                        if spot and expected_amount and (expected_amount / spot) >= 0.02:
+                            expected_less_likely = "check for extra-ordinary"
+
                     expected_highly_likely = next_cycle['next_date'].strftime('%d-%m-%Y')
-                    if next_cycle['less_likely_months']:
-                        m_names = [datetime.date(2000, m, 1).strftime('%b') for m in next_cycle['less_likely_months']]
-                        expected_less_likely = ", ".join(m_names)
-                    else:
-                        expected_less_likely = "-"
+                    if not expected_less_likely:
+                        if next_cycle['less_likely_months']:
+                            m_names = [datetime.date(2000, m, 1).strftime('%b') for m in next_cycle['less_likely_months']]
+                            expected_less_likely = ", ".join(m_names)
+                        else:
+                            expected_less_likely = "-"
+
+            # If the last event is Ex-Awaited (amount declared, but no ex-date yet)
+            if history:
+                latest = history[0]
+                if latest.get('amount') and (not latest.get('ex_date') or latest.get('ex_date') == 'Record date not yet declared'):
+                    expected_amount = latest['amount']
+                    expected_amount_compare = latest['amount']
+                    expected_type = latest.get('dividend_type', 'Interim')
+                    expected_highly_likely = "-"
+                    expected_less_likely = "Amount declared, date not yet announced"
 
         results.append({
             "symbol": sym,

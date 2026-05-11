@@ -67,6 +67,8 @@
                 } else if (target.id === 'deriv-tab-macro') {
                     target.style.display = 'flex';
                     if (typeof loadMacroData === 'function') loadMacroData();
+                } else if (target.id === 'deriv-tab-watch') {
+                    target.style.display = 'flex';
                 } else {
                     target.style.display = 'block';
                 }

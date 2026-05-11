@@ -811,8 +811,11 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         ).all()
         for bm in bm_records:
             if bm.purpose and ('dividend' in bm.purpose.lower() or 'financial' in bm.purpose.lower()):
-                amt_str = f" (Rs {bm.extracted_dividend_amount})" if bm.extracted_dividend_amount else ""
-                ca_map[bm.symbol] = f"BM {bm.meeting_date.strftime('%d-%b')}{amt_str}"
+                if bm.extracted_dividend_amount:
+                    ca_map[bm.symbol] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not yet announced"
+                else:
+                    date_str = bm.meeting_date.strftime('%d-%b %Y') if bm.meeting_date else ""
+                    ca_map[bm.symbol] = f"{date_str}, Boardmeeting"
 
         # Corporate Actions (Overrides BM if CA is announced)
         ca_records = db.query(
@@ -826,7 +829,8 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             CorporateAction.parsed_dividend_amount != None
         ).all()
         for r in ca_records:
-            ca_map[r.symbol] = f"{r.ex_date.strftime('%d-%b')} Div (Rs {r.parsed_dividend_amount})"
+            date_str = r.ex_date.strftime('%d-%b %Y') if r.ex_date else ""
+            ca_map[r.symbol] = f"{date_str}, Div-Rs {r.parsed_dividend_amount}"
     except Exception:
         pass
 

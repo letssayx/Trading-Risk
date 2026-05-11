@@ -888,15 +888,25 @@ function exportSSDivCSV() {
 
         // If it's pure forecasting (no history and no 'Announced' tag), we might default to showing it if Awaited is checked,
         // but wait, 'Awaited' strictly means we know it's coming (board meeting happened).
+        // Strict logic for "Ex-Awaited": amount declared, but no ex-date yet.
+        // The backend sends 'Record date not yet declared' as ex_date string, or ex_date_obj is null.
+        let isStrictAwaited = false;
+        if (item.history && item.history.length > 0) {
+            let lastHist = item.history[0];
+            if (lastHist.amount && (!lastHist.ex_date || lastHist.ex_date === 'Record date not yet declared')) {
+                isStrictAwaited = true;
+            }
+        }
+
         // Let's hide rows if user only wants Awaited and it's not Awaited.
         // If neither is checked, hide everything.
         if (!showExAnnounced && !showExAwaited) return;
 
         // If they want exclusively announced, and this is awaited, filter out.
-        if (showExAnnounced && !showExAwaited && isAwaited) return;
+        if (showExAnnounced && !showExAwaited && isStrictAwaited) return;
 
         // If they want exclusively awaited, and this is announced (or just a forecast), filter out.
-        if (showExAwaited && !showExAnnounced && !isAwaited) return;
+        if (showExAwaited && !showExAnnounced && !isStrictAwaited) return;
 
         // Sector filtering
         if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
@@ -1197,15 +1207,25 @@ function renderSSDividends() {
 
         // If it's pure forecasting (no history and no 'Announced' tag), we might default to showing it if Awaited is checked,
         // but wait, 'Awaited' strictly means we know it's coming (board meeting happened).
+        // Strict logic for "Ex-Awaited": amount declared, but no ex-date yet.
+        // The backend sends 'Record date not yet declared' as ex_date string, or ex_date_obj is null.
+        let isStrictAwaited = false;
+        if (item.history && item.history.length > 0) {
+            let lastHist = item.history[0];
+            if (lastHist.amount && (!lastHist.ex_date || lastHist.ex_date.toLowerCase().includes('not yet declared'))) {
+                isStrictAwaited = true;
+            }
+        }
+
         // Let's hide rows if user only wants Awaited and it's not Awaited.
         // If neither is checked, hide everything.
         if (!showExAnnounced && !showExAwaited) return;
 
         // If they want exclusively announced, and this is awaited, filter out.
-        if (showExAnnounced && !showExAwaited && isAwaited) return;
+        if (showExAnnounced && !showExAwaited && isStrictAwaited) return;
 
         // If they want exclusively awaited, and this is announced (or just a forecast), filter out.
-        if (showExAwaited && !showExAnnounced && !isAwaited) return;
+        if (showExAwaited && !showExAnnounced && !isStrictAwaited) return;
 
         // Sector filtering
         if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
@@ -1280,8 +1300,9 @@ function renderSSDividends() {
         const overrideColor = isAbove2 ? "color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1);" : "";
         const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
             <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; width: 100%; cursor: pointer;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
-                <option style="background: #1e1e1e; color: #fff;" value="No" ${!isAbove2 ? 'selected' : ''}>No</option>
-                <option style="background: #1e1e1e; color: #fff;" value="Yes" ${isAbove2 ? 'selected' : ''}>Yes</option>
+                <option style="background: #1e1e1e; color: #fff;" value="" ${!isAbove2 && item.is_above_2_percent !== false ? 'selected' : ''}></option>
+                <option style="background: #1e1e1e; color: #fff;" value="No" ${item.is_above_2_percent === false || item.is_above_2_percent === 'No' ? 'selected' : ''}>No</option>
+                <option style="background: #1e1e1e; color: #fff;" value="Yes" ${item.is_above_2_percent === true || item.is_above_2_percent === 'Yes' ? 'selected' : ''}>Yes</option>
             </select>
         </td>`;
 
@@ -1305,8 +1326,12 @@ function renderSSDividends() {
             }
         }
 
+        let isOverridden = !!item._edited_expected_amount;
         let expectedAmountHTML = item._edited_expected_amount || (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-');
-        if (item.expected_amount && item.expected_amount_compare && !item._edited_expected_amount) {
+
+        if (isOverridden) {
+            expectedAmountHTML = `${expectedAmountHTML} <span style="color: #ffeb3b; font-size: 0.8em;" title="Manually Edited">*</span>`;
+        } else if (item.expected_amount && item.expected_amount_compare) {
             let numExpected = parseFloat(item.expected_amount);
             let numLast = parseFloat(item.expected_amount_compare);
             if (numExpected > numLast) {
