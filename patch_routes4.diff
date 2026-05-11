@@ -1,0 +1,13 @@
+--- backend/web/api/data/special_sit_routes.py
++++ backend/web/api/data/special_sit_routes.py
+@@ -399,6 +399,10 @@
+                     expected_amount = round(next_cycle['exp_amt'], 2)
+                     expected_amount_compare = next_cycle['last_amt_in_cycle']
+                     expected_type = next_cycle['type']
++
++                if next_cycle['is_announced']:
++                    expected_amount = None
++                    expected_type = None
+
+                 if next_cycle['is_announced']:
+                     expected_highly_likely = f"Announced: {next_cycle['next_date'].strftime('%d-%m-%Y')}"

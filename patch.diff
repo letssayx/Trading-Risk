@@ -1,0 +1,39 @@
+<<<<<<< SEARCH
+    latest_fo_date = db.query(func.max(BhavcopyFO.trade_date)).scalar()
+
+    if not latest_fo_date:
+        return []
+
+    latest_fo_records = db.query(BhavcopyFO.ticker_symb).filter(
+=======
+    latest_fo_date = db.query(func.max(BhavcopyFO.trade_date)).scalar()
+
+    if not latest_fo_date:
+        return []
+
+    import datetime
+    today = datetime.date.today()
+
+    latest_fo_records = db.query(BhavcopyFO.ticker_symb).filter(
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    # 4. Fetch Corporate Actions (Dividends, Splits, Bonuses) for the last 10 years
+    today = datetime.date.today()
+    ten_years_ago = today - datetime.timedelta(days=365*10)
+
+    # We also need splits and bonuses to adjust historical dividends.
+=======
+    # 4. Fetch Corporate Actions (Dividends, Splits, Bonuses) for the last 10 years
+    ten_years_ago = today - datetime.timedelta(days=365*10)
+
+    # We also need splits and bonuses to adjust historical dividends.
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    # Group by symbol
+    ca_by_symbol = defaultdict(list)
+=======
+    import datetime
+
+    # Group by symbol
+    ca_by_symbol = defaultdict(list)
+>>>>>>> REPLACE

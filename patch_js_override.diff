@@ -1,0 +1,49 @@
+--- backend/ui/static/js/specialSitTool.js
++++ backend/ui/static/js/specialSitTool.js
+@@ -796,6 +796,8 @@
+         // Apply overrides from localStorage
+         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
+         ssDivData.forEach(item => {
+             if (overrides[item.symbol]) {
+                 const o = overrides[item.symbol];
+                 if (o.expected_amount !== undefined) item.expected_amount = o.expected_amount;
+                 if (o._edited_expected_amount !== undefined) item._edited_expected_amount = o._edited_expected_amount;
+                 if (o.expected_highly_likely !== undefined) item.expected_highly_likely = o.expected_highly_likely;
+                 if (o.expected_less_likely !== undefined) item.expected_less_likely = o.expected_less_likely;
+                 if (o.is_above_2_percent !== undefined) item.is_above_2_percent = o.is_above_2_percent;
+                 if (o.note !== undefined) item.note = o.note;
++                if (o.is_above_2_percent_manual !== undefined) item.is_above_2_percent_manual = o.is_above_2_percent_manual;
+             }
+         });
+@@ -1098,6 +1100,7 @@
+         if (field === 'is_above_2_percent') {
+             const lowerVal = value.trim().toLowerCase();
+             item.is_above_2_percent = (lowerVal === 'yes' || lowerVal === 'true' || lowerVal === '1');
++            item.is_above_2_percent_manual = true;
+             // Allow it to fall through to saving logic below
+         }
+         if (field === 'expected_amount') {
+@@ -1129,6 +1132,7 @@
+             overrides[symbol]['_edited_expected_amount'] = item._edited_expected_amount;
+         } else {
+             overrides[symbol][field] = value;
++            if (field === 'is_above_2_percent') overrides[symbol]['is_above_2_percent_manual'] = true;
+         }
+         localStorage.setItem('ssDivOverrides', JSON.stringify(overrides));
+     }
+@@ -1297,7 +1301,8 @@
+
+         const isAbove2 = item.is_above_2_percent;
++        const isManual = item.is_above_2_percent_manual;
+         // User requested a dropdown instead of accidental click to toggle Yes/No
+-        const overrideColor = isAbove2 ? "color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1);" : "";
+-        const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
++        const overrideColor = isAbove2 ? "color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1);" : (isManual ? "font-weight: bold; background: rgba(255,255,0,0.1);" : "");
++        const flagStr = isManual ? `<span style="color: yellow; font-size: 0.8em; margin-left: 2px;">(Manual)</span>` : ``;
++        const above2Cell = `<td style="${overrideColor} padding: 2px;" onclick="event.stopPropagation();">
+             <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; width: 100%; cursor: pointer;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
+                 <option style="background: #1e1e1e; color: #fff;" value="No" ${!isAbove2 ? 'selected' : ''}>No</option>
+                 <option style="background: #1e1e1e; color: #fff;" value="Yes" ${isAbove2 ? 'selected' : ''}>Yes</option>
+-            </select>
++            </select><br>${flagStr}
+         </td>`;

@@ -1,0 +1,10 @@
+--- special_sit_routes.py
++++ special_sit_routes.py
+@@ -429,6 +430,7 @@
+             "expected_amount_compare": expected_amount_compare,
+             "expected_type": expected_type,
+             "expected_highly_likely": expected_highly_likely,
+             "expected_less_likely": expected_less_likely,
++            "note": note,
+             "history": history # Include history for dropdowns
+         })

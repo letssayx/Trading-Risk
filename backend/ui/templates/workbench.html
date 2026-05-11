@@ -4524,6 +4524,7 @@ function exportChartDataToCSV(chartInstance, filename) {
             const res = await fetch(url);
             const result = await res.json();
             const data = result.data || {};
+            const reportDate = result.report_date || '-';
 
             tbody.innerHTML = '';
 
@@ -4550,6 +4551,7 @@ function exportChartDataToCSV(chartInstance, filename) {
 
             // Cache data globally so we can re-render when sectors change
             window.marketWatchDataCache = data;
+            window.marketWatchReportDate = reportDate;
 
             renderMarketWatchCache();
         } catch(e) {
@@ -4561,6 +4563,7 @@ function exportChartDataToCSV(chartInstance, filename) {
     function renderMarketWatchCache() {
         const tbody = document.getElementById('marketwatch-body');
         const data = window.marketWatchDataCache;
+        const reportDate = window.marketWatchReportDate || '-';
         if (!data) return;
 
         // Get selected sectors

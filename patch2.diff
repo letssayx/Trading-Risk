@@ -1,0 +1,16 @@
+--- backend/web/api/data/special_sit_routes.py
++++ backend/web/api/data/special_sit_routes.py
+@@ -193,7 +193,12 @@
+                     off_date = off['ex_date_obj']
+                     if off_date and syn_date <= off_date <= syn_date + datetime.timedelta(days=90):
+                         # If the amount matches or if the synthetic one doesn't have a valid amount yet
+-                        if (syn['raw_amount'] is None) or (abs(off['raw_amount'] - syn['raw_amount']) < 0.01):
++                        if syn['raw_amount'] is None:
++                             has_official = True
++                             break
++                        elif off['raw_amount'] is None:
++                             pass
++                        elif (abs(off['raw_amount'] - syn['raw_amount']) < 0.01):
+                              has_official = True
+                              break
+             if not has_official:

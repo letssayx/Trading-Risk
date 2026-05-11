@@ -294,7 +294,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_ex_date = last['ex_date'] or '-'
             last_amount = last['amount']
             is_above_2_percent = last['is_above_2_percent']
-            note = ""
 
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
@@ -441,7 +440,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "expected_type": expected_type,
             "expected_highly_likely": expected_highly_likely,
             "expected_less_likely": expected_less_likely,
-            "note": note,
             "history": history
         })
 

@@ -1,0 +1,20 @@
+--- backend/web/api/data/special_sit_routes.py
++++ backend/web/api/data/special_sit_routes.py
+@@ -292,8 +292,9 @@
+             last = history[0]
+             last_type = last['dividend_type'] or '-'
+             last_ex_date = last['ex_date'] or '-'
+             last_amount = last['amount']
+             is_above_2_percent = last['is_above_2_percent']
++            note = ""
+
+             # Sort ascending for cycle processing
+             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
+@@ -428,6 +429,7 @@
+             "expected_amount_compare": expected_amount_compare,
+             "expected_type": expected_type,
+             "expected_highly_likely": expected_highly_likely,
+             "expected_less_likely": expected_less_likely,
++            "note": note,
+             "history": history # Include history for dropdowns
+         })

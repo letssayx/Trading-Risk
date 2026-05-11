@@ -1163,23 +1163,8 @@ function renderSSDividends() {
     let filter = searchInput ? searchInput.value.trim().toUpperCase() : '';
 
     // Get selected months
-    const monthCheckboxesAll = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]');
-    const monthCheckboxesChecked = Array.from(monthCheckboxesAll).filter(cb => cb.checked);
-    const selectedMonths = monthCheckboxesChecked.map(cb => cb.parentElement.textContent.trim()); // Values are full month names
-
-    // Update UI dropdown text
-    const monthDropdownToggle = document.querySelector('#ss-div-month-dropdown .dropdown-toggle');
-    if (monthDropdownToggle) {
-        if (selectedMonths.length === 0) {
-            monthDropdownToggle.innerText = 'Select Months';
-        } else if (selectedMonths.length === 1) {
-            monthDropdownToggle.innerText = selectedMonths[0].substring(0, 3);
-        } else if (selectedMonths.length <= 3) {
-            monthDropdownToggle.innerText = selectedMonths.map(m => m.substring(0, 3)).join(', ');
-        } else {
-            monthDropdownToggle.innerText = `${selectedMonths.length} Selected`;
-        }
-    }
+    const monthCheckboxes = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]:checked');
+    const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.parentElement.textContent.trim()); // Values are full month names
 
     // Get selected sectors
     const sectorCheckboxes = document.querySelectorAll('#ss-div-sector-dropdown input[type="checkbox"]:checked');

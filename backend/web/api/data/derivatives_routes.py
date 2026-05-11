@@ -907,7 +907,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                         "futures": []  # No futures since it's a cash custom addition
                     }
 
-    return {"data": result, "date": latest_fo_date.strftime('%Y-%m-%d')}
+    return {"data": result, "report_date": latest_fo_date.strftime('%Y-%m-%d')}
 
 
 @router.get("/api/data/analysis/rollover/sectors")

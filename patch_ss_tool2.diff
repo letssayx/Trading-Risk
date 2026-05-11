@@ -1,0 +1,29 @@
+--- backend/ui/static/js/specialSitTool.js
++++ backend/ui/static/js/specialSitTool.js
+@@ -1202,7 +1202,7 @@
+         }
+
+         // Also check the main highly likely column
+-        if (exDateObj.includes('Announced:') || exDateObj.includes('Announced')) {
++        if (exDateObj.includes('Announced:') || exDateObj.includes('Announced') || exDateObj.includes('Amount declared')) {
+             isAnnounced = true;
+         }
+
+@@ -1219,6 +1219,10 @@
+
+         // Sector filtering
+         if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
+             return;
+         }
+
+@@ -1227,6 +1231,10 @@
+             let dateStr = item.expected_highly_likely || '';
+             if (!dateStr || dateStr === '-') return; // Filter out if no valid date
+
++            if (dateStr.includes('Amount declared')) {
++                return; // or what should be the month? let's filter out if months are selected since no specific date yet
++            }
++
+             // Handle "Announced" prefix
+             if (dateStr.includes('Announced')) {
+                 if (dateStr.includes('Announced:')) {

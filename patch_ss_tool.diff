@@ -1,0 +1,26 @@
+--- backend/ui/static/js/specialSitTool.js
++++ backend/ui/static/js/specialSitTool.js
+@@ -1183,7 +1183,11 @@
+         // Define 'Awaited' as having an intimation/board meeting but 'not yet declared'
+         if (item.history && item.history.length > 0) {
+             let latestHistory = item.history[0];
+-            if (latestHistory.ex_date && latestHistory.ex_date.toLowerCase().includes('not yet declared')) {
++            if (latestHistory.ex_date && (latestHistory.ex_date.toLowerCase().includes('not yet declared') || latestHistory.ex_date === '-')) {
++                isAwaited = true;
++            } else if (latestHistory.purpose && latestHistory.purpose.toLowerCase().includes('not yet declared')) {
+                 isAwaited = true;
+             } else if (latestHistory.ex_date) {
+                 isAnnounced = true;
+@@ -1193,8 +1197,12 @@
+         // Also check the main highly likely column
+         if (exDateObj.includes('Announced:') || exDateObj.includes('Announced')) {
+             isAnnounced = true;
++            isAwaited = false;
+         }
+
++        // Fix ex-awaited logic
++        if (isAwaited) isAnnounced = false; // prioritize awaited if it's explicitly awaited
++
+         // If it's pure forecasting (no history and no 'Announced' tag), we might default to showing it if Awaited is checked,
+         // but wait, 'Awaited' strictly means we know it's coming (board meeting happened).
+         // Let's hide rows if user only wants Awaited and it's not Awaited.

@@ -1,0 +1,15 @@
+--- backend/web/api/data/special_sit_routes.py
++++ backend/web/api/data/special_sit_routes.py
+@@ -406,6 +406,12 @@
+                 if next_cycle['is_announced']:
+                     expected_highly_likely = f"Announced: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
+                     expected_less_likely = "Confirmed"
++                    # Check if awaited record date
++                    if history_asc:
++                        latest_hist = history_asc[-1]
++                        if (latest_hist['ex_date'] and 'not yet declared' in latest_hist['ex_date'].lower()) or \
++                           (latest_hist['purpose'] and 'not yet declared' in latest_hist['purpose'].lower()):
++                             expected_highly_likely = "Amount declared, ex-date to be announced"
+                 else:
+                     expected_highly_likely = next_cycle['next_date'].strftime('%d-%m-%Y')
+                     if next_cycle['less_likely_months']:
