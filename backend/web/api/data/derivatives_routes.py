@@ -775,6 +775,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
 
         dte = (r.expiry_date - latest_fo_date).days if r.expiry_date else 0
         fut_map[sym].append({
+            "trade_date": str(latest_fo_date),
             "expiry": str(r.expiry_date),
             "price": float(r.close_price) if r.close_price else 0.0,
             "vol": int(r.total_trading_vol) if r.total_trading_vol else 0,

@@ -88,7 +88,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     ).order_by(desc(CorporateAction.date)).all()
 
     import re
-    import datetime
 
     # Group by symbol
     ca_by_symbol = defaultdict(list)

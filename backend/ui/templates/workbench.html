@@ -4581,6 +4581,12 @@ function exportChartDataToCSV(chartInstance, filename) {
                 }
                 totalRowsRendered++;
 
+                // Get report date from first future expiry to find the generic trade date, or use '-'
+                let currentReportDate = '-';
+                if (futs && futs.length > 0 && futs[0].trade_date) {
+                    currentReportDate = futs[0].trade_date;
+                }
+
                 // --- EQ Row ---
                 const eqTr = document.createElement('tr');
                 eqTr.setAttribute('data-symbol', sym);
@@ -4594,7 +4600,7 @@ function exportChartDataToCSV(chartInstance, filename) {
 
                 eqTr.innerHTML = `
                     <td style="font-weight: bold; color: #4da6ff;">${sym} EQ</td>
-                    <td style="color: #aaa;">${reportDate}</td>
+                    <td style="color: #aaa;">${currentReportDate}</td>
                     <td style="font-weight: bold;">${eq.price != null && !isNaN(eq.price) ? eq.price.toFixed(2) : '-'}</td>
                     <td style="color: ${eqChangeColor}; font-weight: bold;">${eqChangeStr}</td>
                     <td>-</td>
@@ -4645,7 +4651,7 @@ function exportChartDataToCSV(chartInstance, filename) {
 
                     futTr.innerHTML = `
                         <td style="padding-left: 20px; color: #aaa;">FUT ${idx+1} <span style="font-size: 10px; color: #aaa;">(${f.expiry ? f.expiry.substring(5) : ''})</span></td>
-                        <td style="color: #aaa;">${reportDate}</td>
+                        <td style="color: #aaa;">${currentReportDate}</td>
                         <td>${priceVal.toFixed(2)}</td>
                         <td>${futChangeStr}</td>
                         <td style="color: #e6a23c;">${bpsVal.toFixed(2)} (${days}d)</td>
