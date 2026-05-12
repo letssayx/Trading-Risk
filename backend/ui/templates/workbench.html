@@ -2095,7 +2095,7 @@
                                     <th style="padding: 8px;">Rollover Spread</th>
                                     <th style="padding: 8px;">Rollover Yield</th>
                                     <th style="padding: 8px;">Ann. Yield</th>
-                                    <th style="padding: 8px;">Volume (Shares)</th>
+                                    <th style="padding: 8px;">Volume (Contracts)</th>
                                     <th style="padding: 8px;">ATP</th>
                                     <th style="padding: 8px;">OI</th>
                                     <th style="padding: 8px;">% Chg OI</th>
@@ -2105,7 +2105,7 @@
                                 </tr>
                             </thead>
                             <tbody id="marketwatch-body">
-                                <tr><td colspan="13" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
+                                <tr><td colspan="15" style="text-align:center; color:#888;">Click "Refresh Data" to load.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -3603,6 +3603,14 @@ function renderDividendsData() {
 
             let fullPurpose = d.subject || d.purpose || '-';
 
+            // Clean up fullPurpose to avoid showing 'Record date not yet declared' when ex-date is available
+            if (d.ex_date && fullPurpose.toLowerCase().includes('not yet declared')) {
+                 fullPurpose = fullPurpose.replace(/-\s*Record date not yet declared/gi, '').replace(/Record date not yet declared/gi, '').trim();
+                 if (!fullPurpose || fullPurpose === '-') {
+                     fullPurpose = 'Dividend'; // Fallback if it's empty after replacement
+                 }
+            }
+
             let faceValue = d.face_value || d.faceValue || '-';
             if (faceValue === '-' && fullPurpose.toUpperCase().includes('FACE VALUE')) {
                  let match = fullPurpose.match(/FACE VALUE[:\s]+([\d\.]+)/i);
@@ -4505,12 +4513,12 @@ function exportChartDataToCSV(chartInstance, filename) {
         const tbody = document.getElementById('marketwatch-body');
         // The user explicitly requested to remove the date input requirement for marketwatch.
         // It will automatically pull the latest F&O data.
-        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">Loading...</td></tr>';
 
         try {
             if (isRefresh) {
                 const force = document.getElementById('mw-force-refresh') && document.getElementById('mw-force-refresh').checked;
-                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Checking for new data and syncing Basis...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">Checking for new data and syncing Basis...</td></tr>';
                 await fetch(`/api/data/analysis/basis/sync?force=${force}`, { method: 'POST' });
             }
 
@@ -4528,7 +4536,7 @@ function exportChartDataToCSV(chartInstance, filename) {
             tbody.innerHTML = '';
 
             if (Object.keys(data).length === 0) {
-                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No Market Watch data found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">No Market Watch data found.</td></tr>';
                 return;
             }
 
@@ -4554,7 +4562,7 @@ function exportChartDataToCSV(chartInstance, filename) {
             renderMarketWatchCache();
         } catch(e) {
             console.error(e);
-            tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#f44336;">Error loading Market Watch data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#f44336;">Error loading Market Watch data</td></tr>';
         }
     }
 
@@ -4673,11 +4681,11 @@ function exportChartDataToCSV(chartInstance, filename) {
             }); // end Object.keys().forEach
 
             if (totalRowsRendered === 0) {
-                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No data matches the selected filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">No data matches the selected filters.</td></tr>';
             }
 
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     }
 

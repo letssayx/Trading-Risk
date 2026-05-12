@@ -188,15 +188,27 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             syn_date = syn['ex_date_obj'] or syn.get('announcement_date_obj')
             if syn_date:
                 for off in official:
-                    off_date = off['ex_date_obj']
-                    if off_date and syn_date <= off_date <= syn_date + datetime.timedelta(days=90):
+                    off_date = off['ex_date_obj'] or off.get('announcement_date_obj')
+                    # Relaxed condition to check both forward and backward 90 days
+                    if off_date and syn_date - datetime.timedelta(days=90) <= off_date <= syn_date + datetime.timedelta(days=90):
                         if abs(off['raw_amount'] - syn['raw_amount']) < 0.01:
                             has_official = True
                             break
             if not has_official:
                 filtered_history.append(syn)
 
-        filtered_history.extend(official)
+        # For OFSS and similar cases, also deduplicate official records that might have the same date and amount
+        unique_officials = []
+        seen_officials = set()
+        for off in official:
+            off_date = off['ex_date_obj'] or off.get('announcement_date_obj')
+            amt = off['raw_amount']
+            key = (off_date, amt)
+            if key not in seen_officials:
+                seen_officials.add(key)
+                unique_officials.append(off)
+
+        filtered_history.extend(unique_officials)
         # Sort back by date descending. Prioritize ex_date, fallback to announcement_date
         filtered_history.sort(key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else (x.get('announcement_date_obj') or datetime.date.min), reverse=True)
         ca_by_symbol[sym] = filtered_history
@@ -406,7 +418,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                         # Add note to check for >2% if forecasted amount is high
                         if spot and expected_amount and (expected_amount / spot) >= 0.02:
-                            expected_less_likely = "check for extra-ordinary"
+                            expected_less_likely = "extra ordinary"
 
                     expected_highly_likely = next_cycle['next_date'].strftime('%d-%m-%Y')
                     if not expected_less_likely:

@@ -812,10 +812,10 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         for bm in bm_records:
             if bm.purpose and ('dividend' in bm.purpose.lower() or 'financial' in bm.purpose.lower()):
                 if bm.extracted_dividend_amount:
-                    ca_map[bm.symbol] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not yet announced"
+                    ca_map[bm.symbol] = f"Div: {bm.extracted_dividend_amount}, ex-date yet not announced"
                 else:
-                    date_str = bm.meeting_date.strftime('%d-%b %Y') if bm.meeting_date else ""
-                    ca_map[bm.symbol] = f"{date_str}, Boardmeeting"
+                    date_str = bm.meeting_date.strftime('%d-%m-%Y') if bm.meeting_date else ""
+                    ca_map[bm.symbol] = f"Boardmeeting, date-{date_str}"
 
         # Corporate Actions (Overrides BM if CA is announced)
         ca_records = db.query(
@@ -829,8 +829,8 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             CorporateAction.parsed_dividend_amount != None
         ).all()
         for r in ca_records:
-            date_str = r.ex_date.strftime('%d-%b %Y') if r.ex_date else ""
-            ca_map[r.symbol] = f"{date_str}, Div-Rs {r.parsed_dividend_amount}"
+            date_str = r.ex_date.strftime('%d-%m-%Y') if r.ex_date else ""
+            ca_map[r.symbol] = f"Div: {r.parsed_dividend_amount}, ex-date {date_str}"
     except Exception:
         pass
 
@@ -859,9 +859,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             if days > 0:
                 futs[i]["yield"] = (futs[i]["bps"] / 10000) * (365 / days) * 100
 
-            # Convert Futures Volume from contracts to total shares
-            lot_sz = lot_size_map.get(sym, 1)
-            futs[i]["vol"] = futs[i]["vol"] * lot_sz
+            # Removed conversion to lot size, leaving volume in contracts.
 
         result[sym] = {
             "eq": {
