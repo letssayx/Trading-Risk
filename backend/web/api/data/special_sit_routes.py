@@ -257,8 +257,9 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     # If broadcast date has a time before 15:30:00, use < ref_date.date()
                     # If ref_date is just a date, use < ref_date
 
-                    price_query = db.query(BhavcopyEQ.close).filter(
-                        BhavcopyEQ.symbol == sym
+                    price_query = db.query(BhavcopyEQ.close_price).filter(
+                        BhavcopyEQ.symbol == sym,
+                        BhavcopyEQ.series == 'EQ'
                     )
 
                     if isinstance(ref_date, datetime.datetime):
@@ -270,7 +271,10 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                             # before or during market hours, we MUST use the previous day's closing price
                             price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
                     else:
-                        price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date)
+                        if hasattr(ref_date, "date"):
+                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
+                        else:
+                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date)
 
                     hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
 
@@ -435,7 +439,15 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     expected_amount = latest['amount']
                     expected_amount_compare = latest['amount']
                     expected_type = latest.get('dividend_type', 'Interim')
-                    expected_highly_likely = "-"
+
+                    # Instead of "-" use the highly likely date we just forecasted for this cycle if it exists
+                    if upcoming_cycles:
+                        # Try to find a matching cycle type to use its date
+                        matching_cycle = next((c for c in upcoming_cycles if c['type'] == expected_type), upcoming_cycles[0])
+                        expected_highly_likely = f"Forecasted: {matching_cycle['next_date'].strftime('%d-%m-%Y')}"
+                    else:
+                        expected_highly_likely = "-"
+
                     expected_less_likely = "Amount declared, date not yet announced"
 
         results.append({

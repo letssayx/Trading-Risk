@@ -3385,7 +3385,17 @@ function renderDividendsData() {
                     // If both times are valid and within 60 days, merge them
                     if (timeCurrent > 0 && timeExisting > 0) {
                         const diffDays = Math.abs(timeCurrent - timeExisting) / (1000 * 60 * 60 * 24);
-                        if (diffDays <= 60) {
+
+                        // User feedback: do not merge if they have different announced amounts, even if close in time
+                        let isSameAmount = true;
+                        let amt1 = currentAction.parsed_dividend_amount;
+                        let amt2 = existingAction.parsed_dividend_amount;
+                        if (amt1 && amt2 && amt1 !== "-" && amt2 !== "-" && parseFloat(amt1) !== parseFloat(amt2)) {
+                            isSameAmount = false;
+                        }
+
+                        // Reduce tolerance to 15 days to avoid merging back-to-back interim dividends
+                        if (diffDays <= 15 && isSameAmount) {
                             // Merge currentAction INTO existingAction (current is newer chronologically based on our sort)
 
                             // Prefer real dates over nulls

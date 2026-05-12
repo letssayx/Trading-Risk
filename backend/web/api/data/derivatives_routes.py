@@ -812,8 +812,10 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         for bm in bm_records:
             if bm.purpose and ('dividend' in bm.purpose.lower() or 'financial' in bm.purpose.lower()):
                 if bm.extracted_dividend_amount:
-                    ca_map[bm.symbol] = f"Div: {bm.extracted_dividend_amount}, ex-date yet not announced"
+                    # User case 2: "Div- Rs 2.40, ex-dayt not yet announced"
+                    ca_map[bm.symbol] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not yet announced"
                 else:
+                    # User case 1: "Boardmeeting, date"
                     date_str = bm.meeting_date.strftime('%d-%m-%Y') if bm.meeting_date else ""
                     ca_map[bm.symbol] = f"Boardmeeting, date-{date_str}"
 
@@ -830,7 +832,8 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         ).all()
         for r in ca_records:
             date_str = r.ex_date.strftime('%d-%m-%Y') if r.ex_date else ""
-            ca_map[r.symbol] = f"Div: {r.parsed_dividend_amount}, ex-date {date_str}"
+            # According to user: case 3. div - 5.25, Ex-date 11-05-2026
+            ca_map[r.symbol] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str}"
     except Exception:
         pass
 
