@@ -1295,15 +1295,26 @@ function renderSSDividends() {
             futuresHTML += `<td>-</td><td>-</td><td>-</td>`;
         }
 
-        const isAbove2 = item.is_above_2_percent;
+        // Fix string "No" evaluating to true
+        const isAbove2 = item.is_above_2_percent === true || item.is_above_2_percent === 'Yes';
         // User requested a dropdown instead of accidental click to toggle Yes/No
         const overrideColor = isAbove2 ? "color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1);" : "";
+
+        let manualAsterisk = "";
+        let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
+        if (overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined) {
+             manualAsterisk = ' <span style="color: #ffeb3b; font-size: 0.8em;" title="Manually Edited">*</span>';
+        }
+
         const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
-            <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; width: 100%; cursor: pointer;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
-                <option style="background: #1e1e1e; color: #fff;" value="" ${!isAbove2 && item.is_above_2_percent !== false ? 'selected' : ''}></option>
-                <option style="background: #1e1e1e; color: #fff;" value="No" ${item.is_above_2_percent === false || item.is_above_2_percent === 'No' ? 'selected' : ''}>No</option>
-                <option style="background: #1e1e1e; color: #fff;" value="Yes" ${item.is_above_2_percent === true || item.is_above_2_percent === 'Yes' ? 'selected' : ''}>Yes</option>
-            </select>
+            <div style="display: flex; align-items: center; width: 100%;">
+                <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; flex-grow: 1; cursor: pointer; padding-left: 5px;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
+                    <option style="background: #1e1e1e; color: #fff;" value="" ${item.is_above_2_percent !== true && item.is_above_2_percent !== false && item.is_above_2_percent !== 'Yes' && item.is_above_2_percent !== 'No' ? 'selected' : ''}></option>
+                    <option style="background: #1e1e1e; color: #fff;" value="No" ${item.is_above_2_percent === false || item.is_above_2_percent === 'No' ? 'selected' : ''}>No</option>
+                    <option style="background: #1e1e1e; color: #fff;" value="Yes" ${item.is_above_2_percent === true || item.is_above_2_percent === 'Yes' ? 'selected' : ''}>Yes</option>
+                </select>
+                ${manualAsterisk}
+            </div>
         </td>`;
 
         let lastAmountHtml = item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-';

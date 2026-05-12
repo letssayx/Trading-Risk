@@ -813,11 +813,11 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             if bm.purpose and ('dividend' in bm.purpose.lower() or 'financial' in bm.purpose.lower()):
                 if bm.extracted_dividend_amount:
                     # User case 2: "Div- Rs 2.40, ex-dayt not yet announced"
-                    ca_map[bm.symbol] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not yet announced"
+                    ca_map[bm.symbol.upper()] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not yet announced"
                 else:
                     # User case 1: "Boardmeeting, date"
                     date_str = bm.meeting_date.strftime('%d-%m-%Y') if bm.meeting_date else ""
-                    ca_map[bm.symbol] = f"Boardmeeting, date-{date_str}"
+                    ca_map[bm.symbol.upper()] = f"Boardmeeting, date-{date_str}"
 
         # Corporate Actions (Overrides BM if CA is announced)
         ca_records = db.query(
@@ -833,8 +833,10 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         for r in ca_records:
             date_str = r.ex_date.strftime('%d-%m-%Y') if r.ex_date else ""
             # According to user: case 3. div - 5.25, Ex-date 11-05-2026
-            ca_map[r.symbol] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str}"
-    except Exception:
+            ca_map[r.symbol.upper()] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str}"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         pass
 
     result = {}
@@ -864,6 +866,10 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
 
             # Removed conversion to lot size, leaving volume in contracts.
 
+        # CA Map might have uppercase, lowercase or symbol variants. Ensure upper matching
+        # Also fut_map keys are straight from ticker_symb, so make sure sym.upper()
+        ca_string = ca_map.get(sym.upper(), ca_map.get(sym, ""))
+
         result[sym] = {
             "eq": {
                 "price": eq_data["price"],
@@ -872,7 +878,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                 "vol": eq_data["vol"],
                 "atp": eq_data["atp"],
                 "sector": sector_map.get(sym, "-"),
-                "ca": ca_map.get(sym, "")
+                "ca": ca_string
             },
             "futures": futs
         }

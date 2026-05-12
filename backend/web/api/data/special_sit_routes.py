@@ -152,6 +152,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
                 "ex_date_obj": r.ex_date,
                 "announcement_date_obj": r.date,
+                "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
                 "dividend_type": r.dividend_type,
                 "purpose": r.purpose,
                 "amount": r.parsed_dividend_amount,
@@ -246,7 +247,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             # In a real scenario, this requires a DB query per record or a bulk fetch. To prevent N+1 queries freezing the API,
             # we query the closest EQ close price prior to the broadcast date.
 
-            ref_date = h.get('broadcast_date') or h.get('ex_date_obj')
+            # Prefer broadcast date (announcement date), fallback to announcement_date_obj, then ex_date_obj
+            ref_date = h.get('broadcast_date') or h.get('announcement_date_obj') or h.get('ex_date_obj')
             if ref_date and h['amount']:
                 # Simple fallback: query the DB directly here for now. It might be slow, but it's correct.
                 # (Ideally, we'd pre-fetch all needed historical prices).
@@ -424,7 +426,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         if spot and expected_amount and (expected_amount / spot) >= 0.02:
                             expected_less_likely = "extra ordinary"
 
-                    expected_highly_likely = next_cycle['next_date'].strftime('%d-%m-%Y')
+                    expected_highly_likely = f"Forecasted: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
                     if not expected_less_likely:
                         if next_cycle['less_likely_months']:
                             m_names = [datetime.date(2000, m, 1).strftime('%b') for m in next_cycle['less_likely_months']]
