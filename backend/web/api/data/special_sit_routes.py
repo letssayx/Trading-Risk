@@ -273,10 +273,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                             # before or during market hours, we MUST use the previous day's closing price
                             price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
                     else:
+                        # As per user instruction, if we are unsure of the exact time, check the previous day price
                         if hasattr(ref_date, "date"):
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
+                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
                         else:
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date)
+                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date)
 
                     hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
 
@@ -434,7 +435,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                         # Add note to check for >2% if forecasted amount is high
                         if spot and expected_amount and (expected_amount / spot) >= 0.02:
-                            expected_less_likely = "extra ordinary"
+                            expected_less_likely = "<span style='color: red;'>check for extra-ordinary</span>"
+                            is_above_2_percent = True
 
                     expected_highly_likely = f"Forecasted: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
                     if not expected_less_likely:

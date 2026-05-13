@@ -1107,14 +1107,25 @@ function updateSSDivData(symbol, field, value) {
             // Allow it to fall through to saving logic below
         }
         if (field === 'expected_amount') {
-            // Strip out non-numeric chars in case they edited formatting
+            // Check if they effectively reverted to the original backend value
+            let originalItemHtml = (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-').replace(/<[^>]*>?/gm, '').trim();
+            let cleanedVal = value.replace(/<[^>]*>?/gm, '').replace(/\*/g, '').trim(); // Remove tags and our own asterisk
             let num = value.replace(/[^0-9.]/g, '');
-            if (num) {
-               item.expected_amount = parseFloat(num);
-               item._edited_expected_amount = value; // Store raw HTML for rendering
+
+            if (cleanedVal === originalItemHtml || cleanedVal === (item.expected_amount ? parseFloat(item.expected_amount).toFixed(2) : '-')) {
+                // Reverted to original, clear override
+                delete item._edited_expected_amount;
+                if (num) {
+                    item.expected_amount = parseFloat(num);
+                }
             } else {
-               item.expected_amount = null;
-               item._edited_expected_amount = value;
+                if (num) {
+                   item.expected_amount = parseFloat(num);
+                   item._edited_expected_amount = value.replace(/\*/g, '').trim(); // Store raw HTML for rendering, remove asterisk
+                } else {
+                   item.expected_amount = null;
+                   item._edited_expected_amount = value.replace(/\*/g, '').trim();
+                }
             }
         } else {
             if (field === 'expected_highly_likely' && typeof value === 'string') {
@@ -1341,7 +1352,7 @@ function renderSSDividends() {
         let expectedAmountHTML = item._edited_expected_amount || (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-');
 
         if (isOverridden) {
-            expectedAmountHTML = `${expectedAmountHTML} <span style="color: #ffeb3b; font-size: 0.8em;" title="Manually Edited">*</span>`;
+            expectedAmountHTML = `${expectedAmountHTML} <span style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>`;
         } else if (item.expected_amount && item.expected_amount_compare) {
             let numExpected = parseFloat(item.expected_amount);
             let numLast = parseFloat(item.expected_amount_compare);
