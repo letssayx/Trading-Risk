@@ -274,9 +274,9 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                             price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
                     else:
                         if hasattr(ref_date, "date"):
-                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
+                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
                         else:
-                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date)
+                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date)
 
                     hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
 
@@ -303,7 +303,17 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_type = last['dividend_type'] or '-'
             last_ex_date = last['ex_date'] or '-'
             last_amount = last['amount']
-            is_above_2_percent = last.get('is_above_2_percent', False)
+
+            # User reported that dividends with past ex-dates are incorrectly triggering the extra-ordinary = yes flag for future forecasts.
+            # Only set it for the main row if it's the latest event AND the ex_date hasn't passed yet or is today.
+            # If it's a past event, the main row shouldn't inherit its >2% flag, as we are looking ahead.
+            latest_ex_date_obj = last.get('ex_date_obj')
+            if latest_ex_date_obj and latest_ex_date_obj >= today:
+                is_above_2_percent = last.get('is_above_2_percent', False)
+            elif not latest_ex_date_obj: # e.g. "Record date not yet declared"
+                is_above_2_percent = last.get('is_above_2_percent', False)
+            else:
+                is_above_2_percent = False
 
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
