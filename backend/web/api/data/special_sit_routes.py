@@ -424,10 +424,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         expected_amount_compare = next_cycle['last_amt_in_cycle']
                         expected_type = next_cycle['type']
 
-                        # Add note to check for >2% if forecasted amount is high
-                        if spot and expected_amount and (expected_amount / spot) >= 0.02:
-                            pass # Frontend UI handles highlighting this now, remove text label
-
                     expected_highly_likely = f"Forecasted: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
                     if not expected_less_likely:
                         if next_cycle['less_likely_months']:
@@ -435,6 +431,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                             expected_less_likely = ", ".join(m_names)
                         else:
                             expected_less_likely = "-"
+
+                    if spot and expected_amount and (expected_amount / spot) >= 0.02:
+                        # Make Yes and append the warning note
+                        is_above_2_percent = True
+                        expected_less_likely = f"{expected_less_likely}<br><span style='color:#ff4d4d;'>check for extra-ordinary</span>"
 
             # If the last event is Ex-Awaited (amount declared, but no ex-date yet)
             if history:
@@ -453,6 +454,10 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         expected_highly_likely = "-"
 
                     expected_less_likely = "Amount declared, date not yet announced"
+
+                    if spot and expected_amount and (expected_amount / spot) >= 0.02:
+                        is_above_2_percent = True
+                        expected_less_likely = f"{expected_less_likely}<br><span style='color:#ff4d4d;'>check for extra-ordinary</span>"
 
         results.append({
             "symbol": sym,

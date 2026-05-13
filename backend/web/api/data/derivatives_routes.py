@@ -819,6 +819,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                     date_str = bm.meeting_date.strftime('%d-%m-%Y') if bm.meeting_date else ""
                     ca_map[bm.symbol.upper()] = f"Boardmeeting, date-{date_str}"
 
+        from sqlalchemy import or_
         # Corporate Actions (Overrides BM if CA is announced)
         ca_records = db.query(
             CorporateAction.symbol,
@@ -826,14 +827,19 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             CorporateAction.purpose,
             CorporateAction.parsed_dividend_amount
         ).filter(
-            CorporateAction.ex_date >= latest_fo_date,
-            CorporateAction.ex_date <= next_month,
-            CorporateAction.parsed_dividend_amount != None
+            CorporateAction.parsed_dividend_amount != None,
+            or_(
+                CorporateAction.ex_date >= latest_fo_date,
+                CorporateAction.ex_date == None
+            )
         ).all()
         for r in ca_records:
-            date_str = r.ex_date.strftime('%d-%m-%Y') if r.ex_date else ""
-            # According to user: case 3. div - 5.25, Ex-date 11-05-2026
-            ca_map[r.symbol.upper()] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str}"
+            if r.ex_date:
+                date_str = r.ex_date.strftime('%d-%m-%Y')
+                # According to user: case 3. div - 5.25, Ex-date 11-05-2026
+                ca_map[r.symbol.upper()] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str}"
+            else:
+                ca_map[r.symbol.upper()] = f"Div- Rs {r.parsed_dividend_amount}, ex-date not yet announced"
     except Exception as e:
         import traceback
         traceback.print_exc()

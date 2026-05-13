@@ -1302,7 +1302,8 @@ function renderSSDividends() {
 
         let manualAsterisk = "";
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
-        if (overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined) {
+        // Only show asterisk if an override exists AND it is an active string value like 'Yes' or 'No', meaning it wasn't cleared.
+        if (overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined && overrides[item.symbol]['is_above_2_percent'] !== "") {
              manualAsterisk = '<span style="color: #ffeb3b; margin-left: 4px;" title="Manually Edited">*</span>';
         }
 
