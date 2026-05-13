@@ -1303,17 +1303,17 @@ function renderSSDividends() {
         let manualAsterisk = "";
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
         if (overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined) {
-             manualAsterisk = ' <span style="color: #ffeb3b; font-size: 0.8em;" title="Manually Edited">*</span>';
+             manualAsterisk = '<span style="color: #ffeb3b; margin-left: 4px;" title="Manually Edited">*</span>';
         }
 
         const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
             <div style="display: flex; align-items: center; width: 100%;">
-                <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; flex-grow: 1; cursor: pointer; padding-left: 5px;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
+                <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; flex-grow: 1; cursor: pointer; padding-left: 5px; width: 80%;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
                     <option style="background: #1e1e1e; color: #fff;" value="" ${item.is_above_2_percent !== true && item.is_above_2_percent !== false && item.is_above_2_percent !== 'Yes' && item.is_above_2_percent !== 'No' ? 'selected' : ''}></option>
                     <option style="background: #1e1e1e; color: #fff;" value="No" ${item.is_above_2_percent === false || item.is_above_2_percent === 'No' ? 'selected' : ''}>No</option>
                     <option style="background: #1e1e1e; color: #fff;" value="Yes" ${item.is_above_2_percent === true || item.is_above_2_percent === 'Yes' ? 'selected' : ''}>Yes</option>
                 </select>
-                ${manualAsterisk}
+                <div style="width: 20%; display: flex; justify-content: flex-end; padding-right: 5px;">${manualAsterisk}</div>
             </div>
         </td>`;
 

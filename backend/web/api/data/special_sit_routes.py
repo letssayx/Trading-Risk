@@ -304,6 +304,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_ex_date = last['ex_date'] or '-'
             last_amount = last['amount']
             is_above_2_percent = last.get('is_above_2_percent', False)
+            if last['ex_date_obj'] and last['ex_date_obj'] < today:
+                is_above_2_percent = False
 
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
@@ -424,7 +426,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                         # Add note to check for >2% if forecasted amount is high
                         if spot and expected_amount and (expected_amount / spot) >= 0.02:
-                            expected_less_likely = "extra ordinary"
+                            pass # Frontend UI handles highlighting this now, remove text label
 
                     expected_highly_likely = f"Forecasted: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
                     if not expected_less_likely:
