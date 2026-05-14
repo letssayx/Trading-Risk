@@ -3229,47 +3229,76 @@ function renderDividendsData() {
             const meetings = meetingsBySymbol[sym];
             meetings.forEach(m => {
                 const purpose = (m.purpose || '').toLowerCase();
-                if (purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division')) {
+                let isDiv = purpose.includes('dividend');
+                let isBonus = purpose.includes('bonus');
+                let isSplit = purpose.includes('split') || purpose.includes('sub-division');
+
+                if (isDiv || isBonus || isSplit) {
                     // Check if there is a corporate action after this meeting date
                     const mDate = m.meeting_date ? new Date(m.meeting_date) : null;
                     let hasLinkedAction = false;
+                    let mAmount = parseFloat(m.extracted_dividend_amount) || null;
 
                     if (mDate) {
                         for (let a of divRawData) {
-                            if (a.symbol === sym) {
-                                const aDate = a.ex_date ? new Date(a.ex_date) : null;
-                                // If the corporate action ex_date is after the meeting date, consider it linked
-                                if (aDate && aDate >= mDate) {
-                                    hasLinkedAction = true;
-                                    break;
-                                }
+                            if (a.symbol === sym && !a._linkedToMeeting) {
                                 const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).trim().toLowerCase();
 
-                                // If the backend generated a synthetic action or incomplete action without dates, consider it linked
-                                // AND inject the extracted amount before breaking out of the loop.
-                                if (!aDate && (a.is_synthetic || aPurpose.includes('not yet declared') ||
-                                              aPurpose.includes('dividend (') ||
-                                              aPurpose.includes('dividend'))) {
+                                // Strict Type Matching
+                                let aIsDiv = aPurpose.includes('dividend');
+                                let aIsBonus = aPurpose.includes('bonus');
+                                let aIsSplit = aPurpose.includes('split') || aPurpose.includes('sub-division');
 
-                                    // Make sure we only link if the broadcast date / meeting date roughly matches, to avoid linking to very old dummy actions
-                                    let isTimeMatch = true;
-                                    if (a.broadcast_date && m.meeting_date) {
-                                        const bDate = new Date(a.broadcast_date);
-                                        const meetDate = new Date(m.meeting_date);
-                                        const diffDays = Math.abs(bDate - meetDate) / (1000 * 60 * 60 * 24);
-                                        if (diffDays > 30) isTimeMatch = false; // Must be within 30 days
-                                    }
+                                if ((isDiv && !aIsDiv) || (isBonus && !aIsBonus) || (isSplit && !aIsSplit)) {
+                                    continue; // Types do not match
+                                }
 
-                                    if (isTimeMatch) {
-                                        if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
-                                            a.parsed_dividend_amount = m.extracted_dividend_amount;
+                                const aDate = a.ex_date ? new Date(a.ex_date) : null;
+                                let aAmount = parseFloat(a.parsed_dividend_amount) || null;
+
+                                // Strict Amount Matching if both have amounts
+                                if (isDiv && mAmount !== null && aAmount !== null && mAmount !== aAmount) {
+                                    continue; // Amounts don't match, cannot be the same action
+                                }
+
+                                // Make sure we only link if the broadcast date / meeting date roughly matches
+                                let isTimeMatch = false;
+                                let diffDays = 999;
+
+                                // First check ex-date proximity to meeting date if available (often ex-date is a bit after meeting date)
+                                if (aDate) {
+                                    if (aDate >= mDate) {
+                                        const diff = Math.abs(aDate - mDate) / (1000 * 60 * 60 * 24);
+                                        if (diff <= 90) { // Ex-date is usually within 90 days of meeting
+                                            isTimeMatch = true;
                                         }
-                                        if (!a.dividend_type || a.dividend_type === '-') {
-                                            a.dividend_type = m.extracted_dividend_type || 'Final';
-                                        }
-                                        hasLinkedAction = true;
-                                        break;
                                     }
+                                }
+
+                                // Fallback: Check broadcast date or fallback date proximity
+                                let fallbackDateStr = a.broadcast_date || a.record_date || a.date;
+                                if (!isTimeMatch && fallbackDateStr) {
+                                    const bDate = new Date(fallbackDateStr);
+                                    diffDays = Math.abs(bDate - mDate) / (1000 * 60 * 60 * 24);
+                                    if (diffDays <= 30) isTimeMatch = true;
+                                }
+
+                                // If the backend generated a synthetic action or incomplete action without dates, heavily weight time match
+                                if (!aDate && (a.is_synthetic || aPurpose.includes('not yet declared') || aPurpose.includes('dividend ('))) {
+                                     if (diffDays <= 30) isTimeMatch = true;
+                                }
+
+                                if (isTimeMatch) {
+                                    // Found a match! Patch incomplete actions
+                                    if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
+                                        a.parsed_dividend_amount = m.extracted_dividend_amount;
+                                    }
+                                    if (!a.dividend_type || a.dividend_type === '-') {
+                                        a.dividend_type = m.extracted_dividend_type || 'Final';
+                                    }
+                                    a._linkedToMeeting = true; // Claim this action so no other meeting claims it
+                                    hasLinkedAction = true;
+                                    break;
                                 }
                             }
                         }
