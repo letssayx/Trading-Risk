@@ -647,7 +647,8 @@ class NSELib:
                                 subject = str(ca.get('subject', ''))
 
                                 # Extract amount from the CA subject: e.g. 'Dividend - Rs 31 Per Share'
-                                matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', subject, re.IGNORECASE)
+                                _clean_subject = re.sub(r'face value[^0-9]*(?:rs\.?|re\.?|rupees?|inr)?\s*\d+(?:\.\d+)?', '', subject, flags=re.IGNORECASE)
+                                matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
                                 if matches:
                                     found_amount = sum(float(m) for m in matches)
                                     if 'interim' in subject.lower(): found_type = 'Interim'
@@ -678,8 +679,9 @@ class NSELib:
 
                                         # Extract Amount
                                         if found_amount is None:
+                                            _clean_text = re.sub(r'face value[^0-9]*(?:rs\.?|re\.?|rupees?|inr)?\s*\d+(?:\.\d+)?', '', attchmntText, flags=re.IGNORECASE)
                                             div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
-                                            matches = div_pattern.findall(attchmntText)
+                                            matches = div_pattern.findall(_clean_text)
                                             if matches:
                                                 found_amount = sum(float(m) for m in matches)
 
@@ -697,6 +699,7 @@ class NSELib:
                         # Fallback 2: Extracting from bm_desc and bm_purpose
                         if found_amount is None:
                             text_to_search = f"{purpose} {desc}"
+                            _clean_text_2 = re.sub(r'face value[^0-9]*(?:rs\.?|re\.?|rupees?|inr)?\s*\d+(?:\.\d+)?', '', text_to_search, flags=re.IGNORECASE)
                             # Extract using the common UI regex patterns
                             ui_patterns = [
                                 r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)',
@@ -705,7 +708,7 @@ class NSELib:
                                 r'dividend.*?\s+(\d+(?:\.\d+)?)\s+per'
                             ]
                             for pat in ui_patterns:
-                                matches = re.findall(pat, text_to_search, re.IGNORECASE)
+                                matches = re.findall(pat, _clean_text_2, re.IGNORECASE)
                                 if matches:
                                     found_amount = sum(float(m) for m in matches)
                                     break
