@@ -3318,7 +3318,7 @@ function renderDividendsData() {
                              if (purpose.includes('final')) divType = 'Final';
 
                              // Try to extract amount if not already provided by backend
-                             let amountMatch = purpose.match(/(?:rs\.?|rupees?)\s*([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\-/i) || purpose.match(/dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per/i) || purpose.match(/dividend\s*-\s*(?:rs\.?|rupees?)?\s*([0-9]+(?:\.[0-9]+)?)/i);
+                             let amountMatch = purpose.match(/(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\-/i) || purpose.match(/dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per/i) || purpose.match(/dividend\s*-\s*(?:rs\.?|rupees?|re\.?)?\s*([0-9]+(?:\.[0-9]+)?)/i);
                              if (amountMatch && !amount) {
                                  amount = amountMatch[1];
                              }
@@ -3439,8 +3439,17 @@ function renderDividendsData() {
                             // Strict explicit ex_date check
                             const date1 = currentAction.ex_date;
                             const date2 = existingAction.ex_date;
-                            if (date1 && date2 && date1 !== date2 && date1 !== "Record date not yet declared" && date2 !== "Record date not yet declared") {
-                                continue;
+                            if (date1 && date2 && date1 !== "Record date not yet declared" && date2 !== "Record date not yet declared") {
+                                // Instead of failing on exact match, fail if they are more than 10 days apart
+                                const d1 = new Date(date1);
+                                const d2 = new Date(date2);
+                                if (!isNaN(d1) && !isNaN(d2)) {
+                                    if (Math.abs(d1 - d2) / (1000 * 60 * 60 * 24) > 10) {
+                                        continue;
+                                    }
+                                } else if (date1 !== date2) {
+                                    continue;
+                                }
                             }
                             // Merge currentAction INTO existingAction (current is newer chronologically based on our sort)
 

@@ -466,6 +466,7 @@ class NSEDataImporter:
                         'dividend_type': r.get('extracted_dividend_type') or 'Final',
                         'ex_date': parsed_rec_date,
                         'record_date': parsed_rec_date,
+                        'broadcast_date': r.get('broadcast_date'),
                     })
             if synthesized_ca_records:
                 ca_model = self._get_model_class('corporate_actions')

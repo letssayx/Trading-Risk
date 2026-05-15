@@ -355,6 +355,7 @@ class FieldMapper:
             record = {
                 'date': record_date or bm_date_val,
                 'meeting_date': bm_date_val, # explicitly store meeting date
+                'broadcast_date': broadcast_dt,
                 'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip(),
                 'company_name': str(cls._get_val(row, ['COMPANY NAME', 'Company Name']) or '').strip(),
                 'purpose': str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip(),

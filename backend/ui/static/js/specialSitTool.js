@@ -1103,10 +1103,22 @@ function updateSSDivData(symbol, field, value) {
     if (item) {
         if (field === 'is_above_2_percent') {
             const lowerVal = value.trim().toLowerCase();
-            item.is_above_2_percent = (lowerVal === 'yes' || lowerVal === 'true' || lowerVal === '1');
-            // Allow it to fall through to saving logic below
-        }
-        if (field === 'expected_amount') {
+            const originalVal = (item._original_is_above_2_percent === true || item._original_is_above_2_percent === 'Yes') ? 'yes' : 'no';
+
+            if (lowerVal === originalVal) {
+                // Reverted to original, clear override
+                let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
+                if (overrides[symbol]) {
+                    delete overrides[symbol]['is_above_2_percent'];
+                    if (Object.keys(overrides[symbol]).length === 0) delete overrides[symbol];
+                    localStorage.setItem('ssDivOverrides', JSON.stringify(overrides));
+                }
+                item.is_above_2_percent = (originalVal === 'yes');
+                return; // Stop here so it doesn't save to localstorage below
+            } else {
+                item.is_above_2_percent = (lowerVal === 'yes' || lowerVal === 'true' || lowerVal === '1');
+            }
+        } else if (field === 'expected_amount') {
             // Check if they effectively reverted to the original backend value
             let originalItemHtml = (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-').replace(/<[^>]*>?/gm, '').trim();
             let cleanedVal = value.replace(/<[^>]*>?/gm, '').replace(/\*/g, '').trim(); // Remove tags and our own asterisk
@@ -1315,7 +1327,7 @@ function renderSSDividends() {
         let manualAsterisk = "";
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
         if (overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined) {
-             manualAsterisk = ' <span style="color: #ffeb3b; font-size: 0.8em;" title="Manually Edited">*</span>';
+             manualAsterisk = ' <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>';
         }
 
         const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
