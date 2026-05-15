@@ -3415,6 +3415,19 @@ function renderDividendsData() {
                     if (timeCurrent > 0 && timeExisting > 0) {
                         const diffDays = Math.abs(timeCurrent - timeExisting) / (1000 * 60 * 60 * 24);
                         if (diffDays <= 180) {
+                            // Strict Type Check
+                            const type1 = currentAction.dividend_type;
+                            const type2 = existingAction.dividend_type;
+                            if (type1 && type2 && type1 !== '-' && type2 !== '-' && type1 !== type2) {
+                                // If one is Bonus and another is Dividend, NEVER merge them.
+                                if ((type1.includes('Bonus') && !type2.includes('Bonus')) || (!type1.includes('Bonus') && type2.includes('Bonus'))) {
+                                    continue;
+                                }
+                                if ((type1.includes('Split') && !type2.includes('Split')) || (!type1.includes('Split') && type2.includes('Split'))) {
+                                    continue;
+                                }
+                            }
+
                             // Strict amount check
                             const amt1 = currentAction.parsed_dividend_amount;
                             const amt2 = existingAction.parsed_dividend_amount;

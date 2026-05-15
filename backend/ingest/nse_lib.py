@@ -647,7 +647,7 @@ class NSELib:
                                 subject = str(ca.get('subject', ''))
 
                                 # Extract amount from the CA subject: e.g. 'Dividend - Rs 31 Per Share'
-                                _clean_subject = re.sub(r'(?:face value|fv)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', subject, flags=re.IGNORECASE)
+                                _clean_subject = re.sub(r'(?:face value|fv|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', subject, flags=re.IGNORECASE)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
                                     if match:
@@ -686,7 +686,7 @@ class NSELib:
 
                                         # Extract Amount
                                         if found_amount is None:
-                                            _clean_text = re.sub(r'(?:face value|fv)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', attchmntText, flags=re.IGNORECASE)
+                                            _clean_text = re.sub(r'(?:face value|fv|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', attchmntText, flags=re.IGNORECASE)
 
                                             if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
                                                 match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
@@ -712,7 +712,7 @@ class NSELib:
                         # Fallback 2: Extracting from bm_desc and bm_purpose
                         if found_amount is None:
                             text_to_search = f"{purpose} {desc}"
-                            _clean_text_2 = re.sub(r'(?:face value|fv)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', text_to_search, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'(?:face value|fv|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', text_to_search, flags=re.IGNORECASE)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
                                 match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)

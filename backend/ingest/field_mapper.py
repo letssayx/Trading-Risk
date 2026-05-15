@@ -285,7 +285,7 @@ class FieldMapper:
 
         # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
         # 1. Aggressively remove 'face value' and 'fv' context blocks
-        _clean_purpose = re.sub(r'(?:face value|fv)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', purpose_lower, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'(?:face value|fv|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', purpose_lower, flags=re.IGNORECASE)
 
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
