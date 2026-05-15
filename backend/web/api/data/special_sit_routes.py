@@ -273,11 +273,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                             # before or during market hours, we MUST use the previous day's closing price
                             price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
                     else:
-                        # As per user instruction, if we are unsure of the exact time, check the previous day price
+                        # As per user instruction, if we are completely unsure of the exact time, default to checking the same day's price
                         if hasattr(ref_date, "date"):
-                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
+                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
                         else:
-                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date)
+                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date)
 
                     hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
 

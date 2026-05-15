@@ -814,7 +814,10 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                 if bm.extracted_dividend_amount:
                     # User case: "Div- Rs 5, ex-date not announced (Expected: Jan)"
                     expected_month = bm.meeting_date.strftime('%b') if bm.meeting_date else ""
-                    ca_map[bm.symbol.upper()] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not announced (Expected: {expected_month})"
+                    if expected_month:
+                        ca_map[bm.symbol.upper()] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not announced (Expected: {expected_month})"
+                    else:
+                        ca_map[bm.symbol.upper()] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not announced"
                 else:
                     # User case: "Boardmeeting, date"
                     date_str = bm.meeting_date.strftime('%d-%m-%Y') if bm.meeting_date else ""
@@ -833,8 +836,8 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
         ).all()
         for r in ca_records:
             date_str = r.ex_date.strftime('%d-%m-%Y') if r.ex_date else ""
-            # User case: "div - 5, Ex-date 15-01-2024 (Confirmed)"
-            ca_map[r.symbol.upper()] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str} (Confirmed)"
+            # User case: "div - 5, Ex-date 15-01-2024"
+            ca_map[r.symbol.upper()] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str}"
     except Exception as e:
         import traceback
         traceback.print_exc()

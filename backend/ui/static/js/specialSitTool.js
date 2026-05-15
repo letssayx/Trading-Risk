@@ -1121,10 +1121,11 @@ function updateSSDivData(symbol, field, value) {
             } else {
                 if (num) {
                    item.expected_amount = parseFloat(num);
-                   item._edited_expected_amount = value.replace(/\*/g, '').trim(); // Store raw HTML for rendering, remove asterisk
+                   // Store cleanly without asterisks so it doesn't duplicate
+                   item._edited_expected_amount = value.replace(/<span[^>]*class=["']asterisk-mark["'][^>]*>\*<\/span>/gi, '').replace(/\*/g, '').trim();
                 } else {
                    item.expected_amount = null;
-                   item._edited_expected_amount = value.replace(/\*/g, '').trim();
+                   item._edited_expected_amount = value.replace(/<span[^>]*class=["']asterisk-mark["'][^>]*>\*<\/span>/gi, '').replace(/\*/g, '').trim();
                 }
             }
         } else {
@@ -1351,8 +1352,11 @@ function renderSSDividends() {
         let isOverridden = !!item._edited_expected_amount;
         let expectedAmountHTML = item._edited_expected_amount || (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-');
 
+        // Always strip existing asterisk marks before rendering to avoid duplicates when manually edited
+        expectedAmountHTML = expectedAmountHTML.replace(/<span[^>]*class=["']asterisk-mark["'][^>]*>\*<\/span>/gi, '').replace(/\*/g, '');
+
         if (isOverridden) {
-            expectedAmountHTML = `${expectedAmountHTML} <span style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>`;
+            expectedAmountHTML = `${expectedAmountHTML} <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>`;
         } else if (item.expected_amount && item.expected_amount_compare) {
             let numExpected = parseFloat(item.expected_amount);
             let numLast = parseFloat(item.expected_amount_compare);
