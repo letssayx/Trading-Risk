@@ -3395,6 +3395,17 @@ function renderDividendsData() {
                                 continue;
                             }
 
+                            // Do NOT merge two actual Corporate Actions together just because they have the same amount.
+                            // We only merge a Board Meeting (synthetic/intimation) WITH a Corporate Action (or another Board Meeting in the same chain).
+                            const isCCurrent = !currentAction.is_synthetic && currentAction.ex_date && currentAction.ex_date !== 'Record date not yet declared';
+                            const isCExisting = !existingAction.is_synthetic && existingAction.ex_date && existingAction.ex_date !== 'Record date not yet declared';
+
+                            if (isCCurrent && isCExisting) {
+                                // Both are official Corporate Actions with distinct dates, do not merge!
+                                // e.g., Quarterly dividend of Rs 5 in Q1, and another Rs 5 in Q2.
+                                continue;
+                            }
+
                             // Otherwise, they are part of the same lifecycle (or one is missing an amount), merge them!
 
                             if (currentAction.ex_date && currentAction.ex_date !== 'Record date not yet declared') existingAction.ex_date = currentAction.ex_date;

@@ -86,11 +86,12 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         )
     ).order_by(desc(CorporateAction.date)).all()
 
-    # Fetch all Board Meetings with extracted dividend amounts
+    # Fetch all Board Meetings to track the lifecycle (including scheduled intimations without amounts yet)
     bm_records = db.query(BoardMeeting).filter(
         BoardMeeting.symbol.in_(symbols),
         BoardMeeting.date >= ten_years_ago,
-        BoardMeeting.extracted_dividend_amount != None
+        # We need to fetch board meetings where the purpose indicates a dividend, even if amount is not extracted yet
+        BoardMeeting.purpose.ilike('%dividend%')
     ).order_by(desc(BoardMeeting.date)).all()
 
     import re
