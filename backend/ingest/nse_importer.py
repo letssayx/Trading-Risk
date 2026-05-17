@@ -481,12 +481,21 @@ class NSEDataImporter:
                     # drifted across different `trade_date` imports but belong to the same symbol/purpose:
                     for rec in synthesized_ca_records:
                         from sqlalchemy import or_
+                        # Crucially, do not filter deletions by `parsed_dividend_amount`, to ensure intimation records
+                        # (no amount) are properly overwritten by subsequent announcement records (with amount).
+                        # Crucial fix to preserve actual historical dividends!
+                        # We only want to delete the synthesized records that are being replaced BY THIS EXACT EVENT.
+                        # So we only delete synthesized placeholders from the SAME date or later (which means it's the exact same lifecycle event).
+                        from datetime import timedelta
+                        threshold_date = rec['date'] - timedelta(days=60) # Lifecycle events happen closely
+
                         stmt = delete(ca_model).where(
                             ca_model.symbol == rec['symbol'],
+                            ca_model.date >= threshold_date,
                             or_(
                                 ca_model.purpose.like('%not yet declared%'),
-                                ca_model.purpose.like('Dividend (%'),
-                                ca_model.purpose == 'Dividend'
+                                ca_model.purpose == 'Dividend',
+                                ca_model.purpose.like('Dividend (%')
                             )
                         )
                         db.execute(stmt)

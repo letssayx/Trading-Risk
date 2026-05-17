@@ -345,8 +345,11 @@ class FieldMapper:
         records = []
         for _, row in df.iterrows():
             bm_date_val = parse_nse_date(cls._get_val(row, ['BoardMeetingDate', 'MEETING DATE', 'Meeting Date']))
-            broadcast_str = cls._get_val(row, ['BROADCAST DATE', 'bm_timestamp', 'Broadcast Date'])
+            broadcast_str = cls._get_val(row, ['BROADCAST DATE', 'bm_timestamp', 'Broadcast Date', 'SYSTIME', 'sysTime'])
             broadcast_dt = parse_nse_datetime(broadcast_str) if broadcast_str else None
+            # fallback to exact date if sysTime not found
+            if not broadcast_dt and 'bm_timestamp' in row:
+                broadcast_dt = parse_nse_datetime(row['bm_timestamp'])
 
             # Use broadcast_date for partition key 'date' (representing when the announcement happened)
             # Default to trade_date if no broadcast date.

@@ -3229,76 +3229,47 @@ function renderDividendsData() {
             const meetings = meetingsBySymbol[sym];
             meetings.forEach(m => {
                 const purpose = (m.purpose || '').toLowerCase();
-                let isDiv = purpose.includes('dividend');
-                let isBonus = purpose.includes('bonus');
-                let isSplit = purpose.includes('split') || purpose.includes('sub-division');
-
-                if (isDiv || isBonus || isSplit) {
+                if (purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division')) {
                     // Check if there is a corporate action after this meeting date
                     const mDate = m.meeting_date ? new Date(m.meeting_date) : null;
                     let hasLinkedAction = false;
-                    let mAmount = parseFloat(m.extracted_dividend_amount) || null;
 
                     if (mDate) {
                         for (let a of divRawData) {
-                            if (a.symbol === sym && !a._linkedToMeeting) {
-                                const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).trim().toLowerCase();
-
-                                // Strict Type Matching
-                                let aIsDiv = aPurpose.includes('dividend');
-                                let aIsBonus = aPurpose.includes('bonus');
-                                let aIsSplit = aPurpose.includes('split') || aPurpose.includes('sub-division');
-
-                                if ((isDiv && !aIsDiv) || (isBonus && !aIsBonus) || (isSplit && !aIsSplit)) {
-                                    continue; // Types do not match
-                                }
-
+                            if (a.symbol === sym) {
                                 const aDate = a.ex_date ? new Date(a.ex_date) : null;
-                                let aAmount = parseFloat(a.parsed_dividend_amount) || null;
-
-                                // Strict Amount Matching if both have amounts
-                                if (isDiv && mAmount !== null && aAmount !== null && mAmount !== aAmount) {
-                                    continue; // Amounts don't match, cannot be the same action
-                                }
-
-                                // Make sure we only link if the broadcast date / meeting date roughly matches
-                                let isTimeMatch = false;
-                                let diffDays = 999;
-
-                                // First check ex-date proximity to meeting date if available (often ex-date is a bit after meeting date)
-                                if (aDate) {
-                                    if (aDate >= mDate) {
-                                        const diff = Math.abs(aDate - mDate) / (1000 * 60 * 60 * 24);
-                                        if (diff <= 90) { // Ex-date is usually within 90 days of meeting
-                                            isTimeMatch = true;
-                                        }
-                                    }
-                                }
-
-                                // Fallback: Check broadcast date or fallback date proximity
-                                let fallbackDateStr = a.broadcast_date || a.record_date || a.date;
-                                if (!isTimeMatch && fallbackDateStr) {
-                                    const bDate = new Date(fallbackDateStr);
-                                    diffDays = Math.abs(bDate - mDate) / (1000 * 60 * 60 * 24);
-                                    if (diffDays <= 30) isTimeMatch = true;
-                                }
-
-                                // If the backend generated a synthetic action or incomplete action without dates, heavily weight time match
-                                if (!aDate && (a.is_synthetic || aPurpose.includes('not yet declared') || aPurpose.includes('dividend ('))) {
-                                     if (diffDays <= 30) isTimeMatch = true;
-                                }
-
-                                if (isTimeMatch) {
-                                    // Found a match! Patch incomplete actions
-                                    if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
-                                        a.parsed_dividend_amount = m.extracted_dividend_amount;
-                                    }
-                                    if (!a.dividend_type || a.dividend_type === '-') {
-                                        a.dividend_type = m.extracted_dividend_type || 'Final';
-                                    }
-                                    a._linkedToMeeting = true; // Claim this action so no other meeting claims it
+                                // If the corporate action ex_date is after the meeting date, consider it linked
+                                if (aDate && aDate >= mDate) {
                                     hasLinkedAction = true;
                                     break;
+                                }
+                                const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).trim().toLowerCase();
+
+                                // If the backend generated a synthetic action or incomplete action without dates, consider it linked
+                                // AND inject the extracted amount before breaking out of the loop.
+                                if (!aDate && (a.is_synthetic || aPurpose.includes('not yet declared') ||
+                                              aPurpose.includes('dividend (') ||
+                                              aPurpose.includes('dividend'))) {
+
+                                    // Make sure we only link if the broadcast date / meeting date roughly matches, to avoid linking to very old dummy actions
+                                    let isTimeMatch = true;
+                                    if (a.broadcast_date && m.meeting_date) {
+                                        const bDate = new Date(a.broadcast_date);
+                                        const meetDate = new Date(m.meeting_date);
+                                        const diffDays = Math.abs(bDate - meetDate) / (1000 * 60 * 60 * 24);
+                                        if (diffDays > 30) isTimeMatch = false; // Must be within 30 days
+                                    }
+
+                                    if (isTimeMatch) {
+                                        if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
+                                            a.parsed_dividend_amount = m.extracted_dividend_amount;
+                                        }
+                                        if (!a.dividend_type || a.dividend_type === '-') {
+                                            a.dividend_type = m.extracted_dividend_type || 'Final';
+                                        }
+                                        hasLinkedAction = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -3318,7 +3289,7 @@ function renderDividendsData() {
                              if (purpose.includes('final')) divType = 'Final';
 
                              // Try to extract amount if not already provided by backend
-                             let amountMatch = purpose.match(/(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\-/i) || purpose.match(/dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per/i) || purpose.match(/dividend\s*-\s*(?:rs\.?|rupees?|re\.?)?\s*([0-9]+(?:\.[0-9]+)?)/i);
+                             let amountMatch = purpose.match(/(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\-/i) || purpose.match(/dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per/i) || purpose.match(/dividend\s*-\s*(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i);
                              if (amountMatch && !amount) {
                                  amount = amountMatch[1];
                              }
@@ -3346,7 +3317,7 @@ function renderDividendsData() {
             });
         });
 
-        // Deduplicate combinedActions by symbol and time proximity (e.g. within 180 days)
+        // Deduplicate combinedActions by symbol and time proximity (e.g. within 60 days)
         // Group by symbol
         let groupedActions = {};
         combinedActions.forEach(action => {
@@ -3411,46 +3382,10 @@ function renderDividendsData() {
                     const timeCurrent = getTime(currentAction);
                     const timeExisting = getTime(existingAction);
 
-                    // If both times are valid and within 180 days, merge them
+                    // If both times are valid and within 60 days, merge them
                     if (timeCurrent > 0 && timeExisting > 0) {
                         const diffDays = Math.abs(timeCurrent - timeExisting) / (1000 * 60 * 60 * 24);
-                        if (diffDays <= 180) {
-                            // Strict Type Check
-                            const type1 = currentAction.dividend_type;
-                            const type2 = existingAction.dividend_type;
-                            if (type1 && type2 && type1 !== '-' && type2 !== '-' && type1 !== type2) {
-                                // If one is Bonus and another is Dividend, NEVER merge them.
-                                if ((type1.includes('Bonus') && !type2.includes('Bonus')) || (!type1.includes('Bonus') && type2.includes('Bonus'))) {
-                                    continue;
-                                }
-                                if ((type1.includes('Split') && !type2.includes('Split')) || (!type1.includes('Split') && type2.includes('Split'))) {
-                                    continue;
-                                }
-                            }
-
-                            // Strict amount check
-                            const amt1 = currentAction.parsed_dividend_amount;
-                            const amt2 = existingAction.parsed_dividend_amount;
-                            const hasAmt1 = amt1 != null && amt1 !== "-";
-                            const hasAmt2 = amt2 != null && amt2 !== "-";
-                            if (hasAmt1 && hasAmt2 && parseFloat(amt1) !== parseFloat(amt2)) {
-                                continue;
-                            }
-                            // Strict explicit ex_date check
-                            const date1 = currentAction.ex_date;
-                            const date2 = existingAction.ex_date;
-                            if (date1 && date2 && date1 !== "Record date not yet declared" && date2 !== "Record date not yet declared") {
-                                // Instead of failing on exact match, fail if they are more than 10 days apart
-                                const d1 = new Date(date1);
-                                const d2 = new Date(date2);
-                                if (!isNaN(d1) && !isNaN(d2)) {
-                                    if (Math.abs(d1 - d2) / (1000 * 60 * 60 * 24) > 10) {
-                                        continue;
-                                    }
-                                } else if (date1 !== date2) {
-                                    continue;
-                                }
-                            }
+                        if (diffDays <= 60) {
                             // Merge currentAction INTO existingAction (current is newer chronologically based on our sort)
 
                             // Prefer real dates over nulls
