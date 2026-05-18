@@ -3240,8 +3240,20 @@ function renderDividendsData() {
                                 const aDate = a.ex_date ? new Date(a.ex_date) : null;
                                 // If the corporate action ex_date is after the meeting date, consider it linked
                                 if (aDate && aDate >= mDate) {
-                                    hasLinkedAction = true;
-                                    break;
+                                    // Make sure we only link if the dates are reasonably close (e.g., within 180 days)
+                                    // Otherwise a meeting in 2022 might link to a 2024 action
+                                    const diffDays = Math.abs(aDate - mDate) / (1000 * 60 * 60 * 24);
+                                    if (diffDays <= 180) {
+                                        hasLinkedAction = true;
+                                        // Update amount if missing in action but present in meeting
+                                        if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
+                                            a.parsed_dividend_amount = m.extracted_dividend_amount;
+                                        }
+                                        if (!a.dividend_type || a.dividend_type === '-') {
+                                            a.dividend_type = m.extracted_dividend_type || 'Final';
+                                        }
+                                        break;
+                                    }
                                 }
                                 const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).trim().toLowerCase();
 
@@ -3376,7 +3388,24 @@ function renderDividendsData() {
 
         // Finally, sort everything chronologically (newest first)
         finalCombinedActions.sort((a, b) => {
-            const getT = (x) => new Date(x.ex_date || x.announcement_date_obj || x.broadcast_date || x.date || 0).getTime();
+            const parseDateStringSortLocal = (dateString) => {
+                if (!dateString || dateString === '-' || dateString.includes('not yet declared')) return 0;
+                let dateObj = new Date(dateString);
+                if (!isNaN(dateObj.getTime())) return dateObj.getTime();
+                let parts = dateString.split('-');
+                if (parts.length === 3) {
+                    if (parts[2].length === 4) { dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); }
+                    else if (parts[0].length === 4) { dateObj = new Date(dateString); }
+                }
+                return isNaN(dateObj.getTime()) ? 0 : dateObj.getTime();
+            };
+
+            const getT = (x) => {
+                let t = parseDateStringSortLocal(x.ex_date); if (t > 0) return t;
+                t = parseDateStringSortLocal(x.announcement_date_obj || x.broadcast_date); if (t > 0) return t;
+                t = parseDateStringSortLocal(x.date); if (t > 0) return t;
+                return 0;
+            };
             return getT(b) - getT(a);
         });
 
