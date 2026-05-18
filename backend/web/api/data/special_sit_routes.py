@@ -451,15 +451,24 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     expected_amount_compare = latest['amount']
                     expected_type = latest.get('dividend_type', 'Interim')
 
-                    # Instead of "-" use the highly likely date we just forecasted for this cycle if it exists
-                    if upcoming_cycles:
-                        # Try to find a matching cycle type to use its date
-                        matching_cycle = next((c for c in upcoming_cycles if c['type'] == expected_type), upcoming_cycles[0])
-                        expected_highly_likely = f"Forecasted: {matching_cycle['next_date'].strftime('%d-%m-%Y')}"
+                    # If there's an announcement date, use it instead of just generic forecast
+                    ann_date = latest.get('announcement_date_obj')
+                    if ann_date:
+                        expected_highly_likely = f"Announced: {ann_date.strftime('%d-%m-%Y')}"
+                        expected_less_likely = "Amount declared, date not yet announced"
                     else:
-                        expected_highly_likely = "-"
+                        # Instead of "-" use the highly likely date we just forecasted for this cycle if it exists
+                        if upcoming_cycles:
+                            # Try to find a matching cycle type to use its date
+                            matching_cycle = next((c for c in upcoming_cycles if c['type'] == expected_type), upcoming_cycles[0])
+                            expected_highly_likely = f"Forecasted: {matching_cycle['next_date'].strftime('%d-%m-%Y')}"
+                        else:
+                            expected_highly_likely = "-"
+                        expected_less_likely = "Amount declared, date not yet announced"
 
-                    expected_less_likely = "Amount declared, date not yet announced"
+        # Explicitly round expected_amount for json response
+        if expected_amount is not None:
+            expected_amount = round(float(expected_amount), 2)
 
         results.append({
             "symbol": sym,

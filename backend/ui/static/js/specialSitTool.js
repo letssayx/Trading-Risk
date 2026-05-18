@@ -1369,6 +1369,9 @@ function renderSSDividends() {
 
         if (isOverridden) {
             expectedAmountHTML = `${expectedAmountHTML} <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>`;
+        } else if (item.expected_highly_likely && typeof item.expected_highly_likely === 'string' && item.expected_highly_likely.includes('Announced:')) {
+            // If it's already officially announced, we strictly show the announced value without trend arrows
+            // Just use the base expectedAmountHTML which is the announced value.
         } else if (item.expected_amount && item.expected_amount_compare) {
             let numExpected = parseFloat(item.expected_amount);
             let numLast = parseFloat(item.expected_amount_compare);

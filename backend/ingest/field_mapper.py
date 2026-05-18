@@ -285,17 +285,17 @@ class FieldMapper:
 
         # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
         # 1. Aggressively remove 'face value' and 'fv' context blocks
-        _clean_purpose = re.sub(r'(?:face value|fv|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s)*\d+(?:\.\d+)?', '', purpose_lower, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
 
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:
-            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_purpose)
             if match:
                 return float(match.group(1)), dividend_type
 
         # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by &)
-        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_purpose)
         if rs_matches:
             total_amount = sum(float(m) for m in rs_matches)
             return total_amount, dividend_type

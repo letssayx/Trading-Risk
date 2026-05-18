@@ -494,8 +494,7 @@ class NSEDataImporter:
                             ca_model.date >= threshold_date,
                             or_(
                                 ca_model.purpose.like('%not yet declared%'),
-                                ca_model.purpose == 'Dividend',
-                                ca_model.purpose.like('Dividend (%')
+                                ca_model.purpose == 'Dividend'
                             )
                         )
                         db.execute(stmt)
