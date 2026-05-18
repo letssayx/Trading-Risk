@@ -487,11 +487,12 @@ class NSEDataImporter:
                         # We only want to delete the synthesized records that are being replaced BY THIS EXACT EVENT.
                         # So we only delete synthesized placeholders from the SAME date or later (which means it's the exact same lifecycle event).
                         from datetime import timedelta
-                        threshold_date = rec['date'] - timedelta(days=60) # Lifecycle events happen closely
-
+                        # Instead of deleting across a time window, only replace synthesized records
+                        # that perfectly match this exact lifecycle cycle.
+                        # This avoids deleting an older cycle's final/interim records.
                         stmt = delete(ca_model).where(
                             ca_model.symbol == rec['symbol'],
-                            ca_model.date >= threshold_date,
+                            ca_model.date == rec['date'], # MUST exactly match the board meeting date
                             or_(
                                 ca_model.purpose.like('%not yet declared%'),
                                 ca_model.purpose == 'Dividend',

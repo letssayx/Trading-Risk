@@ -3362,76 +3362,108 @@ function renderDividendsData() {
             });
 
             // Iterate and merge actions that are within ~60 days of each other
-            let mergedActions = [];
+
+            const getTime = (item) => {
+                let t = parseDateString(item.ex_date); if (t > 0) return t;
+                t = parseDateString(item.record_date); if (t > 0) return t;
+                t = parseDateString(item.broadcast_date); if (t > 0) return t;
+                if (item._matchedMeeting) { t = parseDateString(item._matchedMeeting.meeting_date); if (t > 0) return t; }
+                t = parseDateString(item.date); if (t > 0) return t;
+                return 0;
+            };
+
+            // Iterate and link actions sequentially (Intimation -> Outcome -> CA)
+            let cycleList = [];
             for (let i = 0; i < actionsForSym.length; i++) {
                 const currentAction = actionsForSym[i];
                 let merged = false;
 
-                for (let j = 0; j < mergedActions.length; j++) {
-                    const existingAction = mergedActions[j];
+                // Check the most recent cycle in our list
+                if (cycleList.length > 0) {
+                    let lastCycle = cycleList[cycleList.length - 1];
 
-                    const getTime = (item) => {
-                        let t = parseDateString(item.ex_date); if (t > 0) return t;
-                        t = parseDateString(item.record_date); if (t > 0) return t;
-                        t = parseDateString(item.broadcast_date); if (t > 0) return t;
-                        if (item._matchedMeeting) { t = parseDateString(item._matchedMeeting.meeting_date); if (t > 0) return t; }
-                        t = parseDateString(item.date); if (t > 0) return t;
-                        return 0;
-                    };
+                    // Check if current action is a corporate action (Outcome/CA) and the last cycle is missing it.
+                    // Or check if current action matches the type/amount of the last cycle.
 
-                    const timeCurrent = getTime(currentAction);
-                    const timeExisting = getTime(existingAction);
+                    // Is this a matching cycle?
+                    // If current is an explicit Intimation/Board Meeting, it usually starts a new cycle,
+                    // UNLESS it's perfectly matching an incomplete cycle.
+                    // A simple heuristic: if it's the exact same type and amount, or if the last cycle is missing an amount/ex_date,
+                    // we merge them.
 
-                    // If both times are valid and within 60 days, merge them
-                    if (timeCurrent > 0 && timeExisting > 0) {
-                        const diffDays = Math.abs(timeCurrent - timeExisting) / (1000 * 60 * 60 * 24);
-                        if (diffDays <= 60) {
-                            // Merge currentAction INTO existingAction (current is newer chronologically based on our sort)
+                    let canMerge = false;
 
-                            // Prefer real dates over nulls
-                            if (currentAction.ex_date) existingAction.ex_date = currentAction.ex_date;
-                            if (currentAction.record_date) existingAction.record_date = currentAction.record_date;
-                            if (currentAction.broadcast_date) existingAction.broadcast_date = currentAction.broadcast_date;
+                    // Strict Type Check
+                    const type1 = currentAction.dividend_type;
+                    const type2 = lastCycle.dividend_type;
+                    let typeMatch = true;
+                    if (type1 && type2 && type1 !== '-' && type2 !== '-' && type1 !== type2) {
+                        if ((type1.includes('Bonus') && !type2.includes('Bonus')) || (!type1.includes('Bonus') && type2.includes('Bonus'))) typeMatch = false;
+                        if ((type1.includes('Split') && !type2.includes('Split')) || (!type1.includes('Split') && type2.includes('Split'))) typeMatch = false;
+                    }
 
-                            // Prefer specific amounts
-                            if (currentAction.parsed_dividend_amount && currentAction.parsed_dividend_amount !== "-") {
-                                existingAction.parsed_dividend_amount = currentAction.parsed_dividend_amount;
+                    // Strict Amount Check
+                    const amt1 = currentAction.parsed_dividend_amount;
+                    const amt2 = lastCycle.parsed_dividend_amount;
+                    const hasAmt1 = amt1 != null && amt1 !== "-";
+                    const hasAmt2 = amt2 != null && amt2 !== "-";
+                    let amtMatch = true;
+                    if (hasAmt1 && hasAmt2 && parseFloat(amt1) !== parseFloat(amt2)) {
+                        amtMatch = false;
+                    }
+
+                    if (typeMatch && amtMatch) {
+                        // Let's ensure they are roughly related in time, but without strict 10-day limits.
+                        // A cycle doesn't span multiple years, so a basic sanity check of < 180 days is safe,
+                        // but the KEY is we only check the PREVIOUS cycle, not ALL past cycles.
+                        const timeCurrent = getTime(currentAction);
+                        const timeExisting = getTime(lastCycle);
+
+                        if (timeCurrent > 0 && timeExisting > 0) {
+                            const diffDays = Math.abs(timeCurrent - timeExisting) / (1000 * 60 * 60 * 24);
+                            if (diffDays <= 180) {
+                                canMerge = true;
                             }
-
-                            // Prefer actual corporate action over synthetic, or latest purpose
-                            // Synthetic means it came from our frontend board meeting synthesis
-                            // Not synthetic could be from DB (real or backend synthetic)
-                            if (currentAction.purpose && currentAction.purpose.toLowerCase() !== 'dividend') {
-                                // If the current action has a more descriptive purpose than just "Dividend", keep it.
-                                existingAction.purpose = currentAction.purpose;
-                                existingAction.subject = currentAction.subject || currentAction.purpose;
-                            } else if (!existingAction.purpose || existingAction.purpose.toLowerCase().includes('not yet declared')) {
-                                existingAction.purpose = currentAction.purpose || existingAction.purpose;
-                                existingAction.subject = currentAction.subject || existingAction.subject;
-                            }
-
-                            if (currentAction.dividend_type && currentAction.dividend_type !== '-') {
-                                existingAction.dividend_type = currentAction.dividend_type;
-                            }
-
-                            // If we merge a real action over a synthetic one, mark it as real
-                            if (!currentAction.is_synthetic) {
-                                existingAction.is_synthetic = false;
-                            }
-
-                            merged = true;
-                            break;
+                        } else {
+                             canMerge = true; // one has no valid time, assume merge
                         }
+                    }
+
+                    if (canMerge) {
+                        // Merge currentAction INTO lastCycle
+                        if (currentAction.ex_date) lastCycle.ex_date = currentAction.ex_date;
+                        if (currentAction.record_date) lastCycle.record_date = currentAction.record_date;
+                        if (currentAction.broadcast_date) lastCycle.broadcast_date = currentAction.broadcast_date;
+
+                        if (currentAction.parsed_dividend_amount && currentAction.parsed_dividend_amount !== "-") {
+                            lastCycle.parsed_dividend_amount = currentAction.parsed_dividend_amount;
+                        }
+
+                        if (currentAction.purpose && currentAction.purpose.toLowerCase() !== 'dividend') {
+                            lastCycle.purpose = currentAction.purpose;
+                            lastCycle.subject = currentAction.subject || currentAction.purpose;
+                        } else if (!lastCycle.purpose || lastCycle.purpose.toLowerCase().includes('not yet declared')) {
+                            lastCycle.purpose = currentAction.purpose || lastCycle.purpose;
+                            lastCycle.subject = currentAction.subject || lastCycle.subject;
+                        }
+
+                        if (currentAction.dividend_type && currentAction.dividend_type !== '-') {
+                            lastCycle.dividend_type = currentAction.dividend_type;
+                        }
+
+                        if (!currentAction.is_synthetic) {
+                            lastCycle.is_synthetic = false;
+                        }
+                        merged = true;
                     }
                 }
 
                 if (!merged) {
-                    // Create a shallow copy so we don't mutate the raw data arrays directly
-                    mergedActions.push({...currentAction});
+                    cycleList.push({...currentAction});
                 }
             }
+            finalCombinedActions.push(...cycleList);
 
-            finalCombinedActions.push(...mergedActions);
         });
 
         let filteredActions = finalCombinedActions.filter(d => {
