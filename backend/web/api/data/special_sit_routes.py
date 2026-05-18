@@ -181,28 +181,28 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         for h in history:
             # We match to a BM just to get its intimation date (broadcast_date), nothing else. We don't delete anything.
             if h.get('dividend_type') not in ['Bonus', 'Split', 'Demerger']:
-                for bm in bms:
-                    if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
-                        ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
-                        if ca_date and bm.date:
-                            diff = (ca_date - bm.date).days
-                            if -10 <= diff <= 90:
-                                # Ensure we don't accidentally consume a BM for a DIFFERENT cycle of the same type
-                                # if amounts differ and both are known.
-                                amount_matches = True
-                                if getattr(bm, 'extracted_dividend_amount', None) is not None and h.get('raw_amount') is not None:
-                                    # If they differ by more than 0.1, it might be a different dividend entirely.
-                                    try:
-                                        if abs(float(bm.extracted_dividend_amount) - float(h['raw_amount'])) > 0.1:
-                                            amount_matches = False
-                                    except (ValueError, TypeError):
-                                        pass
+                # Sort board meetings by proximity to the corporate action to find the best match
+                ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
+                if ca_date:
+                    best_bm = None
+                    min_diff = float('inf')
+                    for bm in bms:
+                        if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
+                            if bm.date:
+                                diff = (ca_date - bm.date).days
+                                # Accept if CA happens -10 to 90 days after BM
+                                if -10 <= diff <= 90 and abs(diff) < min_diff:
+                                    min_diff = abs(diff)
+                                    best_bm = bm
+                    if best_bm:
+                        h['broadcast_date'] = best_bm.broadcast_date or h.get('broadcast_date')
+                        h['announcement_date_obj'] = best_bm.date
+                        # If the CA is missing an amount but the BM has it, backfill it
+                        if not h.get('amount') and best_bm.extracted_dividend_amount:
+                            h['amount'] = best_bm.extracted_dividend_amount
+                            h['raw_amount'] = best_bm.extracted_dividend_amount
+                        bms.remove(best_bm) # Consume the BM so it doesn't duplicate
 
-                                if amount_matches:
-                                    h['broadcast_date'] = bm.broadcast_date or h.get('broadcast_date')
-                                    h['announcement_date_obj'] = bm.date
-                                    bms.remove(bm) # Consume the BM so it doesn't duplicate
-                                    break
             chained_history.append(h)
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)

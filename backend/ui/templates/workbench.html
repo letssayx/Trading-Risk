@@ -3272,13 +3272,6 @@ function renderDividendsData() {
                                         if (diffDays > 30) isTimeMatch = false; // Must be within 30 days
                                     }
 
-                                    // Make sure the amounts don't contradict (prevents merging distinct interim dividends sharing identical empty strings into one)
-                                    if (isTimeMatch && a.parsed_dividend_amount && m.extracted_dividend_amount) {
-                                        if (Math.abs(parseFloat(a.parsed_dividend_amount) - parseFloat(m.extracted_dividend_amount)) > 0.01) {
-                                            isTimeMatch = false;
-                                        }
-                                    }
-
                                     if (isTimeMatch) {
                                         if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
                                             a.parsed_dividend_amount = m.extracted_dividend_amount;
@@ -3358,37 +3351,33 @@ function renderDividendsData() {
                 let matched = false;
                 const synDate = new Date(syn.broadcast_date || syn.date).getTime();
 
-                for (let off of group.officials) {
-                    if (processedOfficials.has(off)) continue;
+                // Sort officials by closest date first to prevent linking to a distant corporate action
+                let availableOfficials = group.officials.filter(o => !processedOfficials.has(o));
+                availableOfficials.sort((a, b) => {
+                    const aDate = new Date(a.ex_date || a.record_date || a.broadcast_date || a.date).getTime();
+                    const bDate = new Date(b.ex_date || b.record_date || b.broadcast_date || b.date).getTime();
+                    return Math.abs(aDate - synDate) - Math.abs(bDate - synDate);
+                });
 
+                for (let off of availableOfficials) {
                     const offDate = new Date(off.ex_date || off.record_date || off.broadcast_date || off.date).getTime();
 
                     if (!isNaN(synDate) && !isNaN(offDate)) {
                         const diffDays = (offDate - synDate) / (1000 * 60 * 60 * 24);
 
-                        // If the corporate action happens 0 to 90 days after the board meeting, it's the same cycle!
-                        // We also check that the dividend types match (e.g. Interim goes to Interim).
+                        // If the corporate action happens -10 to 90 days after the board meeting, it's the same cycle!
+                        // We strictly check that the dividend types match.
                         if (diffDays >= -10 && diffDays <= 90 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-')) {
-                            // Non-destructive: verify amounts match if both exist to prevent merging distinct dividends!
-                            let amountMatches = true;
-                            const synAmt = parseFloat(syn.parsed_dividend_amount);
-                            const offAmt = parseFloat(off.parsed_dividend_amount);
-                            if (!isNaN(synAmt) && !isNaN(offAmt) && Math.abs(synAmt - offAmt) > 0.01) {
-                                amountMatches = false;
+                            // Link them! Merge the intimation's broadcast date into the official corporate action.
+                            off.broadcast_date = syn.broadcast_date || off.broadcast_date;
+                            if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
+                                off.parsed_dividend_amount = syn.parsed_dividend_amount;
                             }
+                            if (syn._matchedMeeting) off._matchedMeeting = syn._matchedMeeting;
 
-                            if (amountMatches) {
-                                // Link them! Merge the intimation's broadcast date into the official corporate action.
-                                off.broadcast_date = syn.broadcast_date || off.broadcast_date;
-                                if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
-                                    off.parsed_dividend_amount = syn.parsed_dividend_amount;
-                                }
-                                if (syn._matchedMeeting) off._matchedMeeting = syn._matchedMeeting;
-
-                                processedOfficials.add(off);
-                                matched = true;
-                                break;
-                            }
+                            processedOfficials.add(off);
+                            matched = true;
+                            break;
                         }
                     }
                 }
@@ -3533,10 +3522,14 @@ function renderDividendsData() {
                     try {
                         let dt = new Date(bcdRaw);
                         if (!isNaN(dt.getTime())) {
-                            // Extract date and time in local format (or keep the ISO but with time)
-                            let datePart = dt.toISOString().split('T')[0];
-                            let timePart = dt.toTimeString().split(' ')[0]; // HH:MM:SS
-                            bcd = datePart + (bcdRaw.includes('T') || bcdRaw.includes(':') ? ' ' + timePart : '');
+                            let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
+                            let datePart = `${y}-${m}-${dy}`;
+                            let timePart = bcdRaw.includes('T') ? bcdRaw.split('T')[1] : (bcdRaw.includes(' ') ? bcdRaw.split(' ')[1] : null);
+                            if (timePart && timePart !== '00:00:00') {
+                                bcd = `${datePart} ${timePart}`;
+                            } else {
+                                bcd = datePart;
+                            }
                         }
                     } catch(e) {}
                 }
@@ -3582,9 +3575,14 @@ function renderDividendsData() {
                         try {
                             let dt = new Date(bcdRaw);
                             if (!isNaN(dt.getTime())) {
-                                let datePart = dt.toISOString().split('T')[0];
-                                let timePart = dt.toTimeString().split(' ')[0];
-                                bcd = datePart + (bcdRaw.includes('T') || bcdRaw.includes(':') ? ' ' + timePart : '');
+                                let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
+                                let datePart = `${y}-${m}-${dy}`;
+                                let timePart = bcdRaw.includes('T') ? bcdRaw.split('T')[1] : (bcdRaw.includes(' ') ? bcdRaw.split(' ')[1] : null);
+                                if (timePart && timePart !== '00:00:00') {
+                                    bcd = `${datePart} ${timePart}`;
+                                } else {
+                                    bcd = datePart;
+                                }
                             }
                         } catch(e) {}
                     }
@@ -3596,9 +3594,14 @@ function renderDividendsData() {
                 try {
                     let dt = new Date(d.broadcast_date);
                     if (!isNaN(dt.getTime())) {
-                        let datePart = dt.toISOString().split('T')[0];
-                        let timePart = dt.toTimeString().split(' ')[0];
-                        bcd = datePart + (d.broadcast_date.includes('T') || d.broadcast_date.includes(':') ? ' ' + timePart : '');
+                        let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
+                        let datePart = `${y}-${m}-${dy}`;
+                        let timePart = d.broadcast_date.includes('T') ? d.broadcast_date.split('T')[1] : (d.broadcast_date.includes(' ') ? d.broadcast_date.split(' ')[1] : null);
+                        if (timePart && timePart !== '00:00:00') {
+                            bcd = `${datePart} ${timePart}`;
+                        } else {
+                            bcd = datePart;
+                        }
                     }
                 } catch(e) {}
             }
