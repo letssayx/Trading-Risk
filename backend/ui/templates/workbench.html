@@ -3317,157 +3317,67 @@ function renderDividendsData() {
             });
         });
 
-        // Deduplicate combinedActions by symbol and time proximity (e.g. within 60 days)
-        // Group by symbol
-        let groupedActions = {};
-        combinedActions.forEach(action => {
-            const sym = action.symbol;
-            if (!groupedActions[sym]) {
-                groupedActions[sym] = [];
-            }
-            groupedActions[sym].push(action);
+        // Implement non-destructive timeline linkage:
+        // We do NOT want two separate rows for the identical cycle (e.g., Row 1: Intimation, Row 2: Ex-Date).
+        // Instead, if we generated a synthetic Board Meeting intimation (from above), and there IS a
+        // matching final Corporate Action (ex_date), we MERGE them into ONE row to show the timeline.
+        // We match them if they belong to the same symbol, have the same dividend type, and happen within ~90 days.
+        let finalCombinedActions = [];
+        let symGroups = {};
+
+        combinedActions.forEach(a => {
+            if (!symGroups[a.symbol]) symGroups[a.symbol] = { officials: [], synthetics: [] };
+            if (a.is_synthetic) symGroups[a.symbol].synthetics.push(a);
+            else symGroups[a.symbol].officials.push(a);
         });
 
-        let finalCombinedActions = [];
+        Object.values(symGroups).forEach(group => {
+            let processedOfficials = new Set();
 
-        Object.keys(groupedActions).forEach(sym => {
-            let actionsForSym = groupedActions[sym];
+            // Try to link each intimation (synthetic) to its final corporate action (official)
+            group.synthetics.forEach(syn => {
+                let matched = false;
+                const synDate = new Date(syn.broadcast_date || syn.date).getTime();
 
-            const parseDateString = (dateString) => {
-                if (!dateString || dateString === '-' || String(dateString).toLowerCase() === 'null') return 0;
-                if (String(dateString).match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    const t = new Date(dateString).getTime();
-                    if (!isNaN(t)) return t;
-                }
-                if (String(dateString).match(/^\d{2}-[a-zA-Z0-9]{2,3}-\d{4}$/)) {
-                    const parts = String(dateString).split('-');
-                    const t = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
-                    if (!isNaN(t)) return t;
-                }
-                const fallback = new Date(dateString).getTime();
-                return isNaN(fallback) ? 0 : fallback;
-            };
+                for (let off of group.officials) {
+                    if (processedOfficials.has(off)) continue;
 
-            // Sort by earliest relevant date first so we process them chronologically
-            actionsForSym.sort((a, b) => {
-                const getSortTime = (item) => {
-                    let t = parseDateString(item.ex_date); if (t > 0) return t;
-                    t = parseDateString(item.record_date); if (t > 0) return t;
-                    t = parseDateString(item.broadcast_date); if (t > 0) return t;
-                    if (item._matchedMeeting) { t = parseDateString(item._matchedMeeting.meeting_date); if (t > 0) return t; }
-                    t = parseDateString(item.date); if (t > 0) return t;
-                    return 0;
-                };
-                return getSortTime(a) - getSortTime(b);
-            });
+                    const offDate = new Date(off.ex_date || off.record_date || off.broadcast_date || off.date).getTime();
 
-            // Iterate and merge actions that are within ~60 days of each other
-            let mergedActions = [];
-            for (let i = 0; i < actionsForSym.length; i++) {
-                const currentAction = actionsForSym[i];
-                let merged = false;
+                    if (!isNaN(synDate) && !isNaN(offDate)) {
+                        const diffDays = (offDate - synDate) / (1000 * 60 * 60 * 24);
 
-                for (let j = 0; j < mergedActions.length; j++) {
-                    const existingAction = mergedActions[j];
-
-                    const getTime = (item) => {
-                        let t = parseDateString(item.ex_date); if (t > 0) return t;
-                        t = parseDateString(item.record_date); if (t > 0) return t;
-                        t = parseDateString(item.broadcast_date); if (t > 0) return t;
-                        if (item._matchedMeeting) { t = parseDateString(item._matchedMeeting.meeting_date); if (t > 0) return t; }
-                        t = parseDateString(item.date); if (t > 0) return t;
-                        return 0;
-                    };
-
-                    const timeCurrent = getTime(currentAction);
-                    const timeExisting = getTime(existingAction);
-
-                    // If both times are valid and within 180 days (standard dividend cycle)
-                    if (timeCurrent > 0 && timeExisting > 0) {
-                        const diffDays = Math.abs(timeCurrent - timeExisting) / (1000 * 60 * 60 * 24);
-                        if (diffDays <= 180) {
-                            // Critical check: Do NOT merge if they have DIFFERENT parsed amounts.
-                            // This prevents distinct sequential interim dividends from destroying each other.
-                            const amtC = parseFloat(currentAction.parsed_dividend_amount);
-                            const amtE = parseFloat(existingAction.parsed_dividend_amount);
-
-                            // If both have amounts and they don't match exactly, they are distinct dividends.
-                            if (!isNaN(amtC) && !isNaN(amtE) && amtC !== amtE) {
-                                continue;
+                        // If the corporate action happens 0 to 90 days after the board meeting, it's the same cycle!
+                        // We also check that the dividend types match (e.g. Interim goes to Interim).
+                        if (diffDays >= -10 && diffDays <= 90 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-')) {
+                            // Link them! Merge the intimation's broadcast date into the official corporate action.
+                            off.broadcast_date = syn.broadcast_date || off.broadcast_date;
+                            if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
+                                off.parsed_dividend_amount = syn.parsed_dividend_amount;
                             }
+                            if (syn._matchedMeeting) off._matchedMeeting = syn._matchedMeeting;
 
-                            // Do NOT merge two actual Corporate Actions together just because they have the same amount.
-                            // We only merge a Board Meeting (synthetic/intimation) WITH a Corporate Action (or another Board Meeting in the same chain).
-                            const isCCurrent = !currentAction.is_synthetic && currentAction.ex_date && currentAction.ex_date !== 'Record date not yet declared';
-                            const isCExisting = !existingAction.is_synthetic && existingAction.ex_date && existingAction.ex_date !== 'Record date not yet declared';
-
-                            if (isCCurrent && isCExisting) {
-                                // Both are official Corporate Actions with distinct dates, do not merge!
-                                // e.g., Quarterly dividend of Rs 5 in Q1, and another Rs 5 in Q2.
-                                continue;
-                            }
-
-                            // CRITICAL CHRONOLOGICAL CHECK:
-                            // Do not merge a new upcoming Board Meeting intimation into an old, already-completed Corporate Action.
-                            // If the existing action has an ex-date in the past, and the current action is a new board meeting (which happens *after* that ex-date), they are distinct quarterly events.
-                            if (isCExisting && currentAction.is_synthetic) {
-                                const exDate = new Date(existingAction.ex_date).getTime();
-                                const meetDate = currentAction._matchedMeeting ? new Date(currentAction._matchedMeeting.meeting_date).getTime() : new Date(currentAction.broadcast_date).getTime();
-
-                                if (!isNaN(exDate) && !isNaN(meetDate)) {
-                                    // If the new board meeting happens AFTER the old dividend's ex-date, it's a completely new dividend cycle! Do not merge!
-                                    if (meetDate > exDate) {
-                                        continue;
-                                    }
-                                }
-                            }
-
-                            // Otherwise, they are part of the same lifecycle (or one is missing an amount), merge them!
-
-                            if (currentAction.ex_date && currentAction.ex_date !== 'Record date not yet declared') existingAction.ex_date = currentAction.ex_date;
-                            if (currentAction.record_date) existingAction.record_date = currentAction.record_date;
-                            if (currentAction.broadcast_date) existingAction.broadcast_date = currentAction.broadcast_date;
-
-                            if (!isNaN(amtC)) {
-                                existingAction.parsed_dividend_amount = currentAction.parsed_dividend_amount;
-                            }
-
-                            // Prefer actual corporate action over synthetic, or latest purpose
-                            // Synthetic means it came from our frontend board meeting synthesis
-                            // Not synthetic could be from DB (real or backend synthetic)
-                            if (currentAction.purpose && currentAction.purpose.toLowerCase() !== 'dividend') {
-                                // If the current action has a more descriptive purpose than just "Dividend", keep it.
-                                existingAction.purpose = currentAction.purpose;
-                                existingAction.subject = currentAction.subject || currentAction.purpose;
-                            } else if (!existingAction.purpose || existingAction.purpose.toLowerCase().includes('not yet declared')) {
-                                existingAction.purpose = currentAction.purpose || existingAction.purpose;
-                                existingAction.subject = currentAction.subject || existingAction.subject;
-                            }
-
-                            if (currentAction.dividend_type && currentAction.dividend_type !== '-') {
-                                existingAction.dividend_type = currentAction.dividend_type;
-                            }
-
-
-                            if (!currentAction.is_synthetic) {
-                                existingAction.is_synthetic = false;
-                            }
-
-                            if (currentAction._matchedMeeting) existingAction._matchedMeeting = currentAction._matchedMeeting;
-
-                            merged = true;
+                            processedOfficials.add(off);
+                            matched = true;
                             break;
                         }
                     }
                 }
 
-                if (!merged) {
-                    // Create a shallow copy so we don't mutate the raw data arrays directly
-                    mergedActions.push({...currentAction});
+                // If this board meeting hasn't dropped a corporate action yet (it's upcoming), keep it!
+                if (!matched) {
+                    finalCombinedActions.push(syn);
                 }
-            }
+            });
 
-            finalCombinedActions.push(...mergedActions);
+            // Add all official corporate actions
+            group.officials.forEach(off => finalCombinedActions.push(off));
+        });
+
+        // Finally, sort everything chronologically (newest first)
+        finalCombinedActions.sort((a, b) => {
+            const getT = (x) => new Date(x.ex_date || x.announcement_date_obj || x.broadcast_date || x.date || 0).getTime();
+            return getT(b) - getT(a);
         });
 
         let filteredActions = finalCombinedActions.filter(d => {
