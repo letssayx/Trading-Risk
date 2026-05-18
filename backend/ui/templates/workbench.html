@@ -3403,6 +3403,9 @@ function renderDividendsData() {
             const getT = (x) => {
                 let t = parseDateStringSortLocal(x.ex_date); if (t > 0) return t;
                 t = parseDateStringSortLocal(x.announcement_date_obj || x.broadcast_date); if (t > 0) return t;
+                if (x._matchedMeeting && x._matchedMeeting.meeting_date) {
+                    t = parseDateStringSortLocal(x._matchedMeeting.meeting_date); if (t > 0) return t;
+                }
                 t = parseDateStringSortLocal(x.date); if (t > 0) return t;
                 return 0;
             };
