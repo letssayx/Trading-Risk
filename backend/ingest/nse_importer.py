@@ -444,7 +444,11 @@ class NSEDataImporter:
         if key == 'board_meetings':
             for r in records:
                 ext_amt = r.get('extracted_dividend_amount')
-                if ext_amt is not None and ext_amt > 0:
+                # Ensure we also synthesize if there's no amount but the purpose includes "Dividend".
+                # This captures intimations (like BEL on 19th) so they appear in the system BEFORE the outcome amount is declared.
+                purpose_lower = (r.get('purpose') or '').lower()
+                is_dividend_related = 'dividend' in purpose_lower
+                if (ext_amt is not None and ext_amt > 0) or is_dividend_related:
                     ext_rec_date_str = r.get('extracted_record_date')
                     parsed_rec_date = None
                     if ext_rec_date_str:

@@ -300,6 +300,12 @@ class FieldMapper:
             total_amount = sum(float(m) for m in rs_matches)
             return total_amount, dividend_type
 
+        # 4. Try slash-dash format (e.g. "54/-")
+        slash_matches = re.findall(r'(\d+(?:\.\d+)?)\s*\/\-', _clean_purpose)
+        if slash_matches:
+            total_amount = sum(float(m) for m in slash_matches)
+            return total_amount, dividend_type
+
         # Try percentage format: sum all percentages if multiple exist
         pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
         if pct_matches and face_value:

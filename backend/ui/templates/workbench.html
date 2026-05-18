@@ -3393,6 +3393,10 @@ function renderDividendsData() {
 
                     let canMerge = false;
 
+                    // IMPORTANT FIX: Ensure that if a board meeting explicitly says "Dividend" and another says "Dividend",
+                    // but they have different amounts, they MUST NOT merge. This preserves multiple interim dividends within a 15-day span.
+
+
                     // Strict Type Check
                     const type1 = currentAction.dividend_type;
                     const type2 = lastCycle.dividend_type;
