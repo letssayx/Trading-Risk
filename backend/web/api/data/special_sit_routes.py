@@ -187,10 +187,22 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         if ca_date and bm.date:
                             diff = (ca_date - bm.date).days
                             if -10 <= diff <= 90:
-                                h['broadcast_date'] = bm.broadcast_date or h.get('broadcast_date')
-                                h['announcement_date_obj'] = bm.date
-                                bms.remove(bm) # Consume the BM so it doesn't duplicate
-                                break
+                                # Ensure we don't accidentally consume a BM for a DIFFERENT cycle of the same type
+                                # if amounts differ and both are known.
+                                amount_matches = True
+                                if getattr(bm, 'extracted_dividend_amount', None) is not None and h.get('raw_amount') is not None:
+                                    # If they differ by more than 0.1, it might be a different dividend entirely.
+                                    try:
+                                        if abs(float(bm.extracted_dividend_amount) - float(h['raw_amount'])) > 0.1:
+                                            amount_matches = False
+                                    except (ValueError, TypeError):
+                                        pass
+
+                                if amount_matches:
+                                    h['broadcast_date'] = bm.broadcast_date or h.get('broadcast_date')
+                                    h['announcement_date_obj'] = bm.date
+                                    bms.remove(bm) # Consume the BM so it doesn't duplicate
+                                    break
             chained_history.append(h)
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)

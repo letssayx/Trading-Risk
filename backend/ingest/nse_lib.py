@@ -562,9 +562,11 @@ class NSELib:
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
                 announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
+                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Annual%20General%20Meeting"
 
                 div_announcements = []
                 rec_announcements = []
+                agm_announcements = []
 
                 resp_div = self.get(announcement_url_div)
                 if resp_div and resp_div.status_code == 200:
@@ -580,6 +582,13 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
 
+                resp_agm = self.get(announcement_url_agm)
+                if resp_agm and resp_agm.status_code == 200:
+                    try:
+                        agm_announcements = resp_agm.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse AGM announcements: {e}")
+
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
 
@@ -591,6 +600,13 @@ class NSELib:
                         symbol_announcements[sym].append(ann)
 
                 for ann in rec_announcements:
+                    sym = ann.get('symbol')
+                    if sym:
+                        if sym not in symbol_announcements:
+                            symbol_announcements[sym] = []
+                        symbol_announcements[sym].append(ann)
+
+                for ann in agm_announcements:
                     sym = ann.get('symbol')
                     if sym:
                         if sym not in symbol_announcements:
@@ -685,7 +701,19 @@ class NSELib:
                                     if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 10:
                                         attchmntText = ann.get('attchmntText', '')
 
-                                        # Extract Amount
+                                        # Extract Amount (First check exact XBRL tags)
+                                        if found_amount is None:
+                                            xbrl_patterns = [
+                                                r'<in-capmkt:RateOfFinalDividendRecommendedPerEquityShare[^>]*>(?:rs\.?|re\.?|rupees?|inr|\u20b9)?\s*(\d+(?:\.\d+)?).*?</in-capmkt:RateOfFinalDividendRecommendedPerEquityShare>',
+                                                r'<in-capmkt:RateOfDividendDeclaredPerEquityShare[^>]*>(?:rs\.?|re\.?|rupees?|inr|\u20b9)?\s*(\d+(?:\.\d+)?).*?</in-capmkt:RateOfDividendDeclaredPerEquityShare>'
+                                            ]
+                                            for pat in xbrl_patterns:
+                                                xbrl_matches = re.findall(pat, attchmntText, re.IGNORECASE)
+                                                if xbrl_matches:
+                                                    # If multiple tags found, take the sum as they might represent different parts
+                                                    found_amount = sum(float(m) for m in xbrl_matches)
+                                                    break
+
                                         if found_amount is None:
                                             _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
 
@@ -706,6 +734,18 @@ class NSELib:
                                             date_match = date_pattern.search(attchmntText)
                                             if date_match and 'record date' in attchmntText.lower():
                                                 found_record_date = date_match.group(1)
+
+                                        # Extract AGM Date
+                                        if 'annual general meeting' in attchmntText.lower() or 'agm' in attchmntText.lower():
+                                            date_pattern = re.compile(r'(\d{1,2}(?:st|nd|rd|th)?\s+(?:day\s+of\s+)?[a-zA-Z]{3,9},?\s+\d{4})|(\d{1,2}-[a-zA-Z]{3}-\d{4})')
+                                            date_match = date_pattern.search(attchmntText)
+                                            if date_match:
+                                                agm_date = date_match.group(1) or date_match.group(2)
+                                                # Clean up AGM date string
+                                                agm_date = re.sub(r'(?:st|nd|rd|th)', '', agm_date)
+                                                agm_date = agm_date.replace('day of ', '').strip()
+                                                if 'agm_date' not in item:
+                                                    item['agm_date'] = agm_date
 
                                 except ValueError:
                                     pass
@@ -746,6 +786,12 @@ class NSELib:
                     enriched_data.append(item)
 
                 df = pd.DataFrame(enriched_data)
+                # Append AGM Date to purpose if found
+                for item in enriched_data:
+                    if 'agm_date' in item and item['agm_date']:
+                        purpose = item.get('bm_purpose', '')
+                        item['bm_purpose'] = f"{purpose} (AGM: {item['agm_date']})".strip()
+
                 mapping = {
                     'bm_symbol': 'SYMBOL',
                     'sm_name': 'COMPANY NAME',
