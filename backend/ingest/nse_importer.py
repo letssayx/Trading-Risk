@@ -438,72 +438,6 @@ class NSEDataImporter:
 
 
 
-        # Synthesize CorporateAction records for parsed dividends
-
-        synthesized_ca_records = []
-        if key == 'board_meetings':
-            for r in records:
-                ext_amt = r.get('extracted_dividend_amount')
-                if ext_amt is not None and ext_amt > 0:
-                    ext_rec_date_str = r.get('extracted_record_date')
-                    parsed_rec_date = None
-                    if ext_rec_date_str:
-                        from backend.ingest.field_mapper import parse_nse_date
-                        parsed_rec_date = parse_nse_date(ext_rec_date_str)
-
-                    # By strictly using exact strings without the appended board meeting purpose,
-                    # we allow the generic unique constraints ['date', 'symbol', 'purpose']
-                    # to squash multiple same-day board meeting updates (e.g. Intimations + Financial Results)
-                    # into a single upcoming dividend record.
-                    purpose_str = "Dividend" if parsed_rec_date else "Dividend - Record date not yet declared"
-
-                    synthesized_ca_records.append({
-                        'date': r.get('date'),
-                        'symbol': r.get('symbol'),
-                        'company_name': r.get('company_name'),
-                        'purpose': purpose_str,
-                        'parsed_dividend_amount': ext_amt,
-                        'dividend_type': r.get('extracted_dividend_type') or 'Final',
-                        'ex_date': parsed_rec_date,
-                        'record_date': parsed_rec_date,
-                        'broadcast_date': r.get('broadcast_date'),
-                    })
-            if synthesized_ca_records:
-                ca_model = self._get_model_class('corporate_actions')
-                ca_unique = self._get_unique_fields('corporate_actions')
-                synthesized_ca_records = self._deduplicate_records(synthesized_ca_records, ca_unique)
-
-                # Delete old synthesized records before inserting to prevent duplicates
-                # We identify synthesized records by their specific "Dividend" format string
-                try:
-                    from sqlalchemy import delete
-                    # To effectively deduplicate synthesized corporate actions that might have
-                    # drifted across different `trade_date` imports but belong to the same symbol/purpose:
-                    for rec in synthesized_ca_records:
-                        from sqlalchemy import or_
-                        # Crucially, do not filter deletions by `parsed_dividend_amount`, to ensure intimation records
-                        # (no amount) are properly overwritten by subsequent announcement records (with amount).
-                        # Crucial fix to preserve actual historical dividends!
-                        # We only want to delete the synthesized records that are being replaced BY THIS EXACT EVENT.
-                        # So we only delete synthesized placeholders from the SAME date or later (which means it's the exact same lifecycle event).
-                        from datetime import timedelta
-                        threshold_date = rec['date'] - timedelta(days=60) # Lifecycle events happen closely
-
-                        stmt = delete(ca_model).where(
-                            ca_model.symbol == rec['symbol'],
-                            ca_model.date >= threshold_date,
-                            or_(
-                                ca_model.purpose.like('%not yet declared%'),
-                                ca_model.purpose == 'Dividend'
-                            )
-                        )
-                        db.execute(stmt)
-
-                    self._insert_batch(db, ca_model, synthesized_ca_records)
-                    logger.info(f"Inserted {len(synthesized_ca_records)} synthesized corporate actions for dividends from board meetings.")
-                except Exception as e:
-                    logger.error(f"Failed to insert synthesized corporate actions: {e}")
-
         if key == 'bhavcopy_fo':
             for r in records:
                 if 'instrument_type' in r and isinstance(r['instrument_type'], str):
@@ -531,7 +465,9 @@ class NSEDataImporter:
             records = self._deduplicate_records(records, unique_fields)
 
         # Special handling for Deals, Actions, Meetings: Delete & Insert
-        if key == 'nse_security':
+        if key in ['corporate_actions', 'board_meetings']:
+            inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
+        elif key == 'nse_security':
             # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
         else:
