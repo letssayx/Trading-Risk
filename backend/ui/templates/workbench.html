@@ -3229,7 +3229,10 @@ function renderDividendsData() {
             const meetings = meetingsBySymbol[sym];
             meetings.forEach(m => {
                 const purpose = (m.purpose || '').toLowerCase();
-                if (purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division')) {
+                const hasAmount = m.extracted_dividend_amount != null && m.extracted_dividend_amount !== '';
+                const isAGM = purpose.includes('agm') || purpose.includes('annual general meeting');
+
+                if (purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division') || hasAmount || isAGM) {
                     // Check if there is a corporate action after this meeting date
                     const mDate = m.meeting_date ? new Date(m.meeting_date) : null;
                     let hasLinkedAction = false;
@@ -3294,7 +3297,7 @@ function renderDividendsData() {
                         let amount = parseFloat(m.extracted_dividend_amount) || null;
                         if (amount == null && m.parsed_dividend_amount) amount = m.parsed_dividend_amount;
                         let divType = '-';
-                        if (purpose.includes('dividend')) {
+                        if (purpose.includes('dividend') || hasAmount) {
                              divType = 'Dividend';
                              if (purpose.includes('interim')) divType = 'Interim';
                              if (purpose.includes('special')) divType = 'Special';
@@ -3346,8 +3349,37 @@ function renderDividendsData() {
         Object.values(symGroups).forEach(group => {
             let processedOfficials = new Set();
 
-            // Try to link each intimation (synthetic) to its final corporate action (official)
+            // Deduplicate synthetics (multiple board meetings for the same event)
+            let deduplicatedSynthetics = [];
+            group.synthetics.sort((a, b) => new Date(b.broadcast_date || b.date) - new Date(a.broadcast_date || a.date)); // Sort newest first
+
             group.synthetics.forEach(syn => {
+                let isDuplicate = false;
+                const synMeetingDate = syn._matchedMeeting && syn._matchedMeeting.meeting_date ? new Date(syn._matchedMeeting.meeting_date).getTime() : NaN;
+
+                for (let existing of deduplicatedSynthetics) {
+                    const existingMeetingDate = existing._matchedMeeting && existing._matchedMeeting.meeting_date ? new Date(existing._matchedMeeting.meeting_date).getTime() : NaN;
+                    // If meetings are within 5 days and have the same purpose/type, treat as duplicate
+                    if (!isNaN(synMeetingDate) && !isNaN(existingMeetingDate)) {
+                        const diffDays = Math.abs(synMeetingDate - existingMeetingDate) / (1000 * 60 * 60 * 24);
+                        if (diffDays <= 5 && syn.dividend_type === existing.dividend_type) {
+                            isDuplicate = true;
+                            // Update amount if the newer duplicate has it
+                            if ((!existing.parsed_dividend_amount || existing.parsed_dividend_amount === '-') && syn.parsed_dividend_amount) {
+                                existing.parsed_dividend_amount = syn.parsed_dividend_amount;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (!isDuplicate) {
+                    deduplicatedSynthetics.push(syn);
+                }
+            });
+
+            // Try to link each intimation (synthetic) to its final corporate action (official)
+            deduplicatedSynthetics.forEach(syn => {
                 let matched = false;
                 const synDate = new Date(syn.broadcast_date || syn.date).getTime();
 
@@ -3368,8 +3400,9 @@ function renderDividendsData() {
                         // If the corporate action happens -10 to 90 days after the board meeting, it's the same cycle!
                         // We strictly check that the dividend types match.
                         if (diffDays >= -10 && diffDays <= 90 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-')) {
-                            // Link them! Merge the intimation's broadcast date into the official corporate action.
-                            off.broadcast_date = syn.broadcast_date || off.broadcast_date;
+                            // Link them!
+                            // Do not overwrite the official broadcast_date with the intimation's date,
+                            // as we want to preserve the actual corporate action announcement time.
                             if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
                                 off.parsed_dividend_amount = syn.parsed_dividend_amount;
                             }
@@ -3500,6 +3533,25 @@ function renderDividendsData() {
             tbodyActions.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
         }
 
+        const formatDateTime = (dateStr) => {
+            if (!dateStr || dateStr === '-') return '-';
+            try {
+                let dt = new Date(dateStr);
+                if (isNaN(dt.getTime())) return dateStr; // fallback if invalid
+                let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
+                let datePart = `${y}-${m}-${dy}`;
+
+                // Try to extract time from original string
+                let timePart = dateStr.includes('T') ? dateStr.split('T')[1].split('+')[0].split('.')[0] : (dateStr.includes(' ') ? dateStr.split(' ')[1] : null);
+                if (timePart && timePart !== '00:00:00') {
+                    return `${datePart} ${timePart}`;
+                }
+                return datePart;
+            } catch(e) {
+                return dateStr;
+            }
+        };
+
         filteredActions.forEach(d => {
             const tr = document.createElement('tr');
 
@@ -3514,25 +3566,9 @@ function renderDividendsData() {
 
             if (d.is_synthetic && d._matchedMeeting) {
                 let matchedMeeting = d._matchedMeeting;
-                bmd = matchedMeeting.meeting_date || '-';
+                bmd = formatDateTime(matchedMeeting.meeting_date);
                 bmPurpose = matchedMeeting.purpose || '-';
-
-                let bcdRaw = matchedMeeting.broadcast_date || matchedMeeting.date;
-                if (bcdRaw) {
-                    try {
-                        let dt = new Date(bcdRaw);
-                        if (!isNaN(dt.getTime())) {
-                            let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
-                            let datePart = `${y}-${m}-${dy}`;
-                            let timePart = bcdRaw.includes('T') ? bcdRaw.split('T')[1] : (bcdRaw.includes(' ') ? bcdRaw.split(' ')[1] : null);
-                            if (timePart && timePart !== '00:00:00') {
-                                bcd = `${datePart} ${timePart}`;
-                            } else {
-                                bcd = datePart;
-                            }
-                        }
-                    } catch(e) {}
-                }
+                bcd = formatDateTime(matchedMeeting.broadcast_date || matchedMeeting.date);
             } else if (matchingMeetings.length > 0) {
                 let exDateObj = d.ex_date ? new Date(d.ex_date) : null;
 
@@ -3567,43 +3603,18 @@ function renderDividendsData() {
                 }
 
                 if (matchedMeeting) {
-                    bmd = matchedMeeting.meeting_date || '-';
+                    bmd = formatDateTime(matchedMeeting.meeting_date);
                     bmPurpose = matchedMeeting.purpose || '-';
-
-                    let bcdRaw = matchedMeeting.broadcast_date || matchedMeeting.date;
-                    if (bcdRaw) {
-                        try {
-                            let dt = new Date(bcdRaw);
-                            if (!isNaN(dt.getTime())) {
-                                let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
-                                let datePart = `${y}-${m}-${dy}`;
-                                let timePart = bcdRaw.includes('T') ? bcdRaw.split('T')[1] : (bcdRaw.includes(' ') ? bcdRaw.split(' ')[1] : null);
-                                if (timePart && timePart !== '00:00:00') {
-                                    bcd = `${datePart} ${timePart}`;
-                                } else {
-                                    bcd = datePart;
-                                }
-                            }
-                        } catch(e) {}
-                    }
                 }
             }
 
-            // final fallback if no meeting was matched
-            if (bcd === '-' && d.broadcast_date) {
-                try {
-                    let dt = new Date(d.broadcast_date);
-                    if (!isNaN(dt.getTime())) {
-                        let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
-                        let datePart = `${y}-${m}-${dy}`;
-                        let timePart = d.broadcast_date.includes('T') ? d.broadcast_date.split('T')[1] : (d.broadcast_date.includes(' ') ? d.broadcast_date.split(' ')[1] : null);
-                        if (timePart && timePart !== '00:00:00') {
-                            bcd = `${datePart} ${timePart}`;
-                        } else {
-                            bcd = datePart;
-                        }
-                    }
-                } catch(e) {}
+            // Always prioritize the official action's broadcast date if it has one,
+            // otherwise fallback to the intimation's broadcast date.
+            let officialBcd = formatDateTime(d.broadcast_date);
+            if (officialBcd !== '-') {
+                bcd = officialBcd;
+            } else if (bcd === '-') {
+                bcd = formatDateTime(d.date);
             }
 
             let fullPurpose = d.subject || d.purpose || '-';
