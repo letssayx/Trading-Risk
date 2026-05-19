@@ -90,7 +90,14 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     bm_records = db.query(BoardMeeting).filter(
         BoardMeeting.symbol.in_(symbols),
         BoardMeeting.date >= ten_years_ago,
-        BoardMeeting.purpose.ilike('%dividend%')
+        or_(
+            BoardMeeting.purpose.ilike('%dividend%'),
+            BoardMeeting.purpose.ilike('%agm%'),
+            BoardMeeting.purpose.ilike('%annual general meeting%'),
+            BoardMeeting.purpose.ilike('%financial result%'),
+            BoardMeeting.purpose.ilike('%postponed%'),
+            BoardMeeting.extracted_dividend_amount != None
+        )
     ).order_by(desc(BoardMeeting.date)).all()
 
     import re
@@ -207,6 +214,20 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
         for bm in bms:
+            # Only synthesize as an upcoming event if it's likely dividend-related
+            purpose_lower = (bm.purpose or "").lower()
+            is_div_related = (
+                "dividend" in purpose_lower or
+                "agm" in purpose_lower or
+                "annual general meeting" in purpose_lower or
+                "financial result" in purpose_lower or
+                "postponed" in purpose_lower or
+                bm.extracted_dividend_amount is not None
+            )
+
+            if not is_div_related:
+                continue
+
             amt = bm.extracted_dividend_amount
             chained_history.append({
                 "ex_date": 'Record date not yet declared',
