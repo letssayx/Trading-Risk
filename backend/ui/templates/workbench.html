@@ -3301,7 +3301,8 @@ function renderDividendsData() {
                              if (purpose.includes('final')) divType = 'Final';
 
                              // Try to extract amount if not already provided by backend
-                             let amountMatch = purpose.match(/(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\-/i) || purpose.match(/dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per/i) || purpose.match(/dividend\s*-\s*(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i);
+                             let cleanPurpose = purpose.replace(/(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?/gi, '');
+                             let amountMatch = cleanPurpose.match(/(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i) || cleanPurpose.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\-/i) || cleanPurpose.match(/dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)/i) || cleanPurpose.match(/dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per/i) || cleanPurpose.match(/dividend\s*-\s*(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i);
                              if (amountMatch && !amount) {
                                  amount = amountMatch[1];
                              }
@@ -3359,9 +3360,14 @@ function renderDividendsData() {
                     if (!isNaN(synDate) && !isNaN(offDate)) {
                         const diffDays = (offDate - synDate) / (1000 * 60 * 60 * 24);
 
-                        // If the corporate action happens 0 to 90 days after the board meeting, it's the same cycle!
-                        // We also check that the dividend types match (e.g. Interim goes to Interim).
-                        if (diffDays >= -10 && diffDays <= 90 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-')) {
+                        // Link using a wide 180-day window per requirements
+                        // Check if amounts match exactly, or if official is missing an amount
+                        let amountMatches = true;
+                        if (syn.parsed_dividend_amount != null && off.parsed_dividend_amount != null && off.parsed_dividend_amount !== "-") {
+                            amountMatches = parseFloat(syn.parsed_dividend_amount) === parseFloat(off.parsed_dividend_amount);
+                        }
+
+                        if (diffDays >= -90 && diffDays <= 180 && amountMatches) {
                             // Link them! Merge the intimation's broadcast date into the official corporate action.
                             off.broadcast_date = syn.broadcast_date || off.broadcast_date;
                             if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
