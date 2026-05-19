@@ -3232,11 +3232,7 @@ function renderDividendsData() {
                 const hasAmount = m.extracted_dividend_amount != null && m.extracted_dividend_amount !== '';
                 const isAGM = purpose.includes('agm') || purpose.includes('annual general meeting');
 
-                // BPCL sometimes only lists 'financial results' or 'postponed'
-                const isDividendRelated = purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division') || hasAmount || isAGM;
-                const isPotentialMatch = isDividendRelated || purpose.includes('financial result') || purpose.includes('postponed');
-
-                if (isPotentialMatch) {
+                if (purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division') || hasAmount || isAGM) {
                     // Check if there is a corporate action after this meeting date
                     const mDate = m.meeting_date ? new Date(m.meeting_date) : null;
                     let hasLinkedAction = false;
@@ -3294,7 +3290,7 @@ function renderDividendsData() {
                         }
                     }
 
-                    if (!hasLinkedAction && isDividendRelated) {
+                    if (!hasLinkedAction) {
                         // Create a synthetic action
 
                         // Parse dividend amount if available (e.g., "Rs. 54 per share" or "54/-")
@@ -3365,10 +3361,8 @@ function renderDividendsData() {
                     const existingMeetingDate = existing._matchedMeeting && existing._matchedMeeting.meeting_date ? new Date(existing._matchedMeeting.meeting_date).getTime() : NaN;
                     // If meetings are within 5 days and have the same purpose/type, treat as duplicate
                     if (!isNaN(synMeetingDate) && !isNaN(existingMeetingDate)) {
-                        // User wants to see all intimations (even rescheduled ones like BPCL 12th vs 19th) as a timeline.
-                        // We will ONLY deduplicate if they happen on the EXACT SAME DAY to avoid true duplicate API inserts.
                         const diffDays = Math.abs(synMeetingDate - existingMeetingDate) / (1000 * 60 * 60 * 24);
-                        if (diffDays === 0 && syn.dividend_type === existing.dividend_type) {
+                        if (diffDays <= 5 && syn.dividend_type === existing.dividend_type) {
                             isDuplicate = true;
                             // Update amount if the newer duplicate has it
                             if ((!existing.parsed_dividend_amount || existing.parsed_dividend_amount === '-') && syn.parsed_dividend_amount) {
@@ -3573,12 +3567,6 @@ function renderDividendsData() {
             if (d.is_synthetic && d._matchedMeeting) {
                 let matchedMeeting = d._matchedMeeting;
                 bmd = formatDateTime(matchedMeeting.meeting_date);
-                // The user specifically requested "Board meeting time".
-                // Since `meeting_date` lacks time, we append the exact time from `broadcast_date` to `bmd`.
-                if (bmd !== '-' && !bmd.includes(' ') && matchedMeeting.broadcast_date) {
-                    let bTime = formatDateTime(matchedMeeting.broadcast_date).split(' ')[1];
-                    if (bTime) bmd += ' ' + bTime;
-                }
                 bmPurpose = matchedMeeting.purpose || '-';
                 bcd = formatDateTime(matchedMeeting.broadcast_date || matchedMeeting.date);
             } else if (matchingMeetings.length > 0) {
@@ -3616,10 +3604,6 @@ function renderDividendsData() {
 
                 if (matchedMeeting) {
                     bmd = formatDateTime(matchedMeeting.meeting_date);
-                    if (bmd !== '-' && !bmd.includes(' ') && matchedMeeting.broadcast_date) {
-                        let bTime = formatDateTime(matchedMeeting.broadcast_date).split(' ')[1];
-                        if (bTime) bmd += ' ' + bTime;
-                    }
                     bmPurpose = matchedMeeting.purpose || '-';
                 }
             }

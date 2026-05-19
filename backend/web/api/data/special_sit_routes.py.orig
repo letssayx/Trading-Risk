@@ -220,8 +220,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 "dividend" in purpose_lower or
                 "agm" in purpose_lower or
                 "annual general meeting" in purpose_lower or
-
-
+                "financial result" in purpose_lower or
+                "postponed" in purpose_lower or
                 bm.extracted_dividend_amount is not None
             )
 
