@@ -3366,15 +3366,19 @@ function renderDividendsData() {
                     const existingMeetingDate = existing._matchedMeeting && existing._matchedMeeting.meeting_date ? new Date(existing._matchedMeeting.meeting_date).getTime() : NaN;
 
                     if (!isNaN(synMeetingDate) && !isNaN(existingMeetingDate)) {
-                        // Compare exact calendar days instead of raw diffDays to avoid floating point time issues
-                        // A rescheduled meeting 7 days later (BPCL 12th to 19th) should not be deduplicated.
-                        // However, a meeting timestamp update on the exact same day SHOULD be deduplicated.
                         const d1 = new Date(synMeetingDate);
                         const d2 = new Date(existingMeetingDate);
-                        const isSameDay = d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 
-                        if (isSameDay && syn.dividend_type === existing.dividend_type) {
+                        // Merge synthetics if they are within 60 days of each other and have the same dividend type
+                        // This handles rescheduled meetings like BPCL (12th to 19th) natively by absorbing the older one
+                        const diffDays = Math.abs(d1 - d2) / (1000 * 60 * 60 * 24);
+
+                        if (diffDays <= 60 && syn.dividend_type === existing.dividend_type) {
                             isDuplicate = true;
+                            // Keep the latest broadcast/meeting date info in the existing
+                            if (syn._matchedMeeting && (!existing._matchedMeeting || new Date(syn._matchedMeeting.meeting_date) > new Date(existing._matchedMeeting.meeting_date))) {
+                                existing._matchedMeeting = syn._matchedMeeting;
+                            }
                             // Update amount if the newer duplicate has it
                             if ((!existing.parsed_dividend_amount || existing.parsed_dividend_amount === '-') && syn.parsed_dividend_amount) {
                                 existing.parsed_dividend_amount = syn.parsed_dividend_amount;
@@ -3395,7 +3399,7 @@ function renderDividendsData() {
                 const synDate = new Date(syn.broadcast_date || syn.date).getTime();
 
                 // Sort officials by closest date first to prevent linking to a distant corporate action
-                let availableOfficials = group.officials.filter(o => !processedOfficials.has(o));
+                let availableOfficials = [...group.officials]; // Do not filter out processed ones! Multiple intimations can map to the same CA
                 availableOfficials.sort((a, b) => {
                     const aDate = new Date(a.ex_date || a.record_date || a.broadcast_date || a.date).getTime();
                     const bDate = new Date(b.ex_date || b.record_date || b.broadcast_date || b.date).getTime();
@@ -3408,18 +3412,19 @@ function renderDividendsData() {
                     if (!isNaN(synDate) && !isNaN(offDate)) {
                         const diffDays = (offDate - synDate) / (1000 * 60 * 60 * 24);
 
-                        // If the corporate action happens -10 to 90 days after the board meeting, it's the same cycle!
-                        // We strictly check that the dividend types match.
-                        if (diffDays >= -10 && diffDays <= 90 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-')) {
+                        // If the corporate action happens -10 to 180 days after the board meeting, it's the same cycle!
+                        // We check that the dividend types loosely match.
+                        if (diffDays >= -10 && diffDays <= 180 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-' || off.dividend_type === '-')) {
                             // Link them!
-                            // Do not overwrite the official broadcast_date with the intimation's date,
-                            // as we want to preserve the actual corporate action announcement time.
                             if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
                                 off.parsed_dividend_amount = syn.parsed_dividend_amount;
                             }
-                            if (syn._matchedMeeting) off._matchedMeeting = syn._matchedMeeting;
 
-                            processedOfficials.add(off);
+                            // If this official already matched another meeting, keep the most relevant one (newest meeting date)
+                            if (!off._matchedMeeting || (syn._matchedMeeting && new Date(syn._matchedMeeting.meeting_date) > new Date(off._matchedMeeting.meeting_date))) {
+                                off._matchedMeeting = syn._matchedMeeting;
+                            }
+
                             matched = true;
                             break;
                         }
