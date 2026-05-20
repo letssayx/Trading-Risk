@@ -1049,6 +1049,7 @@
                             <label><input type="checkbox" value="Special" onchange="renderDividendsData()"> Special</label>
                             <label><input type="checkbox" value="Bonus" onchange="renderDividendsData()"> Bonus</label>
                             <label><input type="checkbox" value="Split" onchange="renderDividendsData()"> Split</label>
+                            <label><input type="checkbox" value="AGM" onchange="renderDividendsData()"> AGM</label>
                         </div>
                     </div>
 
@@ -3230,13 +3231,10 @@ function renderDividendsData() {
             meetings.forEach(m => {
                 const purpose = (m.purpose || '').toLowerCase();
                 const hasAmount = m.extracted_dividend_amount != null && m.extracted_dividend_amount !== '';
-                const isAGM = purpose.includes('agm') || purpose.includes('annual general meeting');
+                // Ensure robust case-insensitive AGM matching
+                const isAGM = purpose.includes('agm') || purpose.includes('annual general meeting') || /\bagm\b/i.test(m.purpose || '');
 
-                // BPCL sometimes only lists 'financial results' or 'postponed'
-                const isDividendRelated = purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division') || hasAmount || isAGM;
-                const isPotentialMatch = isDividendRelated || purpose.includes('financial result') || purpose.includes('postponed');
-
-                if (isPotentialMatch) {
+                if (purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division') || hasAmount || isAGM) {
                     // Check if there is a corporate action after this meeting date
                     const mDate = m.meeting_date ? new Date(m.meeting_date) : null;
                     let hasLinkedAction = false;
@@ -3294,7 +3292,7 @@ function renderDividendsData() {
                         }
                     }
 
-                    if (!hasLinkedAction && isDividendRelated) {
+                    if (!hasLinkedAction) {
                         // Create a synthetic action
 
                         // Parse dividend amount if available (e.g., "Rs. 54 per share" or "54/-")
@@ -3312,6 +3310,9 @@ function renderDividendsData() {
                              if (amountMatch && !amount) {
                                  amount = amountMatch[1];
                              }
+                        } else if (isAGM && !purpose.includes('dividend') && !hasAmount) {
+                             // Preserve the explicit AGM context in the Type column if it's purely an AGM intimation
+                             divType = 'AGM';
                         } else if (purpose.includes('bonus')) {
                              divType = 'Bonus';
                         } else if (purpose.includes('split') || purpose.includes('sub-division')) {
@@ -3363,12 +3364,16 @@ function renderDividendsData() {
 
                 for (let existing of deduplicatedSynthetics) {
                     const existingMeetingDate = existing._matchedMeeting && existing._matchedMeeting.meeting_date ? new Date(existing._matchedMeeting.meeting_date).getTime() : NaN;
-                    // If meetings are within 5 days and have the same purpose/type, treat as duplicate
+
                     if (!isNaN(synMeetingDate) && !isNaN(existingMeetingDate)) {
-                        // User wants to see all intimations (even rescheduled ones like BPCL 12th vs 19th) as a timeline.
-                        // We will ONLY deduplicate if they happen on the EXACT SAME DAY to avoid true duplicate API inserts.
-                        const diffDays = Math.abs(synMeetingDate - existingMeetingDate) / (1000 * 60 * 60 * 24);
-                        if (diffDays === 0 && syn.dividend_type === existing.dividend_type) {
+                        // Compare exact calendar days instead of raw diffDays to avoid floating point time issues
+                        // A rescheduled meeting 7 days later (BPCL 12th to 19th) should not be deduplicated.
+                        // However, a meeting timestamp update on the exact same day SHOULD be deduplicated.
+                        const d1 = new Date(synMeetingDate);
+                        const d2 = new Date(existingMeetingDate);
+                        const isSameDay = d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+
+                        if (isSameDay && syn.dividend_type === existing.dividend_type) {
                             isDuplicate = true;
                             // Update amount if the newer duplicate has it
                             if ((!existing.parsed_dividend_amount || existing.parsed_dividend_amount === '-') && syn.parsed_dividend_amount) {
@@ -3473,6 +3478,7 @@ function renderDividendsData() {
                 if (selectedTypes.includes('Special') && purpose.includes('special')) typeMatchedAny = true;
                 if (selectedTypes.includes('Bonus') && purpose.includes('bonus')) typeMatchedAny = true;
                 if (selectedTypes.includes('Split') && (purpose.includes('split') || purpose.includes('sub-division'))) typeMatchedAny = true;
+                if (selectedTypes.includes('AGM') && (purpose.includes('agm') || purpose.includes('annual general meeting') || /\bagm\b/i.test(d.purpose || ''))) typeMatchedAny = true;
 
                 if (!typeMatchedAny) matchType = false;
             }
@@ -3540,21 +3546,24 @@ function renderDividendsData() {
         }
 
         const formatDateTime = (dateStr) => {
-            if (!dateStr || dateStr === '-') return '-';
+            if (!dateStr || dateStr === '-') return { date: '-', time: null };
             try {
                 let dt = new Date(dateStr);
-                if (isNaN(dt.getTime())) return dateStr; // fallback if invalid
+                if (isNaN(dt.getTime())) return { date: dateStr, time: null };
+
+                // Keep local timezone exactly as is instead of shifting to UTC
                 let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
                 let datePart = `${y}-${m}-${dy}`;
 
-                // Try to extract time from original string
-                let timePart = dateStr.includes('T') ? dateStr.split('T')[1].split('+')[0].split('.')[0] : (dateStr.includes(' ') ? dateStr.split(' ')[1] : null);
-                if (timePart && timePart !== '00:00:00') {
-                    return `${datePart} ${timePart}`;
+                // Try to extract exact time from original string to avoid UTC shifting issues
+                let timePart = null;
+                if (typeof dateStr === 'string') {
+                     timePart = dateStr.includes('T') ? dateStr.split('T')[1].split('+')[0].split('.')[0] : (dateStr.includes(' ') ? dateStr.split(' ')[1] : null);
                 }
-                return datePart;
+
+                return { date: datePart, time: (timePart && timePart !== '00:00:00') ? timePart : null };
             } catch(e) {
-                return dateStr;
+                return { date: dateStr, time: null };
             }
         };
 
@@ -3564,23 +3573,17 @@ function renderDividendsData() {
             let series = d.symbol || '-';
 
             let matchingMeetings = meetingsBySymbol[series.toUpperCase()] || [];
-            let bmd = '-';
+            let bmdObj = { date: '-', time: null };
             let bmPurpose = '-';
 
             // Board Meeting and Broadcast Date matching logic
-            let bcd = '-';
+            let bcdObj = { date: '-', time: null };
 
             if (d.is_synthetic && d._matchedMeeting) {
                 let matchedMeeting = d._matchedMeeting;
-                bmd = formatDateTime(matchedMeeting.meeting_date);
-                // The user specifically requested "Board meeting time".
-                // Since `meeting_date` lacks time, we append the exact time from `broadcast_date` to `bmd`.
-                if (bmd !== '-' && !bmd.includes(' ') && matchedMeeting.broadcast_date) {
-                    let bTime = formatDateTime(matchedMeeting.broadcast_date).split(' ')[1];
-                    if (bTime) bmd += ' ' + bTime;
-                }
+                bmdObj = formatDateTime(matchedMeeting.meeting_date);
                 bmPurpose = matchedMeeting.purpose || '-';
-                bcd = formatDateTime(matchedMeeting.broadcast_date || matchedMeeting.date);
+                bcdObj = formatDateTime(matchedMeeting.broadcast_date || matchedMeeting.date);
             } else if (matchingMeetings.length > 0) {
                 let exDateObj = d.ex_date ? new Date(d.ex_date) : null;
 
@@ -3615,11 +3618,7 @@ function renderDividendsData() {
                 }
 
                 if (matchedMeeting) {
-                    bmd = formatDateTime(matchedMeeting.meeting_date);
-                    if (bmd !== '-' && !bmd.includes(' ') && matchedMeeting.broadcast_date) {
-                        let bTime = formatDateTime(matchedMeeting.broadcast_date).split(' ')[1];
-                        if (bTime) bmd += ' ' + bTime;
-                    }
+                    bmdObj = formatDateTime(matchedMeeting.meeting_date);
                     bmPurpose = matchedMeeting.purpose || '-';
                 }
             }
@@ -3627,10 +3626,10 @@ function renderDividendsData() {
             // Always prioritize the official action's broadcast date if it has one,
             // otherwise fallback to the intimation's broadcast date.
             let officialBcd = formatDateTime(d.broadcast_date);
-            if (officialBcd !== '-') {
-                bcd = officialBcd;
-            } else if (bcd === '-') {
-                bcd = formatDateTime(d.date);
+            if (officialBcd.date !== '-') {
+                bcdObj = officialBcd;
+            } else if (bcdObj.date === '-') {
+                bcdObj = formatDateTime(d.date);
             }
 
             let fullPurpose = d.subject || d.purpose || '-';
@@ -3664,13 +3663,17 @@ function renderDividendsData() {
                 else if (lowerType.includes('special')) bg = '#9370DB'; // Subtle Purple
                 else if (lowerType.includes('bonus')) bg = '#E91E63'; // Pink
                 else if (lowerType.includes('split') || lowerType.includes('sub-division')) bg = '#2196F3'; // Blue
+                else if (lowerType.includes('agm')) bg = '#607D8B'; // Grey Blue for AGM
 
                 typeBadge = `<span class="badge" style="background:${bg}; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">${divType}</span>`;
             }
 
+            let bcdDisplay = bcdObj.date !== '-' ? `${bcdObj.date} ${bcdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bcdObj.time}</span>` : ''}` : '-';
+            let bmdDisplay = bmdObj.date !== '-' ? `${bmdObj.date} ${bmdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bmdObj.time}</span>` : ''}` : '-';
+
             tr.innerHTML = `
-                <td>${bcd}</td>
-                <td>${bmd}</td>
+                <td>${bcdDisplay}</td>
+                <td>${bmdDisplay}</td>
                 <td style="white-space:normal; max-width:200px;">${bmPurpose}</td>
                 <td>${d.ex_date || '-'}</td>
                 <td><strong style="color: #4da6ff;">${series}</strong></td>

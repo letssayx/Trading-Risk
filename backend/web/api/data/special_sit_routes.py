@@ -90,14 +90,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     bm_records = db.query(BoardMeeting).filter(
         BoardMeeting.symbol.in_(symbols),
         BoardMeeting.date >= ten_years_ago,
-        or_(
-            BoardMeeting.purpose.ilike('%dividend%'),
-            BoardMeeting.purpose.ilike('%agm%'),
-            BoardMeeting.purpose.ilike('%annual general meeting%'),
-            BoardMeeting.purpose.ilike('%financial result%'),
-            BoardMeeting.purpose.ilike('%postponed%'),
-            BoardMeeting.extracted_dividend_amount != None
-        )
+        BoardMeeting.purpose.ilike('%dividend%')
     ).order_by(desc(BoardMeeting.date)).all()
 
     import re
@@ -214,31 +207,34 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
         for bm in bms:
-            # Only synthesize as an upcoming event if it's likely dividend-related
-            purpose_lower = (bm.purpose or "").lower()
-            is_div_related = (
-                "dividend" in purpose_lower or
-                "agm" in purpose_lower or
-                "annual general meeting" in purpose_lower or
-
-
-                bm.extracted_dividend_amount is not None
-            )
-
-            if not is_div_related:
-                continue
-
             amt = bm.extracted_dividend_amount
-            chained_history.append({
-                "ex_date": 'Record date not yet declared',
-                "ex_date_obj": None,
-                "announcement_date_obj": bm.date,
-                "broadcast_date": bm.broadcast_date,
-                "dividend_type": bm.extracted_dividend_type or 'Interim',
-                "purpose": bm.purpose or "Dividend Declared in Board Meeting",
-                "amount": amt,
-                "raw_amount": amt
-            })
+            purpose_lower = (bm.purpose or '').lower()
+
+            # To avoid polluting the Special Situations UI with generic "Financial Results" or "AGM" meetings
+            # that have no actual declared dividend amount, strictly enforce that an amount must exist.
+            # However, we MUST preserve upcoming intimations (meetings that haven't happened yet),
+            # because most companies announce upcoming dividends with the purpose "Financial Results & Dividend".
+            is_valid_standalone = False
+            if amt is not None:
+                is_valid_standalone = True
+            elif bm.date and bm.date >= today:
+                # It's an upcoming meeting in the future, we don't have the amount yet. Allow it to show as 'Expected'.
+                is_valid_standalone = True
+            elif 'dividend' in purpose_lower and not any(x in purpose_lower for x in ['financial results', 'agm', 'annual general meeting', 'postponed']):
+                # It's a pure historical dividend intimation without a CA
+                is_valid_standalone = True
+
+            if is_valid_standalone:
+                chained_history.append({
+                    "ex_date": 'Record date not yet declared',
+                    "ex_date_obj": None,
+                    "announcement_date_obj": bm.date,
+                    "broadcast_date": bm.broadcast_date,
+                    "dividend_type": bm.extracted_dividend_type or 'Interim',
+                    "purpose": bm.purpose or "Dividend Declared in Board Meeting",
+                    "amount": amt,
+                    "raw_amount": amt
+                })
 
         chained_history.sort(key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else (x.get('announcement_date_obj') or datetime.date.min), reverse=True)
         ca_by_symbol[sym] = chained_history

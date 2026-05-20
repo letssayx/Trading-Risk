@@ -748,7 +748,6 @@ async def list_data(
             model.parsed_dividend_amount != None,
             model.dividend_type.in_(['Bonus', 'Split'])
         ))
-
     # Handle FO Instrument filter
     if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':
         inst_upper = instrument.upper()
