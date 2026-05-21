@@ -1,0 +1,23 @@
+<<<<<<< SEARCH
+                            <div class="custom-dropdown" id="ss-div-upcoming-dropdown" style="margin-left: 15px;">
+                                <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-upcoming-dropdown')">Upcoming Meetings</div>
+                                <div class="dropdown-menu">
+                                    <label><input type="checkbox" value="Today" onchange="filterSSDividends()"> Today</label>
+                                    <label><input type="checkbox" value="Tomorrow" onchange="filterSSDividends()"> Tomorrow</label>
+                                    <label><input type="checkbox" value="This Week" onchange="filterSSDividends()"> This Week</label>
+                                    <label><input type="checkbox" value="Next Week" onchange="filterSSDividends()"> Next Week</label>
+                                    <label><input type="checkbox" value="This Month" onchange="filterSSDividends()"> This Month</label>
+                                </div>
+                            </div>
+=======
+                            <div class="custom-dropdown" id="ss-div-upcoming-dropdown" style="margin-left: 15px;">
+                                <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-upcoming-dropdown')">Upcoming Meetings</div>
+                                <div class="dropdown-menu">
+                                    <label><input type="checkbox" value="Today" onchange="renderSSDividends()"> Today</label>
+                                    <label><input type="checkbox" value="Tomorrow" onchange="renderSSDividends()"> Tomorrow</label>
+                                    <label><input type="checkbox" value="This Week" onchange="renderSSDividends()"> This Week</label>
+                                    <label><input type="checkbox" value="Next Week" onchange="renderSSDividends()"> Next Week</label>
+                                    <label><input type="checkbox" value="This Month" onchange="renderSSDividends()"> This Month</label>
+                                </div>
+                            </div>
+>>>>>>> REPLACE

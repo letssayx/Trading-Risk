@@ -530,16 +530,16 @@
                                 <span id="ss-div-date-display" style="font-size: 12px; color: #60a5fa; font-weight: normal;"></span>
                             </h2>
                             <div class="search-box" style="position: relative; display: flex; align-items: center;">
-                                <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 28px 4px 8px; border-radius: 4px;" onkeyup="filterSSDividends()">
+                                <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 28px 4px 8px; border-radius: 4px;" onkeyup="renderSSDividends()">
                                 <span style="position: absolute; right: 8px; cursor: pointer; color: #888; font-weight: bold; font-family: sans-serif;" onclick="clearSSDivSearch()" title="Clear">&#x2715;</span>
                             </div>
 
                             <div style="display: flex; align-items: center; gap: 15px; margin-left: 15px;">
                                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #ccc;">
-                                    <input type="checkbox" id="ss-div-filter-ex-announced" checked onchange="filterSSDividends()"> Ex-Announced
+                                    <input type="checkbox" id="ss-div-filter-ex-announced" checked onchange="renderSSDividends()"> Ex-Announced
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #ccc;">
-                                    <input type="checkbox" id="ss-div-filter-ex-awaited" checked onchange="filterSSDividends()"> Ex-Awaited
+                                    <input type="checkbox" id="ss-div-filter-ex-awaited" checked onchange="renderSSDividends()"> Ex-Awaited
                                 </label>
                             </div>
 
@@ -553,29 +553,29 @@
                             <div class="custom-dropdown" id="ss-div-upcoming-dropdown" style="margin-left: 15px;">
                                 <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-upcoming-dropdown')">Upcoming Meetings</div>
                                 <div class="dropdown-menu">
-                                    <label><input type="checkbox" value="Today" onchange="filterSSDividends()"> Today</label>
-                                    <label><input type="checkbox" value="Tomorrow" onchange="filterSSDividends()"> Tomorrow</label>
-                                    <label><input type="checkbox" value="This Week" onchange="filterSSDividends()"> This Week</label>
-                                    <label><input type="checkbox" value="Next Week" onchange="filterSSDividends()"> Next Week</label>
-                                    <label><input type="checkbox" value="This Month" onchange="filterSSDividends()"> This Month</label>
+                                    <label><input type="checkbox" value="Today" onchange="renderSSDividends()"> Today</label>
+                                    <label><input type="checkbox" value="Tomorrow" onchange="renderSSDividends()"> Tomorrow</label>
+                                    <label><input type="checkbox" value="This Week" onchange="renderSSDividends()"> This Week</label>
+                                    <label><input type="checkbox" value="Next Week" onchange="renderSSDividends()"> Next Week</label>
+                                    <label><input type="checkbox" value="This Month" onchange="renderSSDividends()"> This Month</label>
                                 </div>
                             </div>
 
                             <div class="custom-dropdown" id="ss-div-month-dropdown" style="margin-left: 15px;">
                                 <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-month-dropdown')">Select Months</div>
                                 <div class="dropdown-menu">
-                                    <label><input type="checkbox" value="01" onchange="filterSSDividends()"> January</label>
-                                    <label><input type="checkbox" value="02" onchange="filterSSDividends()"> February</label>
-                                    <label><input type="checkbox" value="03" onchange="filterSSDividends()"> March</label>
-                                    <label><input type="checkbox" value="04" onchange="filterSSDividends()"> April</label>
-                                    <label><input type="checkbox" value="05" onchange="filterSSDividends()"> May</label>
-                                    <label><input type="checkbox" value="06" onchange="filterSSDividends()"> June</label>
-                                    <label><input type="checkbox" value="07" onchange="filterSSDividends()"> July</label>
-                                    <label><input type="checkbox" value="08" onchange="filterSSDividends()"> August</label>
-                                    <label><input type="checkbox" value="09" onchange="filterSSDividends()"> September</label>
-                                    <label><input type="checkbox" value="10" onchange="filterSSDividends()"> October</label>
-                                    <label><input type="checkbox" value="11" onchange="filterSSDividends()"> November</label>
-                                    <label><input type="checkbox" value="12" onchange="filterSSDividends()"> December</label>
+                                    <label><input type="checkbox" value="01" onchange="renderSSDividends()"> January</label>
+                                    <label><input type="checkbox" value="02" onchange="renderSSDividends()"> February</label>
+                                    <label><input type="checkbox" value="03" onchange="renderSSDividends()"> March</label>
+                                    <label><input type="checkbox" value="04" onchange="renderSSDividends()"> April</label>
+                                    <label><input type="checkbox" value="05" onchange="renderSSDividends()"> May</label>
+                                    <label><input type="checkbox" value="06" onchange="renderSSDividends()"> June</label>
+                                    <label><input type="checkbox" value="07" onchange="renderSSDividends()"> July</label>
+                                    <label><input type="checkbox" value="08" onchange="renderSSDividends()"> August</label>
+                                    <label><input type="checkbox" value="09" onchange="renderSSDividends()"> September</label>
+                                    <label><input type="checkbox" value="10" onchange="renderSSDividends()"> October</label>
+                                    <label><input type="checkbox" value="11" onchange="renderSSDividends()"> November</label>
+                                    <label><input type="checkbox" value="12" onchange="renderSSDividends()"> December</label>
                                 </div>
                             </div>
                         </div>

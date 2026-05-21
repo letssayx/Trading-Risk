@@ -1,0 +1,42 @@
+<<<<<<< SEARCH
+        // Upcoming meetings filtering based on board_meeting_date
+        if (selectedUpcoming.length > 0) {
+            if (!item.board_meeting_date) return;
+            const bmDate = new Date(item.board_meeting_date);
+            bmDate.setHours(0,0,0,0);
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            // Get start and end of this week (Monday to Sunday usually in trading, let's use standard JS Sunday to Saturday but normalize it for display if needed)
+            const currentDayOfWeek = today.getDay();
+            const startOfThisWeek = new Date(today);
+            startOfThisWeek.setDate(today.getDate() - currentDayOfWeek);
+            const endOfThisWeek = new Date(startOfThisWeek);
+            endOfThisWeek.setDate(startOfThisWeek.getDate() + 6);
+
+            // Next week
+            const startOfNextWeek = new Date(endOfThisWeek);
+            startOfNextWeek.setDate(startOfNextWeek.getDate() + 1);
+            const endOfNextWeek = new Date(startOfNextWeek);
+            endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
+
+            // This month
+            const thisMonth = today.getMonth();
+            const thisYear = today.getFullYear();
+
+            let matched = false;
+            for (let up of selectedUpcoming) {
+                if (up === 'Today' && bmDate.getTime() === today.getTime()) matched = true;
+                if (up === 'Tomorrow' && bmDate.getTime() === tomorrow.getTime()) matched = true;
+                if (up === 'This Week' && bmDate >= startOfThisWeek && bmDate <= endOfThisWeek) matched = true;
+                if (up === 'Next Week' && bmDate >= startOfNextWeek && bmDate <= endOfNextWeek) matched = true;
+                if (up === 'This Month' && bmDate.getMonth() === thisMonth && bmDate.getFullYear() === thisYear) matched = true;
+            }
+            if (!matched) return;
+        }
+=======
+>>>>>>> REPLACE

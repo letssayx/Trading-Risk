@@ -17,3 +17,4 @@ venv/
 .venv/
 node_modules/
 test_venv/
+logs.txt

@@ -797,7 +797,9 @@ async function loadSSDividends() {
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
         ssDivData.forEach(item => {
             // Store original values before applying overrides so we can revert back to them
-            item._original_is_above_2_percent = item.is_above_2_percent;
+            if (item._original_is_above_2_percent === undefined) {
+                item._original_is_above_2_percent = item.is_above_2_percent;
+            }
 
             if (overrides[item.symbol]) {
                 const o = overrides[item.symbol];
@@ -917,7 +919,7 @@ function exportSSDivCSV() {
         }
 
         // Upcoming meetings filtering based on board_meeting_date
-        if (selectedUpcoming.length > 0) {
+        if (selectedUpcoming && selectedUpcoming.length > 0) {
             if (!item.board_meeting_date) return;
             const bmDate = new Date(item.board_meeting_date);
             bmDate.setHours(0,0,0,0);
@@ -928,7 +930,7 @@ function exportSSDivCSV() {
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
 
-            // Get start and end of this week (Sunday to Saturday)
+            // Get start and end of this week
             const currentDayOfWeek = today.getDay();
             const startOfThisWeek = new Date(today);
             startOfThisWeek.setDate(today.getDate() - currentDayOfWeek);
