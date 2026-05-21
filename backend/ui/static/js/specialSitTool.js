@@ -796,6 +796,9 @@ async function loadSSDividends() {
         // Apply overrides from localStorage
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
         ssDivData.forEach(item => {
+            // Store original values before applying overrides so we can revert back to them
+            item._original_is_above_2_percent = item.is_above_2_percent;
+
             if (overrides[item.symbol]) {
                 const o = overrides[item.symbol];
                 if (o.expected_amount !== undefined) item.expected_amount = o.expected_amount;
@@ -911,6 +914,46 @@ function exportSSDivCSV() {
         // Sector filtering
         if (selectedSectors.length > 0 && (!item.sector || !selectedSectors.includes(item.sector))) {
             return;
+        }
+
+        // Upcoming meetings filtering based on board_meeting_date
+        if (selectedUpcoming.length > 0) {
+            if (!item.board_meeting_date) return;
+            const bmDate = new Date(item.board_meeting_date);
+            bmDate.setHours(0,0,0,0);
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            // Get start and end of this week (Sunday to Saturday)
+            const currentDayOfWeek = today.getDay();
+            const startOfThisWeek = new Date(today);
+            startOfThisWeek.setDate(today.getDate() - currentDayOfWeek);
+            const endOfThisWeek = new Date(startOfThisWeek);
+            endOfThisWeek.setDate(startOfThisWeek.getDate() + 6);
+
+            // Next week
+            const startOfNextWeek = new Date(endOfThisWeek);
+            startOfNextWeek.setDate(startOfNextWeek.getDate() + 1);
+            const endOfNextWeek = new Date(startOfNextWeek);
+            endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
+
+            // This month
+            const thisMonth = today.getMonth();
+            const thisYear = today.getFullYear();
+
+            let matched = false;
+            for (let up of selectedUpcoming) {
+                if (up === 'Today' && bmDate.getTime() === today.getTime()) matched = true;
+                if (up === 'Tomorrow' && bmDate.getTime() === tomorrow.getTime()) matched = true;
+                if (up === 'This Week' && bmDate >= startOfThisWeek && bmDate <= endOfThisWeek) matched = true;
+                if (up === 'Next Week' && bmDate >= startOfNextWeek && bmDate <= endOfNextWeek) matched = true;
+                if (up === 'This Month' && bmDate.getMonth() === thisMonth && bmDate.getFullYear() === thisYear) matched = true;
+            }
+            if (!matched) return;
         }
 
         // Month filtering based on expected_highly_likely date
@@ -1195,6 +1238,10 @@ function renderSSDividends() {
     const sectorCheckboxes = document.querySelectorAll('#ss-div-sector-dropdown input[type="checkbox"]:checked');
     const selectedSectors = Array.from(sectorCheckboxes).map(cb => cb.value);
 
+    // Get selected upcoming meetings
+    const upcomingCheckboxes = document.querySelectorAll('#ss-div-upcoming-dropdown input[type="checkbox"]:checked');
+    const selectedUpcoming = Array.from(upcomingCheckboxes).map(cb => cb.value);
+
     if (!ssDivData || ssDivData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;">No data available</td></tr>';
         return;
@@ -1330,6 +1377,28 @@ function renderSSDividends() {
              manualAsterisk = ' <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>';
         }
 
+        let bmDisplayHtml = '-';
+        if (item.board_meeting_date) {
+             const dt = new Date(item.board_meeting_date);
+             const y = dt.getFullYear();
+             const m = String(dt.getMonth() + 1).padStart(2, '0');
+             const d = String(dt.getDate()).padStart(2, '0');
+             bmDisplayHtml = `${y}-${m}-${d}`;
+
+             // Time extraction if exists
+             const tStr = item.board_meeting_date;
+             let timePart = null;
+             if (tStr.includes('T')) {
+                 timePart = tStr.split('T')[1].split('+')[0].split('.')[0];
+             } else if (tStr.includes(' ')) {
+                 timePart = tStr.split(' ')[1];
+             }
+
+             if (timePart && timePart !== '00:00:00') {
+                 bmDisplayHtml += `<br><span style="font-size: 10px; color: #888;">${timePart}</span>`;
+             }
+        }
+
         const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
             <div style="display: flex; align-items: center; width: 100%;">
                 <select style="background: transparent; color: inherit; border: none; font-weight: inherit; outline: none; flex-grow: 1; cursor: pointer; padding-left: 5px;" onchange="updateSSDivData('${item.symbol}', 'is_above_2_percent', this.value); renderSSDividends();">
@@ -1361,6 +1430,8 @@ function renderSSDividends() {
             }
         }
 
+        // Ensure manual asterisk logic triggers accurately based on differences from _original_is_above_2_percent
+        let isAbove2Overridden = overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined;
         let isOverridden = !!item._edited_expected_amount;
         let expectedAmountHTML = item._edited_expected_amount || (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-');
 
@@ -1396,6 +1467,7 @@ function renderSSDividends() {
                 <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
+                <td style="background: #1a1a1a; color: #a1b5d1;">${bmDisplayHtml}</td>
                 ${above2Cell}
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_amount', this.innerHTML)" onclick="event.stopPropagation();">${expectedAmountHTML}</td>
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${expectedHighlyLikelyHtml}</td>

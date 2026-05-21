@@ -550,6 +550,17 @@
                                 </div>
                             </div>
 
+                            <div class="custom-dropdown" id="ss-div-upcoming-dropdown" style="margin-left: 15px;">
+                                <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-upcoming-dropdown')">Upcoming Meetings</div>
+                                <div class="dropdown-menu">
+                                    <label><input type="checkbox" value="Today" onchange="filterSSDividends()"> Today</label>
+                                    <label><input type="checkbox" value="Tomorrow" onchange="filterSSDividends()"> Tomorrow</label>
+                                    <label><input type="checkbox" value="This Week" onchange="filterSSDividends()"> This Week</label>
+                                    <label><input type="checkbox" value="Next Week" onchange="filterSSDividends()"> Next Week</label>
+                                    <label><input type="checkbox" value="This Month" onchange="filterSSDividends()"> This Month</label>
+                                </div>
+                            </div>
+
                             <div class="custom-dropdown" id="ss-div-month-dropdown" style="margin-left: 15px;">
                                 <div class="dropdown-toggle" onclick="toggleDropdown('ss-div-month-dropdown')">Select Months</div>
                                 <div class="dropdown-menu">
@@ -589,6 +600,7 @@
                                     <th style="background: #2b3a4a;">Type</th>
                                     <th style="background: #2b3a4a;">Ex-date</th>
                                     <th style="background: #2b3a4a;">Amount</th>
+                                    <th style="background: #1e1e1e; color: #a1b5d1;">Board Meeting</th>
                                     <th>Is above 2%<br>(Extra-ordinary)</th>
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
                                     <th style="background: #334d3d;">Expected Dividend<br>highly likely</th>
@@ -3563,7 +3575,16 @@ function renderDividendsData() {
                 // Try to extract exact time from original string to avoid UTC shifting issues
                 let timePart = null;
                 if (typeof dateStr === 'string') {
-                     timePart = dateStr.includes('T') ? dateStr.split('T')[1].split('+')[0].split('.')[0] : (dateStr.includes(' ') ? dateStr.split(' ')[1] : null);
+                     if (dateStr.includes('T')) {
+                         let t = dateStr.split('T')[1];
+                         if (t.includes('+')) t = t.split('+')[0];
+                         if (t.includes('.')) t = t.split('.')[0];
+                         timePart = t;
+                     } else if (dateStr.includes(' ')) {
+                         let t = dateStr.split(' ')[1];
+                         if (t.includes('.')) t = t.split('.')[0];
+                         timePart = t;
+                     }
                 }
 
                 return { date: datePart, time: (timePart && timePart !== '00:00:00') ? timePart : null };

@@ -206,7 +206,26 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             chained_history.append(h)
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
+        deduplicated_bms = []
+        bms.sort(key=lambda x: x.date if x.date else datetime.date.min, reverse=True) # newest first
+
         for bm in bms:
+            is_duplicate = False
+            for existing in deduplicated_bms:
+                if bm.date and existing.date:
+                    diff_days = abs((existing.date - bm.date).days)
+                    # Deduplicate BMs within 60 days that have the same dividend type or amount
+                    # This absorbs rescheduled meetings
+                    if diff_days <= 60 and (bm.extracted_dividend_type == existing.extracted_dividend_type):
+                        is_duplicate = True
+                        # If the newer duplicate (existing, since we iterate newest first) doesn't have an amount but the old one does, copy it
+                        if existing.extracted_dividend_amount is None and bm.extracted_dividend_amount is not None:
+                            existing.extracted_dividend_amount = bm.extracted_dividend_amount
+                        break
+            if not is_duplicate:
+                deduplicated_bms.append(bm)
+
+        for bm in deduplicated_bms:
             amt = bm.extracted_dividend_amount
             purpose_lower = (bm.purpose or '').lower()
 
@@ -317,6 +336,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         last_ex_date = "-"
         last_amount = None
         is_above_2_percent = False
+        board_meeting_date = None
 
         expected_amount = None
         expected_highly_likely = None
@@ -325,6 +345,22 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         expected_amount_compare = None
 
         if history:
+            # Determine nearest upcoming board meeting (if any exists in future or today)
+            bms_for_sym = bm_by_symbol.get(sym, [])
+            upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today]
+            upcoming_bms.sort(key=lambda x: x.date)
+
+            if upcoming_bms:
+                # Store it as an ISO string so JS can parse it, preserving time if broadcast_date exists
+                bm = upcoming_bms[0]
+                if bm.meeting_date:
+                     board_meeting_date = bm.meeting_date.isoformat()
+                elif bm.broadcast_date:
+                     board_meeting_date = bm.broadcast_date.isoformat()
+                else:
+                     # Date only
+                     board_meeting_date = bm.date.isoformat() + "T00:00:00"
+
             # Most recent overall dividend (just for table display purposes)
             last = history[0]
             last_type = last['dividend_type'] or '-'
@@ -341,6 +377,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 is_above_2_percent = last.get('is_above_2_percent', False)
             else:
                 is_above_2_percent = False
+
+            # Override from expected amount (future forecasting): if we are projecting an amount that is >= 2%, the main row must show YES regardless
+            if last.get('amount') and spot and spot > 0:
+                 if (last.get('amount') / spot) * 100 >= 2.0 and (not latest_ex_date_obj or latest_ex_date_obj >= today):
+                     is_above_2_percent = True
 
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
@@ -509,6 +550,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "last_ex_date": last_ex_date,
             "last_amount": last_amount,
             "is_above_2_percent": is_above_2_percent,
+            "board_meeting_date": board_meeting_date,
             "expected_amount": expected_amount,
             "expected_amount_compare": expected_amount_compare,
             "expected_type": expected_type,
