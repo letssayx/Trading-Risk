@@ -388,11 +388,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             else:
                 is_above_2_percent = False
 
-            # Override from expected amount (future forecasting): if we are projecting an amount that is >= 2%, the main row must show YES regardless
-            if last.get('amount') and spot and spot > 0:
-                 if (last.get('amount') / spot) >= 0.02:
-                     is_above_2_percent = True
-
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
 
