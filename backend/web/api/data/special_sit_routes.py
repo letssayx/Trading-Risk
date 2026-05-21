@@ -214,16 +214,24 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             for existing in deduplicated_bms:
                 if bm.date and existing.date:
                     diff_days = abs((existing.date - bm.date).days)
-                    # Deduplicate BMs within 60 days that have the same dividend type or amount
-                    # This absorbs rescheduled meetings
+                    # Deduplicate BMs within 60 days that have the same dividend type
                     if diff_days <= 60 and (bm.extracted_dividend_type == existing.extracted_dividend_type):
                         # Also check if amount matches to be absolutely sure we don't merge distinct back-to-back dividends
                         if bm.extracted_dividend_amount == existing.extracted_dividend_amount or existing.extracted_dividend_amount is None or bm.extracted_dividend_amount is None:
                             is_duplicate = True
-                            # If the newer duplicate (existing, since we iterate newest first) doesn't have an amount but the old one does, copy it
                             if existing.extracted_dividend_amount is None and bm.extracted_dividend_amount is not None:
                                 existing.extracted_dividend_amount = bm.extracted_dividend_amount
                             break
+
+            # Also ensure it doesn't already exist in the history array we just built
+            for h in chained_history:
+                 if h.get('announcement_date_obj') and bm.date:
+                     diff_days = abs((h['announcement_date_obj'] - bm.date).days)
+                     if diff_days <= 60 and (bm.extracted_dividend_type == h.get('dividend_type')):
+                         if bm.extracted_dividend_amount == h.get('raw_amount') or bm.extracted_dividend_amount == h.get('amount') or h.get('amount') is None or bm.extracted_dividend_amount is None:
+                              is_duplicate = True
+                              break
+
             if not is_duplicate:
                 deduplicated_bms.append(bm)
 
@@ -338,13 +346,13 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         last_ex_date = "-"
         last_amount = None
         is_above_2_percent = False
-        board_meeting_date = None
 
         expected_amount = None
         expected_highly_likely = None
         expected_less_likely = None
         expected_type = None
         expected_amount_compare = None
+        board_meeting_date = None
 
         if history:
             # Determine nearest upcoming board meeting (if any exists in future or today)
@@ -382,7 +390,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
             # Override from expected amount (future forecasting): if we are projecting an amount that is >= 2%, the main row must show YES regardless
             if last.get('amount') and spot and spot > 0:
-                 if (last.get('amount') / spot) * 100 >= 2.0:
+                 if (last.get('amount') / spot) >= 0.02:
                      is_above_2_percent = True
 
             # Sort ascending for cycle processing
@@ -523,10 +531,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     expected_amount_compare = latest['amount']
                     expected_type = latest.get('dividend_type', 'Interim')
 
-                    # Re-check for >= 2% since we are setting the expected amount here
-                    if spot and expected_amount and (expected_amount / spot) >= 0.02:
-                        is_above_2_percent = True
-
                     # If there's an announcement date, use it instead of just generic forecast
                     ann_date = latest.get('announcement_date_obj')
                     if ann_date:
@@ -541,9 +545,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         else:
                             expected_highly_likely = "-"
                         expected_less_likely = "Amount declared, date not yet announced"
-
-                    if spot and expected_amount and (expected_amount / spot) >= 0.02:
-                        expected_less_likely = f"<span style='color: red;'>check for extra-ordinary</span>"
 
         # Explicitly round expected_amount for json response
         if expected_amount is not None:

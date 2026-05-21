@@ -530,7 +530,7 @@
                                 <span id="ss-div-date-display" style="font-size: 12px; color: #60a5fa; font-weight: normal;"></span>
                             </h2>
                             <div class="search-box" style="position: relative; display: flex; align-items: center;">
-                                <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 28px 4px 8px; border-radius: 4px;" onkeyup="renderSSDividends()">
+                                <input type="text" id="ss-div-search" placeholder="Filter scrip..." style="background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 4px 28px 4px 8px; border-radius: 4px;" onkeyup="filterSSDividends()">
                                 <span style="position: absolute; right: 8px; cursor: pointer; color: #888; font-weight: bold; font-family: sans-serif;" onclick="clearSSDivSearch()" title="Clear">&#x2715;</span>
                             </div>
 
@@ -600,7 +600,7 @@
                                     <th style="background: #2b3a4a;">Type</th>
                                     <th style="background: #2b3a4a;">Ex-date</th>
                                     <th style="background: #2b3a4a;">Amount</th>
-                                    <th style="background: #1e1e1e; color: #a1b5d1;">Board Meeting</th>
+                                    <th style="background: #1a1a1a;">Upcoming<br>Meeting</th>
                                     <th>Is above 2%<br>(Extra-ordinary)</th>
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
                                     <th style="background: #334d3d;">Expected Dividend<br>highly likely</th>
@@ -3575,16 +3575,7 @@ function renderDividendsData() {
                 // Try to extract exact time from original string to avoid UTC shifting issues
                 let timePart = null;
                 if (typeof dateStr === 'string') {
-                     if (dateStr.includes('T')) {
-                         let t = dateStr.split('T')[1];
-                         if (t.includes('+')) t = t.split('+')[0];
-                         if (t.includes('.')) t = t.split('.')[0];
-                         timePart = t;
-                     } else if (dateStr.includes(' ')) {
-                         let t = dateStr.split(' ')[1];
-                         if (t.includes('.')) t = t.split('.')[0];
-                         timePart = t;
-                     }
+                     timePart = dateStr.includes('T') ? dateStr.split('T')[1].split('+')[0].split('.')[0] : (dateStr.includes(' ') ? dateStr.split(' ')[1] : null);
                 }
 
                 return { date: datePart, time: (timePart && timePart !== '00:00:00') ? timePart : null };

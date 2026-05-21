@@ -918,46 +918,6 @@ function exportSSDivCSV() {
             return;
         }
 
-        // Upcoming meetings filtering based on board_meeting_date
-        if (selectedUpcoming && selectedUpcoming.length > 0) {
-            if (!item.board_meeting_date) return;
-            const bmDate = new Date(item.board_meeting_date);
-            bmDate.setHours(0,0,0,0);
-
-            const today = new Date();
-            today.setHours(0,0,0,0);
-
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-
-            // Get start and end of this week
-            const currentDayOfWeek = today.getDay();
-            const startOfThisWeek = new Date(today);
-            startOfThisWeek.setDate(today.getDate() - currentDayOfWeek);
-            const endOfThisWeek = new Date(startOfThisWeek);
-            endOfThisWeek.setDate(startOfThisWeek.getDate() + 6);
-
-            // Next week
-            const startOfNextWeek = new Date(endOfThisWeek);
-            startOfNextWeek.setDate(startOfNextWeek.getDate() + 1);
-            const endOfNextWeek = new Date(startOfNextWeek);
-            endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
-
-            // This month
-            const thisMonth = today.getMonth();
-            const thisYear = today.getFullYear();
-
-            let matched = false;
-            for (let up of selectedUpcoming) {
-                if (up === 'Today' && bmDate.getTime() === today.getTime()) matched = true;
-                if (up === 'Tomorrow' && bmDate.getTime() === tomorrow.getTime()) matched = true;
-                if (up === 'This Week' && bmDate >= startOfThisWeek && bmDate <= endOfThisWeek) matched = true;
-                if (up === 'Next Week' && bmDate >= startOfNextWeek && bmDate <= endOfNextWeek) matched = true;
-                if (up === 'This Month' && bmDate.getMonth() === thisMonth && bmDate.getFullYear() === thisYear) matched = true;
-            }
-            if (!matched) return;
-        }
-
         // Month filtering based on expected_highly_likely date
         if (selectedMonths.length > 0) {
             let dateStr = item.expected_highly_likely || '';
@@ -1375,7 +1335,12 @@ function renderSSDividends() {
 
         let manualAsterisk = "";
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
-        if (overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined) {
+        // Ensure manual asterisk logic triggers accurately based on differences from _original_is_above_2_percent
+        let isAbove2Overridden = overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined;
+        let originalIsAbove2 = item._original_is_above_2_percent === true || item._original_is_above_2_percent === 'Yes';
+        let currentIsAbove2 = item.is_above_2_percent === true || item.is_above_2_percent === 'Yes' || item.is_above_2_percent === 'yes';
+
+        if (isAbove2Overridden && (originalIsAbove2 !== currentIsAbove2)) {
              manualAsterisk = ' <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>';
         }
 
@@ -1432,8 +1397,6 @@ function renderSSDividends() {
             }
         }
 
-        // Ensure manual asterisk logic triggers accurately based on differences from _original_is_above_2_percent
-        let isAbove2Overridden = overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined;
         let isOverridden = !!item._edited_expected_amount;
         let expectedAmountHTML = item._edited_expected_amount || (item.expected_amount ? `${parseFloat(item.expected_amount).toFixed(2)} <span style="font-size: 0.8em; color: #aaa;">(${item.expected_type || 'Interim'})</span>` : '-');
 
