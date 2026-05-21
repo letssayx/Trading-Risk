@@ -206,36 +206,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             chained_history.append(h)
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
-        deduplicated_bms = []
-        bms.sort(key=lambda x: x.date if x.date else datetime.date.min, reverse=True) # newest first
-
         for bm in bms:
-            is_duplicate = False
-            for existing in deduplicated_bms:
-                if bm.date and existing.date:
-                    diff_days = abs((existing.date - bm.date).days)
-                    # Deduplicate BMs within 60 days that have the same dividend type
-                    if diff_days <= 60 and (bm.extracted_dividend_type == existing.extracted_dividend_type):
-                        # Also check if amount matches to be absolutely sure we don't merge distinct back-to-back dividends
-                        if bm.extracted_dividend_amount == existing.extracted_dividend_amount or existing.extracted_dividend_amount is None or bm.extracted_dividend_amount is None:
-                            is_duplicate = True
-                            if existing.extracted_dividend_amount is None and bm.extracted_dividend_amount is not None:
-                                existing.extracted_dividend_amount = bm.extracted_dividend_amount
-                            break
+            # Check if this BM is too old and likely a duplicate of something that dropped or was cancelled
+            if bm.date and bm.date < today - datetime.timedelta(days=60):
+                continue
 
-            # Also ensure it doesn't already exist in the history array we just built
-            for h in chained_history:
-                 if h.get('announcement_date_obj') and bm.date:
-                     diff_days = abs((h['announcement_date_obj'] - bm.date).days)
-                     if diff_days <= 60 and (bm.extracted_dividend_type == h.get('dividend_type')):
-                         if bm.extracted_dividend_amount == h.get('raw_amount') or bm.extracted_dividend_amount == h.get('amount') or h.get('amount') is None or bm.extracted_dividend_amount is None:
-                              is_duplicate = True
-                              break
-
-            if not is_duplicate:
-                deduplicated_bms.append(bm)
-
-        for bm in deduplicated_bms:
             amt = bm.extracted_dividend_amount
             purpose_lower = (bm.purpose or '').lower()
 
@@ -370,6 +345,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 else:
                      # Date only
                      board_meeting_date = bm.date.isoformat() + "T00:00:00"
+
 
             # Most recent overall dividend (just for table display purposes)
             last = history[0]
@@ -544,6 +520,17 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         # Explicitly round expected_amount for json response
         if expected_amount is not None:
             expected_amount = round(float(expected_amount), 2)
+
+        # Determine if >2% based on latest expected amount vs spot
+        if expected_amount and spot:
+            if expected_amount / spot >= 0.02:
+                is_above_2_percent = True
+                if expected_less_likely and isinstance(expected_less_likely, str):
+                    if 'check for extra-ordinary' not in expected_less_likely.lower():
+                        expected_less_likely += ' <span style="color:red;">(check for extra-ordinary)</span>'
+                else:
+                    expected_less_likely = '<span style="color:red;">check for extra-ordinary</span>'
+
 
         results.append({
             "symbol": sym,
