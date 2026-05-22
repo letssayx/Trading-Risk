@@ -796,8 +796,9 @@ async function loadSSDividends() {
         // Apply overrides from localStorage
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
         ssDivData.forEach(item => {
-            // Store original values before overrides
-            item._original_is_above_2_percent = item.is_above_2_percent;
+            if (item._original_is_above_2_percent === undefined) {
+                item._original_is_above_2_percent = item.is_above_2_percent;
+            }
             if (overrides[item.symbol]) {
                 const o = overrides[item.symbol];
                 if (o.expected_amount !== undefined) item.expected_amount = o.expected_amount;
@@ -829,8 +830,34 @@ async function loadSSDividends() {
 }
 
 function filterSSDividends() {
+    window._ssDivUpcomingFilter = Array.from(document.querySelectorAll('#ss-div-upcoming-dropdown input[type="checkbox"]:checked')).map(cb => cb.value);
     renderSSDividends();
 }
+
+function checkUpcomingMatch(bmDateStr, selectedUpcoming) {
+    if (!bmDateStr || !selectedUpcoming || selectedUpcoming.length === 0) return false;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const thisWeekEnd = new Date(today);
+    thisWeekEnd.setDate(thisWeekEnd.getDate() + (6 - thisWeekEnd.getDay()));
+    const nextWeekStart = new Date(thisWeekEnd);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 1);
+    const nextWeekEnd = new Date(nextWeekStart);
+    nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
+
+    const bmDate = new Date(bmDateStr.split('T')[0]);
+    bmDate.setHours(0,0,0,0);
+
+    if (selectedUpcoming.includes('Today') && bmDate.getTime() === today.getTime()) return true;
+    if (selectedUpcoming.includes('Tomorrow') && bmDate.getTime() === tomorrow.getTime()) return true;
+    if (selectedUpcoming.includes('This Week') && bmDate >= today && bmDate <= thisWeekEnd) return true;
+    if (selectedUpcoming.includes('Next Week') && bmDate >= nextWeekStart && bmDate <= nextWeekEnd) return true;
+    if (selectedUpcoming.includes('This Month') && bmDate.getMonth() === today.getMonth() && bmDate.getFullYear() === today.getFullYear()) return true;
+    return false;
+}
+
 
 
 
@@ -855,6 +882,9 @@ function exportSSDivCSV() {
     // Get selected sectors
     const sectorCheckboxes = document.querySelectorAll('#ss-div-sector-dropdown input[type="checkbox"]:checked');
     const selectedSectors = Array.from(sectorCheckboxes).map(cb => cb.value);
+
+    const upcomingCheckboxes = document.querySelectorAll('#ss-div-upcoming-dropdown input[type="checkbox"]:checked');
+    const exportSelectedUpcoming = Array.from(upcomingCheckboxes).map(cb => cb.value);
 
     // Get selected months
     const monthCheckboxes = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]:checked');
@@ -915,41 +945,14 @@ function exportSSDivCSV() {
             return;
         }
 
-        // Upcoming Meeting filtering
-        const upcomingCheckboxes = document.querySelectorAll('#ss-div-upcoming-dropdown input[type="checkbox"]:checked');
-        const selectedUpcoming = Array.from(upcomingCheckboxes).map(cb => cb.value);
-
-        if (selectedUpcoming.length > 0) {
-            if (!item.board_meeting_date) return; // Hide if no upcoming meeting
-
-            const today = new Date();
-            today.setHours(0,0,0,0);
-
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-
-            const thisWeekEnd = new Date(today);
-            thisWeekEnd.setDate(thisWeekEnd.getDate() + (6 - thisWeekEnd.getDay())); // Saturday of this week
-
-            const nextWeekStart = new Date(thisWeekEnd);
-            nextWeekStart.setDate(nextWeekStart.getDate() + 1);
-            const nextWeekEnd = new Date(nextWeekStart);
-            nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
-
-            const bmDate = new Date(item.board_meeting_date.split('T')[0]);
-            bmDate.setHours(0,0,0,0);
-
-            let matchesUpcoming = false;
-            if (selectedUpcoming.includes('Today') && bmDate.getTime() === today.getTime()) matchesUpcoming = true;
-            if (selectedUpcoming.includes('Tomorrow') && bmDate.getTime() === tomorrow.getTime()) matchesUpcoming = true;
-            if (selectedUpcoming.includes('This Week') && bmDate >= today && bmDate <= thisWeekEnd) matchesUpcoming = true;
-            if (selectedUpcoming.includes('Next Week') && bmDate >= nextWeekStart && bmDate <= nextWeekEnd) matchesUpcoming = true;
-            if (selectedUpcoming.includes('This Month') && bmDate.getMonth() === today.getMonth() && bmDate.getFullYear() === today.getFullYear()) matchesUpcoming = true;
-
-            if (!matchesUpcoming) return;
+        if (exportSelectedUpcoming.length > 0) {
+            if (!checkUpcomingMatch(item.board_meeting_date, exportSelectedUpcoming)) return;
         }
 
-
+        const selectedUpcoming = window._ssDivUpcomingFilter || [];
+        if (selectedUpcoming.length > 0) {
+            if (!checkUpcomingMatch(item.board_meeting_date, selectedUpcoming)) return;
+        }
 
         // Month filtering based on expected_highly_likely date
         if (selectedMonths.length > 0) {
@@ -1294,38 +1297,9 @@ function renderSSDividends() {
             return;
         }
 
-        // Upcoming Meeting filtering
-        const upcomingCheckboxes = document.querySelectorAll('#ss-div-upcoming-dropdown input[type="checkbox"]:checked');
-        const selectedUpcoming = Array.from(upcomingCheckboxes).map(cb => cb.value);
-
+        const selectedUpcoming = window._ssDivUpcomingFilter || [];
         if (selectedUpcoming.length > 0) {
-            if (!item.board_meeting_date) return; // Hide if no upcoming meeting
-
-            const today = new Date();
-            today.setHours(0,0,0,0);
-
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-
-            const thisWeekEnd = new Date(today);
-            thisWeekEnd.setDate(thisWeekEnd.getDate() + (6 - thisWeekEnd.getDay())); // Saturday of this week
-
-            const nextWeekStart = new Date(thisWeekEnd);
-            nextWeekStart.setDate(nextWeekStart.getDate() + 1);
-            const nextWeekEnd = new Date(nextWeekStart);
-            nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
-
-            const bmDate = new Date(item.board_meeting_date.split('T')[0]);
-            bmDate.setHours(0,0,0,0);
-
-            let matchesUpcoming = false;
-            if (selectedUpcoming.includes('Today') && bmDate.getTime() === today.getTime()) matchesUpcoming = true;
-            if (selectedUpcoming.includes('Tomorrow') && bmDate.getTime() === tomorrow.getTime()) matchesUpcoming = true;
-            if (selectedUpcoming.includes('This Week') && bmDate >= today && bmDate <= thisWeekEnd) matchesUpcoming = true;
-            if (selectedUpcoming.includes('Next Week') && bmDate >= nextWeekStart && bmDate <= nextWeekEnd) matchesUpcoming = true;
-            if (selectedUpcoming.includes('This Month') && bmDate.getMonth() === today.getMonth() && bmDate.getFullYear() === today.getFullYear()) matchesUpcoming = true;
-
-            if (!matchesUpcoming) return;
+            if (!checkUpcomingMatch(item.board_meeting_date, selectedUpcoming)) return;
         }
 
         // Month filtering based on expected_highly_likely date
@@ -1402,11 +1376,9 @@ function renderSSDividends() {
             const currentOverrideLower = String(overrides[item.symbol]['is_above_2_percent']).toLowerCase();
             const originalValLower = (item._original_is_above_2_percent === true || String(item._original_is_above_2_percent).toLowerCase() === 'yes') ? 'yes' : 'no';
 
-            // Only show asterisk if the override actually changed the value from the original backend state
             if (currentOverrideLower !== originalValLower) {
                  manualAsterisk = ' <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>';
             } else {
-                 // Clean up stale override
                  delete overrides[item.symbol]['is_above_2_percent'];
                  if (Object.keys(overrides[item.symbol]).length === 0) delete overrides[item.symbol];
                  localStorage.setItem('ssDivOverrides', JSON.stringify(overrides));
@@ -1490,7 +1462,7 @@ function renderSSDividends() {
                 <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
-                <td style="background: rgba(26, 26, 26, 0.6); color: #bbb;">${bmDateHtml}</td>
+                <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${bmDateHtml}</td>
                 ${above2Cell}
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_amount', this.innerHTML)" onclick="event.stopPropagation();">${expectedAmountHTML}</td>
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${expectedHighlyLikelyHtml}</td>

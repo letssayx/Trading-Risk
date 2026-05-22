@@ -3257,10 +3257,10 @@ function renderDividendsData() {
                                 const aDate = a.ex_date ? new Date(a.ex_date) : null;
                                 // If the corporate action ex_date is after the meeting date, consider it linked
                                 if (aDate && aDate >= mDate) {
-                                    // Make sure we only link if the dates are reasonably close (e.g., within 60 days)
+                                    // Make sure we only link if the dates are reasonably close (e.g., within 180 days)
                                     // Otherwise a meeting in 2022 might link to a 2024 action
                                     const diffDays = Math.abs(aDate - mDate) / (1000 * 60 * 60 * 24);
-                                    if (diffDays <= 60) {
+                                    if (diffDays <= 180) {
                                         hasLinkedAction = true;
                                         // Update amount if missing in action but present in meeting
                                         if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
@@ -3424,10 +3424,9 @@ function renderDividendsData() {
                     if (!isNaN(synDate) && !isNaN(offDate)) {
                         const diffDays = (offDate - synDate) / (1000 * 60 * 60 * 24);
 
-                        // If the corporate action happens -10 to 60 days after the board meeting, it's the same cycle!
-                        // We check that the dividend types loosely match AND their amounts match.
-                        const sameAmount = (off.parsed_dividend_amount == null || off.parsed_dividend_amount === '-' || syn.parsed_dividend_amount == null || syn.parsed_dividend_amount === '-' || Number(off.parsed_dividend_amount) === Number(syn.parsed_dividend_amount));
-                        if (diffDays >= -10 && diffDays <= 60 && sameAmount && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-' || off.dividend_type === '-')) {
+                        // If the corporate action happens -10 to 180 days after the board meeting, it's the same cycle!
+                        // We check that the dividend types loosely match.
+                        if (diffDays >= -10 && diffDays <= 180 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-' || off.dividend_type === '-')) {
                             // Link them!
                             if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
                                 off.parsed_dividend_amount = syn.parsed_dividend_amount;
@@ -3577,10 +3576,7 @@ function renderDividendsData() {
                 let timePart = null;
                 if (typeof dateStr === 'string') {
                      timePart = dateStr.includes('T') ? dateStr.split('T')[1].split('+')[0].split('.')[0] : (dateStr.includes(' ') ? dateStr.split(' ')[1] : null);
-                     // Fix to restore boardmeeting time if available in the ISO string
-                     if (timePart === '00:00:00') {
-                         timePart = null;
-                     }
+                     if (timePart === '00:00:00') timePart = null;
                 }
 
                 return { date: datePart, time: (timePart && timePart !== '00:00:00') ? timePart : null };
@@ -3692,13 +3688,10 @@ function renderDividendsData() {
 
             let bcdDisplay = bcdObj.date !== '-' ? `${bcdObj.date} ${bcdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bcdObj.time}</span>` : ''}` : '-';
             let bmdDisplay = bmdObj.date !== '-' ? `${bmdObj.date} ${bmdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bmdObj.time}</span>` : ''}` : '-';
-            // Explicitly support checking .date vs missing
             if (bmdObj.date === '-' && d.board_meeting_date) {
-               // Fallback if top-level has it
                let f = formatDateTime(d.board_meeting_date);
                bmdDisplay = f.date !== '-' ? `${f.date} ${f.time ? `<span style="color:#aaa;font-size:10px;"><br>${f.time}</span>` : ''}` : '-';
             }
-
 
             tr.innerHTML = `
                 <td>${bcdDisplay}</td>

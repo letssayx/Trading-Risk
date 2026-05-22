@@ -190,7 +190,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
                             if bm.date:
                                 diff = (ca_date - bm.date).days
-                                # Accept if CA happens -10 to 60 days after BM, matching the Databank logic
+                                # Accept if CA happens -10 to 60 days after BM, matching Databank logic
                                 if -10 <= diff <= 60 and abs(diff) < min_diff:
                                     # Strict amount match if both have it
                                     if h.get('amount') and bm.extracted_dividend_amount:
@@ -211,9 +211,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
         for bm in bms:
-            # Drop unlinked bms older than 180 days to prevent very old duplicates from surfacing,
-            # but allow enough window (similar to Databank) for genuine delayed ex-dates.
-            if bm.date and bm.date < today - datetime.timedelta(days=180):
+            # Drop unlinked bms older than 60 days (exactly matching the Databank merge window)
+            if bm.date and bm.date < today - datetime.timedelta(days=60):
                 continue
             amt = bm.extracted_dividend_amount
             purpose_lower = (bm.purpose or '').lower()
@@ -334,22 +333,17 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         board_meeting_date = None
 
         if history:
-            # Determine nearest upcoming board meeting (if any exists in future or today)
             bms_for_sym = bm_by_symbol.get(sym, [])
             upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today]
             upcoming_bms.sort(key=lambda x: x.date)
-
             if upcoming_bms:
-                # Store it as an ISO string so JS can parse it, preserving time if broadcast_date exists
                 bm = upcoming_bms[0]
                 if bm.meeting_date:
                      board_meeting_date = bm.meeting_date.isoformat()
                 elif bm.broadcast_date:
                      board_meeting_date = bm.broadcast_date.isoformat()
                 else:
-                     # Date only
                      board_meeting_date = bm.date.isoformat() + "T00:00:00"
-
 
             # Most recent overall dividend (just for table display purposes)
             last = history[0]
@@ -368,8 +362,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             else:
                 is_above_2_percent = False
 
-            # Extra rule: Also inherit the >2% flag if there is an upcoming board meeting,
-            # meaning the current/next action is still live and the sub-row flag should bubble up
+            # If the user overrode the math logic and explicitly wants it to sync
             if board_meeting_date and not is_above_2_percent:
                 is_above_2_percent = last.get('is_above_2_percent', False)
 
@@ -490,7 +483,10 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         expected_amount_compare = next_cycle['last_amt_in_cycle']
                         expected_type = next_cycle['type']
 
-
+                        # Add note to check for >2% if forecasted amount is high
+                        if spot and expected_amount and (expected_amount / spot) >= 0.02:
+                            expected_less_likely = "<span style='color: red;'>check for extra-ordinary</span>"
+                            is_above_2_percent = True
 
                     expected_highly_likely = f"Forecasted: {next_cycle['next_date'].strftime('%d-%m-%Y')}"
                     if not expected_less_likely:
