@@ -796,6 +796,8 @@ async function loadSSDividends() {
         // Apply overrides from localStorage
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
         ssDivData.forEach(item => {
+            // Store original values before overrides
+            item._original_is_above_2_percent = item.is_above_2_percent;
             if (overrides[item.symbol]) {
                 const o = overrides[item.symbol];
                 if (o.expected_amount !== undefined) item.expected_amount = o.expected_amount;

@@ -3257,10 +3257,10 @@ function renderDividendsData() {
                                 const aDate = a.ex_date ? new Date(a.ex_date) : null;
                                 // If the corporate action ex_date is after the meeting date, consider it linked
                                 if (aDate && aDate >= mDate) {
-                                    // Make sure we only link if the dates are reasonably close (e.g., within 180 days)
+                                    // Make sure we only link if the dates are reasonably close (e.g., within 60 days)
                                     // Otherwise a meeting in 2022 might link to a 2024 action
                                     const diffDays = Math.abs(aDate - mDate) / (1000 * 60 * 60 * 24);
-                                    if (diffDays <= 180) {
+                                    if (diffDays <= 60) {
                                         hasLinkedAction = true;
                                         // Update amount if missing in action but present in meeting
                                         if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
@@ -3424,9 +3424,10 @@ function renderDividendsData() {
                     if (!isNaN(synDate) && !isNaN(offDate)) {
                         const diffDays = (offDate - synDate) / (1000 * 60 * 60 * 24);
 
-                        // If the corporate action happens -10 to 180 days after the board meeting, it's the same cycle!
-                        // We check that the dividend types loosely match.
-                        if (diffDays >= -10 && diffDays <= 180 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-' || off.dividend_type === '-')) {
+                        // If the corporate action happens -10 to 60 days after the board meeting, it's the same cycle!
+                        // We check that the dividend types loosely match AND their amounts match.
+                        const sameAmount = (off.parsed_dividend_amount == null || off.parsed_dividend_amount === '-' || syn.parsed_dividend_amount == null || syn.parsed_dividend_amount === '-' || Number(off.parsed_dividend_amount) === Number(syn.parsed_dividend_amount));
+                        if (diffDays >= -10 && diffDays <= 60 && sameAmount && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-' || off.dividend_type === '-')) {
                             // Link them!
                             if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
                                 off.parsed_dividend_amount = syn.parsed_dividend_amount;
