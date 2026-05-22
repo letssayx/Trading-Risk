@@ -601,6 +601,7 @@
                                     <th style="background: #2b3a4a;">Ex-date</th>
                                     <th style="background: #2b3a4a;">Amount</th>
                                     <th style="background: #1a1a1a;">Upcoming<br>Meeting</th>
+                                    <th style="background: #1a1a1a;">Broadcast<br>Date & Time</th>
                                     <th>Is above 2%<br>(Extra-ordinary)</th>
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
                                     <th style="background: #334d3d;">Expected Dividend<br>highly likely</th>
@@ -610,7 +611,7 @@
                                 </tr>
                             </thead>
                             <tbody id="ss-div-tbody">
-                                <tr><td colspan="15" style="text-align: center; padding: 20px;">Click 'Refresh Data' to load</td></tr>
+                                <tr><td colspan="16" style="text-align: center; padding: 20px;">Click 'Refresh Data' to load</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -3579,11 +3580,13 @@ function renderDividendsData() {
                          let parts = dateStr.split(/[T ]/);
                          if (parts.length > 1) {
                              timePart = parts[1].split('+')[0].split('.')[0];
+                             if (timePart === '00:00:00') {
+                                 timePart = null;
+                             }
                          }
                      }
                 }
 
-                // Allow 00:00:00 as it might be a valid midnight timestamp.
                 return { date: datePart, time: timePart };
             } catch(e) {
                 return { date: dateStr, time: null };

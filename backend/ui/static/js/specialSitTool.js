@@ -823,7 +823,7 @@ async function loadSSDividends() {
     } catch (err) {
         console.error("Error loading SS Dividends:", err);
         const tbody = document.getElementById('ss-div-tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="14" style="color:red; text-align:center;">Error: ${err.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="16" style="color:red; text-align:center;">Error: ${err.message}</td></tr>`;
     } finally {
         if (btn) btn.innerHTML = '<i class="fas fa-sync"></i> Refresh Data';
     }
@@ -847,7 +847,11 @@ function checkUpcomingMatch(bmDateStr, selectedUpcoming) {
     const nextWeekEnd = new Date(nextWeekStart);
     nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
 
-    const bmDate = new Date(bmDateStr.split('T')[0]);
+    const parts = bmDateStr.split('T')[0].split('-');
+    if (parts.length !== 3) return false;
+
+    // Create local date to avoid timezone shift from YYYY-MM-DD ISO format
+    const bmDate = new Date(parts[0], parts[1] - 1, parts[2]);
     bmDate.setHours(0,0,0,0);
 
     if (selectedUpcoming.includes('Today') && bmDate.getTime() === today.getTime()) return true;
@@ -875,7 +879,7 @@ function exportSSDivCSV() {
     const eqDateStr = eqDateEl && eqDateEl.textContent ? eqDateEl.textContent.trim() : '';
     let csv = "Turtle Terminal vishal@underroot.xyz | +91 9867215754\n";
     if (eqDateStr) csv += "Date: " + eqDateStr + "\n\n";
-    csv += 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely,Note\n';
+    csv += 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Upcoming Meeting,Broadcast Date & Time,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely,Note\n';
 
     const filter = document.getElementById('ss-div-search').value.trim().toUpperCase();
 
@@ -999,6 +1003,13 @@ function exportSSDivCSV() {
         row.push(item.last_type || '-');
         row.push(item.last_ex_date || '-');
         row.push(item.last_amount || '-');
+
+        let bmDateCsv = item.board_meeting_date ? item.board_meeting_date.split('T')[0] : '-';
+        row.push(bmDateCsv);
+
+        let bcastDateCsv = item.broadcast_date ? item.broadcast_date.replace('T', ' ') : '-';
+        row.push(bcastDateCsv);
+
         row.push(item.is_above_2_percent ? 'Yes' : 'No');
         let expectedCSV = item.expected_amount ? `${item.expected_amount} (${item.expected_type || 'Interim'})` : '-';
         row.push(expectedCSV);
@@ -1237,7 +1248,7 @@ function renderSSDividends() {
     const selectedSectors = Array.from(sectorCheckboxes).map(cb => cb.value);
 
     if (!ssDivData || ssDivData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;">No data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="16" style="text-align:center;">No data available</td></tr>';
         return;
     }
 
@@ -1436,6 +1447,17 @@ function renderSSDividends() {
             }
         }
 
+        let broadcastDateHtml = '-';
+        if (item.broadcast_date) {
+            let parts = item.broadcast_date.split('T');
+            let dateStr = parts[0].split('-').reverse().join('-');
+            if (parts.length > 1 && parts[1] && parts[1] !== '00:00:00') {
+                broadcastDateHtml = `${dateStr}<br><span style="font-size: 0.85em; color: #aaa;">${parts[1].split('.')[0]}</span>`;
+            } else {
+                broadcastDateHtml = dateStr;
+            }
+        }
+
         if (isOverridden) {
             expectedAmountHTML = `${expectedAmountHTML} <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>`;
         } else if (item.expected_highly_likely && typeof item.expected_highly_likely === 'string' && item.expected_highly_likely.includes('Announced:')) {
@@ -1466,6 +1488,7 @@ function renderSSDividends() {
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
                 <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${bmDateHtml}</td>
+                <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${broadcastDateHtml}</td>
                 ${above2Cell}
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_amount', this.innerHTML)" onclick="event.stopPropagation();">${expectedAmountHTML}</td>
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${expectedHighlyLikelyHtml}</td>
@@ -1508,7 +1531,7 @@ function renderSSDividends() {
 
             html += `
             <tr id="ss-div-hist-${item.symbol}" style="display: none; background: #1a1a1a;">
-                <td colspan="15" style="padding: 15px;">
+                <td colspan="16" style="padding: 15px;">
                     <div style="border-left: 3px solid #3176B8; padding-left: 15px; margin-left: 20px;">
                         <h4 style="margin: 0 0 10px 0; color: #ccc;">Historical Dividends (Last 10 Years)</h4>
                         <table class="data-table" style="width: 50%; min-width: 400px; background: #222;">
@@ -1534,7 +1557,7 @@ function renderSSDividends() {
     });
 
     if (html === '') {
-        html = '<tr><td colspan="14" style="text-align:center;">No data available for selected criteria</td></tr>';
+        html = '<tr><td colspan="16" style="text-align:center;">No data available for selected criteria</td></tr>';
     }
 
     tbody.innerHTML = html;

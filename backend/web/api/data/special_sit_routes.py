@@ -331,40 +331,37 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         expected_type = None
         expected_amount_compare = None
         board_meeting_date = None
+        broadcast_date = None
+
+        # Fetch board meetings regardless of if there is history
+        bms_for_sym = bm_by_symbol.get(sym, [])
+        upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today - datetime.timedelta(days=30)]
+        upcoming_bms.sort(key=lambda x: x.date, reverse=True)
+        if upcoming_bms:
+            bm = upcoming_bms[0]
+            if bm.meeting_date:
+                 board_meeting_date = bm.meeting_date.isoformat()
+            elif bm.broadcast_date:
+                 board_meeting_date = bm.broadcast_date.isoformat()
+            else:
+                 board_meeting_date = bm.date.isoformat() + "T00:00:00"
+
+            if bm.broadcast_date:
+                 broadcast_date = bm.broadcast_date.isoformat()
+            else:
+                 broadcast_date = None
 
         if history:
-            bms_for_sym = bm_by_symbol.get(sym, [])
-            upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today - datetime.timedelta(days=30)]
-            upcoming_bms.sort(key=lambda x: x.date, reverse=True)
-            if upcoming_bms:
-                bm = upcoming_bms[0]
-                if bm.meeting_date:
-                     board_meeting_date = bm.meeting_date.isoformat()
-                elif bm.broadcast_date:
-                     board_meeting_date = bm.broadcast_date.isoformat()
-                else:
-                     board_meeting_date = bm.date.isoformat() + "T00:00:00"
-
             # Most recent overall dividend (just for table display purposes)
             last = history[0]
             last_type = last['dividend_type'] or '-'
             last_ex_date = last['ex_date'] or '-'
             last_amount = last['amount']
 
-            # User reported that dividends with past ex-dates are incorrectly triggering the extra-ordinary = yes flag for future forecasts.
-            # Only set it for the main row if it's the latest event AND the ex_date hasn't passed yet or is today.
-            # If it's a past event, the main row shouldn't inherit its >2% flag, as we are looking ahead.
-            latest_ex_date_obj = last.get('ex_date_obj')
-            if latest_ex_date_obj and latest_ex_date_obj >= today:
-                is_above_2_percent = last.get('is_above_2_percent', False)
-            elif not latest_ex_date_obj: # e.g. "Record date not yet declared"
-                is_above_2_percent = last.get('is_above_2_percent', False)
-            else:
-                is_above_2_percent = False
-
-            # If the user overrode the math logic and explicitly wants it to sync
-            if board_meeting_date and not is_above_2_percent:
-                is_above_2_percent = last.get('is_above_2_percent', False)
+            # Set it to the >2% flag of the latest historical event directly.
+            # We don't want to reset it to False just because the date has passed,
+            # as requested by the user.
+            is_above_2_percent = last.get('is_above_2_percent', False)
 
             # Sort ascending for cycle processing
             history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
@@ -537,6 +534,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "last_amount": last_amount,
             "is_above_2_percent": is_above_2_percent,
             "board_meeting_date": board_meeting_date,
+            "broadcast_date": broadcast_date,
             "expected_amount": expected_amount,
             "expected_amount_compare": expected_amount_compare,
             "expected_type": expected_type,
