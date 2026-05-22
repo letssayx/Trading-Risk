@@ -334,8 +334,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         if history:
             bms_for_sym = bm_by_symbol.get(sym, [])
-            upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today]
-            upcoming_bms.sort(key=lambda x: x.date)
+            upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today - datetime.timedelta(days=30)]
+            upcoming_bms.sort(key=lambda x: x.date, reverse=True)
             if upcoming_bms:
                 bm = upcoming_bms[0]
                 if bm.meeting_date:
@@ -503,6 +503,9 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     expected_amount = latest['amount']
                     expected_amount_compare = latest['amount']
                     expected_type = latest.get('dividend_type', 'Interim')
+
+                    # Sync the >2% flag for Ex-Awaited
+                    is_above_2_percent = latest.get('is_above_2_percent', False)
 
                     # If there's an announcement date, use it instead of just generic forecast
                     ann_date = latest.get('announcement_date_obj')

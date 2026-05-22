@@ -3562,7 +3562,7 @@ function renderDividendsData() {
             tbodyActions.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
         }
 
-        const formatDateTime = (dateStr) => {
+                const formatDateTime = (dateStr) => {
             if (!dateStr || dateStr === '-') return { date: '-', time: null };
             try {
                 let dt = new Date(dateStr);
@@ -3572,14 +3572,19 @@ function renderDividendsData() {
                 let y = dt.getFullYear(), m = ('0' + (dt.getMonth() + 1)).slice(-2), dy = ('0' + dt.getDate()).slice(-2);
                 let datePart = `${y}-${m}-${dy}`;
 
-                // Try to extract exact time from original string to avoid UTC shifting issues
                 let timePart = null;
                 if (typeof dateStr === 'string') {
-                     timePart = dateStr.includes('T') ? dateStr.split('T')[1].split('+')[0].split('.')[0] : (dateStr.includes(' ') ? dateStr.split(' ')[1] : null);
-                     if (timePart === '00:00:00') timePart = null;
+                     let hasTime = dateStr.includes('T') || dateStr.includes(' ');
+                     if (hasTime) {
+                         let parts = dateStr.split(/[T ]/);
+                         if (parts.length > 1) {
+                             timePart = parts[1].split('+')[0].split('.')[0];
+                         }
+                     }
                 }
 
-                return { date: datePart, time: (timePart && timePart !== '00:00:00') ? timePart : null };
+                // Allow 00:00:00 as it might be a valid midnight timestamp.
+                return { date: datePart, time: timePart };
             } catch(e) {
                 return { date: dateStr, time: null };
             }

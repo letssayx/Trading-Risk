@@ -1370,11 +1370,13 @@ function renderSSDividends() {
         // User requested a dropdown instead of accidental click to toggle Yes/No
         const overrideColor = isAbove2 ? "color: #ff4d4d; font-weight: bold; background: rgba(255,0,0,0.1);" : "";
 
+
         let manualAsterisk = "";
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
         if (overrides[item.symbol] && overrides[item.symbol]['is_above_2_percent'] !== undefined) {
-            const currentOverrideLower = String(overrides[item.symbol]['is_above_2_percent']).toLowerCase();
-            const originalValLower = (item._original_is_above_2_percent === true || String(item._original_is_above_2_percent).toLowerCase() === 'yes') ? 'yes' : 'no';
+            let currentOverride = overrides[item.symbol]['is_above_2_percent'];
+            let currentOverrideLower = (currentOverride === true || String(currentOverride).toLowerCase() === 'yes' || String(currentOverride).toLowerCase() === 'true') ? 'yes' : 'no';
+            const originalValLower = (item._original_is_above_2_percent === true || String(item._original_is_above_2_percent).toLowerCase() === 'yes' || String(item._original_is_above_2_percent).toLowerCase() === 'true') ? 'yes' : 'no';
 
             if (currentOverrideLower !== originalValLower) {
                  manualAsterisk = ' <span class="asterisk-mark" style="color: #ffeb3b; font-size: 1.2em; font-weight: bold; margin-left: 4px;" title="Manually Edited">*</span>';
@@ -1384,6 +1386,7 @@ function renderSSDividends() {
                  localStorage.setItem('ssDivOverrides', JSON.stringify(overrides));
             }
         }
+
 
         const above2Cell = `<td style="${overrideColor} padding: 0;" onclick="event.stopPropagation();">
             <div style="display: flex; align-items: center; width: 100%;">
@@ -1477,6 +1480,20 @@ function renderSSDividends() {
             item.history.forEach(h => {
                 // We don't make history editable, only the main row. But to be consistent:
                 const histAbove2 = h.is_above_2_percent ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
+
+                let annDateHtml = '-';
+                if (h.broadcast_date) {
+                    let parts = h.broadcast_date.split('T');
+                    let d = parts[0];
+                    if (parts.length > 1 && parts[1] && parts[1] !== '00:00:00') {
+                        annDateHtml = `${d} <span style="color:#aaa; font-size:0.85em;">${parts[1].split('.')[0]}</span>`;
+                    } else {
+                        annDateHtml = d;
+                    }
+                } else if (h.announcement_date_obj) {
+                    annDateHtml = h.announcement_date_obj.split('T')[0];
+                }
+
                 histRows += `
                     <tr>
                         <td>${h.ex_date || '-'}</td>
@@ -1484,6 +1501,7 @@ function renderSSDividends() {
                         <td>${h.purpose || '-'}</td>
                         <td style="font-weight: bold; color: #60a5fa;">${h.amount ? parseFloat(h.amount).toFixed(2) : '-'}</td>
                         ${histAbove2}
+                        <td>${annDateHtml}</td>
                     </tr>
                 `;
             });
@@ -1501,6 +1519,7 @@ function renderSSDividends() {
                                     <th>Purpose</th>
                                     <th>Amount</th>
                                     <th>>2%</th>
+                                    <th>Announced Date</th>
                                 </tr>
                             </thead>
                             <tbody>
