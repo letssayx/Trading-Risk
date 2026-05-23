@@ -3563,7 +3563,7 @@ function renderDividendsData() {
             tbodyActions.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#888;">No data found matching criteria.</td></tr>';
         }
 
-                const formatDateTime = (dateStr) => {
+        const formatDateTime = (dateStr) => {
             if (!dateStr || dateStr === '-') return { date: '-', time: null };
             try {
                 let dt = new Date(dateStr);
