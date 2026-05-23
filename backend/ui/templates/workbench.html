@@ -3580,7 +3580,7 @@ function renderDividendsData() {
                          let parts = dateStr.split(/[T ]/);
                          if (parts.length > 1) {
                              timePart = parts[1].split('+')[0].split('.')[0];
-                             if (timePart === '00:00:00') {
+                             if (timePart === '00:00:00' || timePart === '00:00') {
                                  timePart = null;
                              }
                          }
@@ -3694,11 +3694,11 @@ function renderDividendsData() {
                 typeBadge = `<span class="badge" style="background:${bg}; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">${divType}</span>`;
             }
 
-            let bcdDisplay = bcdObj.date !== '-' ? `${bcdObj.date} ${bcdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bcdObj.time}</span>` : ''}` : '-';
-            let bmdDisplay = bmdObj.date !== '-' ? `${bmdObj.date} ${bmdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bmdObj.time}</span>` : ''}` : '-';
+            let bcdDisplay = bcdObj.date !== '-' ? `${bcdObj.date}${bcdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bcdObj.time}</span>` : ''}` : '-';
+            let bmdDisplay = bmdObj.date !== '-' ? `${bmdObj.date}${bmdObj.time ? `<span style="color:#aaa;font-size:10px;"><br>${bmdObj.time}</span>` : ''}` : '-';
             if (bmdObj.date === '-' && d.board_meeting_date) {
                let f = formatDateTime(d.board_meeting_date);
-               bmdDisplay = f.date !== '-' ? `${f.date} ${f.time ? `<span style="color:#aaa;font-size:10px;"><br>${f.time}</span>` : ''}` : '-';
+               bmdDisplay = f.date !== '-' ? `${f.date}${f.time ? `<span style="color:#aaa;font-size:10px;"><br>${f.time}</span>` : ''}` : '-';
             }
 
             tr.innerHTML = `

@@ -335,16 +335,24 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         # Fetch board meetings regardless of if there is history
         bms_for_sym = bm_by_symbol.get(sym, [])
-        upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today - datetime.timedelta(days=30)]
-        upcoming_bms.sort(key=lambda x: x.date, reverse=True)
+
+        # Prioritize meetings that actually have a meeting_date set
+        upcoming_bms = [bm for bm in bms_for_sym if bm.meeting_date and bm.meeting_date >= today - datetime.timedelta(days=30)]
+        upcoming_bms.sort(key=lambda x: x.meeting_date, reverse=True)
+
+        if not upcoming_bms:
+             # Fallback to intimation date
+             upcoming_bms = [bm for bm in bms_for_sym if bm.date and bm.date >= today - datetime.timedelta(days=30) and not bm.meeting_date]
+             upcoming_bms.sort(key=lambda x: x.date, reverse=True)
+
         if upcoming_bms:
             bm = upcoming_bms[0]
             if bm.meeting_date:
                  board_meeting_date = bm.meeting_date.isoformat()
-            elif bm.broadcast_date:
-                 board_meeting_date = bm.broadcast_date.isoformat()
             else:
-                 board_meeting_date = bm.date.isoformat() + "T00:00:00"
+                 # DO NOT fallback to broadcast_date or date for the 'Upcoming Meeting' filter,
+                 # as it represents when the intimation was received, not when the meeting actually is.
+                 board_meeting_date = None
 
             if bm.broadcast_date:
                  broadcast_date = bm.broadcast_date.isoformat()
