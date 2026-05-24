@@ -201,7 +201,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     if best_bm:
                         # Pass the exact Board Meeting timestamp instead of the partition date
                         h['broadcast_date'] = best_bm.broadcast_date
-                        h['announcement_date_obj'] = best_bm.broadcast_date or best_bm.meeting_date or best_bm.date
+                        h['announcement_date_obj'] = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
                         # If the CA is missing an amount but the BM has it, backfill it
                         if not h.get('amount') and best_bm.extracted_dividend_amount:
                             h['amount'] = best_bm.extracted_dividend_amount
@@ -237,7 +237,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     "ex_date": 'Record date not yet declared',
                     "ex_date_obj": None,
                     "broadcast_date": bm.broadcast_date,
-                    "announcement_date_obj": bm.broadcast_date or bm.meeting_date or bm.date,
+                    "announcement_date_obj": bm.meeting_date or bm.broadcast_date or bm.date,
                     "dividend_type": bm.extracted_dividend_type or 'Interim',
                     "purpose": bm.purpose or "Dividend Declared in Board Meeting",
                     "amount": amt,
