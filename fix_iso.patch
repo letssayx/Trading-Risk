@@ -1,8 +1,0 @@
---- backend/web/api/data/special_sit_routes.py
-+++ backend/web/api/data/special_sit_routes.py
-@@ -517,7 +517,7 @@
-             if bm.broadcast_date:
--                 broadcast_date = bm.broadcast_date.isoformat()
-+                 broadcast_date = bm.broadcast_date.strftime('%Y-%m-%dT%H:%M:%S') if hasattr(bm.broadcast_date, 'hour') else bm.broadcast_date.isoformat()
-             else:
-                  broadcast_date = None

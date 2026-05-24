@@ -921,7 +921,8 @@ def process_results(results, model, skip_instrument_type=False):
 
             val = getattr(row, col.name)
             if hasattr(val, 'strftime'):
-                if hasattr(val, 'hour'):
+                import datetime
+                if isinstance(val, datetime.datetime):
                     val = val.strftime('%Y-%m-%dT%H:%M:%S')
                 else:
                     val = val.strftime('%Y-%m-%d')

@@ -1505,16 +1505,17 @@ function renderSSDividends() {
                 const histAbove2 = h.is_above_2_percent ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
 
                 let annDateHtml = '-';
-                if (h.broadcast_date) {
-                    let parts = h.broadcast_date.split('T');
+                // In Special Sit Historical, we use announcement_date_obj which we have mapped strictly
+                // to the Board Meeting's Exact Declaration Timestamp.
+                let baseAnnDate = h.announcement_date_obj || h.broadcast_date;
+                if (baseAnnDate) {
+                    let parts = baseAnnDate.split('T');
                     let d = parts[0];
                     if (parts.length > 1 && parts[1] && parts[1] !== '00:00:00') {
                         annDateHtml = `${d} <span style="color:#aaa; font-size:0.85em;">${parts[1].split('.')[0]}</span>`;
                     } else {
                         annDateHtml = d;
                     }
-                } else if (h.announcement_date_obj) {
-                    annDateHtml = h.announcement_date_obj.split('T')[0];
                 }
 
                 histRows += `

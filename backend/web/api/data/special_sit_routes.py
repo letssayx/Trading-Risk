@@ -199,8 +199,9 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                                     min_diff = abs(diff)
                                     best_bm = bm
                     if best_bm:
-                        h['broadcast_date'] = best_bm.broadcast_date or h.get('broadcast_date')
-                        h['announcement_date_obj'] = best_bm.date
+                        # Pass the exact Board Meeting timestamp instead of the partition date
+                        h['broadcast_date'] = best_bm.broadcast_date
+                        h['announcement_date_obj'] = best_bm.broadcast_date or best_bm.meeting_date or best_bm.date
                         # If the CA is missing an amount but the BM has it, backfill it
                         if not h.get('amount') and best_bm.extracted_dividend_amount:
                             h['amount'] = best_bm.extracted_dividend_amount
@@ -235,15 +236,24 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 chained_history.append({
                     "ex_date": 'Record date not yet declared',
                     "ex_date_obj": None,
-                    "announcement_date_obj": bm.date,
                     "broadcast_date": bm.broadcast_date,
+                    "announcement_date_obj": bm.broadcast_date or bm.meeting_date or bm.date,
                     "dividend_type": bm.extracted_dividend_type or 'Interim',
                     "purpose": bm.purpose or "Dividend Declared in Board Meeting",
                     "amount": amt,
                     "raw_amount": amt
                 })
 
-        chained_history.sort(key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else (x.get('announcement_date_obj') or datetime.date.min), reverse=True)
+        def get_sort_key(x):
+            if x.get('ex_date_obj'): return x['ex_date_obj']
+            ann_dt = x.get('announcement_date_obj')
+            if ann_dt is None:
+                return datetime.date.min
+            if hasattr(ann_dt, 'date'):
+                return ann_dt.date()
+            return ann_dt
+
+        chained_history.sort(key=get_sort_key, reverse=True)
         ca_by_symbol[sym] = chained_history
 
     # Adjust historical dividends for bonuses and splits
@@ -355,7 +365,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                  board_meeting_date = None
 
             if bm.broadcast_date:
-                 broadcast_date = bm.broadcast_date.strftime('%Y-%m-%dT%H:%M:%S') if hasattr(bm.broadcast_date, 'hour') else bm.broadcast_date.isoformat()
+                 broadcast_date = bm.broadcast_date.strftime('%Y-%m-%dT%H:%M:%S')
             else:
                  broadcast_date = None
 
@@ -372,7 +382,13 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             is_above_2_percent = last.get('is_above_2_percent', False)
 
             # Sort ascending for cycle processing
-            history_asc = sorted(history, key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date.min)
+            def get_sort_key_asc(x):
+                if x.get('ex_date_obj'): return x['ex_date_obj']
+                ann_dt = x.get('announcement_date_obj')
+                if ann_dt is None: return datetime.date.min
+                if hasattr(ann_dt, 'date'): return ann_dt.date()
+                return ann_dt
+            history_asc = sorted(history, key=get_sort_key_asc)
 
             final_cluster = []
             interim_clusters = []
@@ -515,6 +531,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     # If there's an announcement date, use it instead of just generic forecast
                     ann_date = latest.get('announcement_date_obj')
                     if ann_date:
+                        if hasattr(ann_date, 'date'):
+                            ann_date = ann_date.date()
                         expected_highly_likely = f"Announced: {ann_date.strftime('%d-%m-%Y')}"
                         expected_less_likely = "Amount declared, date not yet announced"
                     else:

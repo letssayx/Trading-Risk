@@ -3646,16 +3646,18 @@ function renderDividendsData() {
                 if (matchedMeeting) {
                     bmdObj = formatDateTime(matchedMeeting.meeting_date);
                     bmPurpose = matchedMeeting.purpose || '-';
+                    bcdObj = formatDateTime(matchedMeeting.broadcast_date || matchedMeeting.date);
                 }
             }
 
-            // Always prioritize the official action's broadcast date if it has one,
-            // otherwise fallback to the intimation's broadcast date.
-            let officialBcd = formatDateTime(d.broadcast_date);
-            if (officialBcd.date !== '-') {
-                bcdObj = officialBcd;
-            } else if (bcdObj.date === '-') {
-                bcdObj = formatDateTime(d.date);
+            // Strictly prioritize the Intimation Broadcast Date over the delayed Corporate Action broadcast date
+            if (bcdObj.date === '-') {
+                let officialBcd = formatDateTime(d.broadcast_date);
+                if (officialBcd.date !== '-') {
+                    bcdObj = officialBcd;
+                } else {
+                    bcdObj = formatDateTime(d.date);
+                }
             }
 
             let fullPurpose = d.subject || d.purpose || '-';
