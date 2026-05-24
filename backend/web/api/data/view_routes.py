@@ -920,7 +920,9 @@ def process_results(results, model, skip_instrument_type=False):
                 continue
 
             val = getattr(row, col.name)
-            if isinstance(val, (datetime, pd.Timestamp)):
+            if isinstance(val, pd.Timestamp):
+                val = val.isoformat()
+            elif isinstance(val, datetime):
                 val = val.isoformat()
             elif hasattr(val, 'isoformat'): # date
                 val = val.isoformat()

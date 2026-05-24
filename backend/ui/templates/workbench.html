@@ -3580,9 +3580,9 @@ function renderDividendsData() {
                          let parts = dateStr.split(/[T ]/);
                          if (parts.length > 1) {
                              timePart = parts[1].split('+')[0].split('.')[0];
-                             if (timePart === '00:00:00' || timePart === '00:00') {
-                                 timePart = null;
-                             }
+                             // if (timePart === '00:00:00' || timePart === '00:00') {
+                             //    timePart = null;
+                             // }
                          }
                      }
                 }
