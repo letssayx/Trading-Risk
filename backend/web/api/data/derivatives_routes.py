@@ -969,7 +969,16 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                 if not c: continue
                 most_recent = c[-1]
                 mr_date = most_recent['ex_date_obj']
-                if mr_date.year < today_date.year - 1:
+
+                # To handle testing/mock futuristic dates gracefully:
+                # We only kill the cycle if the most recent dividend was more than 2 years BEFORE the LATEST historical dividend recorded overall,
+                # rather than relative to the FO trade_date, which might be artificially pushed to 2026.
+                max_hist_date = max((h.get('ex_date_obj') for h in history_asc if h.get('ex_date_obj')), default=today_date)
+
+                # Use min() so if max_hist_date is way in the past (e.g. 2024) but today_date is 2026, we don't kill valid 2024 cycles
+                anchor_year = min(today_date.year, max_hist_date.year)
+
+                if mr_date.year < anchor_year - 1:
                     continue
 
                 if mr_date < today_date:
