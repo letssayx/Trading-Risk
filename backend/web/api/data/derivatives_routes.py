@@ -804,40 +804,203 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             if sm.new_brd_lot_qty:
                 lot_size_map[sm.ticker_symb] = sm.new_brd_lot_qty
 
-        # Upcoming Board Meetings
-        bm_records = db.query(BoardMeeting).filter(
-            BoardMeeting.meeting_date >= latest_fo_date,
-            BoardMeeting.meeting_date <= next_month
-        ).all()
-        for bm in bm_records:
-            if bm.purpose and ('dividend' in bm.purpose.lower() or 'financial' in bm.purpose.lower()):
-                if bm.extracted_dividend_amount:
-                    # User case: "Div- Rs 5, ex-date not announced (Expected: Jan)"
-                    expected_month = bm.meeting_date.strftime('%b') if bm.meeting_date else ""
-                    if expected_month:
-                        ca_map[bm.symbol.upper()] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not announced (Expected: {expected_month})"
-                    else:
-                        ca_map[bm.symbol.upper()] = f"Div- Rs {bm.extracted_dividend_amount}, ex-date not announced"
-                else:
-                    # User case: "Boardmeeting, date"
-                    date_str = bm.meeting_date.strftime('%d-%m-%Y') if bm.meeting_date else ""
-                    ca_map[bm.symbol.upper()] = f"Boardmeeting, date-{date_str}"
+        # Comprehensive Special Sits Logic for Market Watch
+        import datetime
+        from collections import defaultdict
 
-        # Corporate Actions (Overrides BM if CA is announced)
-        ca_records = db.query(
-            CorporateAction.symbol,
-            CorporateAction.ex_date,
-            CorporateAction.purpose,
-            CorporateAction.parsed_dividend_amount
-        ).filter(
-            CorporateAction.ex_date >= latest_fo_date,
-            CorporateAction.ex_date <= next_month,
-            CorporateAction.parsed_dividend_amount != None
+        today_date = latest_fo_date
+
+        # We need all corporate actions for cycle forecasting
+        all_ca_records = db.query(CorporateAction).filter(
+            CorporateAction.symbol.in_(fut_map.keys())
         ).all()
-        for r in ca_records:
-            date_str = r.ex_date.strftime('%d-%m-%Y') if r.ex_date else ""
-            # User case: "div - 5, Ex-date 15-01-2024"
-            ca_map[r.symbol.upper()] = f"div - {r.parsed_dividend_amount}, Ex-date {date_str}"
+
+        ca_by_symbol = defaultdict(list)
+        for r in all_ca_records:
+            if r.parsed_dividend_amount is not None:
+                ca_by_symbol[r.symbol.upper()].append({
+                    "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
+                    "ex_date_obj": r.ex_date,
+                    "announcement_date_obj": r.date,
+                    "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
+                    "dividend_type": r.dividend_type,
+                    "purpose": r.purpose,
+                    "amount": r.parsed_dividend_amount,
+                    "raw_amount": r.parsed_dividend_amount
+                })
+
+        # We need all board meetings for merging
+        all_bm_records = db.query(BoardMeeting).filter(
+            BoardMeeting.symbol.in_(fut_map.keys())
+        ).all()
+
+        bm_by_symbol = defaultdict(list)
+        for bm in all_bm_records:
+            bm_by_symbol[bm.symbol.upper()].append(bm)
+
+        def get_doy(d): return d.timetuple().tm_yday
+        def circ_diff(d1, d2):
+            diff = abs(d1 - d2)
+            return min(diff, 365 - diff)
+
+        for sym in fut_map.keys():
+            history = ca_by_symbol.get(sym.upper(), [])
+            bms = bm_by_symbol.get(sym.upper(), [])
+
+            chained_history = []
+            for h in history:
+                if h.get('dividend_type') not in ['Bonus', 'Split', 'Demerger']:
+                    ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
+                    if ca_date:
+                        best_bm = None
+                        min_diff = float('inf')
+                        for bm in bms:
+                            if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
+                                if bm.date:
+                                    diff = (ca_date - bm.date).days
+                                    if -10 <= diff <= 60 and abs(diff) < min_diff:
+                                        if h.get('amount') and bm.extracted_dividend_amount:
+                                            if float(h['amount']) != float(bm.extracted_dividend_amount):
+                                                continue
+                                        min_diff = abs(diff)
+                                        best_bm = bm
+                        if best_bm:
+                            h['broadcast_date'] = best_bm.broadcast_date
+                            h['announcement_date_obj'] = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
+                            if not h.get('amount') and best_bm.extracted_dividend_amount:
+                                h['amount'] = best_bm.extracted_dividend_amount
+                            try:
+                                bms.remove(best_bm)
+                            except ValueError:
+                                pass
+                chained_history.append(h)
+
+            for bm in bms:
+                if bm.date and bm.date < today_date - datetime.timedelta(days=60):
+                    continue
+                amt = bm.extracted_dividend_amount
+                purpose_lower = (bm.purpose or '').lower()
+
+                is_valid_standalone = False
+                if amt is not None:
+                    is_valid_standalone = True
+                elif bm.date and bm.date >= today_date:
+                    is_valid_standalone = True
+                elif 'dividend' in purpose_lower and not any(x in purpose_lower for x in ['financial results', 'agm', 'annual general meeting', 'postponed']):
+                    is_valid_standalone = True
+
+                if is_valid_standalone:
+                    chained_history.append({
+                        "ex_date": 'Record date not yet declared',
+                        "ex_date_obj": None,
+                        "broadcast_date": bm.broadcast_date,
+                        "announcement_date_obj": bm.meeting_date or bm.broadcast_date or bm.date,
+                        "dividend_type": bm.extracted_dividend_type or 'Interim',
+                        "purpose": bm.purpose or "Dividend Declared in Board Meeting",
+                        "amount": amt,
+                        "raw_amount": amt
+                    })
+
+            def get_sort_key_asc(x):
+                if x.get('ex_date_obj'): return x['ex_date_obj']
+                ann_dt = x.get('announcement_date_obj')
+                if ann_dt is None: return datetime.date.min
+                if hasattr(ann_dt, 'date'): return ann_dt.date()
+                return ann_dt
+
+            history_asc = sorted(chained_history, key=get_sort_key_asc)
+
+            events_str = []
+
+            # ACTIVE EVENTS FROM HISTORY (Announced but ex-date in future, or awaited)
+            for h in history_asc:
+                ex_date_obj = h.get('ex_date_obj')
+                amt = h.get('amount')
+                if ex_date_obj and ex_date_obj >= today_date:
+                    if amt is not None:
+                        events_str.append(f"div - {amt}, Ex-date {ex_date_obj.strftime('%d-%m-%Y')}")
+                elif not ex_date_obj or h.get('ex_date') == 'Record date not yet declared':
+                    if amt is not None:
+                        # Amount known, but no ex-date (Ex-Awaited)
+                        ann_dt = h.get('announcement_date_obj')
+                        month = ann_dt.strftime('%b') if isinstance(ann_dt, datetime.date) else ""
+                        if month:
+                            events_str.append(f"Div- Rs {amt}, ex-date not announced (Expected: {month})")
+                        else:
+                            events_str.append(f"Div- Rs {amt}, ex-date not announced")
+
+            # UPCOMING BOARD MEETINGS (That haven't declared an amount yet)
+            upcoming_bms = [bm for bm in bms if (bm.meeting_date and bm.meeting_date >= today_date) or (not bm.meeting_date and bm.date and bm.date >= today_date)]
+            # Sort upcoming BMs by date
+            upcoming_bms.sort(key=lambda x: x.meeting_date or x.date)
+            for bm in upcoming_bms:
+                if not bm.extracted_dividend_amount:
+                    d = bm.meeting_date or bm.date
+                    events_str.append(f"Boardmeeting, date-{d.strftime('%d-%m-%Y')}")
+
+            # FORECASTING FOR FUTURE DIVIDENDS
+            final_cluster = []
+            interim_clusters = []
+            five_years_ago = today_date - datetime.timedelta(days=365*5)
+            recent_hist = [h for h in history_asc if h.get('ex_date_obj') and h['ex_date_obj'] >= five_years_ago]
+
+            for h in recent_hist:
+                if 'special' in (h.get('purpose') or '').lower() or h.get('dividend_type') == 'Special':
+                    continue
+                if h.get('dividend_type') == 'Final':
+                    final_cluster.append(h)
+                else:
+                    doy = get_doy(h['ex_date_obj'])
+                    placed = False
+                    for c in interim_clusters:
+                        mean_doy = sum(get_doy(x['ex_date_obj']) for x in c) / len(c)
+                        if circ_diff(doy, mean_doy) <= 90:
+                            if not any(x['ex_date_obj'].year == h['ex_date_obj'].year for x in c):
+                                c.append(h)
+                                placed = True
+                                break
+                    if not placed:
+                        interim_clusters.append([h])
+
+            clusters = [final_cluster] + interim_clusters if final_cluster else interim_clusters
+
+            forecasts = []
+            for c in clusters:
+                if not c: continue
+                most_recent = c[-1]
+                mr_date = most_recent['ex_date_obj']
+                if mr_date.year < today_date.year - 1:
+                    continue
+
+                if mr_date < today_date:
+                    next_year = mr_date.year + 1
+                    try:
+                        next_date = datetime.date(next_year, mr_date.month, mr_date.day)
+                    except ValueError:
+                        next_date = datetime.date(next_year, mr_date.month, mr_date.day - 1)
+                    while next_date < today_date - datetime.timedelta(days=15):
+                        next_year += 1
+                        try:
+                            next_date = datetime.date(next_year, mr_date.month, mr_date.day)
+                        except ValueError:
+                            next_date = datetime.date(next_year, mr_date.month, mr_date.day - 1)
+
+                    # Check if it falls within the next 45 days (typical FO cycle scope)
+                    if next_date <= today_date + datetime.timedelta(days=45):
+                        # Calculate expected amount based on last amount (no growth calc needed for string UI)
+                        exp_amt = most_recent['amount']
+                        forecasts.append(f"Expected: {next_date.strftime('%d-%m-%Y')} (Rs {exp_amt})")
+
+            # deduplicate matching events if multiple cycles hit or logic overlaps
+            all_events = []
+            seen = set()
+            for e in events_str + forecasts:
+                if e not in seen:
+                    all_events.append(e)
+                    seen.add(e)
+
+            if all_events:
+                ca_map[sym.upper()] = " | ".join(all_events)
     except Exception as e:
         import traceback
         traceback.print_exc()
