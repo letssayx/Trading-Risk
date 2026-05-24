@@ -920,11 +920,12 @@ def process_results(results, model, skip_instrument_type=False):
                 continue
 
             val = getattr(row, col.name)
-            if hasattr(val, 'strftime'):
-                if hasattr(val, 'hour'):
-                    val = val.strftime('%Y-%m-%dT%H:%M:%S')
-                else:
-                    val = val.strftime('%Y-%m-%d')
+            if isinstance(val, pd.Timestamp):
+                val = val.to_pydatetime().isoformat()
+            elif isinstance(val, datetime):
+                val = val.isoformat()
+            elif hasattr(val, 'isoformat'): # date
+                val = val.isoformat()
             elif isinstance(val, float):
                 if math.isnan(val) or math.isinf(val):
                     val = None
