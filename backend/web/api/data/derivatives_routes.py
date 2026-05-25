@@ -919,10 +919,11 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
 
             events_str = []
 
-            # Get a set of known amounts that have actual ex-dates so we don't output "Awaited" for them
+            # Get a set of known amounts that have actual future ex-dates so we don't output "Awaited" for them
             known_ex_dates = set()
             for h in history_asc:
-                if h.get('ex_date_obj') and h.get('amount') is not None:
+                ex_date_obj = h.get('ex_date_obj')
+                if ex_date_obj and ex_date_obj >= today_date and h.get('amount') is not None:
                     try:
                         known_ex_dates.add(float(h['amount']))
                     except ValueError:
