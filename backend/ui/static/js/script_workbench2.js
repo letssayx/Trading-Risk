@@ -3137,13 +3137,13 @@ async function triggerMasterSync() {
         if (typeof loadMWPLAnalysis === 'function') promises.push(loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
 
         // 6. OI Analysis
-        if (typeof window.OiTool !== 'undefined' && typeof window.OiTool.loadAggregatedData === 'function') {
-            promises.push(window.OiTool.syncAndLoadAggregatedData(true).catch(e => console.error("OiTool sync failed", e)));
+        if (typeof OiTool !== 'undefined' && typeof OiTool.syncAndLoadAggregatedData === 'function') {
+            promises.push(OiTool.syncAndLoadAggregatedData(true).catch(e => console.error("OiTool sync failed", e)));
         }
 
         // 7. Rollover Analysis
-        if (typeof window.RolloverTool !== 'undefined' && typeof window.RolloverTool.loadAggregatedData === 'function') {
-            promises.push(window.RolloverTool.syncAndLoadAggregatedData(true).catch(e => console.error("RolloverTool sync failed", e)));
+        if (typeof RolloverTool !== 'undefined' && typeof RolloverTool.syncAndLoadAggregatedData === 'function') {
+            promises.push(RolloverTool.syncAndLoadAggregatedData(true).catch(e => console.error("RolloverTool sync failed", e)));
         }
 
         // 8. Volatility Analysis (All F&O)
