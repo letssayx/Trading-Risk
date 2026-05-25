@@ -792,17 +792,21 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
     sector_map = {}
     lot_size_map = {}
     try:
-        from backend.ingest.nse_models import CorporateAction, BoardMeeting, SecurityMaster
+        from backend.ingest.nse_models import CorporateAction, BoardMeeting, SecurityMaster, SymbolMaster
         import datetime
         next_month = latest_fo_date + datetime.timedelta(days=30)
 
-        # Sector and Lot Size Mapping
-        sec_masters = db.query(SecurityMaster.ticker_symb, SecurityMaster.sector, SecurityMaster.new_brd_lot_qty).all()
+        # Lot Size Mapping
+        sec_masters = db.query(SecurityMaster.ticker_symb, SecurityMaster.new_brd_lot_qty).all()
         for sm in sec_masters:
-            if sm.sector:
-                sector_map[sm.ticker_symb] = sm.sector
             if sm.new_brd_lot_qty:
                 lot_size_map[sm.ticker_symb] = sm.new_brd_lot_qty
+
+        # Sector Mapping from SymbolMaster
+        sym_masters = db.query(SymbolMaster.symbol, SymbolMaster.sector_index).all()
+        for sym in sym_masters:
+            if sym.sector_index:
+                sector_map[sym.symbol] = sym.sector_index
 
         # Comprehensive Special Sits Logic for Market Watch
         import datetime
@@ -810,9 +814,12 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
 
         today_date = latest_fo_date
 
+        # Determine the universe explicitly and convert to python list
+        fo_universe = list(fut_map.keys())
+
         # We need all corporate actions for cycle forecasting
         all_ca_records = db.query(CorporateAction).filter(
-            CorporateAction.symbol.in_(fut_map.keys())
+            CorporateAction.symbol.in_(fo_universe)
         ).all()
 
         ca_by_symbol = defaultdict(list)
@@ -831,7 +838,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
 
         # We need all board meetings for merging
         all_bm_records = db.query(BoardMeeting).filter(
-            BoardMeeting.symbol.in_(fut_map.keys())
+            BoardMeeting.symbol.in_(fo_universe)
         ).all()
 
         bm_by_symbol = defaultdict(list)
@@ -843,7 +850,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
             diff = abs(d1 - d2)
             return min(diff, 365 - diff)
 
-        for sym in fut_map.keys():
+        for sym in fo_universe:
             history = ca_by_symbol.get(sym.upper(), [])
             bms = bm_by_symbol.get(sym.upper(), [])
 
