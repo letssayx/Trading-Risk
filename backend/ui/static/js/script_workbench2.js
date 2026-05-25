@@ -92,11 +92,6 @@
                     loadVolatilityAnalysis();
                 }
 
-                // Trigger Advanced Technicals
-                if (tabName === 'advtech' && typeof loadDynamicChart === 'function') {
-                    loadDynamicChart();
-                }
-
                 // Re-render ECharts or resize them since they might have collapsed while hidden
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
@@ -3143,12 +3138,12 @@ async function triggerMasterSync() {
 
         // 6. OI Analysis
         if (typeof window.OiTool !== 'undefined' && typeof window.OiTool.loadAggregatedData === 'function') {
-            promises.push(window.OiTool.syncAndLoadAggregatedData().catch(e => console.error("OiTool sync failed", e)));
+            promises.push(window.OiTool.syncAndLoadAggregatedData(true).catch(e => console.error("OiTool sync failed", e)));
         }
 
         // 7. Rollover Analysis
         if (typeof window.RolloverTool !== 'undefined' && typeof window.RolloverTool.loadAggregatedData === 'function') {
-            promises.push(window.RolloverTool.syncAndLoadAggregatedData().catch(e => console.error("RolloverTool sync failed", e)));
+            promises.push(window.RolloverTool.syncAndLoadAggregatedData(true).catch(e => console.error("RolloverTool sync failed", e)));
         }
 
         // 8. Volatility Analysis (All F&O)

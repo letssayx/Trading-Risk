@@ -108,10 +108,11 @@ const RolloverTool = {
         }
     },
 
-    syncAndLoadAggregatedData: async function() {
+    syncAndLoadAggregatedData: async function(forceMasterSync = false) {
         const btn = document.getElementById('rollover-refresh-btn');
         const forceCb = document.getElementById('rollover-force-refresh');
-        const isForce = forceCb && forceCb.checked;
+        const isForceCb = forceCb && forceCb.checked;
+        const isForce = forceMasterSync || isForceCb;
         const originalText = btn ? btn.innerHTML : '';
 
         if (btn) {

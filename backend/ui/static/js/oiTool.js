@@ -157,7 +157,7 @@ const OiTool = {
         }
     },
 
-    syncAndLoadAggregatedData: async function() {
+    syncAndLoadAggregatedData: async function(forceMasterSync = false) {
         const refreshBtn = document.getElementById('oi-refresh-btn');
         let originalBtnHtml = "";
         if (refreshBtn) {
@@ -169,7 +169,8 @@ const OiTool = {
         if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Checking for new F&O data and syncing...</td></tr>';
 
         try {
-            const force = document.getElementById('oi-force-refresh') && document.getElementById('oi-force-refresh').checked;
+            const forceCheckbox = document.getElementById('oi-force-refresh') && document.getElementById('oi-force-refresh').checked;
+            const force = forceMasterSync || forceCheckbox;
             const syncRes = await fetch(`/api/data/analysis/oi/sync?force=${force}`, { method: 'POST' });
             if (!syncRes.ok) throw new Error("Sync failed.");
             await this.loadAggregatedData();

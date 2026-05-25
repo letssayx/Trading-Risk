@@ -9,7 +9,7 @@ def run_cuj(page):
     # Click Dividends Data Bank tab
     try:
         # Assuming the tab has data-target="dividends"
-        page.click(".main-tab[data-target='dividends']")
+        page.click("text=Dividends Data Bank")
         page.wait_for_timeout(1000)
 
         # Load OFSS data directly by modifying input
