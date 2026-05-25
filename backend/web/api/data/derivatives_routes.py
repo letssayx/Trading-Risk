@@ -929,12 +929,7 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                 elif not ex_date_obj or h.get('ex_date') == 'Record date not yet declared':
                     if amt is not None:
                         # Amount known, but no ex-date (Ex-Awaited)
-                        ann_dt = h.get('announcement_date_obj')
-                        month = ann_dt.strftime('%b') if isinstance(ann_dt, datetime.date) else ""
-                        if month:
-                            events_str.append(f"Div- Rs {amt}, ex-date not announced (Expected: {month})")
-                        else:
-                            events_str.append(f"Div- Rs {amt}, ex-date not announced")
+                        events_str.append(f"Div: Rs {amt}, Ex-Date Awaited")
 
             # UPCOMING BOARD MEETINGS (That haven't declared an amount yet)
             upcoming_bms = [bm for bm in bms if (bm.meeting_date and bm.meeting_date >= today_date) or (not bm.meeting_date and bm.date and bm.date >= today_date)]
