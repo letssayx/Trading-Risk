@@ -730,10 +730,18 @@ class NSELib:
                                                     if match:
                                                         found_amount = float(match.group(1))
                                                 else:
-                                                    div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
-                                                    matches = div_pattern.findall(_clean_text)
-                                                    if matches:
-                                                        found_amount = sum(float(m) for m in matches)
+                                                    # Try common UI regex patterns that don't strictly require currency prefix
+                                                    ui_patterns = [
+                                                        r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
+                                                        r'(\d+(?:\.\d+)?)\s*\/\-',
+                                                        r'dividend\s+of\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)',
+                                                        r'dividend.*?\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)\s+per'
+                                                    ]
+                                                    for pat in ui_patterns:
+                                                        matches = re.findall(pat, _clean_text, re.IGNORECASE)
+                                                        if matches:
+                                                            found_amount = sum(float(m) for m in matches)
+                                                            break
 
                                         # Extract Record Date
                                         if found_record_date is None:
@@ -760,8 +768,8 @@ class NSELib:
                                 ui_patterns = [
                                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
                                     r'(\d+(?:\.\d+)?)\s*\/\-',
-                                    r'dividend\s+of\s+(\d+(?:\.\d+)?)',
-                                    r'dividend.*?\s+(\d+(?:\.\d+)?)\s+per'
+                                    r'dividend\s+of\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)',
+                                    r'dividend.*?\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)\s+per'
                                 ]
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE)

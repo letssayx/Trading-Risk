@@ -376,10 +376,13 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_ex_date = last['ex_date'] or '-'
             last_amount = last['amount']
 
-            # Set it to the >2% flag of the latest historical event directly.
-            # We don't want to reset it to False just because the date has passed,
-            # as requested by the user.
-            is_above_2_percent = last.get('is_above_2_percent', False)
+            # Set it to the >2% flag of the latest historical event only if it's currently active (Ex-Awaited or future date).
+            # Otherwise, we default to False and let the forecasting logic check if the expected amount is >2%.
+            is_above_2_percent = False
+            if last.get('ex_date') == 'Record date not yet declared':
+                is_above_2_percent = last.get('is_above_2_percent', False)
+            elif last.get('ex_date_obj') and last.get('ex_date_obj') >= today:
+                is_above_2_percent = last.get('is_above_2_percent', False)
 
             # Sort ascending for cycle processing
             def get_sort_key_asc(x):
