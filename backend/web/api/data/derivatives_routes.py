@@ -919,6 +919,15 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
 
             events_str = []
 
+            # Get a set of known amounts that have actual ex-dates so we don't output "Awaited" for them
+            known_ex_dates = set()
+            for h in history_asc:
+                if h.get('ex_date_obj') and h.get('amount') is not None:
+                    try:
+                        known_ex_dates.add(float(h['amount']))
+                    except ValueError:
+                        pass
+
             # ACTIVE EVENTS FROM HISTORY (Announced but ex-date in future, or awaited)
             for h in history_asc:
                 ex_date_obj = h.get('ex_date_obj')
@@ -928,8 +937,12 @@ def get_marketwatch(date: str = None, custom_symbols: str = None, db: Session = 
                         events_str.append(f"div - {amt}, Ex-date {ex_date_obj.strftime('%d-%m-%Y')}")
                 elif not ex_date_obj or h.get('ex_date') == 'Record date not yet declared':
                     if amt is not None:
-                        # Amount known, but no ex-date (Ex-Awaited)
-                        events_str.append(f"Div: Rs {amt}, Ex-Date Awaited")
+                        # ONLY append Awaited if we don't already have a concrete ex-date for this amount
+                        try:
+                            if float(amt) not in known_ex_dates:
+                                events_str.append(f"Div: Rs {amt}, Ex-Date Awaited")
+                        except ValueError:
+                            events_str.append(f"Div: Rs {amt}, Ex-Date Awaited")
 
             # UPCOMING BOARD MEETINGS (That haven't declared an amount yet)
             upcoming_bms = [bm for bm in bms if (bm.meeting_date and bm.meeting_date >= today_date) or (not bm.meeting_date and bm.date and bm.date >= today_date)]

@@ -2114,7 +2114,7 @@
                                     <th style="padding: 8px;">OI</th>
                                     <th style="padding: 8px;">% Chg OI</th>
                                     <th style="padding: 8px;">DTE</th>
-                                    <th style="padding: 8px; min-width: 120px;">Corp Action</th>
+                                    <th style="padding: 8px; min-width: 120px; max-width: 250px;">Corp Action</th>
                                     <th style="padding: 8px;">Actions</th>
                                 </tr>
                             </thead>
@@ -4687,7 +4687,7 @@ function exportChartDataToCSV(chartInstance, filename) {
                     <td>-</td>
                     <td>-</td>
                     <td>-</td>
-                    <td style="color: #FF9800; font-size: 11px;">${eq.ca || ''}</td>
+                    <td style="color: #FF9800; font-size: 11px; max-width: 250px; white-space: normal; word-wrap: break-word;">${eq.ca || ''}</td>
                     <td>
                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${sym}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)">AI Analyze</button>
                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-top: 2px;" onclick="switchMainTab('special_arb'); setTimeout(() => { document.getElementById('ss-div-search').value = '${sym}'; filterSSDividends(); }, 100)">Special Sit</button>
