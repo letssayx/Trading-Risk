@@ -11,25 +11,33 @@ from backend.ingest.nse_models import BoardMeeting
 
 router = APIRouter()
 
+from fastapi import File, Form, UploadFile
+
 class OverrideXMLRequest(BaseModel):
     symbol: str
     meeting_date: str
     xml_url: str
 
 @router.post("/override-xml")
-def override_board_meeting_xml(req: OverrideXMLRequest, db: Session = Depends(get_db)):
+def override_board_meeting_xml(
+    symbol: str = Form(...),
+    meeting_date: str = Form(...),
+    xml_url: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
     """
     Allows a user to manually pass a URL to an XBRL XML file (like the one found
     on the NSE portal for specific outcomes) to override a specific Board Meeting's
     extracted amounts, record dates, and broadcast times.
     """
     try:
-        meeting_date_obj = datetime.strptime(req.meeting_date, "%d-%b-%Y").date()
+        meeting_date_obj = datetime.strptime(meeting_date, "%d-%b-%Y").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use DD-MMM-YYYY")
 
     bm = db.query(BoardMeeting).filter(
-        BoardMeeting.symbol == req.symbol.upper(),
+        BoardMeeting.symbol == symbol.upper(),
         BoardMeeting.meeting_date == meeting_date_obj
     ).first()
 
@@ -37,20 +45,25 @@ def override_board_meeting_xml(req: OverrideXMLRequest, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Board meeting not found in database for the given symbol and date.")
 
     # Fetch XML content
-    if not req.xml_url.startswith("http"):
-        raise HTTPException(status_code=400, detail="Only HTTP/HTTPS URLs are supported for security reasons.")
-
-    try:
-        headers = {
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'accept-language': 'en-US,en;q=0.9',
-        }
-        resp = requests.get(req.xml_url, headers=headers, timeout=10)
-        if resp.status_code != 200:
-            raise HTTPException(status_code=400, detail=f"Failed to fetch XML URL. HTTP Status: {resp.status_code}")
-        xml_text = resp.text
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error fetching remote XML: {e}")
+    xml_text = ""
+    if file:
+        xml_text = file.file.read().decode("utf-8")
+    elif xml_url:
+        if not xml_url.startswith("http"):
+            raise HTTPException(status_code=400, detail="Only HTTP/HTTPS URLs are supported for security reasons.")
+        try:
+            headers = {
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'accept-language': 'en-US,en;q=0.9',
+            }
+            resp = requests.get(xml_url, headers=headers, timeout=10)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=400, detail=f"Failed to fetch XML URL. HTTP Status: {resp.status_code}")
+            xml_text = resp.text
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Error fetching remote XML: {e}")
+    else:
+        raise HTTPException(status_code=400, detail="Either xml_url or an uploaded file must be provided.")
 
     # Parse the XML exactly like nse_lib.py does
     found_amount = None
