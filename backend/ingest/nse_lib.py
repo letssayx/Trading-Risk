@@ -790,10 +790,45 @@ class NSELib:
                                         # Extract Record Date
                                         if found_record_date is None:
                                             # "Record date for the purpose of Dividend is 14-May-2026."
-                                            date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
-                                            date_match = date_pattern.search(attchmntText)
-                                            if date_match and 'record date' in attchmntText.lower():
-                                                found_record_date = date_match.group(1)
+                                            # or "Record date ... is 08-Jul-2026"
+                                            rd_patterns = [
+                                                r'record\s+date.*?is\s+(\d{1,2}-[a-zA-Z]{3}-\d{4})',
+                                                r'record\s+date.*?(?:for.*?)?\s+(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]+\s*,?\s*\d{4})'
+                                            ]
+                                            for r_pat in rd_patterns:
+                                                rd_match = re.search(r_pat, attchmntText, re.IGNORECASE)
+                                                if rd_match:
+                                                    found_record_date = rd_match.group(1)
+                                                    break
+
+                                            if found_record_date is None:
+                                                date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
+                                                date_match = date_pattern.search(attchmntText)
+                                                if date_match and 'record date' in attchmntText.lower():
+                                                    found_record_date = date_match.group(1)
+
+                                        # Extract Meeting Time from XBRL if available
+                                        if 'StartTimeOfBoardMeeting' in attchmntText or 'EndTimeOfBoardMeeting' in attchmntText:
+                                            # It's an XML text blob, so check for time tags
+                                            time_match = re.search(r'<[^>]*:StartTimeOfBoardMeetingForAnnouncementOfDividend[^>]*>\s*([^<]+)\s*</[^>]*>', attchmntText, re.IGNORECASE)
+                                            if not time_match:
+                                                time_match = re.search(r'<[^>]*:EndTimeOfBoardMeetingForAnnouncementOfDividend[^>]*>\s*([^<]+)\s*</[^>]*>', attchmntText, re.IGNORECASE)
+
+                                            if time_match:
+                                                time_str = time_match.group(1).strip()
+                                                try:
+                                                    time_parts = time_str.split(":")
+                                                    if len(time_parts) >= 2:
+                                                        from datetime import time, datetime
+                                                        hr = int(time_parts[0])
+                                                        mn = int(time_parts[1])
+                                                        sc = int(time_parts[2]) if len(time_parts) == 3 else 0
+                                                        time_obj = time(hr, mn, sc)
+                                                        # Overwrite broadcast date to the explicit XBRL time on the same date
+                                                        # using the bm_date_obj_check we parsed earlier
+                                                        item['broadcast_date'] = datetime.combine(bm_date_obj_check, time_obj).strftime('%Y-%m-%d %H:%M:%S')
+                                                except Exception as e:
+                                                    logger.warning(f"Failed to parse XBRL time {time_str} for {symbol}: {e}")
 
                                 except ValueError:
                                     pass
