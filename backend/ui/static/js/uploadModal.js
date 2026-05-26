@@ -428,10 +428,11 @@ class NSEImporter {
         const symbol = document.getElementById('override-symbol').value.trim().toUpperCase();
         const amount = document.getElementById('override-amount').value;
         const exDate = document.getElementById('override-ex-date').value;
+        const annDate = document.getElementById('override-announcement-date').value;
         const divType = document.getElementById('override-div-type').value;
 
-        if (!symbol || !amount || !exDate) {
-            alert("Please fill in Symbol, Amount, and Ex-Date.");
+        if (!symbol || !amount || !exDate || !annDate) {
+            alert("Please fill in Symbol, Amount, Ex-Date, and Announcement Date.");
             return;
         }
 
@@ -439,6 +440,7 @@ class NSEImporter {
         formData.append('symbol', symbol);
         formData.append('amount', amount);
         formData.append('ex_date', exDate);
+        formData.append('announcement_date', annDate);
         formData.append('dividend_type', divType);
 
         this.startProgress(`Overriding Dividend for ${symbol}...`);
@@ -455,12 +457,13 @@ class NSEImporter {
                 return;
             }
 
-            this.completeProgress(`Successfully recorded dividend for ${symbol}.`);
+            this.successProgress(`Successfully recorded dividend for ${symbol}.`);
 
             // Clear inputs
             document.getElementById('override-symbol').value = '';
             document.getElementById('override-amount').value = '';
             document.getElementById('override-ex-date').value = '';
+            document.getElementById('override-announcement-date').value = '';
 
             this.loadHistory();
         } catch (e) {

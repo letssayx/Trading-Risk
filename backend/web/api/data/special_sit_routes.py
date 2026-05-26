@@ -154,10 +154,14 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     "ratio": ratio
                 })
         elif r.parsed_dividend_amount is not None:
+            ann_date = r.broadcast_date or r.date
+            if hasattr(ann_date, 'date'):
+                ann_date = ann_date.date()
+
             ca_by_symbol[sym].append({
                 "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
                 "ex_date_obj": r.ex_date,
-                "announcement_date_obj": r.date,
+                "announcement_date_obj": ann_date,
                 "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
                 "dividend_type": r.dividend_type,
                 "purpose": r.purpose,
@@ -201,7 +205,13 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     if best_bm:
                         # Pass the exact Board Meeting timestamp instead of the partition date
                         h['broadcast_date'] = best_bm.broadcast_date
-                        h['announcement_date_obj'] = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
+
+                        best_ann_date = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
+                        if hasattr(best_ann_date, 'date'):
+                            best_ann_date = best_ann_date.date()
+
+                        h['announcement_date_obj'] = best_ann_date
+
                         # If the CA is missing an amount but the BM has it, backfill it
                         if not h.get('amount') and best_bm.extracted_dividend_amount:
                             h['amount'] = best_bm.extracted_dividend_amount
@@ -233,11 +243,15 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 is_valid_standalone = True
 
             if is_valid_standalone:
+                bm_ann_date = bm.meeting_date or bm.broadcast_date or bm.date
+                if hasattr(bm_ann_date, 'date'):
+                    bm_ann_date = bm_ann_date.date()
+
                 chained_history.append({
                     "ex_date": 'Record date not yet declared',
                     "ex_date_obj": None,
                     "broadcast_date": bm.broadcast_date,
-                    "announcement_date_obj": bm.meeting_date or bm.broadcast_date or bm.date,
+                    "announcement_date_obj": bm_ann_date,
                     "dividend_type": bm.extracted_dividend_type or 'Interim',
                     "purpose": bm.purpose or "Dividend Declared in Board Meeting",
                     "amount": amt,
@@ -544,6 +558,15 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     else:
                         expected_highly_likely = "-"
                     expected_less_likely = "Amount declared, date not yet announced"
+
+            # Check forecasted expected amount for >2% flag regardless of what branch it took above
+            if not is_active and spot and expected_amount and (expected_amount / spot) >= 0.02:
+                is_above_2_percent = True
+                if expected_less_likely == "-" or not expected_less_likely or expected_less_likely == "Confirmed" or expected_less_likely == "Amount declared, date not yet announced":
+                    expected_less_likely = "<span style='color: red;'>check for extra-ordinary</span>"
+                else:
+                    if "check for extra-ordinary" not in expected_less_likely:
+                        expected_less_likely += " | <span style='color: red;'>check for extra-ordinary</span>"
 
         # Explicitly round expected_amount for json response
         if expected_amount is not None:
