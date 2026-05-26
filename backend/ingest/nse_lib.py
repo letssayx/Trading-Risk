@@ -626,7 +626,7 @@ class NSELib:
 
                     # --- XBRL XML Attachment Parsing ---
                     attachment_url = str(item.get('attachment', ''))
-                    if not has_dividend_mention and attachment_url.lower().endswith('.xml'):
+                    if attachment_url.lower().endswith('.xml'):
                         try:
                             # Use self.get to fetch the XML content
                             xml_resp = self.get(attachment_url)
