@@ -471,7 +471,14 @@ class NSEImporter {
 
             const data = await res.json();
 
-            if (data.success) {
+            if (currentFileType === 'board_meetings_xml') {
+                this.successProgress(`Success! Updated record. Extracted Amount: ${data.data.extracted_dividend_amount}`);
+                this.renderDetails({'XML Override': {status: 'SUCCESS', rows_processed: 1}});
+                // auto reload workbench data
+                if (typeof loadDividendsData === 'function') {
+                    loadDividendsData();
+                }
+            } else if (data.success) {
                 this.successProgress(`Successfully imported ${data.rows_processed} rows for ${data.date}`);
                 this.renderDetails({[data.type]: {status: 'SUCCESS', rows_processed: data.rows_processed}});
             } else {

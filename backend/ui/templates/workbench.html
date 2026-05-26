@@ -5051,12 +5051,10 @@ function exportChartDataToCSV(chartInstance, filename) {
     }
 
     async function submitXmlOverride() {
-        const symbol = document.getElementById('xml-symbol').value.trim().toUpperCase();
-        const meetingDate = document.getElementById('xml-meeting-date').value;
         const xmlPath = document.getElementById('xml-path').value.trim();
 
-        if (!symbol || !meetingDate || !xmlPath) {
-            alert('Please fill in all fields (Symbol, Meeting Date, and XML URL/Path).');
+        if (!xmlPath) {
+            alert('Please provide the XML URL/Path.');
             return;
         }
 
@@ -5065,8 +5063,11 @@ function exportChartDataToCSV(chartInstance, filename) {
         btn.innerText = 'Processing...';
 
         try {
-            const res = await fetch(`/api/data/board-meetings/override-xml?symbol=${encodeURIComponent(symbol)}&meeting_date=${encodeURIComponent(meetingDate)}&xml_path=${encodeURIComponent(xmlPath)}`, {
-                method: 'POST'
+            const formData = new FormData();
+            formData.append('xml_url', xmlPath);
+            const res = await fetch(`/api/data/board-meetings/override-xml`, {
+                method: 'POST',
+                body: formData
             });
 
             const data = await res.json();
