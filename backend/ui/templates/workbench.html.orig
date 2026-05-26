@@ -4914,6 +4914,7 @@ function exportChartDataToCSV(chartInstance, filename) {
             loadBtn.disabled = false;
             loadBtn.innerHTML = originalText;
         }
+    }
 
     // Listen for resize
     window.addEventListener('resize', () => {
@@ -4942,33 +4943,6 @@ function exportChartDataToCSV(chartInstance, filename) {
             rangeBm.addEventListener("change", function() { rangeCa.checked = this.checked; });
         }
     });
-</script>
-
-    <!-- XML Override Modal -->
-    <div id="xml-override-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 400px;">
-            <div class="modal-header">
-                <h2>Override Board Meeting XML</h2>
-                <span class="close" onclick="document.getElementById('xml-override-modal').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
-                <div>
-                    <label style="display:block; margin-bottom: 5px;">Symbol</label>
-                    <input type="text" id="xml-symbol" placeholder="e.g. MPHASIS" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
-                </div>
-                <div>
-                    <label style="display:block; margin-bottom: 5px;">Meeting Date</label>
-                    <input type="date" id="xml-meeting-date" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
-                </div>
-                <div>
-                    <label style="display:block; margin-bottom: 5px;">XML URL or Path</label>
-                    <input type="text" id="xml-path" placeholder="https://.../xbrl.xml or /path/to/local.xml" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
-                </div>
-                <button id="xml-submit-btn" class="btn btn-primary" onclick="submitXmlOverride()" style="margin-top: 10px;">Submit Override</button>
-            </div>
-        </div>
-    </div>
-<script>
 
     // --- MACRO TAB LOGIC ---
     async function syncMacroData() {
