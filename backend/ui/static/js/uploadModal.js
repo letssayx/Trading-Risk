@@ -230,10 +230,27 @@ class NSEImporter {
         if (manualTypeSelect) {
             manualTypeSelect.addEventListener('change', () => {
                 const hint = document.getElementById('manual-format-hint');
+                const stdContainer = document.getElementById('manual-file-container');
+                const divOverrideContainer = document.getElementById('manual-dividend-override-container');
+
                 if (hint) {
                     hint.style.display = manualTypeSelect.value === 'fii_dii_cash' ? 'block' : 'none';
                 }
+
+                if (manualTypeSelect.value === 'dividend_override') {
+                    if (stdContainer) stdContainer.style.display = 'none';
+                    if (divOverrideContainer) divOverrideContainer.style.display = 'block';
+                } else {
+                    if (stdContainer) stdContainer.style.display = 'block';
+                    if (divOverrideContainer) divOverrideContainer.style.display = 'none';
+                }
             });
+        }
+
+        // Dividend Override Submit
+        const btnDividendOverride = document.getElementById('btn-dividend-override');
+        if (btnDividendOverride) {
+            btnDividendOverride.addEventListener('click', () => this.submitDividendOverride());
         }
 
         // Cancel Polling
@@ -400,6 +417,52 @@ class NSEImporter {
             } else {
                 this.failProgress(data.message || "Failed to start import: No Task ID");
             }
+        } catch (e) {
+            this.failProgress(e.message);
+        }
+    }
+
+    async submitDividendOverride() {
+        if (!(await this.checkHealth())) return;
+
+        const symbol = document.getElementById('override-symbol').value.trim().toUpperCase();
+        const amount = document.getElementById('override-amount').value;
+        const exDate = document.getElementById('override-ex-date').value;
+        const divType = document.getElementById('override-div-type').value;
+
+        if (!symbol || !amount || !exDate) {
+            alert("Please fill in Symbol, Amount, and Ex-Date.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('symbol', symbol);
+        formData.append('amount', amount);
+        formData.append('ex_date', exDate);
+        formData.append('dividend_type', divType);
+
+        this.startProgress(`Overriding Dividend for ${symbol}...`);
+
+        try {
+            const res = await fetch('/api/data/manual-override/dividend', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                this.failProgress(data.detail || "Override failed.");
+                return;
+            }
+
+            this.completeProgress(`Successfully recorded dividend for ${symbol}.`);
+
+            // Clear inputs
+            document.getElementById('override-symbol').value = '';
+            document.getElementById('override-amount').value = '';
+            document.getElementById('override-ex-date').value = '';
+
+            this.loadHistory();
         } catch (e) {
             this.failProgress(e.message);
         }

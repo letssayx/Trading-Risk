@@ -17,6 +17,7 @@ from backend.infrastructure.db import get_db
 from backend.domain.market.models import Bhavcopy, ImportHistory
 from backend.ingest.nse_importer import NSEDataImporter
 from backend.ingest.field_mapper import FieldMapper
+from backend.ingest.nse_models import CorporateAction
 
 router = APIRouter()
 
@@ -210,6 +211,48 @@ async def preview_bhavcopy(
     finally:
         if os.path.exists(tmp_path): os.unlink(tmp_path)
         if csv_path and os.path.exists(csv_path): os.unlink(csv_path)
+
+@router.post("/api/data/manual-override/dividend")
+async def override_dividend(
+    symbol: str = Form(...),
+    amount: float = Form(...),
+    ex_date: str = Form(...),
+    dividend_type: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        parsed_ex_date = datetime.strptime(ex_date, "%Y-%m-%d").date()
+
+        # Check if a CorporateAction already exists for this symbol and ex_date
+        existing_ca = db.query(CorporateAction).filter(
+            CorporateAction.symbol == symbol.upper(),
+            CorporateAction.date == parsed_ex_date,
+            CorporateAction.dividend_type == dividend_type
+        ).first()
+
+        if existing_ca:
+            existing_ca.parsed_dividend_amount = amount
+            existing_ca.ex_date = parsed_ex_date
+            existing_ca.purpose = f"Dividend - Rs {amount} Per Share (Manual Override)"
+            db.commit()
+            return {"success": True, "message": "Updated existing Corporate Action record."}
+        else:
+            new_ca = CorporateAction(
+                symbol=symbol.upper(),
+                date=parsed_ex_date,
+                ex_date=parsed_ex_date,
+                parsed_dividend_amount=amount,
+                dividend_type=dividend_type,
+                purpose=f"Dividend - Rs {amount} Per Share (Manual Override)",
+                company_name=f"{symbol.upper()} (Manual Override)"
+            )
+            db.add(new_ca)
+            db.commit()
+            return {"success": True, "message": "Created new Corporate Action record."}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Failed to override dividend: {str(e)}")
 
 @router.post("/api/data/upload/generic")
 async def upload_generic_file(
