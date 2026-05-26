@@ -194,8 +194,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                         if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
                             if bm.date:
                                 diff = (ca_date - bm.date).days
-                                # Accept if CA happens -10 to 60 days after BM, matching Databank logic
-                                if -10 <= diff <= 60 and abs(diff) < min_diff:
+                                # Accept if CA happens -10 to 180 days after BM, matching Databank logic
+                                if -10 <= diff <= 180 and abs(diff) < min_diff:
                                     # Strict amount match if both have it
                                     if h.get('amount') and bm.extracted_dividend_amount:
                                         if float(h['amount']) != float(bm.extracted_dividend_amount):
@@ -222,8 +222,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
         for bm in bms:
-            # Drop unlinked bms older than 60 days (exactly matching the Databank merge window)
-            if bm.date and bm.date < today - datetime.timedelta(days=60):
+            # Drop unlinked bms older than 180 days (exactly matching the Databank merge window)
+            if bm.date and bm.date < today - datetime.timedelta(days=180):
                 continue
             amt = bm.extracted_dividend_amount
             purpose_lower = (bm.purpose or '').lower()

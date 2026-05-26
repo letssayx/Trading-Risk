@@ -253,6 +253,11 @@ class NSEImporter {
             btnDividendOverride.addEventListener('click', () => this.submitDividendOverride());
         }
 
+        const btnDividendOverrideDelete = document.getElementById('btn-dividend-override-delete');
+        if (btnDividendOverrideDelete) {
+            btnDividendOverrideDelete.addEventListener('click', () => this.deleteDividendOverride());
+        }
+
         // Cancel Polling
         const btnCancel = document.getElementById('btn-cancel-polling');
         if (btnCancel) {
@@ -355,7 +360,7 @@ class NSEImporter {
                 this.failProgress(data.message || "Failed to start import: No Task ID");
             }
         } catch (e) {
-            this.failProgress(e.message);
+            this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
         }
     }
 
@@ -418,7 +423,7 @@ class NSEImporter {
                 this.failProgress(data.message || "Failed to start import: No Task ID");
             }
         } catch (e) {
-            this.failProgress(e.message);
+            this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
         }
     }
 
@@ -453,7 +458,7 @@ class NSEImporter {
 
             const data = await res.json();
             if (!res.ok) {
-                this.failProgress(data.detail || "Override failed.");
+                this.failProgress(typeof data.detail === 'object' ? JSON.stringify(data.detail) : (data.detail || "Override failed."));
                 return;
             }
 
@@ -467,7 +472,58 @@ class NSEImporter {
 
             this.loadHistory();
         } catch (e) {
-            this.failProgress(e.message);
+            this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
+        }
+    }
+
+    async deleteDividendOverride() {
+        if (!(await this.checkHealth())) return;
+
+        const symbol = document.getElementById('override-symbol').value.trim().toUpperCase();
+        const amount = document.getElementById('override-amount').value;
+        const annDate = document.getElementById('override-announcement-date').value;
+        const divType = document.getElementById('override-div-type').value;
+
+        if (!symbol || !amount || !annDate) {
+            alert("Please fill in Symbol, Amount, and Announcement Date to delete.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete the dividend override for ${symbol} with amount ${amount}?`)) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('symbol', symbol);
+        formData.append('amount', amount);
+        formData.append('announcement_date', annDate);
+        formData.append('dividend_type', divType);
+
+        this.startProgress(`Deleting Dividend Override for ${symbol}...`);
+
+        try {
+            const res = await fetch('/api/data/manual-override/dividend', {
+                method: 'DELETE',
+                body: formData
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                this.failProgress(typeof data.detail === 'object' ? JSON.stringify(data.detail) : (data.detail || data.message || "Delete failed."));
+                return;
+            }
+
+            this.successProgress(`Successfully deleted dividend override for ${symbol}.`);
+
+            // Clear inputs
+            document.getElementById('override-symbol').value = '';
+            document.getElementById('override-amount').value = '';
+            document.getElementById('override-ex-date').value = '';
+            document.getElementById('override-announcement-date').value = '';
+
+            this.loadHistory();
+        } catch (e) {
+            this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
         }
     }
 
@@ -512,7 +568,7 @@ class NSEImporter {
             }
 
         } catch (e) {
-            this.failProgress(e.message);
+            this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
         }
     }
 
@@ -546,7 +602,7 @@ class NSEImporter {
                 this.failProgress(data.message || "Failed to start retry task: No Task ID");
             }
         } catch (e) {
-            this.failProgress(e.message);
+            this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
         }
     }
 

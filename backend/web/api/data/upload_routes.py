@@ -263,6 +263,36 @@ async def override_dividend(
         db.rollback()
         raise HTTPException(500, f"Failed to override dividend: {str(e)}")
 
+@router.delete("/api/data/manual-override/dividend")
+async def delete_override_dividend(
+    symbol: str = Form(...),
+    amount: float = Form(...),
+    announcement_date: str = Form(...),
+    dividend_type: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        parsed_announcement_date = datetime.strptime(announcement_date, "%Y-%m-%d").date()
+
+        # Only delete if it matches exactly
+        existing_ca = db.query(CorporateAction).filter(
+            CorporateAction.symbol == symbol.upper(),
+            CorporateAction.dividend_type == dividend_type,
+            CorporateAction.parsed_dividend_amount == amount,
+            CorporateAction.date == parsed_announcement_date
+        ).first()
+
+        if existing_ca:
+            db.delete(existing_ca)
+            db.commit()
+            return {"success": True, "message": "Deleted Corporate Action override."}
+        else:
+            return {"success": False, "message": "Record not found to delete.", "detail": "Record not found"}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Failed to delete dividend override: {str(e)}")
+
 @router.post("/api/data/upload/generic")
 async def upload_generic_file(
     file: UploadFile = File(...),
