@@ -624,6 +624,37 @@ class NSELib:
                     # We MUST correlate the dates to prevent flagging every board meeting for this company!
                     has_dividend_mention = 'dividend' in purpose or 'dividend' in desc
 
+                    # --- XBRL XML Attachment Parsing ---
+                    attachment_url = str(item.get('attachment', ''))
+                    if not has_dividend_mention and attachment_url.lower().endswith('.xml'):
+                        try:
+                            # Use self.get to fetch the XML content
+                            xml_resp = self.get(attachment_url)
+                            if xml_resp and xml_resp.status_code == 200:
+                                xml_content = xml_resp.text.lower()
+                                # Looking for <in-capmkt:agendax>dividend</in-capmkt:agendax>
+                                if re.search(r'<in-capmkt:agenda[^>]*>.*?dividend.*?</in-capmkt:agenda[^>]*>', xml_content):
+                                    has_dividend_mention = True
+                                    # Also ensure the purpose has dividend so it's surfaced properly
+                                    item['bm_purpose'] = item.get('bm_purpose', '') + '/Dividend'
+
+                                # Since we have the XML, let's also directly extract amount and record date if it's an outcome
+                                # E.g., <in-capmkt:RateOfFinalDividendRecommendedPerEquityShare>57</in-capmkt:RateOfFinalDividendRecommendedPerEquityShare>
+                                amt_match = re.search(r'<in-capmkt:rateof(?:final|interim|special)dividend[^>]*>(\d+(?:\.\d+)?)</in-capmkt:rateof', xml_content, re.IGNORECASE)
+                                if amt_match:
+                                    item['extracted_dividend_amount'] = float(amt_match.group(1))
+                                    has_dividend_mention = True
+                                    if '/Dividend' not in item.get('bm_purpose', ''):
+                                        item['bm_purpose'] = item.get('bm_purpose', '') + '/Dividend'
+
+                                rec_match = re.search(r'<in-capmkt:recorddateof(?:final|interim|special)dividend[^>]*>([^<]+)</in-capmkt:recorddateof', xml_content, re.IGNORECASE)
+                                if rec_match:
+                                    item['extracted_record_date'] = rec_match.group(1).strip()
+                        except Exception as xml_e:
+                            logger.error(f"Failed to fetch or parse XBRL XML {attachment_url}: {xml_e}")
+                    # -----------------------------------
+
+
                     try:
                         bm_date_obj_check = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
                     except ValueError:
@@ -676,13 +707,13 @@ class NSELib:
                                 subject = str(ca.get('subject', ''))
 
                                 # Extract amount from the CA subject: e.g. 'Dividend - Rs 31 Per Share'
-                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE)
+                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|₹)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
-                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
+                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
                                     if match:
                                         found_amount = float(match.group(1))
                                 else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
+                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
                                     if matches:
                                         found_amount = sum(float(m) for m in matches)
 
@@ -722,20 +753,33 @@ class NSELib:
                                             if xbrl_matches:
                                                 found_amount = sum(float(m) for m in xbrl_matches)
 
+
                                             if found_amount is None:
-                                                _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
+                                                # Direct check on original text for explicit recommendations before cleaning mangles it
+                                                explicit_matches = re.findall(r'dividend(?:\s+of)?\s*(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', attchmntText, re.IGNORECASE)
+                                                if explicit_matches:
+                                                    found_amount = sum(float(m) for m in explicit_matches)
+                                                else:
+                                                    # Try looking for "recommended ... dividend ... [amount]" patterns
+                                                    rec_matches = re.findall(r'recommended.*?dividend.*?(\d+(?:\.\d+)?)\s+per\s+equity\s+share', attchmntText, re.IGNORECASE)
+                                                    if rec_matches:
+                                                        found_amount = sum(float(m) for m in rec_matches)
+
+
+                                            if found_amount is None:
+                                                _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|₹)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
 
                                                 if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
-                                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
+                                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
                                                     if match:
                                                         found_amount = float(match.group(1))
                                                 else:
                                                     # Try common UI regex patterns that don't strictly require currency prefix
                                                     ui_patterns = [
-                                                        r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
+                                                        r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)',
                                                         r'(\d+(?:\.\d+)?)\s*\/\-',
-                                                        r'dividend\s+of\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)',
-                                                        r'dividend.*?\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)\s+per'
+                                                        r'dividend\s+of\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|₹\s*)?(\d+(?:\.\d+)?)',
+                                                        r'dividend.*?\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|₹\s*)?(\d+(?:\.\d+)?)\s+per'
                                                     ]
                                                     for pat in ui_patterns:
                                                         matches = re.findall(pat, _clean_text, re.IGNORECASE)
@@ -757,19 +801,19 @@ class NSELib:
                         # Fallback 2: Extracting from bm_desc and bm_purpose
                         if found_amount is None:
                             text_to_search = f"{purpose} {desc}"
-                            _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|₹)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
-                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
+                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
                                 if match:
                                     found_amount = float(match.group(1))
                             else:
                                 # Extract using the common UI regex patterns
                                 ui_patterns = [
-                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
+                                    r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)',
                                     r'(\d+(?:\.\d+)?)\s*\/\-',
-                                    r'dividend\s+of\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)',
-                                    r'dividend.*?\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|\u20b9\s*)?(\d+(?:\.\d+)?)\s+per'
+                                    r'dividend\s+of\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|₹\s*)?(\d+(?:\.\d+)?)',
+                                    r'dividend.*?\s+(?:rs\.?\s*|re\.?\s*|rupees?\s*|inr\s*|₹\s*)?(\d+(?:\.\d+)?)\s+per'
                                 ]
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE)
