@@ -193,9 +193,9 @@ async function loadOptionsAnalysis() {
                 data: ['Call OI', 'Put OI'],
                 textStyle: { color: '#ccc' }
             },
-                        grid: [
-                { left: '5%', right: '55%', bottom: '5%', top: '10%' },
-                { left: '55%', right: '5%', bottom: '5%', top: '10%' }
+            grid: [
+                { left: '5%', right: '58%', bottom: '5%', top: '10%' },
+                { left: '58%', right: '5%', bottom: '5%', top: '10%' }
             ],
             xAxis: [
                 {
@@ -239,7 +239,7 @@ async function loadOptionsAnalysis() {
                     xAxisIndex: 0,
                     yAxisIndex: 0,
                     label: { show: false },
-                    itemStyle: { color: '#60a5fa' }, // Blue for Calls
+                    itemStyle: { color: '#ff9800' }, // Orange for Calls
                     data: ce_oi.map(v => Math.abs(v)) // Pass absolute, axis inversion handles visualization
                 },
                 {
@@ -248,7 +248,7 @@ async function loadOptionsAnalysis() {
                     xAxisIndex: 1,
                     yAxisIndex: 1,
                     label: { show: false },
-                    itemStyle: { color: '#60a5fa' }, // Blue for Puts
+                    itemStyle: { color: '#3176B8' }, // Blue for Puts
                     data: pe_oi
                 }
             ]

@@ -3085,8 +3085,8 @@ async function loadMarketOptionsCharts() {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                 legend: { data: ['Put OI', 'Call OI'], textStyle: { color: '#ccc' }, top: 0 },
                 grid: [
-                    { left: '5%', right: '55%', bottom: '10%', top: '15%' }, // Left side (Put OI)
-                    { left: '55%', right: '5%', bottom: '10%', top: '15%' }  // Right side (Call OI)
+                    { left: '5%', right: '58%', bottom: '10%', top: '15%' }, // Left side (Put OI)
+                    { left: '58%', right: '5%', bottom: '10%', top: '15%' }  // Right side (Call OI)
                 ],
                 xAxis: [
                     { type: 'value', gridIndex: 0, inverse: true, axisLabel: { show: false }, splitLine: { show: false } },
