@@ -95,12 +95,12 @@ const OiTool = {
                     </div>
 
                     <!-- Chart Area -->
-                    <div style="height: 400px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
+                    <div style="height: 650px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
                             <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
                             <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
                         </div>
-                        <div id="oi-chart-area" style="flex: 1;">
+                        <div id="oi-chart-area" style="flex: 1; min-height: 600px;">
                             <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
                         </div>
                     </div>
@@ -304,7 +304,7 @@ const OiTool = {
 
         // Apply Advanced Filters (which modifies the table/scatter scope)
         if (advFilter) {
-            let sortedByOI = [...displayData].sort((a,b) => b.oi_chg_pct - a.oi_chg_pct);
+            let sortedByOI = [...displayData].sort((a,b) => (b.fut_oi_chg_pct || b.oi_chg_pct || 0) - (a.fut_oi_chg_pct || a.oi_chg_pct || 0));
 
             if (advFilter === 'top_5_oi_add') displayData = sortedByOI.slice(0, 5);
             else if (advFilter === 'top_10_oi_add') displayData = sortedByOI.slice(0, 10);
@@ -449,7 +449,8 @@ const OiTool = {
     },
 
     renderDerivedPanels: function(universe) {
-        let sortedByOI = [...universe].sort((a,b) => b.oi_chg_pct - a.oi_chg_pct);
+        // Change sorting from total oi_chg_pct to fut_oi_chg_pct to match the displayed metric
+        let sortedByOI = [...universe].sort((a,b) => (b.fut_oi_chg_pct || b.oi_chg_pct || 0) - (a.fut_oi_chg_pct || a.oi_chg_pct || 0));
         const top5Add = sortedByOI.slice(0, 5);
         const top5Red = sortedByOI.slice().reverse().slice(0, 5);
 
@@ -472,11 +473,12 @@ const OiTool = {
                 <tbody>`;
 
             dataSubset.forEach(d => {
-                let oColor = d.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
+                let displayOiChgPct = d.fut_oi_chg_pct !== undefined ? d.fut_oi_chg_pct : (d.oi_chg_pct || 0);
+                let oColor = displayOiChgPct >= 0 ? '#60a5fa' : '#ff4d4d';
                 let pColor = d.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                 html += `<tr style="border-bottom: 1px solid #222;">
                     <td style="padding: 4px; font-weight: bold; color: #ccc;">${d.symbol}</td>
-                    <td style="padding: 4px; color: ${oColor};">${(d.oi_chg_pct || 0).toFixed(2)}%</td>
+                    <td style="padding: 4px; color: ${oColor};">${displayOiChgPct.toFixed(2)}%</td>
                     <td style="padding: 4px; color: #ffffff;">${(d.price || 0).toFixed(2)}</td>
                     <td style="padding: 4px; color: ${pColor};">${(d.price_chg_pct || 0).toFixed(2)}%</td>
                     <td style="padding: 4px; color: ${oColor};">${d.interpretation || '-'}</td>

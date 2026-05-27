@@ -3085,8 +3085,8 @@ async function loadMarketOptionsCharts() {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                 legend: { data: ['Put OI', 'Call OI'], textStyle: { color: '#ccc' }, top: 0 },
                 grid: [
-                    { left: '5%', right: '58%', bottom: '10%', top: '15%' }, // Left side (Put OI)
-                    { left: '58%', right: '5%', bottom: '10%', top: '15%' }  // Right side (Call OI)
+                    { left: '5%', right: '53%', bottom: '10%', top: '15%' }, // Left side (Put OI)
+                    { left: '53%', right: '5%', bottom: '10%', top: '15%' }  // Right side (Call OI)
                 ],
                 xAxis: [
                     { type: 'value', gridIndex: 0, inverse: true, axisLabel: { show: false }, splitLine: { show: false } },
@@ -3094,7 +3094,7 @@ async function loadMarketOptionsCharts() {
                 ],
                 yAxis: [
                     { type: 'category', gridIndex: 0, data: strikes, axisLabel: { show: false }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
-                    { type: 'category', gridIndex: 1, data: strikes, axisLabel: { color: '#e0e0e0', margin: 40, align: 'center', fontWeight: 'bold' }, position: 'left', axisTick: { show: false }, axisLine: { show: false } }
+                    { type: 'category', gridIndex: 1, data: strikes, axisLabel: { color: '#e0e0e0', margin: 20, align: 'center', fontWeight: 'bold' }, position: 'left', axisTick: { show: false }, axisLine: { show: false } }
                 ],
                 series: [
                     { name: 'Put OI', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: putOi, itemStyle: { color: '#3176B8' }, label: { show: true, position: 'left', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } },
