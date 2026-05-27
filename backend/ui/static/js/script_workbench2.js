@@ -3145,12 +3145,12 @@ async function triggerMasterSync() {
 
         // 6. OI Analysis
         if (typeof OiTool !== 'undefined' && typeof OiTool.syncAndLoadAggregatedData === 'function') {
-            promises.push(OiTool.syncAndLoadAggregatedData(true).catch(e => console.error("OiTool sync failed", e)));
+            promises.push(OiTool.syncAndLoadAggregatedData(false).catch(e => console.error("OiTool sync failed", e)));
         }
 
         // 7. Rollover Analysis
         if (typeof RolloverTool !== 'undefined' && typeof RolloverTool.syncAndLoadAggregatedData === 'function') {
-            promises.push(RolloverTool.syncAndLoadAggregatedData(true).catch(e => console.error("RolloverTool sync failed", e)));
+            promises.push(RolloverTool.syncAndLoadAggregatedData(false).catch(e => console.error("RolloverTool sync failed", e)));
         }
 
         // 8. Volatility Analysis (All F&O)
