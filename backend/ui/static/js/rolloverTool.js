@@ -405,7 +405,7 @@ const RolloverTool = {
                             type: 'line',
                             symbol: 'circle',
                             symbolSize: 8,
-                            itemStyle: { color: '#60a5fa' }, // Solid Blue
+                            itemStyle: { color: '#ff9800' }, // Orange
                             lineStyle: { width: 3 },
                             data: values,
                             label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
@@ -547,7 +547,7 @@ const RolloverTool = {
                             type: 'line',
                             symbol: 'circle',
                             symbolSize: 6,
-                            itemStyle: { color: '#60a5fa' },
+                            itemStyle: { color: '#ff9800' }, // Orange
                             lineStyle: { width: 2 },
                             data: values,
                             label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }

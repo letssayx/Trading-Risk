@@ -3085,20 +3085,20 @@ async function loadMarketOptionsCharts() {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                 legend: { data: ['Put OI', 'Call OI'], textStyle: { color: '#ccc' }, top: 0 },
                 grid: [
-                    { left: '5%', right: '50%', bottom: '10%', top: '15%' }, // Left side
-                    { left: '50%', right: '5%', bottom: '10%', top: '15%' }  // Right side
+                    { left: '5%', right: '55%', bottom: '10%', top: '15%' }, // Left side (Put OI)
+                    { left: '55%', right: '5%', bottom: '10%', top: '15%' }  // Right side (Call OI)
                 ],
                 xAxis: [
                     { type: 'value', gridIndex: 0, inverse: true, axisLabel: { show: false }, splitLine: { show: false } },
                     { type: 'value', gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } }
                 ],
                 yAxis: [
-                    { type: 'category', gridIndex: 0, data: strikes, axisLabel: { color: '#ccc', margin: 25, align: 'center' }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
-                    { type: 'category', gridIndex: 1, data: strikes, axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false } }
+                    { type: 'category', gridIndex: 0, data: strikes, axisLabel: { show: false }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
+                    { type: 'category', gridIndex: 1, data: strikes, axisLabel: { color: '#e0e0e0', margin: 40, align: 'center', fontWeight: 'bold' }, position: 'left', axisTick: { show: false }, axisLine: { show: false } }
                 ],
                 series: [
                     { name: 'Put OI', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: putOi, itemStyle: { color: '#3176B8' }, label: { show: true, position: 'left', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } },
-                    { name: 'Call OI', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: callOi, itemStyle: { color: '#ff4d4d' }, label: { show: true, position: 'right', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } }
+                    { name: 'Call OI', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: callOi, itemStyle: { color: '#ff9800' }, label: { show: true, position: 'right', color: '#ccc', formatter: p => (p.value/100000).toFixed(1) + 'L' } }
                 ]
             };
             window.marketHighOiChartInstance.setOption(butterflyOption);
