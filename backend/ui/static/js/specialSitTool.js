@@ -433,8 +433,8 @@ function calculateOFS(fromPct = false) {
     document.getElementById('ofs-gross-spread').innerText = grossSpread.toFixed(2);
 
     let arbPct = 0;
-    if (hedgeEntry > 0) {
-        arbPct = (grossSpread / hedgeEntry) * 100;
+    if (bidPrice > 0) {
+        arbPct = (grossSpread / bidPrice) * 100;
     }
     document.getElementById('ofs-arb-pct').innerText = arbPct.toFixed(2);
 
@@ -466,7 +466,6 @@ function calculateOFS(fromPct = false) {
             const allotPctCell = row.querySelector('.ofs-matrix-allot-pct');
             const allotSharesCell = row.querySelector('.ofs-matrix-allot-shares');
 
-            const priceStr = priceInput.value.trim().toLowerCase();
             const qtyBid = parseFloat(qtyInput.value) || 0;
             const cumulQty = parseFloat(cumulInput.value) || 0;
 
@@ -476,9 +475,18 @@ function calculateOFS(fromPct = false) {
             let supplyForThisLevel = Math.max(0, totalSupplyRemaining);
             supplyCell.innerText = supplyForThisLevel.toLocaleString();
 
+            // Determine incremental demand at this price level to avoid double counting cumulQty
+            let incrementalDemand = cumulQty;
+            if (index > 0) {
+                const prevRow = rows[index - 1];
+                const prevCumulInput = prevRow.querySelector('.ofs-matrix-cumul');
+                const prevCumul = parseFloat(prevCumulInput.value) || 0;
+                incrementalDemand = Math.max(0, cumulQty - prevCumul);
+            }
+
             let allotPct = 0;
-            if (cumulQty > 0) {
-                allotPct = (supplyForThisLevel / cumulQty) * 100;
+            if (incrementalDemand > 0) {
+                allotPct = (supplyForThisLevel / incrementalDemand) * 100;
                 if (allotPct > 100) allotPct = 100;
             }
 
@@ -490,9 +498,8 @@ function calculateOFS(fromPct = false) {
             allotSharesCell.innerText = sharesAllotted.toLocaleString();
 
             // Deduct the supply USED at this price level from remaining supply
-            // If supplyForThisLevel > cumulQty, all cumulQty is satisfied.
-            // So allocatedAtThisLevel = cumulQty * (allotPct / 100)
-            const allocatedAtThisLevel = cumulQty * (allotPct / 100);
+            // If supplyForThisLevel > incrementalDemand, all incrementalDemand is satisfied.
+            const allocatedAtThisLevel = incrementalDemand * (allotPct / 100);
             totalSupplyRemaining = Math.max(0, totalSupplyRemaining - allocatedAtThisLevel);
 
             if (index === 0) {
@@ -512,8 +519,8 @@ function calculateOFS(fromPct = false) {
     // Shares allotted in 1st column = firstRowAllotmentShares
     // No of lots = firstRowAllotmentShares / Futures Lot size
     if (lotSize > 0 && firstRowAllotmentShares > 0) {
-        const calculatedLots = firstRowAllotmentShares / lotSize;
-        document.getElementById('ofs-lots').value = calculatedLots.toFixed(2);
+        const calculatedLots = Math.floor(firstRowAllotmentShares / lotSize);
+        document.getElementById('ofs-lots').value = calculatedLots;
         lotsFloor = calculatedLots; // Update local variable for further logic
     }
 
@@ -530,7 +537,8 @@ function calculateOFS(fromPct = false) {
     const impact = parseFloat(document.getElementById('ofs-impact').value) || 0;
     const stt = parseFloat(document.getElementById('ofs-stt').value) || 0;
 
-    const futRiskSize = parseFloat(totalSharesBid - finalSharesAllotted);
+    // Unhedged risk is the remaining shares that cannot be covered by the rounded down integer lot size
+    const futRiskSize = Math.max(0, finalSharesAllotted - totalSharesBid);
     document.getElementById('ofs-fut-risk').innerText = futRiskSize.toFixed(2);
 
     const totalCosts = cof + impact + stt;

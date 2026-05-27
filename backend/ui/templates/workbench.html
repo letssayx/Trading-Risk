@@ -882,12 +882,6 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;">
                                 <label style="color: #ccc; font-size: 13px; font-weight: bold;">Total Outstanding (100%):</label>
                                 <span id="ofs-total-out" style="color: #60a5fa; font-weight: bold;">0</span>
-
-                                <label style="color: #aaa; font-size: 13px;">Total OFS Offer:</label>
-                                <input type="number" id="ofs-total-offer" class="history-input" value="" oninput="calculateOFS()">
-
-                                <label style="color: #aaa; font-size: 13px;">Reserved Retail %:</label>
-                                <input type="number" id="ofs-retail-pct" class="history-input" value="" oninput="calculateOFS()">
                             </div>
                         </div>
 
@@ -959,7 +953,7 @@
 
                                 <label style="color: #aaa; font-size: 13px;">Reserved for Retail:</label>
                                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 5px;">
-                                    <input type="number" id="ofs-retail-pct" class="history-input" value="10" style="width: 40px; text-align: right;" oninput="calculateOFS()"> <span style="color: #aaa;">%</span>
+                                    <input type="number" id="ofs-retail-pct" class="history-input" value="" style="width: 40px; text-align: right;" oninput="calculateOFS()"> <span style="color: #aaa;">%</span>
                                     <span id="ofs-reserved-retail" style="color: #ccc; min-width: 60px; text-align: right;">0</span>
                                 </div>
 
