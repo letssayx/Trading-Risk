@@ -423,17 +423,17 @@ function calculateOFS(fromPct = false) {
     const cmp = parseFloat(document.getElementById('ofs-cmp').value) || 0;
     const floorPrice = parseFloat(document.getElementById('ofs-floor-price').value) || 0;
     const bidPrice = parseFloat(document.getElementById('ofs-bid-price').value) || 0;
-    const allotmentRatio = parseFloat(document.getElementById('ofs-allotment-ratio').value) || 0; // typically from matrix row calculation, but can be manual input
+    let allotmentRatio = parseFloat(document.getElementById('ofs-allotment-ratio').value) || 0;
     const hedgeEntry = parseFloat(document.getElementById('ofs-hedge-entry').value) || 0;
     const lotSize = parseFloat(document.getElementById('ofs-lot-size').value) || 0;
-    const lotsFloor = parseFloat(document.getElementById('ofs-lots').value) || 0;
+    let lotsFloor = parseFloat(document.getElementById('ofs-lots').value) || 0;
 
     // Spread & Arb %
-    const grossSpread = hedgeEntry - bidPrice; // In excel: Hedge Entry - Bid Price
+    const grossSpread = hedgeEntry - bidPrice;
     document.getElementById('ofs-gross-spread').innerText = grossSpread.toFixed(2);
 
     let arbPct = 0;
-    if (hedgeEntry > 0) { // Based on Excel Arbitrage % = Gross Spread / Hedge Entry
+    if (hedgeEntry > 0) {
         arbPct = (grossSpread / hedgeEntry) * 100;
     }
     document.getElementById('ofs-arb-pct').innerText = arbPct.toFixed(2);
@@ -453,8 +453,8 @@ function calculateOFS(fromPct = false) {
     // --- Bid Allotment Matrix ---
     const tbody = document.getElementById('ofs-matrix-body');
     let totalSupplyRemaining = totalInstShares;
-    let totalSharesBid = lotsFloor * lotSize; // Derived from generic inputs, but usually overridden by matrix user row
     let firstRowAllotmentShares = 0;
+    let firstRowAllotmentPct = 0;
 
     if (tbody) {
         const rows = tbody.querySelectorAll('tr');
@@ -470,39 +470,10 @@ function calculateOFS(fromPct = false) {
             const qtyBid = parseFloat(qtyInput.value) || 0;
             const cumulQty = parseFloat(cumulInput.value) || 0;
 
-            // In waterfall, supply for this row is the remaining supply.
-            let currentRowSupply = Math.max(0, totalSupplyRemaining);
-
-            // Excel exception: "total supply is all the bids, so for first row total supply and cumulative will be equal"
-            // Wait, looking at the excel, Total Supply for row 1 = 11,00,00,000 (which is Cumul. Qty).
-            // Actually, if the user means: Total Supply at row 1 = Cumul Qty... that seems hardcoded to whatever is input.
-            // BUT wait, looking at user's D column:
-            // Row 1: 11,00,00,000
-            // Row 2: 5,00,00,000
-            // Row 3: 5,00,00,000
-            // It seems the Total Supply might literally just be: min(totalInstShares, cumulQty) ?
-            // Or maybe Total Supply for Row 1 is totalInstShares... which is 11,70,91,837.7 in excel, but cell D1 says 11,00,00,000.
-            // Let's set Total Supply to the literal `totalInstShares` but cap it or match Excel.
-            // In standard OFS: Allotment % = Total Supply / Cumul. Qty.
-            // Excel: Row 1 = 11,00,00,000 / 11,00,00,000 = 100%
-            // Row 2 = 5,00,00,000 / 16,00,00,000 = 14.18% (Wait, 11cr supply used in R1? No, 100% allotment implies demand <= supply)
-            // Actually, "total supply is all the bids" means it's literally reading from total supply.
-            // Let's implement standard waterfall: Total Supply is `totalSupplyRemaining`.
-            // User explicit rule: "total supply is all the bids, so for first row total supply and cumulative will be equal"
-            // So Row 1 Total Supply = Cumul Qty.
-            // Then for Row 2, Total Supply = ? (In excel it's 5,00,00,000, which is Total Inst Supply (11,70,91,837.7) - 6,70,91,837.7 ? No.)
-            // Let's just follow standard logic, and if first row, cap supply at cumul qty if they are fully allotted.
-
-            let supplyForThisLevel = totalSupplyRemaining;
-
-            if (index === 0 && supplyForThisLevel >= cumulQty && cumulQty > 0) {
-                // If it's the first row and we have enough supply to cover all demand,
-                // total supply effectively 'used' is exactly the cumul qty.
-                supplyForThisLevel = cumulQty;
-            } else if (supplyForThisLevel > cumulQty && cumulQty > 0) {
-                 supplyForThisLevel = cumulQty;
-            }
-
+            // "total supply is total available shares, so even in 1st cell of total supply you have to take the available shares for institutional"
+            // "and next available supply should be cumulative of above minus available supply of above"
+            // This means supply strictly equals totalSupplyRemaining.
+            let supplyForThisLevel = Math.max(0, totalSupplyRemaining);
             supplyCell.innerText = supplyForThisLevel.toLocaleString();
 
             let allotPct = 0;
@@ -519,31 +490,39 @@ function calculateOFS(fromPct = false) {
             allotSharesCell.innerText = sharesAllotted.toLocaleString();
 
             // Deduct the supply USED at this price level from remaining supply
+            // If supplyForThisLevel > cumulQty, all cumulQty is satisfied.
+            // So allocatedAtThisLevel = cumulQty * (allotPct / 100)
             const allocatedAtThisLevel = cumulQty * (allotPct / 100);
             totalSupplyRemaining = Math.max(0, totalSupplyRemaining - allocatedAtThisLevel);
 
             if (index === 0) {
                 firstRowAllotmentShares = sharesAllotted;
-            }
-
-            // If the user's input price matches the main bid price, use this row's allotment ratio for the main metrics
-            if (priceStr && (parseFloat(priceStr) === bidPrice || priceStr.includes('floor') && parseFloat(priceStr.replace(/[^0-9.]/g, '')) === floorPrice)) {
-                // Actually the user has an explicit input for Allotment Ratio now. But let's optionally pre-fill it if empty.
-                if (document.getElementById('ofs-allotment-ratio').value === '' && allotPct > 0) {
-                   // don't auto overwrite user explicit input, leave as is.
-                }
+                firstRowAllotmentPct = allotPct;
             }
         });
     }
 
-    // Main Panel Costs & Net Arbitrage
-    // User manual inputs for shares allotted or fallback to matrix
-    let finalSharesAllotted = firstRowAllotmentShares;
+    // "you need to pick the allotment ratio from the first allotment ratio"
+    if (firstRowAllotmentPct > 0) {
+        document.getElementById('ofs-allotment-ratio').value = firstRowAllotmentPct.toFixed(2);
+        allotmentRatio = firstRowAllotmentPct;
+    }
 
-    // We will let the user's first row dictate the 'Shares allotted' for the main calculation, OR
-    // we use the Allotment Ratio manual input to calculate it.
+    // "no. of lots, should be auto calculated based on the shares alloted in 1st column"
+    // Shares allotted in 1st column = firstRowAllotmentShares
+    // No of lots = firstRowAllotmentShares / Futures Lot size
+    if (lotSize > 0 && firstRowAllotmentShares > 0) {
+        const calculatedLots = firstRowAllotmentShares / lotSize;
+        document.getElementById('ofs-lots').value = calculatedLots.toFixed(2);
+        lotsFloor = calculatedLots; // Update local variable for further logic
+    }
+
+    // Total Shares Bid (before allotment)
+    const totalSharesBid = lotSize * lotsFloor;
+
+    let finalSharesAllotted = firstRowAllotmentShares;
     if (allotmentRatio > 0 && lotSize > 0 && lotsFloor > 0) {
-        finalSharesAllotted = Math.floor((lotSize * lotsFloor) * (allotmentRatio / 100));
+        finalSharesAllotted = Math.floor(totalSharesBid * (allotmentRatio / 100));
     }
     document.getElementById('ofs-shares-allotted').innerText = finalSharesAllotted.toLocaleString();
 
@@ -551,7 +530,7 @@ function calculateOFS(fromPct = false) {
     const impact = parseFloat(document.getElementById('ofs-impact').value) || 0;
     const stt = parseFloat(document.getElementById('ofs-stt').value) || 0;
 
-    const futRiskSize = parseFloat((lotSize * lotsFloor) - finalSharesAllotted);
+    const futRiskSize = parseFloat(totalSharesBid - finalSharesAllotted);
     document.getElementById('ofs-fut-risk').innerText = futRiskSize.toFixed(2);
 
     const totalCosts = cof + impact + stt;
@@ -560,7 +539,6 @@ function calculateOFS(fromPct = false) {
     netArbPctEl.innerText = netArbPct.toFixed(2);
     netArbPctEl.style.color = netArbPct >= 0 ? '#10b981' : '#f44336';
 }
-
 
 async function syncOFSHoldings(event) {
     let btn = event ? event.currentTarget : null;

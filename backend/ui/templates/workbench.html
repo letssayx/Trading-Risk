@@ -924,7 +924,7 @@
                                 <label style="color: #aaa; font-size: 13px;">Futures Lot size:</label>
                                 <input type="number" id="ofs-lot-size" class="history-input" value="" oninput="calculateOFS()">
 
-                                <label style="color: #aaa; font-size: 13px;">No. of lots Floor:</label>
+                                <label style="color: #aaa; font-size: 13px;">No. of lots:</label>
                                 <input type="number" id="ofs-lots" class="history-input" value="" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Gross Spread:</label>
@@ -945,7 +945,7 @@
                                 <label style="color: #aaa; font-size: 13px;">STT+ brokerage %:</label>
                                 <input type="number" id="ofs-stt" class="history-input" value="" oninput="calculateOFS()">
 
-                                <label style="color: #f44336; font-size: 13px;">Futures Lot size (risk):</label>
+                                <label style="color: #f44336; font-size: 13px;">Futures Lot size risk (no. of shares unhedged):</label>
                                 <span id="ofs-fut-risk" style="color: #f44336; text-align: right;">0.00</span>
 
                                 <label style="color: #10b981; font-size: 13px; font-weight: bold;">Net Arbitrage return %:</label>
@@ -958,7 +958,10 @@
                                 <input type="number" id="ofs-greenshoe" class="history-input" value="" oninput="calculateOFS()">
 
                                 <label style="color: #aaa; font-size: 13px;">Reserved for Retail:</label>
-                                <span id="ofs-reserved-retail" style="color: #ccc; text-align: right;">0</span>
+                                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 5px;">
+                                    <input type="number" id="ofs-retail-pct" class="history-input" value="10" style="width: 40px; text-align: right;" oninput="calculateOFS()"> <span style="color: #aaa;">%</span>
+                                    <span id="ofs-reserved-retail" style="color: #ccc; min-width: 60px; text-align: right;">0</span>
+                                </div>
 
                                 <label style="color: #aaa; font-size: 13px;">Total shares for institutional:</label>
                                 <span id="ofs-total-institutional" style="color: #ccc; text-align: right;">0</span>
