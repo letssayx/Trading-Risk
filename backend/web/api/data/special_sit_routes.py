@@ -220,12 +220,51 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
             chained_history.append(h)
 
-        # Append remaining BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
+        # Deduplicate synthetics (multiple board meetings for the same event) before appending
+
+        def safe_date_sort(x):
+            d = x.meeting_date or x.broadcast_date or x.date
+            if d is None:
+                return datetime.date.min
+            if hasattr(d, 'date'):
+                return d.date()
+            return d
+
+        bms.sort(key=safe_date_sort, reverse=True)
+
+        deduplicated_bms = []
         for bm in bms:
+            is_duplicate = False
+            bm_date = safe_date_sort(bm)
+
+            for existing in deduplicated_bms:
+                existing_date = existing['sort_date']
+
+                if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
+                    diff_days = abs((bm_date - existing_date).days)
+                    # Merge synthetics if they are within 60 days of each other and have the same dividend type
+                    if diff_days <= 60 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type:
+                        is_duplicate = True
+                        # Update amount if the newer duplicate has it
+                        if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
+                            existing['extracted_dividend_amount'] = bm.extracted_dividend_amount
+                        break
+
+            if not is_duplicate:
+                deduplicated_bms.append({
+                    'bm': bm,
+                    'sort_date': bm_date,
+                    'extracted_dividend_amount': bm.extracted_dividend_amount
+                })
+
+        # Append remaining deduplicated BMs that haven't dropped an official CA yet (Upcoming Dividends/Intimations)
+        for dedup_item in deduplicated_bms:
+            bm = dedup_item['bm']
+            amt = dedup_item['extracted_dividend_amount']
             # Drop unlinked bms older than 180 days (exactly matching the Databank merge window)
             if bm.date and bm.date < today - datetime.timedelta(days=180):
                 continue
-            amt = bm.extracted_dividend_amount
+            # amt already extracted
             purpose_lower = (bm.purpose or '').lower()
 
             # To avoid polluting the Special Situations UI with generic "Financial Results" or "AGM" meetings

@@ -470,7 +470,7 @@ class NSEImporter {
             document.getElementById('override-ex-date').value = '';
             document.getElementById('override-announcement-date').value = '';
 
-            this.loadHistory();
+            this.fetchHistory();
         } catch (e) {
             this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
         }
@@ -521,7 +521,7 @@ class NSEImporter {
             document.getElementById('override-ex-date').value = '';
             document.getElementById('override-announcement-date').value = '';
 
-            this.loadHistory();
+            this.fetchHistory();
         } catch (e) {
             this.failProgress(e.message || (typeof e === 'object' ? JSON.stringify(e) : e));
         }
