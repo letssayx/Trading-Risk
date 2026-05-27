@@ -29,6 +29,20 @@ const RolloverTool = {
                     <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>
                     <button id="rollover-refresh-btn" onclick="RolloverTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
+
+                    <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
+                        <span style="color: #aaa; font-size: 13px;">History Range:</span>
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                            <input type="radio" name="rollover_days" value="7" onchange="RolloverTool.loadAggregatedData()"> 7 Days
+                        </label>
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                            <input type="radio" name="rollover_days" value="14" checked onchange="RolloverTool.loadAggregatedData()"> 14 Days
+                        </label>
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                            <input type="radio" name="rollover_days" value="30" onchange="RolloverTool.loadAggregatedData()"> 30 Days
+                        </label>
+                    </div>
+
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
@@ -151,7 +165,12 @@ const RolloverTool = {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
 
         try {
-            const res = await fetch('/api/data/analysis/rollover');
+            let days = '14';
+            const daysRadio = document.querySelector('input[name="rollover_days"]:checked');
+            if (daysRadio) {
+                days = daysRadio.value;
+            }
+            const res = await fetch(`/api/data/analysis/rollover?days=${days}`);
             if (!res.ok) throw new Error("Failed to load rollover data.");
             const json = await res.json();
 
@@ -472,22 +491,14 @@ const RolloverTool = {
                 </div>
 
                 <table style="width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 0.9em; text-align: left;">
-
-                                <thead>
-                                    <tr style="position: sticky; top: 0; background: #222; z-index: 10; border-bottom: 2px solid #00bcd4;">
-                                        <th style="padding: 8px; width: 30px;"></th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
-                                        <th style="padding: 8px;">Date</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('fut_close')">FUT Price ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
-                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('total_oi')">Total OI ↕</th>
-                                    </tr>
-                                </thead>
-
+                    <thead>
+                        <tr style="position: sticky; top: 0; background: #222; z-index: 10; border-bottom: 2px solid #00bcd4;">
+                            <th style="padding: 8px;">Month</th>
+                            <th style="padding: 8px;">Expiry</th>
+                            <th style="padding: 8px;">Price</th>
+                            <th style="padding: 8px;">OI</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         <tr>
                             <td style="padding: 8px; border: 1px solid #444; color: #ccc;">Near Month</td>
@@ -503,10 +514,58 @@ const RolloverTool = {
                         </tr>
                     </tbody>
                 </table>
+
+                <h4 style="margin-top: 20px; color: #fff;">12-Month Rollover History</h4>
+                <div id="rollover-mom-history-chart" style="width: 100%; height: 250px; margin-top: 10px;"></div>
+                <div id="rollover-mom-history-table-container"></div>
                 <p style="color: #888; font-size: 0.85em; margin-top: 15px;">To return to the all F&O view, clear the search and click "Refresh All".</p>
             </div>`;
 
             detailsDiv.innerHTML = html;
+
+            // Fetch and render MoM history inline
+            const histRes = await fetch(`/api/data/analysis/rollover/history/${symbol}`);
+            if (histRes.ok) {
+                const histDataResp = await histRes.json();
+                const histData = Array.isArray(histDataResp) ? histDataResp : (histDataResp.data || []);
+                if (histData.length > 0) {
+                    const expiries = histData.map(d => d.date || d.expiry).reverse();
+                    const values = histData.map(d => d.rollover_pct).reverse();
+
+                    // Render Chart
+                    const momChartDom = document.getElementById('rollover-mom-history-chart');
+                    if (window.rolloverMomChartInstance) window.rolloverMomChartInstance.dispose();
+                    window.rolloverMomChartInstance = echarts.init(momChartDom);
+                    window.rolloverMomChartInstance.setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: { trigger: 'axis', formatter: '{b}<br/>Rollover: {c}%' },
+                        grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+                        xAxis: { type: 'category', data: expiries, axisLabel: { color: '#888', fontSize: 10 } },
+                        yAxis: { type: 'value', axisLabel: { color: '#888', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } } },
+                        series: [{
+                            name: 'Rollover',
+                            type: 'line',
+                            symbol: 'circle',
+                            symbolSize: 6,
+                            itemStyle: { color: '#60a5fa' },
+                            lineStyle: { width: 2 },
+                            data: values,
+                            label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                        }]
+                    });
+
+                    // Render small table
+                    let histTableHtml = `<table style="width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 0.85em; text-align: center;">
+                        <thead style="background: #333;"><tr>`;
+                    expiries.forEach(e => histTableHtml += `<th style="padding: 4px; color: #aaa;">${e}</th>`);
+                    histTableHtml += `</tr></thead><tbody><tr>`;
+                    values.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #fff;">${v}%</td>`);
+                    histTableHtml += `</tr></tbody></table>`;
+                    document.getElementById('rollover-mom-history-table-container').innerHTML = histTableHtml;
+                } else {
+                    document.getElementById('rollover-mom-history-chart').innerHTML = `<p style="color:#888;">No historical data available.</p>`;
+                }
+            }
             // Also filter the table to just this symbol
             this.filterData();
 

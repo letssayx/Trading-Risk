@@ -1139,6 +1139,7 @@
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-fii" onclick="switchDerivTab('fii')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">FII Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
                 <div class="wb-tab" id="deriv-tab-btn-macro" onclick="switchDerivTab('macro')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Macro & Events</div>
             </div>
@@ -2371,6 +2372,64 @@
                     <!-- Content loaded by workbookManager.js / RolloverTool -->
                 </div>
 
+                <!-- SUB-TAB FII Analysis -->
+                <div id="deriv-tab-fii" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; flex-direction: column; justify-content: flex-start;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
+                        <select id="fii-analysis-days" class="history-input" style="width: 100px;" onchange="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()">
+                            <option value="5">5 Days</option>
+                            <option value="30" selected>30 Days</option>
+                            <option value="60">60 Days</option>
+                            <option value="90">90 Days</option>
+                            <option value="180">180 Days</option>
+                            <option value="252">252 Days</option>
+                            <option value="500">500 Days</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()"><i class="fas fa-sync"></i> Refresh FII Data</button>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px;">
+                        <!-- FII/DII Cash Flow -->
+                        <div style="height: 450px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
+                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII/DII Institutional Flows (Cash)</h3>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiTabChartInstance) exportChartDataToCSV(window.fiiDiiTabChartInstance, 'FII_DII_Net_Pos');"><i class="fas fa-download"></i> CSV</button>
+                            </div>
+                            <div style="flex: 1; min-width: 0; height: 100%;">
+                                <canvas id="fiiDiiTabChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 20px; height: 350px;">
+                            <!-- Smart Money (Contracts) -->
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money (Contracts)</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantTabChartInstance) exportChartDataToCSV(window.participantTabChartInstance, 'Smart_Money_Contracts');"><i class="fas fa-download"></i> CSV</button>
+                                </div>
+                                <div id="participant-oi-tab-daily-summary" style="flex: 1; width: 100%;"></div>
+                            </div>
+
+                            <!-- FII Money Terms -->
+                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Money)</h3>
+                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.fiiMoneyTabChartInstance) exportChartDataToCSV(window.fiiMoneyTabChartInstance, 'FII_Daily_Money');"><i class="fas fa-download"></i> CSV</button>
+                                </div>
+                                <div id="fii-money-tab-daily-summary" style="flex: 1; width: 100%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Participant OI Bifurcation -->
+                        <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">Participant OI Bifurcation</h3>
+                                <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantGranularTabChartInstance) exportChartDataToCSV(window.participantGranularTabChartInstance, 'Participant_Granular');"><i class="fas fa-download"></i> CSV</button>
+                            </div>
+                            <div id="participant-oi-tab-granular-summary" style="flex: 1; width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- SUB-TAB MWPL Analysis -->
                 <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
@@ -3111,6 +3170,7 @@
 
     <!-- Scripts -->
     <script src="/static/js/layout.js"></script>
+    <script src="/static/js/fiiTool.js"></script>
     <script src="/static/js/specialSitTool.js"></script>
     <script src="/static/js/chartTabs.js"></script>
     <script src="/static/js/opt_analysis.js"></script>

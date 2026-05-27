@@ -69,6 +69,8 @@
                     if (typeof loadMacroData === 'function') loadMacroData();
                 } else if (target.id === 'deriv-tab-watch') {
                     target.style.display = 'flex';
+                } else if (target.id === 'deriv-tab-fii') {
+                    target.style.display = 'flex';
                 } else {
                     target.style.display = 'block';
                 }
@@ -86,6 +88,11 @@
                 if (tabName === 'oi' && typeof loadOptionsAnalysis === 'function') {
                     loadOptionsAnalysis();
                 }
+
+        // Trigger FII analysis if FII tab
+        if (tabName === 'fii' && typeof loadFiiAnalysis === 'function') {
+            loadFiiAnalysis();
+        }
 
                 // Trigger Volatility Analysis
                 if (tabName === 'optanalysis' && typeof loadVolatilityAnalysis === 'function') {

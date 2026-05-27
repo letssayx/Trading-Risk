@@ -430,7 +430,7 @@ def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
         raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/analysis/rollover")
-def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
+def get_aggregated_rollover_analysis(days: int = 14, db: Session = Depends(get_db)):
     """
     Computes Rollover Analysis metrics for all F&O symbols on the latest trading day directly from RolloverAnalysisMetrics.
     """
@@ -442,11 +442,11 @@ def get_aggregated_rollover_analysis(db: Session = Depends(get_db)):
         if not latest_date:
             return {"data": []}
 
-        # Need last 11 dates for 10-day history
+        # Need last days+1 dates to calculate changes/history
         dates_query = db.query(RolloverAnalysisMetrics.trade_date)\
                   .distinct()\
                   .order_by(RolloverAnalysisMetrics.trade_date.desc())\
-                  .limit(11).all()
+                  .limit(days + 1).all()
         hist_dates = [d[0] for d in dates_query]
 
         records = db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date.in_(hist_dates)).all()

@@ -64,6 +64,20 @@ const OiTool = {
                     <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="oi-force-refresh"> Force</label>
                     <button id="oi-refresh-btn" onclick="OiTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
+
+                    <div style="display: flex; gap: 10px; align-items: center; margin-left: 10px; border-left: 1px solid #444; padding-left: 10px;">
+                        <span style="color: #aaa; font-size: 13px;">History Range:</span>
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                            <input type="radio" name="oi_days" value="7" onchange="OiTool.loadAggregatedData()"> 7 Days
+                        </label>
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                            <input type="radio" name="oi_days" value="14" checked onchange="OiTool.loadAggregatedData()"> 14 Days
+                        </label>
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                            <input type="radio" name="oi_days" value="30" onchange="OiTool.loadAggregatedData()"> 30 Days
+                        </label>
+                    </div>
+
                     <span id="oi-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
@@ -205,7 +219,12 @@ const OiTool = {
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">Fetching aggregated F&O data...</td></tr>';
 
         try {
-            const res = await fetch(`/api/data/analysis/oi?days=${days}${targetDate ? '&target_date=' + targetDate : ''}`);
+            let daysParam = '14';
+            const daysRadio = document.querySelector('input[name="oi_days"]:checked');
+            if (daysRadio) {
+                daysParam = daysRadio.value;
+            }
+            const res = await fetch(`/api/data/analysis/oi?days=${daysParam}${targetDate ? '&target_date=' + targetDate : ''}`);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
 
@@ -509,6 +528,11 @@ const OiTool = {
         let zoomRangeX = Math.max(perc95X * 1.2, 5);
         let zoomRangeY = Math.max(perc95Y * 1.2, 2);
 
+        // Make ranges equal so the center is mathematically (0,0) and remains locked symmetrically
+        const maxRange = Math.max(zoomRangeX, zoomRangeY);
+        zoomRangeX = maxRange;
+        zoomRangeY = maxRange;
+
         const trace = {
             x: x,
             y: y,
@@ -532,7 +556,9 @@ const OiTool = {
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
                 gridcolor: '#333',
-                range: [-zoomRangeX, zoomRangeX]
+                range: [-zoomRangeX, zoomRangeX],
+                autorange: false,
+                fixedrange: false
             },
             yaxis: {
                 title: 'Price Change %',
@@ -540,7 +566,10 @@ const OiTool = {
                 zerolinewidth: 2,
                 zerolinecolor: '#ccc',
                 gridcolor: '#333',
-                range: [-zoomRangeY, zoomRangeY]
+                range: [-zoomRangeY, zoomRangeY],
+                scaleanchor: 'x', // Optional, if we want symmetric aspect ratio, but simply fixing autorange might be enough. Let's just fix the range
+                autorange: false,
+                fixedrange: false
             },
             annotations: [
                 { x: 0.05, y: 0.95, xref: 'paper', yref: 'paper', text: 'Short Covering', showarrow: false, font: {color: '#60a5fa', size: 16} },

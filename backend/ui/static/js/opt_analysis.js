@@ -48,43 +48,20 @@ async function loadOptionsAnalysis() {
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
             legend: { data: ['Price (FUT1)', 'Total OI', 'OI Change %', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
             grid: [
-                { left: '5%', right: '50%', bottom: '5%', top: '10%' },
-                { left: '50%', right: '5%', bottom: '5%', top: '10%' }
+                { left: '5%', right: '5%', height: '35%', top: '10%' },
+                { left: '5%', right: '5%', height: '20%', top: '50%' },
+                { left: '5%', right: '5%', height: '20%', top: '75%' }
             ],
             xAxis: [
-                {
-                    type: 'value',
-                    gridIndex: 0,
-                    inverse: true,
-                    axisLabel: { color: '#888', formatter: (value) => Math.abs(value).toLocaleString() },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                },
-                {
-                    type: 'value',
-                    gridIndex: 1,
-                    axisLabel: { color: '#888', formatter: (value) => Math.abs(value).toLocaleString() },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                }
+                { type: 'category', data: data.dates, axisLabel: { color: '#888' }, gridIndex: 0 },
+                { type: 'category', data: data.dates, axisLabel: { show: false }, gridIndex: 1 },
+                { type: 'category', data: data.dates, axisLabel: { show: false }, gridIndex: 2 }
             ],
             yAxis: [
-                {
-                    type: 'category',
-                    gridIndex: 0,
-                    data: strikes,
-                    position: 'right',
-                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 15, align: 'center' },
-                    axisLine: { show: false },
-                    axisTick: { show: false }
-                },
-                {
-                    type: 'category',
-                    gridIndex: 1,
-                    data: strikes,
-                    position: 'left',
-                    axisLabel: { show: false },
-                    axisLine: { show: false },
-                    axisTick: { show: false }
-                }
+                { type: 'value', name: 'Price', position: 'left', axisLabel: { color: '#FFCC00' }, splitLine: { show: false }, gridIndex: 0, scale: true },
+                { type: 'value', name: 'Total OI', position: 'right', axisLabel: { color: '#60a5fa' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, gridIndex: 0 },
+                { type: 'value', name: 'OI Chg %', axisLabel: { color: '#888', formatter: '{value}%' }, splitLine: { show: false }, gridIndex: 1 },
+                { type: 'value', name: 'PCR', position: 'right', axisLabel: { color: '#ccc' }, splitLine: { show: false }, gridIndex: 2, scale: true }
             ],
             dataZoom: [
                 { type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 },
@@ -106,7 +83,7 @@ async function loadOptionsAnalysis() {
                     type: 'bar',
                     data: data.total_oi,
                     itemStyle: { color: (params) => oiColors[params.dataIndex] },
-                    xAxisIndex: 1,
+                    xAxisIndex: 0,
                     yAxisIndex: 1
                 },
                 {
@@ -137,7 +114,7 @@ async function loadOptionsAnalysis() {
                     name: 'PCR',
                     type: 'line',
                     data: data.pcr,
-                    itemStyle: { color: '#60a5fa' },
+                    itemStyle: { color: '#ff4d4d' },
                     lineStyle: { width: 2 },
                     symbol: 'none',
                     xAxisIndex: 2,
@@ -217,8 +194,8 @@ async function loadOptionsAnalysis() {
                 textStyle: { color: '#ccc' }
             },
                         grid: [
-                { left: '5%', right: '50%', bottom: '5%', top: '10%' },
-                { left: '50%', right: '5%', bottom: '5%', top: '10%' }
+                { left: '5%', right: '55%', bottom: '5%', top: '10%' },
+                { left: '55%', right: '5%', bottom: '5%', top: '10%' }
             ],
             xAxis: [
                 {
@@ -241,7 +218,7 @@ async function loadOptionsAnalysis() {
                     gridIndex: 0,
                     data: strikes,
                     position: 'right',
-                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 15, align: 'center' },
+                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 30, align: 'center' },
                     axisLine: { show: false },
                     axisTick: { show: false }
                 },
