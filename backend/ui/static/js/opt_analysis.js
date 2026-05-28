@@ -194,8 +194,8 @@ async function loadOptionsAnalysis() {
                 textStyle: { color: '#ccc' }
             },
             grid: [
-                { left: '5%', right: '56%', bottom: '5%', top: '10%' },
-                { left: '56%', right: '5%', bottom: '5%', top: '10%' }
+                { left: '5%', right: '56%', bottom: '5%', top: '10%' }, // Left side (Call OI)
+                { left: '56%', right: '5%', bottom: '5%', top: '10%' }  // Right side (Put OI)
             ],
             xAxis: [
                 {

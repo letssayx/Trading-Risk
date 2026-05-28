@@ -430,24 +430,56 @@ def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
         raise HTTPException(500, detail=str(e))
 
 @router.get("/api/data/analysis/rollover")
-def get_aggregated_rollover_analysis(days: int = 14, db: Session = Depends(get_db)):
+def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false", db: Session = Depends(get_db)):
     """
     Computes Rollover Analysis metrics for all F&O symbols on the latest trading day directly from RolloverAnalysisMetrics.
     """
     try:
-        from backend.ingest.nse_models import RolloverAnalysisMetrics, SymbolMaster
-        from sqlalchemy import func
+        from backend.ingest.nse_models import RolloverAnalysisMetrics, SymbolMaster, BhavcopyFO
+        from sqlalchemy import func, desc
 
         latest_date = db.query(func.max(RolloverAnalysisMetrics.trade_date)).scalar()
         if not latest_date:
             return {"data": []}
 
-        # Need last days+1 dates to calculate changes/history
-        dates_query = db.query(RolloverAnalysisMetrics.trade_date)\
-                  .distinct()\
-                  .order_by(RolloverAnalysisMetrics.trade_date.desc())\
-                  .limit(days + 1).all()
-        hist_dates = [d[0] for d in dates_query]
+        is_expiry_only = expiry_only.lower() == "true"
+        hist_dates = []
+
+        if is_expiry_only:
+            # Get historical expiry dates
+            expiries = db.query(BhavcopyFO.expiry_date).filter(
+                BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+            ).distinct().order_by(desc(BhavcopyFO.expiry_date)).all()
+            expiry_dates = [e[0] for e in expiries]
+
+            # Fetch the closest trade dates that match the expiries, plus the latest date
+            # Limit the search to the required 'days' points (which essentially represents 'months' here)
+            dates_query = db.query(RolloverAnalysisMetrics.trade_date)\
+                      .distinct()\
+                      .order_by(RolloverAnalysisMetrics.trade_date.desc())\
+                      .limit(300).all()
+            all_trade_dates = [d[0] for d in dates_query]
+
+            hist_dates.append(latest_date) # Always include latest
+
+            seen_expiries = set()
+            for e_date in expiry_dates:
+                if len(hist_dates) >= days + 1:
+                    break
+                # Find the closest trade date on or before the expiry date
+                for t_date in all_trade_dates:
+                    if t_date <= e_date and (e_date - t_date).days < 30:
+                        if e_date not in seen_expiries and t_date not in hist_dates:
+                            hist_dates.append(t_date)
+                            seen_expiries.add(e_date)
+                        break
+        else:
+            # Need last days+1 dates to calculate changes/history
+            dates_query = db.query(RolloverAnalysisMetrics.trade_date)\
+                      .distinct()\
+                      .order_by(RolloverAnalysisMetrics.trade_date.desc())\
+                      .limit(days + 1).all()
+            hist_dates = [d[0] for d in dates_query]
 
         records = db.query(RolloverAnalysisMetrics).filter(RolloverAnalysisMetrics.trade_date.in_(hist_dates)).all()
 
@@ -493,7 +525,7 @@ def get_aggregated_rollover_analysis(days: int = 14, db: Session = Depends(get_d
                 p_price_chg = curr_r.price_chg_pct
                 p_oi_chg = curr_r.oi_chg_pct
 
-                if i < 10 and dt in hist_dates[:10]:
+                if i < days and dt in hist_dates[:days]:
                     history_arr.append({
                         "date": str(dt),
                         "rollover_pct": round(c_rollover_pct, 2),
@@ -1281,7 +1313,9 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
                 seen_expiries.add(e_date)
                 results.append({
                     "date": str(e_date),  # Show the expiry date as the label
-                    "rollover_pct": round(closest_record.rollover_pct, 2)
+                    "rollover_pct": round(closest_record.rollover_pct, 2),
+                    "rollover_cost": round(closest_record.rollover_cost, 2),
+                    "rollover_cost_pct": round(closest_record.rollover_cost_pct, 2)
                 })
     else:
         # Standard daily progression (last 12 trading days)
@@ -1293,7 +1327,9 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
         for r in records:
             results.append({
                 "date": str(r.trade_date),
-                "rollover_pct": round(r.rollover_pct, 2)
+                "rollover_pct": round(r.rollover_pct, 2),
+                "rollover_cost": round(r.rollover_cost, 2),
+                "rollover_cost_pct": round(r.rollover_cost_pct, 2)
             })
 
     # Maintain ascending chronological order as original UI expects

@@ -25,10 +25,17 @@ const RolloverTool = {
             <div style="color: #ccc; height: 100%; display: flex; flex-direction: column;">
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Rollover Analysis</h2>
-                    <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px;" oninput="RolloverTool.filterData()">
-                    <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>
-                    <button id="rollover-refresh-btn" onclick="RolloverTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+
+                    <div style="position: relative;">
+                        <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px; padding-right: 20px;" oninput="RolloverTool.filterData()">
+                        <span id="rollover-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #888; display: none;" onclick="document.getElementById('rollover-symbol').value=''; RolloverTool.filterData(); RolloverTool.loadAggregatedData(); this.style.display='none';">✖</span>
+                    </div>
+
                     <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
+
+                    <label style="color:#ccc; font-size:12px; margin-left: 10px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>
+                    <button id="rollover-refresh-btn" onclick="RolloverTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
+
 
                     <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
                         <span style="color: #aaa; font-size: 13px;">History Range:</span>
@@ -45,7 +52,7 @@ const RolloverTool = {
 
                     <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
                         <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;" title="Show Month-on-Month expiry rollover instead of daily progression">
-                            <input type="checkbox" id="rollover-mom-checkbox" checked onchange="if(document.getElementById('rollover-symbol').value) { RolloverTool.analyzeSingle(); }"> Month-on-Month
+                            <input type="checkbox" id="rollover-mom-checkbox" checked onchange="RolloverTool.loadAggregatedData(); if(document.getElementById('rollover-symbol').value) { RolloverTool.analyzeSingle(); }"> Month-on-Month
                         </label>
                     </div>
 
@@ -115,6 +122,9 @@ const RolloverTool = {
                 }
             });
             input.addEventListener('input', (e) => {
+                const clearBtn = document.getElementById('rollover-clear-search');
+                if (clearBtn) clearBtn.style.display = input.value.trim() !== '' ? 'block' : 'none';
+
                 if (input.value.trim() === '') {
                     // Automatically reload the full table view when cleared
                     RolloverTool.loadAggregatedData();
@@ -176,7 +186,10 @@ const RolloverTool = {
             if (daysRadio) {
                 days = daysRadio.value;
             }
-            const res = await fetch(`/api/data/analysis/rollover?days=${days}`);
+            const momCheckbox = document.getElementById('rollover-mom-checkbox');
+            const isMoM = momCheckbox ? momCheckbox.checked : false;
+
+            const res = await fetch(`/api/data/analysis/rollover?days=${days}&expiry_only=${isMoM}`);
             if (!res.ok) throw new Error("Failed to load rollover data.");
             const json = await res.json();
 
@@ -264,7 +277,7 @@ const RolloverTool = {
                 </tr>`;
 
                 if (d.history && d.history.length > 1) {
-                    d.history.slice(1, 7).forEach((h, idx) => {
+                    d.history.slice(1).forEach((h, idx) => {
                         let hpColor = h.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                         let hoColor = h.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                         let rowBg = '#151515';
@@ -403,23 +416,41 @@ const RolloverTool = {
 
                     const expiries = data.map(d => d.date || d.expiry).reverse();
                     const values = data.map(d => d.rollover_pct).reverse();
+                    const spreads = data.map(d => d.rollover_cost || 0).reverse();
+
+                    const titleText = isMoM ? `${selectedStock} - Month-on-Month Rollover History` : `${selectedStock} - Daily Rollover History`;
 
                     const option = {
-                        title: { text: `${selectedStock} - 12 Month Rollover History`, textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
-                        tooltip: { trigger: 'axis', formatter: '{b}<br/>Rollover: {c}%' },
-                        grid: { left: '3%', right: '4%', bottom: '15%', top: '20%', containLabel: true },
+                        title: { text: titleText, textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                        legend: { data: ['Rollover %', 'Spread'], top: 30, textStyle: { color: '#ccc' } },
+                        grid: { left: '5%', right: '5%', bottom: '15%', top: '25%', containLabel: true },
                         xAxis: { type: 'category', data: expiries, axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 10 } },
-                        yAxis: { type: 'value', axisLabel: { color: '#ccc', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
-                        series: [{
-                            name: 'Rollover',
-                            type: 'line',
-                            symbol: 'circle',
-                            symbolSize: 8,
-                            itemStyle: { color: '#ff9800' }, // Orange
-                            lineStyle: { width: 3 },
-                            data: values,
-                            label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
-                        }]
+                        yAxis: [
+                            { type: 'value', name: 'Rollover %', axisLabel: { color: '#ff9800', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
+                            { type: 'value', name: 'Spread', position: 'right', axisLabel: { color: '#60a5fa' }, splitLine: { show: false } }
+                        ],
+                        series: [
+                            {
+                                name: 'Rollover %',
+                                type: 'line',
+                                yAxisIndex: 0,
+                                symbol: 'circle',
+                                symbolSize: 8,
+                                itemStyle: { color: '#ff9800' }, // Orange
+                                lineStyle: { width: 3 },
+                                data: values,
+                                label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                            },
+                            {
+                                name: 'Spread',
+                                type: 'bar',
+                                yAxisIndex: 1,
+                                itemStyle: { color: (params) => params.value >= 0 ? '#60a5fa' : '#ff4d4d' }, // Blue positive, Red negative
+                                data: spreads,
+                                label: { show: true, position: 'inside', color: '#fff', formatter: '{c}', fontSize: 9 }
+                            }
+                        ]
                     };
                     window.rolloverDynamicChartInstance.setOption(option);
                 }
@@ -525,7 +556,7 @@ const RolloverTool = {
                     </tbody>
                 </table>
 
-                <h4 style="margin-top: 20px; color: #fff;">12-Month Rollover History</h4>
+                <h4 style="margin-top: 20px; color: #fff;" id="single-symbol-history-title">Rollover History</h4>
                 <div id="rollover-mom-history-chart" style="width: 100%; height: 250px; margin-top: 10px;"></div>
                 <div id="rollover-mom-history-table-container"></div>
                 <p style="color: #888; font-size: 0.85em; margin-top: 15px;">To return to the all F&O view, clear the search and click "Refresh All".</p>
@@ -534,13 +565,22 @@ const RolloverTool = {
             detailsDiv.innerHTML = html;
 
             // Fetch and render MoM history inline
-            const histRes = await fetch(`/api/data/analysis/rollover/history/${symbol}`);
+            const momCheckbox = document.getElementById('rollover-mom-checkbox');
+            const isMoM = momCheckbox ? momCheckbox.checked : false;
+
+            const titleEl = document.getElementById('single-symbol-history-title');
+            if (titleEl) {
+                titleEl.innerText = isMoM ? 'Month-on-Month Rollover History' : 'Daily Rollover History';
+            }
+
+            const histRes = await fetch(`/api/data/analysis/rollover/history/${symbol}?expiry_only=${isMoM}`);
             if (histRes.ok) {
                 const histDataResp = await histRes.json();
                 const histData = Array.isArray(histDataResp) ? histDataResp : (histDataResp.data || []);
                 if (histData.length > 0) {
                     const expiries = histData.map(d => d.date || d.expiry).reverse();
                     const values = histData.map(d => d.rollover_pct).reverse();
+                    const spreads = histData.map(d => d.rollover_cost || 0).reverse();
 
                     // Render Chart
                     const momChartDom = document.getElementById('rollover-mom-history-chart');
@@ -548,20 +588,35 @@ const RolloverTool = {
                     window.rolloverMomChartInstance = echarts.init(momChartDom);
                     window.rolloverMomChartInstance.setOption({
                         backgroundColor: 'transparent',
-                        tooltip: { trigger: 'axis', formatter: '{b}<br/>Rollover: {c}%' },
-                        grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                        legend: { data: ['Rollover %', 'Spread'], top: 0, textStyle: { color: '#ccc' } },
+                        grid: { left: '3%', right: '3%', bottom: '15%', top: '15%', containLabel: true },
                         xAxis: { type: 'category', data: expiries, axisLabel: { color: '#888', fontSize: 10 } },
-                        yAxis: { type: 'value', axisLabel: { color: '#888', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } } },
-                        series: [{
-                            name: 'Rollover',
-                            type: 'line',
-                            symbol: 'circle',
-                            symbolSize: 6,
-                            itemStyle: { color: '#ff9800' }, // Orange
-                            lineStyle: { width: 2 },
-                            data: values,
-                            label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
-                        }]
+                        yAxis: [
+                            { type: 'value', name: 'Rollover %', axisLabel: { color: '#ff9800', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } } },
+                            { type: 'value', name: 'Spread', position: 'right', axisLabel: { color: '#60a5fa' }, splitLine: { show: false } }
+                        ],
+                        series: [
+                            {
+                                name: 'Rollover %',
+                                type: 'line',
+                                yAxisIndex: 0,
+                                symbol: 'circle',
+                                symbolSize: 6,
+                                itemStyle: { color: '#ff9800' }, // Orange
+                                lineStyle: { width: 2 },
+                                data: values,
+                                label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                            },
+                            {
+                                name: 'Spread',
+                                type: 'bar',
+                                yAxisIndex: 1,
+                                itemStyle: { color: (params) => params.value >= 0 ? '#60a5fa' : '#ff4d4d' }, // Blue positive, Red negative
+                                data: spreads,
+                                label: { show: true, position: 'inside', color: '#fff', formatter: '{c}', fontSize: 9 }
+                            }
+                        ]
                     });
 
                     // Render small table
@@ -569,7 +624,9 @@ const RolloverTool = {
                         <thead style="background: #333;"><tr>`;
                     expiries.forEach(e => histTableHtml += `<th style="padding: 4px; color: #aaa;">${e}</th>`);
                     histTableHtml += `</tr></thead><tbody><tr>`;
-                    values.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #fff;">${v}%</td>`);
+                    values.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #ff9800;">${v}%</td>`);
+                    histTableHtml += `</tr><tr>`;
+                    spreads.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: ${v >= 0 ? '#60a5fa' : '#ff4d4d'};">${v}</td>`);
                     histTableHtml += `</tr></tbody></table>`;
                     document.getElementById('rollover-mom-history-table-container').innerHTML = histTableHtml;
                 } else {
