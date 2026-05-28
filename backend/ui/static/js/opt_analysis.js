@@ -194,8 +194,8 @@ async function loadOptionsAnalysis() {
                 textStyle: { color: '#ccc' }
             },
             grid: [
-                { left: '5%', right: '58%', bottom: '5%', top: '10%' },
-                { left: '58%', right: '5%', bottom: '5%', top: '10%' }
+                { left: '5%', right: '56%', bottom: '5%', top: '10%' },
+                { left: '56%', right: '5%', bottom: '5%', top: '10%' }
             ],
             xAxis: [
                 {
@@ -218,7 +218,7 @@ async function loadOptionsAnalysis() {
                     gridIndex: 0,
                     data: strikes,
                     position: 'right',
-                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 30, align: 'center' },
+                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 35, align: 'center' },
                     axisLine: { show: false },
                     axisTick: { show: false }
                 },

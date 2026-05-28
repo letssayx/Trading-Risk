@@ -1235,28 +1235,66 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
 
 
 @router.get("/api/data/analysis/rollover/history/{symbol}")
-def get_stock_rollover_history(symbol: str, db: Session = Depends(get_db)):
+def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Session = Depends(get_db)):
     """
     Returns rollover history for a given stock symbol directly from RolloverAnalysisMetrics.
+    If expiry_only is 'true', it only returns the data for the final expiry days (Month-on-Month trend).
     """
-    from backend.ingest.nse_models import RolloverAnalysisMetrics
+    from backend.ingest.nse_models import RolloverAnalysisMetrics, BhavcopyFO
     from sqlalchemy import desc
 
     symbol = symbol.upper()
+    is_expiry_only = expiry_only.lower() == "true"
 
-    records = db.query(RolloverAnalysisMetrics).filter(
-        RolloverAnalysisMetrics.symbol == symbol
-    ).order_by(desc(RolloverAnalysisMetrics.trade_date)).limit(12).all()
+    if is_expiry_only:
+        # Get historical expiry dates
+        expiries = db.query(BhavcopyFO.expiry_date).filter(
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+        ).distinct().order_by(desc(BhavcopyFO.expiry_date)).all()
+        expiry_dates = [e[0] for e in expiries]
 
-    if not records:
-        return {"data": []}
+        # Fetch records specifically on or just before these expiry dates for the symbol
+        # For simplicity, if we query the last 300 days of rollover metrics, we can just filter in memory
+        records = db.query(RolloverAnalysisMetrics).filter(
+            RolloverAnalysisMetrics.symbol == symbol
+        ).order_by(desc(RolloverAnalysisMetrics.trade_date)).limit(300).all()
 
-    results = []
-    for r in records:
-        results.append({
-            "date": str(r.trade_date),
-            "rollover_pct": round(r.rollover_pct, 2)
-        })
+        results = []
+        seen_expiries = set()
+
+        # We need exactly 12 expiry points
+        for e_date in expiry_dates:
+            if len(results) >= 12:
+                break
+
+            # Find the closest trade date on or before the expiry date
+            closest_record = None
+            for r in records:
+                if r.trade_date <= e_date:
+                    # Also make sure this record actually belongs to this expiry cycle
+                    # by ensuring the trade_date is within ~30 days of the expiry
+                    if (e_date - r.trade_date).days < 30:
+                        closest_record = r
+                    break
+
+            if closest_record and e_date not in seen_expiries:
+                seen_expiries.add(e_date)
+                results.append({
+                    "date": str(e_date),  # Show the expiry date as the label
+                    "rollover_pct": round(closest_record.rollover_pct, 2)
+                })
+    else:
+        # Standard daily progression (last 12 trading days)
+        records = db.query(RolloverAnalysisMetrics).filter(
+            RolloverAnalysisMetrics.symbol == symbol
+        ).order_by(desc(RolloverAnalysisMetrics.trade_date)).limit(12).all()
+
+        results = []
+        for r in records:
+            results.append({
+                "date": str(r.trade_date),
+                "rollover_pct": round(r.rollover_pct, 2)
+            })
 
     # Maintain ascending chronological order as original UI expects
     results.reverse()

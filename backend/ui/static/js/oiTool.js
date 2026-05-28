@@ -530,10 +530,9 @@ const OiTool = {
         let zoomRangeX = Math.max(perc95X * 1.2, 5);
         let zoomRangeY = Math.max(perc95Y * 1.2, 2);
 
-        // Make ranges equal so the center is mathematically (0,0) and remains locked symmetrically
-        const maxRange = Math.max(zoomRangeX, zoomRangeY);
-        zoomRangeX = maxRange;
-        zoomRangeY = maxRange;
+        // Forcing individual symmetric ranges instead of tying them to maxRange,
+        // because OI and Price scales are vastly different.
+        // As long as range is [-X, +X] for x-axis and [-Y, +Y] for y-axis, the 0,0 point will be dead center.
 
         const trace = {
             x: x,

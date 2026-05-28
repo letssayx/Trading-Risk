@@ -43,6 +43,12 @@ const RolloverTool = {
                         </label>
                     </div>
 
+                    <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;" title="Show Month-on-Month expiry rollover instead of daily progression">
+                            <input type="checkbox" id="rollover-mom-checkbox" checked onchange="if(document.getElementById('rollover-symbol').value) { RolloverTool.analyzeSingle(); }"> Month-on-Month
+                        </label>
+                    </div>
+
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
@@ -383,7 +389,11 @@ const RolloverTool = {
                     // Fetch 12-month history for the stock
                     window.rolloverDynamicChartInstance.showLoading({ text: 'Loading 12M History...', color: '#00bcd4', textColor: '#ccc', maskColor: 'rgba(0, 0, 0, 0.5)' });
 
-                    const res = await fetch(`/api/data/analysis/rollover/history/${selectedStock}`);
+                    // Determine if we should load expiry-only or daily history based on a hypothetical checkbox or just default to expiry_only for "12 Month History"
+                    // Since the user requested "expiry to expiry rollover for last 12 months" when checking a box, let's add that logic
+                    const isMoM = document.getElementById('rollover-mom-checkbox') ? document.getElementById('rollover-mom-checkbox').checked : false;
+
+                    const res = await fetch(`/api/data/analysis/rollover/history/${selectedStock}?expiry_only=${isMoM}`);
                     if (!res.ok) throw new Error("Failed to load history");
                     const responseJson = await res.json();
 
