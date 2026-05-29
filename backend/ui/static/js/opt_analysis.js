@@ -194,8 +194,8 @@ async function loadOptionsAnalysis() {
                 textStyle: { color: '#ccc' }
             },
             grid: [
-                { left: '5%', right: '56%', bottom: '5%', top: '10%' }, // Left side (Call OI)
-                { left: '56%', right: '5%', bottom: '5%', top: '10%' }  // Right side (Put OI)
+                { left: '5%', right: '52%', bottom: '5%', top: '10%' }, // Left side (Call OI)
+                { left: '52%', right: '5%', bottom: '5%', top: '10%' }  // Right side (Put OI)
             ],
             xAxis: [
                 {
@@ -218,7 +218,7 @@ async function loadOptionsAnalysis() {
                     gridIndex: 0,
                     data: strikes,
                     position: 'right',
-                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 35, align: 'center' },
+                    axisLabel: { show: true, color: '#FFCC00', fontWeight: 'bold', margin: 45, align: 'center' },
                     axisLine: { show: false },
                     axisTick: { show: false }
                 },

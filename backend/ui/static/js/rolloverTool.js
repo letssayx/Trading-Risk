@@ -26,16 +26,19 @@ const RolloverTool = {
                 <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-shrink: 0;">
                     <h2 style="margin: 0; color: #fff; font-size: 18px;">Rollover Analysis</h2>
 
-                    <div style="position: relative;">
-                        <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px; padding-right: 20px;" oninput="RolloverTool.filterData()">
-                        <span id="rollover-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #888; display: none;" onclick="document.getElementById('rollover-symbol').value=''; RolloverTool.filterData(); RolloverTool.loadAggregatedData(); this.style.display='none';">✖</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="position: relative;">
+                            <input type="text" id="rollover-symbol" class="form-control history-input" placeholder="Search/Filter Symbol" style="width: 150px; padding: 4px; padding-right: 20px;" oninput="RolloverTool.filterData()">
+                            <span id="rollover-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #888; display: none;" onclick="document.getElementById('rollover-symbol').value=''; RolloverTool.filterData(); RolloverTool.loadAggregatedData(); this.style.display='none';">✖</span>
+                        </div>
+                        <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
                     </div>
 
-                    <button onclick="RolloverTool.analyzeSingle()" class="btn btn-secondary">Load Single Details</button>
-
-                    <label style="color:#ccc; font-size:12px; margin-left: 10px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>
-                    <button id="rollover-refresh-btn" onclick="RolloverTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
-
+                    <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
+                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;" title="Show Month-on-Month expiry rollover instead of daily progression">
+                            <input type="checkbox" id="rollover-mom-checkbox" checked onchange="RolloverTool.loadAggregatedData(); if(document.getElementById('rollover-symbol').value) { RolloverTool.analyzeSingle(); }"> Month-on-Month
+                        </label>
+                    </div>
 
                     <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
                         <span style="color: #aaa; font-size: 13px;">History Range:</span>
@@ -50,10 +53,9 @@ const RolloverTool = {
                         </label>
                     </div>
 
-                    <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
-                        <label style="color: #fff; display: flex; align-items: center; gap: 5px; font-size: 13px;" title="Show Month-on-Month expiry rollover instead of daily progression">
-                            <input type="checkbox" id="rollover-mom-checkbox" checked onchange="RolloverTool.loadAggregatedData(); if(document.getElementById('rollover-symbol').value) { RolloverTool.analyzeSingle(); }"> Month-on-Month
-                        </label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-left: auto;">
+                        <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>
+                        <button id="rollover-refresh-btn" onclick="RolloverTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     </div>
 
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
@@ -399,10 +401,10 @@ const RolloverTool = {
                     };
                     window.rolloverDynamicChartInstance.setOption(option);
                 } else {
-                    // Fetch 12-month history for the stock
-                    window.rolloverDynamicChartInstance.showLoading({ text: 'Loading 12M History...', color: '#00bcd4', textColor: '#ccc', maskColor: 'rgba(0, 0, 0, 0.5)' });
+                    // Fetch 24-month history for the stock
+                    window.rolloverDynamicChartInstance.showLoading({ text: 'Loading 24M History...', color: '#00bcd4', textColor: '#ccc', maskColor: 'rgba(0, 0, 0, 0.5)' });
 
-                    // Determine if we should load expiry-only or daily history based on a hypothetical checkbox or just default to expiry_only for "12 Month History"
+                    // Determine if we should load expiry-only or daily history based on a hypothetical checkbox or just default to expiry_only for "24 Month History"
                     // Since the user requested "expiry to expiry rollover for last 12 months" when checking a box, let's add that logic
                     const isMoM = document.getElementById('rollover-mom-checkbox') ? document.getElementById('rollover-mom-checkbox').checked : false;
 
@@ -556,7 +558,10 @@ const RolloverTool = {
                     </tbody>
                 </table>
 
-                <h4 style="margin-top: 20px; color: #fff;" id="single-symbol-history-title">Rollover History</h4>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 20px;">
+                    <h4 style="margin: 0; color: #fff;" id="single-symbol-history-title">24-Month Rollover History</h4>
+                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverMomChartInstance) exportChartDataToCSV(window.rolloverMomChartInstance, 'Rollover_History_${symbol}');"><i class="fas fa-download"></i> CSV</button>
+                </div>
                 <div id="rollover-mom-history-chart" style="width: 100%; height: 250px; margin-top: 10px;"></div>
                 <div id="rollover-mom-history-table-container"></div>
                 <p style="color: #888; font-size: 0.85em; margin-top: 15px;">To return to the all F&O view, clear the search and click "Refresh All".</p>

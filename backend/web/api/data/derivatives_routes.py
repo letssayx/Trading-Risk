@@ -446,6 +446,7 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
         hist_dates = []
 
         if is_expiry_only:
+            target_months = 24
             # Get historical expiry dates
             expiries = db.query(BhavcopyFO.expiry_date).filter(
                 BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
@@ -453,18 +454,17 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
             expiry_dates = [e[0] for e in expiries]
 
             # Fetch the closest trade dates that match the expiries, plus the latest date
-            # Limit the search to the required 'days' points (which essentially represents 'months' here)
             dates_query = db.query(RolloverAnalysisMetrics.trade_date)\
                       .distinct()\
                       .order_by(RolloverAnalysisMetrics.trade_date.desc())\
-                      .limit(300).all()
+                      .limit(600).all()
             all_trade_dates = [d[0] for d in dates_query]
 
             hist_dates.append(latest_date) # Always include latest
 
             seen_expiries = set()
             for e_date in expiry_dates:
-                if len(hist_dates) >= days + 1:
+                if len(hist_dates) >= target_months + 1:
                     break
                 # Find the closest trade date on or before the expiry date
                 for t_date in all_trade_dates:
@@ -525,7 +525,9 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
                 p_price_chg = curr_r.price_chg_pct
                 p_oi_chg = curr_r.oi_chg_pct
 
-                if i < days and dt in hist_dates[:days]:
+                target_len = 24 if is_expiry_only else days
+
+                if len(history_arr) < target_len and dt in hist_dates:
                     history_arr.append({
                         "date": str(dt),
                         "rollover_pct": round(c_rollover_pct, 2),
@@ -1289,14 +1291,14 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
         # For simplicity, if we query the last 300 days of rollover metrics, we can just filter in memory
         records = db.query(RolloverAnalysisMetrics).filter(
             RolloverAnalysisMetrics.symbol == symbol
-        ).order_by(desc(RolloverAnalysisMetrics.trade_date)).limit(300).all()
+        ).order_by(desc(RolloverAnalysisMetrics.trade_date)).limit(600).all()
 
         results = []
         seen_expiries = set()
 
-        # We need exactly 12 expiry points
+        # We need exactly 24 expiry points
         for e_date in expiry_dates:
-            if len(results) >= 12:
+            if len(results) >= 24:
                 break
 
             # Find the closest trade date on or before the expiry date
