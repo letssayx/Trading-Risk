@@ -1,0 +1,48 @@
+from fastapi import APIRouter
+from pydantic import BaseModel
+
+router = APIRouter()
+
+@router.get("/api/data/analysis/rollover")
+def mock_rollover():
+    return {
+        "date": "2026-05-29",
+        "data": [
+            {
+                "symbol": "NIFTY",
+                "rollover_cost": 0.5,
+                "rollover_cost_pct": 0.1,
+                "rollover_pct": 75,
+                "spot_price": 20000,
+                "price_chg": 50,
+                "price_chg_pct": 0.25,
+                "history": []
+            },
+            {
+                "symbol": "RELIANCE",
+                "rollover_cost": 2.5,
+                "rollover_cost_pct": 0.2,
+                "rollover_pct": 80,
+                "spot_price": 2500,
+                "price_chg": 10,
+                "price_chg_pct": 0.4,
+                "history": []
+            }
+        ]
+    }
+
+@router.get("/api/data/analysis/rollover/{symbol}")
+def mock_rollover_single(symbol: str):
+    return {
+        "date": "2026-05-29",
+        "data": [
+            {
+                "date": "2026-05-29",
+                "expiry": "2026-06-25",
+                "rollover_cost": 0.5,
+                "rollover_cost_pct": 0.1,
+                "rollover_pct": 75,
+                "spot_price": 20000
+            }
+        ]
+    }

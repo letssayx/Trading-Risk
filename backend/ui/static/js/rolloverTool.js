@@ -12,11 +12,6 @@ const RolloverTool = {
       if (symInput && !symInput.value.trim()) {
         symInput.value = "NIFTY";
       }
-
-      const symInput = document.getElementById("rollover-symbol");
-      if (symInput && !symInput.value.trim()) {
-        symInput.value = "NIFTY";
-      }
       this.loadAggregatedData();
       this.analyzeSingle();
     }
