@@ -1,0 +1,11 @@
+--- backend/ui/static/js/rolloverTool.js
++++ backend/ui/static/js/rolloverTool.js
+@@ -399,7 +399,7 @@
+           let histTableHtml = `<table style="width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 0.85em; text-align: center;">
+                         <thead style="background: #333;"><tr>`;
+           expiries.forEach(
+             (e) =>
+-              (histTableHtml += `<th style="padding: 4px; color: #aaa;">${e}</th>`),
++              (histTableHtml += `<th style="padding: 4px; color: #aaa;">${e}<br><span style="font-size:9px; color:#aaa;">Roll% | Spread | BPS</span></th>`),
+           );
+           histTableHtml += `</tr></thead><tbody><tr>`;
