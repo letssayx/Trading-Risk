@@ -66,13 +66,11 @@ const RolloverTool = {
                     <span id="rollover-date-display" style="color: #888; margin-left: auto;"></span>
                 </div>
 
-
                 <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
                     <!-- Single Scrip Details -->
                     <div id="rollover-single-details"></div>
 
                     <!-- Charts Area -->
-
                     <div style="display: flex; gap: 20px; height: 300px; flex-shrink: 0; width: 100%;">
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -115,8 +113,6 @@ const RolloverTool = {
                             </tbody>
                         </table>
 
-                    </div>
-
                     <!-- Matrix Table -->
                     <div style="display: flex; justify-content: flex-end; margin-bottom: -15px;">
                         <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixCSV()"><i class="fas fa-download"></i> CSV</button>
@@ -124,7 +120,6 @@ const RolloverTool = {
                     <div id="rollover-matrix-container" class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto;">
                     </div>
                 </div>
-
             </div>
         `;
 
@@ -191,11 +186,7 @@ const RolloverTool = {
         const tbody = document.getElementById('rollover-analysis-body');
         const dateDisplay = document.getElementById('rollover-date-display');
 
-        // Remove single symbol details if present
-        const detailsDiv = document.getElementById('rollover-single-details');
-        if (detailsDiv) {
-            detailsDiv.remove();
-        }
+
 
         if (!tbody) return;
 
@@ -242,6 +233,7 @@ const RolloverTool = {
 
             // Also load the charts since data is refreshed
             this.updateDynamicChart();
+            this.renderMatrix(this.allData, isMoM);
 
         } catch(e) {
             tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
