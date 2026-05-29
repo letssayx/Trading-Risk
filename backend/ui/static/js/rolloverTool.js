@@ -651,7 +651,7 @@ const RolloverTool = {
 
     handleTick: function(tick) {
         // Update
-    }
+    },
 
     exportMatrixCSV: function() {
         const matrixContainer = document.getElementById('rollover-matrix-container');
