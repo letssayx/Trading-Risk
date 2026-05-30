@@ -70,7 +70,18 @@ const RolloverTool = {
                     <!-- 1. Single Scrip Details Area -->
                     <div id="rollover-single-details" style="min-height: 100px; display: block;"></div>
 
-                    <!-- 2. Charts Area -->
+                    <!-- 2. Matrix Table Area (New) -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
+                            <h4 style="margin: 0; color: #fff;">Historical 24-Month Matrix</h4>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixCSV()"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div id="rollover-matrix-container" class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto; display: block;">
+                            <p style="text-align:center; color:#888; padding: 20px;">Fetching Historical F&O Matrix...</p>
+                        </div>
+                    </div>
+
+                    <!-- 3. Charts Area -->
                     <div style="display: flex; gap: 20px; height: 300px; flex-shrink: 0; width: 100%;">
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -88,7 +99,7 @@ const RolloverTool = {
                         </div>
                     </div>
 
-                    <!-- 3. Table Area (Original) -->
+                    <!-- 4. Table Area (Original) -->
                     <div>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
                             <h4 style="margin: 0; color: #fff;">Daily F&O Rollover Data</h4>
@@ -114,17 +125,6 @@ const RolloverTool = {
                                     <tr><td colspan="10" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-
-                    <!-- 4. Matrix Table Area (New) -->
-                    <div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
-                            <h4 style="margin: 0; color: #fff;">Historical 24-Month Matrix</h4>
-                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixCSV()"><i class="fas fa-download"></i> CSV</button>
-                        </div>
-                        <div id="rollover-matrix-container" class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto; display: block;">
-                            <p style="text-align:center; color:#888; padding: 20px;">Fetching Historical F&O Matrix...</p>
                         </div>
                     </div>
 </div>
@@ -742,7 +742,8 @@ const RolloverTool = {
                 <thead style="position: sticky; top: 0; background: #222; z-index: 2;">
                     <tr>
                         <th style="position: sticky; left: 0; background: #222; z-index: 3;">Symbol</th>
-                        ${displayDates.map(date => `<th style="text-align: center;">${date}<br><span style="font-size:9px; color:#aaa;">Roll% | Spread | BPS</span></th>`).join('')}
+                        <th style="position: sticky; left: 80px; background: #222; z-index: 3;">Metric</th>
+                        ${displayDates.map(date => `<th style="text-align: center;">${date}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>
@@ -759,30 +760,48 @@ const RolloverTool = {
                 });
             }
 
-            tableHtml += `<tr style="cursor: pointer;" onclick="document.getElementById('rollover-symbol').value='${item.symbol}'; RolloverTool.analyzeSingle(); window.scrollTo(0,0);">`;
-            tableHtml += `<td style="position: sticky; left: 0; background: #2a2a2a; color: #64b5f6; font-weight: bold; z-index: 1;">${item.symbol}</td>`;
+            const clickHandler = `document.getElementById('rollover-symbol').value='${item.symbol}'; RolloverTool.analyzeSingle(); window.scrollTo(0,0);`;
+
+            // Row 1: Roll %
+            tableHtml += `<tr style="cursor: pointer;" onclick="${clickHandler}">`;
+            tableHtml += `<td rowspan="3" style="position: sticky; left: 0; background: #2a2a2a; color: #64b5f6; font-weight: bold; z-index: 1; vertical-align: middle; border-bottom: 2px solid #555;">${item.symbol}</td>`;
+            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1;">Roll %</td>`;
 
             displayDates.forEach(date => {
                 const h = histMap[date];
-                if (h) {
-                    const roll = h.rollover_pct !== null && h.rollover_pct !== undefined ? h.rollover_pct.toFixed(1) + '%' : '-';
-                    const spread = h.rollover_cost !== null && h.rollover_cost !== undefined ? h.rollover_cost.toFixed(2) : '-';
-
-                    let bps = '-';
-                    if (h.rollover_cost !== null && h.fut_price !== null && h.fut_price > 0) {
-                        bps = ((h.rollover_cost / h.fut_price) * 10000).toFixed(1);
-                    }
-
-                    tableHtml += `<td style="text-align: center; border-right: 1px solid #444;">
-                        <span style="color: #fff;">${roll}</span> <span style="color:#555;">|</span>
-                        <span style="color: #bbb;">${spread}</span> <span style="color:#555;">|</span>
-                        <span style="color: #ffb74d;">${bps}</span>
-                    </td>`;
+                if (h && h.rollover_pct !== null && h.rollover_pct !== undefined) {
+                    tableHtml += `<td style="text-align: center; color: #fff;">${h.rollover_pct.toFixed(1)}%</td>`;
                 } else {
-                    tableHtml += `<td style="text-align: center; color: #555; border-right: 1px solid #444;">- | - | -</td>`;
+                    tableHtml += `<td style="text-align: center; color: #555;">-</td>`;
                 }
             });
+            tableHtml += `</tr>`;
 
+            // Row 2: Spread
+            tableHtml += `<tr style="cursor: pointer;" onclick="${clickHandler}">`;
+            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1;">Spread</td>`;
+            displayDates.forEach(date => {
+                const h = histMap[date];
+                if (h && h.rollover_cost !== null && h.rollover_cost !== undefined) {
+                    tableHtml += `<td style="text-align: center; color: #bbb;">${h.rollover_cost.toFixed(2)}</td>`;
+                } else {
+                    tableHtml += `<td style="text-align: center; color: #555;">-</td>`;
+                }
+            });
+            tableHtml += `</tr>`;
+
+            // Row 3: BPS
+            tableHtml += `<tr style="cursor: pointer; border-bottom: 2px solid #555;" onclick="${clickHandler}">`;
+            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1;">BPS</td>`;
+            displayDates.forEach(date => {
+                const h = histMap[date];
+                if (h && h.rollover_cost !== null && h.fut_price !== null && h.fut_price > 0) {
+                    const bps = ((h.rollover_cost / h.fut_price) * 10000).toFixed(1);
+                    tableHtml += `<td style="text-align: center; color: #ffb74d;">${bps}</td>`;
+                } else {
+                    tableHtml += `<td style="text-align: center; color: #555;">-</td>`;
+                }
+            });
             tableHtml += `</tr>`;
         });
 
