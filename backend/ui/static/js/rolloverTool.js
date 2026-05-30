@@ -114,6 +114,7 @@ const RolloverTool = {
                                         <th style="padding: 8px;">Date</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('bps')">BPS ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('fut_close')">FUT Price ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
@@ -122,7 +123,7 @@ const RolloverTool = {
                                     </tr>
                                 </thead>
                                 <tbody id="rollover-analysis-body">
-                                    <tr><td colspan="10" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
+                                    <tr><td colspan="11" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -257,31 +258,40 @@ const RolloverTool = {
         }
 
         // Sort Data
-        displayData.sort((a, b) => {
-            let valA = a[this.currentSortCol];
-            let valB = b[this.currentSortCol];
+        if (this.currentSortCol === 'bps') {
+            displayData.sort((a, b) => {
+                let valA = (a.price && a.price > 0) ? ((a.rollover_cost / a.price) * 10000) : 0;
+                let valB = (b.price && b.price > 0) ? ((b.rollover_cost / b.price) * 10000) : 0;
+                return this.currentSortAsc ? valA - valB : valB - valA;
+            });
+        } else {
+            displayData.sort((a, b) => {
+                let valA = a[this.currentSortCol];
+                let valB = b[this.currentSortCol];
 
-            if (typeof valA === 'string') valA = valA.toUpperCase();
-            if (typeof valB === 'string') valB = valB.toUpperCase();
+                if (typeof valA === 'string') valA = valA.toUpperCase();
+                if (typeof valB === 'string') valB = valB.toUpperCase();
 
-            if (valA < valB) return this.currentSortAsc ? -1 : 1;
-            if (valA > valB) return this.currentSortAsc ? 1 : -1;
-            return 0;
-        });
+                if (valA < valB) return this.currentSortAsc ? -1 : 1;
+                if (valA > valB) return this.currentSortAsc ? 1 : -1;
+                return 0;
+            });
+        }
 
         // Render Table
         const tbody = document.getElementById('rollover-analysis-body');
         tbody.innerHTML = '';
 
         if (displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#888;">No F&O stocks found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found.</td></tr>';
         } else {
             let html = '';
             displayData.forEach(d => {
                 let costColor = d.rollover_cost >= 0 ? '#60a5fa' : '#ff4d4d';
-                let rollColor = d.rollover_pct >= 80 ? '#60a5fa' : '#ccc';
+                let rollColor = '#ff9800'; // Orange to match charts
                 let pColor = d.price_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                 let oColor = d.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
+                let bps = (d.price && d.price > 0) ? ((d.rollover_cost / d.price) * 10000) : 0;
 
                 html += `
                 <tr class="roll-row" onclick="RolloverTool.toggleHistory('${d.symbol}')" style="cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s;" onmouseover="this.style.background='#2a2a2a'" onmouseout="this.style.background='transparent'">
@@ -290,6 +300,7 @@ const RolloverTool = {
                     <td style="padding: 10px 8px; color: #aaa;">${d.date || d.history?.[0]?.date || '-'} (Latest)</td>
                     <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
                     <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost||0).toFixed(2)}</td>
+                    <td style="padding: 10px 8px; color: #ffffff;">${bps.toFixed(1)}</td>
                     <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost_pct||0).toFixed(2)}%</td>
                     <td style="padding: 10px 8px; color: #ffffff;">${(d.price||0).toFixed(2)}</td>
                     <td style="padding: 10px 8px; color: ${pColor};">${(d.price_chg_pct||0).toFixed(2)}%</td>
@@ -303,13 +314,16 @@ const RolloverTool = {
                         let hoColor = h.oi_chg_pct >= 0 ? '#60a5fa' : '#ff4d4d';
                         let rowBg = '#151515';
                         let hCostColor = h.rollover_cost >= 0 ? '#60a5fa' : '#ff4d4d';
-                        // Matching exact columns: [Icon, Symbol/Date, Rollover %, Spread, Cost %, FUT Price, Price Chg %, Total OI, OI Chg %]
+                        let hBps = (h.price && h.price > 0) ? ((h.rollover_cost / h.price) * 10000) : 0;
+                        let hRollColor = '#ff9800'; // Orange
+                        // Matching exact columns: [Icon, Symbol/Date, Rollover %, Spread, BPS, Cost %, FUT Price, Price Chg %, Total OI, OI Chg %]
                         html += `<tr class="roll-history-row-${d.symbol}" style="background: ${rowBg}; border-bottom: 1px solid #222; font-size: 0.85em; display: none;">
                             <td style="padding: 6px 8px; width: 30px; border-right: 1px solid #333;"></td>
                             <td style="padding: 6px 8px;"></td>
                             <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
-                            <td style="padding: 6px 8px; color: #00bcd4;">${(h.rollover_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: ${hRollColor};">${(h.rollover_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost || 0).toFixed(2)}</td>
+                            <td style="padding: 6px 8px; color: #ffffff;">${hBps.toFixed(1)}</td>
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${(h.price || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: ${hpColor};">${(h.price_chg_pct || 0).toFixed(2)}%</td>
@@ -324,13 +338,25 @@ const RolloverTool = {
 
     },
 
-        sortData: function(col) {
+    sortData: function(col) {
+        if (!document.getElementById('rollover-analysis-body')) return;
+
         if (this.currentSortCol === col) {
             this.currentSortAsc = !this.currentSortAsc;
         } else {
             this.currentSortCol = col;
             this.currentSortAsc = true;
         }
+
+        // Custom sorting for calculated BPS
+        if (col === 'bps') {
+            this.aggregatedData.sort((a, b) => {
+                let valA = (a.price && a.price > 0) ? ((a.rollover_cost / a.price) * 10000) : 0;
+                let valB = (b.price && b.price > 0) ? ((b.rollover_cost / b.price) * 10000) : 0;
+                return this.currentSortAsc ? valA - valB : valB - valA;
+            });
+        }
+
         this.renderAggregatedView();
     },
 
@@ -505,17 +531,6 @@ const RolloverTool = {
         this.renderAggregatedView();
     },
 
-    sortData: function(col) {
-        if (!document.getElementById('rollover-analysis-body')) return;
-
-        if (this.currentSortCol === col) {
-            this.currentSortAsc = !this.currentSortAsc;
-        } else {
-            this.currentSortCol = col;
-            this.currentSortAsc = false;
-        }
-        this.renderAggregatedView();
-    },
 
     analyzeSingle: async function() {
         const symbol = document.getElementById('rollover-symbol').value.toUpperCase().trim();
