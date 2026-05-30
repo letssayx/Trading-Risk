@@ -67,10 +67,10 @@ const RolloverTool = {
                 </div>
 
                 <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
-                    <!-- Single Scrip Details -->
-                    <div id="rollover-single-details"></div>
+                    <!-- 1. Single Scrip Details Area -->
+                    <div id="rollover-single-details" style="min-height: 100px; display: block;"></div>
 
-                    <!-- Charts Area -->
+                    <!-- 2. Charts Area -->
                     <div style="display: flex; gap: 20px; height: 300px; flex-shrink: 0; width: 100%;">
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -88,38 +88,46 @@ const RolloverTool = {
                         </div>
                     </div>
 
-                    <!-- Table Area -->
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 5px;">
-                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
+                    <!-- 3. Table Area (Original) -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
+                            <h4 style="margin: 0; color: #fff;">Daily F&O Rollover Data</h4>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto;">
+                            <table class="data-table" id="rollover-analysis-table" style="width: 100%; table-layout: fixed;">
+                                <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 8px; width: 30px;"></th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
+                                        <th style="padding: 8px;">Date</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('fut_close')">FUT Price ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('total_oi')">Total OI ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rollover-analysis-body">
+                                    <tr><td colspan="10" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto;">
-                        <table class="data-table" id="rollover-analysis-table" style="width: 100%; table-layout: fixed;">
-                            <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
-                                <tr>
-                                    <th style="padding: 8px; width: 30px;"></th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
-                                    <th style="padding: 8px;">Date</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('fut_close')">FUT Price ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('price_chg_pct')">Price Chg % ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('total_oi')">Total OI ↕</th>
-                                    <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('oi_chg_pct')">OI Chg % ↕</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rollover-analysis-body">
-                                <tr><td colspan="9" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
-                            </tbody>
-                        </table>
 
-                    <!-- Matrix Table -->
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: -15px;">
-                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixCSV()"><i class="fas fa-download"></i> CSV</button>
+                    <!-- 4. Matrix Table Area (New) -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
+                            <h4 style="margin: 0; color: #fff;">Historical 24-Month Matrix</h4>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixCSV()"><i class="fas fa-download"></i> CSV</button>
+                        </div>
+                        <div id="rollover-matrix-container" class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto; display: block;">
+                            <p style="text-align:center; color:#888; padding: 20px;">Fetching Historical F&O Matrix...</p>
+                        </div>
                     </div>
-                    <div id="rollover-matrix-container" class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; flex: 1; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto;">
-                    </div>
-                </div>
+</div>
             </div>
         `;
 
@@ -595,8 +603,15 @@ const RolloverTool = {
                 const histData = Array.isArray(histDataResp) ? histDataResp : (histDataResp.data || []);
                 if (histData.length > 0) {
                     const expiries = histData.map(d => d.date || d.expiry).reverse();
-                    const values = histData.map(d => d.rollover_pct).reverse();
-                    const spreads = histData.map(d => d.rollover_cost || 0).reverse();
+                        const values = histData.map(d => d.rollover_pct).reverse();
+                        const spreads = histData.map(d => d.rollover_cost || 0).reverse();
+                        const bpsValues = histData.map(d => {
+                            const fPrice = d.price !== undefined ? d.price : d.fut_price;
+                            if (d.rollover_cost !== null && fPrice !== null && fPrice > 0) {
+                                return ((d.rollover_cost / fPrice) * 10000).toFixed(1);
+                            }
+                            return "-";
+                        }).reverse();
 
                     // Render Chart
                     const momChartDom = document.getElementById('rollover-mom-history-chart');
@@ -637,13 +652,15 @@ const RolloverTool = {
 
                     // Render small table
                     let histTableHtml = `<table style="width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 0.85em; text-align: center;">
-                        <thead style="background: #333;"><tr>`;
-                    expiries.forEach(e => histTableHtml += `<th style="padding: 4px; color: #aaa;">${e}</th>`);
-                    histTableHtml += `</tr></thead><tbody><tr>`;
-                    values.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #ff9800;">${v}%</td>`);
-                    histTableHtml += `</tr><tr>`;
-                    spreads.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: ${v >= 0 ? '#60a5fa' : '#ff4d4d'};">${v}</td>`);
-                    histTableHtml += `</tr></tbody></table>`;
+                            <thead style="background: #333;"><tr>`;
+                        expiries.forEach(e => histTableHtml += `<th style="padding: 4px; color: #aaa;">${e}<br><span style="font-size:9px; color:#aaa;">Roll% | Spread | BPS</span></th>`);
+                        histTableHtml += `</tr></thead><tbody><tr>`;
+                        values.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #ff9800;">${v !== null && v !== undefined ? v + '%' : '-'}</td>`);
+                        histTableHtml += `</tr><tr>`;
+                        spreads.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: ${v >= 0 ? '#60a5fa' : '#ff4d4d'};">${v}</td>`);
+                        histTableHtml += `</tr><tr>`;
+                        bpsValues.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #ffb74d;">${v}</td>`);
+                        histTableHtml += `</tr></tbody></table>`;
                     document.getElementById('rollover-mom-history-table-container').innerHTML = histTableHtml;
                 } else {
                     document.getElementById('rollover-mom-history-chart').innerHTML = `<p style="color:#888;">No historical data available.</p>`;
@@ -697,11 +714,9 @@ const RolloverTool = {
         if (!container) return;
 
         if (!data || data.length === 0) {
-            container.style.display = 'none';
+            container.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">No historical matrix data available.</p>';
             return;
         }
-
-        container.style.display = 'block';
 
         // Extract all unique dates from the history of all stocks
         const dateSet = new Set();
