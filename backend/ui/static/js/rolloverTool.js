@@ -68,10 +68,10 @@ const RolloverTool = {
 
                 <div id="rollover-results" style="flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
                     <!-- 1. Single Scrip Details Area -->
-                    <div id="rollover-single-details" style="min-height: 100px; display: block;"></div>
+                    <div id="rollover-single-details" style="flex-shrink: 0; min-height: 100px; display: block;"></div>
 
                     <!-- 2. Matrix Table Area (New) -->
-                    <div>
+                    <div style="flex-shrink: 0;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
                             <h4 style="margin: 0; color: #fff;">Historical 24-Month Matrix</h4>
                             <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixCSV()"><i class="fas fa-download"></i> CSV</button>
@@ -82,7 +82,7 @@ const RolloverTool = {
                     </div>
 
                     <!-- 3. Charts Area -->
-                    <div style="display: flex; gap: 20px; height: 300px; flex-shrink: 0; width: 100%;">
+                    <div style="display: flex; gap: 20px; height: 350px; flex-shrink: 0; width: 100%;">
                         <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                                 <div style="display:flex; gap:10px;">
@@ -100,7 +100,7 @@ const RolloverTool = {
                     </div>
 
                     <!-- 4. Table Area (Original) -->
-                    <div>
+                    <div style="flex-shrink: 0;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
                             <h4 style="margin: 0; color: #fff;">Daily F&O Rollover Data</h4>
                             <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
@@ -738,12 +738,12 @@ const RolloverTool = {
         const displayDates = dates.slice(0, 24);
 
         let tableHtml = `
-            <table class="table table-bordered table-hover" style="font-size: 11px; white-space: nowrap; margin-bottom: 0;">
-                <thead style="position: sticky; top: 0; background: #222; z-index: 2;">
+            <table class="table table-bordered table-hover" style="font-size: 11px; white-space: nowrap; margin-bottom: 0; border-collapse: collapse; width: 100%;">
+                <thead style="position: sticky; top: 0; background: #222; z-index: 2; border-bottom: 2px solid #555;">
                     <tr>
-                        <th style="position: sticky; left: 0; background: #222; z-index: 3;">Symbol</th>
-                        <th style="position: sticky; left: 80px; background: #222; z-index: 3;">Metric</th>
-                        ${displayDates.map(date => `<th style="text-align: center;">${date}</th>`).join('')}
+                        <th style="position: sticky; left: 0; background: #222; z-index: 3; border: 1px solid #444; padding: 6px 10px;">Symbol</th>
+                        <th style="position: sticky; left: 80px; background: #222; z-index: 3; border: 1px solid #444; padding: 6px 10px;">Metric</th>
+                        ${displayDates.map(date => `<th style="text-align: center; border: 1px solid #444; padding: 6px;">${date}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>
@@ -764,42 +764,42 @@ const RolloverTool = {
 
             // Row 1: Roll %
             tableHtml += `<tr style="cursor: pointer;" onclick="${clickHandler}">`;
-            tableHtml += `<td rowspan="3" style="position: sticky; left: 0; background: #2a2a2a; color: #64b5f6; font-weight: bold; z-index: 1; vertical-align: middle; border-bottom: 2px solid #555;">${item.symbol}</td>`;
-            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1;">Roll %</td>`;
+            tableHtml += `<td rowspan="3" style="position: sticky; left: 0; background: #2a2a2a; color: #64b5f6; font-weight: bold; z-index: 1; vertical-align: middle; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px 10px;">${item.symbol}</td>`;
+            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1; border: 1px solid #444; padding: 4px 10px;">Roll %</td>`;
 
             displayDates.forEach(date => {
                 const h = histMap[date];
                 if (h && h.rollover_pct !== null && h.rollover_pct !== undefined) {
-                    tableHtml += `<td style="text-align: center; color: #fff;">${h.rollover_pct.toFixed(1)}%</td>`;
+                    tableHtml += `<td style="text-align: center; color: #fff; border: 1px solid #444; padding: 4px;">${h.rollover_pct.toFixed(1)}%</td>`;
                 } else {
-                    tableHtml += `<td style="text-align: center; color: #555;">-</td>`;
+                    tableHtml += `<td style="text-align: center; color: #555; border: 1px solid #444; padding: 4px;">-</td>`;
                 }
             });
             tableHtml += `</tr>`;
 
             // Row 2: Spread
             tableHtml += `<tr style="cursor: pointer;" onclick="${clickHandler}">`;
-            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1;">Spread</td>`;
+            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1; border: 1px solid #444; padding: 4px 10px;">Spread</td>`;
             displayDates.forEach(date => {
                 const h = histMap[date];
                 if (h && h.rollover_cost !== null && h.rollover_cost !== undefined) {
-                    tableHtml += `<td style="text-align: center; color: #bbb;">${h.rollover_cost.toFixed(2)}</td>`;
+                    tableHtml += `<td style="text-align: center; color: #bbb; border: 1px solid #444; padding: 4px;">${h.rollover_cost.toFixed(2)}</td>`;
                 } else {
-                    tableHtml += `<td style="text-align: center; color: #555;">-</td>`;
+                    tableHtml += `<td style="text-align: center; color: #555; border: 1px solid #444; padding: 4px;">-</td>`;
                 }
             });
             tableHtml += `</tr>`;
 
             // Row 3: BPS
-            tableHtml += `<tr style="cursor: pointer; border-bottom: 2px solid #555;" onclick="${clickHandler}">`;
-            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1;">BPS</td>`;
+            tableHtml += `<tr style="cursor: pointer;" onclick="${clickHandler}">`;
+            tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px 10px;">BPS</td>`;
             displayDates.forEach(date => {
                 const h = histMap[date];
                 if (h && h.rollover_cost !== null && h.fut_price !== null && h.fut_price > 0) {
                     const bps = ((h.rollover_cost / h.fut_price) * 10000).toFixed(1);
-                    tableHtml += `<td style="text-align: center; color: #ffb74d;">${bps}</td>`;
+                    tableHtml += `<td style="text-align: center; color: #ffb74d; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px;">${bps}</td>`;
                 } else {
-                    tableHtml += `<td style="text-align: center; color: #555;">-</td>`;
+                    tableHtml += `<td style="text-align: center; color: #555; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px;">-</td>`;
                 }
             });
             tableHtml += `</tr>`;
