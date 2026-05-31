@@ -314,8 +314,7 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
             BhavcopyFO.option_type,
             BhavcopyFO.close_price,
             BhavcopyFO.open_interest,
-            BhavcopyFO.total_trading_vol,
-            BhavcopyFO.timestamp
+            BhavcopyFO.total_trading_vol
         ).filter(
             BhavcopyFO.ticker_symb == symbol,
             BhavcopyFO.trade_date == latest_fo_date,
@@ -339,7 +338,7 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
                     "dte": (r.expiry_date - latest_fo_date).days if r.expiry_date else 0,
                     "ce_ltp": 0.0, "ce_oi": 0, "ce_vol": 0,
                     "pe_ltp": 0.0, "pe_oi": 0, "pe_vol": 0,
-                    "timestamp": r.timestamp.strftime('%Y-%m-%d %H:%M:%S') if r.timestamp else "-"
+                    "timestamp": latest_fo_date.strftime('%Y-%m-%d')
                 }
 
             if r.option_type == 'CE':

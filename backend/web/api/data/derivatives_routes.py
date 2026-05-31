@@ -1803,8 +1803,7 @@ def get_index_basket_data(symbols: list[str], expiry_type: str = "near", db: Ses
             BhavcopyFO.expiry_date,
             BhavcopyFO.close_price,
             BhavcopyFO.open_interest,
-            BhavcopyFO.total_trading_vol,
-            BhavcopyFO.timestamp
+            BhavcopyFO.total_trading_vol
         ).filter(
             BhavcopyFO.trade_date == latest_fo_date,
             BhavcopyFO.ticker_symb.in_(query_symbols),
@@ -1822,7 +1821,7 @@ def get_index_basket_data(symbols: list[str], expiry_type: str = "near", db: Ses
                 "price": float(r.close_price) if r.close_price else 0.0,
                 "oi": int(r.open_interest) if r.open_interest else 0,
                 "vol": int(r.total_trading_vol) if r.total_trading_vol else 0,
-                "timestamp": r.timestamp.strftime('%Y-%m-%d %H:%M:%S') if r.timestamp else "-"
+                "timestamp": latest_fo_date.strftime('%Y-%m-%d')
             })
 
         # Select expiry tier
