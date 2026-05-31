@@ -1136,6 +1136,7 @@
                 <div class="wb-tab" id="deriv-tab-btn-options" onclick="switchDerivTab('options')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Chain</div>
                 <div class="wb-tab" id="deriv-tab-btn-optanalysis" onclick="switchDerivTab('optanalysis')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Volatility Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-optstrategy" onclick="switchDerivTab('optstrategy')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Option Strategy</div>
+                <div class="wb-tab" id="deriv-tab-btn-idxbasket" onclick="switchDerivTab('idxbasket')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Index Basket</div>
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
@@ -2314,9 +2315,146 @@
                 </div>
 
                 <!-- SUB-TAB: Option Strategy -->
-                <div id="deriv-tab-optstrategy" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; ">
-                    <h2 style="color: #fff; margin-top: 0;">Option Strategy</h2>
-                    <p style="color: #888;">Coming Soon: Option strategies like covered call, Gamma Short, options expiry strategy, etc.</p>
+                <div id="deriv-tab-optstrategy" class="deriv-sub-tab" style="height: 100%; width: 100%; display: flex; flex-direction: column;">
+                    <div style="background: #1e1e1e; padding: 10px 20px 0 20px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
+                        <div class="optstrat-tab active" id="optstrat-tab-btn-putcall" onclick="switchOptStratTab('putcall')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; font-size: 14px; color: #fff;">Put-call Parity</div>
+                        <div class="optstrat-tab" id="optstrat-tab-btn-coveredcall" onclick="switchOptStratTab('coveredcall')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; font-size: 14px; color: #ccc;">Covered Call</div>
+                        <div class="optstrat-tab" id="optstrat-tab-btn-volskew" onclick="switchOptStratTab('volskew')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; font-size: 14px; color: #ccc;">Volatility Skew</div>
+                    </div>
+
+                    <div style="flex: 1; overflow-y: auto; position: relative;">
+                        <!-- Put-call Parity Tab -->
+                        <div id="optstrat-tab-putcall" class="optstrat-sub-tab active" style="padding: 20px; height: 100%;">
+                            <h2 style="color: #fff; margin-top: 0; font-size: 18px;">Put-call Parity (Nifty)</h2>
+                            <p style="color: #888; font-size: 12px; margin-bottom: 15px;">Synthetic Future = Strike Price + Call LTP - Put LTP</p>
+
+                            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                                <select id="putcall-expiry-select" class="history-input" style="padding: 4px 8px;" onchange="loadPutCallParity()">
+                                    <option value="ALL">All Expiries</option>
+                                    <!-- Options populated dynamically -->
+                                </select>
+                                <button class="btn btn-secondary" onclick="loadPutCallParity()"><i class="fas fa-sync"></i> Refresh</button>
+                                <button class="btn btn-secondary" onclick="exportPutCallParity()"><i class="fas fa-file-csv"></i> Export</button>
+                            </div>
+
+                            <div style="overflow-x: auto; background: #1e1e1e; border: 1px solid #333;">
+                                <table class="deriv-table" id="putcall-parity-table" style="min-width: 1200px;">
+                                    <thead>
+                                        <tr>
+                                            <th>Expiry</th>
+                                            <th>DTE</th>
+                                            <th>Strike</th>
+                                            <th>Call LTP</th>
+                                            <th>Put LTP</th>
+                                            <th style="color: #ff9800;">Synthetic Future</th>
+                                            <th style="color: #60a5fa;">Nifty Future</th>
+                                            <th style="color: #ff4d4d;">Difference</th>
+                                            <th>Call Vol</th>
+                                            <th>Call OI</th>
+                                            <th>Put Vol</th>
+                                            <th>Put OI</th>
+                                            <th>Last Traded Date/Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="putcall-parity-body">
+                                        <tr><td colspan="13" style="text-align: center; color: #888;">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Covered Call Tab -->
+                        <div id="optstrat-tab-coveredcall" class="optstrat-sub-tab" style="padding: 20px; height: 100%; display: none;">
+                            <h2 style="color: #fff; margin-top: 0; font-size: 18px;">Covered Call</h2>
+                            <p style="color: #888;">Coming Soon</p>
+                        </div>
+
+                        <!-- Volatility Skew Tab -->
+                        <div id="optstrat-tab-volskew" class="optstrat-sub-tab" style="padding: 20px; height: 100%; display: none;">
+                            <h2 style="color: #fff; margin-top: 0; font-size: 18px;">Volatility Skew</h2>
+                            <p style="color: #888;">Coming Soon</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB: Index Basket -->
+                <div id="deriv-tab-idxbasket" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; display: none;">
+                    <h2 style="color: #fff; margin-top: 0; font-size: 18px;">Index Basket (Nifty)</h2>
+
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap;">
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="color: #ccc; font-size: 12px;">Upload Nifty Weights (CSV)</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="file" id="idxbasket-upload" accept=".csv" style="display: none;" onchange="handleIdxBasketUpload(event)">
+                                <button class="btn btn-secondary" onclick="document.getElementById('idxbasket-upload').click()"><i class="fas fa-upload"></i> Import CSV</button>
+                                <a href="#" onclick="downloadIdxBasketTemplate()" style="color: #60a5fa; font-size: 12px; align-self: center;">Download Template</a>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 5px; margin-left: 20px;">
+                            <label style="color: #ccc; font-size: 12px;">Futures Expiry</label>
+                            <select id="idxbasket-expiry-select" class="history-input" style="padding: 4px 8px;" onchange="loadIdxBasketData()">
+                                <option value="near">Near Month</option>
+                                <option value="next">Next Month</option>
+                                <option value="far">Far Month</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="loadIdxBasketData()" style="margin-left: auto;"><i class="fas fa-sync"></i> Calculate Basket</button>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; flex: 1; border-radius: 4px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">Basket Value (Index Pts)</div>
+                            <div id="idxbasket-val" style="font-size: 20px; color: #fff;">-</div>
+                        </div>
+                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; flex: 1; border-radius: 4px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">Nifty Future (Target)</div>
+                            <div id="idxbasket-nifty-fut" style="font-size: 20px; color: #60a5fa;">-</div>
+                        </div>
+                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; flex: 1; border-radius: 4px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">Difference (Basis Pts)</div>
+                            <div id="idxbasket-diff" style="font-size: 20px; color: #ff9800;">-</div>
+                        </div>
+                        <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; flex: 1; border-radius: 4px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 5px;">Min Multiplier / Basket Error</div>
+                            <div id="idxbasket-multiplier" style="font-size: 20px; color: #ccc;">- / -</div>
+                        </div>
+                    </div>
+
+                    <!-- Table Controls -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-secondary" onclick="addIdxBasketRow()"><i class="fas fa-plus"></i> Add Stock</button>
+                            <button class="btn btn-secondary" onclick="revertIdxBasket()"><i class="fas fa-undo"></i> Undo Changes</button>
+                        </div>
+                        <button class="btn btn-secondary" onclick="exportIdxBasket()"><i class="fas fa-file-csv"></i> Export Table</button>
+                    </div>
+
+                    <!-- Main Table -->
+                    <div style="overflow-x: auto; background: #1e1e1e; border: 1px solid #333; border-radius: 4px;">
+                        <table class="deriv-table" id="idxbasket-table" style="min-width: 1400px;">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Symbol</th>
+                                    <th>Weight (%) <i class="fas fa-pencil-alt" style="font-size: 10px; color: #888;"></i></th>
+                                    <th>Future LTP</th>
+                                    <th>Lot Size <i class="fas fa-pencil-alt" style="font-size: 10px; color: #888;"></i></th>
+                                    <th>Calculated Shares</th>
+                                    <th style="color: #ff9800;">Lots to Trade</th>
+                                    <th>Expiry</th>
+                                    <th>Volume</th>
+                                    <th>OI</th>
+                                    <th>Last Traded Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="idxbasket-body">
+                                <tr><td colspan="11" style="text-align: center; color: #888;">Upload CSV to view basket data</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- SUB-TAB 2: OI Analysis -->
@@ -3184,6 +3322,8 @@
     <script src="/static/js/uploadModal.js?v=4"></script>
     <script src="/static/js/config.js"></script>
     <script src="/static/js/script_workbench2.js"></script>
+    <script src="/static/js/putCallParity.js"></script>
+    <script src="/static/js/indexBasket.js"></script>
 
 
 <script>
@@ -5040,6 +5180,33 @@ function exportChartDataToCSV(chartInstance, filename) {
             rangeBm.addEventListener("change", function() { rangeCa.checked = this.checked; });
         }
     });
+
+    // --- OPTION STRATEGY TABS LOGIC ---
+    function switchOptStratTab(tabName) {
+        document.querySelectorAll('.optstrat-tab').forEach(t => {
+            t.classList.remove('active');
+            t.style.color = '#ccc';
+            t.style.borderBottom = '2px solid transparent';
+        });
+        document.querySelectorAll('.optstrat-sub-tab').forEach(t => t.style.display = 'none');
+
+        const activeTab = document.getElementById(`optstrat-tab-btn-${tabName}`);
+        if(activeTab) {
+            activeTab.classList.add('active');
+            activeTab.style.color = '#fff';
+            activeTab.style.borderBottom = '2px solid #60a5fa';
+        }
+
+        const contentTab = document.getElementById(`optstrat-tab-${tabName}`);
+        if(contentTab) {
+            contentTab.style.display = 'block';
+            if (tabName === 'putcall' && window.loadPutCallParity) {
+                // Trigger load if exists and not yet loaded
+                window.loadPutCallParity();
+            }
+        }
+    }
+
 
     // --- MACRO TAB LOGIC ---
     async function syncMacroData() {

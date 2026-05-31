@@ -71,6 +71,10 @@
                     target.style.display = 'flex';
                 } else if (target.id === 'deriv-tab-fii') {
                     target.style.display = 'flex';
+                } else if (target.id === 'deriv-tab-optstrategy') {
+                    target.style.display = 'flex';
+                } else if (target.id === 'deriv-tab-idxbasket') {
+                    target.style.display = 'block';
                 } else {
                     target.style.display = 'block';
                 }
@@ -82,6 +86,22 @@
                 // Trigger chart loading if Market Activity
                 if (tabName === 'market' && typeof loadMarketActivity === 'function') {
                     loadMarketActivity();
+                }
+
+                // Trigger Option Strategy tab data
+                if (tabName === 'optstrategy' && typeof switchOptStratTab === 'function') {
+                    // Activate putcall by default if not set
+                    const activeSubTab = document.querySelector('.optstrat-tab.active');
+                    if (activeSubTab) {
+                        switchOptStratTab(activeSubTab.id.replace('optstrat-tab-btn-', ''));
+                    } else {
+                        switchOptStratTab('putcall');
+                    }
+                }
+
+                // Trigger Index Basket loading
+                if (tabName === 'idxbasket' && typeof window.loadIdxBasketData === 'function') {
+                    window.loadIdxBasketData();
                 }
 
                 // Trigger options charts if OI Analysis

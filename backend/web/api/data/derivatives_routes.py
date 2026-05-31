@@ -1771,3 +1771,86 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
+
+@router.post("/api/data/derivatives/index_basket_data")
+def get_index_basket_data(symbols: list[str], expiry_type: str = "near", db: Session = Depends(get_db)):
+    """
+    Fetches the latest Futures data for a list of symbols to be used in the Index Basket.
+    expiry_type: "near", "next", "far"
+    Also fetches the Nifty target index future for the same expiry tier.
+    """
+    try:
+        from backend.ingest.nse_models import BhavcopyFO
+        from sqlalchemy import desc
+
+        # 1. Find the latest trade date with Futures data
+        latest_fo_date_row = db.query(BhavcopyFO.trade_date)\
+                               .filter(BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX', 'STF', 'IDF', 'FUTIRC']))\
+                               .order_by(desc(BhavcopyFO.trade_date))\
+                               .first()
+        if not latest_fo_date_row:
+            return {"data": {}, "nifty": None}
+        latest_fo_date = latest_fo_date_row[0]
+
+        # 2. Add NIFTY to symbols list if not present
+        query_symbols = [s.upper() for s in symbols]
+        if "NIFTY" not in query_symbols:
+            query_symbols.append("NIFTY")
+
+        # 3. Fetch Futures data for requested symbols
+        fut_records = db.query(
+            BhavcopyFO.ticker_symb,
+            BhavcopyFO.expiry_date,
+            BhavcopyFO.close_price,
+            BhavcopyFO.open_interest,
+            BhavcopyFO.total_trading_vol,
+            BhavcopyFO.timestamp
+        ).filter(
+            BhavcopyFO.trade_date == latest_fo_date,
+            BhavcopyFO.ticker_symb.in_(query_symbols),
+            BhavcopyFO.instrument_type.in_(['FUTSTK', 'FUTIDX', 'STF', 'IDF', 'FUTIRC'])
+        ).all()
+
+        # Group by symbol
+        grouped = {}
+        for r in fut_records:
+            sym = r.ticker_symb
+            if sym not in grouped:
+                grouped[sym] = []
+            grouped[sym].append({
+                "expiry": r.expiry_date.strftime('%Y-%m-%d') if r.expiry_date else None,
+                "price": float(r.close_price) if r.close_price else 0.0,
+                "oi": int(r.open_interest) if r.open_interest else 0,
+                "vol": int(r.total_trading_vol) if r.total_trading_vol else 0,
+                "timestamp": r.timestamp.strftime('%Y-%m-%d %H:%M:%S') if r.timestamp else "-"
+            })
+
+        # Select expiry tier
+        expiry_index = 0 if expiry_type == "near" else (1 if expiry_type == "next" else 2)
+
+        result_data = {}
+        nifty_data = None
+
+        for sym, expiries in grouped.items():
+            # Sort by expiry date ascending
+            expiries.sort(key=lambda x: x["expiry"])
+
+            # Ensure we don't go out of bounds if a stock doesn't have 3 expiries
+            idx = min(expiry_index, len(expiries) - 1)
+            selected = expiries[idx]
+
+            if sym == "NIFTY":
+                nifty_data = selected
+            if sym in [s.upper() for s in symbols]:
+                result_data[sym] = selected
+
+        return {
+            "data": result_data,
+            "nifty": nifty_data,
+            "date": latest_fo_date.strftime('%Y-%m-%d')
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
