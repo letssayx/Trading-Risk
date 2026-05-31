@@ -1,8 +1,16 @@
+let _putCallParityRawData = null;
+
 async function loadPutCallParity() {
     try {
         const selectedExpiry = document.getElementById('putcall-expiry-select').value;
-        const res = await fetch('/api/data/derivatives/put_call_parity?symbol=NIFTY');
-        const data = await res.json();
+        const atmFilterOnly = document.getElementById('putcall-atm-filter').checked;
+
+        let data = _putCallParityRawData;
+        if (!data) {
+            const res = await fetch('/api/data/derivatives/put_call_parity?symbol=NIFTY');
+            data = await res.json();
+            _putCallParityRawData = data;
+        }
 
         if (!data || !data.data || data.data.length === 0) {
             document.getElementById('putcall-parity-body').innerHTML = '<tr><td colspan="13" style="text-align: center; color: #888;">No data found.</td></tr>';
@@ -54,9 +62,17 @@ async function loadPutCallParity() {
 
         let html = '';
         displayData.forEach(row => {
+            const monthlyFut = getMonthlyFuture(row.expiry);
+
+            // Filter Near ATM (+/- 500 points)
+            if (atmFilterOnly) {
+                if (Math.abs(row.strike - monthlyFut.price) > 500) {
+                    return; // Skip this row
+                }
+            }
+
             // Synthetic Future = Strike + Call LTP - Put LTP
             const synthFuture = row.strike + row.ce_ltp - row.pe_ltp;
-            const monthlyFut = getMonthlyFuture(row.expiry);
             const diff = synthFuture - monthlyFut.price;
 
             // ATM highlighting: If strike is within 50 points of the Nifty Future

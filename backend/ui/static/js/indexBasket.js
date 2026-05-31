@@ -101,20 +101,20 @@ async function loadIdxBasketData() {
             totalWeight += item.weight;
         });
 
-        // 1. Calculate Minimum Multiplier
-        // We need: (Multiplier * Weight / 100) >= Lot Size
-        // => Multiplier >= (Lot Size * 100) / Weight
+        // 1. Calculate Minimum Multiplier (Total Capital Required)
+        // We need: (Capital * Weight / 100) / Price >= Lot Size
+        // => Capital >= (Lot Size * Price * 100) / Weight
         let minMultiplier = 0;
         basketData.forEach(item => {
-            if (item.weight > 0) {
-                const reqM = (item.lotSize * 100) / item.weight;
-                if (reqM > minMultiplier) {
-                    minMultiplier = reqM;
+            if (item.weight > 0 && item.price > 0) {
+                const reqCapital = (item.lotSize * item.price * 100) / item.weight;
+                if (reqCapital > minMultiplier) {
+                    minMultiplier = reqCapital;
                 }
             }
         });
 
-        // Round multiplier up to nearest reasonable unit (e.g. integer)
+        // Ensure total capital allows for integer rounding smoothly (though lots are rounded separately)
         minMultiplier = Math.ceil(minMultiplier);
 
         // 2. Calculate Shares, Lots, and Basket Value
@@ -123,8 +123,11 @@ async function loadIdxBasketData() {
 
         basketData.forEach(item => {
             if (item.weight > 0 && item.price > 0) {
-                // Theoretical shares based on multiplier
-                item.shares = (minMultiplier * (item.weight / 100));
+                // Theoretical capital allocated to this stock
+                const allocatedCapital = minMultiplier * (item.weight / 100);
+
+                // Theoretical shares based on allocated capital
+                item.shares = allocatedCapital / item.price;
 
                 // Actual lots to trade (must be integer)
                 item.lotsToTrade = Math.round(item.shares / item.lotSize);
