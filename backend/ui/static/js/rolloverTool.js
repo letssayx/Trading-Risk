@@ -810,8 +810,9 @@ const RolloverTool = {
             tableHtml += `<td style="position: sticky; left: 80px; background: #2a2a2a; color: #ccc; z-index: 1; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px 10px;">BPS</td>`;
             displayDates.forEach(date => {
                 const h = histMap[date];
-                if (h && h.rollover_cost !== null && h.fut_price !== null && h.fut_price > 0) {
-                    const bps = ((h.rollover_cost / h.fut_price) * 10000).toFixed(1);
+                const hPrice = h ? (h.price !== undefined ? h.price : h.fut_price) : null;
+                if (h && h.rollover_cost !== null && hPrice !== null && hPrice > 0) {
+                    const bps = ((h.rollover_cost / hPrice) * 10000).toFixed(1);
                     tableHtml += `<td style="text-align: center; color: #ffb74d; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px;">${bps}</td>`;
                 } else {
                     tableHtml += `<td style="text-align: center; color: #555; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px;">-</td>`;

@@ -1317,7 +1317,8 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
                     "date": str(e_date),  # Show the expiry date as the label
                     "rollover_pct": round(closest_record.rollover_pct, 2),
                     "rollover_cost": round(closest_record.rollover_cost, 2),
-                    "rollover_cost_pct": round(closest_record.rollover_cost_pct, 2)
+                    "rollover_cost_pct": round(closest_record.rollover_cost_pct, 2),
+                    "price": float(closest_record.fut_close) if closest_record.fut_close else None
                 })
     else:
         # Standard daily progression (last 12 trading days)
@@ -1331,7 +1332,8 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
                 "date": str(r.trade_date),
                 "rollover_pct": round(r.rollover_pct, 2),
                 "rollover_cost": round(r.rollover_cost, 2),
-                "rollover_cost_pct": round(r.rollover_cost_pct, 2)
+                "rollover_cost_pct": round(r.rollover_cost_pct, 2),
+                "price": float(r.fut_close) if r.fut_close else None
             })
 
     # Maintain ascending chronological order as original UI expects
