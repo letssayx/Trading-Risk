@@ -674,7 +674,7 @@ const RolloverTool = {
                         histTableHtml += `</tr><tr>`;
                         spreads.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: ${v >= 0 ? '#60a5fa' : '#ff4d4d'};">${v}</td>`);
                         histTableHtml += `</tr><tr>`;
-                        bpsValues.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #ffb74d;">${v}</td>`);
+                        bpsValues.forEach(v => histTableHtml += `<td style="padding: 4px; border: 1px solid #444; color: #ffffff;">${v}</td>`);
                         histTableHtml += `</tr></tbody></table>`;
                     document.getElementById('rollover-mom-history-table-container').innerHTML = histTableHtml;
                 } else {
@@ -785,7 +785,7 @@ const RolloverTool = {
             displayDates.forEach(date => {
                 const h = histMap[date];
                 if (h && h.rollover_pct !== null && h.rollover_pct !== undefined) {
-                    tableHtml += `<td style="text-align: center; color: #fff; border: 1px solid #444; padding: 4px;">${h.rollover_pct.toFixed(1)}%</td>`;
+                    tableHtml += `<td style="text-align: center; color: #ff9800; border: 1px solid #444; padding: 4px;">${h.rollover_pct.toFixed(1)}%</td>`;
                 } else {
                     tableHtml += `<td style="text-align: center; color: #555; border: 1px solid #444; padding: 4px;">-</td>`;
                 }
@@ -798,7 +798,8 @@ const RolloverTool = {
             displayDates.forEach(date => {
                 const h = histMap[date];
                 if (h && h.rollover_cost !== null && h.rollover_cost !== undefined) {
-                    tableHtml += `<td style="text-align: center; color: #bbb; border: 1px solid #444; padding: 4px;">${h.rollover_cost.toFixed(2)}</td>`;
+                    const color = h.rollover_cost >= 0 ? '#60a5fa' : '#ff4d4d';
+                    tableHtml += `<td style="text-align: center; color: ${color}; border: 1px solid #444; padding: 4px;">${h.rollover_cost.toFixed(2)}</td>`;
                 } else {
                     tableHtml += `<td style="text-align: center; color: #555; border: 1px solid #444; padding: 4px;">-</td>`;
                 }
@@ -813,7 +814,7 @@ const RolloverTool = {
                 const hPrice = h ? (h.price !== undefined ? h.price : h.fut_price) : null;
                 if (h && h.rollover_cost !== null && hPrice !== null && hPrice > 0) {
                     const bps = ((h.rollover_cost / hPrice) * 10000).toFixed(1);
-                    tableHtml += `<td style="text-align: center; color: #ffb74d; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px;">${bps}</td>`;
+                    tableHtml += `<td style="text-align: center; color: #ffffff; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px;">${bps}</td>`;
                 } else {
                     tableHtml += `<td style="text-align: center; color: #555; border: 1px solid #444; border-bottom: 2px solid #555; padding: 4px;">-</td>`;
                 }
