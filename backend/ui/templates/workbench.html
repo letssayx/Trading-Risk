@@ -2333,6 +2333,10 @@
                                     <option value="ALL">All Expiries</option>
                                     <!-- Options populated dynamically -->
                                 </select>
+                                <select id="putcall-strike-select" class="history-input" style="padding: 4px 8px;" onchange="loadPutCallParity()">
+                                    <option value="ALL">All Strikes</option>
+                                    <!-- Options populated dynamically -->
+                                </select>
                                 <label class="checkbox-label" style="font-size: 12px; display: flex; align-items: center; color: #ccc;">
                                     <input type="checkbox" id="putcall-atm-filter" style="margin-right: 5px;" onchange="loadPutCallParity()"> Show Near ATM (±500 pts)
                                 </label>
@@ -2340,9 +2344,9 @@
                                 <button class="btn btn-secondary" onclick="exportPutCallParity()"><i class="fas fa-file-csv"></i> Export</button>
                             </div>
 
-                            <div style="overflow-x: auto; background: #1e1e1e; border: 1px solid #333;">
-                                <table class="deriv-table" id="putcall-parity-table" style="min-width: 1200px;">
-                                    <thead>
+                            <div style="overflow-y: auto; overflow-x: auto; max-height: calc(100vh - 250px); background: #1e1e1e; border: 1px solid #333;">
+                                <table class="deriv-table" id="putcall-parity-table" style="min-width: 1200px; border-collapse: separate; border-spacing: 0;">
+                                    <thead style="position: sticky; top: 0; z-index: 10; background: #252526; box-shadow: 0 1px 0 #333;">
                                         <tr>
                                             <th>Expiry</th>
                                             <th>DTE</th>
@@ -2436,9 +2440,9 @@
                     </div>
 
                     <!-- Main Table -->
-                    <div style="overflow-x: auto; background: #1e1e1e; border: 1px solid #333; border-radius: 4px;">
-                        <table class="deriv-table" id="idxbasket-table" style="min-width: 1400px;">
-                            <thead>
+                            <div style="overflow-y: auto; overflow-x: auto; max-height: calc(100vh - 350px); background: #1e1e1e; border: 1px solid #333; border-radius: 4px;">
+                                <table class="deriv-table" id="idxbasket-table" style="min-width: 1400px; border-collapse: separate; border-spacing: 0;">
+                                    <thead style="position: sticky; top: 0; z-index: 10; background: #252526; box-shadow: 0 1px 0 #333;">
                                 <tr>
                                     <th>Action</th>
                                     <th>Symbol</th>

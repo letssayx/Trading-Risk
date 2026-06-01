@@ -3,6 +3,7 @@ let _putCallParityRawData = null;
 async function loadPutCallParity() {
     try {
         const selectedExpiry = document.getElementById('putcall-expiry-select').value;
+        const selectedStrike = document.getElementById('putcall-strike-select').value;
         const atmFilterOnly = document.getElementById('putcall-atm-filter').checked;
 
         let data = _putCallParityRawData;
@@ -29,6 +30,16 @@ async function loadPutCallParity() {
             });
         }
 
+        // Update Strike Select Dropdown
+        const allStrikes = [...new Set(data.data.map(d => d.strike))].sort((a, b) => a - b);
+        const strikeSelectEl = document.getElementById('putcall-strike-select');
+        if (strikeSelectEl.options.length <= 1) {
+            strikeSelectEl.innerHTML = '<option value="ALL">All Strikes</option>';
+            allStrikes.forEach(strike => {
+                strikeSelectEl.innerHTML += `<option value="${strike}">${strike}</option>`;
+            });
+        }
+
         // Map weekly option expiries to their respective monthly future
         // A monthly future usually expires on the last Thursday.
         // For any weekly expiry, the respective monthly future is the smallest future expiry >= the weekly expiry.
@@ -52,6 +63,10 @@ async function loadPutCallParity() {
         let displayData = data.data;
         if (selectedExpiry !== 'ALL') {
             displayData = displayData.filter(d => d.expiry === selectedExpiry);
+        }
+        if (selectedStrike !== 'ALL') {
+            const strikeVal = parseFloat(selectedStrike);
+            displayData = displayData.filter(d => d.strike === strikeVal);
         }
 
         // Sort by expiry, then strike
