@@ -2141,6 +2141,7 @@
                         <div style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end;">
                             <span id="opt-report-date" style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-bottom: 4px;"></span>
                             <span id="opt-spot-price" style="font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
+                            <span id="opt-future-price" style="font-size: 16px; font-weight: bold; color: #ff9800;"></span>
                         </div>
                     </div>
 
@@ -2325,8 +2326,17 @@
                     <div style="flex: 1; overflow-y: auto; position: relative;">
                         <!-- Put-call Parity Tab -->
                         <div id="optstrat-tab-putcall" class="optstrat-sub-tab active" style="padding: 20px; height: 100%;">
-                            <h2 style="color: #fff; margin-top: 0; font-size: 18px;">Put-call Parity (Nifty)</h2>
-                            <p style="color: #888; font-size: 12px; margin-bottom: 15px;">Synthetic Future = Strike Price + Call LTP - Put LTP</p>
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                                <div>
+                                    <h2 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 18px;">Put-call Parity (Nifty)</h2>
+                                    <p style="color: #888; font-size: 12px; margin: 0;">Synthetic Future = Strike Price + Call LTP - Put LTP</p>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                                    <span id="pcp-report-date" style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-bottom: 4px;"></span>
+                                    <span id="pcp-spot-price" style="font-size: 16px; font-weight: bold; color: #4da6ff;"></span>
+                                    <span id="pcp-future-price" style="font-size: 16px; font-weight: bold; color: #ff9800;"></span>
+                                </div>
+                            </div>
 
                             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
                                 <select id="putcall-expiry-select" class="history-input" style="padding: 4px 8px;" onchange="loadPutCallParity()">
@@ -2361,6 +2371,7 @@
                                             <th id="th-diff-t3" style="color: #aaa; font-weight: normal;">T-3 Diff</th>
                                             <th id="th-diff-t4" style="color: #aaa; font-weight: normal;">T-4 Diff</th>
                                             <th id="th-diff-t5" style="color: #aaa; font-weight: normal;">T-5 Diff</th>
+                                            <th>Future Vol</th>
                                             <th>Call Vol</th>
                                             <th>Call OI</th>
                                             <th>Put Vol</th>
@@ -2369,7 +2380,7 @@
                                         </tr>
                                     </thead>
                                     <tbody id="putcall-parity-body">
-                                        <tr><td colspan="18" style="text-align: center; color: #888;">Loading...</td></tr>
+                                        <tr><td colspan="19" style="text-align: center; color: #888;">Loading...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -5085,6 +5096,7 @@ function exportChartDataToCSV(chartInstance, filename) {
             }
 
             document.getElementById('opt-spot-price').innerText = `Spot: ${data.spot_price > 0 ? data.spot_price.toFixed(2) : 'N/A'}`;
+            document.getElementById('opt-future-price').innerText = `Future: ${data.future_price > 0 ? data.future_price.toFixed(2) : 'N/A'}`;
 
             // Format the date specifically for the options chain
             let dateStr = '';

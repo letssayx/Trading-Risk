@@ -208,6 +208,18 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
 
         target_expiry_date = datetime.strptime(target_expiry, '%Y-%m-%d').date()
 
+        # 3.5 Fetch Future Price for target expiry (or nearest month after)
+        future_price = 0.0
+        fut_rec = db.query(BhavcopyFO.close_price)\
+                    .filter(BhavcopyFO.trade_date == latest_fo_date,
+                            BhavcopyFO.ticker_symb == symbol,
+                            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK']),
+                            BhavcopyFO.expiry_date >= target_expiry_date)\
+                    .order_by(BhavcopyFO.expiry_date)\
+                    .first()
+        if fut_rec:
+            future_price = float(fut_rec[0])
+
         # 4. Fetch the Option Chain Data
         opt_records = db.query(
             BhavcopyFO.strike_price,
@@ -277,7 +289,9 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
             "expiries": valid_expiries,
             "selected_expiry": target_expiry,
             "spot_price": spot_price,
-            "date": latest_fo_date.strftime('%Y-%m-%d')
+            "future_price": future_price,
+            "date": latest_fo_date.strftime('%Y-%m-%d'),
+            "spot_price": spot_price
         }
 
     except Exception as e:
@@ -316,6 +330,34 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
         target_dates = [d[0] for d in dates_query]
         latest_fo_date = target_dates[0]
         past_dates = [d.strftime('%Y-%m-%d') for d in target_dates[1:]]
+
+        # Fetch Spot Price (EQ or Index)
+        spot_price = 0.0
+        closest_eq_date_row = db.query(BhavcopyEQ.trade_date)\
+                                .filter(BhavcopyEQ.trade_date <= latest_fo_date)\
+                                .order_by(desc(BhavcopyEQ.trade_date))\
+                                .first()
+        if closest_eq_date_row:
+            eq_rec = db.query(BhavcopyEQ.close_price)\
+                       .filter(BhavcopyEQ.trade_date == closest_eq_date_row[0], BhavcopyEQ.symbol == symbol, BhavcopyEQ.series == 'EQ')\
+                       .first()
+            if eq_rec:
+                spot_price = float(eq_rec[0])
+
+        if spot_price == 0.0:
+            idx_name = symbol
+            if symbol == 'NIFTY': idx_name = 'NIFTY 50'
+            elif symbol == 'BANKNIFTY': idx_name = 'NIFTY BANK'
+            elif symbol == 'FINNIFTY': idx_name = 'NIFTY FIN SERVICE'
+            elif symbol == 'MIDCPNIFTY': idx_name = 'NIFTY MID SELECT'
+
+            idx_rec = db.query(HistoricalIndexData.close_price)\
+                        .filter(HistoricalIndexData.trade_date <= latest_fo_date, HistoricalIndexData.index_name == idx_name)\
+                        .order_by(desc(HistoricalIndexData.trade_date))\
+                        .first()
+            if idx_rec:
+                spot_price = float(idx_rec[0])
+
 
         # 2. Fetch Option Data for all target dates
         opt_records = db.query(
@@ -371,7 +413,8 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
         fut_records = db.query(
             BhavcopyFO.trade_date,
             BhavcopyFO.expiry_date,
-            BhavcopyFO.close_price
+            BhavcopyFO.close_price,
+            BhavcopyFO.total_trading_vol
         ).filter(
             BhavcopyFO.ticker_symb == symbol,
             BhavcopyFO.trade_date.in_(target_dates),
@@ -383,13 +426,17 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
             if r.expiry_date:
                 trade_str = r.trade_date.strftime('%Y-%m-%d')
                 exp_str = r.expiry_date.strftime('%Y-%m-%d')
-                futures[trade_str][exp_str] = float(r.close_price) if r.close_price else 0.0
+                futures[trade_str][exp_str] = {
+                    "price": float(r.close_price) if r.close_price else 0.0,
+                    "vol": int(r.total_trading_vol) if r.total_trading_vol else 0
+                }
 
         return {
             "data": list(chain.values()),
             "futures": futures,
             "past_dates": past_dates,
-            "date": latest_fo_date.strftime('%Y-%m-%d')
+            "date": latest_fo_date.strftime('%Y-%m-%d'),
+            "spot_price": spot_price
         }
 
     except Exception as e:

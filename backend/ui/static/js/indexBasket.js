@@ -93,6 +93,7 @@ async function loadIdxBasketData() {
             const fd = priceData[item.symbol];
             if (fd) {
                 item.price = fd.price;
+                item.spot = fd.spot;
                 item.expiry = fd.expiry;
                 item.vol = fd.vol;
                 item.oi = fd.oi;
@@ -140,14 +141,19 @@ async function loadIdxBasketData() {
             }
         });
 
-        // For Nifty comparison, index value vs basket value requires divisor logic.
-        // Assuming minMultiplier is total index value, theoretical basket value is just index tracking.
-        // However, a simple comparison is the weighted sum.
-        // Let's normalize Basket Value to an Index point equivalent.
-        // If sum(Weight) = 100, then (totalBasketValue / minMultiplier) should equal Nifty price roughly.
+        // For Nifty comparison, we calculate the implied Index Future Value of the Basket.
+        // Implied Nifty Future = Nifty_Spot * sum [ (Weight_i / 100) * (Stock_Future_i / Stock_Spot_i) ]
 
-        const normalizedBasketPts = minMultiplier > 0 ? (totalBasketValue / minMultiplier) : 0;
+        let impliedNiftyReturn = 0;
+        basketData.forEach(item => {
+            if (item.weight > 0 && item.price > 0 && item.spot > 0) {
+                impliedNiftyReturn += (item.weight / 100) * (item.price / item.spot);
+            }
+        });
+
         const targetNiftyFut = niftyData ? niftyData.price : 0.0;
+        const niftySpot = niftyData && niftyData.spot ? niftyData.spot : targetNiftyFut;
+        const normalizedBasketPts = niftySpot > 0 ? (niftySpot * impliedNiftyReturn) : 0;
         const diffBasisPts = targetNiftyFut > 0 ? ((normalizedBasketPts - targetNiftyFut) / targetNiftyFut) * 10000 : 0;
 
         // Tracking error due to round lots

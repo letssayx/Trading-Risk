@@ -1811,6 +1811,20 @@ def get_index_basket_data(symbols: list[str], expiry_type: str = "near", db: Ses
         ).all()
 
         # Group by symbol
+
+        # Fetch Spot Prices
+        from backend.ingest.nse_models import BhavcopyEQ, HistoricalIndexData
+        eq_records = db.query(BhavcopyEQ.symbol, BhavcopyEQ.close_price)\
+                       .filter(BhavcopyEQ.trade_date == latest_fo_date, BhavcopyEQ.symbol.in_(query_symbols), BhavcopyEQ.series == 'EQ')\
+                       .all()
+        spots = {r.symbol: float(r.close_price) for r in eq_records}
+
+        idx_rec = db.query(HistoricalIndexData.close_price)\
+                    .filter(HistoricalIndexData.trade_date == latest_fo_date, HistoricalIndexData.index_name == 'NIFTY 50')\
+                    .first()
+        if idx_rec:
+            spots['NIFTY'] = float(idx_rec[0])
+
         grouped = {}
         for r in fut_records:
             sym = r.ticker_symb
@@ -1819,6 +1833,7 @@ def get_index_basket_data(symbols: list[str], expiry_type: str = "near", db: Ses
             grouped[sym].append({
                 "expiry": r.expiry_date.strftime('%Y-%m-%d') if r.expiry_date else None,
                 "price": float(r.close_price) if r.close_price else 0.0,
+                "spot": spots.get(sym, float(r.close_price)),
                 "oi": int(r.open_interest) if r.open_interest else 0,
                 "vol": int(r.total_trading_vol) if r.total_trading_vol else 0,
                 "timestamp": latest_fo_date.strftime('%Y-%m-%d')

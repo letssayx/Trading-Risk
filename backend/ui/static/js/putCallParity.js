@@ -54,25 +54,49 @@ async function loadPutCallParity() {
         // For any weekly expiry, the respective monthly future is the smallest future expiry >= the weekly expiry.
         // Or if none is >=, it's the largest future expiry (edge case).
         const getMonthlyFuture = (optExpiry, targetTradeDate) => {
+            if (!optExpiry) return { date: "-", price: 0.0, vol: 0 };
             const futsForDate = futures[targetTradeDate] || {};
             const futureExpiries = Object.keys(futsForDate).sort((a, b) => new Date(a) - new Date(b));
 
             const optDate = new Date(optExpiry);
             for (let futExp of futureExpiries) {
                 if (new Date(futExp) >= optDate) {
-                    return { date: futExp, price: futsForDate[futExp] };
+                    return { date: futExp, price: futsForDate[futExp].price, vol: futsForDate[futExp].vol };
                 }
             }
             if (futureExpiries.length > 0) {
                 const last = futureExpiries[futureExpiries.length - 1];
-                return { date: last, price: futsForDate[last] };
+                return { date: last, price: futsForDate[last].price, vol: futsForDate[last].vol };
             }
-            return { date: "-", price: 0.0 };
+            return { date: "-", price: 0.0, vol: 0 };
         };
 
         // Filter and calculate
         let displayData = data.data;
         const currentTradeDate = data.date;
+
+        // Update Header
+        if (data.date) {
+            document.getElementById('pcp-report-date').innerText = `Bhavcopy Date: ${data.date}`;
+        }
+        if (data.spot_price !== undefined) {
+            document.getElementById('pcp-spot-price').innerText = `Spot: ${data.spot_price > 0 ? data.spot_price.toFixed(2) : 'N/A'}`;
+        }
+
+        let targetFuturePrice = 0.0;
+        if (selectedExpiry !== 'ALL') {
+            const monthlyFut = getMonthlyFuture(selectedExpiry, currentTradeDate);
+            targetFuturePrice = monthlyFut.price;
+        } else {
+            if (futures[currentTradeDate]) {
+                const futExpiries = Object.keys(futures[currentTradeDate]).sort((a, b) => new Date(a) - new Date(b));
+                if (futExpiries.length > 0) {
+                    targetFuturePrice = futures[currentTradeDate][futExpiries[0]].price;
+                }
+            }
+        }
+        document.getElementById('pcp-future-price').innerText = `Future: ${targetFuturePrice > 0 ? targetFuturePrice.toFixed(2) : 'N/A'}`;
+
         if (selectedExpiry !== 'ALL') {
             displayData = displayData.filter(d => d.expiry === selectedExpiry);
         }
@@ -142,6 +166,7 @@ async function loadPutCallParity() {
                 <td style="color: #60a5fa;">${monthlyFut.price.toFixed(2)} (${monthlyFut.date})</td>
                 <td style="color: ${diffColor}; font-weight: bold;">${diff.toFixed(2)}</td>
                 ${histDiffHtml}
+                <td>${monthlyFut.vol.toLocaleString()}</td>
                 <td>${row.ce_vol.toLocaleString()}</td>
                 <td>${row.ce_oi.toLocaleString()}</td>
                 <td>${row.pe_vol.toLocaleString()}</td>
