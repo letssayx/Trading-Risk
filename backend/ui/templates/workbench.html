@@ -2355,7 +2355,23 @@
                             </div>
 
                             <div style="overflow-y: auto; overflow-x: auto; max-height: calc(100vh - 250px); background: #1e1e1e; border: 1px solid #333;">
-                                <table class="deriv-table" id="putcall-parity-table" style="min-width: 1200px; border-collapse: separate; border-spacing: 0;">
+                                <style>
+#putcall-parity-table th, #putcall-parity-table td {
+    border: 1px solid #444;
+    padding: 6px 8px;
+    text-align: right;
+}
+#putcall-parity-table th {
+    background-color: #2d2d30;
+    color: #e2e8f0;
+    font-weight: 600;
+    text-align: center;
+}
+#putcall-parity-table tbody tr:hover {
+    background-color: #333;
+}
+</style>
+                                <table class="deriv-table" id="putcall-parity-table" style="min-width: 1200px; border-collapse: collapse; width: 100%; font-size: 13px;">
                                     <thead style="position: sticky; top: 0; z-index: 10; background: #252526; box-shadow: 0 1px 0 #333;">
                                         <tr>
                                             <th>Expiry</th>
@@ -2371,8 +2387,7 @@
                                             <th id="th-diff-t3" style="color: #aaa; font-weight: normal;">T-3 Diff</th>
                                             <th id="th-diff-t4" style="color: #aaa; font-weight: normal;">T-4 Diff</th>
                                             <th id="th-diff-t5" style="color: #aaa; font-weight: normal;">T-5 Diff</th>
-                                            <th>Future Vol</th>
-                                            <th>Call Vol</th>
+                                                                                        <th>Call Vol</th>
                                             <th>Call OI</th>
                                             <th>Put Vol</th>
                                             <th>Put OI</th>
@@ -2380,7 +2395,7 @@
                                         </tr>
                                     </thead>
                                     <tbody id="putcall-parity-body">
-                                        <tr><td colspan="19" style="text-align: center; color: #888;">Loading...</td></tr>
+                                        <tr><td colspan="18" style="text-align: center; color: #888;">Loading...</td></tr>
                                     </tbody>
                                 </table>
                             </div>

@@ -157,8 +157,8 @@ async function loadPutCallParity() {
             const diffColor = diff > 0 ? '#60a5fa' : (diff < 0 ? '#ff4d4d' : '#fff');
 
             html += `<tr style="${rowStyle}">
-                <td>${row.expiry}</td>
-                <td>${row.dte}</td>
+                <td style="text-align: center;">${row.expiry}</td>
+                <td style="text-align: center;">${row.dte}</td>
                 <td>${row.strike}</td>
                 <td>${row.ce_ltp.toFixed(2)}</td>
                 <td>${row.pe_ltp.toFixed(2)}</td>
@@ -166,12 +166,11 @@ async function loadPutCallParity() {
                 <td style="color: #60a5fa;">${monthlyFut.price.toFixed(2)} (${monthlyFut.date})</td>
                 <td style="color: ${diffColor}; font-weight: bold;">${diff.toFixed(2)}</td>
                 ${histDiffHtml}
-                <td>${monthlyFut.vol.toLocaleString()}</td>
-                <td>${row.ce_vol.toLocaleString()}</td>
+                                <td>${row.ce_vol.toLocaleString()}</td>
                 <td>${row.ce_oi.toLocaleString()}</td>
                 <td>${row.pe_vol.toLocaleString()}</td>
                 <td>${row.pe_oi.toLocaleString()}</td>
-                <td>${row.timestamp}</td>
+                <td style="text-align: center; color: #888;">${row.timestamp}</td>
             </tr>`;
         });
 

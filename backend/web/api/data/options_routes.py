@@ -140,20 +140,9 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
         # 2. Find Spot Price (EQ or Index)
         spot_price = 0.0
 
-        # Try EQ first
-        closest_eq_date_row = db.query(BhavcopyEQ.trade_date)\
-                                .filter(BhavcopyEQ.trade_date <= latest_fo_date)\
-                                .order_by(desc(BhavcopyEQ.trade_date))\
-                                .first()
-        if closest_eq_date_row:
-            eq_rec = db.query(BhavcopyEQ.close_price)\
-                       .filter(BhavcopyEQ.trade_date == closest_eq_date_row[0], BhavcopyEQ.symbol == symbol, BhavcopyEQ.series == 'EQ')\
-                       .first()
-            if eq_rec:
-                spot_price = float(eq_rec[0])
+        is_index = symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']
 
-        # If no EQ, try Index
-        if spot_price == 0.0:
+        if is_index:
             idx_name = symbol
             if symbol == 'NIFTY': idx_name = 'NIFTY 50'
             elif symbol == 'BANKNIFTY': idx_name = 'NIFTY BANK'
@@ -166,6 +155,18 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
                         .first()
             if idx_rec:
                 spot_price = float(idx_rec[0])
+        else:
+            # Try EQ first for non-indices
+            closest_eq_date_row = db.query(BhavcopyEQ.trade_date)\
+                                    .filter(BhavcopyEQ.trade_date <= latest_fo_date)\
+                                    .order_by(desc(BhavcopyEQ.trade_date))\
+                                    .first()
+            if closest_eq_date_row:
+                eq_rec = db.query(BhavcopyEQ.close_price)\
+                           .filter(BhavcopyEQ.trade_date == closest_eq_date_row[0], BhavcopyEQ.symbol == symbol, BhavcopyEQ.series == 'EQ')\
+                           .first()
+                if eq_rec:
+                    spot_price = float(eq_rec[0])
 
         # If still 0, try Near Month Futures as spot proxy
         if spot_price == 0.0:
@@ -333,18 +334,9 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
 
         # Fetch Spot Price (EQ or Index)
         spot_price = 0.0
-        closest_eq_date_row = db.query(BhavcopyEQ.trade_date)\
-                                .filter(BhavcopyEQ.trade_date <= latest_fo_date)\
-                                .order_by(desc(BhavcopyEQ.trade_date))\
-                                .first()
-        if closest_eq_date_row:
-            eq_rec = db.query(BhavcopyEQ.close_price)\
-                       .filter(BhavcopyEQ.trade_date == closest_eq_date_row[0], BhavcopyEQ.symbol == symbol, BhavcopyEQ.series == 'EQ')\
-                       .first()
-            if eq_rec:
-                spot_price = float(eq_rec[0])
+        is_index = symbol in ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']
 
-        if spot_price == 0.0:
+        if is_index:
             idx_name = symbol
             if symbol == 'NIFTY': idx_name = 'NIFTY 50'
             elif symbol == 'BANKNIFTY': idx_name = 'NIFTY BANK'
@@ -357,6 +349,17 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
                         .first()
             if idx_rec:
                 spot_price = float(idx_rec[0])
+        else:
+            closest_eq_date_row = db.query(BhavcopyEQ.trade_date)\
+                                    .filter(BhavcopyEQ.trade_date <= latest_fo_date)\
+                                    .order_by(desc(BhavcopyEQ.trade_date))\
+                                    .first()
+            if closest_eq_date_row:
+                eq_rec = db.query(BhavcopyEQ.close_price)\
+                           .filter(BhavcopyEQ.trade_date == closest_eq_date_row[0], BhavcopyEQ.symbol == symbol, BhavcopyEQ.series == 'EQ')\
+                           .first()
+                if eq_rec:
+                    spot_price = float(eq_rec[0])
 
 
         # 2. Fetch Option Data for all target dates
@@ -431,8 +434,11 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
                     "vol": int(r.total_trading_vol) if r.total_trading_vol else 0
                 }
 
+        # Filter out expired options
+        active_chain = [v for v in chain.values() if v["dte"] >= 0]
+
         return {
-            "data": list(chain.values()),
+            "data": active_chain,
             "futures": futures,
             "past_dates": past_dates,
             "date": latest_fo_date.strftime('%Y-%m-%d'),
