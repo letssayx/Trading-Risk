@@ -226,7 +226,11 @@ function updateIdxBasketCell(index, field, value) {
 }
 
 function addIdxBasketRow() {
-    const sym = prompt("Enter Symbol:");
+    let sym = prompt("Enter Symbol:");
+    if (!sym) return;
+
+    // Sanitize input
+    sym = sym.replace(/[^a-zA-Z0-9_.-]/g, '');
     if (!sym) return;
 
     saveState();

@@ -289,26 +289,37 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
 def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Fetches Call and Put data across all strikes and expiries to calculate Synthetic Future.
-    Also fetches Futures data to compare.
+    Also fetches Futures data to compare, including the previous 5 trading days.
     """
     try:
         symbol = symbol.upper()
 
-        # 1. Determine Target Date
+        # 1. Determine Target Date and Previous 5 Dates
         if date:
             target_date = datetime.strptime(date, '%Y-%m-%d').date()
-            latest_fo_date = target_date
+            dates_query = db.query(BhavcopyFO.trade_date)\
+                            .filter(BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO', 'OPTIRC']),
+                                    BhavcopyFO.trade_date <= target_date)\
+                            .distinct()\
+                            .order_by(desc(BhavcopyFO.trade_date))\
+                            .limit(6).all()
         else:
-            latest_fo_date_row = db.query(BhavcopyFO.trade_date)\
-                                   .filter(BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO', 'OPTIRC']))\
-                                   .order_by(desc(BhavcopyFO.trade_date))\
-                                   .first()
-            if not latest_fo_date_row:
-                return {"data": [], "futures": {}}
-            latest_fo_date = latest_fo_date_row[0]
+            dates_query = db.query(BhavcopyFO.trade_date)\
+                            .filter(BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO', 'OPTIRC']))\
+                            .distinct()\
+                            .order_by(desc(BhavcopyFO.trade_date))\
+                            .limit(6).all()
 
-        # 2. Fetch Option Data
+        if not dates_query:
+            return {"data": [], "futures": {}, "past_dates": []}
+
+        target_dates = [d[0] for d in dates_query]
+        latest_fo_date = target_dates[0]
+        past_dates = [d.strftime('%Y-%m-%d') for d in target_dates[1:]]
+
+        # 2. Fetch Option Data for all target dates
         opt_records = db.query(
+            BhavcopyFO.trade_date,
             BhavcopyFO.expiry_date,
             BhavcopyFO.strike_price,
             BhavcopyFO.option_type,
@@ -317,17 +328,16 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
             BhavcopyFO.total_trading_vol
         ).filter(
             BhavcopyFO.ticker_symb == symbol,
-            BhavcopyFO.trade_date == latest_fo_date,
+            BhavcopyFO.trade_date.in_(target_dates),
             BhavcopyFO.instrument_type.in_(['OPTSTK', 'OPTIDX', 'STO', 'IDO', 'OPTIRC'])
         ).all()
 
         chain = {}
-        expiries = set()
         for r in opt_records:
             expiry_str = r.expiry_date.strftime('%Y-%m-%d') if r.expiry_date else None
+            trade_str = r.trade_date.strftime('%Y-%m-%d')
             if not expiry_str: continue
 
-            expiries.add(expiry_str)
             strike = float(r.strike_price)
             key = (expiry_str, strike)
 
@@ -338,36 +348,47 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
                     "dte": (r.expiry_date - latest_fo_date).days if r.expiry_date else 0,
                     "ce_ltp": 0.0, "ce_oi": 0, "ce_vol": 0,
                     "pe_ltp": 0.0, "pe_oi": 0, "pe_vol": 0,
-                    "timestamp": latest_fo_date.strftime('%Y-%m-%d')
+                    "timestamp": latest_fo_date.strftime('%Y-%m-%d'),
+                    "history": {pd: {"ce": 0.0, "pe": 0.0} for pd in past_dates}
                 }
 
-            if r.option_type == 'CE':
-                chain[key]["ce_ltp"] = float(r.close_price) if r.close_price else 0.0
-                chain[key]["ce_oi"] = int(r.open_interest) if r.open_interest else 0
-                chain[key]["ce_vol"] = int(r.total_trading_vol) if r.total_trading_vol else 0
-            elif r.option_type == 'PE':
-                chain[key]["pe_ltp"] = float(r.close_price) if r.close_price else 0.0
-                chain[key]["pe_oi"] = int(r.open_interest) if r.open_interest else 0
-                chain[key]["pe_vol"] = int(r.total_trading_vol) if r.total_trading_vol else 0
+            if r.trade_date == latest_fo_date:
+                if r.option_type == 'CE':
+                    chain[key]["ce_ltp"] = float(r.close_price) if r.close_price else 0.0
+                    chain[key]["ce_oi"] = int(r.open_interest) if r.open_interest else 0
+                    chain[key]["ce_vol"] = int(r.total_trading_vol) if r.total_trading_vol else 0
+                elif r.option_type == 'PE':
+                    chain[key]["pe_ltp"] = float(r.close_price) if r.close_price else 0.0
+                    chain[key]["pe_oi"] = int(r.open_interest) if r.open_interest else 0
+                    chain[key]["pe_vol"] = int(r.total_trading_vol) if r.total_trading_vol else 0
+            else:
+                if r.option_type == 'CE':
+                    chain[key]["history"][trade_str]["ce"] = float(r.close_price) if r.close_price else 0.0
+                elif r.option_type == 'PE':
+                    chain[key]["history"][trade_str]["pe"] = float(r.close_price) if r.close_price else 0.0
 
-        # 3. Fetch Futures Data
+        # 3. Fetch Futures Data for all target dates
         fut_records = db.query(
+            BhavcopyFO.trade_date,
             BhavcopyFO.expiry_date,
             BhavcopyFO.close_price
         ).filter(
             BhavcopyFO.ticker_symb == symbol,
-            BhavcopyFO.trade_date == latest_fo_date,
+            BhavcopyFO.trade_date.in_(target_dates),
             BhavcopyFO.instrument_type.in_(['FUTIDX', 'FUTSTK', 'STF', 'IDF', 'FUTIRC'])
         ).all()
 
-        futures = {}
+        futures = {d.strftime('%Y-%m-%d'): {} for d in target_dates}
         for r in fut_records:
             if r.expiry_date:
-                futures[r.expiry_date.strftime('%Y-%m-%d')] = float(r.close_price) if r.close_price else 0.0
+                trade_str = r.trade_date.strftime('%Y-%m-%d')
+                exp_str = r.expiry_date.strftime('%Y-%m-%d')
+                futures[trade_str][exp_str] = float(r.close_price) if r.close_price else 0.0
 
         return {
             "data": list(chain.values()),
             "futures": futures,
+            "past_dates": past_dates,
             "date": latest_fo_date.strftime('%Y-%m-%d')
         }
 

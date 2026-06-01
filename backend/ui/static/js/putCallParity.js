@@ -14,12 +14,21 @@ async function loadPutCallParity() {
         }
 
         if (!data || !data.data || data.data.length === 0) {
-            document.getElementById('putcall-parity-body').innerHTML = '<tr><td colspan="13" style="text-align: center; color: #888;">No data found.</td></tr>';
+            document.getElementById('putcall-parity-body').innerHTML = '<tr><td colspan="18" style="text-align: center; color: #888;">No data found.</td></tr>';
             return;
         }
 
         const futures = data.futures;
+        const pastDates = data.past_dates || [];
         const allExpiries = [...new Set(data.data.map(d => d.expiry))].sort((a, b) => new Date(a) - new Date(b));
+
+        // Update Table Headers for Past Dates
+        for (let i = 0; i < 5; i++) {
+            const th = document.getElementById(`th-diff-t${i+1}`);
+            if (th) {
+                th.innerText = pastDates[i] || `T-${i+1} Diff`;
+            }
+        }
 
         // Update Expiry Select Dropdown
         const selectEl = document.getElementById('putcall-expiry-select');
@@ -44,23 +53,26 @@ async function loadPutCallParity() {
         // A monthly future usually expires on the last Thursday.
         // For any weekly expiry, the respective monthly future is the smallest future expiry >= the weekly expiry.
         // Or if none is >=, it's the largest future expiry (edge case).
-        const futureExpiries = Object.keys(futures).sort((a, b) => new Date(a) - new Date(b));
-        const getMonthlyFuture = (optExpiry) => {
+        const getMonthlyFuture = (optExpiry, targetTradeDate) => {
+            const futsForDate = futures[targetTradeDate] || {};
+            const futureExpiries = Object.keys(futsForDate).sort((a, b) => new Date(a) - new Date(b));
+
             const optDate = new Date(optExpiry);
             for (let futExp of futureExpiries) {
                 if (new Date(futExp) >= optDate) {
-                    return { date: futExp, price: futures[futExp] };
+                    return { date: futExp, price: futsForDate[futExp] };
                 }
             }
             if (futureExpiries.length > 0) {
                 const last = futureExpiries[futureExpiries.length - 1];
-                return { date: last, price: futures[last] };
+                return { date: last, price: futsForDate[last] };
             }
             return { date: "-", price: 0.0 };
         };
 
         // Filter and calculate
         let displayData = data.data;
+        const currentTradeDate = data.date;
         if (selectedExpiry !== 'ALL') {
             displayData = displayData.filter(d => d.expiry === selectedExpiry);
         }
@@ -77,7 +89,7 @@ async function loadPutCallParity() {
 
         let html = '';
         displayData.forEach(row => {
-            const monthlyFut = getMonthlyFuture(row.expiry);
+            const monthlyFut = getMonthlyFuture(row.expiry, currentTradeDate);
 
             // Filter Near ATM (+/- 500 points)
             if (atmFilterOnly) {
@@ -89,6 +101,30 @@ async function loadPutCallParity() {
             // Synthetic Future = Strike + Call LTP - Put LTP
             const synthFuture = row.strike + row.ce_ltp - row.pe_ltp;
             const diff = synthFuture - monthlyFut.price;
+
+            // Calculate Historical Diffs
+            let histDiffHtml = '';
+            for (let i = 0; i < 5; i++) {
+                const pd = pastDates[i];
+                if (pd && row.history && row.history[pd]) {
+                    const histData = row.history[pd];
+                    if (histData.ce > 0 || histData.pe > 0) {
+                        const histSynth = row.strike + histData.ce - histData.pe;
+                        const histMonthlyFut = getMonthlyFuture(row.expiry, pd);
+                        if (histMonthlyFut.price > 0) {
+                            const histDiff = histSynth - histMonthlyFut.price;
+                            const hColor = histDiff > 0 ? '#60a5fa' : (histDiff < 0 ? '#ff4d4d' : '#fff');
+                            histDiffHtml += `<td style="color: ${hColor};">${histDiff.toFixed(2)}</td>`;
+                        } else {
+                            histDiffHtml += `<td style="color: #555;">-</td>`;
+                        }
+                    } else {
+                        histDiffHtml += `<td style="color: #555;">-</td>`;
+                    }
+                } else {
+                    histDiffHtml += `<td style="color: #555;">-</td>`;
+                }
+            }
 
             // ATM highlighting: If strike is within 50 points of the Nifty Future
             const isATM = Math.abs(row.strike - monthlyFut.price) <= 50;
@@ -105,6 +141,7 @@ async function loadPutCallParity() {
                 <td style="color: #ff9800; font-weight: bold;">${synthFuture.toFixed(2)}</td>
                 <td style="color: #60a5fa;">${monthlyFut.price.toFixed(2)} (${monthlyFut.date})</td>
                 <td style="color: ${diffColor}; font-weight: bold;">${diff.toFixed(2)}</td>
+                ${histDiffHtml}
                 <td>${row.ce_vol.toLocaleString()}</td>
                 <td>${row.ce_oi.toLocaleString()}</td>
                 <td>${row.pe_vol.toLocaleString()}</td>
