@@ -144,10 +144,10 @@ async def get_option_chain(symbol: str, expiry: Optional[str] = None, date: Opti
 
         if is_index:
             idx_name = symbol
-            if symbol == 'NIFTY': idx_name = 'NIFTY 50'
-            elif symbol == 'BANKNIFTY': idx_name = 'NIFTY BANK'
-            elif symbol == 'FINNIFTY': idx_name = 'NIFTY FIN SERVICE'
-            elif symbol == 'MIDCPNIFTY': idx_name = 'NIFTY MID SELECT'
+            if symbol == 'NIFTY': idx_name = 'Nifty 50'
+            elif symbol == 'BANKNIFTY': idx_name = 'Nifty Bank'
+            elif symbol == 'FINNIFTY': idx_name = 'Nifty Fin Service'
+            elif symbol == 'MIDCPNIFTY': idx_name = 'Nifty Mid Select'
 
             idx_rec = db.query(HistoricalIndexData.close_price)\
                         .filter(HistoricalIndexData.trade_date <= latest_fo_date, HistoricalIndexData.index_name == idx_name)\
@@ -338,10 +338,10 @@ def get_put_call_parity(symbol: str = "NIFTY", date: Optional[str] = None, db: S
 
         if is_index:
             idx_name = symbol
-            if symbol == 'NIFTY': idx_name = 'NIFTY 50'
-            elif symbol == 'BANKNIFTY': idx_name = 'NIFTY BANK'
-            elif symbol == 'FINNIFTY': idx_name = 'NIFTY FIN SERVICE'
-            elif symbol == 'MIDCPNIFTY': idx_name = 'NIFTY MID SELECT'
+            if symbol == 'NIFTY': idx_name = 'Nifty 50'
+            elif symbol == 'BANKNIFTY': idx_name = 'Nifty Bank'
+            elif symbol == 'FINNIFTY': idx_name = 'Nifty Fin Service'
+            elif symbol == 'MIDCPNIFTY': idx_name = 'Nifty Mid Select'
 
             idx_rec = db.query(HistoricalIndexData.close_price)\
                         .filter(HistoricalIndexData.trade_date <= latest_fo_date, HistoricalIndexData.index_name == idx_name)\

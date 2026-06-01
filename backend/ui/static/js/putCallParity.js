@@ -1,10 +1,12 @@
 let _putCallParityRawData = null;
 
-async function loadPutCallParity() {
+async function loadPutCallParity(forceRefresh = false) {
     try {
         const selectedExpiry = document.getElementById('putcall-expiry-select').value;
         const selectedStrike = document.getElementById('putcall-strike-select').value;
         const atmFilterOnly = document.getElementById('putcall-atm-filter').checked;
+
+        if (forceRefresh) _putCallParityRawData = null;
 
         let data = _putCallParityRawData;
         if (!data) {

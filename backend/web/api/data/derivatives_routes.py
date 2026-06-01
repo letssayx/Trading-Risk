@@ -1820,7 +1820,7 @@ def get_index_basket_data(symbols: list[str], expiry_type: str = "near", db: Ses
         spots = {r.symbol: float(r.close_price) for r in eq_records}
 
         idx_rec = db.query(HistoricalIndexData.close_price)\
-                    .filter(HistoricalIndexData.trade_date == latest_fo_date, HistoricalIndexData.index_name == 'NIFTY 50')\
+                    .filter(HistoricalIndexData.trade_date == latest_fo_date, HistoricalIndexData.index_name == 'Nifty 50')\
                     .first()
         if idx_rec:
             spots['NIFTY'] = float(idx_rec[0])
