@@ -1,6 +1,11 @@
 let _putCallParityRawData = null;
 
 async function loadPutCallParity(forceRefresh = false) {
+    const refreshBtn = document.querySelector('button[onclick="loadPutCallParity(true)"]');
+    if (refreshBtn && forceRefresh) {
+        refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+    }
+
     try {
         const selectedExpiry = document.getElementById('putcall-expiry-select').value;
         const selectedStrike = document.getElementById('putcall-strike-select').value;
@@ -13,6 +18,11 @@ async function loadPutCallParity(forceRefresh = false) {
             const res = await fetch('/api/data/derivatives/put_call_parity?symbol=NIFTY');
             data = await res.json();
             _putCallParityRawData = data;
+
+            // Add a small artificial delay to show the spinner, since local execution is too fast
+            if (forceRefresh) {
+                await new Promise(r => setTimeout(r, 400));
+            }
         }
 
         if (!data || !data.data || data.data.length === 0) {
@@ -88,6 +98,11 @@ async function loadPutCallParity(forceRefresh = false) {
         // Filter and calculate
         let displayData = data.data;
         const currentTradeDate = data.date;
+
+        const diffTh = document.getElementById('th-diff-current');
+        if (diffTh && currentTradeDate) {
+            diffTh.innerHTML = `Difference<br><span style="font-size: 10px; color: #888;">${currentTradeDate}</span>`;
+        }
 
         // Update Header
         if (data.date) {
@@ -193,6 +208,10 @@ async function loadPutCallParity(forceRefresh = false) {
     } catch (e) {
         console.error("Error loading Put-Call Parity", e);
         document.getElementById('putcall-parity-body').innerHTML = `<tr><td colspan="13" style="text-align: center; color: #ff4d4d;">Failed to load data: ${e.message}</td></tr>`;
+    } finally {
+        if (refreshBtn && forceRefresh) {
+            refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+        }
     }
 }
 
