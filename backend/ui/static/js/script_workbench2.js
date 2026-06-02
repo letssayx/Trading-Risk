@@ -3015,6 +3015,7 @@ async function loadMarketOptionsCharts() {
     const symbol = document.getElementById('market-activity-index-symbol').value.toUpperCase().trim();
     const lookback = document.getElementById('market-activity-opt-lookback').value;
     const expiryOnly = document.getElementById('market-opt-expiry-only').checked;
+    const showCombinedOi = document.getElementById('market-opt-combined-oi').checked;
 
     const pcrContainer = document.getElementById('market-opt-pcr-chart');
     const highOiContainer = document.getElementById('market-opt-high-oi-chart');
@@ -3045,22 +3046,23 @@ async function loadMarketOptionsCharts() {
         const dates = data.dates;
         const prices = data.price;
         const pcrs = data.pcr;
-        const totalOi = data.total_oi;
+        const oiData = showCombinedOi ? data.total_oi : data.fut_oi;
+        const oiSeriesName = showCombinedOi ? 'Combined OI' : 'Futures OI';
 
         const pcrOption = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Total OI', 'Close Price', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
-            grid: { left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
+            legend: { data: [oiSeriesName, 'Close Price', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
+            grid: { left: '5%', right: '10%', bottom: '10%', top: '15%', containLabel: true },
             xAxis: { type: 'category', data: dates, axisLabel: { color: '#888' } },
             yAxis: [
                 { type: 'value', name: 'Close', position: 'left', axisLabel: { color: '#888' }, splitLine: { show: false }, scale: true },
                 { type: 'value', name: 'PCR', position: 'right', axisLabel: { color: '#888' }, splitLine: { show: false } },
-                { type: 'value', show: false, min: 0 } // For OI background
+                { type: 'value', name: 'OI', position: 'right', offset: 50, axisLabel: { color: '#888', formatter: (val) => (val/100000).toFixed(1) + 'L' }, splitLine: { show: false }, min: 0 } // For OI background with visible axis
             ],
             dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
             series: [
-                { name: 'Total OI', type: 'bar', yAxisIndex: 2, data: totalOi, itemStyle: { color: 'rgba(96, 165, 250, 0.2)' }, barWidth: '100%' },
+                { name: oiSeriesName, type: 'bar', yAxisIndex: 2, data: oiData, itemStyle: { color: 'rgba(96, 165, 250, 0.2)' }, barWidth: '100%' },
                 { name: 'Close Price', type: 'line', yAxisIndex: 0, data: prices, itemStyle: { color: '#ffcc00' }, lineStyle: { width: 2 }, symbol: 'none' },
                 { name: 'PCR', type: 'line', yAxisIndex: 1, data: pcrs, itemStyle: { color: '#00e676' }, lineStyle: { width: 2 }, symbol: 'none' }
             ]
@@ -3105,15 +3107,15 @@ async function loadMarketOptionsCharts() {
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                 legend: { data: ['Put OI', 'Call OI'], textStyle: { color: '#ccc' }, top: 0 },
                 grid: [
-                    { left: '5%', right: '52%', bottom: '10%', top: '15%' }, // Left side (Call OI)
-                    { left: '52%', right: '5%', bottom: '10%', top: '15%' }  // Right side (Put OI)
+                    { left: '5%', right: '55%', bottom: '10%', top: '15%' }, // Left side (Call OI)
+                    { left: '55%', right: '5%', bottom: '10%', top: '15%' }  // Right side (Put OI)
                 ],
                 xAxis: [
                     { type: 'value', gridIndex: 0, inverse: true, axisLabel: { show: false }, splitLine: { show: false } },
                     { type: 'value', gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } }
                 ],
                 yAxis: [
-                    { type: 'category', gridIndex: 0, data: strikes, axisLabel: { show: true, color: '#e0e0e0', margin: 45, align: 'center', fontWeight: 'bold' }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
+                    { type: 'category', gridIndex: 0, data: strikes, axisLabel: { show: true, color: '#e0e0e0', margin: 55, align: 'center', fontWeight: 'bold' }, position: 'right', axisTick: { show: false }, axisLine: { show: false } },
                     { type: 'category', gridIndex: 1, data: strikes, axisLabel: { show: false }, position: 'left', axisTick: { show: false }, axisLine: { show: false } }
                 ],
                 series: [
