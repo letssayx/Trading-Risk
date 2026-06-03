@@ -71,8 +71,8 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
         result_prices = []
         result_ce_oi = []
         result_pe_oi = []
-        result_fut_oi = []
         result_total_oi = []
+        result_fut_oi = []
         result_pcr = []
 
         for r in query:
@@ -80,8 +80,8 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
             result_prices.append(float(r.price) if r.price else 0.0)
             result_ce_oi.append(int(r.call_oi) if r.call_oi else 0)
             result_pe_oi.append(int(r.put_oi) if r.put_oi else 0)
-            result_fut_oi.append(int(r.fut_oi) if r.fut_oi else 0)
             result_total_oi.append(int(r.total_oi) if r.total_oi else 0)
+            result_fut_oi.append(int(r.fut_oi) if r.fut_oi else 0)
             result_pcr.append(float(r.pcr) if r.pcr else 0.0)
 
         return {
@@ -89,8 +89,8 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
             "price": result_prices,
             "ce_oi": result_ce_oi,
             "pe_oi": result_pe_oi,
-            "fut_oi": result_fut_oi,
             "total_oi": result_total_oi,
+            "fut_oi": result_fut_oi,
             "pcr": result_pcr
         }
 
