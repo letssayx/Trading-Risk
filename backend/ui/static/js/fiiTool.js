@@ -29,30 +29,66 @@ async function loadFiiAnalysis() {
         });
 
         // Load FII Money Stats
-        const moneyRes = await fetch(`/api/market-activity/participant-oi-money?days=${days}`);
+        const moneyRes = await fetch(`/api/market-activity/fii-stats-money?days=${days}`);
         const moneyData = await moneyRes.json();
 
         const moneyChartDom = document.getElementById('fii-money-tab-daily-summary');
         if (window.fiiMoneyTabChartInstance) window.fiiMoneyTabChartInstance.dispose();
         window.fiiMoneyTabChartInstance = echarts.init(moneyChartDom);
 
-        const seriesMoney = [];
-        seriesMoney.push({
-            name: 'FII Net (Cr)',
-            type: 'bar',
-            data: moneyData.fii_money,
-            itemStyle: { color: (p) => p.value >= 0 ? '#60a5fa' : '#f44336' }
-        });
+        const metrics = [
+            { key: 'fut_idx', label: 'Index Futures' },
+            { key: 'opt_idx', label: 'Index Options' },
+            { key: 'fut_stk', label: 'Stock Futures' },
+            { key: 'opt_stk', label: 'Stock Options' }
+        ];
 
-        window.fiiMoneyTabChartInstance.setOption({
-            backgroundColor: 'transparent',
-            tooltip: { trigger: 'axis' },
-            legend: { data: ['FII Net (Cr)'], textStyle: { color: '#ccc' } },
-            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-            xAxis: { type: 'category', data: moneyData.dates, axisLabel: { color: '#888' } },
-            yAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333' } } },
-            series: seriesMoney
-        });
+        let moneyOption;
+
+        if (moneyData.dates && moneyData.dates.length === 1) {
+            // Single day (Today) - Original Bar Chart
+            const todayIdx = 0;
+            const xAxisData = metrics.map(m => m.label);
+            const seriesData = metrics.map(m => moneyData[m.key] ? moneyData[m.key][todayIdx] : 0);
+
+            moneyOption = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => '₹' + v.toLocaleString() + ' Cr' },
+                grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
+                xAxis: { type: 'category', data: xAxisData, axisLabel: { color: '#ccc', fontWeight: 'bold' } },
+                yAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, name: 'Crores', nameTextStyle: { color: '#888' } },
+                series: [{
+                    name: 'FII Net (Cr)',
+                    type: 'bar',
+                    data: seriesData,
+                    itemStyle: { color: '#60a5fa' },
+                    label: { show: true, position: 'top', color: '#ccc', formatter: p => '₹' + p.value.toLocaleString() + ' Cr' }
+                }]
+            };
+        } else {
+            // Multiple Days - Grouped Bar Chart per day
+            const seriesMoney = metrics.map(m => {
+                return {
+                    name: m.label,
+                    type: 'bar',
+                    barGap: '0%', // Group closely
+                    data: moneyData[m.key] || [],
+                    label: { show: false }
+                };
+            });
+
+            moneyOption = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => '₹' + v.toLocaleString() + ' Cr' },
+                legend: { data: metrics.map(m => m.label), textStyle: { color: '#ccc' }, top: 0 },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                xAxis: { type: 'category', data: moneyData.dates, axisLabel: { color: '#888' } },
+                yAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, name: 'Crores', nameTextStyle: { color: '#888' } },
+                dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
+                series: seriesMoney
+            };
+        }
+        window.fiiMoneyTabChartInstance.setOption(moneyOption);
 
         // Load Participant Contracts
         const partRes = await fetch(`/api/market-activity/participant-oi?days=${days}`);
