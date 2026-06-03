@@ -1799,9 +1799,9 @@
         } catch (e) { console.error("Error loading FII/DII", e); }
 
         // 2. Load Participant OI Chart (Merged Daily Grouped Bar Chart - Contracts)
-        const days = document.getElementById('market-activity-days').value || '30';
+        const histDays = document.getElementById('market-activity-hist-days')?.value || '30';
         try {
-            const res = await fetch(`/api/market-activity/participant-oi?days=${days}`);
+            const res = await fetch(`/api/market-activity/participant-oi?days=${histDays}`);
             const data = await res.json();
 
             // Build grouped ECharts for daily snapshot
@@ -1936,7 +1936,7 @@ window.toggleSmartMoneyHistory = function(blockId) {
 
     const icon = document.getElementById('icon-' + blockId);
     if (icon) {
-        icon.className = isHidden ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+        icon.className = isHidden ? 'fas fa-chevron-down' : 'fas fa-chevron-right';
     }
 };
 
@@ -1982,10 +1982,25 @@ function renderParticipantHistorical(data) {
     metrics.forEach(m => {
         // Latest data (last element in array)
         const latestIdx = dates.length - 1;
-        const latestFii = data[`fii_${m.key}`]?.[latestIdx] || 0;
-        const latestDii = data[`dii_${m.key}`]?.[latestIdx] || 0;
-        const latestPro = data[`pro_${m.key}`]?.[latestIdx] || 0;
-        const latestCli = data[`client_${m.key}`]?.[latestIdx] || 0;
+
+        // Helper to extract values
+        const getVal = (prefix, participant, idx) => data[`${participant}_${m.key}${prefix}`]?.[idx] || 0;
+
+        const latestFiiL = getVal('_long', 'fii', latestIdx);
+        const latestFiiS = getVal('_short', 'fii', latestIdx);
+        const latestFiiN = getVal('', 'fii', latestIdx);
+
+        const latestDiiL = getVal('_long', 'dii', latestIdx);
+        const latestDiiS = getVal('_short', 'dii', latestIdx);
+        const latestDiiN = getVal('', 'dii', latestIdx);
+
+        const latestProL = getVal('_long', 'pro', latestIdx);
+        const latestProS = getVal('_short', 'pro', latestIdx);
+        const latestProN = getVal('', 'pro', latestIdx);
+
+        const latestCliL = getVal('_long', 'client', latestIdx);
+        const latestCliS = getVal('_short', 'client', latestIdx);
+        const latestCliN = getVal('', 'client', latestIdx);
 
         // Create an individual tbody for each instrument block
         const blockId = `smart-money-hist-${m.key}`;
@@ -1993,33 +2008,68 @@ function renderParticipantHistorical(data) {
 
         blockHTML += `
             <tr style="cursor: pointer; background: #222;" onclick="toggleSmartMoneyHistory('${blockId}')">
-                <td style="text-align:center;"><i class="fas fa-chevron-down" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
+                <td style="text-align:center;"><i class="fas fa-chevron-right" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
                 <td style="font-weight: bold; color: #fff;">${m.label}</td>
                 <td>${dates[latestIdx]}</td>
-                <td style="color: ${getColor(latestFii)}">${formatNum(latestFii)}</td>
-                <td style="color: ${getColor(latestDii)}">${formatNum(latestDii)}</td>
-                <td style="color: ${getColor(latestPro)}">${formatNum(latestPro)}</td>
-                <td style="color: ${getColor(latestCli)}">${formatNum(latestCli)}</td>
+
+                <td style="color: #60a5fa;">${formatNum(latestFiiL)}</td>
+                <td style="color: #ff4d4d;">${formatNum(latestFiiS)}</td>
+                <td style="color: ${getColor(latestFiiN)}; border-right: 1px solid #444;">${formatNum(latestFiiN)}</td>
+
+                <td style="color: #60a5fa;">${formatNum(latestDiiL)}</td>
+                <td style="color: #ff4d4d;">${formatNum(latestDiiS)}</td>
+                <td style="color: ${getColor(latestDiiN)}; border-right: 1px solid #444;">${formatNum(latestDiiN)}</td>
+
+                <td style="color: #60a5fa;">${formatNum(latestProL)}</td>
+                <td style="color: #ff4d4d;">${formatNum(latestProS)}</td>
+                <td style="color: ${getColor(latestProN)}; border-right: 1px solid #444;">${formatNum(latestProN)}</td>
+
+                <td style="color: #60a5fa;">${formatNum(latestCliL)}</td>
+                <td style="color: #ff4d4d;">${formatNum(latestCliS)}</td>
+                <td style="color: ${getColor(latestCliN)};">${formatNum(latestCliN)}</td>
             </tr>
         `;
 
         // History rows (hidden by default, bound to the parent tbody via CSS/JS logic, but we'll use a class for JS to toggle)
         // Iterate backwards from T-1 to start
         for (let i = dates.length - 2; i >= 0; i--) {
-            const fiiVal = data[`fii_${m.key}`]?.[i] || 0;
-            const diiVal = data[`dii_${m.key}`]?.[i] || 0;
-            const proVal = data[`pro_${m.key}`]?.[i] || 0;
-            const cliVal = data[`client_${m.key}`]?.[i] || 0;
+            const fiiL = getVal('_long', 'fii', i);
+            const fiiS = getVal('_short', 'fii', i);
+            const fiiN = getVal('', 'fii', i);
+
+            const diiL = getVal('_long', 'dii', i);
+            const diiS = getVal('_short', 'dii', i);
+            const diiN = getVal('', 'dii', i);
+
+            const proL = getVal('_long', 'pro', i);
+            const proS = getVal('_short', 'pro', i);
+            const proN = getVal('', 'pro', i);
+
+            const cliL = getVal('_long', 'client', i);
+            const cliS = getVal('_short', 'client', i);
+            const cliN = getVal('', 'client', i);
 
             blockHTML += `
                 <tr class="${blockId}" style="display: none; background: #1a1a1a;">
                     <td></td>
                     <td style="color: #aaa; padding-left: 20px;">${m.label}</td>
                     <td style="color: #aaa;">${dates[i]}</td>
-                    <td style="color: ${getColor(fiiVal)}">${formatNum(fiiVal)}</td>
-                    <td style="color: ${getColor(diiVal)}">${formatNum(diiVal)}</td>
-                    <td style="color: ${getColor(proVal)}">${formatNum(proVal)}</td>
-                    <td style="color: ${getColor(cliVal)}">${formatNum(cliVal)}</td>
+
+                    <td style="color: #60a5fa;">${formatNum(fiiL)}</td>
+                    <td style="color: #ff4d4d;">${formatNum(fiiS)}</td>
+                    <td style="color: ${getColor(fiiN)}; border-right: 1px solid #444;">${formatNum(fiiN)}</td>
+
+                    <td style="color: #60a5fa;">${formatNum(diiL)}</td>
+                    <td style="color: #ff4d4d;">${formatNum(diiS)}</td>
+                    <td style="color: ${getColor(diiN)}; border-right: 1px solid #444;">${formatNum(diiN)}</td>
+
+                    <td style="color: #60a5fa;">${formatNum(proL)}</td>
+                    <td style="color: #ff4d4d;">${formatNum(proS)}</td>
+                    <td style="color: ${getColor(proN)}; border-right: 1px solid #444;">${formatNum(proN)}</td>
+
+                    <td style="color: #60a5fa;">${formatNum(cliL)}</td>
+                    <td style="color: #ff4d4d;">${formatNum(cliS)}</td>
+                    <td style="color: ${getColor(cliN)};">${formatNum(cliN)}</td>
                 </tr>
             `;
         }

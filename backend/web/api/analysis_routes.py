@@ -720,11 +720,23 @@ def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         'date': r.trade_date,
         'client_type': r.client_type,
         'fut_idx_net': r.future_index_long - r.future_index_short,
+        'fut_idx_long': r.future_index_long,
+        'fut_idx_short': r.future_index_short,
         'fut_stk_net': r.future_stock_long - r.future_stock_short,
+        'fut_stk_long': r.future_stock_long,
+        'fut_stk_short': r.future_stock_short,
         'opt_idx_ce_net': r.option_index_call_long - r.option_index_call_short,
+        'opt_idx_ce_long': r.option_index_call_long,
+        'opt_idx_ce_short': r.option_index_call_short,
         'opt_idx_pe_net': r.option_index_put_long - r.option_index_put_short,
+        'opt_idx_pe_long': r.option_index_put_long,
+        'opt_idx_pe_short': r.option_index_put_short,
         'opt_stk_ce_net': r.option_stock_call_long - r.option_stock_call_short,
-        'opt_stk_pe_net': r.option_stock_put_long - r.option_stock_put_short
+        'opt_stk_ce_long': r.option_stock_call_long,
+        'opt_stk_ce_short': r.option_stock_call_short,
+        'opt_stk_pe_net': r.option_stock_put_long - r.option_stock_put_short,
+        'opt_stk_pe_long': r.option_stock_put_long,
+        'opt_stk_pe_short': r.option_stock_put_short
     } for r in records])
 
     if df.empty:
@@ -736,14 +748,37 @@ def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     df.loc[df['client_type'] == 'PRO', 'client_type'] = 'Pro'
     df.loc[df['client_type'] == 'CLIENT', 'client_type'] = 'Client'
 
+    def safe_pivot(values_col):
+        p = df.pivot_table(index='date', columns='client_type', values=values_col, aggfunc='sum').fillna(0)
+        if not p.index.is_unique:
+            p = p.groupby(level=0).sum()
+        return p
+
     # Handle pandas duplicate index/axis reindex issues
     try:
-        pivot_idx = df.pivot_table(index='date', columns='client_type', values='fut_idx_net', aggfunc='sum').fillna(0)
-        pivot_stk = df.pivot_table(index='date', columns='client_type', values='fut_stk_net', aggfunc='sum').fillna(0)
-        pivot_opt_idx_ce = df.pivot_table(index='date', columns='client_type', values='opt_idx_ce_net', aggfunc='sum').fillna(0)
-        pivot_opt_idx_pe = df.pivot_table(index='date', columns='client_type', values='opt_idx_pe_net', aggfunc='sum').fillna(0)
-        pivot_opt_stk_ce = df.pivot_table(index='date', columns='client_type', values='opt_stk_ce_net', aggfunc='sum').fillna(0)
-        pivot_opt_stk_pe = df.pivot_table(index='date', columns='client_type', values='opt_stk_pe_net', aggfunc='sum').fillna(0)
+        pivot_idx = safe_pivot('fut_idx_net')
+        pivot_idx_long = safe_pivot('fut_idx_long')
+        pivot_idx_short = safe_pivot('fut_idx_short')
+
+        pivot_stk = safe_pivot('fut_stk_net')
+        pivot_stk_long = safe_pivot('fut_stk_long')
+        pivot_stk_short = safe_pivot('fut_stk_short')
+
+        pivot_opt_idx_ce = safe_pivot('opt_idx_ce_net')
+        pivot_opt_idx_ce_long = safe_pivot('opt_idx_ce_long')
+        pivot_opt_idx_ce_short = safe_pivot('opt_idx_ce_short')
+
+        pivot_opt_idx_pe = safe_pivot('opt_idx_pe_net')
+        pivot_opt_idx_pe_long = safe_pivot('opt_idx_pe_long')
+        pivot_opt_idx_pe_short = safe_pivot('opt_idx_pe_short')
+
+        pivot_opt_stk_ce = safe_pivot('opt_stk_ce_net')
+        pivot_opt_stk_ce_long = safe_pivot('opt_stk_ce_long')
+        pivot_opt_stk_ce_short = safe_pivot('opt_stk_ce_short')
+
+        pivot_opt_stk_pe = safe_pivot('opt_stk_pe_net')
+        pivot_opt_stk_pe_long = safe_pivot('opt_stk_pe_long')
+        pivot_opt_stk_pe_short = safe_pivot('opt_stk_pe_short')
 
         if not pivot_idx.index.is_unique:
             pivot_idx = pivot_idx.groupby(level=0).sum()
@@ -762,20 +797,50 @@ def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
         pivot_opt_stk_pe.index = pd.to_datetime(pivot_opt_stk_pe.index)
 
         pivot_idx = pivot_idx.reindex(dt_dates).fillna(0)
+        pivot_idx_long = pivot_idx_long.reindex(dt_dates).fillna(0)
+        pivot_idx_short = pivot_idx_short.reindex(dt_dates).fillna(0)
+
         pivot_stk = pivot_stk.reindex(dt_dates).fillna(0)
+        pivot_stk_long = pivot_stk_long.reindex(dt_dates).fillna(0)
+        pivot_stk_short = pivot_stk_short.reindex(dt_dates).fillna(0)
+
         pivot_opt_idx_ce = pivot_opt_idx_ce.reindex(dt_dates).fillna(0)
+        pivot_opt_idx_ce_long = pivot_opt_idx_ce_long.reindex(dt_dates).fillna(0)
+        pivot_opt_idx_ce_short = pivot_opt_idx_ce_short.reindex(dt_dates).fillna(0)
+
         pivot_opt_idx_pe = pivot_opt_idx_pe.reindex(dt_dates).fillna(0)
+        pivot_opt_idx_pe_long = pivot_opt_idx_pe_long.reindex(dt_dates).fillna(0)
+        pivot_opt_idx_pe_short = pivot_opt_idx_pe_short.reindex(dt_dates).fillna(0)
+
         pivot_opt_stk_ce = pivot_opt_stk_ce.reindex(dt_dates).fillna(0)
+        pivot_opt_stk_ce_long = pivot_opt_stk_ce_long.reindex(dt_dates).fillna(0)
+        pivot_opt_stk_ce_short = pivot_opt_stk_ce_short.reindex(dt_dates).fillna(0)
+
         pivot_opt_stk_pe = pivot_opt_stk_pe.reindex(dt_dates).fillna(0)
+        pivot_opt_stk_pe_long = pivot_opt_stk_pe_long.reindex(dt_dates).fillna(0)
+        pivot_opt_stk_pe_short = pivot_opt_stk_pe_short.reindex(dt_dates).fillna(0)
+
     except Exception as e:
         import logging
         logging.error(f"Error pivoting participant oi: {e}")
         pivot_idx = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_idx_long = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_idx_short = pd.DataFrame(index=pd.to_datetime(dates))
         pivot_stk = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_stk_long = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_stk_short = pd.DataFrame(index=pd.to_datetime(dates))
         pivot_opt_idx_ce = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_idx_ce_long = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_idx_ce_short = pd.DataFrame(index=pd.to_datetime(dates))
         pivot_opt_idx_pe = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_idx_pe_long = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_idx_pe_short = pd.DataFrame(index=pd.to_datetime(dates))
         pivot_opt_stk_ce = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_stk_ce_long = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_stk_ce_short = pd.DataFrame(index=pd.to_datetime(dates))
         pivot_opt_stk_pe = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_stk_pe_long = pd.DataFrame(index=pd.to_datetime(dates))
+        pivot_opt_stk_pe_short = pd.DataFrame(index=pd.to_datetime(dates))
 
     from sqlalchemy import text
 
@@ -813,29 +878,77 @@ def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     return {
         "dates": [d.strftime('%Y-%m-%d') for d in pivot_idx.index],
         "fii_fut_idx": pivot_idx.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_fut_idx_long": pivot_idx_long.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_fut_idx_short": pivot_idx_short.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_fut_stk": pivot_stk.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_fut_stk_long": pivot_stk_long.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_fut_stk_short": pivot_stk_short.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_opt_idx_ce": pivot_opt_idx_ce.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_idx_ce_long": pivot_opt_idx_ce_long.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_idx_ce_short": pivot_opt_idx_ce_short.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_opt_idx_pe": pivot_opt_idx_pe.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_idx_pe_long": pivot_opt_idx_pe_long.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_idx_pe_short": pivot_opt_idx_pe_short.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_fut_idx": pivot_idx.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_fut_idx_long": pivot_idx_long.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_fut_idx_short": pivot_idx_short.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_fut_stk": pivot_stk.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_fut_stk_long": pivot_stk_long.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_fut_stk_short": pivot_stk_short.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_opt_idx_ce": pivot_opt_idx_ce.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_idx_ce_long": pivot_opt_idx_ce_long.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_idx_ce_short": pivot_opt_idx_ce_short.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_opt_idx_pe": pivot_opt_idx_pe.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_idx_pe_long": pivot_opt_idx_pe_long.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_idx_pe_short": pivot_opt_idx_pe_short.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "pro_fut_idx": pivot_idx.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_fut_idx_long": pivot_idx_long.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_fut_idx_short": pivot_idx_short.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
         "pro_fut_stk": pivot_stk.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_fut_stk_long": pivot_stk_long.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_fut_stk_short": pivot_stk_short.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
         "pro_opt_idx_ce": pivot_opt_idx_ce.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_idx_ce_long": pivot_opt_idx_ce_long.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_idx_ce_short": pivot_opt_idx_ce_short.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
         "pro_opt_idx_pe": pivot_opt_idx_pe.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_idx_pe_long": pivot_opt_idx_pe_long.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_idx_pe_short": pivot_opt_idx_pe_short.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_fut_idx": pivot_idx.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_fut_idx_long": pivot_idx_long.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_fut_idx_short": pivot_idx_short.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_fut_stk": pivot_stk.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_fut_stk_long": pivot_stk_long.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_fut_stk_short": pivot_stk_short.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_opt_idx_ce": pivot_opt_idx_ce.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_idx_ce_long": pivot_opt_idx_ce_long.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_idx_ce_short": pivot_opt_idx_ce_short.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_opt_idx_pe": pivot_opt_idx_pe.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_idx_pe_long": pivot_opt_idx_pe_long.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_idx_pe_short": pivot_opt_idx_pe_short.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_opt_stk_ce": pivot_opt_stk_ce.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_stk_ce_long": pivot_opt_stk_ce_long.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_stk_ce_short": pivot_opt_stk_ce_short.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "fii_opt_stk_pe": pivot_opt_stk_pe.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_stk_pe_long": pivot_opt_stk_pe_long.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "fii_opt_stk_pe_short": pivot_opt_stk_pe_short.get('FII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_opt_stk_ce": pivot_opt_stk_ce.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_stk_ce_long": pivot_opt_stk_ce_long.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_stk_ce_short": pivot_opt_stk_ce_short.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "dii_opt_stk_pe": pivot_opt_stk_pe.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_stk_pe_long": pivot_opt_stk_pe_long.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "dii_opt_stk_pe_short": pivot_opt_stk_pe_short.get('DII', pd.Series(0, index=pivot_idx.index)).tolist(),
         "pro_opt_stk_ce": pivot_opt_stk_ce.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_stk_ce_long": pivot_opt_stk_ce_long.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_stk_ce_short": pivot_opt_stk_ce_short.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
         "pro_opt_stk_pe": pivot_opt_stk_pe.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_stk_pe_long": pivot_opt_stk_pe_long.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "pro_opt_stk_pe_short": pivot_opt_stk_pe_short.get('Pro', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_opt_stk_ce": pivot_opt_stk_ce.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_stk_ce_long": pivot_opt_stk_ce_long.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_stk_ce_short": pivot_opt_stk_ce_short.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "client_opt_stk_pe": pivot_opt_stk_pe.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_stk_pe_long": pivot_opt_stk_pe_long.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
+        "client_opt_stk_pe_short": pivot_opt_stk_pe_short.get('Client', pd.Series(0, index=pivot_idx.index)).tolist(),
         "nifty_close": nifty_close_list
     }
 
