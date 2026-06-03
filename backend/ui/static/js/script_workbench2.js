@@ -1670,7 +1670,7 @@
 // script start
     let echartInstance = null;
     let fiiDiiChartInstance = null;
-    let participantChartInstance = null;
+    window.participantChartInstance = null;
 
     async function loadMarketActivity() {
         const symbol = document.getElementById('market-activity-index-symbol') ? document.getElementById('market-activity-index-symbol').value.toUpperCase() : 'NIFTY';
@@ -1806,13 +1806,14 @@
 
             // Build grouped ECharts for daily snapshot
             const container = document.getElementById('participant-oi-daily-summary');
-            if (participantChartInstance) participantChartInstance.dispose();
-            participantChartInstance = echarts.init(container);
+            if (window.participantChartInstance) window.participantChartInstance.dispose();
+            window.participantChartInstance = echarts.init(container);
 
             const dates = data.dates || [];
             if (dates.length === 0) {
                 container.innerHTML = '<p style="text-align:center; color:#888;">No Participant OI data found.</p>';
-                return;
+                renderParticipantHistorical({dates: []});
+                throw new Error("No Participant OI data found");
             }
 
             // Define 6 metric categories per user request
@@ -1905,7 +1906,7 @@
                 },
                 series: series
             };
-            participantChartInstance.setOption(participantOption);
+            window.participantChartInstance.setOption(participantOption);
 
             // 3. Render Granular Collective Chart
             renderParticipantGranular(data);
@@ -1913,88 +1914,19 @@
             // 4. Render Historical Net Pos Charts
             renderParticipantHistorical(data);
 
-            // 5. Render FII Money Stats
+            } catch(e) {
+            console.error("Error loading Participant OI", e);
+        }
+
+        // 5. Render FII Money Stats
             renderFiiMoneyStats(days);
             if(typeof loadMarketOptionsCharts === 'function') loadMarketOptionsCharts();
 
-        } catch(e) {
-            console.error("Error loading Participant OI", e);
-        }
 
 }
 
 window.historicalChartInstances = window.historicalChartInstances || {};
 
-
-function renderParticipantGranular(data) {
-    const container = document.getElementById('participant-oi-granular-summary');
-    if (!container) return;
-
-    if (window.participantGranularChartInstance) window.participantGranularChartInstance.dispose();
-    window.participantGranularChartInstance = echarts.init(container);
-
-    const dates = data.dates || [];
-    if (dates.length < 2) return;
-
-    const todayIdx = dates.length - 1;
-    const prevIdx = dates.length - 2;
-
-    const metrics = [
-        { key: 'fut_idx', label: 'Index Futures' },
-        { key: 'fut_stk', label: 'Stock Futures' },
-        { key: 'opt_idx_ce', label: 'Index Calls' },
-        { key: 'opt_idx_pe', label: 'Index Puts' }
-    ];
-
-    const participants = [
-        { key: 'fii', label: 'FII', color: '#3176B8' },
-        { key: 'dii', label: 'DII', color: '#4caf50' },
-        { key: 'pro', label: 'PRO', color: '#9B59B6' },
-        { key: 'client', label: 'CLI', color: '#00bcd4' }
-    ];
-
-    const xAxisData = metrics.map(m => m.label);
-
-    const series = [];
-    participants.forEach(p => {
-        // Prev Data
-        series.push({
-            name: `${p.label} (Prev)`,
-            type: 'bar',
-            barGap: '0%',
-            data: metrics.map(m => {
-                const arr = data[`${p.key}_${m.key}`] || [];
-                return arr.length > prevIdx ? arr[prevIdx] : 0;
-            }),
-            itemStyle: { color: '#60a5fa' }, // Blue for Prev
-            label: { show: true, position: 'top', color: '#ccc', fontSize: 9, formatter: p => p.value !== 0 ? (Math.abs(p.value) >= 100000 ? (p.value / 100000).toFixed(1) + 'L' : p.value) : '' }
-        });
-
-        // Today Data
-        series.push({
-            name: `${p.label} (Today)`,
-            type: 'bar',
-            data: metrics.map(m => {
-                const arr = data[`${p.key}_${m.key}`] || [];
-                return arr.length > todayIdx ? arr[todayIdx] : 0;
-            }),
-            itemStyle: { color: p.color }, // Original color for Today
-            label: { show: true, position: 'top', color: '#ccc', fontSize: 9, formatter: p => p.value !== 0 ? (Math.abs(p.value) >= 100000 ? (p.value / 100000).toFixed(1) + 'L' : p.value) : '' }
-        });
-    });
-
-    const option = {
-        backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-        legend: { data: participants.flatMap(p => [`${p.label} (Prev)`, `${p.label} (Today)`]), textStyle: { color: '#ccc' }, top: 0, type: 'scroll' },
-        grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
-        xAxis: { type: 'category', data: xAxisData, axisLabel: { color: '#ccc', fontWeight: 'bold' } },
-        yAxis: { type: 'value', axisLabel: { color: '#888' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } } },
-        series: series
-    };
-
-    window.participantGranularChartInstance.setOption(option);
-}
 
 window.toggleSmartMoneyHistory = function(blockId) {
     const block = document.getElementById(blockId);
