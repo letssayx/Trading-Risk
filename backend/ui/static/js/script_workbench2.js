@@ -1683,7 +1683,7 @@
             loadBtn.disabled = true;
         }
 
-        // 1. Load FII/DII Chart (Side by side bars per user request)
+        // 1. Load FII/DII Chart
         try {
             const days = document.getElementById('market-activity-days')?.value || '30';
             const res = await fetch(`/api/market-activity/cash-flow?days=${days}`);
@@ -1691,108 +1691,23 @@
             if (fiiDiiChartInstance) fiiDiiChartInstance.destroy();
             const ctx = document.getElementById('fiiDiiChart').getContext('2d');
 
-            // Extract Nifty prices dynamically if returned
-            const niftyData = data.nifty_close || [];
-
-            // Add NIFTY line overlay dynamically to FII/DII Chart if NIFTY exists
-            const datasets = [
-                {
-                    label: 'FII Net',
-                    type: 'bar',
-                    yAxisID: 'y',
-                    data: data.fii_net,
-                    backgroundColor: '#3176B8',
-                    borderColor: '#3176B8',
-                    borderWidth: 0,
-                    barPercentage: 1.0,
-                    categoryPercentage: 0.8,
-                    datalabels: { align: 'end', anchor: 'end', color: '#ccc', font: {size: 9}, formatter: (value) => value === 0 ? '' : Math.round(value) }
-                }, // Orange
-                {
-                    label: 'DII Net',
-                    type: 'bar',
-                    yAxisID: 'y',
-                    data: data.dii_net,
-                    backgroundColor: '#60a5fa',
-                    borderColor: '#60a5fa',
-                    borderWidth: 0,
-                    barPercentage: 1.0,
-                    categoryPercentage: 0.8,
-                    datalabels: { align: 'end', anchor: 'end', color: '#ccc', font: {size: 9}, formatter: (value) => value === 0 ? '' : Math.round(value) }
-                }  // Blue
-            ];
-
-            if (niftyData.length > 0) {
-                datasets.push({
-                    label: 'NIFTY',
-                    type: 'line',
-                    yAxisID: 'y1',
-                    data: niftyData,
-                    borderColor: '#FFFFFF',
-                    backgroundColor: '#FFFFFF',
-                    borderWidth: 3,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#FFFFFF',
-                    tension: 0.1,
-                    datalabels: { display: false }
-                });
-            }
-
-            let minNifty = null;
-            let maxNifty = null;
-            if (niftyData.length > 0) {
-                const validNifty = niftyData.filter(v => v !== null && !isNaN(v) && v > 0);
-                if (validNifty.length > 0) {
-                    const absMin = Math.min(...validNifty);
-                    const absMax = Math.max(...validNifty);
-                    const diff = absMax - absMin;
-                    const pad = diff * 0.1;
-                    minNifty = Math.floor(absMin - pad);
-                    maxNifty = Math.ceil(absMax + pad);
-                }
-            }
-
-            const alternatingBackgroundPlugin = {
-                id: 'alternatingBackgroundPlugin',
-                beforeDraw: (chart) => {
-                    const ctx = chart.canvas.getContext('2d');
-                    const xAxis = chart.scales.x;
-                    const yAxis = chart.scales.y;
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                    for (let i = 0; i < xAxis.ticks.length; i++) {
-                        if (i % 2 === 1) { // Alternate days shading
-                            const left = i === 0 ? xAxis.left : (xAxis.getPixelForTick(i) + xAxis.getPixelForTick(i-1)) / 2;
-                            const right = i === xAxis.ticks.length - 1 ? xAxis.right : (xAxis.getPixelForTick(i) + xAxis.getPixelForTick(i+1)) / 2;
-                            ctx.fillRect(left, yAxis.top, right - left, yAxis.bottom - yAxis.top);
-                        }
-                    }
-                    ctx.restore();
-                }
-            };
-
             fiiDiiChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: data.dates,
-                    datasets: datasets
+                    datasets: [
+                        { label: 'FII Net', data: data.fii_net, backgroundColor: '#3176B8' },
+                        { label: 'DII Net', data: data.dii_net, backgroundColor: '#ff9800' }
+                    ]
                 },
-                plugins: [window.ChartDataLabels, alternatingBackgroundPlugin],
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: '#ccc' } } },
                     scales: {
-                        x: { stacked: false },
-                        y: { stacked: false, position: 'left', grid: { color: '#333' } },
-                        y1: {
-                            type: 'linear', position: 'right', display: niftyData.length > 0, grid: { drawOnChartArea: false },
-                            min: minNifty, max: maxNifty
-                        }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#ccc' } },
-                        datalabels: {
-                            display: true
-                        }
+                        x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                        y: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
                     }
                 }
             });
@@ -1804,117 +1719,16 @@
             const res = await fetch(`/api/market-activity/participant-oi?days=${histDays}`);
             const data = await res.json();
 
-            // Build grouped ECharts for daily snapshot
-            const container = document.getElementById('participant-oi-daily-summary');
-            if (participantChartInstance) participantChartInstance.dispose();
-            participantChartInstance = echarts.init(container);
+            // Fetch Money Stats for the new FII history table
+            const moneyRes = await fetch(`/api/market-activity/fii-stats-money?days=${histDays}`);
+            const moneyData = await moneyRes.json();
 
-            const dates = data.dates || [];
-            if (dates.length === 0) {
-                container.innerHTML = '<p style="text-align:center; color:#888;">No Participant OI data found.</p>';
-                return;
-            }
-
-            // Define 6 metric categories per user request
-            const metrics = [
-                { key: 'fut_idx', label: 'Index Futures' },
-                { key: 'fut_stk', label: 'Stock Futures' },
-                { key: 'opt_idx_ce', label: 'Index Calls' },
-                { key: 'opt_idx_pe', label: 'Index Puts' },
-                { key: 'opt_stk_ce', label: 'Stock Calls' },
-                { key: 'opt_stk_pe', label: 'Stock Puts' }
-            ];
-
-            const participants = [
-                { key: 'smart_money', label: 'Smart Money (Inst+Pro)', color: '#FFD700' }, // Yellow
-                { key: 'fii', label: 'FII', color: '#3176B8' },     // Blue
-                { key: 'dii', label: 'DII', color: '#4caf50' },     // Green
-                { key: 'pro', label: 'PRO', color: '#9B59B6' },     // Purple
-                { key: 'client', label: 'CLI', color: '#00bcd4' }   // Cyan
-            ];
-
-            const xAxisData = metrics.map(m => m.label);
-
-            // We only care about the latest date (Today)
-            const todayIdx = dates.length - 1;
-
-            const series = participants.map(p => {
-                const pData = metrics.map(m => {
-                    if (p.key === 'smart_money') {
-                        // Calculate Smart Money: FII + DII + PRO (Excluding Client)
-                        let sum = 0;
-                        ['fii', 'dii', 'pro'].forEach(participantKey => {
-                            const arrayKey = `${participantKey}_${m.key}`;
-                            const arr = data[arrayKey] || [];
-                            sum += arr.length > todayIdx ? arr[todayIdx] : 0;
-                        });
-                        return sum;
-                    } else {
-                        const arrayKey = `${p.key}_${m.key}`;
-                        const arr = data[arrayKey] || [];
-                        return arr.length > todayIdx ? arr[todayIdx] : 0;
-                    }
-                });
-
-                return {
-                    name: p.label,
-                    type: 'bar',
-                    barGap: '0%', // Combine bars closely together per instrument (no gap)
-                    data: pData,
-                    itemStyle: { color: p.color },
-                    label: {
-                        show: true,
-                        position: 'top',
-                        formatter: function(params) {
-                            let val = params.value;
-                            if (val === 0) return '';
-                            let absVal = Math.abs(val);
-                            if (absVal >= 100000) return (val / 100000).toFixed(1) + 'L';
-                            if (absVal >= 1000) return (val / 1000).toFixed(1) + 'K';
-                            return val;
-                        },
-                        color: '#ccc',
-                        fontSize: 9
-                    }
-                };
-            });
-
-            const participantOption = {
-                backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: { type: 'shadow' }
-                },
-                legend: {
-                    data: participants.map(p => p.label),
-                    textStyle: { color: '#ccc' },
-                    top: 0
-                },
-                grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: xAxisData,
-                    axisLabel: { color: '#ccc', fontWeight: 'bold' },
-                    axisLine: { lineStyle: { color: '#333' } },
-                    axisTick: { show: false }
-                },
-                yAxis: {
-                    type: 'value',
-                    axisLabel: { color: '#888' },
-                    splitLine: { lineStyle: { color: '#333', type: 'dashed' } }
-                },
-                series: series
-            };
-            participantChartInstance.setOption(participantOption);
-
-            // 3. Render Granular Collective Chart
-            renderParticipantGranular(data);
-
-            // 4. Render Historical Net Pos Charts
+            // Render Historical Net Pos Charts
             renderParticipantHistorical(data);
 
-            // 5. Render FII Money Stats
-            renderFiiMoneyStats(days);
+            // Render new FII Money & Contract History Table
+            renderFIIMoneyContractHistory(data, moneyData);
+
             if(typeof loadMarketOptionsCharts === 'function') loadMarketOptionsCharts();
 
         } catch(e) {
@@ -2075,6 +1889,116 @@ function renderParticipantHistorical(data) {
         }
         blockHTML += `</tbody>`;
         document.getElementById('smart-money-history-table').insertAdjacentHTML('beforeend', blockHTML);
+    });
+}
+
+function renderFIIMoneyContractHistory(contractData, moneyData) {
+    const dates = contractData.dates || [];
+    const tbody = document.getElementById('fii-money-contract-history-body');
+    if (!tbody) return;
+
+    if (dates.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No historical data available.</td></tr>';
+        return;
+    }
+
+    // Clean up old dynamically created tbodies if user reloads
+    document.querySelectorAll('#fii-money-contract-history-table tbody').forEach(tb => {
+        if (tb.id !== 'fii-money-contract-history-body') {
+            tb.remove();
+        }
+    });
+
+    tbody.innerHTML = '';
+
+    const metrics = [
+        { key: 'fut_idx', label: 'Index Futures' },
+        { key: 'fut_stk', label: 'Stock Futures' },
+        { key: 'opt_idx', label: 'Index Options' },
+        { key: 'opt_stk', label: 'Stock Options' }
+    ];
+
+    const formatNum = (val) => {
+        if (val == null || isNaN(val)) return '-';
+        return parseInt(val).toLocaleString();
+    };
+
+    const getColor = (val) => {
+        if (val > 0) return '#60a5fa'; // Blue for positive
+        if (val < 0) return '#ff4d4d'; // Red for negative
+        return '#ccc';
+    };
+
+    // Explicitly define 6 detailed bifurcation metrics to match user constraints
+    const detailedMetrics = [
+        { contractKey: 'fut_idx', moneyKey: 'fut_idx', label: 'Index Futures' },
+        { contractKey: 'fut_stk', moneyKey: 'fut_stk', label: 'Stock Futures' },
+        { contractKey: 'opt_idx_ce', moneyKey: 'opt_idx', label: 'Index Calls' },
+        { contractKey: 'opt_idx_pe', moneyKey: 'opt_idx', label: 'Index Puts' },
+        { contractKey: 'opt_stk_ce', moneyKey: 'opt_stk', label: 'Stock Calls' },
+        { contractKey: 'opt_stk_pe', moneyKey: 'opt_stk', label: 'Stock Puts' }
+    ];
+
+    detailedMetrics.forEach(m => {
+        // Latest data (last element in array)
+        const latestIdx = dates.length - 1;
+
+        // Extract contract net values strictly using the detailed key
+        const getContractNetVal = (idx) => {
+            return contractData[`fii_${m.contractKey}`]?.[idx] || 0;
+        };
+
+        // Extract money net values (Money endpoint only gives aggregated opt_idx/opt_stk, so we show it alongside detailed contracts)
+        const getMoneyNetVal = (idx) => {
+            // For calls, we show the full options money flow.
+            // For puts, we can just show '-' to avoid double counting visually, or show the same.
+            // Let's show it on both since the API doesn't split it.
+            return moneyData[m.moneyKey]?.[idx] || 0;
+        };
+
+        const latestContractNet = getContractNetVal(latestIdx);
+        let latestMoneyNet = getMoneyNetVal(latestIdx);
+
+        // Blank out money for Puts to avoid visual double-counting of the aggregated money figure
+        if (m.contractKey.endsWith('_pe')) {
+            latestMoneyNet = null;
+        }
+
+        // Create an individual tbody for each instrument block
+        const blockId = `fii-history-hist-${m.contractKey}`;
+        let blockHTML = `<tbody id="tbody-fii-${m.contractKey}">`;
+
+        blockHTML += `
+            <tr style="cursor: pointer; background: #222;" onclick="toggleSmartMoneyHistory('${blockId}')">
+                <td style="text-align:center;"><i class="fas fa-chevron-right" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
+                <td style="font-weight: bold; color: #fff;">${m.label}</td>
+                <td>${dates[latestIdx]}</td>
+                <td style="color: ${getColor(latestMoneyNet)}; border-right: 1px solid #444; text-align: right;">${formatNum(latestMoneyNet)}</td>
+                <td style="color: ${getColor(latestContractNet)}; border-right: 1px solid #444; text-align: right;">${formatNum(latestContractNet)}</td>
+            </tr>
+        `;
+
+        // History rows (hidden by default)
+        for (let i = dates.length - 2; i >= 0; i--) {
+            const contractNet = getContractNetVal(i);
+            let moneyNet = getMoneyNetVal(i);
+
+            if (m.contractKey.endsWith('_pe')) {
+                moneyNet = null;
+            }
+
+            blockHTML += `
+                <tr class="${blockId}" style="display: none; background: #1a1a1a;">
+                    <td></td>
+                    <td style="color: #aaa; padding-left: 20px;">${m.label}</td>
+                    <td style="color: #aaa;">${dates[i]}</td>
+                    <td style="color: ${getColor(moneyNet)}; border-right: 1px solid #444; text-align: right;">${formatNum(moneyNet)}</td>
+                    <td style="color: ${getColor(contractNet)}; border-right: 1px solid #444; text-align: right;">${formatNum(contractNet)}</td>
+                </tr>
+            `;
+        }
+        blockHTML += `</tbody>`;
+        document.getElementById('fii-money-contract-history-table').insertAdjacentHTML('beforeend', blockHTML);
     });
 }
 
