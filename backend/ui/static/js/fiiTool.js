@@ -22,8 +22,8 @@ async function loadFiiAnalysis() {
                 maintainAspectRatio: false,
                 plugins: { legend: { labels: { color: '#ccc' } } },
                 scales: {
-                    x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
-                    y: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
+                    x: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                    y: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } }
                 },
                 interaction: {
                     mode: 'index',
@@ -53,7 +53,7 @@ async function loadFiiAnalysis() {
 window.loadFiiTrendChart = async function(overrideDays) {
     console.log("Loading FII Trend Chart...");
     try {
-        const days = overrideDays || document.getElementById('fii-analysis-days')?.value || '30';
+        const days = (typeof overrideDays === 'string' || typeof overrideDays === 'number') ? overrideDays : document.getElementById('fii-analysis-days')?.value || '30';
         const symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
         const expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
         const combinedOi = document.getElementById('fii-opt-combined-oi')?.checked ? 'true' : 'false';
@@ -101,7 +101,7 @@ window.loadFiiTrendChart = async function(overrideDays) {
                     type: 'bar',
                     data: oiData,
                     yAxisIndex: 2,
-                    itemStyle: { color: 'rgba(96, 165, 250, 0.3)' }, // Light blue background bars
+                    itemStyle: { color: '#3176B8' }, // FII Net Blue
                     barMaxWidth: 30
                 },
                 {
