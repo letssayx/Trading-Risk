@@ -22,8 +22,8 @@ async function loadFiiAnalysis() {
                 maintainAspectRatio: false,
                 plugins: { legend: { labels: { color: '#ccc' } } },
                 scales: {
-                    x: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } },
-                    y: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } }
+                    x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                    y: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
                 },
                 interaction: {
                     mode: 'index',
@@ -337,20 +337,43 @@ function renderFiiPositionHistoryTable(data) {
         return '#ccc'; // Gray for zero
     };
 
-    dates.forEach((dateStr, index) => {
+    // Re-organize data: map instrument -> array of daily records
+    const instrumentMap = {};
+    dates.forEach(dateStr => {
         const records = groupedData[dateStr] || [];
+        records.forEach(r => {
+            if (!instrumentMap[r.instrument_type]) {
+                instrumentMap[r.instrument_type] = [];
+            }
+            instrumentMap[r.instrument_type].push({...r, dateStr});
+        });
+    });
+
+    const instruments = Object.keys(instrumentMap).sort();
+
+    instruments.forEach((inst, index) => {
+        const records = instrumentMap[inst];
         if (records.length === 0) return;
 
-        const blockId = `fii-granular-pos-${dateStr.replace(/-/g, '')}`;
-        const isCollapsed = index > 0; // Expand first row (latest date) by default
+        // the records are already sorted by date descending because 'dates' is sorted descending
+        const latestRecord = records[0];
 
-        let blockHTML = `<tbody id="fii-pos-tbody-${dateStr}">`;
+        // Ensure safe id by replacing spaces and special chars
+        const safeInstId = inst.replace(/[^a-zA-Z0-9]/g, '_');
+        const blockId = `fii-granular-pos-${safeInstId}`;
+        const isCollapsed = index > 0; // Expand first row by default
+
+        let blockHTML = `<tbody id="fii-pos-tbody-${safeInstId}">`;
 
         blockHTML += `
-            <tr style="cursor: pointer; background: #222;" onclick="toggleFiiPositionHistory('${blockId}')">
+            <tr style="cursor: pointer; background: #252526;" onclick="toggleFiiPositionHistory('${blockId}')">
                 <td style="text-align:center;"><i class="fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'}" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
-                <td style="font-weight: bold; color: #fff;">${dateStr}</td>
-                <td colspan="7" style="color: #aaa; font-style: italic;">${records.length} Instruments</td>
+                <td style="font-weight: bold; color: #fff;">${inst}</td>
+                <td style="color: #aaa;">Current</td>
+                <td colspan="2"></td> <!-- Skip Long/Short for summary row -->
+                <td style="text-align: center; font-weight: bold; color: ${getColor(latestRecord.net_contracts)}; border-right: 1px solid #444;">${formatNum(latestRecord.net_contracts)}</td>
+                <td colspan="2"></td> <!-- Skip Buy/Sell money for summary row -->
+                <td style="text-align: center; font-weight: bold; color: ${getColor(latestRecord.net_amt_crores)}">${formatMoney(latestRecord.net_amt_crores)}</td>
             </tr>
         `;
 
@@ -358,8 +381,8 @@ function renderFiiPositionHistoryTable(data) {
             blockHTML += `
                 <tr class="${blockId}" style="${isCollapsed ? 'display: none;' : ''} background: #1a1a1a;">
                     <td></td>
-                    <td style="color: #ccc;">${dateStr}</td>
-                    <td style="color: #fff; font-weight: bold;">${r.instrument_type}</td>
+                    <td style="color: #888; font-size: 0.9em;">${inst}</td>
+                    <td style="color: #ccc;">${r.dateStr}</td>
                     <td style="text-align: center; color: #60a5fa;">${formatNum(r.buy_contracts)}</td>
                     <td style="text-align: center; color: #ff4d4d;">${formatNum(r.sell_contracts)}</td>
                     <td style="text-align: center; font-weight: bold; color: ${getColor(r.net_contracts)}; border-right: 1px solid #444;">${formatNum(r.net_contracts)}</td>
