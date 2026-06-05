@@ -82,7 +82,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
         if latest_metric_date_obj:
             dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
         else:
-            dates_to_compute = all_dates[:32] # Initial backfill
+            dates_to_compute = all_dates # Initial backfill
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute."}

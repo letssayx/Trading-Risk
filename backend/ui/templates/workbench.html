@@ -2549,7 +2549,7 @@
                 </div>
 
                 <!-- SUB-TAB FII Analysis -->
-                <div id="deriv-tab-fii" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-fii" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; flex-direction: column; justify-content: flex-start; display: block;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0; position: sticky; top: -20px; z-index: 100; background: #1e1e1e; padding: 10px 0; border-bottom: 1px solid #333;">
                         <select id="fii-analysis-days" class="history-input" style="width: 100px;" onchange="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()">
                             <option value="5">5 Days</option>
@@ -2564,9 +2564,9 @@
                         <button class="btn btn-secondary" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()"><i class="fas fa-sync"></i> Refresh FII Data</button>
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px;">
+                    <div style="display: block; margin-bottom: 20px;">
                         <!-- FII/DII Cash Flow -->
-                        <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column;">
+                        <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
                                 <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII/DII Institutional Flows (Cash)</h3>
                                 <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiTabChartInstance) exportChartDataToCSV(window.fiiDiiTabChartInstance, 'FII_DII_Net_Pos');"><i class="fas fa-download"></i> CSV</button>
@@ -2577,7 +2577,7 @@
                         </div>
 
                         <!-- Trend Chart (Replicated from Market Activity) -->
-                        <div style="height: 400px; min-height: 400px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
+                        <div style="height: 400px; min-height: 400px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
                                 <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
                                     <h3 style="margin: 0; font-size: 12px; color: #ccc; margin-right: 5px;">Trend: Price & PCR vs OI</h3>
@@ -2597,7 +2597,7 @@
                         </div>
 
                         <!-- Historical Smart Money Net Pos Table (Reproduced from Market Activity) -->
-                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%;">
+                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S) History</h3>
@@ -2640,7 +2640,7 @@
                         </div>
 
                         <!-- FII Position (Contracts and Money) -->
-                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%;">
+                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Contracts & Money)</h3>

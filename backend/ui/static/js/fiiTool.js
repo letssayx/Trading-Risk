@@ -369,7 +369,7 @@ function renderFiiPositionHistoryTable(data) {
             <tr style="cursor: pointer; background: #252526;" onclick="toggleFiiPositionHistory('${blockId}')">
                 <td style="text-align:center;"><i class="fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'}" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
                 <td style="font-weight: bold; color: #fff;">${inst}</td>
-                <td style="color: #aaa;">Current</td>
+                <td style="color: #ccc;">${latestRecord.dateStr}</td>
                 <td colspan="2"></td> <!-- Skip Long/Short for summary row -->
                 <td style="text-align: center; font-weight: bold; color: ${getColor(latestRecord.net_contracts)}; border-right: 1px solid #444;">${formatNum(latestRecord.net_contracts)}</td>
                 <td colspan="2"></td> <!-- Skip Buy/Sell money for summary row -->
