@@ -697,6 +697,55 @@ def get_fii_stats_money(days: int = 30, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/api/market-activity/fii-stats-granular")
+def get_fii_stats_granular(days: int = 30, db: Session = Depends(get_db)):
+    """
+    Returns the granular/raw data directly from FIIDerivativesStat without aggregating index names.
+    Includes buy/sell contracts and buy/sell amount crores.
+    """
+    from backend.ingest.nse_models import FIIDerivativesStat
+    import pandas as pd
+
+    try:
+        # Get the last X trading days
+        dates_query = db.query(FIIDerivativesStat.date).distinct().order_by(FIIDerivativesStat.date.desc()).limit(days).all()
+        dates = sorted([d[0] for d in dates_query])
+    except Exception:
+        dates = []
+
+    if not dates:
+        return {"dates": []}
+
+    records = db.query(FIIDerivativesStat).filter(FIIDerivativesStat.date.in_(dates)).order_by(FIIDerivativesStat.date.desc()).all()
+
+    df = pd.DataFrame([{
+        'date': r.date.strftime('%Y-%m-%d'),
+        'instrument_type': r.instrument_type,
+        'buy_contracts': r.buy_contracts or 0,
+        'sell_contracts': r.sell_contracts or 0,
+        'net_contracts': (r.buy_contracts or 0) - (r.sell_contracts or 0),
+        'buy_amt_crores': r.buy_amt_crores or 0,
+        'sell_amt_crores': r.sell_amt_crores or 0,
+        'net_amt_crores': (r.buy_amt_crores or 0) - (r.sell_amt_crores or 0),
+        'oi_contracts': r.oi_contracts or 0,
+        'oi_amt_crores': r.oi_amt_crores or 0
+    } for r in records])
+
+    if df.empty:
+         return {"dates": []}
+
+    # Group records by date
+    grouped = {}
+    for d in sorted(df['date'].unique(), reverse=True):
+        day_records = df[df['date'] == d].drop(columns=['date']).to_dict('records')
+        grouped[d] = day_records
+
+    return {
+        "dates": sorted(list(grouped.keys()), reverse=True),
+        "data_by_date": grouped
+    }
+
+
 @router.get("/api/market-activity/participant-oi")
 def get_participant_oi(days: int = 30, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import FAOParticipantOI

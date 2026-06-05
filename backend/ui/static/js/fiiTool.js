@@ -37,14 +37,98 @@ async function loadFiiAnalysis() {
         const partData = await partRes.json();
         renderFiiSmartMoneyHistoryTable(partData);
 
-        // Load FII Money Stats for FII Position Table
-        const moneyRes = await fetch(`/api/market-activity/fii-stats-money?days=${days}`);
-        const moneyData = await moneyRes.json();
-        renderFiiPositionHistoryTable(partData, moneyData);
+        // Load Granular FII Stats for FII Position Table
+        const granularRes = await fetch(`/api/market-activity/fii-stats-granular?days=${days}`);
+        const granularData = await granularRes.json();
+        renderFiiPositionHistoryTable(granularData);
 
+        // Load Trend Chart
+        await loadFiiTrendChart(days);
 
     } catch (e) {
         console.error("Error loading FII Analysis", e);
+    }
+}
+
+window.loadFiiTrendChart = async function(overrideDays) {
+    console.log("Loading FII Trend Chart...");
+    try {
+        const days = overrideDays || document.getElementById('fii-analysis-days')?.value || '30';
+        const symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
+        const expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
+        const combinedOi = document.getElementById('fii-opt-combined-oi')?.checked ? 'true' : 'false';
+
+        const pcrContainer = document.getElementById('fii-trend-chart-container');
+
+        if (window.fiiTrendChartInstance) window.fiiTrendChartInstance.dispose();
+        window.fiiTrendChartInstance = echarts.init(pcrContainer);
+        window.fiiTrendChartInstance.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
+
+        const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}&expiry_only=${expiryOnly}`);
+        const data = await res.json();
+
+        window.fiiTrendChartInstance.hideLoading();
+
+        if (!data.dates || data.dates.length === 0) {
+            pcrContainer.innerHTML = '<p style="text-align:center; color:#888;">No historical data available.</p>';
+            return;
+        }
+
+        const showCombinedOi = combinedOi === 'true';
+
+        // Render PCR Chart (Price vs OI vs PCR)
+        const dates = data.dates;
+        const prices = data.price;
+        const pcrs = data.pcr;
+        const oiData = showCombinedOi ? data.total_oi : data.fut_oi;
+        const oiSeriesName = showCombinedOi ? 'Combined OI' : 'Futures OI';
+
+        const pcrOption = {
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            legend: { data: [oiSeriesName, 'Close Price', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
+            grid: { left: '5%', right: '10%', bottom: '10%', top: '15%', containLabel: true },
+            xAxis: { type: 'category', data: dates, axisLabel: { color: '#888' } },
+            yAxis: [
+                { type: 'value', name: 'Close', position: 'left', axisLabel: { color: '#888' }, splitLine: { show: false }, scale: true },
+                { type: 'value', name: 'PCR', position: 'right', axisLabel: { color: '#888' }, splitLine: { show: false } },
+                { type: 'value', name: 'OI', position: 'right', offset: 50, axisLabel: { color: '#888', formatter: (val) => (val/100000).toFixed(1) + 'L' }, splitLine: { show: false }, min: 0 }
+            ],
+            dataZoom: [{ type: 'inside' }, { type: 'slider', textStyle: { color: '#ccc' } }],
+            series: [
+                {
+                    name: oiSeriesName,
+                    type: 'bar',
+                    data: oiData,
+                    yAxisIndex: 2,
+                    itemStyle: { color: 'rgba(96, 165, 250, 0.3)' }, // Light blue background bars
+                    barMaxWidth: 30
+                },
+                {
+                    name: 'Close Price',
+                    type: 'line',
+                    data: prices,
+                    yAxisIndex: 0,
+                    itemStyle: { color: '#ffffff' },
+                    lineStyle: { width: 2 },
+                    showSymbol: false
+                },
+                {
+                    name: 'PCR',
+                    type: 'line',
+                    data: pcrs,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#ff9800' },
+                    lineStyle: { width: 2, type: 'dashed' },
+                    showSymbol: false
+                }
+            ]
+        };
+
+        window.fiiTrendChartInstance.setOption(pcrOption);
+
+    } catch (e) {
+        console.error("Error loading FII Trend Chart", e);
     }
 }
 
@@ -216,13 +300,15 @@ window.toggleFiiPositionHistory = function(blockId) {
     }
 };
 
-function renderFiiPositionHistoryTable(partData, moneyData) {
-    const dates = partData.dates || [];
+function renderFiiPositionHistoryTable(data) {
+    const dates = data.dates || [];
+    const groupedData = data.data_by_date || {};
+
     const tbody = document.getElementById('fii-position-history-body');
     if (!tbody) return;
 
     if (dates.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No historical data available.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#888;">No historical data available.</td></tr>';
         return;
     }
 
@@ -235,15 +321,6 @@ function renderFiiPositionHistoryTable(partData, moneyData) {
 
     tbody.innerHTML = '';
 
-    const metrics = [
-        { key: 'fut_idx', label: 'Index Futures', moneyKey: 'fut_idx' },
-        { key: 'fut_stk', label: 'Stock Futures', moneyKey: 'fut_stk' },
-        { key: 'opt_idx_ce', label: 'Index Calls', moneyKey: 'opt_idx' }, // Note: Money data groups options CE/PE
-        { key: 'opt_idx_pe', label: 'Index Puts', moneyKey: 'opt_idx' },
-        { key: 'opt_stk_ce', label: 'Stock Calls', moneyKey: 'opt_stk' },
-        { key: 'opt_stk_pe', label: 'Stock Puts', moneyKey: 'opt_stk' }
-    ];
-
     const formatNum = (val) => {
         if (val == null || isNaN(val)) return '-';
         return parseInt(val).toLocaleString();
@@ -251,92 +328,48 @@ function renderFiiPositionHistoryTable(partData, moneyData) {
 
     const formatMoney = (val) => {
         if (val == null || isNaN(val)) return '-';
-        return '₹' + parseInt(val).toLocaleString() + ' Cr';
+        return '₹' + parseInt(val).toLocaleString();
     };
 
     const getColor = (val) => {
         if (val > 0) return '#60a5fa'; // Blue for positive
         if (val < 0) return '#ff4d4d'; // Red for negative
-        return '#ccc';
+        return '#ccc'; // Gray for zero
     };
 
-    metrics.forEach(m => {
-        // Latest data (last element in array)
-        const latestIdx = dates.length - 1;
+    dates.forEach((dateStr, index) => {
+        const records = groupedData[dateStr] || [];
+        if (records.length === 0) return;
 
-        // Helper to extract values
-        const getVal = (prefix, participant, idx) => partData[`${participant}_${m.key}${prefix}`]?.[idx] || 0;
+        const blockId = `fii-granular-pos-${dateStr.replace(/-/g, '')}`;
+        const isCollapsed = index > 0; // Expand first row (latest date) by default
 
-        // Match money data date. Note: Money data might not have the same exact dates if missing, so we find by date string.
-        const moneyDates = moneyData.dates || [];
-
-        const getMoneyVal = (idx) => {
-            const dateStr = dates[idx];
-            const mIdx = moneyDates.indexOf(dateStr);
-            if (mIdx === -1) return 0;
-            // For options, since money data groups them, we divide by 2 for display purposes here or just show the combined for both CE and PE rows.
-            // Let's just show the combined money for that instrument type, with a note if possible. But for simplicity, we'll just pull it.
-            let val = moneyData[m.moneyKey]?.[mIdx] || 0;
-            return val;
-        };
-
-
-        const latestFiiL = getVal('_long', 'fii', latestIdx);
-        const latestFiiS = getVal('_short', 'fii', latestIdx);
-        const latestFiiN = getVal('', 'fii', latestIdx);
-        let latestFiiMoney = getMoneyVal(latestIdx);
-        if (m.key.includes('_pe')) latestFiiMoney = 0; // Avoid double counting money if displaying combined for both CE/PE. We'll show money on CE row or just show for both. Let's show for both for now, or maybe only for CE. Let's just show it. Actually, wait.
-        // If moneyKey is opt_idx, it means total options. Let's show it only on the CE row to avoid confusion, or better, calculate it properly if backend supports it. Backend doesn't support CE/PE money split.
-        // I will show it on all rows, but users should know it's grouped.
-        // Actually, FII position table only needs FII data.
-
-        const blockId = `fii-position-hist-${m.key}`;
-        let blockHTML = `<tbody id="fii-pos-tbody-${m.key}">`;
-
-        let moneyDisplay = formatMoney(latestFiiMoney);
-        if (m.key.includes('_pe') || m.key.includes('_ce')) {
-            moneyDisplay = (m.key.includes('_ce') ? formatMoney(latestFiiMoney) + " (CE+PE)" : "-");
-        }
+        let blockHTML = `<tbody id="fii-pos-tbody-${dateStr}">`;
 
         blockHTML += `
             <tr style="cursor: pointer; background: #222;" onclick="toggleFiiPositionHistory('${blockId}')">
-                <td style="text-align:center;"><i class="fas fa-chevron-right" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
-                <td style="font-weight: bold; color: #fff;">${m.label}</td>
-                <td>${dates[latestIdx]}</td>
-
-                <td style="color: #60a5fa;">${formatNum(latestFiiL)}</td>
-                <td style="color: #ff4d4d;">${formatNum(latestFiiS)}</td>
-                <td style="color: ${getColor(latestFiiN)}; border-right: 1px solid #444;">${formatNum(latestFiiN)}</td>
-                <td style="color: ${getColor(latestFiiMoney)};">${moneyDisplay}</td>
+                <td style="text-align:center;"><i class="fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'}" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
+                <td style="font-weight: bold; color: #fff;">${dateStr}</td>
+                <td colspan="7" style="color: #aaa; font-style: italic;">${records.length} Instruments</td>
             </tr>
         `;
 
-        // Historical rows (hidden by default)
-        for (let i = latestIdx - 1; i >= 0; i--) {
-            const fiiL = getVal('_long', 'fii', i);
-            const fiiS = getVal('_short', 'fii', i);
-            const fiiN = getVal('', 'fii', i);
-            let fiiMoney = getMoneyVal(i);
-
-            let mDisplay = formatMoney(fiiMoney);
-            if (m.key.includes('_pe') || m.key.includes('_ce')) {
-                mDisplay = (m.key.includes('_ce') ? formatMoney(fiiMoney) + " (CE+PE)" : "-");
-            }
-
-
+        records.forEach(r => {
             blockHTML += `
-                <tr class="${blockId}" style="display: none; background: #1a1a1a;">
+                <tr class="${blockId}" style="${isCollapsed ? 'display: none;' : ''} background: #1a1a1a;">
                     <td></td>
-                    <td style="color: #aaa; padding-left: 20px;">${m.label}</td>
-                    <td style="color: #888;">${dates[i]}</td>
-
-                    <td style="color: #60a5fa;">${formatNum(fiiL)}</td>
-                    <td style="color: #ff4d4d;">${formatNum(fiiS)}</td>
-                    <td style="color: ${getColor(fiiN)}; border-right: 1px solid #444;">${formatNum(fiiN)}</td>
-                    <td style="color: ${getColor(fiiMoney)};">${mDisplay}</td>
+                    <td style="color: #ccc;">${dateStr}</td>
+                    <td style="color: #fff; font-weight: bold;">${r.instrument_type}</td>
+                    <td style="text-align: center; color: #60a5fa;">${formatNum(r.buy_contracts)}</td>
+                    <td style="text-align: center; color: #ff4d4d;">${formatNum(r.sell_contracts)}</td>
+                    <td style="text-align: center; font-weight: bold; color: ${getColor(r.net_contracts)}; border-right: 1px solid #444;">${formatNum(r.net_contracts)}</td>
+                    <td style="text-align: center; color: #60a5fa;">${formatMoney(r.buy_amt_crores)}</td>
+                    <td style="text-align: center; color: #ff4d4d;">${formatMoney(r.sell_amt_crores)}</td>
+                    <td style="text-align: center; font-weight: bold; color: ${getColor(r.net_amt_crores)}">${formatMoney(r.net_amt_crores)}</td>
                 </tr>
             `;
-        }
+        });
+
         blockHTML += `</tbody>`;
         document.getElementById('fii-position-history-table').insertAdjacentHTML('beforeend', blockHTML);
     });
