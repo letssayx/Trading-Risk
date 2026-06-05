@@ -2575,33 +2575,76 @@
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 20px; height: 350px;">
-                            <!-- Smart Money (Contracts) -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money (Contracts)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantTabChartInstance) exportChartDataToCSV(window.participantTabChartInstance, 'Smart_Money_Contracts');"><i class="fas fa-download"></i> CSV</button>
+                        <!-- Historical Smart Money Net Pos Table (Reproduced from Market Activity) -->
+                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S) History</h3>
                                 </div>
-                                <div id="participant-oi-tab-daily-summary" style="flex: 1; width: 100%;"></div>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('fii-smart-money-history-table', 'Smart_Money_History')"><i class="fas fa-download"></i> CSV</button>
                             </div>
+                            <table class="data-table" id="fii-smart-money-history-table" style="width: 100%;">
+                                <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 8px; width: 30px;" rowspan="2"></th>
+                                        <th style="padding: 8px; text-align: left;" rowspan="2">Instrument</th>
+                                        <th style="padding: 8px;" rowspan="2">Date</th>
+                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">FII (Lots)</th>
+                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">DII (Lots)</th>
+                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">PRO (Lots)</th>
+                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">CLI (Lots)</th>
+                                    </tr>
+                                    <tr>
+                                        <th style="padding: 4px;">Long</th>
+                                        <th style="padding: 4px;">Short</th>
+                                        <th style="padding: 4px; border-right: 1px solid #444;">Net</th>
 
-                            <!-- FII Money Terms -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Money)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.fiiMoneyTabChartInstance) exportChartDataToCSV(window.fiiMoneyTabChartInstance, 'FII_Daily_Money');"><i class="fas fa-download"></i> CSV</button>
-                                </div>
-                                <div id="fii-money-tab-daily-summary" style="flex: 1; width: 100%;"></div>
-                            </div>
+                                        <th style="padding: 4px;">Long</th>
+                                        <th style="padding: 4px;">Short</th>
+                                        <th style="padding: 4px; border-right: 1px solid #444;">Net</th>
+
+                                        <th style="padding: 4px;">Long</th>
+                                        <th style="padding: 4px;">Short</th>
+                                        <th style="padding: 4px; border-right: 1px solid #444;">Net</th>
+
+                                        <th style="padding: 4px;">Long</th>
+                                        <th style="padding: 4px;">Short</th>
+                                        <th style="padding: 4px;">Net</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fii-smart-money-history-body">
+                                    <tr><td colspan="15" style="text-align:center; color:#888;">Loading history...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
 
-                        <!-- Participant OI Bifurcation -->
-                        <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">Participant OI Bifurcation</h3>
-                                <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantGranularTabChartInstance) exportChartDataToCSV(window.participantGranularTabChartInstance, 'Participant_Granular');"><i class="fas fa-download"></i> CSV</button>
+                        <!-- FII Position (Contracts and Money) -->
+                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Contracts & Money)</h3>
+                                </div>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('fii-position-history-table', 'FII_Position_History')"><i class="fas fa-download"></i> CSV</button>
                             </div>
-                            <div id="participant-oi-tab-granular-summary" style="flex: 1; width: 100%;"></div>
+                            <table class="data-table" id="fii-position-history-table" style="width: 100%;">
+                                <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 8px; width: 30px;" rowspan="2"></th>
+                                        <th style="padding: 8px; text-align: left;" rowspan="2">Instrument</th>
+                                        <th style="padding: 8px;" rowspan="2">Date</th>
+                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">FII (Lots)</th>
+                                        <th style="padding: 8px; text-align: center;" rowspan="2">Net Money</th>
+                                    </tr>
+                                    <tr>
+                                        <th style="padding: 4px;">Long</th>
+                                        <th style="padding: 4px;">Short</th>
+                                        <th style="padding: 4px;">Net</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fii-position-history-body">
+                                    <tr><td colspan="7" style="text-align:center; color:#888;">Loading history...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
