@@ -22,8 +22,8 @@ async function loadFiiAnalysis() {
                 maintainAspectRatio: false,
                 plugins: { legend: { labels: { color: '#ccc' } } },
                 scales: {
-                    x: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } },
-                    y: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } }
+                    x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                    y: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
                 },
                 interaction: {
                     mode: 'index',
@@ -370,9 +370,11 @@ function renderFiiPositionHistoryTable(data) {
                 <td style="text-align:center;"><i class="fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'}" id="icon-${blockId}" style="color:#888; font-size:10px;"></i></td>
                 <td style="font-weight: bold; color: #fff;">${inst}</td>
                 <td style="color: #ccc;">${latestRecord.dateStr}</td>
-                <td colspan="2"></td> <!-- Skip Long/Short for summary row -->
+                <td style="text-align: center; color: #60a5fa;">${formatNum(latestRecord.buy_contracts)}</td>
+                <td style="text-align: center; color: #ff4d4d;">${formatNum(latestRecord.sell_contracts)}</td>
                 <td style="text-align: center; font-weight: bold; color: ${getColor(latestRecord.net_contracts)}; border-right: 1px solid #444;">${formatNum(latestRecord.net_contracts)}</td>
-                <td colspan="2"></td> <!-- Skip Buy/Sell money for summary row -->
+                <td style="text-align: center; color: #60a5fa;">${formatMoney(latestRecord.buy_amt_crores)}</td>
+                <td style="text-align: center; color: #ff4d4d;">${formatMoney(latestRecord.sell_amt_crores)}</td>
                 <td style="text-align: center; font-weight: bold; color: ${getColor(latestRecord.net_amt_crores)}">${formatMoney(latestRecord.net_amt_crores)}</td>
             </tr>
         `;
