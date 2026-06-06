@@ -22,8 +22,8 @@ async function loadFiiAnalysis() {
                 maintainAspectRatio: false,
                 plugins: { legend: { labels: { color: '#ccc' } } },
                 scales: {
-                    x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
-                    y: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
+                    x: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                    y: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } }
                 },
                 interaction: {
                     mode: 'index',
