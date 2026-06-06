@@ -53,7 +53,7 @@ async function loadFiiAnalysis() {
 window.loadFiiTrendChart = async function(overrideDays) {
     console.log("Loading FII Trend Chart...");
     try {
-        const days = (typeof overrideDays === 'string' || typeof overrideDays === 'number') ? overrideDays : document.getElementById('fii-analysis-days')?.value || '30';
+        const days = document.getElementById("fii-analysis-days")?.value || "30";
         const symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
         const expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
         const combinedOi = document.getElementById('fii-opt-combined-oi')?.checked ? 'true' : 'false';
@@ -361,7 +361,7 @@ function renderFiiPositionHistoryTable(data) {
         // Ensure safe id by replacing spaces and special chars
         const safeInstId = inst.replace(/[^a-zA-Z0-9]/g, '_');
         const blockId = `fii-granular-pos-${safeInstId}`;
-        const isCollapsed = index > 0; // Expand first row by default
+        const isCollapsed = true; // Collapse all rows by default
 
         let blockHTML = `<tbody id="fii-pos-tbody-${safeInstId}">`;
 

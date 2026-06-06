@@ -60,7 +60,7 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
         else:
             query = db.query(OiAnalysisMetrics).filter(
                 OiAnalysisMetrics.symbol == symbol
-            ).order_by(desc(OiAnalysisMetrics.trade_date)).limit(days).all()
+            ).order_by(desc(OiAnalysisMetrics.trade_date)).limit(int(days)).all()
 
 
 
