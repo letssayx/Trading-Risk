@@ -1140,8 +1140,7 @@
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-fii" onclick="switchDerivTab('fii')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">FII Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-market" onclick="switchDerivTab('market')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
+                <div class="wb-tab" id="deriv-tab-btn-fii" onclick="switchDerivTab('fii')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-macro" onclick="switchDerivTab('macro')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Macro & Events</div>
             </div>
 
@@ -2549,7 +2548,7 @@
                 </div>
 
                 <!-- SUB-TAB FII Analysis -->
-                <div id="deriv-tab-fii" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; flex-direction: column; justify-content: flex-start; display: block;">
+                <div id="deriv-tab-fii" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; display: block;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0; position: sticky; top: -20px; z-index: 100; background: #1e1e1e; padding: 10px 0; border-bottom: 1px solid #333;">
                         <select id="fii-analysis-days" class="history-input" style="width: 100px;" onchange="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()">
                             <option value="5">5 Days</option>
@@ -2591,13 +2590,13 @@
                                     <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center; margin-left: 5px;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="fii-opt-combined-oi" style="margin-right: 2px;" onchange="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"> Comb. OI</label>
                                 </div>
                             </div>
-                            <div style="flex: 1; min-height: 0; position: relative;">
+                            <div style="flex: 1; position: relative; min-height: 350px;">
                                 <div id="fii-trend-chart-container" style="width: 100%; height: 100%;"></div>
                             </div>
                         </div>
 
                         <!-- Historical Smart Money Net Pos Table (Reproduced from Market Activity) -->
-                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S) History</h3>
@@ -2640,7 +2639,7 @@
                         </div>
 
                         <!-- FII Position (Contracts and Money) -->
-                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Contracts & Money)</h3>
@@ -2715,166 +2714,6 @@
                 </div>
 
 
-                <!-- SUB-TAB 4: Market Activity (Replaces old Basis Tab) -->
-                <div id="deriv-tab-market" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box;  flex-direction: column; justify-content: flex-start;">
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                        <select id="market-activity-days" class="history-input" style="width: 100px;" onchange="loadMarketActivity()">
-                            <option value="5">5 Days</option>
-                            <option value="30" selected>30 Days</option>
-                            <option value="60">60 Days</option>
-                            <option value="90">90 Days</option>
-                            <option value="252">252 Days</option>
-                            <option value="500">500 Days</option>
-                        </select>
-                        <button class="btn btn-secondary" id="btn-load-market-activity" onclick="loadMarketActivity()"><i class="fas fa-sync"></i> Load Charts</button>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px;">
-
-                        <!-- Institutional Flows (Full Length Horizontal) -->
-                        <div style="height: 450px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; position: relative; display: flex; flex-direction: column;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #ccc;">Institutional Flows</h3>
-                                <div style="display: flex; gap: 10px; align-items: baseline;">
-                                    <span id="fii-dii-summary" style="font-size: 12px; color: #aaa;"></span>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiChartInstance) exportChartDataToCSV(window.fiiDiiChartInstance, 'FII_DII_Net_Pos'); else if(typeof fiiDiiChartInstance !== 'undefined') exportChartDataToCSV(fiiDiiChartInstance, 'FII_DII_Net_Pos')"><i class="fas fa-download"></i> CSV</button>
-                                </div>
-                            </div>
-                            <div style="flex: 1; position: relative;  overflow-y: hidden;">
-                                <div style="min-width: 800px; height: 100%;">
-                                    <canvas id="fiiDiiChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-
-
-                        <!-- Row 1: Smart Money (Contracts) + FII Position (Money) -->
-                        <div style="display: flex; gap: 20px; height: 350px; margin-bottom: 20px;">
-                            <!-- Smart Money (Contracts) -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money (Contracts)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantChartInstance) exportChartDataToCSV(window.participantChartInstance, 'Smart_Money_Contracts');"><i class="fas fa-download"></i> CSV</button>
-                                </div>
-                                <div id="participant-oi-daily-summary" style="flex: 1; width: 100%;"></div>
-                            </div>
-
-                            <!-- FII Money Terms -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                <div style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                                        <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Money)</h3>
-                                        <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.fiiMoneyChartInstance) exportChartDataToCSV(window.fiiMoneyChartInstance, 'FII_Daily_Money');"><i class="fas fa-download"></i> CSV</button>
-                                    </div>
-                                    <select id="fii-money-days" class="history-input" style="padding: 2px; font-size: 10px; width: 80px;" onchange="loadMarketActivity()">
-                                        <option value="1" selected>1 Day</option>
-                                        <option value="5">5 Days</option>
-                                        <option value="30">30 Days</option>
-                                        <option value="60">60 Days</option>
-                                        <option value="90">90 Days</option>
-                                        <option value="180">180 Days</option>
-                                        <option value="252">252 Days</option>
-                                        <option value="500">500 Days</option>
-                                    </select>
-                                </div>
-                                <div id="fii-money-daily-summary" style="flex: 1; width: 100%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Row 2: Participant OI Bifurcation -->
-                        <div style="height: 400px; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                <h3 style="margin: 0; font-size: 14px; color: #ccc;">Participant OI Bifurcation</h3>
-                                <button class="btn btn-secondary" style="padding: 2px 4px; font-size: 9px;" onclick="if(window.participantGranularChartInstance) exportChartDataToCSV(window.participantGranularChartInstance, 'Participant_Granular');"><i class="fas fa-download"></i> CSV</button>
-                            </div>
-                            <div id="participant-oi-granular-summary" style="flex: 1; width: 100%;"></div>
-                        </div>
-
-                        <!-- Row 3: Trend & High OI Strikes -->
-                        <div style="display: flex; gap: 20px; height: 400px; margin-bottom: 20px;">
-                            <!-- Trend Chart -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
-                                    <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-                                        <h3 style="margin: 0; font-size: 12px; color: #ccc; margin-right: 5px;">Trend: Price & PCR vs OI</h3>
-
-                                        <!-- Keep dropdown for quick selection, but add autocomplete for searching any symbol -->
-                                        <div class="autocomplete-wrapper" style="margin-left: 10px;">
-                                            <input type="text" id="market-activity-index-symbol" class="history-input" style="width: 120px; padding: 4px; font-size: 11px; font-weight: bold; text-align: center; color: #fff; background: #333;" value="NIFTY" placeholder="Enter Symbol (e.g. NIFTY)" onkeydown="if(event.key === 'Enter') loadMarketOptionsCharts()">
-                                        </div>
-                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="loadMarketOptionsCharts()"><i class="fas fa-search"></i></button>
-
-                                        <select id="market-activity-opt-lookback" class="history-input" style="width: 60px; padding: 2px; font-size: 10px; margin-left: 5px;" onchange="loadMarketOptionsCharts()">
-                                            <option value="5">5D</option>
-                                            <option value="30" selected>30D</option>
-                                            <option value="60">60D</option>
-                                            <option value="90">90D</option>
-                                            <option value="252">252D</option>
-                                            <option value="500">500D</option>
-                                        </select>
-                                        <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center; margin-left: 5px;"><input type="checkbox" id="market-opt-expiry-only" style="margin-right: 2px;" onchange="loadMarketOptionsCharts()"> Expiry</label>
-                                        <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center; margin-left: 5px;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="market-opt-combined-oi" style="margin-right: 2px;" onchange="loadMarketOptionsCharts()"> Comb. OI</label>
-                                    </div>
-                                </div>
-                                <div id="market-opt-pcr-chart" style="flex: 1; width: 100%;"></div>
-                            </div>
-
-                            <!-- Butterfly Chart -->
-                            <div style="flex: 1; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0;">
-                                <h3 style="margin: 0 0 5px 0; font-size: 12px; color: #ccc;">High OI Strikes (CE/PE)</h3>
-                                <div id="market-opt-high-oi-chart" style="flex: 1; width: 100%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Historical Smart Money Net Pos Table (Replaces 6 Bar Charts) -->
-                        <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-top: 20px;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
-                                <div style="display: flex; align-items: center; gap: 15px;">
-                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S) History</h3>
-                                    <select id="market-activity-hist-days" class="history-input" style="width: 100px; padding: 2px 5px; font-size: 11px;" onchange="loadMarketActivity()">
-                                        <option value="5">5 Days</option>
-                                        <option value="30" selected>30 Days</option>
-                                        <option value="60">60 Days</option>
-                                        <option value="90">90 Days</option>
-                                        <option value="252">252 Days</option>
-                                        <option value="500">500 Days</option>
-                                    </select>
-                                </div>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('smart-money-history-table', 'Smart_Money_History')"><i class="fas fa-download"></i> CSV</button>
-                            </div>
-                            <table class="data-table" id="smart-money-history-table" style="width: 100%;">
-                                <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
-                                    <tr>
-                                        <th style="padding: 8px; width: 30px;" rowspan="2"></th>
-                                        <th style="padding: 8px; text-align: left;" rowspan="2">Instrument</th>
-                                        <th style="padding: 8px;" rowspan="2">Date</th>
-                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">FII (Lots)</th>
-                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">DII (Lots)</th>
-                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">PRO (Lots)</th>
-                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="3">CLI (Lots)</th>
-                                    </tr>
-                                    <tr>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Long</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Short</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa; border-right: 1px solid #444;">Net</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Long</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Short</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa; border-right: 1px solid #444;">Net</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Long</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Short</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa; border-right: 1px solid #444;">Net</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Long</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Short</th>
-                                        <th style="padding: 4px; font-size: 10px; color: #aaa;">Net</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="smart-money-history-body">
-                                    <tr><td colspan="7" style="text-align:center; color:#888;">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- SUB-TAB: Macro -->
                 <div id="deriv-tab-macro" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: calc(100% - 20px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; flex-direction: column; justify-content: flex-start; display: none;">
