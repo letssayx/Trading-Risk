@@ -2601,6 +2601,9 @@
                                 <div id="oi-trend-chart" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
                                     <div class="autocomplete-wrapper" style="margin-left: 10px;">
                                         <input type="text" id="fii-analysis-index-symbol" class="history-input" style="width: 120px; padding: 4px; font-size: 11px; font-weight: bold; text-align: center; color: #fff; background: #333;" value="NIFTY" placeholder="Enter Symbol (e.g. NIFTY)" onkeydown="if(event.key === 'Enter' && typeof loadFiiTrendChart === 'function') loadFiiTrendChart()">
                                     </div>
@@ -2689,9 +2692,6 @@
                                     <tr><td colspan="9" style="text-align:center; color:#888;">Loading history...</td></tr>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- SUB-TAB MWPL Analysis -->
                 <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
@@ -4408,7 +4408,7 @@ function exportChartDataToCSV(chartInstance, filename) {
 
             echartInstance.setOption(option, true);
         } catch (e) {
-            container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
+            container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}`;
         } finally {
             echartInstance?.hideLoading();
         }
