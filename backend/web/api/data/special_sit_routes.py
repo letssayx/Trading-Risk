@@ -582,23 +582,20 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             # If the last event is Ex-Awaited (amount declared, but no ex-date yet)
             if history:
                 latest = history[0]
+                # Check if amount exists and ex_date is strictly missing or indicates an awaited status
+                latest_ex_date = latest.get('ex_date')
                 is_ex_awaited = False
-                if latest.get('amount'):
-                    ex_d = latest.get('ex_date')
-                    if not ex_d or ex_d == 'Record date not yet declared':
-                        is_ex_awaited = True
-                    else:
-                        try:
-                            # If there is a date, check if it is active/upcoming. If it's already past, we shouldn't trigger Ex-Awaited warning.
-                            import datetime as dt_lib
-                            ex_dt = dt_lib.datetime.strptime(ex_d, "%d %b %Y").date()
-                            if ex_dt >= dt_lib.date.today():
-                                # It's announced, handled above
-                                pass
-                        except Exception:
-                            is_ex_awaited = True
+                if latest_ex_date is None or latest_ex_date == 'Record date not yet declared' or latest_ex_date == '-' or latest_ex_date == '':
+                    is_ex_awaited = True
+                elif isinstance(latest_ex_date, str):
+                    # If it's a date string but it's an active/past date, it's NOT ex-awaited
+                    try:
+                        datetime.strptime(latest_ex_date, "%d-%b-%Y")
+                        is_ex_awaited = False # It is a valid date string
+                    except ValueError:
+                        is_ex_awaited = True # Invalid format, assume awaited
 
-                if is_ex_awaited and expected_less_likely != 'Confirmed' and (not expected_highly_likely or not expected_highly_likely.startswith('Announced')):
+                if latest.get('amount') and is_ex_awaited:
                     expected_amount = latest['amount']
                     expected_amount_compare = latest['amount']
                     expected_type = latest.get('dividend_type', 'Interim')
