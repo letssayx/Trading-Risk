@@ -1,5 +1,5 @@
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'special_arb', 'fundamentals', 'commodities', 'crypto', 'retail_instruments', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'special_arb', 'fundamentals', 'commodities', 'crypto', 'structured_product', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
@@ -2909,3 +2909,27 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }, 1000);
 });
+
+        // SP Tabs switcher
+        window.switchSPTab = function(tabName) {
+            const container = document.getElementById('sp-tabs-container');
+            if (container) {
+                container.querySelectorAll('.sp-sub-tab').forEach(el => {
+                    el.style.display = 'none';
+                });
+                const target = document.getElementById(`sp-tab-${tabName}`);
+                if (target) target.style.display = 'flex';
+            }
+
+            document.querySelectorAll('#tab-structured_product .wb-tab').forEach(el => {
+                el.classList.remove('active');
+                el.style.borderBottom = '2px solid transparent';
+                el.style.color = 'inherit';
+            });
+            const tabBtn = document.getElementById(`sp-tab-btn-${tabName}`);
+            if (tabBtn) {
+                tabBtn.classList.add('active');
+                tabBtn.style.borderBottom = '2px solid #60a5fa';
+                tabBtn.style.color = '#60a5fa';
+            }
+        };
