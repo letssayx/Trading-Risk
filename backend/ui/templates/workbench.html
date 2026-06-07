@@ -351,7 +351,7 @@
         <div class="main-tab" data-target="fundamentals" onclick="switchMainTab('fundamentals')" title="Fundamental Analysis">Fundamental Analysis</div>
         <div class="main-tab" data-target="commodities" onclick="switchMainTab('commodities')" title="Commodities">Commodities</div>
         <div class="main-tab" data-target="crypto" onclick="switchMainTab('crypto')" title="Crypto">Crypto</div>
-        <div class="main-tab" data-target="retail_instruments" onclick="switchMainTab('retail_instruments')" title="Retail Instruments">Retail Instruments</div>
+        <div class="main-tab" data-target="structured_product" onclick="switchMainTab('structured_product')" title="Structured Product">Structured Product</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
@@ -1031,10 +1031,10 @@
             </div>
         </div>
 
-        <!-- TAB RETAIL INSTRUMENTS -->
-        <div id="tab-retail_instruments" class="main-tab-content">
+        <!-- TAB STRUCTURED PRODUCT -->
+        <div id="tab-structured_product" class="main-tab-content">
             <div style="padding: 20px; text-align: center; color: #888; font-size: 1.2em; height: 100%; display: flex; align-items: center; justify-content: center;">
-                Retail Instruments module is under construction...
+                Structured Product module is under construction...
             </div>
         </div>
 
@@ -1140,7 +1140,7 @@
                 <div class="wb-tab" id="deriv-tab-btn-mwpl" onclick="switchDerivTab('mwpl')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">MWPL Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-oi" onclick="switchDerivTab('oi')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">OI Analysis</div>
                 <div class="wb-tab" id="deriv-tab-btn-rollover" onclick="switchDerivTab('rollover')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Rollover Analysis</div>
-                <div class="wb-tab" id="deriv-tab-btn-fii" onclick="switchDerivTab('fii')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Analysis</div>
+                <div class="wb-tab" id="deriv-tab-btn-fii" onclick="switchDerivTab('fii')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Market Activity</div>
                 <div class="wb-tab" id="deriv-tab-btn-macro" onclick="switchDerivTab('macro')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Macro & Events</div>
             </div>
 
@@ -2511,11 +2511,12 @@
                             <!-- 4a. 500 Day Price & PCR Overlay -->
                             <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Trend: Price & PCR vs OI</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
-                                        <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
+                                        <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Expiry</label>
+                                        <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="pcr-combined-oi" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Comb. OI</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
                                             <option value="5">5 Days</option>
                                             <option value="30">30 Days</option>
@@ -2565,7 +2566,7 @@
 
                     <div style="display: block; margin-bottom: 0px; padding: 20px;">
                         <!-- FII/DII Cash Flow -->
-                        <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
+                        <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
                                 <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII/DII Institutional Flows (Cash)</h3>
                                 <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiTabChartInstance) exportChartDataToCSV(window.fiiDiiTabChartInstance, 'FII_DII_Net_Pos');"><i class="fas fa-download"></i> CSV</button>
@@ -2576,7 +2577,7 @@
                         </div>
 
                         <!-- Trend Chart (Replicated from Market Activity) -->
-                        <div style="height: 400px; min-height: 400px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0; margin-bottom: 20px;">
+                        <div style="height: 400px; min-height: 400px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0; margin-bottom: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
                                 <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
                                     <h3 style="margin: 0; font-size: 12px; color: #ccc; margin-right: 5px;">Trend: Price & PCR vs OI</h3>
@@ -2596,7 +2597,7 @@
                         </div>
 
                         <!-- Historical Smart Money Net Pos Table (Reproduced from Market Activity) -->
-                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S) History</h3>
@@ -2639,7 +2640,7 @@
                         </div>
 
                         <!-- FII Position (Contracts and Money) -->
-                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px;">
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 5px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Contracts & Money)</h3>

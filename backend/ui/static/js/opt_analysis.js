@@ -29,12 +29,16 @@ async function loadOptionsAnalysis() {
         if (window.pcrChartInstance) window.pcrChartInstance.dispose();
         window.pcrChartInstance = echarts.init(chartDom);
 
-        const oiColors = data.total_oi.map((val, idx) => { return '#60a5fa'; });
+        const showCombinedOi = document.getElementById('pcr-combined-oi')?.checked || false;
+        const activeOiData = showCombinedOi ? data.total_oi : data.fut_oi;
+        const oiSeriesName = showCombinedOi ? 'Combined OI' : 'Futures OI';
+
+        const oiColors = activeOiData.map((val, idx) => { return '#60a5fa'; });
 
         // Calculate OI Change percentages
-        const oiChangePct = data.total_oi.map((val, idx) => {
-            if (idx === 0 || !data.total_oi[idx-1]) return 0;
-            return ((val - data.total_oi[idx - 1]) / data.total_oi[idx - 1]) * 100;
+        const oiChangePct = activeOiData.map((val, idx) => {
+            if (idx === 0 || !activeOiData[idx-1]) return 0;
+            return ((val - activeOiData[idx - 1]) / activeOiData[idx - 1]) * 100;
         });
 
         // Calculate Price Change percentages
@@ -46,7 +50,7 @@ async function loadOptionsAnalysis() {
         const option = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-            legend: { data: ['Price (FUT1)', 'Total OI', 'OI Change %', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
+            legend: { data: ['Price (FUT1)', oiSeriesName, 'OI Change %', 'PCR'], textStyle: { color: '#ccc' }, top: 0 },
             grid: [
                 { left: '5%', right: '5%', height: '35%', top: '10%' },
                 { left: '5%', right: '5%', height: '20%', top: '50%' },
@@ -59,7 +63,7 @@ async function loadOptionsAnalysis() {
             ],
             yAxis: [
                 { type: 'value', name: 'Price', position: 'left', axisLabel: { color: '#FFCC00' }, splitLine: { show: false }, gridIndex: 0, scale: true },
-                { type: 'value', name: 'Total OI', position: 'right', axisLabel: { color: '#60a5fa' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, gridIndex: 0 },
+                { type: 'value', name: oiSeriesName, position: 'right', axisLabel: { color: '#60a5fa' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } }, gridIndex: 0 },
                 { type: 'value', name: 'OI Chg %', axisLabel: { color: '#888', formatter: '{value}%' }, splitLine: { show: false }, gridIndex: 1 },
                 { type: 'value', name: 'PCR', position: 'right', axisLabel: { color: '#ccc' }, splitLine: { show: false }, gridIndex: 2, scale: true }
             ],
@@ -79,9 +83,9 @@ async function loadOptionsAnalysis() {
                     yAxisIndex: 0
                 },
                 {
-                    name: 'Total OI',
+                    name: oiSeriesName,
                     type: 'bar',
-                    data: data.total_oi,
+                    data: activeOiData,
                     itemStyle: { color: (params) => oiColors[params.dataIndex] },
                     xAxisIndex: 0,
                     yAxisIndex: 1

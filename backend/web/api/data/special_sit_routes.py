@@ -583,20 +583,22 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             if history:
                 latest = history[0]
                 if latest.get('amount') and (not latest.get('ex_date') or latest.get('ex_date') == 'Record date not yet declared'):
-                    expected_amount = latest['amount']
-                    expected_amount_compare = latest['amount']
-                    expected_type = latest.get('dividend_type', 'Interim')
+                    # Only apply Ex-Awaited status if we haven't already confirmed an upcoming declared date
+                    if expected_less_likely != "Confirmed":
+                        expected_amount = latest['amount']
+                        expected_amount_compare = latest['amount']
+                        expected_type = latest.get('dividend_type', 'Interim')
 
-                    # Sync the >2% flag for Ex-Awaited
-                    is_above_2_percent = latest.get('is_above_2_percent', False)
+                        # Sync the >2% flag for Ex-Awaited
+                        is_above_2_percent = latest.get('is_above_2_percent', False)
 
-                    if upcoming_cycles:
-                        # Try to find a matching cycle type to use its date
-                        matching_cycle = next((c for c in upcoming_cycles if c['type'] == expected_type), upcoming_cycles[0])
-                        expected_highly_likely = f"Forecasted: {matching_cycle['next_date'].strftime('%d-%m-%Y')}"
-                    else:
-                        expected_highly_likely = "-"
-                    expected_less_likely = "Amount declared, date not yet announced"
+                        if upcoming_cycles:
+                            # Try to find a matching cycle type to use its date
+                            matching_cycle = next((c for c in upcoming_cycles if c['type'] == expected_type), upcoming_cycles[0])
+                            expected_highly_likely = f"Forecasted: {matching_cycle['next_date'].strftime('%d-%m-%Y')}"
+                        else:
+                            expected_highly_likely = "-"
+                        expected_less_likely = "Amount declared, date not yet announced"
 
             # Check forecasted expected amount for >2% flag regardless of what branch it took above
             if not is_active and spot and expected_amount and (expected_amount / spot) >= 0.02:
