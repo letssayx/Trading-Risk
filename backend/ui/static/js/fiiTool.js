@@ -53,21 +53,38 @@ async function loadFiiAnalysis() {
 window.loadFiiTrendChart = async function(overrideDays) {
     console.log("Loading FII Trend Chart...");
     try {
-        const days = (overrideDays && typeof overrideDays !== 'object') ? overrideDays : (document.getElementById("fii-analysis-days")?.value || "30");
-        const symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
-        const expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
-        const combinedOi = document.getElementById('fii-opt-combined-oi')?.checked ? 'true' : 'false';
+        // Check if we are interacting with the duplicate "Trend: Price & PCR vs OI" chart in the Market Analysis tab
+        // which has different element IDs.
+        const isOiTrendChart = document.getElementById('oi-trend-chart') && document.getElementById('oi-trend-chart').offsetParent !== null;
 
-        const pcrContainer = document.getElementById('fii-trend-chart-container');
+        let days, symbol, expiryOnly, combinedOi, pcrContainer, instanceKey;
 
-        if (window.fiiTrendChartInstance) window.fiiTrendChartInstance.dispose();
-        window.fiiTrendChartInstance = echarts.init(pcrContainer);
-        window.fiiTrendChartInstance.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
+        if (isOiTrendChart) {
+            days = (overrideDays && typeof overrideDays !== 'object') ? overrideDays : (document.getElementById("oi-analysis-days")?.value || "30");
+            symbol = 'NIFTY'; // The cloned chart defaults to NIFTY
+            expiryOnly = 'false'; // The cloned chart doesn't have an expiry only checkbox
+            combinedOi = document.getElementById('oi-trend-comb-chk')?.checked ? 'true' : 'false';
+            pcrContainer = document.getElementById('oi-trend-chart');
+            instanceKey = 'oiTrendChartInstance';
+        } else {
+            days = (overrideDays && typeof overrideDays !== 'object') ? overrideDays : (document.getElementById("fii-analysis-days")?.value || "30");
+            symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
+            expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
+            combinedOi = document.getElementById('fii-opt-combined-oi')?.checked ? 'true' : 'false';
+            pcrContainer = document.getElementById('fii-trend-chart-container');
+            instanceKey = 'fiiTrendChartInstance';
+        }
+
+        if (!pcrContainer) return;
+
+        if (window[instanceKey]) window[instanceKey].dispose();
+        window[instanceKey] = echarts.init(pcrContainer);
+        window[instanceKey].showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
         const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}&expiry_only=${expiryOnly}`);
         const data = await res.json();
 
-        window.fiiTrendChartInstance.hideLoading();
+        window[instanceKey].hideLoading();
 
         if (!data.dates || data.dates.length === 0) {
             pcrContainer.innerHTML = '<p style="text-align:center; color:#888;">No historical data available.</p>';

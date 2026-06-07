@@ -896,8 +896,9 @@ function exportSSDivCSV() {
         // The backend sends 'Record date not yet declared' as ex_date string, or ex_date_obj is null.
         let isStrictAwaited = false;
         if (item.history && item.history.length > 0) {
+            // Check the current, actual status using the latest history
             let lastHist = item.history[0];
-            if (lastHist.amount && (!lastHist.ex_date || lastHist.ex_date === 'Record date not yet declared')) {
+            if (lastHist.amount && (!lastHist.ex_date || lastHist.ex_date.toLowerCase().includes('not yet declared'))) {
                 isStrictAwaited = true;
             }
         }
@@ -1255,6 +1256,7 @@ function renderSSDividends() {
         // The backend sends 'Record date not yet declared' as ex_date string, or ex_date_obj is null.
         let isStrictAwaited = false;
         if (item.history && item.history.length > 0) {
+            // Check the current, actual status using the latest history
             let lastHist = item.history[0];
             if (lastHist.amount && (!lastHist.ex_date || lastHist.ex_date.toLowerCase().includes('not yet declared'))) {
                 isStrictAwaited = true;

@@ -351,7 +351,7 @@
         <div class="main-tab" data-target="fundamentals" onclick="switchMainTab('fundamentals')" title="Fundamental Analysis">Fundamental Analysis</div>
         <div class="main-tab" data-target="commodities" onclick="switchMainTab('commodities')" title="Commodities">Commodities</div>
         <div class="main-tab" data-target="crypto" onclick="switchMainTab('crypto')" title="Crypto">Crypto</div>
-        <div class="main-tab" data-target="retail_instruments" onclick="switchMainTab('retail_instruments')" title="Retail Instruments">Retail Instruments</div>
+        <div class="main-tab" data-target="structured_product" onclick="switchMainTab('structured_product')" title="Structured Product">Structured Product</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
@@ -1031,10 +1031,10 @@
             </div>
         </div>
 
-        <!-- TAB RETAIL INSTRUMENTS -->
-        <div id="tab-retail_instruments" class="main-tab-content">
+        <!-- TAB STRUCTURED PRODUCT -->
+        <div id="tab-structured_product" class="main-tab-content">
             <div style="padding: 20px; text-align: center; color: #888; font-size: 1.2em; height: 100%; display: flex; align-items: center; justify-content: center;">
-                Retail Instruments module is under construction...
+                Structured Product module is under construction...
             </div>
         </div>
 
@@ -2511,11 +2511,12 @@
                             <!-- 4a. 500 Day Price & PCR Overlay -->
                             <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Historical Trend: Price & PCR Overlay vs Open Interest</h3>
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Trend: Price & PCR vs OI</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
-                                        <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
+                                        <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Show Expiry Only</label>
+                                        <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="opt-analysis-combined-oi" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Comb. OI</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
                                             <option value="5">5 Days</option>
                                             <option value="30">30 Days</option>
@@ -2581,11 +2582,11 @@
                                 <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
                                     <h3 style="margin: 0; font-size: 12px; color: #ccc; margin-right: 5px;">Trend: Price & PCR vs OI</h3>
                                     <label style="color: white; font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; margin-bottom: 0;">
-                                        <input type="checkbox" id="oi-trend-comb-chk" onchange="loadOiAnalysisChart()"> Comb. OI
+                                        <input type="checkbox" id="oi-trend-comb-chk" onchange="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"> Comb. OI
                                     </label>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 10px;">
-                                    <select id="oi-analysis-days" class="data-dropdown" onchange="loadOiAnalysisChart()">
+                                    <select id="oi-analysis-days" class="data-dropdown" onchange="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()">
                                         <option value="7">7 Days</option>
                                         <option value="14">14 Days</option>
                                         <option value="30" selected>30 Days</option>
@@ -2619,7 +2620,7 @@
                         </div>
 
                         <!-- Historical Smart Money Net Pos Table (Reproduced from Market Activity) -->
-                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 10px;">
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 0px; border-bottom: none;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S) History</h3>

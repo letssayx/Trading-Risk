@@ -1,5 +1,5 @@
         // --- Main Tab Logic ---
-        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'special_arb', 'fundamentals', 'commodities', 'crypto', 'retail_instruments', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
+        const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'special_arb', 'fundamentals', 'commodities', 'crypto', 'structured_product', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
 
         function switchMainTab(tabName) {
             // Hide all tabs
