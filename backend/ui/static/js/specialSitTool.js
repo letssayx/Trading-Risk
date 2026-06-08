@@ -763,6 +763,19 @@ async function loadSSDividends() {
 
         // Apply overrides from localStorage
         let overrides = JSON.parse(localStorage.getItem('ssDivOverrides') || '{}');
+
+        // Purge stale "Amount declared..." overrides if the backend has successfully resolved an ex_date
+        Object.keys(overrides).forEach(sym => {
+            if (overrides[sym] && overrides[sym].expected_less_likely === "Amount declared, date not yet announced") {
+                 let beItem = ssDivData.find(x => x.symbol === sym);
+                 if (beItem && beItem.last_ex_date !== 'Record date not yet declared' && beItem.last_ex_date !== '-') {
+                      delete overrides[sym].expected_less_likely;
+                      if (Object.keys(overrides[sym]).length === 0) delete overrides[sym];
+                 }
+            }
+        });
+        localStorage.setItem('ssDivOverrides', JSON.stringify(overrides));
+
         ssDivData.forEach(item => {
             if (item._original_is_above_2_percent === undefined) {
                 item._original_is_above_2_percent = item.is_above_2_percent;

@@ -582,7 +582,12 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             # If the last event is Ex-Awaited (amount declared, but no ex-date yet)
             if history:
                 latest = history[0]
-                if latest.get('amount') and (not latest.get('ex_date') or latest.get('ex_date') == 'Record date not yet declared'):
+                # If there's an ex_date that is today or in the future, it's not Ex-Awaited, it's Confirmed.
+                has_valid_future_ex_date = False
+                if latest.get('ex_date_obj') and latest['ex_date_obj'] >= today:
+                    has_valid_future_ex_date = True
+
+                if latest.get('amount') and (not latest.get('ex_date') or latest.get('ex_date') == 'Record date not yet declared') and not has_valid_future_ex_date:
                     # Only apply Ex-Awaited status if we haven't already confirmed an upcoming declared date
                     if expected_less_likely != "Confirmed":
                         expected_amount = latest['amount']
@@ -598,7 +603,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                             expected_highly_likely = f"Forecasted: {matching_cycle['next_date'].strftime('%d-%m-%Y')}"
                         else:
                             expected_highly_likely = "-"
-                        expected_less_likely = "Amount declared, date not yet announced"
+                        print("RELIANCE Ex-Awaited executing", latest); expected_less_likely = "Amount declared, date not yet announced"
 
             # Check forecasted expected amount for >2% flag regardless of what branch it took above
             if not is_active and spot and expected_amount and (expected_amount / spot) >= 0.02:
