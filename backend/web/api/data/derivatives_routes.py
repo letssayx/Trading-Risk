@@ -283,19 +283,30 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
 
 
 @router.get("/api/data/analysis/oi")
-def get_aggregated_oi_analysis(days: int = Query(30), target_date: str = None, db: Session = Depends(get_db)):
+def get_aggregated_oi_analysis(days: int = Query(30), target_date: str = None, expiry_only: bool = False, db: Session = Depends(get_db)):
     """
     Retrieves OI vs Price Quadrant Analysis.
     """
     try:
-        from backend.ingest.nse_models import OiAnalysisMetrics, SymbolMaster
-        from sqlalchemy import desc
+        from backend.ingest.nse_models import OiAnalysisMetrics, SymbolMaster, BhavcopyFO
+        from sqlalchemy import desc, text
 
         limit_days = min(days + 1, 60) # Limit to a max to be safe, get days+1 for calculations if needed
 
         dq = db.query(OiAnalysisMetrics.trade_date).distinct()
         if target_date:
             dq = dq.filter(OiAnalysisMetrics.trade_date <= target_date)
+
+        if expiry_only:
+            # We must filter dq down to distinct expiry dates found in BhavcopyFO
+            expiries_query = text("""
+                SELECT DISTINCT expiry_date
+                FROM bhavcopy_fo
+            """)
+            exp_result = db.execute(expiries_query).fetchall()
+            valid_exp_dates = [r[0] for r in exp_result]
+            if valid_exp_dates:
+                dq = dq.filter(OiAnalysisMetrics.trade_date.in_(valid_exp_dates))
 
         dates_query = dq.order_by(desc(OiAnalysisMetrics.trade_date)).limit(limit_days).all()
 
@@ -387,18 +398,36 @@ def get_aggregated_oi_analysis(days: int = Query(30), target_date: str = None, d
 
 
 @router.get("/api/data/analysis/oi/{symbol}")
-def get_oi_analysis(symbol: str, db: Session = Depends(get_db)):
+def get_oi_analysis(symbol: str, expiry_only: bool = False, db: Session = Depends(get_db)):
     """
     Computes OI vs Price Quadrant Analysis.
     """
     try:
-        from backend.ingest.nse_models import OiAnalysisMetrics
+        from backend.ingest.nse_models import OiAnalysisMetrics, BhavcopyFO
+        from sqlalchemy import text
+        import datetime
+        today_date = datetime.date.today()
+
         symbol = symbol.upper()
 
         # Fetch from persistent table
-        records = db.query(OiAnalysisMetrics).filter(
-            OiAnalysisMetrics.symbol == symbol
-        ).order_by(OiAnalysisMetrics.trade_date.asc()).all()
+        query = db.query(OiAnalysisMetrics).filter(
+            OiAnalysisMetrics.symbol == symbol,
+            OiAnalysisMetrics.trade_date <= today_date
+        )
+
+        if expiry_only:
+            expiries_query = text("""
+                SELECT DISTINCT expiry_date
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol
+            """)
+            exp_result = db.execute(expiries_query, {"symbol": symbol}).fetchall()
+            valid_exp_dates = [r[0] for r in exp_result]
+            if valid_exp_dates:
+                query = query.filter(OiAnalysisMetrics.trade_date.in_(valid_exp_dates))
+
+        records = query.order_by(OiAnalysisMetrics.trade_date.asc()).all()
 
         if not records:
             return {"symbol": symbol, "history": []}

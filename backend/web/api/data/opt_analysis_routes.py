@@ -40,6 +40,9 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
 
         symbol = symbol.upper()
 
+        import datetime
+        today_date = datetime.date.today()
+
         if expiry_only:
             # Get expiry dates
             expiries_query = text("""
@@ -55,11 +58,13 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
 
             query = db.query(OiAnalysisMetrics).filter(
                 OiAnalysisMetrics.symbol == symbol,
-                OiAnalysisMetrics.trade_date.in_(valid_dates)
+                OiAnalysisMetrics.trade_date.in_(valid_dates),
+                OiAnalysisMetrics.trade_date <= today_date
             ).order_by(desc(OiAnalysisMetrics.trade_date)).limit(days).all()
         else:
             query = db.query(OiAnalysisMetrics).filter(
-                OiAnalysisMetrics.symbol == symbol
+                OiAnalysisMetrics.symbol == symbol,
+                OiAnalysisMetrics.trade_date <= today_date
             ).order_by(desc(OiAnalysisMetrics.trade_date)).limit(int(days)).all()
 
 

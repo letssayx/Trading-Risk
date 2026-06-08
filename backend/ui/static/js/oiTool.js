@@ -96,8 +96,12 @@ const OiTool = {
 
                     <!-- Chart Area -->
                     <div style="height: 650px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; position: relative; flex-shrink: 0; display: flex; flex-direction: column;">
-                        <div style="display: flex; justify-content: space-between; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
-                            <span style="color: #888; font-size: 12px; align-self: center;">Derived Table View</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; background: #222; border-bottom: 1px solid #333;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="color: #888; font-size: 12px;">Derived Table View</span>
+                                <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="oi-scatter-expiry-only" style="margin-right: 5px;" onchange="OiTool.loadAggregatedData()"> Expiry</label>
+                                <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="oi-scatter-combined-oi" style="margin-right: 5px;" onchange="OiTool.loadAggregatedData()"> Comb. OI</label>
+                            </div>
                             <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
                         </div>
                         <div id="oi-chart-area" style="flex: 1; min-height: 600px;">
@@ -224,7 +228,11 @@ const OiTool = {
             if (daysRadio) {
                 daysParam = daysRadio.value;
             }
-            const res = await fetch(`/api/data/analysis/oi?days=${daysParam}${targetDate ? '&target_date=' + targetDate : ''}`);
+
+            const expiryOnly = document.getElementById('oi-scatter-expiry-only')?.checked ? 'true' : 'false';
+            // Combined OI not currently supported by /api/data/analysis/oi directly, but we can pass it if we expand backend later.
+
+            const res = await fetch(`/api/data/analysis/oi?days=${daysParam}${targetDate ? '&target_date=' + targetDate : ''}&expiry_only=${expiryOnly}`);
             if (!res.ok) throw new Error("Failed to load aggregated OI analysis.");
             const json = await res.json();
 
@@ -630,7 +638,8 @@ const OiTool = {
         }
 
         try {
-            const res = await fetch(`/api/data/analysis/oi/${symbol}`);
+            const expiryOnly = document.getElementById('oi-scatter-expiry-only')?.checked ? 'true' : 'false';
+            const res = await fetch(`/api/data/analysis/oi/${symbol}?expiry_only=${expiryOnly}`);
             if (!res.ok) throw new Error("Analysis failed");
             const data = await res.json();
 

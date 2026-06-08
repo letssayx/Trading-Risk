@@ -603,7 +603,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                             expected_highly_likely = f"Forecasted: {matching_cycle['next_date'].strftime('%d-%m-%Y')}"
                         else:
                             expected_highly_likely = "-"
-                        print("RELIANCE Ex-Awaited executing", latest); expected_less_likely = "Amount declared, date not yet announced"
+                        expected_less_likely = "Amount declared, date not yet announced"
 
             # Check forecasted expected amount for >2% flag regardless of what branch it took above
             if not is_active and spot and expected_amount and (expected_amount / spot) >= 0.02:
