@@ -2566,7 +2566,7 @@
 
                     <div style="display: block; margin-bottom: 0px; padding: 20px;">
                         <!-- FII/DII Cash Flow -->
-                        <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; margin-bottom: 20px;">
+                        <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: block; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
                                 <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII/DII Institutional Flows (Cash)</h3>
                                 <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiTabChartInstance) exportChartDataToCSV(window.fiiDiiTabChartInstance, 'FII_DII_Net_Pos');"><i class="fas fa-download"></i> CSV</button>
@@ -2577,7 +2577,7 @@
                         </div>
 
                         <!-- Trend Chart (Replicated from Market Activity) -->
-                        <div style="height: 400px; min-height: 400px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; min-width: 0; margin-bottom: 20px;">
+                        <div style="height: 400px; min-height: 400px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 10px; border-radius: 4px; display: block; min-width: 0; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
                                 <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
                                     <h3 style="margin: 0; font-size: 12px; color: #ccc; margin-right: 5px;">Trend: Price & PCR vs OI</h3>
@@ -2597,8 +2597,8 @@
                         </div>
 
                         <!-- Historical Smart Money Net Pos Table (Reproduced from Market Activity) -->
-                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 5px;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px; height: 350px; overflow-y: auto;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 15;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Smart Money Net Pos (L-S) History</h3>
                                 </div>
@@ -2640,8 +2640,8 @@
                         </div>
 
                         <!-- FII Position (Contracts and Money) -->
-                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 5px;">
-                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333;">
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px; height: 350px; overflow-y: auto;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 15;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position (Contracts & Money)</h3>
                                 </div>
