@@ -1,0 +1,10 @@
+--- backend/ui/templates/workbench.html
++++ backend/ui/templates/workbench.html
+@@ -2565,7 +2565,7 @@
+                     </div>
+
+-                    <div style="display: block; margin-bottom: 0px; padding: 20px;">
++                    <div style="display: flex; flex-direction: column; flex: 1; margin-bottom: 0px; padding: 20px; overflow-y: visible;">
+                         <!-- FII/DII Cash Flow -->
+                         <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: block; margin-bottom: 20px;">
+                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">

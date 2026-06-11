@@ -1,0 +1,11 @@
+--- backend/ui/static/js/fiiTool.js
++++ backend/ui/static/js/fiiTool.js
+@@ -53,7 +53,7 @@
+ window.loadFiiTrendChart = async function(overrideDays) {
+     console.log("Loading FII Trend Chart...");
+     try {
+-        let validOverrideDays = (overrideDays !== undefined && typeof overrideDays !== "object" && typeof overrideDays !== "boolean") ? overrideDays : null;
++        let validOverrideDays = (overrideDays !== undefined && typeof overrideDays !== "object" && typeof overrideDays !== "boolean" && String(overrideDays) !== "[object Event]" && !(overrideDays instanceof Event)) ? overrideDays : null;
+         const days = validOverrideDays || document.getElementById("fii-analysis-days")?.value || "30";
+         const symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
+         const expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
