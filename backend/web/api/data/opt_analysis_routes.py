@@ -32,45 +32,120 @@ def calc_bs_delta_vectorized(S, K, T, r, sigma, is_call):
     # If not call, subtract 1
     return np.where(is_call, delta, delta - 1.0)
 
+
 @router.get("/api/data/derivatives/pcr_history")
 def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db: Session = Depends(get_db)):
     try:
-        from backend.ingest.nse_models import OiAnalysisMetrics
-        from sqlalchemy import desc
+        from backend.ingest.nse_models import HistoricalIndexData, BhavcopyEQ
+        import pandas as pd
 
         symbol = symbol.upper()
 
-        import datetime
-        today_date = datetime.date.today()
+        # Format index names
+        is_index = False
+        formatted_index_name = symbol
+        if symbol == 'NIFTY':
+            formatted_index_name = 'Nifty 50'
+            is_index = True
+        elif symbol == 'BANKNIFTY':
+            formatted_index_name = 'Nifty Bank'
+            is_index = True
+        elif symbol == 'FINNIFTY':
+            formatted_index_name = 'Nifty Fin Service'
+            is_index = True
+        elif symbol == 'MIDCPNIFTY':
+            formatted_index_name = 'Nifty Midcap 50'
+            is_index = True
 
+        # Get trade dates
         if expiry_only:
-            # Get expiry dates
-            expiries_query = text("""
-                SELECT DISTINCT expiry_date
-                FROM bhavcopy_fo
-                WHERE ticker_symb = :symbol
-            """)
-            expiries_result = db.execute(expiries_query, {"symbol": symbol}).fetchall()
-            valid_dates = [r[0] for r in expiries_result]
-
-            if not valid_dates:
-                return {"dates": [], "price": [], "ce_oi": [], "pe_oi": [], "total_oi": [], "pcr": []}
-
-            query = db.query(OiAnalysisMetrics).filter(
-                OiAnalysisMetrics.symbol == symbol,
-                OiAnalysisMetrics.trade_date.in_(valid_dates),
-                OiAnalysisMetrics.trade_date <= today_date
-            ).order_by(desc(OiAnalysisMetrics.trade_date)).limit(days).all()
+            dates_query = text("SELECT DISTINCT expiry_date as d FROM bhavcopy_fo WHERE ticker_symb = :symbol AND expiry_date <= CURRENT_DATE ORDER BY expiry_date DESC LIMIT :limit")
         else:
-            query = db.query(OiAnalysisMetrics).filter(
-                OiAnalysisMetrics.symbol == symbol,
-                OiAnalysisMetrics.trade_date <= today_date
-            ).order_by(desc(OiAnalysisMetrics.trade_date)).limit(int(days)).all()
+            dates_query = text("SELECT DISTINCT trade_date as d FROM bhavcopy_fo WHERE ticker_symb = :symbol AND trade_date <= CURRENT_DATE ORDER BY trade_date DESC LIMIT :limit")
 
+        dates_res = db.execute(dates_query, {"symbol": symbol, "limit": int(days)}).fetchall()
+        valid_dates = sorted([r[0] for r in dates_res])
 
+        if not valid_dates:
+            return {"dates": [], "price": [], "ce_oi": [], "pe_oi": [], "total_oi": [], "fut_oi": [], "pcr": []}
 
-        # Reverse to get chronological order (oldest to newest) for chart
-        query = query[::-1]
+        dates_tuple = tuple(str(d) for d in valid_dates)
+
+        # Get Spot Prices
+        spot_prices = {}
+        if is_index:
+            spot_query = text("SELECT trade_date, close_price FROM historical_index_data WHERE index_name = :index_name AND trade_date IN :dates")
+            spot_res = db.execute(spot_query, {"index_name": formatted_index_name, "dates": dates_tuple}).fetchall()
+            for r in spot_res:
+                spot_prices[r[0]] = float(r[1])
+        else:
+            spot_query = text("SELECT trade_date, close_price FROM bhavcopy_eq WHERE symbol = :symbol AND series = 'EQ' AND trade_date IN :dates")
+            spot_res = db.execute(spot_query, {"symbol": symbol, "dates": dates_tuple}).fetchall()
+            for r in spot_res:
+                spot_prices[r[0]] = float(r[1])
+
+        # Get Futures OI
+        fut_query = text("""
+            SELECT trade_date, SUM(open_interest)
+            FROM bhavcopy_fo
+            WHERE ticker_symb = :symbol
+            AND instrument_type IN ('FUTIDX', 'FUTSTK')
+            AND trade_date IN :dates
+            GROUP BY trade_date
+        """)
+        fut_res = db.execute(fut_query, {"symbol": symbol, "dates": dates_tuple}).fetchall()
+        fut_oi_map = {r[0]: int(r[1]) for r in fut_res}
+
+        # Get Options for Delta-adjusted OI
+        opt_query = text("""
+            SELECT trade_date, option_type, strike_price, expiry_date, SUM(open_interest) as oi
+            FROM bhavcopy_fo
+            WHERE ticker_symb = :symbol
+            AND instrument_type IN ('OPTIDX', 'OPTSTK')
+            AND trade_date IN :dates
+            GROUP BY trade_date, option_type, strike_price, expiry_date
+        """)
+        opt_res = db.execute(opt_query, {"symbol": symbol, "dates": dates_tuple}).fetchall()
+
+        df_opt = pd.DataFrame(opt_res, columns=['trade_date', 'option_type', 'strike_price', 'expiry_date', 'oi'])
+
+        # Prepare Delta calc
+        ce_delta_oi_map = {d: 0.0 for d in valid_dates}
+        pe_delta_oi_map = {d: 0.0 for d in valid_dates}
+
+        if not df_opt.empty:
+            df_opt['spot'] = df_opt['trade_date'].map(spot_prices)
+            # Fill missing spots with an arbitrary number to avoid math errors if spot is missing
+            df_opt['spot'] = df_opt['spot'].fillna(df_opt['strike_price'])
+
+            # Days to Expiry
+            df_opt['trade_date'] = pd.to_datetime(df_opt['trade_date'])
+            df_opt['expiry_date'] = pd.to_datetime(df_opt['expiry_date'])
+            df_opt['dte'] = (df_opt['expiry_date'] - df_opt['trade_date']).dt.days
+            df_opt['T'] = df_opt['dte'] / 365.0
+
+            # Assume 10% Risk-Free Rate and 20% flat Volatility for delta calculation if IV is missing
+            # In a full impl we might fetch ATM IV, but standard delta approximation uses fixed inputs if needed
+            df_opt['r'] = 0.10
+            df_opt['sigma'] = 0.20
+
+            # Calculate Delta
+            df_opt['is_call'] = df_opt['option_type'] == 'CE'
+            df_opt['delta'] = calc_bs_delta_vectorized(
+                df_opt['spot'].values,
+                df_opt['strike_price'].values,
+                df_opt['T'].values,
+                df_opt['r'].values,
+                df_opt['sigma'].values,
+                df_opt['is_call'].values
+            )
+
+            df_opt['delta_oi'] = df_opt['oi'] * df_opt['delta'].abs()
+
+            for trade_date, group in df_opt.groupby('trade_date'):
+                d = trade_date.date()
+                ce_delta_oi_map[d] = group[group['is_call']]['delta_oi'].sum()
+                pe_delta_oi_map[d] = group[~group['is_call']]['delta_oi'].sum()
 
         result_dates = []
         result_prices = []
@@ -80,14 +155,23 @@ def get_pcr_history(symbol: str, days: int = 500, expiry_only: bool = False, db:
         result_fut_oi = []
         result_pcr = []
 
-        for r in query:
-            result_dates.append(r.trade_date.strftime('%Y-%m-%d'))
-            result_prices.append(float(r.price) if r.price else 0.0)
-            result_ce_oi.append(int(r.call_oi) if r.call_oi else 0)
-            result_pe_oi.append(int(r.put_oi) if r.put_oi else 0)
-            result_total_oi.append(int(r.total_oi) if r.total_oi else 0)
-            result_fut_oi.append(int(r.fut_oi) if r.fut_oi else 0)
-            result_pcr.append(float(r.pcr) if r.pcr else 0.0)
+        for d in valid_dates:
+            result_dates.append(d.strftime('%Y-%m-%d'))
+            result_prices.append(spot_prices.get(d, 0.0))
+
+            ce = ce_delta_oi_map.get(d, 0)
+            pe = pe_delta_oi_map.get(d, 0)
+            result_ce_oi.append(int(ce))
+            result_pe_oi.append(int(pe))
+
+            f_oi = fut_oi_map.get(d, 0)
+            result_fut_oi.append(f_oi)
+
+            tot_oi = int(ce + pe + f_oi)
+            result_total_oi.append(tot_oi)
+
+            pcr = (pe / ce) if ce > 0 else 0.0
+            result_pcr.append(float(round(pcr, 4)))
 
         return {
             "dates": result_dates,

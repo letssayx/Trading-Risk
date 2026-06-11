@@ -2271,6 +2271,25 @@ async function loadVolatilityAnalysis(event) {
     }
 }
 
+
+function exportTableToExcel(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    if (typeof XLSX === 'undefined') {
+        console.warn("XLSX library not loaded. Falling back to CSV.");
+        return exportTableToCSV(tableId, filename);
+    }
+
+    try {
+        const wb = XLSX.utils.table_to_book(table, {sheet: "Sheet1"});
+        XLSX.writeFile(wb, filename + '.xlsx');
+    } catch (e) {
+        console.error("Error exporting to Excel:", e);
+        exportTableToCSV(tableId, filename); // Fallback
+    }
+}
+
 function exportTableToCSV(tableId, filename) {
     const table = document.getElementById(tableId);
     if (!table) return;
