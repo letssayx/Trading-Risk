@@ -43,7 +43,7 @@ async function loadFiiAnalysis() {
         renderFiiPositionHistoryTable(granularData);
 
         // Load Trend Chart
-        await loadFiiTrendChart(days);
+        await loadFiiTrendChart(document.getElementById("fii-trend-lookback")?.value || '500');
 
     } catch (e) {
         console.error("Error loading FII Analysis", e);
