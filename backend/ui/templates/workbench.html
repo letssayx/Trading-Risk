@@ -6,8 +6,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <!-- SheetJS for rich XLSX table exports -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
@@ -2610,9 +2608,9 @@
                         <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px; height: auto; overflow: visible;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 15;">
                                 <div style="display: flex; align-items: center; gap: 15px;">
-                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Participant OI (with granular FII data)</h3>
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">Participant OI</h3>
                                 </div>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToExcel('fii-smart-money-history-table', 'Participant_OI_History')"><i class="fas fa-download"></i> XLSX</button>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('fii-smart-money-history-table', 'Participant_OI_History')"><i class="fas fa-download"></i> CSV</button>
                             </div>
                             <table class="data-table" id="fii-smart-money-history-table" style="width: 100%;">
                                 <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
@@ -2637,17 +2635,17 @@
                                         <th style="padding: 4px;">Long</th>
                                         <th style="padding: 4px;">Short</th>
                                         <th style="padding: 4px;">Net</th>
-                                        <th style="padding: 4px; border-right: 1px solid #444;" title="Long/Short Ratio">L/S</th>
+                                        <th style="padding: 4px; border-right: 1px solid #444;">L/S</th>
 
                                         <th style="padding: 4px;">Long</th>
                                         <th style="padding: 4px;">Short</th>
                                         <th style="padding: 4px;">Net</th>
-                                        <th style="padding: 4px; border-right: 1px solid #444;" title="Long/Short Ratio">L/S</th>
+                                        <th style="padding: 4px; border-right: 1px solid #444;">L/S</th>
 
                                         <th style="padding: 4px;">Long</th>
                                         <th style="padding: 4px;">Short</th>
                                         <th style="padding: 4px;">Net</th>
-                                        <th style="padding: 4px;" title="Long/Short Ratio">L/S</th>
+                                        <th style="padding: 4px;">L/S</th>
                                     </tr>
                                 </thead>
                                 <tbody id="fii-smart-money-history-body">
@@ -2656,6 +2654,33 @@
                             </table>
                         </div>
 
+                        <!-- FII Position (Contracts and Money) -->
+                        <div class="table-wrapper" style="display: block; border: 1px solid #333; border-radius: 4px; max-width: 100%; margin-bottom: 20px; height: auto; overflow: visible;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 10px 15px; background: #1e1e1e; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 15;">
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII Position</h3>
+                                </div>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('fii-position-history-table', 'FII_Position_History')"><i class="fas fa-download"></i> CSV</button>
+                            </div>
+                            <table class="data-table" id="fii-position-history-table" style="width: 100%;">
+                                <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 8px; width: 30px;" rowspan="2"></th>
+                                        <th style="padding: 8px; text-align: left;" rowspan="2">Instrument</th>
+                                        <th style="padding: 4px; text-align: center; border-bottom: 1px solid #444;" colspan="4">Contracts</th>
+                                    </tr>
+                                    <tr>
+                                        <th style="padding: 4px;">Buy</th>
+                                        <th style="padding: 4px;">Sell</th>
+                                        <th style="padding: 4px;">Net</th>
+                                        <th style="padding: 4px; border-right: 1px solid #444;" title="Cumulative Net Contracts from earliest shown date">Cum. Net</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fii-position-history-body">
+                                    <tr><td colspan="6" style="text-align:center; color:#888;">Loading history...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
