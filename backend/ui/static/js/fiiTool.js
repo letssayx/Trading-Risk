@@ -35,7 +35,7 @@ async function loadFiiAnalysis() {
         // Load Participant Contracts for Smart Money History Table
         const partRes = await fetch(`/api/market-activity/participant-oi?days=${days}`);
         const partData = await partRes.json();
-        renderFiiSmartMoneyHistoryTable(partData);
+        renderFiiSmartMoneyHistoryTable(partData, granularData);
 
         // Load Granular FII Stats for FII Position Table
         const granularRes = await fetch(`/api/market-activity/fii-stats-granular?days=${days}`);
@@ -54,7 +54,7 @@ window.loadFiiTrendChart = async function(overrideDays) {
     console.log("Loading FII Trend Chart...");
     try {
         let validOverrideDays = (overrideDays !== undefined && typeof overrideDays !== "object" && typeof overrideDays !== "boolean" && String(overrideDays) !== "[object Event]" && !(overrideDays instanceof Event)) ? overrideDays : null;
-        const days = validOverrideDays || document.getElementById("fii-trend-lookback")?.value || document.getElementById("fii-analysis-days")?.value || "500";
+        const days = validOverrideDays || document.getElementById("fii-analysis-days")?.value || "30";
         const symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
         const expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
         const combinedOi = document.getElementById('fii-opt-combined-oi')?.checked ? 'true' : 'false';
@@ -147,13 +147,13 @@ window.toggleFiiSmartMoneyHistory = function(blockId) {
     }
 };
 
-function renderFiiSmartMoneyHistoryTable(data) {
+function renderFiiSmartMoneyHistoryTable(data, granularData) {
     const dates = data.dates || [];
     const tbody = document.getElementById('fii-smart-money-history-body');
     if (!tbody) return;
 
     if (dates.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">No historical data available.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="22" style="text-align:center; color:#888;">No historical data available.</td></tr>';
         return;
     }
 
@@ -193,14 +193,12 @@ function renderFiiSmartMoneyHistoryTable(data) {
         // Helper to extract values
         const getVal = (prefix, participant, idx) => data[`${participant}_${m.key}${prefix}`]?.[idx] || 0;
 
-        const getRatio = (l, s) => {
-            if (l == null || s == null || isNaN(l) || isNaN(s) || s === 0) return '-';
-            return (l / s).toFixed(2);
-        };
-
         const latestFiiL = getVal('_long', 'fii', latestIdx);
         const latestFiiS = getVal('_short', 'fii', latestIdx);
         const latestFiiN = getVal('', 'fii', latestIdx);
+
+
+
 
         // Try getting granular FII data
         const dateStr = dates[latestIdx];
@@ -208,7 +206,6 @@ function renderFiiSmartMoneyHistoryTable(data) {
         const latestFiiBuyC = latestGranular ? latestGranular.buy_contracts : null;
         const latestFiiSellC = latestGranular ? latestGranular.sell_contracts : null;
         const latestFiiNetC = latestGranular ? latestGranular.net_contracts : null;
-
 
         const latestDiiL = getVal('_long', 'dii', latestIdx);
         const latestDiiS = getVal('_short', 'dii', latestIdx);
@@ -234,26 +231,23 @@ function renderFiiSmartMoneyHistoryTable(data) {
 
                 <td style="color: #60a5fa;">${formatNum(latestFiiL)}</td>
                 <td style="color: #ff4d4d;">${formatNum(latestFiiS)}</td>
-                <td style="font-weight: bold; color: ${getColor(latestFiiN)};">${formatNum(latestFiiN)}</td>
+                <td style="color: ${getColor(latestFiiN)};">${formatNum(latestFiiN)}</td>
                 <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(latestFiiL, latestFiiS)}</td>
                 <td style="color: #ffeb3b;">${formatNum(latestFiiBuyC)}</td>
                 <td style="color: #ffeb3b;">${formatNum(latestFiiSellC)}</td>
-                <td style="color: #ffeb3b; font-weight: bold; border-right: 1px solid #444;">${formatNum(latestFiiNetC)}</td>
+                <td style="color: #ffeb3b; border-right: 1px solid #444;">${formatNum(latestFiiNetC)}</td>
 
                 <td style="color: #60a5fa;">${formatNum(latestDiiL)}</td>
                 <td style="color: #ff4d4d;">${formatNum(latestDiiS)}</td>
-                <td style="font-weight: bold; color: ${getColor(latestDiiN)};">${formatNum(latestDiiN)}</td>
-                <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(latestDiiL, latestDiiS)}</td>
+                <td style="color: ${getColor(latestDiiN)}; border-right: 1px solid #444;">${formatNum(latestDiiN)}</td>
 
                 <td style="color: #60a5fa;">${formatNum(latestProL)}</td>
                 <td style="color: #ff4d4d;">${formatNum(latestProS)}</td>
-                <td style="font-weight: bold; color: ${getColor(latestProN)};">${formatNum(latestProN)}</td>
-                <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(latestProL, latestProS)}</td>
+                <td style="color: ${getColor(latestProN)}; border-right: 1px solid #444;">${formatNum(latestProN)}</td>
 
                 <td style="color: #60a5fa;">${formatNum(latestCliL)}</td>
                 <td style="color: #ff4d4d;">${formatNum(latestCliS)}</td>
                 <td style="color: ${getColor(latestCliN)};">${formatNum(latestCliN)}</td>
-                <td style="color: #bbb;">${getRatio(latestCliL, latestCliS)}</td>
             </tr>
         `;
 
@@ -263,12 +257,14 @@ function renderFiiSmartMoneyHistoryTable(data) {
             const fiiS = getVal('_short', 'fii', i);
             const fiiN = getVal('', 'fii', i);
 
+
+
+
             const histDateStr = dates[i];
             const histGranular = (granularData?.data_by_date?.[histDateStr] || []).find(x => x.instrument_type === m.label);
             const histFiiBuyC = histGranular ? histGranular.buy_contracts : null;
             const histFiiSellC = histGranular ? histGranular.sell_contracts : null;
             const histFiiNetC = histGranular ? histGranular.net_contracts : null;
-
 
             const diiL = getVal('_long', 'dii', i);
             const diiS = getVal('_short', 'dii', i);
@@ -291,25 +287,22 @@ function renderFiiSmartMoneyHistoryTable(data) {
                     <td style="color: #60a5fa;">${formatNum(fiiL)}</td>
                     <td style="color: #ff4d4d;">${formatNum(fiiS)}</td>
                     <td style="color: ${getColor(fiiN)};">${formatNum(fiiN)}</td>
-                    <td style="color: #888; border-right: 1px solid #444;">${getRatio(fiiL, fiiS)}</td>
-                    <td style="color: #888;">${formatNum(histFiiBuyC)}</td>
-                    <td style="color: #888;">${formatNum(histFiiSellC)}</td>
-                    <td style="color: #888; border-right: 1px solid #444;">${formatNum(histFiiNetC)}</td>
+                    <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(fiiL, fiiS)}</td>
+                    <td style="color: #ffeb3b;">${formatNum(histFiiBuyC)}</td>
+                    <td style="color: #ffeb3b;">${formatNum(histFiiSellC)}</td>
+                    <td style="color: #ffeb3b; border-right: 1px solid #444;">${formatNum(histFiiNetC)}</td>
 
                     <td style="color: #60a5fa;">${formatNum(diiL)}</td>
                     <td style="color: #ff4d4d;">${formatNum(diiS)}</td>
-                    <td style="color: ${getColor(diiN)};">${formatNum(diiN)}</td>
-                    <td style="color: #888; border-right: 1px solid #444;">${getRatio(diiL, diiS)}</td>
+                    <td style="color: ${getColor(diiN)}; border-right: 1px solid #444;">${formatNum(diiN)}</td>
 
                     <td style="color: #60a5fa;">${formatNum(proL)}</td>
                     <td style="color: #ff4d4d;">${formatNum(proS)}</td>
-                    <td style="color: ${getColor(proN)};">${formatNum(proN)}</td>
-                    <td style="color: #888; border-right: 1px solid #444;">${getRatio(proL, proS)}</td>
+                    <td style="color: ${getColor(proN)}; border-right: 1px solid #444;">${formatNum(proN)}</td>
 
                     <td style="color: #60a5fa;">${formatNum(cliL)}</td>
                     <td style="color: #ff4d4d;">${formatNum(cliS)}</td>
                     <td style="color: ${getColor(cliN)};">${formatNum(cliN)}</td>
-                    <td style="color: #888;">${getRatio(cliL, cliS)}</td>
                 </tr>
             `;
         }
@@ -360,10 +353,7 @@ function renderFiiPositionHistoryTable(data) {
         return parseInt(val).toLocaleString();
     };
 
-    const formatMoney = (val) => {
-        if (val == null || isNaN(val)) return '-';
-        return '₹' + parseInt(val).toLocaleString();
-    };
+
 
     const getColor = (val) => {
         if (val > 0) return '#60a5fa'; // Blue for positive
@@ -389,20 +379,6 @@ function renderFiiPositionHistoryTable(data) {
         const records = instrumentMap[inst];
         if (records.length === 0) return;
 
-        // Calculate cumulative net contracts from oldest to newest
-        // The records are currently newest-first (descending)
-        let cumNet = 0;
-        for (let i = records.length - 1; i >= 0; i--) {
-            cumNet += records[i].net_contracts || 0;
-            records[i].cum_net_contracts = cumNet;
-
-            // Expiry logic: if date matches standard NSE monthly expiry (last Thursday)
-            // It's tricky to calculate exactly in JS, but a rough reset or just cumulative works
-            // The prompt says "resets on expiry days", but "simple cumulative sum column... that resets on expiry days"
-            // For now, let's just do a simple cumulative sum from the oldest date shown.
-            // If the user wants precise expiry resets, we might need a backend flag or a date helper.
-        }
-
         // the records are already sorted by date descending because 'dates' is sorted descending
         const latestRecord = records[0];
 
@@ -419,20 +395,18 @@ function renderFiiPositionHistoryTable(data) {
                 <td style="font-weight: bold; color: #fff;">${inst}</td>
                 <td style="text-align: center; color: #60a5fa;">${formatNum(latestRecord.buy_contracts)}</td>
                 <td style="text-align: center; color: #ff4d4d;">${formatNum(latestRecord.sell_contracts)}</td>
-                <td style="text-align: center; font-weight: bold; color: ${getColor(latestRecord.net_contracts)};">${formatNum(latestRecord.net_contracts)}</td>
-                <td style="text-align: center; color: #ccc; border-right: 1px solid #444;">${formatNum(latestRecord.cum_net_contracts)}</td>
+                <td style="text-align: center; font-weight: bold; color: ${getColor(latestRecord.net_contracts)}; border-right: 1px solid #444;">${formatNum(latestRecord.net_contracts)}</td>
             </tr>
         `;
 
-        records.forEach((r, idx) => {
+        records.forEach(r => {
             blockHTML += `
                 <tr class="${blockId}" style="${isCollapsed ? 'display: none;' : ''} background: #1a1a1a;">
                     <td></td>
-                    <td style="color: #ccc;">${r.dateStr}</td>
+                    <td style="color: #888; font-size: 0.9em;">${r.dateStr}</td>
                     <td style="text-align: center; color: #60a5fa;">${formatNum(r.buy_contracts)}</td>
                     <td style="text-align: center; color: #ff4d4d;">${formatNum(r.sell_contracts)}</td>
-                    <td style="text-align: center; font-weight: bold; color: ${getColor(r.net_contracts)};">${formatNum(r.net_contracts)}</td>
-                    <td style="text-align: center; color: #ccc; border-right: 1px solid #444;">${formatNum(r.cum_net_contracts)}</td>
+                    <td style="text-align: center; font-weight: bold; color: ${getColor(r.net_contracts)}; border-right: 1px solid #444;">${formatNum(r.net_contracts)}</td>
                 </tr>
             `;
         });
