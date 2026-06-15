@@ -24,7 +24,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
     ).distinct().all()
 
-    symbols = [t[0].upper() for t in fo_tickers]
+    symbols = list(set([t[0].upper() for t in fo_tickers]))
 
     if not symbols:
         return []
@@ -174,7 +174,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         bm_by_symbol[bm.symbol.upper()].append(bm)
 
     # Compile the chain of events strictly without data-loss deductions
-    all_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys()))
+    # Include all symbols from the FO universe so none are excluded
+    all_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys())).union(set(symbols))
 
     for sym in all_symbols:
         history = ca_by_symbol.get(sym, [])
@@ -614,9 +615,17 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     if "check for extra-ordinary" not in expected_less_likely:
                         expected_less_likely += " | <span style='color: red;'>check for extra-ordinary</span>"
 
-        # Explicitly round expected_amount for json response
+        # Explicitly round expected_amount for json response to nearest 0.05
         if expected_amount is not None:
-            expected_amount = round(float(expected_amount), 2)
+            expected_amount = round(float(expected_amount) * 20) / 20
+
+        # We also round historical amounts and last_amount to nearest 0.05 to be clean
+        if last_amount is not None:
+            last_amount = round(float(last_amount) * 20) / 20
+
+        for h in history:
+            if h.get('amount') is not None:
+                h['amount'] = round(float(h['amount']) * 20) / 20
 
         results.append({
             "symbol": sym,

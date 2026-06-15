@@ -1,2 +1,7 @@
-1. The ONGC bug: In `special_sit_routes.py`, `get_special_sit_dividends`, synthetic board meetings (intimations without an official corporate action yet) are being added blindly. If multiple board meetings refer to the same event, they appear multiple times. In `workbench.html` (Dividends Databank), deduplication is done strictly on synthetics: group synthetics by symbol, sort by date desc, and merge if `diffDays <= 60` AND `dividend_type` matches. I will implement this deduplication logic in `special_sit_routes.py` just before they are added to `chained_history`.
-2. The Mphasis UI bug: The `uploadModal.js` had `this.loadHistory()`, but the method was actually named `this.fetchHistory()`. I already ran `sed` to replace it, so that should be resolved. I'll just verify the override modal works smoothly and successfully calls `this.fetchHistory()`.
+1. Implement the requested fixes in the Special Situation Arbitrage Dividends tool:
+   - Make sure UnionBank appears by adding `symbols` back to `all_symbols` to prevent missing records when history is empty.
+   - Use `set` when extracting F&O tickers to prevent duplicate symbol processing (fixes the Alkem repetition bug).
+   - Round `expected_amount`, `last_amount`, and historical `amount` to the nearest 0.05 using `round(amount * 20) / 20`.
+   - Update the UI to use XLS export (`exportSSDivXLS`) using `xlsx` instead of simple CSV construction, allowing full nested historical rows in a single sheet without destroying formatting.
+2. Complete pre commit step: check testing.
+3. Submit changes.

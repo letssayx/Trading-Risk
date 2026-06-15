@@ -854,30 +854,37 @@ function clearSSDivSearch() {
     }
 }
 
-function exportSSDivCSV() {
+function exportSSDivXLS() {
     if (!ssDivData || ssDivData.length === 0) return;
-        const eqDateEl = document.getElementById('ss-div-date-display');
+    const eqDateEl = document.getElementById('ss-div-date-display');
     const eqDateStr = eqDateEl && eqDateEl.textContent ? eqDateEl.textContent.trim() : '';
-    let csv = "Turtle Terminal vishal@underroot.xyz | +91 9867215754\n";
-    if (eqDateStr) csv += "Date: " + eqDateStr + "\n\n";
-    csv += 'Index / Scrip,Sector,Lot size,Spot,Future 1,Future 2,Future 3,Type,Ex-date,Amount,Upcoming Meeting,Broadcast Date & Time,Is above 2% (Extra-ordinary),Expected Amount,Expected Dividend highly likely,Expected Dividend Less Likely,Note\n';
+
+    let wsData = [];
+    wsData.push(["Turtle Terminal vishal@underroot.xyz | +91 9867215754"]);
+    if (eqDateStr) wsData.push(["Date:", eqDateStr]);
+    wsData.push([]);
+
+    // Main Headers
+    wsData.push([
+        'Index / Scrip', 'Sector', 'Lot size', 'Spot', 'Future 1', 'Future 2', 'Future 3',
+        'Type', 'Ex-date', 'Amount', 'Upcoming Meeting', 'Broadcast Date & Time',
+        'Is above 2% (Extra-ordinary)', 'Expected Amount', 'Expected Dividend highly likely',
+        'Expected Dividend Less Likely', 'Note'
+    ]);
 
     const filter = document.getElementById('ss-div-search').value.trim().toUpperCase();
 
-    // Get selected sectors
     const sectorCheckboxes = document.querySelectorAll('#ss-div-sector-dropdown input[type="checkbox"]:checked');
     const selectedSectors = Array.from(sectorCheckboxes).map(cb => cb.value);
 
     const upcomingCheckboxes = document.querySelectorAll('#ss-div-upcoming-dropdown input[type="checkbox"]:checked');
     const exportSelectedUpcoming = Array.from(upcomingCheckboxes).map(cb => cb.value);
 
-    // Get selected months
     const monthCheckboxes = document.querySelectorAll('#ss-div-month-dropdown input[type="checkbox"]:checked');
-    const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.parentElement.textContent.trim()); // Values are full month names
+    const selectedMonths = Array.from(monthCheckboxes).map(cb => cb.parentElement.textContent.trim());
 
     ssDivData.forEach(item => {
         if (filter && !item.symbol.includes(filter)) return;
-
 
         // Filter by Ex-date Status
         const showExAnnounced = document.getElementById('ss-div-filter-ex-announced') ? document.getElementById('ss-div-filter-ex-announced').checked : true;
@@ -998,31 +1005,34 @@ function exportSSDivCSV() {
         row.push(item.expected_less_likely || '-');
         row.push(item.note || '-');
 
-        csv += '"' + row.join('","') + '"\n';
+        wsData.push(row);
 
-        // Check if history is currently expanded
-        const histRow = document.getElementById(`ss-div-hist-${item.symbol}`);
-        if (histRow && histRow.style.display !== 'none') {
-            if (item.history && item.history.length > 0) {
-                csv += ',"--- Historical Data ---"\n';
-                csv += ',Ex-Date,Type,Purpose,Amount,>2%\n';
-                item.history.forEach(h => {
-                    csv += `,"${h.ex_date || '-'}","${h.dividend_type || '-'}","${h.purpose || '-'}","${h.amount || '-'}","${h.is_above_2_percent ? 'Yes' : 'No'}"\n`;
-                });
-                csv += ',"-----------------------"\n';
-            }
+        // Add history row if available (in XLS we can just output them as indented rows)
+        if (item.history && item.history.length > 0) {
+            wsData.push(["", "--- Historical Data ---"]);
+            wsData.push(["", "Ex-Date", "Type", "Purpose", "Amount", ">2%", "Announced Date"]);
+            item.history.forEach(h => {
+                let hAnnDate = h.announcement_date_obj || h.broadcast_date || '-';
+                if (hAnnDate !== '-') hAnnDate = hAnnDate.split('T')[0];
+
+                wsData.push([
+                    "",
+                    h.ex_date || '-',
+                    h.dividend_type || '-',
+                    h.purpose || '-',
+                    h.amount || '-',
+                    h.is_above_2_percent ? 'Yes' : 'No',
+                    hAnnDate
+                ]);
+            });
+            wsData.push(["", "-----------------------"]);
         }
     });
 
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', 'dividend_arbitrage.csv');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Dividends");
+    XLSX.writeFile(wb, "dividend_arbitrage.xlsx");
 }
 
 function exportSSDivPDF() {
