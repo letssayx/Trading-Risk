@@ -55,7 +55,7 @@ window.loadFiiTrendChart = async function(overrideDays) {
     console.log("Loading FII Trend Chart...");
     try {
         let validOverrideDays = (overrideDays !== undefined && typeof overrideDays !== "object" && typeof overrideDays !== "boolean" && String(overrideDays) !== "[object Event]" && !(overrideDays instanceof Event)) ? overrideDays : null;
-        const days = validOverrideDays || document.getElementById("fii-analysis-days")?.value || "30";
+        const days = validOverrideDays || document.getElementById("fii-trend-lookback")?.value || document.getElementById("fii-analysis-days")?.value || "30";
         const symbol = document.getElementById('fii-analysis-index-symbol')?.value?.trim().toUpperCase() || 'NIFTY';
         const expiryOnly = document.getElementById('fii-opt-expiry-only')?.checked ? 'true' : 'false';
         const combinedOi = document.getElementById('fii-opt-combined-oi')?.checked ? 'true' : 'false';
@@ -236,38 +236,27 @@ function renderFiiSmartMoneyHistoryTable(data, granularData) {
                         <td style="color: #60a5fa;">${formatNum(fiiL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(fiiS)}</td>
                         <td style="color: ${getColor(fiiN)};">${formatNum(fiiN)}</td>
-                        <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(fiiL, fiiS)}</td>
+                        <td style="color: #bbb;">${getRatio(fiiL, fiiS)}</td>
+                        <td style="color: #ffeb3b;">${formatNum(fiiBuyC)}</td>
+                        <td style="color: #ffeb3b;">${formatNum(fiiSellC)}</td>
+                        <td style="color: ${getColor(fiiNetC)}; border-right: 1px solid #444;">${formatNum(fiiNetC)}</td>
 
                         <td style="color: #60a5fa;">${formatNum(diiL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(diiS)}</td>
-                        <td style="color: ${getColor(diiN)}; border-right: 1px solid #444;">${formatNum(diiN)}</td>
+                        <td style="color: ${getColor(diiN)};">${formatNum(diiN)}</td>
+                        <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(diiL, diiS)}</td>
 
                         <td style="color: #60a5fa;">${formatNum(proL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(proS)}</td>
-                        <td style="color: ${getColor(proN)}; border-right: 1px solid #444;">${formatNum(proN)}</td>
+                        <td style="color: ${getColor(proN)};">${formatNum(proN)}</td>
+                        <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(proL, proS)}</td>
 
                         <td style="color: #60a5fa;">${formatNum(cliL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(cliS)}</td>
                         <td style="color: ${getColor(cliN)};">${formatNum(cliN)}</td>
+                        <td style="color: #bbb;">${getRatio(cliL, cliS)}</td>
                     </tr>
                 `;
-
-                // Nested FII granular sub-row for the latest date (hidden by default)
-                blockHTML += `
-                    <tr class="${blockId}" style="display: none; background: #2a2a2a; border-left: 2px solid #ff9800;">
-                        <td></td>
-                        <td colspan="2" style="color: #ccc; padding-left: 30px; font-size: 11px; text-align: left;">
-                            ↳ FII Activity (${dateStr})
-                        </td>
-                        <td colspan="4" style="color: #aaa; font-size: 11px; text-align: center; border-right: 1px solid #444;">
-                            Buy: <span style="color: #ffeb3b;">${formatNum(fiiBuyC)}</span> &nbsp;|&nbsp;
-                            Sell: <span style="color: #ffeb3b;">${formatNum(fiiSellC)}</span> &nbsp;|&nbsp;
-                            Net: <span style="color: ${getColor(fiiNetC)};">${formatNum(fiiNetC)}</span>
-                        </td>
-                        <td colspan="9"></td>
-                    </tr>
-                `;
-
             } else {
                 // Historical row (hidden by default)
                 blockHTML += `
@@ -279,37 +268,28 @@ function renderFiiSmartMoneyHistoryTable(data, granularData) {
                         <td style="color: #60a5fa;">${formatNum(fiiL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(fiiS)}</td>
                         <td style="color: ${getColor(fiiN)};">${formatNum(fiiN)}</td>
-                        <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(fiiL, fiiS)}</td>
+                        <td style="color: #bbb;">${getRatio(fiiL, fiiS)}</td>
+                        <td style="color: #ffeb3b;">${formatNum(fiiBuyC)}</td>
+                        <td style="color: #ffeb3b;">${formatNum(fiiSellC)}</td>
+                        <td style="color: ${getColor(fiiNetC)}; border-right: 1px solid #444;">${formatNum(fiiNetC)}</td>
 
                         <td style="color: #60a5fa;">${formatNum(diiL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(diiS)}</td>
-                        <td style="color: ${getColor(diiN)}; border-right: 1px solid #444;">${formatNum(diiN)}</td>
+                        <td style="color: ${getColor(diiN)};">${formatNum(diiN)}</td>
+                        <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(diiL, diiS)}</td>
 
                         <td style="color: #60a5fa;">${formatNum(proL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(proS)}</td>
-                        <td style="color: ${getColor(proN)}; border-right: 1px solid #444;">${formatNum(proN)}</td>
+                        <td style="color: ${getColor(proN)};">${formatNum(proN)}</td>
+                        <td style="color: #bbb; border-right: 1px solid #444;">${getRatio(proL, proS)}</td>
 
                         <td style="color: #60a5fa;">${formatNum(cliL)}</td>
                         <td style="color: #ff4d4d;">${formatNum(cliS)}</td>
                         <td style="color: ${getColor(cliN)};">${formatNum(cliN)}</td>
+                        <td style="color: #bbb;">${getRatio(cliL, cliS)}</td>
                     </tr>
                 `;
 
-                // Nested FII granular sub-row for the historical date (hidden by default)
-                blockHTML += `
-                    <tr class="${blockId}" style="display: none; background: #2a2a2a; border-left: 2px solid #ff9800;">
-                        <td></td>
-                        <td colspan="2" style="color: #ccc; padding-left: 30px; font-size: 11px; text-align: left;">
-                            ↳ FII Activity (${dateStr})
-                        </td>
-                        <td colspan="4" style="color: #aaa; font-size: 11px; text-align: center; border-right: 1px solid #444;">
-                            Buy: <span style="color: #ffeb3b;">${formatNum(fiiBuyC)}</span> &nbsp;|&nbsp;
-                            Sell: <span style="color: #ffeb3b;">${formatNum(fiiSellC)}</span> &nbsp;|&nbsp;
-                            Net: <span style="color: ${getColor(fiiNetC)};">${formatNum(fiiNetC)}</span>
-                        </td>
-                        <td colspan="9"></td>
-                    </tr>
-                `;
             }
         }
         blockHTML += `</tbody>`;
