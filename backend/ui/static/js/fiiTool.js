@@ -257,6 +257,42 @@ function renderFiiSmartMoneyHistoryTable(data, granularData) {
                         <td style="color: #bbb;">${getRatio(cliL, cliS)}</td>
                     </tr>
                 `;
+
+                // Add granular index sub-rows if applicable
+                if (m.key === 'fut_idx' || m.key === 'opt_idx_ce' || m.key === 'opt_idx_pe') {
+                    const specificIndexes = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'NIFTYNXT50'];
+                    const labelSuffix = m.key === 'fut_idx' ? 'FUTURES' : 'OPTIONS';
+
+                    specificIndexes.forEach(idxName => {
+                        const subInstrName = `${idxName} ${labelSuffix}`;
+                        const subGranular = (granularData?.data_by_date?.[dateStr] || []).find(x => x.instrument_type === subInstrName);
+
+                        if (subGranular) {
+                            const subBuyC = subGranular.buy_contracts;
+                            const subSellC = subGranular.sell_contracts;
+                            const subNetC = subGranular.net_contracts;
+                            const subOiC = subGranular.oi_contracts;
+
+                            blockHTML += `
+                                <tr class="${blockId}" style="display: none; background: #1a1a1a; font-size: 11px;">
+                                    <td></td>
+                                    <td style="color: #999; padding-left: 20px;">- ${idxName}</td>
+                                    <td style="color: #888;">${dateStr}</td>
+
+                                    <td style="color: #60a5fa;">-</td>
+                                    <td style="color: #ff4d4d;">-</td>
+                                    <td style="color: #ccc;">${formatNum(subOiC)}</td>
+                                    <td style="color: #bbb;">-</td>
+                                    <td style="color: #ffeb3b;">${formatNum(subBuyC)}</td>
+                                    <td style="color: #ffeb3b;">${formatNum(subSellC)}</td>
+                                    <td style="color: ${getColor(subNetC)}; border-right: 1px solid #444;">${formatNum(subNetC)}</td>
+
+                                    <td colspan="12" style="color: #666; text-align: center;">Not available for specific indexes</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                }
             } else {
                 // Historical row (hidden by default)
                 blockHTML += `
@@ -290,6 +326,41 @@ function renderFiiSmartMoneyHistoryTable(data, granularData) {
                     </tr>
                 `;
 
+                // Add granular index sub-rows if applicable for historical rows
+                if (m.key === 'fut_idx' || m.key === 'opt_idx_ce' || m.key === 'opt_idx_pe') {
+                    const specificIndexes = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'NIFTYNXT50'];
+                    const labelSuffix = m.key === 'fut_idx' ? 'FUTURES' : 'OPTIONS';
+
+                    specificIndexes.forEach(idxName => {
+                        const subInstrName = `${idxName} ${labelSuffix}`;
+                        const subGranular = (granularData?.data_by_date?.[dateStr] || []).find(x => x.instrument_type === subInstrName);
+
+                        if (subGranular) {
+                            const subBuyC = subGranular.buy_contracts;
+                            const subSellC = subGranular.sell_contracts;
+                            const subNetC = subGranular.net_contracts;
+                            const subOiC = subGranular.oi_contracts;
+
+                            blockHTML += `
+                                <tr class="${blockId}" style="display: none; background: #141414; font-size: 11px;">
+                                    <td></td>
+                                    <td style="color: #777; padding-left: 40px;">- ${idxName}</td>
+                                    <td style="color: #777;">${dateStr}</td>
+
+                                    <td style="color: #60a5fa;">-</td>
+                                    <td style="color: #ff4d4d;">-</td>
+                                    <td style="color: #999;">${formatNum(subOiC)}</td>
+                                    <td style="color: #bbb;">-</td>
+                                    <td style="color: #ffeb3b;">${formatNum(subBuyC)}</td>
+                                    <td style="color: #ffeb3b;">${formatNum(subSellC)}</td>
+                                    <td style="color: ${getColor(subNetC)}; border-right: 1px solid #444;">${formatNum(subNetC)}</td>
+
+                                    <td colspan="12" style="color: #555; text-align: center;">Not available</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                }
             }
         }
         blockHTML += `</tbody>`;
