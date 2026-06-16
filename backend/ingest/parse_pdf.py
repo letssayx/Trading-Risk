@@ -26,7 +26,7 @@ def extract_amount_from_pdf(url):
             parts = re.split(r'(?i)dividend', text)
             for part in parts[1:]:
                 # Only look at the next 100 chars after 'dividend'
-                snippet = part[:100]
+                snippet = part[:150]
                 _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
 
                 m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
@@ -40,6 +40,7 @@ def extract_amount_from_pdf(url):
                 r'dividend.*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
                 r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)\s*per\s*share',
                 r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
+                r'dividend.*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)'
             ]
             for pat in ui_patterns:
                 matches2 = re.findall(pat, text, re.IGNORECASE)
