@@ -174,10 +174,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         bm_by_symbol[bm.symbol.upper()].append(bm)
 
     # Compile the chain of events strictly without data-loss deductions
-    # Include all symbols from the FO universe so none are excluded
-    all_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys())).union(set(symbols))
+    # We only care about symbols that are in the F&O universe AND have upcoming events or history
+    event_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys()))
+    target_symbols = set(symbols).intersection(event_symbols)
 
-    for sym in all_symbols:
+    for sym in target_symbols:
         history = ca_by_symbol.get(sym, [])
         bms = bm_by_symbol.get(sym, [])
         chained_history = []
@@ -311,7 +312,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         ca_by_symbol[sym] = chained_history
 
     # Adjust historical dividends for bonuses and splits
-    for sym in all_symbols:
+    for sym in target_symbols:
         history = ca_by_symbol.get(sym, [])
         adjustments = adjustments_by_symbol.get(sym, [])
         if adjustments:
@@ -332,7 +333,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         diff = abs(d1 - d2)
         return min(diff, 365 - diff)
 
-    for sym in symbols:
+    for sym in target_symbols:
         history = ca_by_symbol.get(sym, [])
         spot = spot_prices.get(sym)
         futures = futures_map.get(sym, [])
@@ -614,38 +615,45 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 else:
                     if "check for extra-ordinary" not in expected_less_likely:
                         expected_less_likely += " | <span style='color: red;'>check for extra-ordinary</span>"
+        def safe_round_to_05(val):
+            try:
+                if val is None or val == "" or str(val).strip() in ["N/A", "-"]:
+                    return val
+                return round(float(val) * 20) / 20
+            except (ValueError, TypeError):
+                return val
 
         # Explicitly round expected_amount for json response to nearest 0.05
-        if expected_amount is not None:
-            expected_amount = round(float(expected_amount) * 20) / 20
+        expected_amount = safe_round_to_05(expected_amount)
 
         # We also round historical amounts and last_amount to nearest 0.05 to be clean
-        if last_amount is not None:
-            last_amount = round(float(last_amount) * 20) / 20
+        last_amount = safe_round_to_05(last_amount)
 
         for h in history:
-            if h.get('amount') is not None:
-                h['amount'] = round(float(h['amount']) * 20) / 20
+            h['amount'] = safe_round_to_05(h.get('amount'))
 
-        results.append({
-            "symbol": sym,
-            "lot_size": lot_size_map.get(sym),
-            "spot": spot,
-            "sector": sector_map.get(sym, "-"),
-            "futures": futures[:3], # take up to Future 3
-            "last_type": last_type,
-            "last_ex_date": last_ex_date,
-            "last_amount": last_amount,
-            "is_above_2_percent": is_above_2_percent,
-            "board_meeting_date": board_meeting_date,
-            "broadcast_date": broadcast_date,
-            "expected_amount": expected_amount,
-            "expected_amount_compare": expected_amount_compare,
-            "expected_type": expected_type,
-            "expected_highly_likely": expected_highly_likely,
-            "expected_less_likely": expected_less_likely,
-            "history": history
-        })
+        # If it has no history, no upcoming board meetings, and no expectations, we can skip it.
+        # But if we just look at the return format, we need to include things that are pending or have history.
+        if history or board_meeting_date or expected_amount or expected_highly_likely != "-":
+            results.append({
+                "symbol": sym,
+                "lot_size": lot_size_map.get(sym),
+                "spot": spot,
+                "sector": sector_map.get(sym, "-"),
+                "futures": futures[:3], # take up to Future 3
+                "last_type": last_type,
+                "last_ex_date": last_ex_date,
+                "last_amount": last_amount,
+                "is_above_2_percent": is_above_2_percent,
+                "board_meeting_date": board_meeting_date,
+                "broadcast_date": broadcast_date,
+                "expected_amount": expected_amount,
+                "expected_amount_compare": expected_amount_compare,
+                "expected_type": expected_type,
+                "expected_highly_likely": expected_highly_likely,
+                "expected_less_likely": expected_less_likely,
+                "history": history
+            })
 
     # Sort alphabetical by symbol
     results.sort(key=lambda x: x['symbol'])

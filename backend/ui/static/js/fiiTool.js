@@ -281,7 +281,7 @@ function renderFiiSmartMoneyHistoryTable(data, granularData) {
 
                                     <td style="color: #60a5fa;">-</td>
                                     <td style="color: #ff4d4d;">-</td>
-                                    <td style="color: #ccc;">${formatNum(subOiC)}</td>
+                                    <td style="color: #ccc;">-</td>
                                     <td style="color: #bbb;">-</td>
                                     <td style="color: #ffeb3b;">${formatNum(subBuyC)}</td>
                                     <td style="color: #ffeb3b;">${formatNum(subSellC)}</td>
@@ -349,7 +349,7 @@ function renderFiiSmartMoneyHistoryTable(data, granularData) {
 
                                     <td style="color: #60a5fa;">-</td>
                                     <td style="color: #ff4d4d;">-</td>
-                                    <td style="color: #999;">${formatNum(subOiC)}</td>
+                                    <td style="color: #999;">-</td>
                                     <td style="color: #bbb;">-</td>
                                     <td style="color: #ffeb3b;">${formatNum(subBuyC)}</td>
                                     <td style="color: #ffeb3b;">${formatNum(subSellC)}</td>

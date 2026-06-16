@@ -1,5 +1,6 @@
 // Javascript for Special Situation Arb
 
+let ssDivData = [];
 function toggleBBVerification() {
     const chk = document.getElementById('bb-verify-chk');
     const badge = document.getElementById('bb-verify-badge');
@@ -742,7 +743,6 @@ window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;
 // ==== Special Sit Dividends Logic ====
 
 
-let ssDivData = [];
 
 async function loadSSDividends() {
     const btn = document.querySelector('#ss-tab-dividends button[onclick="loadSSDividends()"]');
