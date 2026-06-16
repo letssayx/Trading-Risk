@@ -322,12 +322,13 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         if adjustments:
             for h in history:
                 if h['ex_date_obj']:
-                    adjusted_amount = h['raw_amount']
-                    # Apply adjustments that happened AFTER this dividend
-                    for adj in adjustments:
-                        if adj['date'] > h['ex_date_obj']:
-                            adjusted_amount *= adj['ratio']
-                    h['amount'] = adjusted_amount
+                    adjusted_amount = h.get('raw_amount')
+                    if adjusted_amount is not None:
+                        # Apply adjustments that happened AFTER this dividend
+                        for adj in adjustments:
+                            if adj['date'] > h['ex_date_obj']:
+                                adjusted_amount *= adj['ratio']
+                        h['amount'] = adjusted_amount
 
     # 5. Process data and generate "guesstimates" using Seasonal Cycle Detection
     results = []
