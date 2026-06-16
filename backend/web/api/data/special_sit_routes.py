@@ -82,7 +82,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         CorporateAction.date >= ten_years_ago,
         or_(
             CorporateAction.parsed_dividend_amount != None,
-            CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger'])
+            CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger']),
+            CorporateAction.purpose.ilike('%dividend%')
         )
     ).order_by(desc(CorporateAction.date)).all()
 
@@ -90,7 +91,10 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     bm_records = db.query(BoardMeeting).filter(
         BoardMeeting.symbol.in_(symbols),
         BoardMeeting.date >= ten_years_ago,
-        BoardMeeting.purpose.ilike('%dividend%')
+        or_(
+            BoardMeeting.purpose.ilike('%dividend%'),
+            BoardMeeting.extracted_dividend_amount != None
+        )
     ).order_by(desc(BoardMeeting.date)).all()
 
     import re
@@ -153,7 +157,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                     "date": r.date,
                     "ratio": ratio
                 })
-        elif r.parsed_dividend_amount is not None:
+        elif r.parsed_dividend_amount is not None or (r.purpose and 'dividend' in r.purpose.lower()):
             ann_date = r.broadcast_date or r.date
             if hasattr(ann_date, 'date'):
                 ann_date = ann_date.date()

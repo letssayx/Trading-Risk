@@ -1,6 +1,7 @@
 """NSE Library Adapter - Re-implementation of nselib logic"""
 from curl_cffi import requests as cffi_requests
 import pandas as pd
+from backend.ingest.parse_pdf import extract_amount_from_pdf
 import io
 import zipfile
 import logging
@@ -772,6 +773,14 @@ class NSELib:
                             if found_amount:
                                 if 'interim' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
+
+                        # Fallback 3: Parse PDF attachment
+                        if found_amount is None:
+                            attachment_url = str(item.get('ATTACHMENT', ''))
+                            if attachment_url.startswith('http'):
+                                pdf_amount = extract_amount_from_pdf(attachment_url)
+                                if pdf_amount:
+                                    found_amount = pdf_amount
 
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
