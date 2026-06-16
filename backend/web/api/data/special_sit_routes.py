@@ -244,8 +244,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                 if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
                     diff_days = abs((bm_date - existing_date).days)
-                    # Merge synthetics if they are within 60 days of each other and have the same dividend type
-                    if diff_days <= 60 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type:
+                    # Merge synthetics if they fall on the exact same date, OR if they are within 60 days of each other and have the same dividend type
+                    if diff_days == 0 or (diff_days <= 60 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type):
                         is_duplicate = True
                         # Update amount if the newer duplicate has it
                         if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
@@ -279,8 +279,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             elif bm.date and bm.date >= today:
                 # It's an upcoming meeting in the future, we don't have the amount yet. Allow it to show as 'Expected'.
                 is_valid_standalone = True
-            elif 'dividend' in purpose_lower and not any(x in purpose_lower for x in ['financial results', 'agm', 'annual general meeting', 'postponed']):
-                # It's a pure historical dividend intimation without a CA
+            elif 'dividend' in purpose_lower:
+                # It's a historical dividend intimation without a CA, allow it even if it mentions financial results since the amount is just pending
                 is_valid_standalone = True
 
             if is_valid_standalone:
