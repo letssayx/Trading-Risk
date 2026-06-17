@@ -917,7 +917,7 @@ function exportSSDivXLS() {
         let isStrictAwaited = false;
         if (item.history && item.history.length > 0) {
             let lastHist = item.history[0];
-            if (lastHist.amount && (!lastHist.ex_date || lastHist.ex_date === 'Record date not yet declared')) {
+            if (!lastHist.ex_date || lastHist.ex_date === 'Record date not yet declared') {
                 isStrictAwaited = true;
             }
         }
@@ -1279,7 +1279,7 @@ function renderSSDividends() {
         let isStrictAwaited = false;
         if (item.history && item.history.length > 0) {
             let lastHist = item.history[0];
-            if (lastHist.amount && (!lastHist.ex_date || lastHist.ex_date.toLowerCase().includes('not yet declared'))) {
+            if (!lastHist.ex_date || lastHist.ex_date.toLowerCase().includes('not yet declared')) {
                 isStrictAwaited = true;
             }
         }
