@@ -148,6 +148,10 @@ async def get_spread_builder():
 async def get_workbench():
     return FileResponse("backend/ui/templates/workbench.html")
 
+@app.get("/chat")
+async def get_chat():
+    return FileResponse("backend/ui/templates/chat.html")
+
 @app.get("/strategy-composer")
 async def get_strategy_composer():
     return FileResponse("backend/ui/templates/strategy_composer.html")

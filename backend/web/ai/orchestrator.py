@@ -98,14 +98,17 @@ class TerminalOrchestrator:
             }
 
     async def step1_dispatch(self, command: str) -> str:
-        """Uses Gemini 1.5 to classify the command into an Engine type."""
+        """Uses Gemini to classify the command into an Engine type, including new DATA_RETRIEVAL logic."""
         prompt = f"""
-        Classify the following trading command into exactly one of these 5 categories:
+        Classify the following trading command into exactly one of these categories:
         1. Black Swan
         2. Macro
         3. Corporate Action
         4. Derivatives
         5. Earnings
+        6. DATA_RETRIEVAL_DIVIDEND
+
+        Use DATA_RETRIEVAL_DIVIDEND if the user is asking to look up historical dividends, upcoming board meetings, or dividend opportunities.
 
         Command: "{command}"
 
@@ -144,10 +147,116 @@ class TerminalOrchestrator:
             engine_type = "Derivatives"
 
         # Clean up any surrounding punctuation
-        for val in ["Black Swan", "Macro", "Corporate Action", "Derivatives", "Earnings"]:
+        for val in ["Black Swan", "Macro", "Corporate Action", "Derivatives", "Earnings", "DATA_RETRIEVAL_DIVIDEND"]:
             if val.lower() in engine_type.lower():
                 return val
         return "Derivatives" # Fallback
+
+    async def step2_data_clerk_retrieval(self, command: str) -> Dict[str, Any]:
+        """Uses Qwen to parse a data retrieval command and output a direct Widget JSON payload."""
+        prompt = f"""
+        You are a Data Extraction Clerk. The user wants to retrieve data, not execute a trade.
+        Your job is to parse the user's intent and return a structured JSON Widget configuration.
+
+        Command: "{command}"
+
+        You MUST heavily utilize the `search_db_symbol` tool to map any natural language company names (like "Reliance" or "HDFC") to their exact, official NSE ticker symbol (e.g., "RELIANCE", "HDFCBANK"). Do not guess the ticker, ALWAYS verify it if it's a company name rather than a raw ticker string.
+
+        Extract the following if present:
+        - "symbols": Array of OFFICIAL NSE stock symbols. Ensure you have mapped company names to these symbols using the tool. If none mentioned or applicable (e.g. general market query), return empty array.
+        - "months": Array of full month names (e.g. "July") if the user specifies a timeframe.
+        - "upcoming": Boolean, true if the user asks for upcoming events or future dates.
+
+        Then, output your reasoning inside `<reasoning>` tags.
+        After the reasoning, output a STRICT JSON object representing the widget payload.
+        It MUST contain:
+        {{
+            "widget": "dividend_table",
+            "symbols": [],
+            "months": [],
+            "upcoming": false,
+            "summary": "Short explanation of what was extracted"
+        }}
+
+        Output the JSON block clearly at the end.
+        """
+
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_db_symbol",
+                    "description": "Searches the local Historical Data database for a matching official NSE symbol based on a company name.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The company name to search for."
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            }
+        ]
+
+        messages = [{"role": "user", "content": prompt}]
+        qwen_reasoning = ""
+        widget_json_str = ""
+
+        try:
+            for _ in range(3):  # Max tool calls
+                response = await self.openrouter_client.chat.completions.create(
+                    model="qwen/qwen3-32b",
+                    messages=messages,
+                    tools=tools,
+                    temperature=0.0
+                )
+                message = response.choices[0].message
+                messages.append(message)
+
+                if message.tool_calls:
+                    from fastapi.concurrency import run_in_threadpool
+                    for tool_call in message.tool_calls:
+                        if tool_call.function.name == "search_db_symbol":
+                            args = json.loads(tool_call.function.arguments)
+                            res = await run_in_threadpool(search_db_symbol, self.db, args.get("query", ""))
+                            messages.append({
+                                "role": "tool",
+                                "name": "search_db_symbol",
+                                "content": str(res),
+                                "tool_call_id": tool_call.id
+                            })
+                    continue
+
+                raw_text = message.content.strip() if message.content else ""
+
+                res_match = re.search(r'<reasoning>(.*?)</reasoning>', raw_text, re.DOTALL | re.IGNORECASE)
+                if res_match:
+                    qwen_reasoning += res_match.group(1).strip()
+
+                # Extract JSON block
+                json_match = re.search(r'(\{.*\})', raw_text.replace('\n', ''), re.DOTALL)
+                if json_match:
+                    widget_json_str = json_match.group(1)
+                else:
+                    # Fallback cleanup
+                    clean_text = re.sub(r'<reasoning>.*?</reasoning>', '', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
+                    if clean_text.startswith('{'):
+                        widget_json_str = clean_text
+
+                break
+
+            if widget_json_str:
+                widget_data = json.loads(widget_json_str)
+                widget_data['qwen_reasoning'] = qwen_reasoning
+                return widget_data
+            else:
+                return {"widget": "error", "summary": "Failed to parse data parameters."}
+
+        except Exception as e:
+            return {"widget": "error", "summary": f"Extraction error: {str(e)}"}
 
     async def step2_data_clerk(self, command: str, engine_type: str) -> Dict[str, Any]:
         """Uses Qwen 2.5 (OpenRouter) to extract ticker and fetch real data."""
