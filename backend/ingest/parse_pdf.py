@@ -1,3 +1,5 @@
+import logging
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
 import requests
 import io
 import re
