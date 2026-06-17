@@ -4,9 +4,11 @@ import requests
 import io
 import re
 import logging
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
+@lru_cache(maxsize=1024)
 def extract_amount_from_pdf(url):
     try:
         import pdfplumber

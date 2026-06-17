@@ -774,32 +774,34 @@ class NSELib:
                                 if 'interim' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
-                        # Fallback 3: Parse PDF attachment from board meeting
-                        if found_amount is None:
+                        # Only execute PDF fallbacks if the board meeting date has passed or is today.
+                        # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet.
+                        if found_amount is None and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
+                            # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
                                 pdf_amount = extract_amount_from_pdf(attachment_url)
                                 if pdf_amount:
                                     found_amount = pdf_amount
 
-                        # Fallback 4: Cross-reference with global corporate announcements for the actual outcome PDF
-                        if found_amount is None:
-                            sym = item.get('SYMBOL', item.get('bm_symbol'))
-                            if sym and symbol_announcements.get(sym):
-                                for ann in symbol_announcements[sym]:
-                                    ann_date_str = ann.get('an_dt', '') # e.g. 13-May-2026 17:01:36
-                                    if bm_date_obj:
-                                        try:
-                                            # If announcement date matches board meeting date
-                                            if bm_date_obj.strftime("%d-%b-%Y").lower() in ann_date_str.lower():
-                                                ann_pdf = ann.get('attchmntFile')
-                                                if ann_pdf and ann_pdf.startswith('http'):
-                                                    pdf_amount = extract_amount_from_pdf(ann_pdf)
-                                                    if pdf_amount:
-                                                        found_amount = pdf_amount
-                                                        break
-                                        except Exception:
-                                            pass
+                            # Fallback 4: Cross-reference with global corporate announcements for the actual outcome PDF
+                            if found_amount is None:
+                                sym = item.get('SYMBOL', item.get('bm_symbol'))
+                                if sym and symbol_announcements.get(sym):
+                                    for ann in symbol_announcements[sym]:
+                                        ann_date_str = ann.get('an_dt', '') # e.g. 13-May-2026 17:01:36
+                                        if bm_date_obj:
+                                            try:
+                                                # If announcement date matches board meeting date
+                                                if bm_date_obj.strftime("%d-%b-%Y").lower() in ann_date_str.lower():
+                                                    ann_pdf = ann.get('attchmntFile')
+                                                    if ann_pdf and ann_pdf.startswith('http'):
+                                                        pdf_amount = extract_amount_from_pdf(ann_pdf)
+                                                        if pdf_amount:
+                                                            found_amount = pdf_amount
+                                                            break
+                                            except Exception:
+                                                pass
 
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
