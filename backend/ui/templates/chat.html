@@ -31,7 +31,7 @@
         .sidebar {
             width: 300px;
             background: var(--panel-bg);
-            border-right: 1px solid var(--border-color);
+            border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
@@ -247,20 +247,6 @@
 </head>
 <body>
 
-    <!-- Verification / Thought Process Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <span><i class="fas fa-microchip"></i> System Log</span>
-            <button onclick="document.getElementById('sidebar').style.display='none'" style="background:none;border:none;color:white;cursor:pointer;"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="logs-container" id="logs-feed">
-            <div class="log-entry">
-                <div class="log-node">[SYSTEM]</div>
-                <div>Ready for commands.</div>
-            </div>
-        </div>
-    </div>
-
     <!-- Main Chat Area -->
     <div class="main-chat">
         <div class="chat-header">
@@ -286,6 +272,20 @@
             <div class="input-box">
                 <input type="text" id="chat-input" placeholder="Ask about dividends, OI, market activity..." onkeydown="if(event.key==='Enter') sendMessage()">
                 <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verification / Thought Process Sidebar (Now on Right) -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span><i class="fas fa-microchip"></i> System Log</span>
+            <button onclick="document.getElementById('sidebar').style.display='none'" style="background:none;border:none;color:white;cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="logs-container" id="logs-feed">
+            <div class="log-entry">
+                <div class="log-node">[SYSTEM]</div>
+                <div>Ready for commands.</div>
             </div>
         </div>
     </div>

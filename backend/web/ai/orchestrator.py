@@ -237,12 +237,16 @@ class TerminalOrchestrator:
                     qwen_reasoning += res_match.group(1).strip()
 
                 # Extract JSON block
-                json_match = re.search(r'(\{.*\})', raw_text.replace('\n', ''), re.DOTALL)
+                # Using [\s\S]* to match across newlines without removing them, preserving valid JSON
+                json_match = re.search(r'(\{[\s\S]*\})', raw_text)
                 if json_match:
                     widget_json_str = json_match.group(1)
                 else:
                     # Fallback cleanup
-                    clean_text = re.sub(r'<reasoning>.*?</reasoning>', '', raw_text, flags=re.DOTALL | re.IGNORECASE).strip()
+                    clean_text = re.sub(r'<reasoning>[\s\S]*?</reasoning>', '', raw_text, flags=re.IGNORECASE).strip()
+                    # Strip out any markdown formatting
+                    clean_text = re.sub(r'```json\s*', '', clean_text)
+                    clean_text = re.sub(r'```\s*', '', clean_text)
                     if clean_text.startswith('{'):
                         widget_json_str = clean_text
 
