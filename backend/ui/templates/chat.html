@@ -381,9 +381,9 @@
 
             // Use hardcoded keys or try to get from session if available locally
             // In production, keys should ideally be securely handled backend-side
-            const groqKey = sessionStorage.getItem('GROQ_API_KEY') || "";
-            const openrouterKey = sessionStorage.getItem('OPENROUTER_API_KEY') || "";
-            const googleKey = sessionStorage.getItem('GOOGLE_API_KEY') || "";
+            const groqKey = localStorage.getItem('GROQ_API_KEY') || "";
+            const openrouterKey = localStorage.getItem('OPENROUTER_API_KEY') || "";
+            const googleKey = localStorage.getItem('GOOGLE_API_KEY') || "";
 
             addUserMessage(cmd);
             input.value = '';

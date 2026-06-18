@@ -10,9 +10,9 @@ function openConfig() {
     }
 
     // Populate existing keys
-    document.getElementById('cfg-google').value = sessionStorage.getItem('GOOGLE_API_KEY') || '';
-    document.getElementById('cfg-groq').value = sessionStorage.getItem('GROQ_API_KEY') || '';
-    document.getElementById('cfg-openrouter').value = sessionStorage.getItem('OPENROUTER_API_KEY') || '';
+    document.getElementById('cfg-google').value = localStorage.getItem('GOOGLE_API_KEY') || '';
+    document.getElementById('cfg-groq').value = localStorage.getItem('GROQ_API_KEY') || '';
+    document.getElementById('cfg-openrouter').value = localStorage.getItem('OPENROUTER_API_KEY') || '';
 
     const status = document.getElementById('config-status');
     if (status) status.innerText = '';
@@ -27,9 +27,9 @@ function saveConfig() {
 
     try {
         // Securely store keys in session storage (wipes on browser close)
-        if (google) sessionStorage.setItem('GOOGLE_API_KEY', google);
-        if (groq) sessionStorage.setItem('GROQ_API_KEY', groq);
-        if (openrouter) sessionStorage.setItem('OPENROUTER_API_KEY', openrouter);
+        if (google) localStorage.setItem('GOOGLE_API_KEY', google);
+        if (groq) localStorage.setItem('GROQ_API_KEY', groq);
+        if (openrouter) localStorage.setItem('OPENROUTER_API_KEY', openrouter);
 
         // Also attempt to update the backend config if Admin Token is present
         const adminToken = localStorage.getItem('admin_token');
@@ -63,7 +63,7 @@ function saveConfig() {
 
 // Auto-load config when script initializes
 window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('cfg-google').value = sessionStorage.getItem('GOOGLE_API_KEY') || '';
-    document.getElementById('cfg-groq').value = sessionStorage.getItem('GROQ_API_KEY') || '';
-    document.getElementById('cfg-openrouter').value = sessionStorage.getItem('OPENROUTER_API_KEY') || '';
+    document.getElementById('cfg-google').value = localStorage.getItem('GOOGLE_API_KEY') || '';
+    document.getElementById('cfg-groq').value = localStorage.getItem('GROQ_API_KEY') || '';
+    document.getElementById('cfg-openrouter').value = localStorage.getItem('OPENROUTER_API_KEY') || '';
 });

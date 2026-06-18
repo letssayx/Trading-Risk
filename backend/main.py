@@ -75,6 +75,8 @@ app.include_router(volatility_routes.router)
 app.include_router(nse_routes.router, prefix="/api/v1/nse", tags=["nse"])
 app.include_router(audit_routes.router, prefix="/api/audit", tags=["audit"])
 app.include_router(macro_routes.router)
+from backend.web.api import chat_widgets_routes
+app.include_router(chat_widgets_routes.router)
 app.include_router(ai_router)
 
 

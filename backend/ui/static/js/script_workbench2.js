@@ -759,9 +759,9 @@
         function runAiAnalysis(cmd) {
             if (!cmd) return;
 
-            const groqKey = sessionStorage.getItem('GROQ_API_KEY');
-            const openrouterKey = sessionStorage.getItem('OPENROUTER_API_KEY');
-            const googleKey = sessionStorage.getItem('GOOGLE_API_KEY');
+            const groqKey = localStorage.getItem('GROQ_API_KEY');
+            const openrouterKey = localStorage.getItem('OPENROUTER_API_KEY');
+            const googleKey = localStorage.getItem('GOOGLE_API_KEY');
 
             const feedContainer = document.getElementById('ai-analysis-feed');
             const chatFeed = document.getElementById('ai-chat-feed');
