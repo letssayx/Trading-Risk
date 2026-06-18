@@ -44,14 +44,16 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
             keys = payload.get("keys", {})
             session_id = payload.get("session_id", "anonymous")
 
-            groq_key = keys.get("groq")
-            openrouter_key = keys.get("openrouter")
-            gemini_key = keys.get("google")
+            import os
+            # Use frontend keys if provided, otherwise fallback to server environment variables
+            groq_key = keys.get("groq") or os.getenv("GROQ_API_KEY")
+            openrouter_key = keys.get("openrouter") or os.getenv("OPENROUTER_API_KEY")
+            gemini_key = keys.get("google") or os.getenv("GOOGLE_API_KEY")
 
             if not (groq_key and openrouter_key and gemini_key):
                 await websocket.send_json({
                     "type": "error",
-                    "message": "Missing API keys. Please set them in Config tab."
+                    "message": "Missing API keys. Please check server .env or set them in Config tab."
                 })
                 continue
 
