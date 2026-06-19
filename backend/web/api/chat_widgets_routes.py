@@ -34,18 +34,72 @@ def get_chat_widget_dividends(
         if symbol and sym not in [s.upper() for s in symbol]:
             continue
 
-        ca_list = item.get("corporate_actions", [])
-        bm_list = item.get("board_meetings", [])
+        history = item.get("history", [])
+        expected_amount = item.get("expected_amount")
+        expected_date = item.get("expected_highly_likely")
+        board_meeting_date = item.get("board_meeting_date")
 
-        if not ca_list and not bm_list and not item.get("historical_avg_yield"):
+        # Check if item matches any criteria to process
+        has_data = len(history) > 0 or expected_amount is not None or expected_date not in ["-", None] or board_meeting_date not in ["-", None]
+        if not has_data:
             continue
 
-        for ca in ca_list:
-            ex_date_str = ca.get("ex_date")
-            is_awaited = ca.get("is_awaited", False)
+        # Add Expected/Upcoming data
+        if expected_amount is not None or (expected_date and expected_date != "-") or (board_meeting_date and board_meeting_date != "-"):
+            # If upcoming filter is on, this usually qualifies as upcoming (unless it's already announced and past, but we'll include it)
+            # Find the date string
+            d_str = "-"
+            is_awaited = False
 
-            if upcoming and not is_awaited:
-                if ex_date_str and ex_date_str != "-":
+            if "Announced: " in str(expected_date):
+                d_str = expected_date.replace("Announced: ", "").strip()
+            elif "Forecasted: " in str(expected_date):
+                d_str = expected_date.replace("Forecasted: ", "").strip()
+
+            if "Amount declared, date not yet announced" in str(item.get("expected_less_likely", "")):
+                is_awaited = True
+
+            if board_meeting_date and board_meeting_date != "-":
+                d_str = board_meeting_date # Might override if there's a bm
+
+            include_upcoming = True
+
+            if month and d_str and d_str != "-":
+                try:
+                    # expected date might be DD-MM-YYYY or YYYY-MM-DD
+                    if len(d_str.split("-")[0]) == 4:
+                        ex_d = datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
+                    else:
+                        ex_d = datetime.datetime.strptime(d_str, "%d-%m-%Y").date()
+
+                    m_name = ex_d.strftime("%B").lower()
+                    if not any(m.lower() == m_name for m in month):
+                        include_upcoming = False
+                except:
+                    pass
+
+            if include_upcoming:
+                events.append({
+                    "Symbol": sym,
+                    "Event Type": "Upcoming/Expected",
+                    "Date / Ex-Date": "Awaited" if is_awaited else d_str,
+                    "Amount": expected_amount if expected_amount is not None else "Pending",
+                    "Type": item.get("expected_type", "-"),
+                    "Status": "Awaited" if is_awaited else ("Board Meeting" if board_meeting_date and board_meeting_date != "-" else "Forecast/Announced"),
+                    "Details": item.get("expected_less_likely", "-")
+                })
+
+        # Add Historical data
+        for h in history:
+            ex_date_str = h.get("ex_date")
+            is_awaited_hist = False
+
+            if ex_date_str == "Record date not yet declared":
+                is_awaited_hist = True
+                ex_date_str = "Awaited"
+
+            if upcoming and not is_awaited_hist:
+                if ex_date_str and ex_date_str not in ["-", "Awaited"]:
                     try:
                         ex_d = datetime.datetime.strptime(ex_date_str, "%Y-%m-%d").date()
                         if ex_d < datetime.date.today():
@@ -53,7 +107,7 @@ def get_chat_widget_dividends(
                     except:
                         pass
 
-            if month and ex_date_str and ex_date_str != "-":
+            if month and ex_date_str and ex_date_str not in ["-", "Awaited"]:
                 try:
                     ex_d = datetime.datetime.strptime(ex_date_str, "%Y-%m-%d").date()
                     m_name = ex_d.strftime("%B").lower()
@@ -64,58 +118,13 @@ def get_chat_widget_dividends(
 
             events.append({
                 "Symbol": sym,
-                "Event Type": "Declared Dividend",
-                "Date / Ex-Date": "Awaited" if is_awaited else ex_date_str,
-                "Amount": ca.get("amount", "N/A"),
-                "Yield": f"{ca.get('yield', 0)}%" if ca.get('yield') else "-",
-                "Status": "Awaited" if is_awaited else "Confirmed",
-                "Details": ca.get("purpose", "")
+                "Event Type": "Historical Dividend",
+                "Date / Ex-Date": ex_date_str,
+                "Amount": h.get("amount", "N/A"),
+                "Type": h.get("dividend_type", "-"),
+                "Status": "Confirmed",
+                "Details": h.get("purpose", "")
             })
-
-        for bm in bm_list:
-            meeting_date_str = bm.get("meeting_date")
-            if upcoming:
-                if meeting_date_str and meeting_date_str != "-":
-                    try:
-                        m_d = datetime.datetime.strptime(meeting_date_str, "%Y-%m-%d").date()
-                        if m_d < datetime.date.today():
-                            continue
-                    except:
-                        pass
-
-            if month and meeting_date_str and meeting_date_str != "-":
-                try:
-                    m_d = datetime.datetime.strptime(meeting_date_str, "%Y-%m-%d").date()
-                    m_name = m_d.strftime("%B").lower()
-                    if not any(m.lower() == m_name for m in month):
-                        continue
-                except:
-                    pass
-
-            events.append({
-                "Symbol": sym,
-                "Event Type": "Board Meeting",
-                "Date / Ex-Date": meeting_date_str,
-                "Amount": bm.get("expected_dividend", "Pending"),
-                "Yield": "-",
-                "Status": "Pending",
-                "Details": bm.get("purpose", "")
-            })
-
-        if not upcoming and month and not ca_list and not bm_list:
-            hist_months = item.get("historical_months", [])
-            for hist_m in hist_months:
-                if any(m.lower() == hist_m.lower() for m in month):
-                    events.append({
-                        "Symbol": sym,
-                        "Event Type": "Historical Pattern",
-                        "Date / Ex-Date": f"Usually {hist_m}",
-                        "Amount": f"Avg ~{item.get('historical_avg_amount', 'N/A')}",
-                        "Yield": f"~{item.get('historical_avg_yield', 'N/A')}%",
-                        "Status": "Pattern",
-                        "Details": "Based on historical average"
-                    })
-                    break
 
     def get_sort_date(e):
         d_str = e.get("Date / Ex-Date", "")
