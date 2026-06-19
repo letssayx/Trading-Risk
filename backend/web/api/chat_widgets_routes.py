@@ -128,12 +128,19 @@ def get_chat_widget_dividends(
 
     def get_sort_date(e):
         d_str = e.get("Date / Ex-Date", "")
-        if d_str in ["Awaited", "-"] or "Usually" in d_str:
+        if d_str in ["Awaited", "-"] or "Usually" in d_str or "Board Meeting" in str(e.get("Status", "")):
             return datetime.date(2099, 12, 31)
         try:
-            return datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
+            if len(d_str.split("-")[0]) == 4:
+                return datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
+            else:
+                return datetime.datetime.strptime(d_str, "%d-%m-%Y").date()
         except:
-            return datetime.date(1900, 1, 1)
+            # For "Awaited", put them at the top
+            if "Awaited" in str(e.get("Status", "")) or d_str == "Awaited":
+                return datetime.date(2099, 12, 31)
+            else:
+                return datetime.date(1900, 1, 1)
 
     events.sort(key=get_sort_date, reverse=True)
     return events
