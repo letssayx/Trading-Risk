@@ -28,6 +28,14 @@
             overflow: hidden;
         }
 
+        .left-sidebar {
+            width: 250px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
         .sidebar {
             width: 300px;
             background: var(--panel-bg);
@@ -44,6 +52,32 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        .nav-buttons {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: #2d3748;
+            border: 1px solid #4a5568;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-btn:hover {
+            background: #4a5568;
         }
 
         .logs-container {
@@ -72,9 +106,12 @@
             display: flex;
             flex-direction: column;
             position: relative;
+            background-color: var(--bg-color);
+            align-items: center;
         }
 
         .chat-header {
+            width: 100%;
             padding: 15px;
             border-bottom: 1px solid var(--border-color);
             background: var(--panel-bg);
@@ -82,6 +119,16 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-sizing: border-box;
+        }
+
+        .chat-container-inner {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
         }
 
         .chat-messages {
@@ -91,6 +138,8 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .message {
@@ -114,9 +163,10 @@
         }
 
         .chat-input-container {
+            width: 100%;
             padding: 20px;
-            background: var(--panel-bg);
-            border-top: 1px solid var(--border-color);
+            background: var(--bg-color);
+            box-sizing: border-box;
         }
 
         .quick-actions {
@@ -154,15 +204,18 @@
         .input-box {
             display: flex;
             gap: 10px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 5px;
         }
 
         input[type="text"] {
             flex: 1;
-            background: #2a2a2a;
-            border: 1px solid #444;
+            background: transparent;
+            border: none;
             color: white;
             padding: 12px;
-            border-radius: 6px;
             outline: none;
         }
 
@@ -247,31 +300,49 @@
 </head>
 <body>
 
+    <!-- Left Sidebar -->
+    <div class="left-sidebar">
+        <div class="sidebar-header">
+            <span><i class="fas fa-terminal"></i> Workspaces</span>
+        </div>
+        <div class="nav-buttons">
+            <button class="nav-btn" onclick="prefillPrompt('Dividend analysis for: ')"><i class="fas fa-money-bill-wave text-accent"></i> Dividend Analysis</button>
+            <button class="nav-btn" onclick="prefillPrompt('OI analysis for: ')"><i class="fas fa-chart-bar text-accent"></i> OI Analysis</button>
+            <button class="nav-btn" onclick="prefillPrompt('Market activity for: ')"><i class="fas fa-globe text-accent"></i> Market Activity</button>
+            <button class="nav-btn" onclick="prefillPrompt('Rollover analysis for: ')"><i class="fas fa-sync text-accent"></i> Rollover Analysis</button>
+            <button class="nav-btn" onclick="prefillPrompt('Put-Call Parity for: ')"><i class="fas fa-balance-scale text-accent"></i> Put-Call Parity</button>
+        </div>
+    </div>
+
     <!-- Main Chat Area -->
     <div class="main-chat">
         <div class="chat-header">
             <span>
-                <button onclick="document.getElementById('sidebar').style.display='flex'" style="background:none;border:none;color:white;cursor:pointer;margin-right:10px;"><i class="fas fa-bars"></i></button>
                 Turtle AI Terminal
             </span>
-            <span><i class="fas fa-robot text-accent"></i> Online</span>
+            <span>
+                <i class="fas fa-robot text-accent"></i> Online
+                <button onclick="document.getElementById('sidebar').style.display=document.getElementById('sidebar').style.display==='none'?'flex':'none'" style="background:none;border:none;color:white;cursor:pointer;margin-left:15px;font-size:1.1em;" title="Toggle System Log"><i class="fas fa-terminal"></i></button>
+            </span>
         </div>
 
-        <div class="chat-messages" id="chat-messages">
-            <div class="message msg-ai">
-                Hello! I am ready to analyze the markets for you. What would you like to investigate today?
+        <div class="chat-container-inner">
+            <div class="chat-messages" id="chat-messages">
+                <div class="message msg-ai">
+                    Hello! I am ready to analyze the markets for you. What would you like to investigate today?
+                </div>
             </div>
-        </div>
 
-        <div class="chat-input-container">
-            <div class="quick-actions">
-                <button class="action-btn" onclick="quickSend('Dividend analysis for Reliance')">Reliance Dividends</button>
-                <button class="action-btn" onclick="quickSend('Upcoming board meetings this week')">Upcoming Meetings</button>
-                <button class="action-btn" onclick="quickSend('Dividend opportunity in July')">July Div Opportunities</button>
-            </div>
-            <div class="input-box">
-                <input type="text" id="chat-input" placeholder="Ask about dividends, OI, market activity..." onkeydown="if(event.key==='Enter') sendMessage()">
-                <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            <div class="chat-input-container">
+                <div class="quick-actions">
+                    <button class="action-btn" onclick="quickSend('Dividend analysis for Reliance')">Reliance Dividends</button>
+                    <button class="action-btn" onclick="quickSend('Upcoming board meetings this week')">Upcoming Meetings</button>
+                    <button class="action-btn" onclick="quickSend('Dividend opportunity in July')">July Div Opportunities</button>
+                </div>
+                <div class="input-box">
+                    <input type="text" id="chat-input" placeholder="Ask about dividends, OI, market activity..." onkeydown="if(event.key==='Enter') sendMessage()">
+                    <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
             </div>
         </div>
     </div>
@@ -307,6 +378,7 @@
 
                 if (msg.type === "status") {
                     logMessage("[STATUS]", msg.message, "#aaa");
+                    setThinkingState(msg.message);
                 } else if (msg.type === "jules_task") {
                     logMessage("[JULES]", msg.reasoning || "Task created", "#00bcd4");
                 } else if (msg.type === "qwen_extract") {
@@ -316,6 +388,7 @@
                 } else if (msg.type === "llama_judge") {
                     logMessage("[JUDGE]", "Verifying constraints...", "#b8860b");
                 } else if (msg.type === "result") {
+                    clearThinkingState();
                     // Check if it's a widget request rather than raw text
                     try {
                         const parsed = JSON.parse(msg.message);
@@ -329,7 +402,13 @@
                         addAIMessage(msg.message);
                     }
                     document.getElementById('chat-input').disabled = false;
+                } else if (msg.type === "execution") {
+                    clearThinkingState();
+                    // Fallback to text execution card
+                    addAIMessage("Execution Recommended:\n" + JSON.stringify(msg.data, null, 2));
+                    document.getElementById('chat-input').disabled = false;
                 } else if (msg.type === "error") {
+                    clearThinkingState();
                     logMessage("[ERROR]", msg.message, "#ff4d4d");
                     addAIMessage("Error: " + msg.message);
                     document.getElementById('chat-input').disabled = false;
@@ -372,6 +451,40 @@
         function quickSend(text) {
             document.getElementById('chat-input').value = text;
             sendMessage();
+        }
+
+        function prefillPrompt(text) {
+            const input = document.getElementById('chat-input');
+            input.value = text;
+            input.focus();
+
+            // Add a conversational tip from the AI
+            addAIMessage(`Got it. Please specify the stock, date range, or any specific filters you'd like to apply for the ${text.replace(' for: ', '')}.`);
+        }
+
+        function setThinkingState(message) {
+            let thinkingDiv = document.getElementById('ai-thinking');
+            if (!thinkingDiv) {
+                const msgs = document.getElementById('chat-messages');
+                thinkingDiv = document.createElement('div');
+                thinkingDiv.id = 'ai-thinking';
+                thinkingDiv.className = 'message msg-ai';
+                thinkingDiv.style.opacity = '0.7';
+                thinkingDiv.style.fontStyle = 'italic';
+                thinkingDiv.style.fontSize = '0.9em';
+                msgs.appendChild(thinkingDiv);
+            }
+            thinkingDiv.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right: 5px;"></i> ${message}`;
+
+            const msgs = document.getElementById('chat-messages');
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function clearThinkingState() {
+            const thinkingDiv = document.getElementById('ai-thinking');
+            if (thinkingDiv) {
+                thinkingDiv.remove();
+            }
         }
 
         function sendMessage() {

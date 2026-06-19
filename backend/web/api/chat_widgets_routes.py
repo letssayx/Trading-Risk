@@ -20,7 +20,16 @@ def get_chat_widget_dividends(
     all_data = get_special_sit_dividends(db)
     events = []
 
-    for item in all_data:
+    # get_special_sit_dividends returns a dict with "eq_date" and "data" keys
+    if isinstance(all_data, dict) and "data" in all_data:
+        items = all_data["data"]
+    else:
+        items = all_data
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
         sym = item.get("symbol", "").upper()
         if symbol and sym not in [s.upper() for s in symbol]:
             continue
