@@ -78,11 +78,25 @@ def get_chat_widget_dividends(
                 except:
                     pass
 
+            if upcoming and d_str and d_str != "-":
+                 try:
+                    # expected date might be DD-MM-YYYY or YYYY-MM-DD
+                    if len(d_str.split("-")[0]) == 4:
+                        ex_d = datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
+                    else:
+                        ex_d = datetime.datetime.strptime(d_str, "%d-%m-%Y").date()
+
+                    # only if ex date is in the future
+                    if ex_d < datetime.date.today():
+                        include_upcoming = False
+                 except:
+                    pass
+
             if include_upcoming:
                 events.append({
                     "Symbol": sym,
                     "Event Type": "Upcoming/Expected",
-                    "Date / Ex-Date": "Awaited" if is_awaited else d_str,
+                    "Date / Ex-Date": "Record date not yet declared" if is_awaited else d_str,
                     "Amount": expected_amount if expected_amount is not None else "Pending",
                     "Type": item.get("expected_type", "-"),
                     "Status": "Awaited" if is_awaited else ("Board Meeting" if board_meeting_date and board_meeting_date != "-" else "Forecast/Announced"),
@@ -96,10 +110,10 @@ def get_chat_widget_dividends(
 
             if ex_date_str == "Record date not yet declared":
                 is_awaited_hist = True
-                ex_date_str = "Awaited"
+                ex_date_str = "Record date not yet declared"
 
             if upcoming and not is_awaited_hist:
-                if ex_date_str and ex_date_str not in ["-", "Awaited"]:
+                if ex_date_str and ex_date_str not in ["-", "Awaited", "Record date not yet declared"]:
                     try:
                         ex_d = datetime.datetime.strptime(ex_date_str, "%Y-%m-%d").date()
                         if ex_d < datetime.date.today():
@@ -107,7 +121,7 @@ def get_chat_widget_dividends(
                     except:
                         pass
 
-            if month and ex_date_str and ex_date_str not in ["-", "Awaited"]:
+            if month and ex_date_str and ex_date_str not in ["-", "Awaited", "Record date not yet declared"]:
                 try:
                     ex_d = datetime.datetime.strptime(ex_date_str, "%Y-%m-%d").date()
                     m_name = ex_d.strftime("%B").lower()
@@ -128,7 +142,7 @@ def get_chat_widget_dividends(
 
     def get_sort_date(e):
         d_str = e.get("Date / Ex-Date", "")
-        if d_str in ["Awaited", "-"] or "Usually" in d_str or "Board Meeting" in str(e.get("Status", "")):
+        if d_str in ["Awaited", "-", "Record date not yet declared"] or "Usually" in d_str or "Board Meeting" in str(e.get("Status", "")):
             return datetime.date(2099, 12, 31)
         try:
             if len(d_str.split("-")[0]) == 4:
@@ -137,7 +151,7 @@ def get_chat_widget_dividends(
                 return datetime.datetime.strptime(d_str, "%d-%m-%Y").date()
         except:
             # For "Awaited", put them at the top
-            if "Awaited" in str(e.get("Status", "")) or d_str == "Awaited":
+            if "Awaited" in str(e.get("Status", "")) or d_str in ["Awaited", "Record date not yet declared"]:
                 return datetime.date(2099, 12, 31)
             else:
                 return datetime.date(1900, 1, 1)

@@ -129,6 +129,9 @@
             flex-direction: column;
             flex: 1;
             overflow: hidden;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
         }
 
         .chat-messages {
@@ -241,46 +244,41 @@
         .excel-table-wrapper {
             margin-top: 10px;
             margin-bottom: 5px;
-            background: var(--bg-color);
-            border: 1px solid #555;
-            border-radius: 4px;
-            overflow: auto;
-            max-height: 350px;
+            width: 100%;
+            overflow-x: auto;
         }
 
         .excel-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.9em;
+            border: none;
+            background: transparent;
         }
 
         .excel-table th {
-            background: #2d2d30;
-            color: white;
+            color: var(--accent-color);
             padding: 6px 10px;
-            border: 1px solid #555;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
         }
 
         .excel-table td {
             padding: 6px 10px;
-            border: 1px solid #555;
-            text-align: center;
+            border-bottom: 1px solid #333;
+            text-align: left;
         }
 
         .excel-table tr:hover {
-            background: #1a1a1a;
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .table-actions {
-            padding: 6px 10px;
+            padding: 6px 0;
             display: flex;
             justify-content: flex-end;
-            background: #2d2d30;
-            border-bottom: 1px solid #555;
+            border-bottom: none;
+            background: transparent;
         }
 
         .table-actions button {
