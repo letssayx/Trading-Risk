@@ -131,23 +131,8 @@ def get_chat_widget_dividends(
                 is_awaited_hist = True
                 ex_date_str = "Record date not yet declared"
 
-            if upcoming and not is_awaited_hist:
-                if ex_date_str and ex_date_str not in ["-", "Awaited", "Record date not yet declared"]:
-                    try:
-                        ex_d = datetime.datetime.strptime(ex_date_str, "%Y-%m-%d").date()
-                        if ex_d < datetime.date.today():
-                            continue
-                    except:
-                        pass
-
-            if month and ex_date_str and ex_date_str not in ["-", "Awaited", "Record date not yet declared"]:
-                try:
-                    ex_d = datetime.datetime.strptime(ex_date_str, "%Y-%m-%d").date()
-                    m_name = ex_d.strftime("%B").lower()
-                    if not any(m.lower() == m_name for m in month):
-                        continue
-                except:
-                    pass
+            # Removed strict filters on historical events. Historical events should always be fully included
+            # for any queried symbol to match the main app UI.
 
             events.append({
                 "Symbol": sym,

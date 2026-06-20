@@ -99,6 +99,13 @@ class TerminalOrchestrator:
 
     async def step1_dispatch(self, command: str) -> str:
         """Uses Gemini to classify the command into an Engine type, including new DATA_RETRIEVAL logic."""
+
+        # Heuristic fast-path for obvious data retrieval requests
+        cmd_lower = command.lower()
+        retrieval_keywords = ["upcoming", "dividend", "dividends", "board meeting", "opportunities", "historical", "july", "august", "september", "show me", "list", "what are"]
+        if any(kw in cmd_lower for kw in retrieval_keywords) and not any(exec_kw in cmd_lower for exec_kw in ["buy", "sell", "trade", "execute", "analyze strategy", "quant"]):
+            return "DATA_RETRIEVAL_DIVIDEND"
+
         prompt = f"""
         Classify the following trading command into exactly one of these categories:
         1. Black Swan
@@ -108,7 +115,8 @@ class TerminalOrchestrator:
         5. Earnings
         6. DATA_RETRIEVAL_DIVIDEND
 
-        Use DATA_RETRIEVAL_DIVIDEND if the user is asking to look up historical dividends, upcoming board meetings, dividend opportunities, or filtering by month (e.g. 'July').
+        CRITICAL RULE: If the user is asking to LOOK UP, SEARCH, or RETRIEVE data (like "upcoming board meetings", "dividends in July", "show me historical data", "what are the opportunities"), you MUST classify it as DATA_RETRIEVAL_DIVIDEND.
+        Only use the other categories if the user is explicitly asking the AI to analyze a strategy or execute a trade.
 
         Command: "{command}"
 
