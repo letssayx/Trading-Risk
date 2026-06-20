@@ -108,7 +108,7 @@ class TerminalOrchestrator:
         5. Earnings
         6. DATA_RETRIEVAL_DIVIDEND
 
-        Use DATA_RETRIEVAL_DIVIDEND if the user is asking to look up historical dividends, upcoming board meetings, or dividend opportunities.
+        Use DATA_RETRIEVAL_DIVIDEND if the user is asking to look up historical dividends, upcoming board meetings, dividend opportunities, or filtering by month (e.g. 'July').
 
         Command: "{command}"
 
@@ -164,8 +164,10 @@ class TerminalOrchestrator:
 
         Extract the following if present:
         - "symbols": Array of OFFICIAL NSE stock symbols. Ensure you have mapped company names to these symbols using the tool. If none mentioned or applicable (e.g. general market query), return empty array.
-        - "months": Array of full month names (e.g. "July") if the user specifies a timeframe.
-        - "upcoming": Boolean, true if the user asks for upcoming events or future dates.
+        - "months": Array of full month names (e.g. "July") if the user specifies a timeframe, month, or season.
+        - "upcoming": Boolean, true if the user asks for upcoming events, future dates, or if they do NOT explicitly ask for "historical" data. If they just say "opportunities" or "meetings", assume upcoming=true.
+
+        If the user asks a follow-up question (e.g. "show historical data also for july"), ensure you properly combine their intent to adjust the `upcoming` flag and `months`.
 
         Then, output your reasoning inside `<reasoning>` tags.
         After the reasoning, output a STRICT JSON object representing the widget payload.

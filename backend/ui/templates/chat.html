@@ -551,13 +551,17 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${data.map(row => `
-                                        <tr>
+                                    ${data.map((row, idx) => `
+                                        <tr class="row-${tableId}" style="${idx >= 10 ? 'display:none;' : ''}">
                                             ${Object.values(row).map(v => `<td>${v !== null ? v : '-'}</td>`).join('')}
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
+                            ${data.length > 10 ? `
+                            <div style="text-align: center; padding: 10px; background: var(--chat-ai); border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 8px 8px;">
+                                <button onclick="toggleRows('${tableId}')" style="background: transparent; color: #4caf50; border: 1px solid #4caf50; padding: 5px 15px; border-radius: 15px; cursor: pointer; font-size: 13px; font-weight: bold;">Show More (${data.length - 10})</button>
+                            </div>` : ''}
                         </div>`;
 
                         // Store raw data in window for export
@@ -570,6 +574,28 @@
             }
 
             addAIMessage(html, true);
+        }
+
+        function toggleRows(tableId) {
+            const rows = document.querySelectorAll(`.row-${tableId}`);
+            let isHidden = false;
+            rows.forEach((r, idx) => {
+                if (idx >= 10) {
+                    if (r.style.display === 'none') {
+                        r.style.display = 'table-row';
+                        isHidden = true;
+                    } else {
+                        r.style.display = 'none';
+                    }
+                }
+            });
+
+            const btn = event.target;
+            if (isHidden) {
+                btn.innerText = 'Show Less';
+            } else {
+                btn.innerText = `Show More (${rows.length - 10})`;
+            }
         }
 
         function exportXLSX(tableId, filename) {

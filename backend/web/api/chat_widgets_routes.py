@@ -93,10 +93,18 @@ def get_chat_widget_dividends(
                     pass
 
             if include_upcoming:
+                # To perfectly match the main app, if it's awaited or not yet declared, use the original expected_date text (which includes 'Forecasted:') if available, else 'Record date not yet declared'
+                final_date_str = d_str
+                if is_awaited:
+                    if expected_date and "Forecasted:" in expected_date:
+                        final_date_str = expected_date
+                    else:
+                        final_date_str = "Record date not yet declared"
+
                 events.append({
                     "Symbol": sym,
                     "Event Type": "Upcoming/Expected",
-                    "Date / Ex-Date": "Record date not yet declared" if is_awaited else d_str,
+                    "Date / Ex-Date": final_date_str,
                     "Amount": expected_amount if expected_amount is not None else "Pending",
                     "Type": item.get("expected_type", "-"),
                     "Status": "Awaited" if is_awaited else ("Board Meeting" if board_meeting_date and board_meeting_date != "-" else "Forecast/Announced"),
@@ -104,8 +112,19 @@ def get_chat_widget_dividends(
                 })
 
         # Add Historical data
+        # Track added historical combos to prevent duplication (like Bharti Airtel showing up multiple times)
+        seen_hist = set()
         for h in history:
             ex_date_str = h.get("ex_date")
+            amt = h.get("amount", "N/A")
+            div_type = h.get("dividend_type", "-")
+
+            # De-duplication key
+            hist_key = f"{ex_date_str}_{amt}_{div_type}"
+            if hist_key in seen_hist:
+                continue
+            seen_hist.add(hist_key)
+
             is_awaited_hist = False
 
             if ex_date_str == "Record date not yet declared":
@@ -134,11 +153,21 @@ def get_chat_widget_dividends(
                 "Symbol": sym,
                 "Event Type": "Historical Dividend",
                 "Date / Ex-Date": ex_date_str,
-                "Amount": h.get("amount", "N/A"),
-                "Type": h.get("dividend_type", "-"),
+                "Amount": amt,
+                "Type": div_type,
                 "Status": "Confirmed",
                 "Details": h.get("purpose", "")
             })
+
+    # De-duplicate the entire events list based on Symbol, Date, Amount to catch any cross-over between Upcoming and Historical
+    final_events = []
+    seen_events = set()
+    for e in events:
+        key = f"{e['Symbol']}_{e['Date / Ex-Date']}_{e['Amount']}_{e['Type']}"
+        if key not in seen_events:
+            final_events.append(e)
+            seen_events.add(key)
+    events = final_events
 
     def get_sort_date(e):
         d_str = e.get("Date / Ex-Date", "")
