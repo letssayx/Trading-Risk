@@ -185,8 +185,9 @@ class TerminalOrchestrator:
             "symbols": [],
             "months": [],
             "upcoming": false,
-            "summary": "Short explanation of what was extracted"
+            "summary": ""
         }}
+        Leave summary empty. Do NOT write conversational text.
 
         Output the JSON block clearly at the end.
         """

@@ -519,8 +519,8 @@
         async function renderWidget(widgetData) {
             logMessage("[WIDGET]", `Rendering ${widgetData.widget}`, "#3b82f6");
 
-            // Build AI summary text
-            let html = `<div><strong>Data Retrieved:</strong> ${widgetData.summary || ''}</div>`;
+            // Strictly NO AI intro or summary text, just render the widget
+            let html = ``;
 
             if (widgetData.widget === "dividend_table") {
                 // Fetch the deterministic data from backend

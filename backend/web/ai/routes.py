@@ -70,22 +70,25 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                     session_id=session_id
                 )
 
-                # Step 0: Persona Prefilter
-                await websocket.send_json({"type": "status", "message": "Jules converting command into Quant Task..."})
-                step0_res = await orchestrator.step0_persona_prefilter(command)
-                expanded_command = step0_res.get("task", command)
-
-                # Show Jules' reasoning + the final task
-                await websocket.send_json({
-                    "type": "jules_task",
-                    "message": expanded_command,
-                    "reasoning": step0_res.get("reasoning", "")
-                })
-
-                # Step 1: Dispatch
-                await websocket.send_json({"type": "status", "message": "Classifying command..."})
-                engine_type = await orchestrator.step1_dispatch(expanded_command)
+                # Step 1: Dispatch (Fast-Track Check First)
+                await websocket.send_json({"type": "status", "message": "Classifying command intent..."})
+                engine_type = await orchestrator.step1_dispatch(command)
                 await websocket.send_json({"type": "engine_type", "data": engine_type})
+
+                expanded_command = command
+
+                # Only do Persona Prefilter (Jules Task Expansion) if it's NOT a simple data retrieval
+                if "DATA_RETRIEVAL" not in engine_type:
+                    await websocket.send_json({"type": "status", "message": "Converting command into Quant Task..."})
+                    step0_res = await orchestrator.step0_persona_prefilter(command)
+                    expanded_command = step0_res.get("task", command)
+
+                    # Show Jules' reasoning
+                    await websocket.send_json({
+                        "type": "jules_task",
+                        "message": expanded_command,
+                        "reasoning": step0_res.get("reasoning", "")
+                    })
 
                 if "DATA_RETRIEVAL" in engine_type:
                     # New Fast-Track Pipeline for simple data lookups

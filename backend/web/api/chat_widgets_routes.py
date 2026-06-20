@@ -94,22 +94,25 @@ def get_chat_widget_dividends(
 
             if include_upcoming:
                 # To perfectly match the main app, if it's awaited or not yet declared, use the original expected_date text (which includes 'Forecasted:') if available, else 'Record date not yet declared'
-                final_date_str = d_str
-                if is_awaited:
-                    if expected_date and "Forecasted:" in expected_date:
-                        final_date_str = expected_date
-                    else:
-                        final_date_str = "Record date not yet declared"
+                final_date_str = expected_date if expected_date and expected_date != "-" else (d_str if d_str != "-" else "Record date not yet declared")
 
-                events.append({
-                    "Symbol": sym,
-                    "Event Type": "Upcoming/Expected",
-                    "Date / Ex-Date": final_date_str,
-                    "Amount": expected_amount if expected_amount is not None else "Pending",
-                    "Type": item.get("expected_type", "-"),
-                    "Status": "Awaited" if is_awaited else ("Board Meeting" if board_meeting_date and board_meeting_date != "-" else "Forecast/Announced"),
-                    "Details": item.get("expected_less_likely", "-")
-                })
+                # Check history to see if this exact pending amount already exists there as "Record date not yet declared"
+                is_duplicate_of_history = False
+                for h in history:
+                    if h.get("ex_date") == "Record date not yet declared" and str(h.get("amount", "")) == str(expected_amount):
+                        is_duplicate_of_history = True
+                        break
+
+                if not is_duplicate_of_history:
+                    events.append({
+                        "Symbol": sym,
+                        "Event Type": "Upcoming/Expected",
+                        "Date / Ex-Date": final_date_str,
+                        "Amount": expected_amount if expected_amount is not None else "Pending",
+                        "Type": item.get("expected_type", "-"),
+                        "Status": "Awaited" if is_awaited else ("Board Meeting" if board_meeting_date and board_meeting_date != "-" else "Forecast/Announced"),
+                        "Details": item.get("expected_less_likely", "-")
+                    })
 
         # Add Historical data
         # Track added historical combos to prevent duplication (like Bharti Airtel showing up multiple times)
@@ -146,12 +149,38 @@ def get_chat_widget_dividends(
 
     # De-duplicate the entire events list based on Symbol, Date, Amount to catch any cross-over between Upcoming and Historical
     final_events = []
-    seen_events = set()
+    # Key strategy: group by Amount and Symbol to find duplicates between Upcoming and Historical if one is "Record date not yet declared" and the other is a forecast.
+    # Actually, let's keep it simple: if two rows have the same Amount, and one is 'Record date not yet declared' and the other is 'Forecasted...', keep the 'Forecasted...' one.
+
+    amount_map = {}
     for e in events:
-        key = f"{e['Symbol']}_{e['Date / Ex-Date']}_{e['Amount']}_{e['Type']}"
-        if key not in seen_events:
-            final_events.append(e)
-            seen_events.add(key)
+        sym_amt_key = f"{e['Symbol']}_{e['Amount']}"
+        if sym_amt_key not in amount_map:
+            amount_map[sym_amt_key] = []
+        amount_map[sym_amt_key].append(e)
+
+    for key, evs in amount_map.items():
+        if len(evs) > 1:
+            # Check if we have a "Record date not yet declared" and a "Forecasted:"
+            has_forecast = any("Forecasted:" in e['Date / Ex-Date'] for e in evs)
+            has_not_declared = any("Record date not yet declared" in e['Date / Ex-Date'] for e in evs)
+
+            if has_forecast and has_not_declared:
+                # Filter out the 'Record date not yet declared' one
+                evs = [e for e in evs if "Record date not yet declared" not in e['Date / Ex-Date']]
+
+            # Generic deduplication if they are exactly the same
+            unique_evs = []
+            seen = set()
+            for e in evs:
+                k = f"{e['Date / Ex-Date']}_{e['Type']}"
+                if k not in seen:
+                    unique_evs.append(e)
+                    seen.add(k)
+            final_events.extend(unique_evs)
+        else:
+            final_events.extend(evs)
+
     events = final_events
 
     def get_sort_date(e):
