@@ -43,6 +43,7 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
             command = payload.get("command")
             keys = payload.get("keys", {})
             session_id = payload.get("session_id", "anonymous")
+            history = payload.get("history", [])
 
             import os
             # Use frontend keys if provided, otherwise fallback to server environment variables
@@ -70,9 +71,23 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                     session_id=session_id
                 )
 
+                if command.startswith("ANALYZE_WIDGET_DATA|"):
+                    # Direct command from the table "Analyze" button
+                    await websocket.send_json({"type": "status", "message": "Analyzing Table Data directly..."})
+                    data_json_str = command.split("|", 1)[1]
+
+                    await websocket.send_json({"type": "text_stream_start"})
+
+                    async def stream_callback(token: str):
+                        await websocket.send_json({"type": "text_stream", "token": token})
+
+                    await orchestrator.analyze_widget_data(data_json_str, stream_callback)
+                    await websocket.send_json({"type": "text_stream_end"})
+                    continue
+
                 # Step 1: Dispatch (Fast-Track Check First)
                 await websocket.send_json({"type": "status", "message": "Classifying command intent..."})
-                engine_type = await orchestrator.step1_dispatch(command)
+                engine_type = await orchestrator.step1_dispatch(command, history)
                 await websocket.send_json({"type": "engine_type", "data": engine_type})
 
                 expanded_command = command
@@ -90,7 +105,16 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                         "reasoning": step0_res.get("reasoning", "")
                     })
 
-                if "DATA_RETRIEVAL" in engine_type:
+                if "CHAT_FOLLOW_UP" in engine_type:
+                    await websocket.send_json({"type": "status", "message": "Responding based on recent context..."})
+                    await websocket.send_json({"type": "text_stream_start"})
+
+                    async def stream_callback(token: str):
+                        await websocket.send_json({"type": "text_stream", "token": token})
+
+                    await orchestrator.step_chat_followup(command, history, stream_callback)
+                    await websocket.send_json({"type": "text_stream_end"})
+                elif "DATA_RETRIEVAL" in engine_type:
                     # New Fast-Track Pipeline for simple data lookups
                     await websocket.send_json({"type": "status", "message": "Extracting Data Search Parameters..."})
                     widget_payload = await orchestrator.step2_data_clerk_retrieval(expanded_command)

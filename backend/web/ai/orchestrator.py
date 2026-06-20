@@ -97,14 +97,28 @@ class TerminalOrchestrator:
                 "reasoning": reasoning + f"\n\nJSON Parse Error: {str(e)}. Proceeding with raw command."
             }
 
-    async def step1_dispatch(self, command: str) -> str:
-        """Uses Gemini to classify the command into an Engine type, including new DATA_RETRIEVAL logic."""
+    async def step1_dispatch(self, command: str, history: list = None) -> str:
+        """Uses Gemini to classify the command into an Engine type, including new DATA_RETRIEVAL logic and conversational follow-ups."""
+
+        history_summary = ""
+        is_followup = False
+        if history and len(history) > 0:
+            history_summary = "\nRecent Conversation History:\n"
+            for msg in history[-3:]:
+                history_summary += f"{msg.get('role', 'unknown').capitalize()}: {msg.get('content', '')[:100]}...\n"
+
+            # If history suggests a recent widget was returned, and command is short, likely a follow up
+            if any("[DATA_WIDGET_RETURNED" in str(m.get("content", "")) for m in history[-3:]):
+                is_followup = True
+
+        cmd_lower = command.lower()
 
         # Heuristic fast-path for obvious data retrieval requests
-        cmd_lower = command.lower()
-        retrieval_keywords = ["upcoming", "dividend", "dividends", "board meeting", "opportunities", "historical", "july", "august", "september", "show me", "list", "what are"]
-        if any(kw in cmd_lower for kw in retrieval_keywords) and not any(exec_kw in cmd_lower for exec_kw in ["buy", "sell", "trade", "execute", "analyze strategy", "quant"]):
-            return "DATA_RETRIEVAL_DIVIDEND"
+        # We skip this if it looks like a follow up conversational question
+        if not is_followup:
+            retrieval_keywords = ["upcoming", "dividend", "dividends", "board meeting", "opportunities", "historical", "july", "august", "september", "show me", "list", "what are"]
+            if any(kw in cmd_lower for kw in retrieval_keywords) and not any(exec_kw in cmd_lower for exec_kw in ["buy", "sell", "trade", "execute", "analyze strategy", "quant"]):
+                return "DATA_RETRIEVAL_DIVIDEND"
 
         prompt = f"""
         Classify the following trading command into exactly one of these categories:
@@ -114,10 +128,13 @@ class TerminalOrchestrator:
         4. Derivatives
         5. Earnings
         6. DATA_RETRIEVAL_DIVIDEND
+        7. CHAT_FOLLOW_UP
 
-        CRITICAL RULE: If the user is asking to LOOK UP, SEARCH, or RETRIEVE data (like "upcoming board meetings", "dividends in July", "show me historical data", "what are the opportunities"), you MUST classify it as DATA_RETRIEVAL_DIVIDEND.
-        Only use the other categories if the user is explicitly asking the AI to analyze a strategy or execute a trade.
+        CRITICAL RULE 1: If the user is asking a conversational follow-up question based on the Recent Conversation History (e.g., "what is the forecast date for X?" after a table was shown), you MUST classify it as CHAT_FOLLOW_UP.
+        CRITICAL RULE 2: If the user is asking to LOOK UP, SEARCH, or RETRIEVE data from scratch (like "upcoming board meetings", "dividends in July", "show me historical data", "what are the opportunities"), you MUST classify it as DATA_RETRIEVAL_DIVIDEND.
+        Only use the other categories if the user is explicitly asking the AI to analyze a quant strategy or execute a trade.
 
+        {history_summary}
         Command: "{command}"
 
         Return ONLY the exact category name. Nothing else.
@@ -155,10 +172,85 @@ class TerminalOrchestrator:
             engine_type = "Derivatives"
 
         # Clean up any surrounding punctuation
-        for val in ["Black Swan", "Macro", "Corporate Action", "Derivatives", "Earnings", "DATA_RETRIEVAL_DIVIDEND"]:
+        for val in ["Black Swan", "Macro", "Corporate Action", "Derivatives", "Earnings", "DATA_RETRIEVAL_DIVIDEND", "CHAT_FOLLOW_UP"]:
             if val.lower() in engine_type.lower():
                 return val
+
+        # If it doesn't match perfectly, infer
+        if "follow" in engine_type.lower() or "chat" in engine_type.lower():
+            return "CHAT_FOLLOW_UP"
+
         return "Derivatives" # Fallback
+
+    async def analyze_widget_data(self, data_json_str: str, callback: Callable):
+        """Uses DeepSeek to analyze explicitly provided widget data strictly with no hallucination."""
+        prompt = f"""
+        You are a highly analytical and precise quantitative assistant.
+        The user has clicked "Analyze" on a data table they are viewing.
+        Here is the strict JSON representation of that data:
+
+        ```json
+        {data_json_str}
+        ```
+
+        Your task is to provide a concise, deterministic summary and analysis of ONLY this data.
+        - DO NOT hallucinate.
+        - DO NOT make up dates or amounts that are not in the JSON.
+        - If the JSON has 'Forecasted' or 'Awaited' events, point them out.
+        - You can use `<think>...</think>` tags for your internal reasoning.
+
+        Respond directly to the user with actionable insights based strictly on the provided table data.
+        """
+
+        try:
+            stream = await self.openrouter_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="deepseek/deepseek-r1",
+                temperature=0.1,
+                max_tokens=1500,
+                stream=True
+            )
+
+            async for chunk in stream:
+                if len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
+                    token = chunk.choices[0].delta.content
+                    await callback(token)
+
+        except Exception as e:
+            await callback(f"Analysis failed: {str(e)}")
+
+    async def step_chat_followup(self, command: str, history: list, callback: Callable):
+        """Uses DeepSeek to answer conversational follow ups based on chat history context."""
+
+        # Build strict system prompt
+        messages = [{
+            "role": "system",
+            "content": "You are a highly analytical and precise quantitative assistant. Answer the user's questions strictly based on the data provided in the conversation history. DO NOT hallucinate external facts or dates. If the data is not in the history, say you don't have that information. Use <think>...</think> for reasoning."
+        }]
+
+        # Inject history
+        for msg in history:
+            role = "assistant" if msg.get("role") == "assistant" else "user"
+            messages.append({"role": role, "content": msg.get("content", "")})
+
+        messages.append({"role": "user", "content": command})
+
+        try:
+            stream = await self.openrouter_client.chat.completions.create(
+                messages=messages,
+                model="deepseek/deepseek-r1",
+                temperature=0.1,
+                max_tokens=1500,
+                stream=True
+            )
+
+            async for chunk in stream:
+                if len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
+                    token = chunk.choices[0].delta.content
+                    await callback(token)
+
+        except Exception as e:
+            await callback(f"Follow up failed: {str(e)}")
 
     async def step2_data_clerk_retrieval(self, command: str) -> Dict[str, Any]:
         """Uses Qwen to parse a data retrieval command and output a direct Widget JSON payload."""

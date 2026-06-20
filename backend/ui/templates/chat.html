@@ -363,6 +363,7 @@
     <script>
         let ws = null;
         let tableCounter = 0;
+        let chatHistory = []; // Array to store recent chat history for context
 
         function connectWS() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -370,48 +371,7 @@
 
             ws.onopen = () => {
                 logMessage("[SYSTEM]", "WebSocket Connected", "#4caf50");
-            };
-
-            ws.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-
-                if (msg.type === "status") {
-                    logMessage("[STATUS]", msg.message, "#aaa");
-                    setThinkingState(msg.message);
-                } else if (msg.type === "jules_task") {
-                    logMessage("[JULES]", msg.reasoning || "Task created", "#00bcd4");
-                } else if (msg.type === "qwen_extract") {
-                    logMessage("[QWEN]", msg.reasoning || "Data extracted", "#e6a23c");
-                } else if (msg.type === "deepseek_logic") {
-                    logMessage("[DEEPSEEK]", "Executing quant logic...", "#818cf8");
-                } else if (msg.type === "llama_judge") {
-                    logMessage("[JUDGE]", "Verifying constraints...", "#b8860b");
-                } else if (msg.type === "result") {
-                    clearThinkingState();
-                    // Check if it's a widget request rather than raw text
-                    try {
-                        const parsed = JSON.parse(msg.message);
-                        if (parsed.widget) {
-                            renderWidget(parsed);
-                        } else {
-                            addAIMessage(msg.message);
-                        }
-                    } catch(e) {
-                        // Not JSON, just normal text
-                        addAIMessage(msg.message);
-                    }
-                    document.getElementById('chat-input').disabled = false;
-                } else if (msg.type === "execution") {
-                    clearThinkingState();
-                    // Fallback to text execution card
-                    addAIMessage("Execution Recommended:\n" + JSON.stringify(msg.data, null, 2));
-                    document.getElementById('chat-input').disabled = false;
-                } else if (msg.type === "error") {
-                    clearThinkingState();
-                    logMessage("[ERROR]", msg.message, "#ff4d4d");
-                    addAIMessage("Error: " + msg.message);
-                    document.getElementById('chat-input').disabled = false;
-                }
+                updateWebSocketHandler(); // Call to set up the robust streaming handler
             };
 
             ws.onclose = () => {
@@ -435,6 +395,8 @@
             const msgs = document.getElementById('chat-messages');
             msgs.innerHTML += `<div class="message msg-user">${text}</div>`;
             msgs.scrollTop = msgs.scrollHeight;
+            chatHistory.push({ role: 'user', content: text });
+            if (chatHistory.length > 20) chatHistory.shift();
         }
 
         function addAIMessage(text, isHtml = false) {
@@ -442,9 +404,14 @@
             if (isHtml) {
                 msgs.innerHTML += `<div class="message msg-ai">${text}</div>`;
             } else {
-                msgs.innerHTML += `<div class="message msg-ai">${text.replace(/\n/g, '<br>')}</div>`;
+                msgs.innerHTML += `<div class="message msg-ai" style="white-space: pre-wrap;">${text}</div>`;
             }
             msgs.scrollTop = msgs.scrollHeight;
+            // Only add text to history, avoid large HTML blobs directly if possible
+            if (!isHtml) {
+                chatHistory.push({ role: 'assistant', content: text });
+                if (chatHistory.length > 20) chatHistory.shift();
+            }
         }
 
         function quickSend(text) {
@@ -505,7 +472,8 @@
                 ws.send(JSON.stringify({
                     command: cmd,
                     keys: { groq: groqKey, openrouter: openrouterKey, google: googleKey },
-                    session_id: "chat_user_01"
+                    session_id: "chat_user_01",
+                    history: chatHistory.slice(-10) // Send last 10 messages for context
                 }));
                 logMessage("[SYSTEM]", `Sent command: ${cmd}`, "#aaa");
             } else {
@@ -539,9 +507,14 @@
                         tableCounter++;
                         const tableId = `tbl-${tableCounter}`;
 
+                        // Store summary in chat history so the AI knows what data was returned
+                        const dataSummary = JSON.stringify(data.slice(0, 15)); // Keep it concise
+                        chatHistory.push({ role: 'assistant', content: `[DATA_WIDGET_RETURNED: ${dataSummary}]` });
+
                         html += `
                         <div class="excel-table-wrapper">
-                            <div class="table-actions">
+                            <div class="table-actions" style="gap: 10px;">
+                                <button onclick="analyzeWidgetData('${tableId}')" style="background: #3b82f6;"><i class="fas fa-brain"></i> Analyze</button>
                                 <button onclick="exportXLSX('${tableId}', 'Dividend_Data')"><i class="fas fa-file-excel"></i> Export XLSX</button>
                             </div>
                             <table class="excel-table" id="${tableId}">
@@ -598,6 +571,30 @@
             }
         }
 
+        function analyzeWidgetData(tableId) {
+            const data = window[`data_${tableId}`];
+            if (!data) return;
+
+            const groqKey = localStorage.getItem('GROQ_API_KEY') || "";
+            const openrouterKey = localStorage.getItem('OPENROUTER_API_KEY') || "";
+            const googleKey = localStorage.getItem('GOOGLE_API_KEY') || "";
+
+            const cmd = "ANALYZE_WIDGET_DATA|" + JSON.stringify(data.slice(0, 50)); // Send up to 50 rows
+
+            addUserMessage("Please analyze the data in the table above.");
+            document.getElementById('chat-input').disabled = true;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    command: cmd,
+                    keys: { groq: groqKey, openrouter: openrouterKey, google: googleKey },
+                    session_id: "chat_user_01",
+                    history: chatHistory.slice(-10)
+                }));
+                logMessage("[SYSTEM]", `Sent direct widget analysis request.`, "#aaa");
+            }
+        }
+
         function exportXLSX(tableId, filename) {
             const data = window[`data_${tableId}`];
             if (!data) return;
@@ -606,6 +603,75 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Data");
             XLSX.writeFile(wb, `${filename}.xlsx`);
+        }
+
+        // Handle streaming text explicitly
+        let activeStreamMessage = null;
+
+        const originalOnMessage = ws ? ws.onmessage : null;
+        function updateWebSocketHandler() {
+            if (!ws) return;
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === "text_stream_start") {
+                    clearThinkingState();
+                    const msgs = document.getElementById('chat-messages');
+                    activeStreamMessage = document.createElement('div');
+                    activeStreamMessage.className = 'message msg-ai';
+                    activeStreamMessage.style.whiteSpace = 'pre-wrap';
+                    msgs.appendChild(activeStreamMessage);
+                    msgs.scrollTop = msgs.scrollHeight;
+                } else if (msg.type === "text_stream") {
+                    if (activeStreamMessage) {
+                        activeStreamMessage.innerHTML += msg.token;
+                        const msgs = document.getElementById('chat-messages');
+                        msgs.scrollTop = msgs.scrollHeight;
+                    }
+                } else if (msg.type === "text_stream_end") {
+                    if (activeStreamMessage) {
+                        chatHistory.push({ role: 'assistant', content: activeStreamMessage.innerText });
+                        activeStreamMessage = null;
+                        document.getElementById('chat-input').disabled = false;
+                    }
+                } else {
+                    // Fallback to original handling logic if it's not a stream
+                    if (msg.type === "status") {
+                        logMessage("[STATUS]", msg.message, "#aaa");
+                        setThinkingState(msg.message);
+                    } else if (msg.type === "jules_task") {
+                        logMessage("[JULES]", msg.reasoning || "Task created", "#00bcd4");
+                    } else if (msg.type === "qwen_extract") {
+                        logMessage("[QWEN]", msg.reasoning || "Data extracted", "#e6a23c");
+                    } else if (msg.type === "deepseek_logic") {
+                        logMessage("[DEEPSEEK]", "Executing quant logic...", "#818cf8");
+                    } else if (msg.type === "llama_judge") {
+                        logMessage("[JUDGE]", "Verifying constraints...", "#b8860b");
+                    } else if (msg.type === "result") {
+                        clearThinkingState();
+                        try {
+                            const parsed = JSON.parse(msg.message);
+                            if (parsed.widget) {
+                                renderWidget(parsed);
+                            } else {
+                                addAIMessage(msg.message);
+                            }
+                        } catch(e) {
+                            addAIMessage(msg.message);
+                        }
+                        document.getElementById('chat-input').disabled = false;
+                    } else if (msg.type === "execution") {
+                        clearThinkingState();
+                        addAIMessage("Execution Recommended:\n" + JSON.stringify(msg.data, null, 2));
+                        document.getElementById('chat-input').disabled = false;
+                    } else if (msg.type === "error") {
+                        clearThinkingState();
+                        logMessage("[ERROR]", msg.message, "#ff4d4d");
+                        addAIMessage("Error: " + msg.message);
+                        document.getElementById('chat-input').disabled = false;
+                    }
+                }
+            };
         }
 
         // Initialize
