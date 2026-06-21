@@ -194,9 +194,12 @@ class TerminalOrchestrator:
         ```
 
         Your task is to provide a concise, deterministic summary and analysis of ONLY this data.
+        The user is specifically looking for you to analyze "forecast date and amount, if amount is declared then forecast date".
+
+        CRITICAL RULES:
         - DO NOT hallucinate.
-        - DO NOT make up dates or amounts that are not in the JSON.
-        - If the JSON has 'Forecasted' or 'Awaited' events, point them out.
+        - DO NOT make up dates or amounts that are not explicitly provided in the JSON above.
+        - Pay special attention to 'Awaited', 'Forecasted', or 'Upcoming/Expected' fields. Point out what is currently known (e.g. amount) and what is still missing/expected (e.g. date).
         - You can use `<think>...</think>` tags for your internal reasoning.
 
         Respond directly to the user with actionable insights based strictly on the provided table data.
@@ -311,7 +314,7 @@ class TerminalOrchestrator:
         try:
             for _ in range(3):  # Max tool calls
                 response = await self.openrouter_client.chat.completions.create(
-                    model="qwen/qwen3-32b",
+                    model="qwen/qwen-2.5-coder-32b-instruct",
                     messages=messages,
                     tools=tools,
                     temperature=0.0
@@ -476,7 +479,7 @@ class TerminalOrchestrator:
         while current_calls < max_tool_calls:
             try:
                 response = await self.openrouter_client.chat.completions.create(
-                    model="qwen/qwen3-32b",
+                    model="qwen/qwen-2.5-coder-32b-instruct",
                     messages=messages,
                     tools=tools,
                     temperature=0.0

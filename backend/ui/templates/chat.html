@@ -499,6 +499,9 @@
                     if(widgetData.upcoming) params.append("upcoming", "true");
 
                     const res = await fetch(`/api/chat-widgets/dividend?${params.toString()}`);
+                    if (!res.ok) {
+                         throw new Error(`Backend returned status ${res.status}`);
+                    }
                     const data = await res.json();
 
                     if (!data || data.length === 0) {
@@ -621,18 +624,27 @@
                     activeStreamMessage.className = 'message msg-ai';
                     activeStreamMessage.style.whiteSpace = 'pre-wrap';
                     msgs.appendChild(activeStreamMessage);
-                    msgs.scrollTop = msgs.scrollHeight;
+                    // Only scroll if already near the bottom to avoid lock
+                    if (msgs.scrollHeight - msgs.scrollTop < msgs.clientHeight + 100) {
+                        msgs.scrollTop = msgs.scrollHeight;
+                    }
                 } else if (msg.type === "text_stream") {
                     if (activeStreamMessage) {
-                        activeStreamMessage.innerHTML += msg.token;
+                        // Use textContent instead of innerHTML to avoid parsing <think> tags as HTML
+                        activeStreamMessage.textContent += msg.token;
                         const msgs = document.getElementById('chat-messages');
-                        msgs.scrollTop = msgs.scrollHeight;
+                        // Only scroll if already near the bottom
+                        if (msgs.scrollHeight - msgs.scrollTop < msgs.clientHeight + 100) {
+                            msgs.scrollTop = msgs.scrollHeight;
+                        }
                     }
                 } else if (msg.type === "text_stream_end") {
                     if (activeStreamMessage) {
-                        chatHistory.push({ role: 'assistant', content: activeStreamMessage.innerText });
+                        chatHistory.push({ role: 'assistant', content: activeStreamMessage.textContent });
                         activeStreamMessage = null;
                         document.getElementById('chat-input').disabled = false;
+                        const msgs = document.getElementById('chat-messages');
+                        msgs.scrollTop = msgs.scrollHeight;
                     }
                 } else {
                     // Fallback to original handling logic if it's not a stream
@@ -648,18 +660,21 @@
                     } else if (msg.type === "llama_judge") {
                         logMessage("[JUDGE]", "Verifying constraints...", "#b8860b");
                     } else if (msg.type === "result") {
-                        clearThinkingState();
                         try {
                             const parsed = JSON.parse(msg.message);
                             if (parsed.widget) {
+                                // Defer clearThinkingState inside renderWidget
                                 renderWidget(parsed);
                             } else {
+                                clearThinkingState();
                                 addAIMessage(msg.message);
+                                document.getElementById('chat-input').disabled = false;
                             }
                         } catch(e) {
+                            clearThinkingState();
                             addAIMessage(msg.message);
+                            document.getElementById('chat-input').disabled = false;
                         }
-                        document.getElementById('chat-input').disabled = false;
                     } else if (msg.type === "execution") {
                         clearThinkingState();
                         addAIMessage("Execution Recommended:\n" + JSON.stringify(msg.data, null, 2));
