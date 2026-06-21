@@ -490,7 +490,9 @@
             // Strictly NO AI intro or summary text, just render the widget
             let html = ``;
 
-            if (widgetData.widget === "dividend_table") {
+            if (widgetData.widget === "error") {
+                html += `<div style="color:#ff4d4d; border-left: 3px solid #ff4d4d; padding-left: 10px;">${widgetData.summary || "Unknown extraction error."}</div>`;
+            } else if (widgetData.widget === "dividend_table") {
                 // Fetch the deterministic data from backend
                 try {
                     const params = new URLSearchParams();
