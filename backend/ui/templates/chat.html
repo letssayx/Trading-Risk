@@ -549,7 +549,9 @@
                 }
             }
 
+            clearThinkingState();
             addAIMessage(html, true);
+            document.getElementById('chat-input').disabled = false;
         }
 
         function toggleRows(tableId) {
