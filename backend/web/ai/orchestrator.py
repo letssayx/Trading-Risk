@@ -210,7 +210,7 @@ class TerminalOrchestrator:
                 messages=[{"role": "user", "content": prompt}],
                 model="deepseek/deepseek-r1",
                 temperature=0.1,
-                max_tokens=1500,
+                max_tokens=4000,
                 stream=True
             )
 
@@ -243,7 +243,7 @@ class TerminalOrchestrator:
                 messages=messages,
                 model="deepseek/deepseek-r1",
                 temperature=0.1,
-                max_tokens=1500,
+                max_tokens=4000,
                 stream=True
             )
 
@@ -591,7 +591,7 @@ class TerminalOrchestrator:
                 messages=[{"role": "user", "content": prompt}],
                 model="deepseek/deepseek-r1",
                 temperature=0.3,
-                max_tokens=2500,
+                max_tokens=4000,
                 stream=True
             )
 
@@ -629,7 +629,7 @@ class TerminalOrchestrator:
                 messages=[{"role": "user", "content": prompt}],
                 model="openai/gpt-oss-120b",
                 temperature=0.3,
-                max_tokens=2500,
+                max_tokens=4000,
                 stream=True
             )
 
