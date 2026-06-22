@@ -314,7 +314,7 @@ class TerminalOrchestrator:
         try:
             for _ in range(3):  # Max tool calls
                 response = await self.openrouter_client.chat.completions.create(
-                    model="qwen/qwen-2.5-72b-instruct",
+                    model="qwen/qwen3-32b",
                     messages=messages,
                     tools=tools,
                     temperature=0.0
@@ -479,7 +479,7 @@ class TerminalOrchestrator:
         while current_calls < max_tool_calls:
             try:
                 response = await self.openrouter_client.chat.completions.create(
-                    model="qwen/qwen-2.5-72b-instruct",
+                    model="qwen/qwen3-32b",
                     messages=messages,
                     tools=tools,
                     temperature=0.0
