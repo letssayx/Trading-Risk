@@ -1485,7 +1485,7 @@ function renderSSDividends() {
                 <td style="background: rgba(51, 77, 61, 0.4); color: #8fbc8f; font-weight: bold;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_highly_likely', this.innerText)" onclick="event.stopPropagation();">${expectedHighlyLikelyHtml}</td>
                 <td style="background: rgba(107, 96, 33, 0.4); color: #ffd700;" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'expected_less_likely', this.innerText)" onclick="event.stopPropagation();">${item.expected_less_likely || '-'}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);" contenteditable="true" onblur="updateSSDivData('${item.symbol}', 'note', this.innerText)" onclick="event.stopPropagation();">${item.note || '-'}</td>
-                <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); switchMainTab('ai_analyze'); setTimeout(() => { document.getElementById('ai-cmd-input').value = 'Analyze ${item.symbol}'; handleAiCmd({key: 'Enter', preventDefault: ()=>{}}); }, 500)"><i class="fas fa-robot"></i> AI Analyze</button></td>
+                <td><button class="btn btn-secondary" style="font-size: 11px;" onclick="event.stopPropagation(); if (typeof switchClientTab === 'function') { switchClientTab('ai'); } else { switchMainTab('ai_analyze'); } setTimeout(() => { const input = document.getElementById('chat-input') || document.getElementById('ai-cmd-input'); if(input) { input.value = 'dividend analysis: ${item.symbol}, usually the user is trying to find out the expected dividend and expected date'; input.focus(); } }, 500)"><i class="fas fa-robot"></i> AI Analyze</button></td>
             </tr>
         `;
 

@@ -763,7 +763,9 @@
             if (tabId === 'dividend' && typeof loadSSDividends === 'function' && document.getElementById('ss-div-tbody').innerHTML.includes('Click \'Refresh Data\' to load')) {
                 loadSSDividends();
             } else if (tabId === 'oi' && typeof loadOptionsAnalysis === 'function') {
-                // Initial load hooks for OI tool if needed
+                if(!window.pcrChartInstance) {
+                    loadOptionsAnalysis();
+                }
             } else if (tabId === 'mwpl' && typeof loadMWPLAnalysis === 'function' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click "Refresh MWPL Data" to load.')) {
                 loadMWPLAnalysis(true);
             } else if (tabId === 'fii' && typeof loadFiiAnalysis === 'function' && document.getElementById('fii-smart-money-history-body').innerHTML.includes('Loading history...')) {
@@ -1124,6 +1126,7 @@
     <script src="/static/js/workbookManager.js"></script>
     <script src="/static/js/toolbox.js"></script>
     <script src="/static/js/fiiTool.js"></script>
+    <script src="/static/js/mwplTool.js"></script>
     <!-- Removed script_workbench2.js as it runs page initialization breaking the chat UI -->
 
 </body>
