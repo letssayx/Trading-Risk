@@ -461,7 +461,7 @@
                         <div style="display: flex; gap: 10px;">
                             <button class="btn btn-secondary" onclick="exportSSDivXLS()"><i class="fas fa-file-excel"></i> Download XLS</button>
                             <button class="btn btn-secondary" onclick="exportSSDivPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
-                            <button class="btn btn-primary" onclick="loadSSDividends()"><i class="fas fa-sync"></i> Refresh Data</button>
+                            <button class="btn btn-primary" id="btn-load-ss-div" onclick="loadSSDividends(event)"><i class="fas fa-sync"></i> Refresh Data</button>
                         </div>
                     </div>
 
@@ -519,7 +519,7 @@
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Trend: Price & PCR vs OI</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
-                                        <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
+                                        <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis(event)"><i class="fas fa-sync"></i> Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Expiry</label>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="pcr-combined-oi" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Comb. OI</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
@@ -550,7 +550,7 @@
     <div class="client-tab-content" id="tab-rollover">
 
                 <!-- SUB-TAB 3: Rollover Analysis -->
-                <div id="deriv-tab-rollover" style="padding: 20px; min-height: 500px; height: 100%; overflow-y: auto; display: block !important;">
+                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; min-height: 500px; height: 100%; overflow-y: auto; display: flex; flex-direction: column;">
                     <!-- Content loaded by workbookManager.js / RolloverTool -->
                 </div>
 
@@ -603,7 +603,7 @@
                         <!-- SUB-TAB FII Analysis -->
                 <div id="deriv-tab-fii" class="deriv-sub-tab" style="height: 100%; width: 100%; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; position: relative;">
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 0px; flex-shrink: 0; position: sticky; top: 0; z-index: 100; background: #1e1e1e; padding: 15px 20px; border-bottom: 1px solid #333;">
-                        <select id="fii-analysis-days" class="history-input" style="width: 100px;" onchange="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()">
+                        <select id="fii-analysis-days" class="history-input" style="width: 100px;" onchange="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis(event)">
                             <option value="5">5 Days</option>
                             <option value="7">7 Days</option>
                             <option value="30" selected>30 Days</option>
@@ -613,7 +613,7 @@
                             <option value="252">252 Days</option>
                             <option value="500">500 Days</option>
                         </select>
-                        <button class="btn btn-secondary" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()"><i class="fas fa-sync"></i> Refresh FII Data</button>
+                        <button class="btn btn-secondary" id="btn-load-fii" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis(event)"><i class="fas fa-sync"></i> Refresh FII Data</button>
                     </div>
 
                     <div style="display: flex; flex-direction: column; flex: 1; margin-bottom: 0px; padding: 20px; overflow-y: visible;">
@@ -760,21 +760,31 @@
             // Trigger resizes for charts
             setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
 
-            if (tabId === 'dividend' && typeof loadSSDividends === 'function' && document.getElementById('ss-div-tbody').innerHTML.includes('Click \'Refresh Data\' to load')) {
-                loadSSDividends();
+            if (tabId === 'dividend' && typeof loadSSDividends === 'function') {
+                const tbody = document.getElementById('ss-div-tbody');
+                if(!tbody || tbody.innerHTML.includes('Click \'Refresh Data\' to load')) loadSSDividends();
             } else if (tabId === 'oi' && typeof loadOptionsAnalysis === 'function') {
-                if(!window.pcrChartInstance) {
-                    loadOptionsAnalysis();
+                if(!window.pcrChartInstance) loadOptionsAnalysis();
+                if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['oi_analysis']) {
+                    const oiContainer = document.getElementById('oi-tool-container');
+                    if (oiContainer && oiContainer.innerHTML.trim() === '') WorkbookManager.modules['oi_analysis'].render(oiContainer);
                 }
-            } else if (tabId === 'mwpl' && typeof loadMWPLAnalysis === 'function' && document.getElementById('mwpl-analysis-body').innerHTML.includes('Click "Refresh MWPL Data" to load.')) {
-                loadMWPLAnalysis(true);
-            } else if (tabId === 'fii' && typeof loadFiiAnalysis === 'function' && document.getElementById('fii-smart-money-history-body').innerHTML.includes('Loading history...')) {
-                loadFiiAnalysis();
-                if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart();
+            } else if (tabId === 'mwpl' && typeof loadMWPLAnalysis === 'function') {
+                const tbody = document.getElementById('mwpl-analysis-body');
+                if(!tbody || tbody.innerHTML.includes('Click "Refresh MWPL Data" to load.')) loadMWPLAnalysis();
+            } else if (tabId === 'fii' && typeof loadFiiAnalysis === 'function') {
+                const tbody = document.getElementById('fii-smart-money-history-body');
+                if(!tbody || tbody.innerHTML.includes('Loading history...')) {
+                    loadFiiAnalysis();
+                    if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart();
+                }
             } else if (tabId === 'rollover' && typeof window.RolloverTool !== 'undefined') {
+                if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['rollover']) {
+                    const rolloverContainer = document.getElementById('deriv-tab-rollover');
+                    if (rolloverContainer && rolloverContainer.innerHTML.trim() === '') WorkbookManager.modules['rollover'].render(rolloverContainer);
+                }
                 if(!document.getElementById('rollover-symbol')) {
-                    // Try to init if container is empty
-                    if(typeof loadRolloverData === 'function') loadRolloverData();
+                    if(typeof RolloverTool.syncAndLoadAggregatedData === 'function') RolloverTool.syncAndLoadAggregatedData();
                 }
             }
 

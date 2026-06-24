@@ -98,44 +98,23 @@ class TerminalOrchestrator:
             }
 
     async def step1_dispatch(self, command: str, history: list = None) -> str:
-        """Uses Gemini to classify the command into an Engine type, including new DATA_RETRIEVAL logic and conversational follow-ups."""
+        """Uses Gemini to classify the command into an analysis intent."""
 
         history_summary = ""
-        is_followup = False
         if history and len(history) > 0:
             history_summary = "\nRecent Conversation History:\n"
             for msg in history[-3:]:
                 history_summary += f"{msg.get('role', 'unknown').capitalize()}: {msg.get('content', '')[:100]}...\n"
 
-            # If history suggests a recent widget was returned, and command is short, likely a follow up
-            if any("[DATA_WIDGET_RETURNED" in str(m.get("content", "")) for m in history[-3:]):
-                is_followup = True
-
-        cmd_lower = command.lower()
-
-        # Heuristic fast-path for obvious data retrieval requests
-        # We skip this if it looks like a follow up conversational question
-        if not is_followup:
-            retrieval_keywords = ["upcoming", "dividend", "dividends", "board meeting", "opportunities", "historical", "july", "august", "september", "show me", "list", "what are"]
-            if any(kw in cmd_lower for kw in retrieval_keywords) and not any(exec_kw in cmd_lower for exec_kw in ["buy", "sell", "trade", "execute", "analyze strategy", "quant"]):
-                return "DATA_RETRIEVAL_DIVIDEND"
-
         prompt = f"""
-        Classify the following trading command into exactly one of these categories:
-        1. Black Swan
-        2. Macro
-        3. Corporate Action
-        4. Derivatives
-        5. Earnings
-        6. DATA_RETRIEVAL_DIVIDEND
-        7. CHAT_FOLLOW_UP
+        Classify the following query into exactly one of these analysis categories:
+        1. DIVIDEND_ANALYSIS (Queries about upcoming/historical dividends, board meetings, ex-dates)
+        2. OI_ANALYSIS (Queries about Open Interest, Call/Put OI, PCR, trends)
+        3. FII_ANALYSIS (Queries about FII/DII net flows, institutional activity, Smart Money)
+        4. GENERAL_CHAT (Conversational follow-ups, general questions, or anything that doesn't fit above)
 
-        CRITICAL RULE 1: If the user is asking a conversational follow-up question based on the Recent Conversation History (e.g., "what is the forecast date for X?" after a table was shown), you MUST classify it as CHAT_FOLLOW_UP.
-        CRITICAL RULE 2: If the user is asking to LOOK UP, SEARCH, or RETRIEVE data from scratch (like "upcoming board meetings", "dividends in July", "show me historical data", "what are the opportunities"), you MUST classify it as DATA_RETRIEVAL_DIVIDEND.
-        Only use the other categories if the user is explicitly asking the AI to analyze a quant strategy or execute a trade.
-
-        {history_summary}
-        Command: "{command}"
+        {{history_summary}}
+        Command: "{{command}}"
 
         Return ONLY the exact category name. Nothing else.
         """
@@ -156,7 +135,6 @@ class TerminalOrchestrator:
                 continue
 
         if not engine_type:
-            # Fallback to Llama 3
             try:
                 fallback_response = await self.groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
@@ -169,18 +147,14 @@ class TerminalOrchestrator:
                 pass
 
         if not engine_type:
-            engine_type = "Derivatives"
+            engine_type = "GENERAL_CHAT"
 
-        # Clean up any surrounding punctuation
-        for val in ["Black Swan", "Macro", "Corporate Action", "Derivatives", "Earnings", "DATA_RETRIEVAL_DIVIDEND", "CHAT_FOLLOW_UP"]:
+        # Clean up
+        for val in ["DIVIDEND_ANALYSIS", "OI_ANALYSIS", "FII_ANALYSIS", "GENERAL_CHAT"]:
             if val.lower() in engine_type.lower():
                 return val
 
-        # If it doesn't match perfectly, infer
-        if "follow" in engine_type.lower() or "chat" in engine_type.lower():
-            return "CHAT_FOLLOW_UP"
-
-        return "Derivatives" # Fallback
+        return "GENERAL_CHAT"
 
     async def analyze_widget_data(self, data_json_str: str, callback: Callable):
         """Uses DeepSeek to analyze explicitly provided widget data strictly with no hallucination."""
@@ -254,6 +228,138 @@ class TerminalOrchestrator:
 
         except Exception as e:
             await callback(f"Follow up failed: {str(e)}")
+
+    async def step2_extract_parameters(self, command: str) -> dict:
+        """Uses Llama/Groq to extract basic parameters (like stock symbol) for data queries."""
+        import json
+        prompt = f"""
+        You are a Data Parameters Extractor. Extract the official NSE symbol if mentioned in the text.
+        Use the `search_db_symbol` tool if a company name is used instead of a ticker.
+
+        Command: "{command}"
+
+        Output your reasoning in <reasoning> tags, then a strict JSON object:
+        {{
+            "symbols": ["RELIANCE"] // Official NSE ticker, or empty if none
+        }}
+        """
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_db_symbol",
+                    "description": "Searches for an official NSE symbol based on a company name.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string"}
+                        },
+                        "required": ["query"]
+                    }
+                }
+            }
+        ]
+
+        try:
+            response = await self.groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                tools=tools,
+                tool_choice="auto"
+            )
+
+            response_message = response.choices[0].message
+            tool_calls = response_message.tool_calls
+
+            if tool_calls:
+                for tool_call in tool_calls:
+                    if tool_call.function.name == "search_db_symbol":
+                        args = json.loads(tool_call.function.arguments)
+                        q = args.get("query", "")
+                        symbol_result = search_db_symbol(q, self.db)
+                        if symbol_result:
+                            return {"symbols": [symbol_result]}
+
+            raw_text = response_message.content or ""
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if match:
+                res = json.loads(match.group(0))
+                return res
+            return {"symbols": []}
+        except Exception:
+            return {"symbols": []}
+
+    async def run_deterministic_analysis(self, intent: str, params: dict, command: str, history: list, callback) -> None:
+        """Fetches deterministic DB data and streams DeepSeek analysis."""
+        import json
+        data_context = {}
+        symbols = params.get("symbols", [])
+
+        if intent == "DIVIDEND_ANALYSIS":
+            from backend.web.api.data.special_sit_routes import get_special_sit_dividends
+            div_data = get_special_sit_dividends(db=self.db)
+            if symbols and "data" in div_data:
+                filtered = [d for d in div_data["data"] if d.get("symbol") in symbols]
+                data_context["dividend_data"] = {"eq_date": div_data.get("eq_date"), "data": filtered}
+            else:
+                data_context["dividend_data"] = div_data
+
+        elif intent == "OI_ANALYSIS":
+            if symbols:
+                from backend.web.api.data.derivatives_routes import get_oi_analysis
+                oi_data = get_oi_analysis(symbol=symbols[0], db=self.db)
+                data_context["options_data"] = oi_data
+            else:
+                data_context["options_data"] = "Please specify a symbol for OI Analysis."
+
+        elif intent == "FII_ANALYSIS":
+            from backend.web.api.analysis_routes import get_fii_stats_money
+            fii_data = get_fii_stats_money(days=30, db=self.db)
+            data_context["fii_data"] = fii_data
+
+        history_text = ""
+        for msg in history[-3:]:
+            history_text += f"{msg.get('role', 'unknown').capitalize()}: {msg.get('content', '')}\n"
+
+        prompt = f"""
+        You are an expert quantitative trading analyst named Jules.
+        Your sole task is to answer the user's question with absolute accuracy, using ONLY the data provided below.
+
+        CRITICAL RULES:
+        1. DO NOT HALLUCINATE dates, numbers, or events.
+        2. If the user asks about something not present in the Provided Data JSON, explicitly state: "I don't have that data in my current context."
+        3. Explain your internal reasoning thoroughly inside `<think>...</think>` tags before writing the final response.
+        4. Keep the final text output clean, professional, and actionable. Do not dump raw JSON. Format lists nicely.
+
+        Intent Type: {intent}
+        Detected Symbols: {symbols}
+
+        Provided Data JSON (deterministic from backend):
+        {json.dumps(data_context, default=str)}
+
+        Recent Conversation Context:
+        {history_text}
+
+        User Query: "{command}"
+        """
+
+        try:
+            stream = await self.openrouter_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="deepseek/deepseek-r1",
+                temperature=0.1,
+                max_tokens=1500,
+                stream=True
+            )
+
+            async for chunk in stream:
+                if len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
+                    token = chunk.choices[0].delta.content
+                    await callback(token)
+
+        except Exception as e:
+            await callback(f"\n[Analysis failed: {str(e)}]")
 
     async def step2_data_clerk_retrieval(self, command: str) -> Dict[str, Any]:
         """Uses Qwen to parse a data retrieval command and output a direct Widget JSON payload."""

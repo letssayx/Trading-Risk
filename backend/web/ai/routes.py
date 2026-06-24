@@ -85,132 +85,41 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                     await websocket.send_json({"type": "text_stream_end"})
                     continue
 
-                # Step 1: Dispatch (Fast-Track Check First)
-                await websocket.send_json({"type": "status", "message": "Classifying command intent..."})
+                # Step 1: Dispatch
                 engine_type = await orchestrator.step1_dispatch(command, history)
                 await websocket.send_json({"type": "engine_type", "data": engine_type})
 
-                expanded_command = command
-
-                # Only do Persona Prefilter (Jules Task Expansion) if it's NOT a simple data retrieval
-                if "DATA_RETRIEVAL" not in engine_type:
-                    await websocket.send_json({"type": "status", "message": "Converting command into Quant Task..."})
-                    step0_res = await orchestrator.step0_persona_prefilter(command)
-                    expanded_command = step0_res.get("task", command)
-
-                    # Show Jules' reasoning
-                    await websocket.send_json({
-                        "type": "jules_task",
-                        "message": expanded_command,
-                        "reasoning": step0_res.get("reasoning", "")
-                    })
-
-                if "CHAT_FOLLOW_UP" in engine_type:
+                if engine_type == "GENERAL_CHAT":
                     await websocket.send_json({"type": "status", "message": "Responding based on recent context..."})
                     await websocket.send_json({"type": "text_stream_start"})
 
-                    async def stream_callback(token: str):
+                    async def chat_callback(token: str):
                         await websocket.send_json({"type": "text_stream", "token": token})
 
-                    await orchestrator.step_chat_followup(command, history, stream_callback)
+                    await orchestrator.step_chat_followup(command, history, chat_callback)
                     await websocket.send_json({"type": "text_stream_end"})
-                elif "DATA_RETRIEVAL" in engine_type:
-                    # New Fast-Track Pipeline for simple data lookups
-                    await websocket.send_json({"type": "status", "message": "Extracting Data Search Parameters..."})
-                    widget_payload = await orchestrator.step2_data_clerk_retrieval(expanded_command)
-
-                    if widget_payload.get("qwen_reasoning"):
-                        await websocket.send_json({"type": "qwen_extract", "reasoning": widget_payload.get("qwen_reasoning")})
-
-                    # Send payload directly to chat UI to render widget
-                    await websocket.send_json({"type": "result", "message": json.dumps(widget_payload)})
                     await websocket.send_json({"type": "done"})
+
                 else:
-                    # Setup streaming callback for Step 3
-                    async def stream_callback(token: str):
-                        await websocket.send_json({"type": "quant_logic", "token": token})
+                    # New Deterministic Flow
+                    await websocket.send_json({"type": "status", "message": "Extracting Data Search Parameters..."})
+                    params = await orchestrator.step2_extract_parameters(command)
 
-                    # Step 2: Data Clerk
-                    await websocket.send_json({"type": "status", "message": "Triggering Data Matrix Extract..."})
-                    data_matrix = await orchestrator.step2_data_clerk(expanded_command, engine_type)
+                    if params.get("symbols"):
+                        await websocket.send_json({"type": "governance_log", "message": f"Identified Symbol: {params['symbols'][0]}"})
 
-                    # Send Data Matrix to UI
-                    await websocket.send_json({"type": "data_matrix", "data": data_matrix})
+                    await websocket.send_json({"type": "status", "message": f"Fetching deterministic DB data for {engine_type}..."})
 
-                    # Step 3 & 5: Quant Engine <-> Compliance Judge Loop
-                    await websocket.send_json({"type": "status", "message": "Starting Quant Engine Reasoning..."})
+                    await websocket.send_json({"type": "text_stream_start"})
 
-                    max_retries = 2
-                    current_retry = 0
-                    system_constraint = ""
-                    final_exec_card = None
-                    final_reasoning = ""
+                    async def ds_callback(token: str):
+                        await websocket.send_json({"type": "text_stream", "token": token})
 
-                    while current_retry <= max_retries:
-                        # Quant Engine runs with possible system constraint feedback
-                        reasoning, exec_card = await orchestrator.step3_quant_logic(
-                            command=expanded_command,
-                            engine_type=engine_type,
-                            data_matrix=data_matrix,
-                            system_constraint=system_constraint,
-                            callback=stream_callback
-                        )
+                    await orchestrator.run_deterministic_analysis(engine_type, params, command, history, ds_callback)
 
-                        # Step 5: Compliance Judge
-                        await websocket.send_json({"type": "status", "message": "Running Compliance Judge Verification..."})
-                        judge_result = await orchestrator.step5_compliance_judge(expanded_command, data_matrix, reasoning, exec_card)
-
-                        if judge_result.get("reasoning"):
-                            await websocket.send_json({"type": "governance_log", "message": f"Reasoning: {judge_result.get('reasoning')}"})
-
-                        if judge_result.get("status") == "PASS":
-                            final_exec_card = exec_card
-                            final_reasoning = reasoning
-                            break
-                        else:
-                            critique = judge_result.get("critique", "Unknown error in verification.")
-                            await websocket.send_json({"type": "governance_log", "message": f"System self-correcting via Quant Logic restart: {critique}"})
-                            system_constraint = critique
-                            current_retry += 1
-
-                    if not final_exec_card:
-                        # If we exhausted retries, we fallback to the last generated card and send a warning
-                        final_exec_card = exec_card
-                        final_reasoning = reasoning
-                        await websocket.send_json({"type": "governance_log", "message": "Warning: Max retries reached. Output may not be fully compliant."})
-
-                    # Step 6: Strategist Summary (Persona Filter)
-                    await websocket.send_json({"type": "status", "message": "Strategist summarizing final output..."})
-                    final_card = await orchestrator.step6_persona_filter(final_exec_card)
-
-                    # Persist to DB using the final approved and formatted card
-                    try:
-                        raw_rationale = final_card.get("rationale", [])
-                        if isinstance(raw_rationale, list):
-                            db_rationale = " | ".join([str(r) for r in raw_rationale])
-                        else:
-                            db_rationale = str(raw_rationale)
-
-                        pred = AIPrediction(
-                            session_id=session_id,
-                            ticker=data_matrix.get("ticker", "NIFTY"),
-                            engine_type=engine_type,
-                            predicted_price=float(final_card.get("predicted_price", 0)),
-                            action=final_card.get("action", ""),
-                            target=float(final_card.get("target", 0)),
-                            stop_loss=float(final_card.get("stop_loss", 0)),
-                            confidence=int(final_card.get("confidence", 0)),
-                            rationale=db_rationale
-                        )
-                        db.add(pred)
-                        db.commit()
-                    except Exception as db_err:
-                        print(f"Error persisting prediction: {db_err}")
-                        db.rollback()
-
-                    # Send final execution card
-                    await websocket.send_json({"type": "execution", "data": final_card})
+                    await websocket.send_json({"type": "text_stream_end"})
                     await websocket.send_json({"type": "done"})
+
 
             except Exception as e:
                 await websocket.send_json({"type": "error", "message": f"Orchestrator Error: {str(e)}"})
