@@ -556,7 +556,7 @@
     <div class="client-tab-content" id="tab-rollover">
 
                 <!-- SUB-TAB 3: Rollover Analysis -->
-                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; min-height: 500px; height: 100%; overflow-y: auto; display: flex; flex-direction: column;">
+                <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; ">
                     <!-- Content loaded by workbookManager.js / RolloverTool -->
                 </div>
 
@@ -763,21 +763,39 @@
                 sidebar.style.display = 'none';
             }
 
-            // Trigger respective initialization
+            // Trigger resizes for charts when tab changes
+            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+
+            // Trigger respective initialization if not already loaded
             if (tabId === 'dividend') {
-                if (typeof loadSSDividends === 'function') loadSSDividends();
+                const tbody = document.getElementById('ss-div-tbody');
+                if (!tbody || tbody.innerHTML.includes('Click \'Refresh Data\' to load')) {
+                    if (typeof loadSSDividends === 'function') loadSSDividends();
+                }
             } else if (tabId === 'oi') {
-                if (typeof loadOptionsAnalysis === 'function') loadOptionsAnalysis();
+                if(!window.pcrChartInstance && typeof loadOptionsAnalysis === 'function') loadOptionsAnalysis();
+                if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['oi_analysis']) {
+                    const oiContainer = document.getElementById('oi-tool-container');
+                    if (oiContainer && oiContainer.innerHTML.trim() === '') WorkbookManager.modules['oi_analysis'].render(oiContainer);
+                }
             } else if (tabId === 'rollover') {
                 if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['rollover']) {
-                    WorkbookManager.modules['rollover'].render();
+                    const rolloverContainer = document.getElementById('deriv-tab-rollover');
+                    if (rolloverContainer && rolloverContainer.innerHTML.trim() === '') WorkbookManager.modules['rollover'].render(rolloverContainer);
                 } else if (typeof loadRolloverData === 'function') {
                     loadRolloverData();
                 }
             } else if (tabId === 'mwpl') {
-                if (typeof loadMWPLAnalysis === 'function') loadMWPLAnalysis();
+                const tbody = document.getElementById('mwpl-analysis-body');
+                if(!tbody || tbody.innerHTML.includes('Click "Refresh MWPL Data" to load.')) {
+                    if (typeof loadMWPLAnalysis === 'function') loadMWPLAnalysis();
+                }
             } else if (tabId === 'fii') {
-                if (typeof loadFiiAnalysis === 'function') loadFiiAnalysis();
+                const tbody = document.getElementById('fii-smart-money-history-body');
+                if(!tbody || tbody.innerHTML.includes('Loading history...')) {
+                    if (typeof loadFiiAnalysis === 'function') loadFiiAnalysis();
+                    if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart();
+                }
             }
         }
 
