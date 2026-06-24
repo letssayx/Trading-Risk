@@ -9,7 +9,7 @@ async function loadMWPLAnalysis(forceRefresh = false) {
         let days = 14;
         for(let r of daysRadios) { if(r.checked) days = r.value; }
 
-        let url = `/api/derivatives/mwpl?days=${days}`;
+        let url = `/api/data/derivatives/mwpl_historical?days=${days}`;
         if(forceRefresh) url += '&force_refresh=true';
 
         const res = await fetch(url);
