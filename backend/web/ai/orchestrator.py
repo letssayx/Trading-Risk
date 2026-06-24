@@ -180,11 +180,12 @@ class TerminalOrchestrator:
         """
 
         try:
-            stream = await self.openrouter_client.chat.completions.create(
+            # Switch to Llama 3 via Groq to avoid OpenRouter credit depletion
+            stream = await self.groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="deepseek/deepseek-r1",
+                model="llama-3.3-70b-versatile",
                 temperature=0.1,
-                max_tokens=1500,
+                max_tokens=800,
                 stream=True
             )
 
@@ -345,11 +346,12 @@ class TerminalOrchestrator:
         """
 
         try:
-            stream = await self.openrouter_client.chat.completions.create(
+            # Switch to Llama 3 via Groq to avoid OpenRouter credit depletion
+            stream = await self.groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="deepseek/deepseek-r1",
+                model="llama-3.3-70b-versatile",
                 temperature=0.1,
-                max_tokens=1500,
+                max_tokens=800,
                 stream=True
             )
 

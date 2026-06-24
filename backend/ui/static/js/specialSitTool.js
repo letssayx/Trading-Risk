@@ -744,8 +744,8 @@ window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;
 
 
 
-async function loadSSDividends() {
-    const btn = document.querySelector('#ss-tab-dividends button[onclick="loadSSDividends()"]');
+async function loadSSDividends(event = null) {
+    const btn = document.getElementById('btn-load-ss-div') || document.querySelector('#ss-tab-dividends button[onclick*="loadSSDividends"]');
     if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
 
     try {

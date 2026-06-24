@@ -1,5 +1,8 @@
-async function loadFiiAnalysis() {
+async function loadFiiAnalysis(event = null) {
     console.log("Loading FII Analysis Tab Data...");
+    const btn = document.getElementById('btn-load-fii');
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+
     try {
         const days = document.getElementById('fii-analysis-days')?.value || '30';
 
