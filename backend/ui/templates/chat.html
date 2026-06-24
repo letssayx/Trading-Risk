@@ -510,8 +510,8 @@
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
                     <div id="oi-tool-container" style="width: 100%; display: flex; flex-direction: column; flex-shrink: 0; min-height: 500px; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px;">
                         <!-- Fallback content if WorkbookManager fails -->
-                        <h3 style="color: #ccc; margin-top: 0;">OI Data Table</h3>
-                        <p style="color: #888;">Fetching latest option chain data...</p>
+
+
                     </div>
 
                     <!-- Bottom section: Options Analysis Charts -->
@@ -557,7 +557,7 @@
 
                 <!-- SUB-TAB 3: Rollover Analysis -->
                 <div id="deriv-tab-rollover" class="deriv-sub-tab" style="padding: 20px; height: 100%; overflow-y: auto; ">
-                    <!-- Content loaded by workbookManager.js / RolloverTool -->
+
                 </div>
 
     </div>
@@ -776,12 +776,12 @@
                 if(!window.pcrChartInstance && typeof loadOptionsAnalysis === 'function') loadOptionsAnalysis();
                 if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['oi_analysis']) {
                     const oiContainer = document.getElementById('oi-tool-container');
-                    if (oiContainer && oiContainer.innerHTML.trim() === '') WorkbookManager.modules['oi_analysis'].render(oiContainer);
+                    if (oiContainer && !oiContainer.dataset.rendered) { WorkbookManager.modules['oi_analysis'].render(oiContainer); oiContainer.dataset.rendered = 'true'; }
                 }
             } else if (tabId === 'rollover') {
                 if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['rollover']) {
                     const rolloverContainer = document.getElementById('deriv-tab-rollover');
-                    if (rolloverContainer && rolloverContainer.innerHTML.trim() === '') WorkbookManager.modules['rollover'].render(rolloverContainer);
+                    if (rolloverContainer && !rolloverContainer.dataset.rendered) { WorkbookManager.modules['rollover'].render(rolloverContainer); rolloverContainer.dataset.rendered = 'true'; }
                 } else if (typeof loadRolloverData === 'function') {
                     loadRolloverData();
                 }
@@ -1088,6 +1088,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="/static/js/config.js"></script>
+    <script src="/static/js/fiiTool.js"></script>
+    <script src="/static/js/turtleTab.js"></script>
+    <script src="/static/js/statarbTab.js"></script>
     <script src="/static/js/specialSitTool.js"></script>
     <script src="/static/js/chartTabs.js"></script>
     <script src="/static/js/opt_analysis.js"></script>

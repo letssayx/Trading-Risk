@@ -26,13 +26,15 @@ const WorkbookManager = {
 
         // Render standalone main tabs directly into their containers
         const oiContainer = document.getElementById('oi-tool-container');
-        if (oiContainer) {
+        if (oiContainer && !oiContainer.dataset.rendered) {
             this.modules['oi_analysis'].render(oiContainer);
+            oiContainer.dataset.rendered = 'true';
         }
 
         const rolloverContainer = document.getElementById('deriv-tab-rollover');
-        if (rolloverContainer) {
+        if (rolloverContainer && !rolloverContainer.dataset.rendered) {
             this.modules['rollover'].render(rolloverContainer);
+            rolloverContainer.dataset.rendered = 'true';
         }
     },
 
