@@ -550,9 +550,7 @@
                                 <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%; min-height: 500px;"></div>
 
                             </div>
-                        </div>
-                    </div>
-                </div>
+
     </div>
 
     <div class="client-tab-content" id="tab-rollover">
@@ -778,20 +776,12 @@
                 if(!window.pcrChartInstance && typeof loadOptionsAnalysis === 'function') loadOptionsAnalysis();
                 if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['oi_analysis']) {
                     const oiContainer = document.getElementById('oi-tool-container');
-                    if (oiContainer && !oiContainer.dataset.rendered) {
-                        WorkbookManager.modules['oi_analysis'].render(oiContainer);
-                        WorkbookManager.modules['oi_analysis'].loadAggregatedData();
-                        oiContainer.dataset.rendered = 'true';
-                    }
+                    if (oiContainer && !oiContainer.dataset.rendered) { WorkbookManager.modules['oi_analysis'].render(oiContainer); oiContainer.dataset.rendered = 'true'; }
                 }
             } else if (tabId === 'rollover') {
                 if (typeof WorkbookManager !== 'undefined' && WorkbookManager.modules['rollover']) {
                     const rolloverContainer = document.getElementById('deriv-tab-rollover');
-                    if (rolloverContainer && !rolloverContainer.dataset.rendered) {
-                        WorkbookManager.modules['rollover'].render(rolloverContainer);
-                        WorkbookManager.modules['rollover'].loadAggregatedData();
-                        rolloverContainer.dataset.rendered = 'true';
-                    }
+                    if (rolloverContainer && !rolloverContainer.dataset.rendered) { WorkbookManager.modules['rollover'].render(rolloverContainer); rolloverContainer.dataset.rendered = 'true'; }
                 } else if (typeof loadRolloverData === 'function') {
                     loadRolloverData();
                 }
