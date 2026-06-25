@@ -30,12 +30,27 @@ function renderMWPLTable(data) {
     if(!tbody) return;
     tbody.innerHTML = '';
 
-    if(!data || data.length === 0) {
+    if(!data || Object.keys(data).length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No data available</td></tr>';
         return;
     }
 
-    data.forEach(row => {
+    // data is a dictionary: { "SYMBOL": [ {date, eq_close, fut1_close}, ... ] }
+    // Flatten it to render in the table
+    let allRows = [];
+    for (let sym in data) {
+        data[sym].forEach(r => {
+            allRows.push({ symbol: sym, ...r });
+        });
+    }
+
+    // Sort by date descending, then symbol
+    allRows.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return a.symbol.localeCompare(b.symbol);
+    });
+
+    allRows.forEach(row => {
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td><b>${row.symbol}</b></td>
