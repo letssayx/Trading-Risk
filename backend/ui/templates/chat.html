@@ -8,6 +8,24 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
+
+    <style>
+        /* The container for these chat views needs proper layout dimensions to not collapse to 0x0 */
+        #tab-oi, #tab-rollover, #tab-mwpl, #tab-fii {
+            flex: 1 !important;
+            height: 100vh !important;
+            width: 100% !important;
+        }
+
+        /* Force display of deriv-sub-tabs when they are inside an active client-tab-content */
+        .client-tab-content.active .deriv-sub-tab {
+            display: flex !important;
+            flex: 1 !important;
+            height: 100% !important;
+            width: 100% !important;
+        }
+    </style>
+
     <style>
         :root {
             --bg-color: #0e0e10;
