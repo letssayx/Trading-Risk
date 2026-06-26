@@ -12,12 +12,25 @@ logger = logging.getLogger(__name__)
 def extract_amount_from_pdf(url):
     try:
         import pdfplumber
+        # Add headers to bypass simple bot protection
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/pdf'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/pdf',
+            'Referer': 'https://www.nseindia.com/',
+            'Accept-Language': 'en-US,en;q=0.9',
         }
-        resp = requests.get(url, headers=headers, timeout=10)
-        if resp.status_code == 200:
+
+        # Use a session to persist cookies which sometimes NSE requires
+        session = requests.Session()
+        # Make an initial request to nseindia.com to get cookies if necessary
+        try:
+            session.get("https://www.nseindia.com", headers=headers, timeout=5)
+        except:
+            pass
+
+        resp = session.get(url, headers=headers, timeout=15)
+
+        if resp.status_code == 200 and b'%PDF' in resp.content[:10]:
             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
                 text = ""
                 for page in pdf.pages[:5]: # Only check first 5 pages
@@ -29,7 +42,7 @@ def extract_amount_from_pdf(url):
             # Look for "dividend" and then quickly find Rs. X
             parts = re.split(r'(?i)dividend', text)
             for part in parts[1:]:
-                # Only look at the next 100 chars after 'dividend'
+                # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
                 _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
 

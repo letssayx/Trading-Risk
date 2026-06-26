@@ -566,7 +566,7 @@
 
     <div class="client-tab-content" id="tab-mwpl">
                         <!-- SUB-TAB MWPL Analysis -->
-                <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow: hidden; flex-direction: column; justify-content: flex-start;">
+                <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 0px; flex-shrink: 0;">
                         <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="mwpl-force-refresh"> Force</label>
                         <button class="btn btn-secondary" id="btn-load-mwpl" onclick="loadMWPLAnalysis(true)"><i class="fas fa-sync"></i> Refresh MWPL</button>
@@ -588,7 +588,7 @@
                             </label>
                         </div>
                     </div>
-                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;  max-width: 100%;">
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; max-width: 100%; overflow-y: auto;">
                         <table class="data-table" id="mwpl-analysis-table" style="width: 100%;">
                             <thead style="position: sticky; top: 0; background: #222; z-index: 10;">
                                 <tr>
