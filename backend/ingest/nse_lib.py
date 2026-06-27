@@ -563,9 +563,11 @@ class NSELib:
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
                 announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
+                announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
                 div_announcements = []
                 rec_announcements = []
+                out_announcements = []
 
                 resp_div = self.get(announcement_url_div)
                 if resp_div and resp_div.status_code == 200:
@@ -581,17 +583,20 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
 
+                resp_out = self.get(announcement_url_out)
+                if resp_out and resp_out.status_code == 200:
+                    try:
+                        all_out = resp_out.json()
+                        if isinstance(all_out, list):
+                            # Filter to only Outcome of Board Meeting to save memory/processing
+                            out_announcements = [a for a in all_out if 'Outcome of Board Meeting' in str(a.get('desc', '')) or 'Outcome of Board Meeting' in str(a.get('subject', ''))]
+                    except Exception as e:
+                        logger.error(f"Failed to parse outcome announcements: {e}")
+
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
 
-                for ann in div_announcements:
-                    sym = ann.get('symbol')
-                    if sym:
-                        if sym not in symbol_announcements:
-                            symbol_announcements[sym] = []
-                        symbol_announcements[sym].append(ann)
-
-                for ann in rec_announcements:
+                for ann in div_announcements + rec_announcements + out_announcements:
                     sym = ann.get('symbol')
                     if sym:
                         if sym not in symbol_announcements:
