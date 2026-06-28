@@ -74,7 +74,7 @@ const RolloverTool = {
                     <div style="flex-shrink: 0;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
                             <h4 style="margin: 0; color: #fff;">Historical 24-Month Matrix</h4>
-                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixCSV()"><i class="fas fa-download"></i> CSV</button>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixExcel()"><i class="fas fa-download"></i> Excel</button>
                         </div>
                         <div id="rollover-matrix-container" class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto; display: block;">
                             <p style="text-align:center; color:#888; padding: 20px;">Fetching Historical F&O Matrix...</p>
@@ -93,7 +93,7 @@ const RolloverTool = {
                                         <option value="">Select Stock</option>
                                     </select>
                                 </div>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverDynamicChartInstance) exportChartDataToCSV(window.rolloverDynamicChartInstance, 'Dynamic_Rollover')"><i class="fas fa-download"></i> CSV</button>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverDynamicChartInstance) exportChartDataToExcel(window.rolloverDynamicChartInstance, 'Dynamic_Rollover')"><i class="fas fa-download"></i> Excel</button>
                             </div>
                             <div id="rollover-dynamic-chart" style="width: 100%; height: calc(100% - 30px);"></div>
                         </div>
@@ -103,7 +103,7 @@ const RolloverTool = {
                     <div style="flex-shrink: 0;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
                             <h4 style="margin: 0; color: #fff;">Daily F&O Rollover Data</h4>
-                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToCSV('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> CSV</button>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToExcel('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> Excel</button>
                         </div>
                         <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto;">
                             <table class="data-table" id="rollover-analysis-table" style="width: 100%; table-layout: fixed;">
@@ -594,7 +594,7 @@ const RolloverTool = {
 
                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 20px;">
                     <h4 style="margin: 0; color: #fff;" id="single-symbol-history-title">24-Month Rollover History</h4>
-                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverMomChartInstance) exportChartDataToCSV(window.rolloverMomChartInstance, 'Rollover_History_${symbol}');"><i class="fas fa-download"></i> CSV</button>
+                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverMomChartInstance) exportChartDataToExcel(window.rolloverMomChartInstance, 'Rollover_History_${symbol}');"><i class="fas fa-download"></i> Excel</button>
                 </div>
                 <div id="rollover-mom-history-chart" style="width: 100%; height: 250px; margin-top: 10px;"></div>
                 <div id="rollover-mom-history-table-container"></div>
@@ -693,7 +693,7 @@ const RolloverTool = {
         // Update
     },
 
-    exportMatrixCSV: function() {
+    exportMatrixExcel: function() {
         const matrixContainer = document.getElementById('rollover-matrix-container');
         if (!matrixContainer || matrixContainer.style.display === 'none') {
             alert("Matrix data not available.");
@@ -702,23 +702,39 @@ const RolloverTool = {
         const table = matrixContainer.querySelector('table');
         if (!table) return;
 
-        let csvContent = "data:text/csv;charset=utf-8,";
+        const dataArray = [];
 
         // Headers
-        const headers = Array.from(table.querySelectorAll('th')).map(th => th.innerText);
-        csvContent += headers.join(",") + "\n";
+        const headers = Array.from(table.querySelectorAll('th')).map(th => th.innerText.trim());
+        dataArray.push(headers);
 
         // Rows
         const rows = table.querySelectorAll('tbody tr');
         rows.forEach(row => {
-            const cols = Array.from(row.querySelectorAll('td')).map(td => td.innerText.replace(/,/g, ''));
-            csvContent += cols.join(",") + "\n";
+            const cols = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
+            dataArray.push(cols);
         });
 
-        const encodedUri = encodeURI(csvContent);
+        const filename = "rollover_history_matrix";
+
+        if (typeof XLSX !== 'undefined') {
+            try {
+                const ws = XLSX.utils.aoa_to_sheet(dataArray);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Matrix");
+                XLSX.writeFile(wb, `${filename}.xlsx`);
+                return;
+            } catch (e) {
+                console.error("Error exporting to Excel:", e);
+            }
+        }
+
+        console.warn("XLSX library not loaded or failed. Falling back to CSV.");
+        let csvContent = dataArray.map(row => row.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `rollover_history_matrix.csv`);
+        link.href = URL.createObjectURL(blob);
+        link.download = `${filename}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
