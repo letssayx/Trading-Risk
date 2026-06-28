@@ -102,7 +102,7 @@ const OiTool = {
                                 <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="oi-scatter-expiry-only" style="margin-right: 5px;" onchange="OiTool.loadAggregatedData()"> Expiry</label>
                                 <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="oi-scatter-combined-oi" style="margin-right: 5px;" onchange="OiTool.loadAggregatedData()"> Comb. OI</label>
                             </div>
-                            <button class="btn btn-secondary" onclick="OiTool.exportScatterExcel()"><i class="fas fa-download"></i> Excel</button>
+                            <button class="btn btn-secondary" onclick="OiTool.exportScatterExcel()"><i class="fas fa-download"></i> XLSX</button>
                         </div>
                         <div id="oi-chart-area" style="flex: 1; min-height: 600px;">
                             <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
@@ -112,7 +112,7 @@ const OiTool = {
                     <!-- Table Area -->
                     <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow: hidden; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0;">
-                            <button class="btn btn-secondary" onclick="exportTableToExcel('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> Excel</button>
+                            <button class="btn btn-secondary" onclick="exportTableToExcel('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> XLSX</button>
                         </div>
                         <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">

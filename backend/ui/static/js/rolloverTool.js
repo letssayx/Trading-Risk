@@ -74,7 +74,7 @@ const RolloverTool = {
                     <div style="flex-shrink: 0;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
                             <h4 style="margin: 0; color: #fff;">Historical 24-Month Matrix</h4>
-                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixExcel()"><i class="fas fa-download"></i> Excel</button>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-right: 15px;" onclick="RolloverTool.exportMatrixExcel()"><i class="fas fa-download"></i> XLSX</button>
                         </div>
                         <div id="rollover-matrix-container" class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto; display: block;">
                             <p style="text-align:center; color:#888; padding: 20px;">Fetching Historical F&O Matrix...</p>
@@ -93,7 +93,7 @@ const RolloverTool = {
                                         <option value="">Select Stock</option>
                                     </select>
                                 </div>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverDynamicChartInstance) exportChartDataToExcel(window.rolloverDynamicChartInstance, 'Dynamic_Rollover')"><i class="fas fa-download"></i> Excel</button>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverDynamicChartInstance) exportChartDataToExcel(window.rolloverDynamicChartInstance, 'Dynamic_Rollover')"><i class="fas fa-download"></i> XLSX</button>
                             </div>
                             <div id="rollover-dynamic-chart" style="width: 100%; height: calc(100% - 30px);"></div>
                         </div>
@@ -103,7 +103,7 @@ const RolloverTool = {
                     <div style="flex-shrink: 0;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 5px; align-items: flex-end;">
                             <h4 style="margin: 0; color: #fff;">Daily F&O Rollover Data</h4>
-                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToExcel('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> Excel</button>
+                            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="exportTableToExcel('rollover-analysis-table', 'Rollover_Analysis')"><i class="fas fa-download"></i> XLSX</button>
                         </div>
                         <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow-x: auto; min-height: 400px; max-height: calc(100vh - 450px); overflow-y: auto;">
                             <table class="data-table" id="rollover-analysis-table" style="width: 100%; table-layout: fixed;">
@@ -594,7 +594,7 @@ const RolloverTool = {
 
                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 20px;">
                     <h4 style="margin: 0; color: #fff;" id="single-symbol-history-title">24-Month Rollover History</h4>
-                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverMomChartInstance) exportChartDataToExcel(window.rolloverMomChartInstance, 'Rollover_History_${symbol}');"><i class="fas fa-download"></i> Excel</button>
+                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverMomChartInstance) exportChartDataToExcel(window.rolloverMomChartInstance, 'Rollover_History_${symbol}');"><i class="fas fa-download"></i> XLSX</button>
                 </div>
                 <div id="rollover-mom-history-chart" style="width: 100%; height: 250px; margin-top: 10px;"></div>
                 <div id="rollover-mom-history-table-container"></div>
