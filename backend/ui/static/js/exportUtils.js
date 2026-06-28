@@ -55,7 +55,6 @@ function exportChartDataToExcel(chartInstance, filename) {
         return;
     }
 
-    // Handle Chart.js instances vs ECharts instances
     let isChartJS = typeof chartInstance.config !== 'undefined';
     let isECharts = typeof chartInstance.getOption === 'function';
 
@@ -94,40 +93,29 @@ function exportChartDataToExcel(chartInstance, filename) {
             }
         }
 
-        if (option.series && option.series.length > 0) {
-            option.series.forEach(s => {
-                if (s.name) seriesNames.push(s.name);
-                else seriesNames.push('Series');
-
-                if (s.data && s.data.length > 0) {
-                    seriesData.push(s.data);
-                } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
-                    // Handled below
-                } else {
-                    seriesData.push([]);
-                }
-            });
-        }
-
-        if (seriesData.length > 0 && seriesData[0].length === 0 && option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+        if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
             const src = option.dataset[0].source;
             if (Array.isArray(src) && src.length > 0) {
                 for (let col = 1; col < src[0].length; col++) {
-                    seriesNames[col - 1] = src[0][col] || `Series_${col}`;
+                    seriesNames.push(src[0][col] || `Series_${col}`);
                     let colData = [];
                     for (let r = 1; r < src.length; r++) {
                         colData.push(src[r][col]);
                     }
-                    seriesData[col - 1] = colData;
+                    seriesData.push(colData);
                 }
             }
-        } else if (seriesData.length === 0 || (seriesData.length > 0 && seriesData[0].length === 0)) {
-            if (option.series && option.series.some(s => s.data && s.data.length > 0)) {
-                // Proceed
-            } else {
-                alert("No series data found in chart");
-                return;
-            }
+        } else if (option.series && option.series.length > 0) {
+            option.series.forEach(s => {
+                if (s.name && (s.name.includes('Placeholder') || s.name.includes('Background'))) return;
+
+                if (s.name) seriesNames.push(s.name);
+                else seriesNames.push('Series');
+                seriesData.push(s.data || []);
+            });
+        } else {
+            alert("No series data found in chart");
+            return;
         }
     } else if (isChartJS) {
         const data = chartInstance.data;
@@ -142,14 +130,12 @@ function exportChartDataToExcel(chartInstance, filename) {
         });
     }
 
-    // Build headers from series names
     seriesNames.forEach(name => {
         headers.push(name);
     });
 
     dataArray.push(headers);
 
-    // Build rows
     const len = xAxisData.length > 0 ? xAxisData.length : (seriesData[0] ? seriesData[0].length : 0);
 
     for (let i = 0; i < len; i++) {
@@ -162,15 +148,22 @@ function exportChartDataToExcel(chartInstance, filename) {
 
         seriesData.forEach(d => {
             let val = '';
-            if (d && d[i] !== undefined) {
-                if (typeof d[i] === 'object' && d[i] !== null) {
-                    if (d[i].value !== undefined) {
-                        val = d[i].value;
-                    } else if (Array.isArray(d[i])) {
-                        val = d[i].join('|');
+            let item = d ? d[i] : undefined;
+            if (item !== undefined && item !== null) {
+                if (typeof item === 'object' && !Array.isArray(item)) {
+                    if (item.value !== undefined) {
+                        if (Array.isArray(item.value)) {
+                            val = item.value.length > 1 ? item.value[1] : item.value[0];
+                        } else {
+                            val = item.value;
+                        }
+                    } else {
+                        val = JSON.stringify(item);
                     }
+                } else if (Array.isArray(item)) {
+                    val = item.length > 1 ? item[1] : item[0];
                 } else {
-                    val = d[i];
+                    val = item;
                 }
             }
             row.push(val);
@@ -253,43 +246,34 @@ function exportChartDataToCSV(chartInstance, filename) {
             }
         }
 
-        if (option.series && option.series.length > 0) {
-            option.series.forEach(s => {
-                if (s.name) seriesNames.push(s.name);
-                else seriesNames.push('Series');
-                // Some charts might put data in dataset instead of directly in series
-                if (s.data && s.data.length > 0) {
-                    seriesData.push(s.data);
-                } else if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
-                    // Handled below, we'll wait for the dataset fallback
-                } else {
-                    seriesData.push([]);
-                }
-            });
-        }
-
-        // If series data is empty but we have a dataset source
-        if (seriesData.length > 0 && seriesData[0].length === 0 && option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+        if (option.dataset && option.dataset.length > 0 && option.dataset[0].source) {
+            // ECharts using dataset mapping (like the Smart Money Net Pos charts)
             const src = option.dataset[0].source;
             if (Array.isArray(src) && src.length > 0) {
                 // src[0] is headers, ignore [0][0] which is date
                 for (let col = 1; col < src[0].length; col++) {
-                    seriesNames[col - 1] = src[0][col] || `Series_${col}`;
+                    seriesNames.push(src[0][col] || `Series_${col}`);
                     let colData = [];
                     for (let r = 1; r < src.length; r++) {
                         colData.push(src[r][col]);
                     }
-                    seriesData[col - 1] = colData;
+                    seriesData.push(colData);
                 }
             }
-        } else if (seriesData.length === 0 || (seriesData.length > 0 && seriesData[0].length === 0)) {
-            // Check if there is data inside options.series regardless
-            if (option.series && option.series.some(s => s.data && s.data.length > 0)) {
-                // Proceed, data was successfully pushed
-            } else {
-                alert("No series data found in chart");
-                return;
-            }
+        } else if (option.series && option.series.length > 0) {
+            // Traditional ECharts using explicit series data arrays
+            option.series.forEach(s => {
+                // Skip placeholder/background series if their name implies it
+                if (s.name && (s.name.includes('Placeholder') || s.name.includes('Background'))) return;
+
+                if (s.name) seriesNames.push(s.name);
+                else seriesNames.push('Series');
+                // Some charts might put data in dataset instead of directly in series
+                seriesData.push(s.data || []);
+            });
+        } else {
+            alert("No series data found in chart");
+            return;
         }
     } else if (isChartJS) {
         const data = chartInstance.data;
@@ -324,19 +308,34 @@ function exportChartDataToCSV(chartInstance, filename) {
 
         seriesData.forEach(d => {
             let val = '';
-            if (d && d[i] !== undefined) {
-                // Handle objects if data is complex (like candlesticks)
-                if (typeof d[i] === 'object' && d[i] !== null) {
-                    if (d[i].value !== undefined) {
-                        val = d[i].value;
-                    } else if (Array.isArray(d[i])) {
-                        // For Candlesticks [open, close, min, max] or [date, val1, val2]
-                        val = d[i].join('|');
+            let item = d ? d[i] : undefined;
+            if (item !== undefined && item !== null) {
+                // Handle objects if data is complex (like candlesticks or ECharts objects)
+                if (typeof item === 'object' && !Array.isArray(item)) {
+                    if (item.value !== undefined) {
+                        if (Array.isArray(item.value)) {
+                            // ECharts format for some series: [xAxis, yAxis]
+                            val = item.value.length > 1 ? item.value[1] : item.value[0];
+                        } else {
+                            val = item.value;
+                        }
+                    } else {
+                        // generic fallback
+                        val = JSON.stringify(item);
                     }
+                } else if (Array.isArray(item)) {
+                    // For Candlesticks [open, close, min, max] or [date, val1, val2]
+                    val = item.join(' | ');
                 } else {
-                    val = d[i];
+                    val = item;
                 }
             }
+
+            // Format string specifically to escape quotes for CSV
+            if (typeof val === 'string') {
+                val = val.replace(/"/g, '""');
+            }
+
             row.push(`"${val}"`);
         });
 

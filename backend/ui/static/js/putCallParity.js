@@ -216,8 +216,8 @@ async function loadPutCallParity(forceRefresh = false) {
 }
 
 function exportPutCallParity() {
-    if (typeof exportTableToCSV === 'function') {
-        exportTableToCSV('putcall-parity-table', 'Put_Call_Parity_Nifty.csv');
+    if (typeof exportTableToExcel === 'function') {
+        exportTableToExcel('putcall-parity-table', 'Put_Call_Parity_Nifty.csv');
     } else {
         alert("Export function not available.");
     }

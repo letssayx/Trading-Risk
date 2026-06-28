@@ -5,7 +5,6 @@
     <title>Turtle AI Chat</title>
     <!-- Use similar head elements as workbench -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="/static/css/workbench.css">
     <link rel="stylesheet" href="/static/css/modal.css">
     <style>
@@ -545,7 +544,7 @@
                             <div style="background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; min-height: 600px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">High Open Interest Strikes (CE/PE)</h3>
-                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToCSV(window.highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> CSV</button>
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.highOiChartInstance) exportChartDataToExcel(window.highOiChartInstance, 'High_OI_Strikes'); else exportChartDataToExcel(window.highOiChartInstance, 'High_OI_Strikes')"><i class="fas fa-download"></i> XLSX</button>
                                 </div>
                                 <div id="opt-analysis-high-oi-chart" style="flex: 1; width: 100%; min-height: 500px;"></div>
 
@@ -629,7 +628,7 @@
                         <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: block; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
                                 <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII/DII Institutional Flows (Cash)</h3>
-                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiTabChartInstance) exportChartDataToCSV(window.fiiDiiTabChartInstance, 'FII_DII_Net_Pos');"><i class="fas fa-download"></i> CSV</button>
+                                <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiTabChartInstance) exportChartDataToExcel(window.fiiDiiTabChartInstance, 'FII_DII_Net_Pos');"><i class="fas fa-download"></i> XLSX</button>
                             </div>
                             <div style="flex: 1; min-width: 0; height: 100%;">
                                 <canvas id="fiiDiiTabChart"></canvas>
@@ -1092,11 +1091,12 @@
         connectWS();
     </script>
 
-    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="/static/js/config.js"></script>
     <script src="/static/js/fiiTool.js"></script>
     <script src="/static/js/turtleTab.js"></script>

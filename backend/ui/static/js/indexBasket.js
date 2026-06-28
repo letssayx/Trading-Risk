@@ -281,8 +281,8 @@ function revertIdxBasket() {
 }
 
 function exportIdxBasket() {
-    if (typeof exportTableToCSV === 'function') {
-        exportTableToCSV('idxbasket-table', 'Index_Basket_Nifty.csv');
+    if (typeof exportTableToExcel === 'function') {
+        exportTableToExcel('idxbasket-table', 'Index_Basket_Nifty.csv');
     } else {
         alert("Export function not available.");
     }
