@@ -344,6 +344,7 @@
     <div class="main-tabs-bar">
         <div class="main-tab active" data-target="terminal" onclick="switchMainTab('terminal')" title="Alt+T">Turtle <u>T</u>erminal</div>
         <div class="main-tab" data-target="ai_analyze" onclick="switchMainTab('ai_analyze')" title="Alt+A"><u>A</u>I-Analyze</div>
+        <div class="main-tab" data-target="skill_studio" onclick="switchMainTab('skill_studio')" title="Skill Studio">Skill Studio</div>
         <div class="main-tab" data-target="derivatives" onclick="switchMainTab('derivatives')" title="Derivatives Analysis">Derivatives Analysis</div>
         <div class="main-tab" data-target="special_arb" onclick="switchMainTab('special_arb')" title="Special Situation Arb">Special Situation Arb</div>
         <div class="main-tab" data-target="fundamentals" onclick="switchMainTab('fundamentals')" title="Fundamental Analysis">Fundamental Analysis</div>
@@ -2783,6 +2784,31 @@
                         <div class="intel-metric">--</div>
                         <div class="intel-subtext">--</div>
                     </div>
+                    <div class="intel-card" id="intel-fundamental">
+                        <div class="intel-header">FUNDAMENTAL</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-technical">
+                        <div class="intel-header">TECHNICAL</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-risk">
+                        <div class="intel-header">RISK</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-commodity">
+                        <div class="intel-header">COMMODITY</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
+                    <div class="intel-card" id="intel-specialsit">
+                        <div class="intel-header">SPECIAL SITUATION</div>
+                        <div class="intel-metric">--</div>
+                        <div class="intel-subtext">--</div>
+                    </div>
                 </div>
 
                 <!-- Analysis Log (Center) -->
@@ -2825,6 +2851,23 @@
                     <textarea id="ai-cmd-input" class="ai-cmd-input" placeholder="Type command or symbol (e.g., NIFTY)..." autocomplete="off" spellcheck="false" onkeydown="handleAiCmd(event)" rows="1" style="resize: none; overflow: hidden; padding-top: 8px; min-height: 20px;"></textarea>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- TAB SKILL STUDIO -->
+        <div id="tab-skill_studio" class="main-tab-content" style="padding: 20px; overflow-y: auto;">
+            <h2 style="color: #fff; margin-bottom: 20px;">Skill Studio</h2>
+            <div style="display: flex; gap: 20px; height: 100%;">
+                <div style="flex: 1; border: 1px solid #333; background: #1e1e1e; padding: 10px; overflow-y: auto;">
+                    <h3 style="color: #bbb; border-bottom: 1px solid #333; padding-bottom: 10px;">Available Skills</h3>
+                    <ul id="skill-list" style="list-style: none; padding: 0; margin: 0; color: #888;">
+                        <li style="padding: 10px; cursor: pointer; border-bottom: 1px solid #2a2a2a;" onclick="loadSkillDetails('oi_analysis')">OI Analysis</li>
+                        <!-- Populated by JS -->
+                    </ul>
+                </div>
+                <div style="flex: 3; border: 1px solid #333; background: #1e1e1e; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
+                    <div id="skill-details" style="color: #ccc;">Select a skill to view its rules and exceptions.</div>
+                </div>
             </div>
         </div>
 

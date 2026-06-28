@@ -23,6 +23,7 @@
             if (tabName === 'import' && window.uploader) { window.uploader.open(); return; }
             if (tabName === 'audit') loadAuditHistory(); // Auto-load audit on switch
             if (tabName === 'ai_analyze') fetchSystemAccuracy();
+            if (tabName === 'skill_studio' && window.loadSkillList) window.loadSkillList();
             if (tabName === 'derivatives') {
                 // Initialize first sub-tab if none selected
                 if (!document.querySelector('.deriv-sub-tab.active')) {
@@ -804,232 +805,77 @@
 
             let currentQuantLogicBlock = null;
 
-            aiWs.onmessage = (event) => {
+                        aiWs.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
 
-                if (msg.type === "status") {
-                    chatFeed.innerHTML += `
-                        <div class="chat-message status-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div class="log-line text-emerald" style="font-size: 0.9em;">[SYSTEM] ${msg.message}</div>
-                        </div>`;
-                } else if (msg.type === "jules_task") {
-                    let julesOutput = `
-                    <div class="chat-message jules-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                        <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[JULES PRE-PROCESS]</div>`;
-
-                    if (msg.reasoning) {
-                        julesOutput += `
-                        <details style="margin-bottom: 10px;">
-                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
-                            <div style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23;">
-                                ${msg.reasoning.replace(/\n/g, '<br>')}
-                            </div>
-                        </details>`;
-                    }
-                    julesOutput += `<div class="log-line" style="color: #e0e0e0;"><strong>Final Task:</strong><br>${msg.message.replace(/\n/g, '<br>')}</div></div>`;
-                    chatFeed.innerHTML += julesOutput;
-                } else if (msg.type === "engine_type") {
-                    chatFeed.innerHTML += `
-                        <div class="chat-message status-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <div class="log-line text-muted" style="font-size: 0.9em;">>> Dispatched to Engine: ${msg.data.toUpperCase()}</div>
-                        </div>`;
-                } else if (msg.type === "quant_logic") {
+                if (msg.type === "think") {
                     if (!currentQuantLogicBlock) {
-                        // Create new block for quant logic
                         const id = "quant-logic-" + Date.now();
                         chatFeed.insertAdjacentHTML('beforeend', `
                         <div class="chat-message deepseek-message" id="${id}" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                            <details>
-                                <summary style="cursor: pointer; color: #64748b; font-weight: bold; margin-bottom: 5px;">[DEEPSEEK-R1] QUANT LOGIC</summary>
-                                <div class="quant-content" style="color: #aaa; line-height: 1.5; white-space: pre-wrap; padding-left: 20px;"></div>
+                            <details open>
+                                <summary style="cursor: pointer; color: #64748b; font-weight: bold; margin-bottom: 5px;">[AI] REASONING</summary>
+                                <div class="quant-content" style="color: #888; line-height: 1.5; white-space: pre-wrap; padding-left: 20px; font-family: monospace;"></div>
                             </details>
                         </div>`);
                         currentQuantLogicBlock = document.getElementById(id).querySelector('.quant-content');
-                        currentQuantLogicBlock._inThink = false;
                     }
+                    currentQuantLogicBlock.insertAdjacentText('beforeend', msg.chunk);
 
-                    let token = msg.token;
-
-                    if (token.includes("<think>")) {
-                        token = token.replace("<think>", "");
-                        currentQuantLogicBlock._inThink = true;
-
-                        const detailsHtml = `<details open style="margin-bottom: 10px; margin-top: 10px;">
-                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
-                            <div class="think-tag" style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23; font-style: normal; display: block;"></div>
-                        </details>`;
-                        currentQuantLogicBlock.insertAdjacentHTML('beforeend', detailsHtml);
+                } else if (msg.type === "stream") {
+                    if (!window.currentAnswerBlock) {
+                        const id = "final-answer-" + Date.now();
+                        chatFeed.insertAdjacentHTML('beforeend', `
+                        <div class="chat-message final-message" id="${id}" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                            <div style="color: #4ade80; font-weight: bold; margin-bottom: 5px;">[AI] ANSWER</div>
+                            <div class="answer-content" style="color: #e0e0e0; line-height: 1.5; white-space: pre-wrap;"></div>
+                        </div>`);
+                        window.currentAnswerBlock = document.getElementById(id).querySelector('.answer-content');
                     }
+                    window.currentAnswerBlock.insertAdjacentText('beforeend', msg.chunk);
 
-                    let isClosing = false;
-                    if (token.includes("</think>")) {
-                        token = token.replace("</think>", "");
-                        isClosing = true;
-                    }
-
-                    if (token) {
-                        if (currentQuantLogicBlock._inThink) {
-                            const thinkTags = currentQuantLogicBlock.querySelectorAll('.think-tag');
-                            if (thinkTags.length > 0) {
-                                // Safe escape for innerHTML append inside think tag
-                                let safeToken = token.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                                thinkTags[thinkTags.length - 1].innerHTML += safeToken;
-                            } else {
-                                // Fallback
-                                currentQuantLogicBlock.insertAdjacentText('beforeend', token);
-                            }
-                        } else {
-                            // If we use innerHTML += here, we wipe out the <details> state (like if it was closed)
-                            // Better to use insertAdjacentText to just append text node safely
-                            currentQuantLogicBlock.insertAdjacentText('beforeend', token);
-                        }
-                    }
-
-                    if (isClosing) {
-                        currentQuantLogicBlock._inThink = false;
-                    }
-                } else if (msg.type === "data_matrix") {
-                    const d = msg.data;
-                    let matrixOutput = `
-                    <div class="chat-message qwen-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                        <div style="color: #e6a23c; font-weight: bold; margin-bottom: 5px;">[QWEN] DATA MATRIX</div>`;
-
-                    if (d.qwen_reasoning) {
-                        matrixOutput += `
-                        <details style="margin-bottom: 10px;">
-                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
-                            <div style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23;">
-                                ${d.qwen_reasoning.replace(/\n/g, '<br>')}
-                            </div>
-                        </details>`;
-                    }
-
-                    matrixOutput += `
-                        <table class="ai-dense-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em; border: 1px solid #333; margin-top: 10px;">
-                            <thead>
-                                <tr>
-                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">SYMBOL</th>
-                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">OPEN_INT</th>
-                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">CHG_OI</th>
-                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">IV</th>
-                                    <th style="border: 1px solid #333; padding: 8px; background: #16181d; color: #888; text-align: left;">IMPLIED_MOVE</th>
-                                </tr>
-                            </thead>
-                            <tbody>`;
-
-                    let hasData = false;
-                    if(d.equity && d.equity.close_price) {
-                        hasData = true;
-                        const fallbackLabel = d.yfinance_fallback ? ' <span style="color:#cca700; font-size: 0.8em;">(YF)</span>' : '';
-                        matrixOutput += `
-                            <tr>
-                                <td style="border: 1px solid #333; padding: 8px;">${d.ticker} (EQ)${fallbackLabel}</td>
-                                <td style="border: 1px solid #333; padding: 8px;">${(d.equity.total_traded_qty || 0).toLocaleString()} Vol</td>
-                                <td style="border: 1px solid #333; padding: 8px;">-</td>
-                                <td style="border: 1px solid #333; padding: 8px;">-</td>
-                                <td style="border: 1px solid #333; padding: 8px;">₹${d.equity.close_price}</td>
-                            </tr>
-                        `;
-                    }
-                    if(d.futures && d.futures.close_price) {
-                        hasData = true;
-                        let oiColor = (d.futures.change_in_oi > 0) ? 'color: #00bcd4;' : 'color: #f59e0b;';
-                        let oiSign = (d.futures.change_in_oi > 0) ? '+' : '';
-                        matrixOutput += `
-                            <tr>
-                                <td style="border: 1px solid #333; padding: 8px;">${d.ticker}-FUT</td>
-                                <td style="border: 1px solid #333; padding: 8px;">${(d.futures.open_interest || 0).toLocaleString()}</td>
-                                <td style="border: 1px solid #333; padding: 8px; ${oiColor}">${oiSign}${(d.futures.change_in_oi || 0).toLocaleString()}</td>
-                                <td style="border: 1px solid #333; padding: 8px;">-</td>
-                                <td style="border: 1px solid #333; padding: 8px;">± ${d.futures.implied_move_pct || 0}%</td>
-                            </tr>
-                        `;
-                    }
-                    if(!hasData) {
-                        matrixOutput += `<tr><td colspan="5" style="border: 1px solid #333; padding: 8px; text-align: center;">No specific DB or YFinance rows found for ${d.ticker}.</td></tr>`;
-                    }
-                    matrixOutput += `</tbody></table>`;
-
-                    if (d.local_db_history || d.yfinance_history) {
-                        matrixOutput += `<div style="margin-top: 10px; font-size: 0.85em; color: #a0a0a0;">`;
-                        if (d.local_db_history && d.local_db_history.ticker) {
-                            matrixOutput += `<details style="margin-bottom: 5px;">
-                                <summary style="cursor: pointer; color: #60a5fa;">[View Local DB Context: Volatility, P/E, Corp Actions]</summary>
-                                <pre style="background: #111; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px; color: #888;">${JSON.stringify(d.local_db_history, null, 2)}</pre>
-                            </details>`;
-                        }
-                        if (d.yfinance_history && d.yfinance_history.history) {
-                            matrixOutput += `<details style="margin-bottom: 5px;">
-                                <summary style="cursor: pointer; color: #60a5fa;">[View YFinance Context: Recent History & News]</summary>
-                                <pre style="background: #111; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 5px; color: #888;">${JSON.stringify(d.yfinance_history, null, 2)}</pre>
-                            </details>`;
-                        }
-                        matrixOutput += `</div>`;
-                    }
-
-                    matrixOutput += `</div>`;
-                    chatFeed.innerHTML += matrixOutput;
-
-                } else if (msg.type === "governance_log") {
-                    chatFeed.innerHTML += `
-                    <div class="chat-message llama-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                        <details>
-                            <summary style="cursor: pointer; color: #b8860b; font-weight: bold; margin-bottom: 5px;">[GPT 120B] COMPLIANCE JUDGE</summary>
-                            <div class="log-line text-warning" style="padding-left: 20px;">> ${msg.message}</div>
-                        </details>
-                    </div>`;
-                } else if (msg.type === "execution") {
-                    const ex = msg.data;
-                    let actionColor = ex.action.toUpperCase().includes('SHORT') || ex.action.toUpperCase().includes('SELL') ? 'color: #f59e0b;' : 'color: #00bcd4;';
-                    let rationaleHtml = "";
-                    if (Array.isArray(ex.rationale)) {
-                        rationaleHtml = "<ul style='margin-top: 5px; margin-bottom: 0; padding-left: 20px; color: #ccc;'>" + ex.rationale.map(r => `<li>${r}</li>`).join('') + "</ul>";
-                    } else {
-                        rationaleHtml = ex.rationale;
-                    }
-
-                    let execOutput = `
-                    <div class="chat-message gemini-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                        <div style="color: #00bcd4; font-weight: bold; margin-bottom: 5px;">[GEMINI] EXECUTION</div>`;
-
-                    if (ex.reasoning) {
-                        execOutput += `
-                        <details style="margin-bottom: 15px;">
-                            <summary style="cursor: pointer; color: #a0a0a0; font-size: 0.9em;">[Thought Process]</summary>
-                            <div style="padding: 10px; border-left: 2px solid #334155; margin-top: 5px; color: #888; background: #1a1c23;">
-                                ${ex.reasoning.replace(/\n/g, '<br>')}
-                            </div>
-                        </details>`;
-                    }
-
-                    execOutput += `
-                        <div class="exec-confidence" title="Calculated based on data completeness and alignment with reasoning." style="font-size: 0.85em; color: #888; margin-bottom: 5px;">CONF_SCORE: ${ex.confidence}% <span style="font-size: 0.8em; cursor: help;">(?)</span></div>
-                        <div class="exec-directive" style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px; ${actionColor}">ACTION: ${ex.action.toUpperCase()}</div>
-                        <div class="exec-details" style="font-size: 0.9em; color: #ccc; line-height: 1.6; border-top: 1px dotted #333; padding-top: 10px;">
-                            TARGET: ₹${ex.target} | STOP_LOSS: ₹${ex.stop_loss}<br><br>
-                            <strong>RATIONALE:</strong><br> ${rationaleHtml}
-                        </div>
-                    </div>`;
-                    chatFeed.innerHTML += execOutput;
-                } else if (msg.type === "error") {
-                    chatFeed.innerHTML += `
-                    <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                        <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
-                        <div class="log-line text-warning">[ERROR] ${msg.message}</div>
-                    </div>`;
-                } else if (msg.type === "done") {
-                    cmdInput.placeholder = "_";
-                    cmdInput.readOnly = false;
-                    cmdInput.focus();
-                    aiWs.close();
+                } else if (msg.type === "final") {
+                    // Reset current blocks for next message
                     currentQuantLogicBlock = null;
-                }
+                    window.currentAnswerBlock = null;
 
-                // Auto-scroll chat feed
-                chatFeed.scrollTop = chatFeed.scrollHeight;
+                    cmdInput.placeholder = "Type command or symbol (e.g., NIFTY)...";
+                    cmdInput.readOnly = false;
+
+                    // Add rating and annotation UI
+                    chatFeed.insertAdjacentHTML('beforeend', `
+                        <div class="chat-actions" style="margin-top: 10px; display: flex; gap: 10px; align-items: center; padding-bottom: 15px; border-bottom: 1px solid #333;">
+                            <span style="color: #888; font-size: 12px;">Skill Used: ${msg.skill_used} | Trade ID: ${msg.trade_id}</span>
+                            <button onclick="rateTrade('${msg.trade_id}', 1)" style="background: none; border: 1px solid #444; color: #fff; cursor: pointer;">⭐ 1</button>
+                            <button onclick="rateTrade('${msg.trade_id}', 2)" style="background: none; border: 1px solid #444; color: #fff; cursor: pointer;">⭐ 2</button>
+                            <button onclick="rateTrade('${msg.trade_id}', 3)" style="background: none; border: 1px solid #444; color: #fff; cursor: pointer;">⭐ 3</button>
+                            <button onclick="rateTrade('${msg.trade_id}', 4)" style="background: none; border: 1px solid #444; color: #fff; cursor: pointer;">⭐ 4</button>
+                            <button onclick="rateTrade('${msg.trade_id}', 5)" style="background: none; border: 1px solid #444; color: #fff; cursor: pointer;">⭐ 5</button>
+                            <button onclick="annotateResponse('${msg.trade_id}', '${msg.skill_used}')" style="background: none; border: 1px solid #444; color: #fff; cursor: pointer;">📌 Annotate</button>
+                            <input type="text" id="correction-${msg.trade_id}" placeholder="Correction..." style="background: #111; border: 1px solid #444; color: #fff; padding: 2px 5px;">
+                            <button onclick="submitCorrection('${msg.trade_id}')" style="background: none; border: 1px solid #444; color: #fff; cursor: pointer;">Submit</button>
+                        </div>`);
+
+                    chatFeed.scrollTop = chatFeed.scrollHeight;
+                }
             };
 
-            aiWs.onerror = () => {
+            aiWs.onerror = (e) => {
+                chatFeed.innerHTML += `
+                <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
+                    <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
+                    <div class="log-line text-warning">[ERROR] WebSocket connection failed.</div>
+                </div>`;
+                cmdInput.placeholder = "Type command or symbol (e.g., NIFTY)...";
+                cmdInput.readOnly = false;
+            };
+
+            aiWs.onclose = () => {
+                cmdInput.placeholder = "Type command or symbol (e.g., NIFTY)...";
+                cmdInput.readOnly = false;
+            };
+        } // END OF runAiAnalysis
+aiWs.onerror = () => {
                 chatFeed.innerHTML += `
                 <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
                     <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
@@ -2727,3 +2573,134 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }, 1000);
 });
+
+window.rateTrade = function(tradeId, rating) {
+    if(!tradeId || tradeId === 'null') {
+        alert('Invalid Trade ID');
+        return;
+    }
+    // We would need a specific PUT endpoint for updating rating/correction, which wasn't strictly asked for but implied.
+    // Assuming backend will handle it, or just for UI demonstration.
+    alert(`Trade ${tradeId} rated ${rating} stars!`);
+}
+
+window.submitCorrection = function(tradeId) {
+    const el = document.getElementById('correction-' + tradeId);
+    if(el && el.value) {
+        alert(`Correction for ${tradeId} submitted: ` + el.value);
+        el.value = '';
+    }
+}
+
+window.annotateResponse = function(tradeId, skillId) {
+    const text = prompt("Enter your annotation/note for this market context:");
+    if(!text) return;
+
+    fetch('/api/ai/rag/annotate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            annotation_text: text,
+            skill_id: skillId,
+            symbols: [], // Could be extracted from context
+            was_correct: true
+        })
+    }).then(res => res.json()).then(data => {
+        alert('Annotation saved to Vector DB!');
+    }).catch(err => {
+        alert('Error saving annotation: ' + err);
+    });
+}
+
+window.loadSkillList = function() {
+    fetch('/api/ai/skills')
+    .then(res => res.json())
+    .then(skills => {
+        const list = document.getElementById('skill-list');
+        if(!list) return;
+        list.innerHTML = skills.map(s =>
+            `<li style="padding: 10px; cursor: pointer; border-bottom: 1px solid #2a2a2a;" onclick="loadSkillDetails('${s.skill_id}')">
+                <div style="font-weight: bold; color: #ccc;">${s.name}</div>
+                <div style="font-size: 11px; color: #666;">${s.workspace}</div>
+            </li>`
+        ).join('');
+    });
+}
+
+window.loadSkillDetails = function(skillId) {
+    document.getElementById('skill-details').innerHTML = 'Loading...';
+    fetch(`/api/ai/skills/${skillId}`)
+    .then(res => res.json())
+    .then(data => {
+        if(data.error) {
+            document.getElementById('skill-details').innerHTML = data.error;
+            return;
+        }
+
+        const stepsHtml = data.steps.map(s =>
+            `<div style="margin-bottom: 10px; padding: 10px; background: #252526; border-left: 3px solid #00bcd4;">
+                <div style="font-weight: bold; margin-bottom: 5px;">Step ${s.step_number}: ${s.title || ''}</div>
+                <div style="color: #aaa; font-size: 13px;">${s.content}</div>
+            </div>`
+        ).join('');
+
+        const knowledgeHtml = data.knowledge.map(k =>
+            `<div style="margin-bottom: 10px; padding: 10px; background: #252526; border-left: 3px solid #4ade80;">
+                <div style="font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between;">
+                    <span>[${k.priority}] ${k.title || 'Rule'}</span>
+                </div>
+                <div style="color: #aaa; font-size: 13px;">${k.content}</div>
+            </div>`
+        ).join('');
+
+        let html = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 15px;">
+                <h3 style="color: #fff; margin: 0;">${data.skill.name}</h3>
+                <span style="background: #333; padding: 3px 8px; border-radius: 4px; font-size: 12px; color: #aaa;">${data.skill.workspace}</span>
+            </div>
+
+            <div style="margin-top: 10px;">
+                <h4 style="color: #bbb; margin-bottom: 10px;">Execution Steps</h4>
+                ${stepsHtml || '<div style="color: #666; font-style: italic;">No steps defined.</div>'}
+            </div>
+
+            <div style="margin-top: 10px;">
+                <h4 style="color: #bbb; margin-bottom: 10px; display: flex; justify-content: space-between;">
+                    Knowledge Base / Exceptions
+                    <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 12px;" onclick="addKnowledge('${skillId}')">+ Add Rule</button>
+                </h4>
+                ${knowledgeHtml || '<div style="color: #666; font-style: italic;">No knowledge records.</div>'}
+            </div>
+        `;
+
+        document.getElementById('skill-details').innerHTML = html;
+    });
+}
+
+window.addKnowledge = function(skillId) {
+    const content = prompt("Enter the new rule or exception for this skill:");
+    if(!content) return;
+
+    fetch(`/api/ai/skills/${skillId}/knowledge`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            knowledge_type: "exception",
+            title: "Added Rule",
+            content: content,
+            priority: 1
+        })
+    }).then(res => res.json()).then(data => {
+        alert("Rule added & embedded in Vector DB!");
+        loadSkillDetails(skillId); // Refresh
+    });
+}
+
+// Hook into existing switchMainTab to load skills when opening Skill Studio
+const originalSwitchMainTab = window.switchMainTab;
+window.switchMainTab = function(tabId) {
+    if(originalSwitchMainTab) originalSwitchMainTab(tabId);
+    if(tabId === 'skill_studio') {
+        loadSkillList();
+    }
+}

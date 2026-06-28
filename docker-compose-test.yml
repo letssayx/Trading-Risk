@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  timescaledb:
+    image: postgres:14
+    container_name: test_db
+    environment:
+      - POSTGRES_USER=turtle_admin
+      - POSTGRES_PASSWORD=turtle_pass
+      - POSTGRES_DB=turtle_terminal
+    ports:
+      - "5432:5432"
+    restart: always
