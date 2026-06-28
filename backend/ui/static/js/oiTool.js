@@ -102,7 +102,7 @@ const OiTool = {
                                 <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="oi-scatter-expiry-only" style="margin-right: 5px;" onchange="OiTool.loadAggregatedData()"> Expiry</label>
                                 <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="oi-scatter-combined-oi" style="margin-right: 5px;" onchange="OiTool.loadAggregatedData()"> Comb. OI</label>
                             </div>
-                            <button class="btn btn-secondary" onclick="OiTool.exportScatterCSV()"><i class="fas fa-download"></i> CSV</button>
+                            <button class="btn btn-secondary" onclick="OiTool.exportScatterExcel()"><i class="fas fa-download"></i> Excel</button>
                         </div>
                         <div id="oi-chart-area" style="flex: 1; min-height: 600px;">
                             <p style="padding: 20px; text-align: center; color: #888;">Loading Quadrant Scatter Plot...</p>
@@ -112,7 +112,7 @@ const OiTool = {
                     <!-- Table Area -->
                     <div class="table-wrapper" style="border: 1px solid #333; border-radius: 4px; overflow: hidden; flex-shrink: 0; display: flex; flex-direction: column;">
                         <div style="display: flex; justify-content: flex-end; padding: 5px 10px; background: #222; border-bottom: 1px solid #333; flex-shrink: 0;">
-                            <button class="btn btn-secondary" onclick="exportTableToCSV('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> CSV</button>
+                            <button class="btn btn-secondary" onclick="exportTableToExcel('oi-analysis-table', 'OI_Analysis_Data')"><i class="fas fa-download"></i> Excel</button>
                         </div>
                         <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
                             <table class="data-table" id="oi-analysis-table" style="width: 100%; table-layout: fixed;">
@@ -737,7 +737,7 @@ const OiTool = {
         Plotly.newPlot(container, [tracePath, traceMarkers], layout, {responsive: true});
     },
 
-    exportScatterCSV: function() {
+    exportScatterExcel: function() {
         const symbolFilter = document.getElementById('oi-symbol').value.toUpperCase().trim();
         const sectorFilter = document.getElementById('oi-sector-filter').value;
         let displayData = this.allData;
@@ -754,15 +754,37 @@ const OiTool = {
             return;
         }
 
-        let csv = "Symbol,Sector,Price Change %,OI Change %,Quadrant\n";
-        displayData.forEach((d, index) => {
-            csv += `"${d.symbol}","${d.sector || ''}","${d.price_chg_pct}","${d.oi_chg_pct}","${d.interpretation}"\n`;
+        const dataArray = [["Symbol", "Sector", "Price Change %", "OI Change %", "Quadrant"]];
+        displayData.forEach(d => {
+            dataArray.push([
+                d.symbol,
+                d.sector || '',
+                d.price_chg_pct,
+                d.oi_chg_pct,
+                d.interpretation
+            ]);
         });
 
+        const filename = `OI_Scatter_Data_${new Date().toISOString().slice(0,10)}`;
+
+        if (typeof XLSX !== 'undefined') {
+            try {
+                const ws = XLSX.utils.aoa_to_sheet(dataArray);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "OI Scatter Data");
+                XLSX.writeFile(wb, `${filename}.xlsx`);
+                return;
+            } catch (e) {
+                console.error("Error exporting to Excel:", e);
+            }
+        }
+
+        console.warn("XLSX library not loaded or failed. Falling back to CSV.");
+        let csv = dataArray.map(row => row.map(v => `"${v}"`).join(",")).join("\n");
         const blob = new Blob([csv], { type: 'text/csv' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `OI_Scatter_Data_${new Date().toISOString().slice(0,10)}.csv`;
+        link.download = `${filename}.csv`;
         link.click();
     },
 
