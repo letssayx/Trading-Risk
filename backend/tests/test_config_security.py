@@ -16,12 +16,12 @@ def test_unauthorized_config_update():
 
 def test_authorized_config_update(monkeypatch):
     # Set the expected ADMIN_TOKEN in the environment
-    monkeypatch.setenv("ADMIN_TOKEN", "supersecret123")
+    monkeypatch.setenv("ADMIN_TOKEN", "test_admin_token_123")
 
     # Attempt update with the correct token
     response = client.post(
         "/api/config",
-        headers={"X-Admin-Token": "supersecret123"},
+        headers={"X-Admin-Token": "test_admin_token_123"},
         json={"google_api_key": "new_fake_key"}
     )
 
@@ -29,7 +29,7 @@ def test_authorized_config_update(monkeypatch):
     assert os.environ["GOOGLE_API_KEY"] == "new_fake_key"
 
 def test_wrong_token_config_update(monkeypatch):
-    monkeypatch.setenv("ADMIN_TOKEN", "supersecret123")
+    monkeypatch.setenv("ADMIN_TOKEN", "test_admin_token_123")
 
     response = client.post(
         "/api/config",
