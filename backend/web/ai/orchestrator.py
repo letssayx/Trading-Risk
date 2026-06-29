@@ -33,6 +33,43 @@ class TerminalOrchestrator:
         self.db = db
         self.session_id = session_id
 
+    async def step1_detect_skill_and_symbols(self, command: str, workspace: str) -> tuple[str, list]:
+        """Detects the required skill from groq, and ALSO extracts any stock symbols mentioned."""
+        import json
+        prompt = f"""
+        You are a financial router.
+        User query: "{command}"
+        Current Workspace: "{workspace}"
+
+        Available Skills for {workspace}: {", ".join(WORKSPACE_SKILLS.get(workspace, []))}
+
+        1. Select the BEST matching skill. If none fits perfectly, pick the most generic one for the workspace.
+        2. Extract any Indian stock ticker symbols mentioned in the query (e.g. NIFTY, BANKNIFTY, RELIANCE).
+
+        Return exactly and only a JSON object like:
+        {{"skill_id": "oi_analysis", "symbols": ["NIFTY", "RELIANCE"]}}
+        """
+
+        try:
+            response = await self.groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                temperature=0.1
+            )
+            raw_text = response.choices[0].message.content.strip()
+            # Clean possible markdown JSON fences
+            if raw_text.startswith("```json"):
+                raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+
+            data = json.loads(raw_text)
+            skill_id = data.get("skill_id", WORKSPACE_SKILLS.get(workspace, ["technical_analysis"])[0])
+            symbols = data.get("symbols", [])
+            return skill_id, symbols
+        except Exception as e:
+            print(f"Skill/Symbol routing failed: {e}")
+            default_skill = WORKSPACE_SKILLS.get(workspace, ["technical_analysis"])[0]
+            return default_skill, []
+
     async def step1_detect_skill(self, command: str, workspace: str) -> str:
         """Micro-routing: Ask Groq to pick the best skill in the workspace for the given query."""
         if not workspace or workspace not in WORKSPACE_SKILLS:
@@ -66,13 +103,10 @@ class TerminalOrchestrator:
         # Fallback to first skill if error
         return allowed_skills[0]
 
-    def step2_pull_skill_package(self, skill_id: str, query: str):
+    def step2_pull_skill_package(self, skill_id: str, query_embedding: list):
         # 1. Pull Steps
         steps_objs = self.db.query(SkillStep).filter(SkillStep.skill_id == skill_id).order_by(SkillStep.step_number).all()
         steps = [f"Step {s.step_number}: {s.step_content}" for s in steps_objs]
-
-        # Get embedding of query for vector search
-        query_embedding = get_bge_m3_embedding(query)
         embedding_str = str(query_embedding).replace(' ', '')
 
         # We use a raw SQL for vector similarity because SQLAlchemy pgvector integration
@@ -107,8 +141,7 @@ class TerminalOrchestrator:
 
         return steps, knowledge, examples
 
-    def step3_pull_rag_context(self, query: str, skill_id: str):
-        query_embedding = get_bge_m3_embedding(query)
+    def step3_pull_rag_context(self, query_embedding: list, skill_id: str):
         embedding_str = str(query_embedding).replace(' ', '')
 
         veteran_annotations = []
@@ -146,12 +179,13 @@ class TerminalOrchestrator:
         return veteran_annotations, report_chunks, past_trades
 
     async def step4_pull_live_data(self, command: str, symbols: list):
+        import asyncio
         # We use a simplified DB extraction here, combining the tools we already have
         data_snapshot = {}
         for sym in symbols:
-            db_sym = search_db_symbol(self.db, sym)
+            db_sym = await asyncio.to_thread(search_db_symbol, self.db, sym)
             if db_sym:
-                data = fetch_detailed_db_data(self.db, db_sym, days=30)
+                data = await asyncio.to_thread(fetch_detailed_db_data, self.db, db_sym, days=30)
                 data_snapshot[db_sym] = data
         return data_snapshot
 
@@ -198,7 +232,9 @@ Output <think> block first, then your final answer.
     async def run_pipeline(self, command: str, workspace: str, symbols: list, stream_callback: Callable, think_callback: Callable) -> Dict[str, Any]:
         # 1. DETECT SKILL
         await think_callback("Detecting skill based on workspace...")
-        skill_id = await self.step1_detect_skill(command, workspace)
+        skill_id, llm_symbols = await self.step1_detect_skill_and_symbols(command, workspace)
+        if not symbols:
+            symbols = llm_symbols
         await think_callback(f"Skill selected: {skill_id}")
 
         # 2. PULL SKILL PACKAGE
@@ -266,14 +302,13 @@ Output <think> block first, then your final answer.
 
         # 8. SAVE TO trade_reasoning
         try:
-            query_emb = get_bge_m3_embedding(command)
             tr = TradeReasoning(
                 skill_id=skill_id,
                 query=command,
                 context_used={"live_data": live_data},
                 think_chain=think_content,
                 final_answer=final_answer,
-                embedding=query_emb
+                embedding=query_embedding
             )
             self.db.add(tr)
             self.db.commit()

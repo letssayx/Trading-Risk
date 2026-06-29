@@ -223,3 +223,30 @@ async def chat_endpoint(payload: dict, db: Session = Depends(get_db)):
     # Standard POST endpoint for AI Chat, mainly for programmatic access.
     # The actual UI relies heavily on the websocket /ws/ai-analyze, which we will refactor.
     return {"status": "Use WebSocket /ws/ai-analyze for streaming"}
+
+# Feedback endpoints
+from pydantic import BaseModel
+
+class RatingUpdate(BaseModel):
+    rating: int
+
+class CorrectionUpdate(BaseModel):
+    correction: str
+
+@router.put("/trade/{trade_id}/rate")
+def rate_trade(trade_id: int, payload: RatingUpdate, db: Session = Depends(get_db)):
+    tr = db.query(TradeReasoning).filter(TradeReasoning.id == trade_id).first()
+    if not tr:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    tr.user_rating = payload.rating
+    db.commit()
+    return {"message": "Rating saved successfully"}
+
+@router.put("/trade/{trade_id}/correction")
+def correct_trade(trade_id: int, payload: CorrectionUpdate, db: Session = Depends(get_db)):
+    tr = db.query(TradeReasoning).filter(TradeReasoning.id == trade_id).first()
+    if not tr:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    tr.correction = payload.correction
+    db.commit()
+    return {"message": "Correction saved successfully"}

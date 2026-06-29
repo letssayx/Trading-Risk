@@ -793,8 +793,30 @@
             aiWs = new WebSocket(`${protocol}//${window.location.host}/ws/ai-analyze`);
 
             aiWs.onopen = () => {
+                // Determine active workspace based on current UI state
+                let activeWorkspace = "DERIVATIVES";
+                const activeMainTab = document.querySelector('.main-tab.active');
+                if (activeMainTab) {
+                    const target = activeMainTab.getAttribute('data-target');
+                    if (target === 'special_arb') activeWorkspace = 'CORPORATE_ACTION';
+                    else if (target === 'fundamentals') activeWorkspace = 'FUNDAMENTAL';
+                    else if (target === 'terminal') activeWorkspace = 'TECHNICAL';
+                    else if (target === 'commodities') activeWorkspace = 'COMMODITY';
+                    else if (target === 'crypto') activeWorkspace = 'CRYPTO';
+                    else if (target === 'history' || target === 'derivatives') activeWorkspace = 'DERIVATIVES';
+                    // Thematic / Macro etc can be inferred from other context or defaults
+                }
+
+                // For symbols, we can try to extract basic ones from a symbol input if it exists, or let the backend do it.
+                // It was mentioned that backend symbol extraction was removed, so we should either add it back to backend or send an empty list and fix backend.
+                // For now, let's look for a global symbol input in the UI.
+                const globalSymbolInput = document.getElementById('global-symbol-input') || document.getElementById('deriv-symbol');
+                const symbols = globalSymbolInput && globalSymbolInput.value ? [globalSymbolInput.value.toUpperCase()] : [];
+
                 aiWs.send(JSON.stringify({
                     command: cmd,
+                    workspace: activeWorkspace,
+                    symbols: symbols,
                     keys: { groq: groqKey, openrouter: openrouterKey, google: googleKey },
                     session_id: "local_trader_01"
                 }));
@@ -875,22 +897,6 @@
                 cmdInput.readOnly = false;
             };
         } // END OF runAiAnalysis
-aiWs.onerror = () => {
-                chatFeed.innerHTML += `
-                <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                    <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
-                    <div class="log-line text-warning">[ERROR] WebSocket connection failed. Is backend running?</div>
-                </div>`;
-                cmdInput.placeholder = "_";
-                cmdInput.readOnly = false;
-            };
-
-            aiWs.onclose = () => {
-                 cmdInput.placeholder = "_";
-                 cmdInput.readOnly = false;
-                 currentQuantLogicBlock = null;
-            }
-        }
 
         // Global Shortcut Handler
         document.addEventListener('keydown', (e) => {
@@ -2579,16 +2585,32 @@ window.rateTrade = function(tradeId, rating) {
         alert('Invalid Trade ID');
         return;
     }
-    // We would need a specific PUT endpoint for updating rating/correction, which wasn't strictly asked for but implied.
-    // Assuming backend will handle it, or just for UI demonstration.
-    alert(`Trade ${tradeId} rated ${rating} stars!`);
+    fetch(`/api/ai/trade/${tradeId}/rate`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rating: rating})
+    }).then(res => res.json()).then(data => {
+        alert(`Trade ${tradeId} rated ${rating} stars!`);
+    }).catch(e => {
+        console.error("Error rating trade", e);
+        alert("Failed to rate trade");
+    });
 }
 
 window.submitCorrection = function(tradeId) {
     const el = document.getElementById('correction-' + tradeId);
     if(el && el.value) {
-        alert(`Correction for ${tradeId} submitted: ` + el.value);
-        el.value = '';
+        fetch(`/api/ai/trade/${tradeId}/correction`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({correction: el.value})
+        }).then(res => res.json()).then(data => {
+            alert(`Correction for ${tradeId} submitted!`);
+            el.value = '';
+        }).catch(e => {
+            console.error("Error submitting correction", e);
+            alert("Failed to submit correction");
+        });
     }
 }
 
@@ -2697,9 +2719,9 @@ window.addKnowledge = function(skillId) {
 }
 
 // Hook into existing switchMainTab to load skills when opening Skill Studio
-const originalSwitchMainTab = window.switchMainTab;
-window.switchMainTab = function(tabId) {
-    if(originalSwitchMainTab) originalSwitchMainTab(tabId);
+const _skillStudioOriginalSwitchMainTab = switchMainTab;
+switchMainTab = function(tabId) {
+    if(_skillStudioOriginalSwitchMainTab) _skillStudioOriginalSwitchMainTab(tabId);
     if(tabId === 'skill_studio') {
         loadSkillList();
     }
