@@ -7,9 +7,9 @@ services:
       dockerfile: Dockerfile.db
     container_name: turtle_db
     environment:
-      - POSTGRES_USER=turtle_admin
-      - POSTGRES_PASSWORD=turtle_pass
-      - POSTGRES_DB=turtle_terminal
+      - POSTGRES_USER=trading
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=trading_risk
     ports:
       - "5432:5432"
     volumes:
