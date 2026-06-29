@@ -152,7 +152,7 @@ async def get_workbench():
 
 @app.get("/derivatives")
 async def get_derivatives():
-    return FileResponse("backend/ui/templates/chat.html")
+    return FileResponse("backend/ui/templates/derivatives.html")
 
 @app.get("/strategy-composer")
 async def get_strategy_composer():
