@@ -40,9 +40,13 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
             data = await websocket.receive_text()
             payload = json.loads(data)
 
-                    command = payload.get("command")
+            command = payload.get("command")
             workspace = payload.get("workspace", "DERIVATIVES")
             symbols = payload.get("symbols", [])
+
+            # Extract keys properly from payload (as they were originally extracted)
+            keys = payload.get("keys", {})
+            session_id = payload.get("session_id", "anonymous")
 
             groq_key = keys.get("groq") or os.getenv("GROQ_API_KEY")
             openrouter_key = keys.get("openrouter") or os.getenv("OPENROUTER_API_KEY")
@@ -73,7 +77,7 @@ async def ai_analyze_ws(websocket: WebSocket, db: Session = Depends(get_db)):
                 "skill_used": result["skill_used"],
                 "trade_id": result["trade_id"]
             }))
-except WebSocketDisconnect:
+    except WebSocketDisconnect:
         pass # Client disconnected
 
 # ---------------------------------------------------------
