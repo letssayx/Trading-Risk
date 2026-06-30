@@ -2,9 +2,11 @@ version: '3.8'
 
 services:
   timescaledb:
-    build:
-      context: .
-      dockerfile: Dockerfile.db
+    # image: timescale/timescaledb-ha:pg16-latest
+    image: postgres:16
+    # build:
+    #  context: .
+    #  dockerfile: Dockerfile.db
     container_name: turtle_db
     environment:
       - POSTGRES_USER=trading
