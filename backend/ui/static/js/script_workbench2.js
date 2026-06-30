@@ -875,22 +875,6 @@
                 cmdInput.readOnly = false;
             };
         } // END OF runAiAnalysis
-aiWs.onerror = () => {
-                chatFeed.innerHTML += `
-                <div class="chat-message error-message" style="padding: 10px 0; border-bottom: 1px solid #222;">
-                    <div style="color: #b8860b; font-weight: bold; margin-bottom: 5px;">[SYSTEM ERROR]</div>
-                    <div class="log-line text-warning">[ERROR] WebSocket connection failed. Is backend running?</div>
-                </div>`;
-                cmdInput.placeholder = "_";
-                cmdInput.readOnly = false;
-            };
-
-            aiWs.onclose = () => {
-                 cmdInput.placeholder = "_";
-                 cmdInput.readOnly = false;
-                 currentQuantLogicBlock = null;
-            }
-        }
 
         // Global Shortcut Handler
         document.addEventListener('keydown', (e) => {
@@ -2697,10 +2681,11 @@ window.addKnowledge = function(skillId) {
 }
 
 // Hook into existing switchMainTab to load skills when opening Skill Studio
-const originalSwitchMainTab = window.switchMainTab;
-window.switchMainTab = function(tabId) {
-    if(originalSwitchMainTab) originalSwitchMainTab(tabId);
+const _skillStudioOriginalSwitchMainTab = switchMainTab;
+switchMainTab = function(tabId) {
+    if(_skillStudioOriginalSwitchMainTab) _skillStudioOriginalSwitchMainTab(tabId);
     if(tabId === 'skill_studio') {
-        loadSkillList();
+        if (typeof loadSkillList === 'function') loadSkillList();
     }
 }
+window.switchMainTab = switchMainTab;
