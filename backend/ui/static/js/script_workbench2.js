@@ -30,7 +30,7 @@
                     switchDerivTab('matrix');
                 } else if (document.querySelector('#deriv-tab-matrix').classList.contains('active') && document.getElementById('mr-data-body').innerHTML.includes('No data')) {
                      // Automatically load NIFTY snapshot if empty
-                     if (typeof loadTimeseriesData === 'function') loadTimeseriesData(false);
+                     if (typeof loadTimeseriesData === 'function') loadTimeseriesData(true);
                 }
             }
 
