@@ -72,6 +72,7 @@ class NSEDataImporter:
         mapping = {
             'bhavcopy_eq': ['symbol', 'series', 'trade_date'],
             'bhavcopy_fo': ['trade_date', 'ticker_symb', 'instrument_type', 'expiry_date', 'strike_price', 'option_type'],
+            'fii_dii_cash': [], # Force delete-insert
             'fao_participant_oi': ['trade_date', 'client_type'],
             'fo_volatility': ['trade_date', 'symbol'],
             # Bulk/Block deals: No unique fields for upsert anymore (we do delete-insert)
@@ -91,7 +92,7 @@ class NSEDataImporter:
             # No unique fields for upsert anymore (we do delete-insert)
             'corporate_actions': ['date', 'symbol', 'purpose'],
             'board_meetings': ['date', 'symbol', 'purpose'],
-            'fii_dii_cash': ['trade_date', 'category'],
+
             'historical_index_data': ['trade_date', 'index_name'],
         }
         return mapping.get(key, [])
