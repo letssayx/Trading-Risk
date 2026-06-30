@@ -226,6 +226,7 @@ async def chat_endpoint(payload: dict, db: Session = Depends(get_db)):
 
 # Feedback endpoints
 from pydantic import BaseModel
+from fastapi import HTTPException
 
 class RatingUpdate(BaseModel):
     rating: int
@@ -233,7 +234,7 @@ class RatingUpdate(BaseModel):
 class CorrectionUpdate(BaseModel):
     correction: str
 
-@router.put("/trade/{trade_id}/rate")
+@ai_router.put("/api/ai/trade/{trade_id}/rate")
 def rate_trade(trade_id: int, payload: RatingUpdate, db: Session = Depends(get_db)):
     tr = db.query(TradeReasoning).filter(TradeReasoning.id == trade_id).first()
     if not tr:
@@ -242,7 +243,7 @@ def rate_trade(trade_id: int, payload: RatingUpdate, db: Session = Depends(get_d
     db.commit()
     return {"message": "Rating saved successfully"}
 
-@router.put("/trade/{trade_id}/correction")
+@ai_router.put("/api/ai/trade/{trade_id}/correction")
 def correct_trade(trade_id: int, payload: CorrectionUpdate, db: Session = Depends(get_db)):
     tr = db.query(TradeReasoning).filter(TradeReasoning.id == trade_id).first()
     if not tr:
