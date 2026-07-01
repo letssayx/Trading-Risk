@@ -265,7 +265,7 @@ def upgrade() -> None:
         sa.Column('message', sa.Text(), nullable=True),
         sa.Column('user_id', sa.String(length=50), nullable=True),
         sa.Column('meta_data', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('timestamp', 'id')
     )
     op.create_index('idx_syslog_source', 'system_logs', ['source'], unique=False)
     op.create_index('idx_syslog_ts_level', 'system_logs', ['timestamp', 'level'], unique=False)
@@ -361,11 +361,7 @@ def upgrade() -> None:
     ]
 
     for table, time_col in tables_to_convert:
-        try:
-            op.execute(f"SELECT create_hypertable('{table}', '{time_col}', if_not_exists => TRUE);")
-        except Exception:
-            # Fallback or ignore if Timescale not available/already created
-            pass
+        op.execute(f"SELECT create_hypertable('{table}', '{time_col}', if_not_exists => TRUE);")
 
 
 def downgrade() -> None:

@@ -1,1 +1,0 @@
-docker exec turtle_db psql -U trading -d trading_risk -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO trading; CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE; CREATE EXTENSION IF NOT EXISTS vector CASCADE;"
