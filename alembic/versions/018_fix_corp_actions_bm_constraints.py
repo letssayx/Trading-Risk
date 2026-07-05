@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
-revision = '018_fix_corp_actions_bm_constraints'
-down_revision = '017_add_uq_historical_atm_iv_unique'
+revision = '018_fix_corp_actions'
+down_revision = '017_uq_atm_iv'
 branch_labels = None
 depends_on = None
 

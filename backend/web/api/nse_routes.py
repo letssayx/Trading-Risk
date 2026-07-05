@@ -131,6 +131,28 @@ async def cancel_import_task(task_id: str):
         raise HTTPException(status_code=500, detail={"message": "Failed to cancel task", "error": str(e)})
 
 
+
+@router.post("/ingest/import/force-kill-all")
+async def force_kill_all_import_tasks():
+    """
+    Forcefully Terminate ALL running Celery tasks.
+    """
+    try:
+        from backend.celery_worker import app as celery_app
+        # This will forcefully kill all active tasks
+        i = celery_app.control.inspect()
+        active_tasks = i.active()
+        killed = 0
+        if active_tasks:
+            for worker, tasks in active_tasks.items():
+                for task in tasks:
+                    celery_app.control.revoke(task['id'], terminate=True, signal='SIGKILL')
+                    killed += 1
+        return {"success": True, "message": f"Forcefully terminated {killed} tasks."}
+    except Exception as e:
+        logger.error(f"Failed to force kill all tasks: {e}")
+        raise HTTPException(status_code=500, detail={"message": "Failed to force kill all tasks", "error": str(e)})
+
 @router.post("/ingest/import/force-kill/{task_id}")
 async def force_kill_import_task(task_id: str):
     """

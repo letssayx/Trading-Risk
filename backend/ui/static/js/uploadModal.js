@@ -1,3 +1,4 @@
+_currentRunningTaskId = null;
 // Global function to switch tabs (moved outside class to ensure availability)
 window.openImportTab = (tabName) => {
     document.querySelectorAll('.import-tab-content').forEach(el => el.style.display = 'none');
