@@ -628,7 +628,7 @@ class NSELib:
                     # We want to check for dividend announcements even if the main purpose says "Financial Results"
                     # But we only proceed if we find a dividend mention in the purpose, desc, OR if there's a matching corporate announcement
                     # We MUST correlate the dates to prevent flagging every board meeting for this company!
-                    has_dividend_mention = 'dividend' in purpose or 'dividend' in desc
+                    has_dividend_mention = 'dividend' in purpose or 'dividend' in desc or 'intdiv' in purpose or 'int div' in purpose or 'intdiv' in desc or 'int div' in desc
 
                     try:
                         bm_date_obj_check = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
@@ -652,7 +652,7 @@ class NSELib:
                     if has_dividend_mention or is_agm:
                         found_amount = None
                         found_record_date = None
-                        found_type = 'Final' if 'interim' not in purpose and 'special' not in purpose else ('Interim' if 'interim' in purpose else 'Special')
+                        found_type = 'Final' if 'interim' not in purpose and 'intdiv' not in purpose and 'int div' not in purpose and 'special' not in purpose else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else 'Special')
 
                         if is_agm:
                             found_type = 'AGM'
@@ -693,7 +693,7 @@ class NSELib:
                                         found_amount = sum(float(m) for m in matches)
 
                                 if found_amount:
-                                    if 'interim' in subject.lower(): found_type = 'Interim'
+                                    if 'interim' in subject.lower() or 'intdiv' in subject.lower() or 'int div' in subject.lower(): found_type = 'Interim'
                                     elif 'special' in subject.lower(): found_type = 'Special'
 
                                 rec_date = ca.get('recDate')
@@ -766,8 +766,8 @@ class NSELib:
                                 ui_patterns = [
                                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
                                     r'(\d+(?:\.\d+)?)\s*\/\-',
-                                    r'dividend\s+of\s+(\d+(?:\.\d+)?)',
-                                    r'dividend.*?\s+(\d+(?:\.\d+)?)\s+per'
+                                    r'(?:dividend|int\s*div)\s+of\s+(\d+(?:\.\d+)?)',
+                                    r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?)\s+per'
                                 ]
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE)
@@ -776,7 +776,7 @@ class NSELib:
                                         break
 
                             if found_amount:
-                                if 'interim' in text_to_search.lower(): found_type = 'Interim'
+                                if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
                         # Only execute PDF fallbacks if the board meeting date has passed or is today.

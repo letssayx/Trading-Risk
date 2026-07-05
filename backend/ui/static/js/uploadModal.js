@@ -311,13 +311,16 @@ class NSEImporter {
                 if (!confirm("Are you sure you want to forcefully kill this task? This may leave intermediate data states.")) return;
 
                 const taskId = localStorage.getItem('activeImportTaskId');
-                if (taskId) {
-                    try {
+                try {
+                    if (taskId) {
                         await fetch(`/api/v1/nse/ingest/import/force-kill/${taskId}`, { method: 'POST' });
                         console.log(`Sent force kill request for task ${taskId}`);
-                    } catch (e) {
-                        console.error("Failed to send force kill request", e);
+                    } else {
+                        await fetch(`/api/v1/nse/ingest/import/force-kill-all`, { method: 'POST' });
+                        console.log(`Sent force kill all request`);
                     }
+                } catch (e) {
+                    console.error("Failed to send force kill request", e);
                 }
                 this.stopPolling();
                 if (this.progressArea) this.progressArea.style.display = 'none';
