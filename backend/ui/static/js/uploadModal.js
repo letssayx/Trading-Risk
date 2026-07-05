@@ -277,6 +277,53 @@ class NSEImporter {
             });
         }
 
+        // Pause/Resume Task
+        const btnPause = document.getElementById('btn-pause-polling');
+        if (btnPause) {
+            btnPause.addEventListener('click', async () => {
+                const taskId = localStorage.getItem('activeImportTaskId');
+                if (taskId) {
+                    const isPaused = btnPause.getAttribute('data-paused') === 'true';
+                    const endpoint = isPaused ? 'resume' : 'pause';
+                    try {
+                        await fetch(`/api/v1/nse/ingest/import/${endpoint}/${taskId}`, { method: 'POST' });
+                        if (isPaused) {
+                            btnPause.setAttribute('data-paused', 'false');
+                            btnPause.textContent = 'Pause Task';
+                            btnPause.style.background = '#f39c12';
+                        } else {
+                            btnPause.setAttribute('data-paused', 'true');
+                            btnPause.textContent = 'Resume Task';
+                            btnPause.style.background = '#27ae60';
+                        }
+                    } catch (e) {
+                        console.error(`Failed to send ${endpoint} request`, e);
+                    }
+                }
+            });
+        }
+
+        // Force Kill Task
+        const btnForceKill = document.getElementById('btn-force-kill');
+        if (btnForceKill) {
+            btnForceKill.addEventListener('click', async () => {
+                if (!confirm("Are you sure you want to forcefully kill this task? This may leave intermediate data states.")) return;
+
+                const taskId = localStorage.getItem('activeImportTaskId');
+                if (taskId) {
+                    try {
+                        await fetch(`/api/v1/nse/ingest/import/force-kill/${taskId}`, { method: 'POST' });
+                        console.log(`Sent force kill request for task ${taskId}`);
+                    } catch (e) {
+                        console.error("Failed to send force kill request", e);
+                    }
+                }
+                this.stopPolling();
+                if (this.progressArea) this.progressArea.style.display = 'none';
+                console.log("Forcefully killed task and stopped tracking.");
+            });
+        }
+
         // Initial load
         this.fetchHistory();
     }

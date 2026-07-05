@@ -12,6 +12,17 @@ import os
 
 logger = get_task_logger(__name__)
 
+
+def check_pause_flag(task_id: str) -> bool:
+    import redis
+    import os
+    try:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        return r.exists(f"pause_task_{task_id}") > 0
+    except Exception:
+        return False
+
 def check_cancel_flag(task_id: str) -> bool:
     try:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -28,10 +39,22 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
     # Progress callback to update Celery state
     def progress_callback(progress_dict: dict):
         self.update_state(state='PROGRESS', meta=progress_dict)
+        handle_pause()
         logger.info(f"Task Progress: {progress_dict}")
+        handle_pause()
 
     def is_cancelled():
         return check_cancel_flag(self.request.id)
+
+    def handle_pause():
+        import time
+        if check_pause_flag(self.request.id):
+            self.update_state(state='PROGRESS', meta={'status': 'PAUSED', 'message': 'Task is paused. Waiting to resume...'})
+            while check_pause_flag(self.request.id):
+                if is_cancelled():
+                    break
+                time.sleep(5)
+            self.update_state(state='PROGRESS', meta={'status': 'RESUMED', 'message': 'Task resumed.'})
 
     try:
         if isinstance(date_str, str):
@@ -113,6 +136,16 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
     def is_cancelled():
         return check_cancel_flag(self.request.id)
 
+    def handle_pause():
+        import time
+        if check_pause_flag(self.request.id):
+            self.update_state(state='PROGRESS', meta={'status': 'PAUSED', 'message': 'Task is paused. Waiting to resume...'})
+            while check_pause_flag(self.request.id):
+                if is_cancelled():
+                    break
+                time.sleep(5)
+            self.update_state(state='PROGRESS', meta={'status': 'RESUMED', 'message': 'Task resumed.'})
+
     try:
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
@@ -193,6 +226,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                         'status': f'Skipping {current_date} (Done)'
                     })
                 else:
+                    handle_pause()
                     # Update task state for range progress
                     self.update_state(state='PROGRESS', meta={
                         'current_date': current_date.isoformat(),
@@ -229,9 +263,20 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
 
     def progress_callback(progress_dict: dict):
         self.update_state(state='PROGRESS', meta=progress_dict)
+        handle_pause()
 
     def is_cancelled():
         return check_cancel_flag(self.request.id)
+
+    def handle_pause():
+        import time
+        if check_pause_flag(self.request.id):
+            self.update_state(state='PROGRESS', meta={'status': 'PAUSED', 'message': 'Task is paused. Waiting to resume...'})
+            while check_pause_flag(self.request.id):
+                if is_cancelled():
+                    break
+                time.sleep(5)
+            self.update_state(state='PROGRESS', meta={'status': 'RESUMED', 'message': 'Task resumed.'})
 
     try:
         importer = NSEDataImporter()

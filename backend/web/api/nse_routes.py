@@ -130,6 +130,54 @@ async def cancel_import_task(task_id: str):
         logger.error(f"Failed to cancel task {task_id}: {e}")
         raise HTTPException(status_code=500, detail={"message": "Failed to cancel task", "error": str(e)})
 
+
+@router.post("/ingest/import/force-kill/{task_id}")
+async def force_kill_import_task(task_id: str):
+    """
+    Forcefully Terminate a running Celery import task.
+    """
+    try:
+        from backend.celery_worker import app as celery_app
+        # This will forcefully kill the worker executing the task
+        celery_app.control.revoke(task_id, terminate=True, signal='SIGKILL')
+        return {"success": True, "message": f"Task {task_id} forcefully terminated."}
+    except Exception as e:
+        logger.error(f"Failed to force kill task {task_id}: {e}")
+        raise HTTPException(status_code=500, detail={"message": "Failed to force kill task", "error": str(e)})
+
+
+@router.post("/ingest/import/pause/{task_id}")
+async def pause_import_task(task_id: str):
+    """
+    Pause a running Celery import task by setting a Redis flag.
+    """
+    try:
+        import redis
+        import os
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        r.setex(f"pause_task_{task_id}", 86400, "1")  # Expire after 24 hours
+        return {"success": True, "message": f"Task {task_id} pause requested."}
+    except Exception as e:
+        logger.error(f"Failed to pause task {task_id}: {e}")
+        raise HTTPException(status_code=500, detail={"message": "Failed to pause task", "error": str(e)})
+
+@router.post("/ingest/import/resume/{task_id}")
+async def resume_import_task(task_id: str):
+    """
+    Resume a paused Celery import task by removing the Redis flag.
+    """
+    try:
+        import redis
+        import os
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        r.delete(f"pause_task_{task_id}")
+        return {"success": True, "message": f"Task {task_id} resume requested."}
+    except Exception as e:
+        logger.error(f"Failed to resume task {task_id}: {e}")
+        raise HTTPException(status_code=500, detail={"message": "Failed to resume task", "error": str(e)})
+
 @router.post("/ingest/import", response_model=dict[str, Any])
 async def trigger_import(
     request: NSEImportRequest,
