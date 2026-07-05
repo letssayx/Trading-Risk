@@ -3096,6 +3096,9 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="contract_delta"> Contract Delta</label>
                             </div>
                             <button id="btn-import-range" class="btn btn-primary" style="margin-top:10px;">Import Range</button>
+                            <button id="btn-pause-polling" data-paused="false" class="btn btn-warning" style="margin-top:10px; margin-left:10px; background:#f39c12; color:white; border:none;">Pause Task</button>
+                            <button id="btn-cancel-polling" class="btn btn-danger" style="margin-top:10px; margin-left:10px; background:#e74c3c; color:white; border:none;">Stop/Clear Task</button>
+                            <button id="btn-force-kill" class="btn btn-danger" style="margin-top:10px; margin-left:10px; background:#8e44ad; color:white; border:none;">Force Kill Task</button>
                             <label class="checkbox-label" style="margin-left:15px; margin-top:10px; display:inline-block;"><input type="checkbox" id="force-import-range" value="true"> Force Download (Ignore Holidays/Duplicates)</label>
                         </div>
                     </div>
@@ -3178,9 +3181,7 @@
 
                     <!-- Progress -->
                     <div id="import-progress-area" style="margin-top:20px; padding:15px; background:#222; border-radius:4px; display:none; position:relative;">
-                        <button id="btn-cancel-polling" style="position:absolute; top:10px; right:10px; background:#e74c3c; color:white; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:3px;">Stop/Clear Task</button>
-                        <button id="btn-pause-polling" data-paused="false" style="position:absolute; top:10px; right:120px; background:#f39c12; color:white; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:3px;">Pause Task</button>
-                        <button id="btn-force-kill" style="position:absolute; top:10px; right:200px; background:#8e44ad; color:white; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:3px;">Force Kill Task</button>
+
                         <div id="progress-text" style="color:#ccc; font-size:0.9em; width:80%;">Starting...</div>
                         <div style="width:100%; background:#444; height:10px; border-radius:5px; margin-top:8px;">
                             <div id="progress-bar" style="width:0%; background:#00bcd4; height:100%; border-radius:5px;"></div>
