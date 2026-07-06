@@ -1043,6 +1043,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <div></div>
                     <div style="display: flex; gap: 10px;">
+                        <button onclick="reparseHistoricalDividends()" class="btn btn-secondary" style="background-color: #6c757d;"><i class="fas fa-tools"></i> Reparse History</button>
                         <button onclick="loadDividendsData()" class="btn btn-primary"><i class="fas fa-sync"></i> Load Data</button>
                         <button onclick="downloadDividendsCSV()" class="btn btn-secondary"><i class="fas fa-download"></i> Download CSV</button>
                     </div>
@@ -3339,6 +3340,23 @@ function switchDividendsTab(tabId) {
     document.getElementById('div-content-actions').style.display = tabId === 'actions' ? 'flex' : 'none';
 
     currentDivTab = tabId;
+}
+
+async function reparseHistoricalDividends() {
+    if (!confirm("This will scan the database and re-extract dividend amounts from all historical records using the latest rules. Continue?")) return;
+
+    try {
+        const res = await fetch('/api/data/dividends/patch', { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            alert(`Success: ${data.updated_count} historical dividend records were updated! You can now click Load Data to see the fixed values.`);
+        } else {
+            alert('Failed to reparse dividends.');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('An error occurred while patching the database.');
+    }
 }
 
 async function loadDividendsData(forcedSymbol = null) {

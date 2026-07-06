@@ -634,6 +634,46 @@ async def delete_data_range(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+from backend.ingest.field_mapper import FieldMapper
+
+@router.post("/api/data/dividends/patch")
+def patch_historical_dividends(db: Session = Depends(get_db)):
+    try:
+        # Fetch all corporate actions
+        actions = db.query(CorporateAction).filter(
+            CorporateAction.purpose != None
+        ).all()
+
+        updated_count = 0
+        for action in actions:
+            if not action.purpose:
+                continue
+
+            # Attempt to parse
+            amount, div_type = FieldMapper._parse_dividend(action.purpose, action.face_value)
+
+            # Check if an update is needed
+            needs_update = False
+            if amount != action.parsed_dividend_amount:
+                action.parsed_dividend_amount = amount
+                needs_update = True
+
+            if div_type and div_type != action.dividend_type:
+                action.dividend_type = div_type
+                needs_update = True
+
+            if needs_update:
+                updated_count += 1
+
+        if updated_count > 0:
+            db.commit()
+
+        return {"status": "success", "updated_count": updated_count}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/api/data/view/list")
 async def list_data(
     type: str = Query(..., description="Data type (bhavcopy, participant_oi, etc.)"),
