@@ -164,49 +164,30 @@ async def cancel_import_task(task_id: str):
 @router.post("/ingest/import/force-kill-all")
 async def force_kill_all_tasks():
     """
-    Aggressively kill all Celery workers and clear task queues.
-    This uses os.system to kill python processes running celery to ensure they completely stop
-    re-running old tasks.
+    Aggressively kill all Celery workers and clear task queues from Redis.
     """
     import os
+    import redis
     try:
-        # Clear redis active task state
-        import redis
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         r = redis.from_url(redis_url)
+
+        # 1. Clear application state
         r.delete("active_import_task_id")
 
-        # Aggressively kill celery processes
+        # 2. Clear all default Celery queues so it doesn't remember pending/unacked tasks
+        r.delete("celery")
+        r.delete("unacked")
+        r.delete("unacked_index")
+
+        # 3. Aggressively kill running python celery processes at the OS level
+        # This guarantees it dies instantly without waiting to finish the current download.
         os.system("pkill -9 -f 'celery -A backend.main worker'")
 
-        # Clear celery default queues
-        r.delete("celery")
-
-        return {"success": True, "message": "All Celery workers killed and queues cleared. Please restart celery manually (e.g. docker-compose restart celery or run.sh)."}
+        return {"success": True, "message": "All Celery workers killed and queues cleared. Please restart celery manually (e.g. docker compose restart celery or run.sh)."}
     except Exception as e:
         logger.error(f"Failed to force kill all tasks: {e}")
         raise HTTPException(status_code=500, detail={"message": "Failed to kill all tasks", "error": str(e)})
-
-@router.post("/ingest/import/force-kill-all_old")
-async def force_kill_all_import_tasks():
-    """
-    Forcefully Terminate ALL running Celery tasks.
-    """
-    try:
-        from backend.celery_worker import app as celery_app
-        # This will forcefully kill all active tasks
-        i = celery_app.control.inspect()
-        active_tasks = i.active()
-        killed = 0
-        if active_tasks:
-            for worker, tasks in active_tasks.items():
-                for task in tasks:
-                    celery_app.control.revoke(task['id'], terminate=True, signal='SIGKILL')
-                    killed += 1
-        return {"success": True, "message": f"Forcefully terminated {killed} tasks."}
-    except Exception as e:
-        logger.error(f"Failed to force kill all tasks: {e}")
-        raise HTTPException(status_code=500, detail={"message": "Failed to force kill all tasks", "error": str(e)})
 
 @router.post("/ingest/import/force-kill/{task_id}")
 async def force_kill_import_task(task_id: str):
