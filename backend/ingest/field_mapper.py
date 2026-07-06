@@ -271,7 +271,7 @@ class FieldMapper:
 
         import re
 
-        has_dividend = 'dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower
+        has_dividend = bool('dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower or re.search(r'\bdiv\b|\bdiv-', purpose_lower))
         has_bonus = 'bonus' in purpose_lower
         has_split = 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower
         has_demerger = 'demerger' in purpose_lower or 'spin-off' in purpose_lower or 'spin off' in purpose_lower

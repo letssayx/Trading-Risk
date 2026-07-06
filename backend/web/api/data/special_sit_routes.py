@@ -83,7 +83,12 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         or_(
             CorporateAction.parsed_dividend_amount != None,
             CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger']),
-            CorporateAction.purpose.ilike('%dividend%')
+            CorporateAction.purpose.ilike('%dividend%'),
+            CorporateAction.purpose.ilike('%intdiv%'),
+            CorporateAction.purpose.ilike('%int div%'),
+            CorporateAction.purpose.ilike('%findiv%'),
+            CorporateAction.purpose.ilike('%fin div%'),
+            CorporateAction.purpose.ilike('%div%')
         )
     ).order_by(desc(CorporateAction.date)).all()
 
@@ -93,6 +98,11 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         BoardMeeting.date >= ten_years_ago,
         or_(
             BoardMeeting.purpose.ilike('%dividend%'),
+            BoardMeeting.purpose.ilike('%intdiv%'),
+            BoardMeeting.purpose.ilike('%int div%'),
+            BoardMeeting.purpose.ilike('%findiv%'),
+            BoardMeeting.purpose.ilike('%fin div%'),
+            BoardMeeting.purpose.ilike('%div%'),
             BoardMeeting.extracted_dividend_amount != None
         )
     ).order_by(desc(BoardMeeting.date)).all()
