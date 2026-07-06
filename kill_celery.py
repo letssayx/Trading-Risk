@@ -25,11 +25,12 @@ def aggressive_kill():
 
     logger.info("Sending SIGKILL to all Celery worker processes...")
     # Kill any python process containing the word celery
-    result = os.system("pkill -9 -f 'celery -A backend.main worker'")
+    os.system("pkill -9 -f 'celery -A backend.main worker'")
+    result = os.system("pkill -9 -f 'celery -A backend.celery_worker worker'")
     if result == 0:
         logger.info("Successfully killed Celery processes.")
     else:
-        logger.info("No active Celery processes found to kill.")
+        logger.info("No active Celery processes found to kill (or already killed).")
 
     print("\n--- DONE ---")
     print("All tasks have been forcibly killed and queues cleared.")

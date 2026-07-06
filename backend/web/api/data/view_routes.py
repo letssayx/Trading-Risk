@@ -639,10 +639,18 @@ from backend.ingest.field_mapper import FieldMapper
 @router.post("/api/data/dividends/patch")
 def patch_historical_dividends(db: Session = Depends(get_db)):
     try:
-        # Fetch all corporate actions
+        from sqlalchemy import or_
+        # Fetch all corporate actions that likely contain dividends but haven't been parsed
         actions = db.query(CorporateAction).filter(
             CorporateAction.purpose != None,
-            CorporateAction.parsed_dividend_amount == None
+            CorporateAction.parsed_dividend_amount == None,
+            or_(
+                CorporateAction.purpose.ilike('%dividend%'),
+                CorporateAction.purpose.ilike('%intdiv%'),
+                CorporateAction.purpose.ilike('%int div%'),
+                CorporateAction.purpose.ilike('%findiv%'),
+                CorporateAction.purpose.ilike('%fin div%')
+            )
         ).all()
 
         updated_count = 0
@@ -792,8 +800,7 @@ async def list_data(
             model.purpose.ilike('%intdiv%'),
             model.purpose.ilike('%int div%'),
             model.purpose.ilike('%findiv%'),
-            model.purpose.ilike('%fin div%'),
-            model.purpose.ilike('%div%')
+            model.purpose.ilike('%fin div%')
         ))
     # Handle FO Instrument filter
     if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':

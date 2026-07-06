@@ -87,8 +87,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             CorporateAction.purpose.ilike('%intdiv%'),
             CorporateAction.purpose.ilike('%int div%'),
             CorporateAction.purpose.ilike('%findiv%'),
-            CorporateAction.purpose.ilike('%fin div%'),
-            CorporateAction.purpose.ilike('%div%')
+            CorporateAction.purpose.ilike('%fin div%')
         )
     ).order_by(desc(CorporateAction.date)).all()
 
@@ -102,7 +101,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             BoardMeeting.purpose.ilike('%int div%'),
             BoardMeeting.purpose.ilike('%findiv%'),
             BoardMeeting.purpose.ilike('%fin div%'),
-            BoardMeeting.purpose.ilike('%div%'),
             BoardMeeting.extracted_dividend_amount != None
         )
     ).order_by(desc(BoardMeeting.date)).all()
