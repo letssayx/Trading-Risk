@@ -643,19 +643,16 @@ class NSEImporter {
         }
     }
 
-    async retryImport(dateStr, pattern) {
+    async retryImport(pattern) {
         if (!(await this.checkHealth())) return;
 
-        this.startProgress(`Retrying import for ${pattern} on ${dateStr}...`);
+        this.startProgress(`Retrying all failed imports for ${pattern}...`);
 
         try {
             const params = new URLSearchParams();
-            params.append('start_date', dateStr);
-            params.append('end_date', dateStr);
-            params.append('patterns', pattern);
-            params.append('force', 'true');
+            params.append('pattern', pattern);
 
-            const res = await fetch(`/api/v1/nse/ingest/import/range?${params.toString()}`, {
+            const res = await fetch(`/api/v1/nse/ingest/import/retry-failed?${params.toString()}`, {
                 method: 'POST'
             });
 
@@ -853,7 +850,7 @@ class NSEImporter {
                                 const dateArg = item.last_import_date ? `'${item.last_import_date}'` : "''";
                                 const patternArg = `'${table}'`;
                                 extraActions = `
-                                    <button class="btn btn-primary" style="padding: 2px 5px; font-size: 0.7em; margin-left: 5px;" onclick="window.uploader.retryImport(${dateArg}, ${patternArg})">Retry</button>
+                                    <button class="btn btn-primary" style="padding: 2px 5px; font-size: 0.7em; margin-left: 5px;" onclick="window.uploader.retryImport(${patternArg})">Retry All</button>
                                     <button class="btn btn-secondary" style="padding: 2px 5px; font-size: 0.7em; margin-left: 5px;" onclick="window.uploader.openAuditLog(${dateArg})">View Log</button>
                                 `;
                             }

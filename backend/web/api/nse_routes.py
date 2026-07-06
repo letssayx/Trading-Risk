@@ -11,7 +11,7 @@ from backend.schemas.nse import (
 )
 from backend.ingest import queries
 from backend.ingest.tasks import (
-    import_nse_date, import_nse_range, import_nse_latest
+    import_nse_date, import_nse_range, import_nse_latest, retry_failed_imports
 )
 from backend.ingest.timescale import setup_all_timescale_policies as setup_timescale_policies
 
@@ -243,6 +243,20 @@ async def trigger_import(
     except Exception as e:
         logger.error(f"Failed to trigger import task: {e}")
         raise HTTPException(status_code=503, detail={"message": "Failed to queue import task", "error": str(e)})
+
+@router.post("/ingest/import/retry-failed")
+async def trigger_retry_failed_imports(
+    pattern: str = Query(...)
+):
+    """
+    Trigger an async import to retry all failed dates for a specific pattern.
+    """
+    try:
+        task = retry_failed_imports.delay(pattern)
+        return {"success": True, "task_id": str(task.id), "message": f"Retry for {pattern} started in background"}
+    except Exception as e:
+        logger.error(f"Failed to trigger retry task: {e}")
+        raise HTTPException(status_code=503, detail={"message": "Failed to queue retry task", "error": str(e)})
 
 @router.post("/ingest/import/range")
 async def trigger_import_range(

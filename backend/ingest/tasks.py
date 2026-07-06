@@ -152,6 +152,105 @@ def evaluate_ai_predictions(self):
         db.close()
 
 
+@shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.retry_failed_imports')
+def retry_failed_imports(self, pattern: str):
+    """Retry all failed dates for a specific table pattern."""
+    set_active_task(self.request.id)
+
+    def is_cancelled():
+        return check_cancel_flag(self.request.id)
+
+    def handle_pause():
+        import time
+        if check_pause_flag(self.request.id):
+            self.update_state(state='PROGRESS', meta={'status': 'PAUSED', 'message': 'Task is paused. Waiting to resume...'})
+            while check_pause_flag(self.request.id):
+                if is_cancelled():
+                    break
+                time.sleep(5)
+            self.update_state(state='PROGRESS', meta={'status': 'RESUMED', 'message': 'Task resumed.'})
+
+    try:
+        from backend.infrastructure.db import SessionLocal
+        from backend.models.audit import SystemLog
+
+        db = SessionLocal()
+
+        # In the audit logs, successful jobs record "Imported <pattern> for <date>"
+        # Failed jobs record "Failed to import <pattern> for <date>" or similar,
+        # but in our frontend stats endpoint we use the fact that they have level='ERROR'.
+        # However, a cleaner way is just to rely on the backend stats query logic or query the DB directly.
+        # But for robustness, we can just fetch all dates that have an ERROR for this pattern
+        # and do NOT have a subsequent SUCCESS.
+
+        from sqlalchemy import text
+        # Simplest approach: Query the exact same `get_import_stats` SQL logic, or just a custom SQL
+        sql = text("""
+            SELECT DISTINCT (meta_data->>'date')::date AS error_date
+            FROM system_logs
+            WHERE source = 'Importer'
+            AND level = 'ERROR'
+            AND meta_data->>'pattern' = :pattern
+            AND (meta_data->>'date') IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM system_logs success_logs
+                WHERE success_logs.source = 'Importer'
+                AND success_logs.level = 'INFO'
+                AND success_logs.meta_data->>'pattern' = :pattern
+                AND success_logs.meta_data->>'date' = system_logs.meta_data->>'date'
+                AND success_logs.timestamp > system_logs.timestamp
+            )
+            ORDER BY error_date ASC;
+        """)
+
+        failed_dates_rows = db.execute(sql, {'pattern': pattern}).fetchall()
+        failed_dates = [row[0] for row in failed_dates_rows]
+        db.close()
+
+        if not failed_dates:
+            clear_active_task(self.request.id)
+            return {'status': 'SUCCESS', 'message': f'No failed dates found for {pattern}'}
+
+        total_days = len(failed_dates)
+        processed_days = 0
+        results = []
+
+        importer = NSEDataImporter()
+
+        for current_date in failed_dates:
+            if is_cancelled():
+                self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
+                return {"status": "ABORTED", 'range': f"Retrying {pattern}", 'results': results}
+
+            handle_pause()
+
+            self.update_state(state='PROGRESS', meta={
+                'current_date': current_date.isoformat(),
+                'percent': int((processed_days / total_days) * 100),
+                'status': f'Retrying {current_date}'
+            })
+
+            day_result = importer.import_date(current_date, patterns=[pattern], force=True, check_cancel=is_cancelled)
+            if day_result.get('status') == 'ABORTED':
+                self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
+                return {"status": "ABORTED", 'range': f"Retrying {pattern}", 'results': results}
+
+            results.append(day_result)
+            processed_days += 1
+
+        clear_active_task(self.request.id)
+        return {'range': f"Retried {total_days} failed dates for {pattern}", 'results': results}
+
+    except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            err_msg = str(exc)
+            logger.error(f"Max retries exceeded for retry failed imports: {err_msg}")
+            self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Retry Failed: {err_msg}"})
+            raise Exception(f"Retry Failed: {err_msg}")
+
+        logger.error(f"Retry failed: {exc}. Retrying... ({self.request.retries}/3)")
+        self.retry(exc=Exception(str(exc)), countdown=60)
+
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
