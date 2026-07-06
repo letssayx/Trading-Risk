@@ -2548,14 +2548,16 @@ async function triggerMasterSync() {
 }
 window.triggerMasterSync = triggerMasterSync;
 
-// Execute Master Sync automatically on initial page load
+// Execute Master Sync automatically on initial page load (DISABLED per user request)
 document.addEventListener("DOMContentLoaded", () => {
+    /*
     setTimeout(() => {
         const btn = document.getElementById('master-sync-btn');
         if(btn) {
             triggerMasterSync();
         }
     }, 1000);
+    */
 });
 
 window.rateTrade = function(tradeId, rating) {
