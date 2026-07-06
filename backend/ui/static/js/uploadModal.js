@@ -198,10 +198,28 @@ class NSEImporter {
         }
     }
 
-    resumeActiveTask() {
+    async resumeActiveTask() {
+        try {
+            const res = await fetch('/api/v1/nse/ingest/import/active');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.active && data.task_id) {
+                    const activeTaskId = data.task_id;
+                    localStorage.setItem('activeImportTaskId', activeTaskId);
+                    console.log("Resuming polling for active task from backend:", activeTaskId);
+                    this.progressArea.style.display = 'block';
+                    this.progressText.textContent = "Resuming import tracking...";
+                    this.pollTask(activeTaskId);
+                    return;
+                }
+            }
+        } catch(e) {
+            console.warn("Failed to check active task from backend, falling back to local storage.", e);
+        }
+
         const activeTaskId = localStorage.getItem('activeImportTaskId');
         if (activeTaskId) {
-            console.log("Resuming polling for task:", activeTaskId);
+            console.log("Resuming polling for task from localStorage:", activeTaskId);
             this.progressArea.style.display = 'block';
             this.progressText.textContent = "Resuming import tracking...";
             this.pollTask(activeTaskId);

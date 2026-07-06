@@ -271,12 +271,12 @@ class FieldMapper:
 
         import re
 
-        has_dividend = 'dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower
+        has_dividend = 'dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower
         has_bonus = 'bonus' in purpose_lower
         has_split = 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower
         has_demerger = 'demerger' in purpose_lower or 'spin-off' in purpose_lower or 'spin off' in purpose_lower
 
-        dividend_type = 'Interim' if ('interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower) else 'Special' if 'special' in purpose_lower else 'Final'
+        dividend_type = 'Interim' if ('interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower) else 'Special' if 'special' in purpose_lower else 'Final' if ('final' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower) else 'Final'
 
         parsed_type = None
         if has_dividend and has_bonus:

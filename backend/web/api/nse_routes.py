@@ -42,6 +42,35 @@ async def check_database_health():
             "timestamp": datetime.now().isoformat()
         }
 
+
+@router.get("/ingest/import/active")
+async def get_active_import_task():
+    """
+    Get the currently active import task ID from Redis.
+    """
+    try:
+        import redis
+        import os
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        task_id = r.get("active_import_task_id")
+
+        if task_id:
+            task_id = task_id.decode('utf-8')
+            # Verify the task is actually running or pending in Celery to avoid stale keys
+            from celery.result import AsyncResult
+            task = AsyncResult(task_id)
+            if task.state in ['PENDING', 'STARTED', 'PROGRESS']:
+                return {"active": True, "task_id": task_id}
+            else:
+                # Cleanup stale key
+                r.delete("active_import_task_id")
+
+        return {"active": False, "task_id": None}
+    except Exception as e:
+        logger.error(f"Failed to get active task: {e}")
+        return {"active": False, "task_id": None}
+
 @router.get("/ingest/import/status/{task_id}")
 async def get_import_status(task_id: str):
     """

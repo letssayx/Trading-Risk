@@ -43,7 +43,7 @@ def extract_amount_from_pdf(url):
 
             # Simple regex for dividend amount
             # Look for "dividend" and then quickly find Rs. X
-            parts = re.split(r'(?i)dividend|(?i)int\s*div', text)
+            parts = re.split(r'(?i)dividend|(?i)int\s*div|(?i)fin\s*div', text)
             for part in parts[1:]:
                 # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
@@ -57,10 +57,10 @@ def extract_amount_from_pdf(url):
 
             # More specific fallback regexes
             ui_patterns = [
-                r'(?:dividend|int\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
+                r'(?:dividend|int\s*div|fin\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
                 r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*per\s*share',
                 r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
-                r'(?:dividend|int\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
+                r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
             ]
             for pat in ui_patterns:
                 matches2 = re.findall(pat, text, re.IGNORECASE)

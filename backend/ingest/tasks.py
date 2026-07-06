@@ -23,6 +23,26 @@ def check_pause_flag(task_id: str) -> bool:
     except Exception:
         return False
 
+
+def set_active_task(task_id: str):
+    try:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        r.set("active_import_task_id", task_id)
+    except Exception:
+        pass
+
+def clear_active_task(task_id: str):
+    try:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        # Only delete if it's the current task
+        curr = r.get("active_import_task_id")
+        if curr and curr.decode('utf-8') == task_id:
+            r.delete("active_import_task_id")
+    except Exception:
+        pass
+
 def check_cancel_flag(task_id: str) -> bool:
     try:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -35,6 +55,7 @@ def check_cancel_flag(task_id: str) -> bool:
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_date')
 def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a specific date."""
+    set_active_task(self.request.id)
 
     # Progress callback to update Celery state
     def progress_callback(progress_dict: dict):
@@ -76,6 +97,7 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
         if result.get('status') == 'ABORTED':
             self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
             return {"status": "ABORTED"}
+        clear_active_task(self.request.id)
         return result
 
     except Exception as exc:
@@ -133,6 +155,7 @@ def evaluate_ai_predictions(self):
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
+    set_active_task(self.request.id)
     def is_cancelled():
         return check_cancel_flag(self.request.id)
 
@@ -245,6 +268,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
             current_date += timedelta(days=1)
             processed_days += 1
 
+        clear_active_task(self.request.id)
         return {'range': f"{start_date_str} to {end_date_str}", 'results': results}
 
     except Exception as exc:
@@ -260,6 +284,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_latest')
 def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import data for the most recent trading day."""
+    set_active_task(self.request.id)
 
     def progress_callback(progress_dict: dict):
         self.update_state(state='PROGRESS', meta=progress_dict)
@@ -304,6 +329,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         if result.get('status') == 'ABORTED':
             self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
             return {"status": "ABORTED"}
+        clear_active_task(self.request.id)
         return result
 
     except Exception as exc:
