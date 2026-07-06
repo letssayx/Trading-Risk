@@ -1,4 +1,4 @@
-_currentRunningTaskId = null;
+let _currentRunningTaskId = null;
 // Global function to switch tabs (moved outside class to ensure availability)
 window.openImportTab = (tabName) => {
     document.querySelectorAll('.import-tab-content').forEach(el => el.style.display = 'none');
@@ -300,6 +300,8 @@ class NSEImporter {
                     } catch (e) {
                         console.error(`Failed to send ${endpoint} request`, e);
                     }
+                } else {
+                    alert("No active task ID found to pause/resume.");
                 }
             });
         }

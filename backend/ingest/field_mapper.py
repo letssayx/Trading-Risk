@@ -269,44 +269,55 @@ class FieldMapper:
 
         purpose_lower = purpose.lower()
 
-        # Check for Bonus or Split first
-        if 'bonus' in purpose_lower:
-            return None, 'Bonus'
-        if 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower:
-            return None, 'Split'
-        if 'demerger' in purpose_lower or 'spin-off' in purpose_lower or 'spin off' in purpose_lower:
-            return None, 'Demerger'
-
-        if 'dividend' not in purpose_lower:
-            return None, None
-
         import re
-        dividend_type = 'Interim' if 'interim' in purpose_lower else 'Special' if 'special' in purpose_lower else 'Final'
+
+        has_dividend = 'dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower
+        has_bonus = 'bonus' in purpose_lower
+        has_split = 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower
+        has_demerger = 'demerger' in purpose_lower or 'spin-off' in purpose_lower or 'spin off' in purpose_lower
+
+        dividend_type = 'Interim' if ('interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower) else 'Special' if 'special' in purpose_lower else 'Final'
+
+        parsed_type = None
+        if has_dividend and has_bonus:
+             parsed_type = f"{dividend_type} & Bonus"
+        elif has_dividend and has_split:
+             parsed_type = f"{dividend_type} & Split"
+        elif has_bonus:
+             return None, 'Bonus'
+        elif has_split:
+             return None, 'Split'
+        elif has_demerger:
+             return None, 'Demerger'
+        elif has_dividend:
+             parsed_type = dividend_type
+        else:
+             return None, None
 
         # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
         # 1. Aggressively remove 'face value' and 'fv' context blocks
-        _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
 
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:
-            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
             if match:
-                return float(match.group(1)), dividend_type
+                return float(match.group(1)), parsed_type
 
         # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by &)
-        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
         if rs_matches:
             total_amount = sum(float(m) for m in rs_matches)
-            return total_amount, dividend_type
+            return total_amount, parsed_type
 
         # Try percentage format: sum all percentages if multiple exist
         pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
         if pct_matches and face_value:
             total_pct = sum(float(m) for m in pct_matches)
-            return (total_pct / 100.0) * face_value, dividend_type
+            return (total_pct / 100.0) * face_value, parsed_type
 
-        return None, dividend_type
+        return None, parsed_type
 
     @classmethod
     def _map_corporate_actions(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
