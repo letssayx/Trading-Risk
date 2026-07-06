@@ -290,7 +290,14 @@ class NSEImporter {
                         console.error("Failed to send cancel request", e);
                     }
                 }
+                // Fallback: If no taskId in local storage, try calling the force-kill-all
+                if (!taskId) {
+                     try {
+                         await fetch('/api/v1/nse/ingest/import/force-kill-all', { method: 'POST' });
+                     } catch(e) {}
+                }
                 this.stopPolling();
+                localStorage.removeItem('activeImportTaskId');
                 if (this.progressArea) this.progressArea.style.display = 'none';
                 console.log("Manually stopped tracking task.");
             });

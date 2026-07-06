@@ -154,6 +154,12 @@ async def cancel_import_task(task_id: str):
         # We only revoke gracefully so the worker can check the Redis flag and exit cleanly.
         # DO NOT use terminate=True as it causes unrecoverable Celery ValueError exceptions.
         celery_app.control.revoke(task_id)
+
+        # Immediately clear active tracking so UI stops spinning
+        active = r.get("active_import_task_id")
+        if active and active.decode('utf-8') == task_id:
+            r.delete("active_import_task_id")
+
         return {"success": True, "message": f"Task {task_id} cancellation requested"}
     except Exception as e:
         logger.error(f"Failed to cancel task {task_id}: {e}")
