@@ -787,7 +787,13 @@ async def list_data(
     if type == 'dividend':
         query = query.filter(or_(
             model.parsed_dividend_amount != None,
-            model.dividend_type.in_(['Bonus', 'Split'])
+            model.dividend_type.in_(['Bonus', 'Split', 'Demerger']),
+            model.purpose.ilike('%dividend%'),
+            model.purpose.ilike('%intdiv%'),
+            model.purpose.ilike('%int div%'),
+            model.purpose.ilike('%findiv%'),
+            model.purpose.ilike('%fin div%'),
+            model.purpose.ilike('%div%')
         ))
     # Handle FO Instrument filter
     if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':

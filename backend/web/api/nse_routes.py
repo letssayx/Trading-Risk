@@ -162,6 +162,32 @@ async def cancel_import_task(task_id: str):
 
 
 @router.post("/ingest/import/force-kill-all")
+async def force_kill_all_tasks():
+    """
+    Aggressively kill all Celery workers and clear task queues.
+    This uses os.system to kill python processes running celery to ensure they completely stop
+    re-running old tasks.
+    """
+    import os
+    try:
+        # Clear redis active task state
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+        r.delete("active_import_task_id")
+
+        # Aggressively kill celery processes
+        os.system("pkill -9 -f 'celery -A backend.main worker'")
+
+        # Clear celery default queues
+        r.delete("celery")
+
+        return {"success": True, "message": "All Celery workers killed and queues cleared. Please restart celery manually (e.g. docker-compose restart celery or run.sh)."}
+    except Exception as e:
+        logger.error(f"Failed to force kill all tasks: {e}")
+        raise HTTPException(status_code=500, detail={"message": "Failed to kill all tasks", "error": str(e)})
+
+@router.post("/ingest/import/force-kill-all_old")
 async def force_kill_all_import_tasks():
     """
     Forcefully Terminate ALL running Celery tasks.
