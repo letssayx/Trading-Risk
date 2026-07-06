@@ -200,11 +200,26 @@ async def force_kill_import_task(task_id: str):
     """
     Forcefully Terminate a running Celery import task.
     """
+    import os
+    import redis
     try:
-        from backend.celery_worker import app as celery_app
-        # This will forcefully kill the worker executing the task
-        celery_app.control.revoke(task_id, terminate=True, signal='SIGKILL')
-        return {"success": True, "message": f"Task {task_id} forcefully terminated."}
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(redis_url)
+
+        # 1. Clear active tracking
+        active = r.get("active_import_task_id")
+        if active and active.decode('utf-8') == task_id:
+            r.delete("active_import_task_id")
+
+        # 2. Aggressively kill running python celery processes at the OS level
+        os.system("pkill -9 -f 'celery -A backend.main worker'")
+
+        # 3. Clear queues to prevent zombie revival
+        r.delete("celery")
+        r.delete("unacked")
+        r.delete("unacked_index")
+
+        return {"success": True, "message": f"Task {task_id} forcefully terminated and queues cleared."}
     except Exception as e:
         logger.error(f"Failed to force kill task {task_id}: {e}")
         raise HTTPException(status_code=500, detail={"message": "Failed to force kill task", "error": str(e)})
