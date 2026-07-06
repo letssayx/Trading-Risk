@@ -3343,7 +3343,7 @@ function switchDividendsTab(tabId) {
 }
 
 async function reparseHistoricalDividends() {
-    if (!confirm("This will scan the database and re-extract dividend amounts from all historical records using the latest rules. Continue?")) return;
+    if (!confirm("This will incrementally scan the database and attempt to extract dividend amounts for historical records that are currently missing them. Continue?")) return;
 
     try {
         const res = await fetch('/api/data/dividends/patch', { method: 'POST' });

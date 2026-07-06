@@ -641,7 +641,8 @@ def patch_historical_dividends(db: Session = Depends(get_db)):
     try:
         # Fetch all corporate actions
         actions = db.query(CorporateAction).filter(
-            CorporateAction.purpose != None
+            CorporateAction.purpose != None,
+            CorporateAction.parsed_dividend_amount == None
         ).all()
 
         updated_count = 0
