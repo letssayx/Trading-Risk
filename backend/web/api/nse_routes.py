@@ -188,9 +188,8 @@ async def force_kill_all_tasks():
 
         # 3. Aggressively kill running python celery processes at the OS level
         # This guarantees it dies instantly without waiting to finish the current download.
-        # Check for both possible app names used in startup scripts
-        os.system("pkill -9 -f 'celery -A backend.celery_worker worker'")
-        os.system("pkill -9 -f 'celery -A backend.main worker'")
+        # Use a broader match to catch all celery workers regardless of startup string
+        os.system("pkill -9 -f celery")
 
         return {"success": True, "message": "All Celery workers killed and queues cleared. Please restart celery manually (e.g. docker compose restart celery or run.sh)."}
     except Exception as e:
@@ -214,12 +213,19 @@ async def force_kill_import_task(task_id: str):
         if active and active.decode('utf-8') == task_id:
             r.delete("active_import_task_id")
 
-        # 2. Because pool=solo doesn't support revoke(terminate=True), we must fail gracefully
-        # or ask the user to use "Force Kill All" instead, rather than destroying all workers
-        # here. But we can still try standard revoke so it doesn't execute if it hasn't started.
+        # 2. Clear all queues to prevent zombie tasks from restarting when worker comes back
+        r.delete("celery")
+        r.delete("unacked")
+        r.delete("unacked_index")
+
+        # 3. Because pool=solo doesn't support revoke(terminate=True), we must use OS-level kill.
+        # This will kill the worker entirely, requiring it to be restarted manually or by a process manager.
+        os.system("pkill -9 -f celery")
+
+        # Also try standard revoke just in case
         celery_app.control.revoke(task_id, terminate=False)
 
-        return {"success": True, "message": f"Task {task_id} revoked. Note: Solo pool cannot interrupt running tasks. Use 'Force Kill All' to restart worker."}
+        return {"success": True, "message": f"Task {task_id} forcefully terminated by killing worker. Please restart Celery."}
     except Exception as e:
         logger.error(f"Failed to force kill task {task_id}: {e}")
         raise HTTPException(status_code=500, detail={"message": "Failed to force kill task", "error": str(e)})

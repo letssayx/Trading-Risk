@@ -24,9 +24,8 @@ def aggressive_kill():
         logger.error(f"Failed to clear Redis: {e}")
 
     logger.info("Sending SIGKILL to all Celery worker processes...")
-    # Kill any python process containing the word celery
-    os.system("pkill -9 -f 'celery -A backend.main worker'")
-    result = os.system("pkill -9 -f 'celery -A backend.celery_worker worker'")
+    # Kill any python process containing the word celery (broader match)
+    result = os.system("pkill -9 -f celery")
     if result == 0:
         logger.info("Successfully killed Celery processes.")
     else:
