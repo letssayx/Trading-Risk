@@ -174,7 +174,6 @@ async def force_kill_all_tasks():
     """
     import os
     import redis
-    from celery.task.control import revoke
     try:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         r = redis.from_url(redis_url)
@@ -205,7 +204,7 @@ async def force_kill_import_task(task_id: str):
     """
     import os
     import redis
-    from celery.task.control import revoke
+    from backend.celery_worker import app as celery_app
     try:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         r = redis.from_url(redis_url)
@@ -218,7 +217,7 @@ async def force_kill_import_task(task_id: str):
         # 2. Because pool=solo doesn't support revoke(terminate=True), we must fail gracefully
         # or ask the user to use "Force Kill All" instead, rather than destroying all workers
         # here. But we can still try standard revoke so it doesn't execute if it hasn't started.
-        revoke(task_id, terminate=False)
+        celery_app.control.revoke(task_id, terminate=False)
 
         return {"success": True, "message": f"Task {task_id} revoked. Note: Solo pool cannot interrupt running tasks. Use 'Force Kill All' to restart worker."}
     except Exception as e:
