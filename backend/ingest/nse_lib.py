@@ -784,7 +784,7 @@ class NSELib:
 
                         # Only execute PDF fallbacks if the board meeting date has passed or is today.
                         # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet.
-                        if found_amount is None and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
+                        if found_amount is None and bm_date_obj_check and bm_date_obj_check <= trade_date:
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
