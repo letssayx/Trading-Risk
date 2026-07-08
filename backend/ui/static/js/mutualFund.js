@@ -148,10 +148,10 @@ async function loadMfHybridData(fund, scheme, date) {
         const fundNames = Array.from(allFunds).sort();
 
         // Build Header dynamically
-        let headerHtml = '<tr><th>Symbol</th><th>EQ Price</th><th>Future Price</th><th>Total Futures OI</th><th>Rollover %</th>';
+        let headerHtml = '<tr><th style="background: #252526; position: sticky; top: 0; z-index: 10; color: #cccccc; border-bottom: 2px solid #007acc;">Symbol</th><th style="background: #252526; position: sticky; top: 0; z-index: 10; color: #cccccc; border-bottom: 2px solid #007acc;">EQ Price</th><th style="background: #252526; position: sticky; top: 0; z-index: 10; color: #cccccc; border-bottom: 2px solid #007acc;">Future Price</th><th style="background: #252526; position: sticky; top: 0; z-index: 10; color: #cccccc; border-bottom: 2px solid #007acc;">Total Futures OI</th><th style="background: #252526; position: sticky; top: 0; z-index: 10; color: #cccccc; border-bottom: 2px solid #007acc;">Rollover %</th>';
         fundNames.forEach(fn => {
-            headerHtml += `<th>${fn} (Qty)</th>`;
-            if (showPct) headerHtml += `<th>${fn} (%)</th>`;
+            headerHtml += `<th style="background: #252526; position: sticky; top: 0; z-index: 10; color: #cccccc; border-bottom: 2px solid #007acc;">${fn} (Qty)</th>`;
+            if (showPct) headerHtml += `<th style="background: #252526; position: sticky; top: 0; z-index: 10; color: #cccccc; border-bottom: 2px solid #007acc;">${fn} (%)</th>`;
         });
         headerHtml += '</tr>';
         thead.innerHTML = headerHtml;

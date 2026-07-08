@@ -1075,12 +1075,12 @@
                 </div>
 
                 <!-- Sub-tabs -->
-                <div class="tabs-container" style="margin-bottom: 15px; border-bottom: 1px solid #333;">
-                    <div class="tab mf-sub-tab active" data-target="mf-stock" onclick="switchMfSubTab('mf-stock')">Stock Holdings</div>
-                    <div class="tab mf-sub-tab" data-target="mf-fo" onclick="switchMfSubTab('mf-fo')">Derivatives F&O</div>
-                    <div class="tab mf-sub-tab" data-target="mf-debt" onclick="switchMfSubTab('mf-debt')">Debt</div>
-                    <div class="tab mf-sub-tab" data-target="mf-debt-deriv" onclick="switchMfSubTab('mf-debt-deriv')">Debt Derivatives</div>
-                    <div class="tab mf-sub-tab" data-target="mf-hybrid" onclick="switchMfSubTab('mf-hybrid')">Hybrid (Marketwatch)</div>
+                <div class="wb-tabs-header" style="margin-bottom: 15px; border-bottom: 1px solid #333; display: flex; gap: 15px; flex-shrink: 0;">
+                    <div class="wb-tab mf-sub-tab active" data-target="mf-stock" onclick="switchMfSubTab('mf-stock')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Stock Holdings</div>
+                    <div class="wb-tab mf-sub-tab" data-target="mf-fo" onclick="switchMfSubTab('mf-fo')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Derivatives F&O</div>
+                    <div class="wb-tab mf-sub-tab" data-target="mf-debt" onclick="switchMfSubTab('mf-debt')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Debt</div>
+                    <div class="wb-tab mf-sub-tab" data-target="mf-debt-deriv" onclick="switchMfSubTab('mf-debt-deriv')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Debt Derivatives</div>
+                    <div class="wb-tab mf-sub-tab" data-target="mf-hybrid" onclick="switchMfSubTab('mf-hybrid')" style="padding: 8px 15px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;">Hybrid (Marketwatch)</div>
                 </div>
 
                 <!-- Sub-tab Contents Container -->
@@ -1182,7 +1182,7 @@
                             Holdings as of: <span id="mf-hybrid-date-label" style="font-weight: bold; color: #fff;">-</span>
                         </div>
                         <div class="table-wrapper" style="flex: 1; overflow: auto;">
-                            <table id="mf-hybrid-table" class="data-table">
+                            <table id="mf-hybrid-table" class="data-table" style="width: 100%;">
                                 <thead id="mf-hybrid-thead">
                                     <!-- Headers generated dynamically -->
                                 </thead>
