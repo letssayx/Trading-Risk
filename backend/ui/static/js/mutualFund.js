@@ -14,6 +14,16 @@ async function loadMfFilters() {
             fundSelect.innerHTML += `<option value="${fund}">${fund}</option>`;
         });
 
+        const dateSelect = document.getElementById('mf-date-select');
+        if (dateSelect) {
+             dateSelect.innerHTML = '<option value="latest">Latest</option>';
+             if (data.dates) {
+                  data.dates.forEach(d => {
+                       dateSelect.innerHTML += `<option value="${d}">${d}</option>`;
+                  });
+             }
+        }
+
         mfFundHouseChanged();
     } catch (e) {
         console.error("Error loading MF filters:", e);
@@ -60,22 +70,23 @@ function switchMfSubTab(tabId) {
 async function mfLoadData() {
     const fund = document.getElementById('mf-fund-house-select').value;
     const scheme = document.getElementById('mf-scheme-select').value;
+    const date = document.getElementById('mf-date-select') ? document.getElementById('mf-date-select').value : 'latest';
 
     if (currentMfSubTab === 'mf-hybrid') {
-        loadMfHybridData(fund, scheme);
+        loadMfHybridData(fund, scheme, date);
     } else {
         let category = 'stock';
         if (currentMfSubTab === 'mf-fo') category = 'fo';
         if (currentMfSubTab === 'mf-debt') category = 'debt';
         if (currentMfSubTab === 'mf-debt-deriv') category = 'debt_derivative';
 
-        loadMfStandardData(fund, scheme, category);
+        loadMfStandardData(fund, scheme, category, date);
     }
 }
 
-async function loadMfStandardData(fund, scheme, category) {
+async function loadMfStandardData(fund, scheme, category, date) {
     try {
-        const res = await fetch(`/api/v1/mutual-funds/holdings?fund_house=${encodeURIComponent(fund)}&scheme_name=${encodeURIComponent(scheme)}&asset_category=${category}`);
+        const res = await fetch(`/api/v1/mutual-funds/holdings?fund_house=${encodeURIComponent(fund)}&scheme_name=${encodeURIComponent(scheme)}&asset_category=${category}&date=${encodeURIComponent(date)}`);
         const result = await res.json();
         const data = result.data || [];
 
@@ -89,6 +100,7 @@ async function loadMfStandardData(fund, scheme, category) {
 
         data.forEach(row => {
             let tr = '<tr>';
+            tr += `<td>${row.report_date || '-'}</td>`;
             if (category === 'stock') {
                 tr += `<td>${row.fund_house || '-'}</td><td>${row.scheme_name || '-'}</td><td>${row.symbol || '-'}</td><td>${row.isin || '-'}</td><td>${row.instrument_name || '-'}</td><td>${(row.quantity || 0).toLocaleString()}</td><td>${(row.market_value || 0).toFixed(2)}</td><td>${(row.percent_to_nav || 0).toFixed(2)}%</td>`;
             } else if (category === 'fo') {
@@ -106,11 +118,15 @@ async function loadMfStandardData(fund, scheme, category) {
     }
 }
 
-async function loadMfHybridData(fund, scheme) {
+async function loadMfHybridData(fund, scheme, date) {
     try {
-        const res = await fetch(`/api/v1/mutual-funds/hybrid?fund_house=${encodeURIComponent(fund)}&scheme_name=${encodeURIComponent(scheme)}`);
+        const res = await fetch(`/api/v1/mutual-funds/hybrid?fund_house=${encodeURIComponent(fund)}&scheme_name=${encodeURIComponent(scheme)}&date=${encodeURIComponent(date)}`);
         const result = await res.json();
         const data = result.data || [];
+        const reportDate = result.report_date || '-';
+
+        const dateLabel = document.getElementById('mf-hybrid-date-label');
+        if (dateLabel) dateLabel.innerText = reportDate;
 
         const thead = document.getElementById('mf-hybrid-thead');
         const tbody = document.getElementById('mf-hybrid-tbody');

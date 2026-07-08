@@ -3,10 +3,14 @@ async function loadDerivArbFundData() {
     try {
         // Fetch data targeting Arbitrage funds specifically using scheme keywords or standard ALL endpoint
         // Here we hit the same backend endpoint. We use ALL, ALL to fetch the mock data injected earlier
-        // but typically you would filter for Arbitrage schemes.
-        const res = await fetch(`/api/v1/mutual-funds/hybrid?fund_house=ALL&scheme_name=ALL`);
+        // but typically you would filter for Arbitrage schemes. We use 'latest' date.
+        const res = await fetch(`/api/v1/mutual-funds/hybrid?fund_house=ALL&scheme_name=ALL&date=latest`);
         const result = await res.json();
         const data = result.data || [];
+        const reportDate = result.report_date || '-';
+
+        const dateLabel = document.getElementById('deriv-arb-date-label');
+        if (dateLabel) dateLabel.innerText = reportDate;
 
         const thead = document.getElementById('deriv-arb-thead');
         const tbody = document.getElementById('deriv-arb-tbody');

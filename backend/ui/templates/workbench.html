@@ -1057,6 +1057,12 @@
                                 <option value="ALL">ALL</option>
                             </select>
                         </div>
+                        <div>
+                            <label style="color: #bbb; margin-right: 5px;">Date:</label>
+                            <select id="mf-date-select" onchange="mfLoadData()" style="padding: 5px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; min-width: 120px;">
+                                <option value="latest">Latest</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div style="display: flex; gap: 10px; align-items: center;">
@@ -1086,6 +1092,7 @@
                             <table id="mf-stock-table" class="data-table">
                                 <thead>
                                     <tr>
+                                        <th>Date</th>
                                         <th>Fund House</th>
                                         <th>Scheme</th>
                                         <th>Symbol</th>
@@ -1107,6 +1114,7 @@
                             <table id="mf-fo-table" class="data-table">
                                 <thead>
                                     <tr>
+                                        <th>Date</th>
                                         <th>Fund House</th>
                                         <th>Scheme</th>
                                         <th>Instrument</th>
@@ -1129,6 +1137,7 @@
                             <table id="mf-debt-table" class="data-table">
                                 <thead>
                                     <tr>
+                                        <th>Date</th>
                                         <th>Fund House</th>
                                         <th>Scheme</th>
                                         <th>ISIN</th>
@@ -1151,6 +1160,7 @@
                             <table id="mf-debt-deriv-table" class="data-table">
                                 <thead>
                                     <tr>
+                                        <th>Date</th>
                                         <th>Fund House</th>
                                         <th>Scheme</th>
                                         <th>Instrument Type</th>
@@ -1168,6 +1178,9 @@
 
                     <!-- Hybrid Marketwatch -->
                     <div id="tab-mf-hybrid" class="mf-sub-tab-content" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                        <div style="padding: 5px 10px; background: #1e1e1e; border: 1px solid #333; border-bottom: none; font-size: 0.9rem; color: #ccc;">
+                            Holdings as of: <span id="mf-hybrid-date-label" style="font-weight: bold; color: #fff;">-</span>
+                        </div>
                         <div class="table-wrapper" style="flex: 1; overflow: auto;">
                             <table id="mf-hybrid-table" class="data-table">
                                 <thead id="mf-hybrid-thead">
