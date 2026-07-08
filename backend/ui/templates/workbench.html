@@ -351,6 +351,7 @@
         <div class="main-tab" data-target="commodities" onclick="switchMainTab('commodities')" title="Commodities">Commodities</div>
         <div class="main-tab" data-target="crypto" onclick="switchMainTab('crypto')" title="Crypto">Crypto</div>
         <div class="main-tab" data-target="structured_product" onclick="switchMainTab('structured_product')" title="Structured Product">Structured Product</div>
+        <div class="main-tab" data-target="mutual_fund" onclick="switchMainTab('mutual_fund')" title="Mutual Fund">Mutual Fund</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
         <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
@@ -1034,6 +1035,150 @@
         <div id="tab-structured_product" class="main-tab-content">
             <div style="padding: 20px; text-align: center; color: #888; font-size: 1.2em; height: 100%; display: flex; align-items: center; justify-content: center;">
                 Structured Product module is under construction...
+            </div>
+        </div>
+
+        <!-- TAB MUTUAL FUND -->
+        <div id="tab-mutual_fund" class="main-tab-content">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+
+                <!-- Controls Row -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <div>
+                            <label style="color: #bbb; margin-right: 5px;">Fund House:</label>
+                            <select id="mf-fund-house-select" onchange="mfFundHouseChanged()" style="padding: 5px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; min-width: 150px;">
+                                <option value="ALL">ALL</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="color: #bbb; margin-right: 5px;">Scheme:</label>
+                            <select id="mf-scheme-select" onchange="mfLoadData()" style="padding: 5px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; min-width: 150px;">
+                                <option value="ALL">ALL</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label id="mf-pct-toggle-container" style="display: none; color: #bbb; cursor: pointer; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="mf-pct-toggle" onchange="mfLoadData()"> Show %
+                        </label>
+                        <button onclick="mfLoadData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh</button>
+                        <button onclick="mfDownloadXLSX()" class="btn btn-secondary"><i class="fas fa-file-excel"></i> Export XLSX</button>
+                    </div>
+                </div>
+
+                <!-- Sub-tabs -->
+                <div class="tabs-container" style="margin-bottom: 15px; border-bottom: 1px solid #333;">
+                    <div class="tab mf-sub-tab active" data-target="mf-stock" onclick="switchMfSubTab('mf-stock')">Stock Holdings</div>
+                    <div class="tab mf-sub-tab" data-target="mf-fo" onclick="switchMfSubTab('mf-fo')">Derivatives F&O</div>
+                    <div class="tab mf-sub-tab" data-target="mf-debt" onclick="switchMfSubTab('mf-debt')">Debt</div>
+                    <div class="tab mf-sub-tab" data-target="mf-debt-deriv" onclick="switchMfSubTab('mf-debt-deriv')">Debt Derivatives</div>
+                    <div class="tab mf-sub-tab" data-target="mf-hybrid" onclick="switchMfSubTab('mf-hybrid')">Hybrid (Marketwatch)</div>
+                </div>
+
+                <!-- Sub-tab Contents Container -->
+                <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0;">
+
+                    <!-- Stock Holdings -->
+                    <div id="tab-mf-stock" class="mf-sub-tab-content" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="table-wrapper" style="flex: 1; overflow: auto;">
+                            <table id="mf-stock-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fund House</th>
+                                        <th>Scheme</th>
+                                        <th>Symbol</th>
+                                        <th>ISIN</th>
+                                        <th>Name</th>
+                                        <th>Quantity</th>
+                                        <th>Market Value</th>
+                                        <th>% to NAV</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Derivatives F&O -->
+                    <div id="tab-mf-fo" class="mf-sub-tab-content" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="table-wrapper" style="flex: 1; overflow: auto;">
+                            <table id="mf-fo-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fund House</th>
+                                        <th>Scheme</th>
+                                        <th>Instrument</th>
+                                        <th>Long/(Short)</th>
+                                        <th>Option Type</th>
+                                        <th>Strike</th>
+                                        <th>Quantity</th>
+                                        <th>Market Value</th>
+                                        <th>% to NAV</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Debt -->
+                    <div id="tab-mf-debt" class="mf-sub-tab-content" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="table-wrapper" style="flex: 1; overflow: auto;">
+                            <table id="mf-debt-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fund House</th>
+                                        <th>Scheme</th>
+                                        <th>ISIN</th>
+                                        <th>Instrument</th>
+                                        <th>Yield (%)</th>
+                                        <th>Coupon (%)</th>
+                                        <th>Maturity Date</th>
+                                        <th>Quantity</th>
+                                        <th>Market Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Debt Derivatives -->
+                    <div id="tab-mf-debt-deriv" class="mf-sub-tab-content" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="table-wrapper" style="flex: 1; overflow: auto;">
+                            <table id="mf-debt-deriv-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fund House</th>
+                                        <th>Scheme</th>
+                                        <th>Instrument Type</th>
+                                        <th>Benchmark</th>
+                                        <th>Position</th>
+                                        <th>Notional Amount</th>
+                                        <th>Market Value</th>
+                                        <th>Maturity Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Hybrid Marketwatch -->
+                    <div id="tab-mf-hybrid" class="mf-sub-tab-content" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="table-wrapper" style="flex: 1; overflow: auto;">
+                            <table id="mf-hybrid-table" class="data-table">
+                                <thead id="mf-hybrid-thead">
+                                    <!-- Headers generated dynamically -->
+                                </thead>
+                                <tbody id="mf-hybrid-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
 
@@ -3306,6 +3451,7 @@
     <script src="/static/js/script_workbench2.js"></script>
     <script src="/static/js/putCallParity.js"></script>
     <script src="/static/js/indexBasket.js"></script>
+    <script src="/static/js/mutualFund.js"></script>
 
 
 <script>

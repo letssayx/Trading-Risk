@@ -35,6 +35,7 @@ from backend.web.api import nse_routes
 from backend.web.api import audit_routes
 from backend.web.api import macro_routes
 from backend.web.ai.routes import ai_router
+from backend.api.v1 import mutual_fund as mutual_fund_routes
 
 # Import DB and Models for Initialization
 from backend.infrastructure.db import engine, Base
@@ -78,6 +79,7 @@ app.include_router(macro_routes.router)
 from backend.web.api import chat_widgets_routes
 app.include_router(chat_widgets_routes.router)
 app.include_router(ai_router)
+app.include_router(mutual_fund_routes.router)
 
 
 @app.on_event("startup")
