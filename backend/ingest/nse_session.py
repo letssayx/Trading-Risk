@@ -40,7 +40,7 @@ class NSESessionManager:
                 'Connection': 'keep-alive'
             })
 
-            resp = self.session.get(NSE_MAIN_URL, timeout=10)
+            resp = self.session.get(NSE_MAIN_URL, timeout=5)
 
             # Restore full headers
             self.session.headers.update(original_headers)

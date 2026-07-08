@@ -56,7 +56,8 @@ class NSELib:
                     'Accept': '*/*',
                     'Connection': 'keep-alive'
                 }
-                resp = self.session.get(self.BASE_URL, headers=headers, timeout=30)
+                # Timeout reduced significantly to prevent hanging
+                resp = self.session.get(self.BASE_URL, headers=headers, timeout=5)
                 if resp.status_code == 200:
                     self._cookies_primed = True
                     logger.info("Session primed successfully.")
@@ -66,7 +67,7 @@ class NSELib:
             except Exception as e:
                 logger.error(f"Session prime error on attempt {attempt}: {e}")
 
-            time.sleep(5 * attempt)
+            time.sleep(2 * attempt)
 
         logger.error("Failed to prime NSE session after 3 attempts.")
 
@@ -96,14 +97,14 @@ class NSELib:
 
         try:
             try:
-                resp = self.session.get(url, timeout=30)
+                resp = self.session.get(url, timeout=15)
             except Exception as e:
                 logger.warning(f"session.get failed for {url}, recreating session: {e}")
                 self.session = cffi_requests.Session(impersonate="chrome110")
                 self.session.headers.update(self.HEADERS)
                 self._cookies_primed = False
                 self._ensure_session()
-                resp = self.session.get(url, timeout=30)
+                resp = self.session.get(url, timeout=15)
 
             # Retry on 401/403 once
             if resp.status_code in (401, 403):
@@ -111,7 +112,7 @@ class NSELib:
                 self._cookies_primed = False
                 self.session.cookies.clear()
                 self._ensure_session()
-                resp = self.session.get(url, timeout=30)
+                resp = self.session.get(url, timeout=15)
 
             return resp
         except Exception as e:

@@ -20,17 +20,21 @@ def extract_amount_from_pdf(url):
             'Accept-Language': 'en-US,en;q=0.9',
         }
 
+        logger.info(f"Downloading PDF for parsing: {url}")
+
         # Use a session to persist cookies which sometimes NSE requires
         session = requests.Session()
-        # Make an initial request to nseindia.com to get cookies if necessary
+        # Initial request intentionally has a very short timeout to avoid hanging if the site is slow
         try:
-            session.get("https://www.nseindia.com", headers=headers, timeout=5)
-        except:
-            pass
+            session.get("https://www.nseindia.com", headers=headers, timeout=2)
+        except Exception as e:
+            logger.debug(f"Initial NSE prime for PDF failed: {e}")
 
-        resp = session.get(url, headers=headers, timeout=15)
+        # Timeout reduced to 5s to prevent Celery task hanging on unresponsive PDF links
+        resp = session.get(url, headers=headers, timeout=5)
 
         if resp.status_code == 200 and b'%PDF' in resp.content[:10]:
+            logger.info(f"Successfully downloaded PDF for parsing: {url}")
             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
                 text = ""
                 for page in pdf.pages[:5]: # Only check first 5 pages
