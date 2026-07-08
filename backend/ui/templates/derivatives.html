@@ -362,6 +362,7 @@
             <button class="nav-btn" id="btn-tab-rollover" onclick="switchClientTab('rollover')"><i class="fas fa-sync text-accent"></i> Rollover Analysis</button>
             <button class="nav-btn" id="btn-tab-mwpl" onclick="switchClientTab('mwpl')"><i class="fas fa-percentage text-accent"></i> MWPL Analysis</button>
             <button class="nav-btn" id="btn-tab-fii" onclick="switchClientTab('fii')"><i class="fas fa-globe text-accent"></i> Market Activity</button>
+            <button class="nav-btn" id="btn-tab-arb-fund" onclick="switchClientTab('arb-fund')"><i class="fas fa-chart-line text-accent"></i> Arb Fund Marketwatch</button>
             <button class="nav-btn active" id="btn-tab-ai" onclick="switchClientTab('ai')"><i class="fas fa-robot text-accent"></i> AI Analyze</button>
         </div>
     </div>
@@ -604,6 +605,37 @@
                     </div>
                 </div>
 
+    </div>
+
+    <div class="client-tab-content" id="tab-arb-fund" style="display: none; width: 100%; height: 100%; flex-direction: column; background-color: #1e1e1e;">
+        <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+            <!-- Controls Row -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <h2 style="margin: 0; color: #fff; font-size: 1.2rem;">Arbitrage Fund Marketwatch</h2>
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label id="deriv-arb-pct-toggle-container" style="color: #bbb; cursor: pointer; align-items: center; gap: 5px; display: flex;">
+                        <input type="checkbox" id="deriv-arb-pct-toggle" onchange="loadDerivArbFundData()"> Show %
+                    </label>
+                    <button onclick="loadDerivArbFundData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh</button>
+                    <button onclick="exportDerivArbFundXLSX()" class="btn btn-secondary"><i class="fas fa-file-excel"></i> Export XLSX</button>
+                </div>
+            </div>
+
+            <!-- Hybrid Marketwatch -->
+            <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0;">
+                <div class="table-wrapper" style="flex: 1; overflow: auto; border: 1px solid #333;">
+                    <table id="deriv-arb-table" class="data-table" style="width: 100%;">
+                        <thead id="deriv-arb-thead">
+                            <!-- Headers generated dynamically -->
+                        </thead>
+                        <tbody id="deriv-arb-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="client-tab-content" id="tab-fii">
@@ -1125,6 +1157,7 @@
     </script>
     <script src="/static/js/exportUtils.js"></script>
     <script src="/static/js/mwplTool.js"></script>
+    <script src="/static/js/derivArbFund.js"></script>
     <!-- Removed script_workbench2.js as it runs page initialization breaking the chat UI -->
 
 </body>
