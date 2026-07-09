@@ -192,6 +192,17 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
     for sym in target_symbols:
         history = ca_by_symbol.get(sym, [])
+
+        # Deduplicate Corporate Actions that have the exact same ex_date, amount, and type
+        dedup_history = []
+        seen = set()
+        for h in history:
+            key = (h.get('ex_date'), h.get('amount'), h.get('dividend_type'))
+            if key not in seen:
+                seen.add(key)
+                dedup_history.append(h)
+        history = dedup_history
+
         bms = bm_by_symbol.get(sym, [])
         chained_history = []
 

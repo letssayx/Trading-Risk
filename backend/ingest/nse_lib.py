@@ -790,9 +790,10 @@ class NSELib:
                                 elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower(): found_type = 'Final'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
-                        # Only execute PDF fallbacks if the board meeting date has passed or is today.
-                        # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet.
-                        if found_amount is None and bm_date_obj_check and bm_date_obj_check <= trade_date:
+                        # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
+                        # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
+                        # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
+                        if found_amount is None and bm_date_obj_check and bm_date_obj_check == trade_date:
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
