@@ -286,6 +286,24 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         for dedup_item in deduplicated_bms:
             bm = dedup_item['bm']
             amt = dedup_item['extracted_dividend_amount']
+
+            # Prevent duplicate "awaited" records if a finalized CA already exists for this exact amount and type
+            is_already_in_history = False
+            for ch in chained_history:
+                if ch.get('amount') and amt and float(ch['amount']) == float(amt):
+                    ch_type = ch.get('dividend_type') or 'Interim'
+                    bm_type = bm.extracted_dividend_type or 'Interim'
+                    if ch_type == bm_type:
+                        ch_date = ch.get('ex_date_obj') or ch.get('announcement_date_obj')
+                        bm_date = dedup_item['sort_date']
+                        if ch_date and bm_date and hasattr(ch_date, 'year') and hasattr(bm_date, 'year'):
+                            if abs((ch_date - bm_date).days) < 300:
+                                is_already_in_history = True
+                                break
+
+            if is_already_in_history:
+                continue
+
             # Drop unlinked bms older than 180 days (exactly matching the Databank merge window)
             if bm.date and bm.date < today - datetime.timedelta(days=180):
                 continue
