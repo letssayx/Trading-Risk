@@ -88,7 +88,15 @@ async def startup_event():
     # Initialize DB
     # Base.metadata.create_all(bind=engine)
 
+
     print("Initializing Database...")
+    try:
+        from backend.ingest.nse_models import DividendDatabank
+        DividendDatabank.__table__.create(bind=engine, checkfirst=True)
+        print("DividendDatabank table initialized.")
+    except Exception as e:
+        print(f"Error creating DividendDatabank table: {e}")
+
     try:
         # Base.metadata.create_all(bind=engine)
 
