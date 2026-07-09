@@ -1204,7 +1204,7 @@
                         <label style="color: #ccc; display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px;" title="Truncate and fully rebuild the entire 10-year databank from scratch.">
                             <input type="checkbox" id="forceRebuildDatabank" /> Force Rebuild
                         </label>
-                        <button onclick="buildDividendDatabank()" class="btn btn-secondary" style="background-color: #d9534f; color: white;"><i class="fas fa-database"></i> Build Databank</button>
+
                         <button onclick="reparseHistoricalDividends()" class="btn btn-secondary" style="background-color: #6c757d;"><i class="fas fa-tools"></i> Reparse History</button>
                         <button onclick="loadDividendsData()" class="btn btn-primary"><i class="fas fa-sync"></i> Load Data</button>
                         <button onclick="downloadDividendsCSV()" class="btn btn-secondary"><i class="fas fa-download"></i> Download CSV</button>
@@ -3506,26 +3506,6 @@ function switchDividendsTab(tabId) {
 }
 
 
-async function buildDividendDatabank() {
-    const force = document.getElementById('forceRebuildDatabank').checked;
-    const msg = force
-        ? "This will truncate the entire databank and rebuild it from scratch using all history. It may take a minute. Continue?"
-        : "This will incrementally build the databank with new dividend records. Continue?";
-
-    if (!confirm(msg)) return;
-
-    try {
-        const res = await fetch(`/api/data/dividends/build-databank?force=${force}`, { method: 'POST' });
-        if (res.ok) {
-            alert('Dividend Databank build triggered in the background. Please wait a moment and then click Load Data.');
-        } else {
-            alert('Failed to trigger databank build.');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('An error occurred.');
-    }
-}
 
 async function reparseHistoricalDividends() {
     if (!confirm("This will incrementally scan the database and attempt to extract dividend amounts for historical records that are currently missing them. Continue?")) return;

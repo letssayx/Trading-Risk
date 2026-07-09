@@ -671,7 +671,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     "purpose": r.purpose,
                     "amount": None,
                     "raw_amount": None,
-                    "face_value": r.face_value if hasattr(r, 'face_value') else None
+                    "face_value": r.face_value if hasattr(r, 'face_value') else None,
+                    "record_date": r.record_date if hasattr(r, 'record_date') else None
                 })
 
             elif r.parsed_dividend_amount is not None or (r.purpose and 'dividend' in r.purpose.lower()):
@@ -688,7 +689,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     "purpose": r.purpose,
                     "amount": r.parsed_dividend_amount,
                     "raw_amount": r.parsed_dividend_amount,
-                    "face_value": r.face_value if hasattr(r, 'face_value') else None
+                    "face_value": r.face_value if hasattr(r, 'face_value') else None,
+                    "record_date": r.record_date if hasattr(r, 'record_date') else None
                 })
 
         bm_by_symbol = defaultdict(list)
@@ -806,7 +808,8 @@ def build_dividend_databank_task(self, force: bool = False):
                             "purpose": bm.purpose or "Dividend Declared in Board Meeting",
                             "amount": amt,
                             "raw_amount": amt,
-                            "face_value": None
+                            "face_value": None,
+                            "record_date": None
                         })
 
             def get_sort_key(x):
@@ -864,7 +867,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     raw_amount=h.get('raw_amount'),
                     face_value=h.get('face_value'),
                     purpose=h.get('purpose'),
-                    is_awaited=is_awaited
+                    is_awaited=is_awaited,
+                    record_date=h.get('record_date')
                 ))
 
         db.bulk_save_objects(db_items)
