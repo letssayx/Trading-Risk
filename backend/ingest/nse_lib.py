@@ -584,13 +584,21 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
 
+                # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
+                target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
+
                 resp_out = self.get(announcement_url_out)
                 if resp_out and resp_out.status_code == 200:
                     try:
                         all_out = resp_out.json()
                         if isinstance(all_out, list):
-                            # Filter to only Outcome of Board Meeting to save memory/processing
-                            out_announcements = [a for a in all_out if 'Outcome of Board Meeting' in str(a.get('desc', '')) or 'Outcome of Board Meeting' in str(a.get('subject', ''))]
+                            # Filter to only Outcome of Board Meeting to save memory/processing.
+                            # However, memory instructs us to NOT restrict to just 'Outcome' because NSE frequently miscategorizes them under 'General Updates' or 'None'
+                            # Still, we will keep them if they might contain 'Outcome' or are simply in the all_out list if needed,
+                            # but let's fetch all general announcements on the specific date later if needed.
+                            # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
+                            # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -599,7 +607,7 @@ class NSELib:
 
                 for ann in div_announcements + rec_announcements + out_announcements:
                     sym = ann.get('symbol')
-                    if sym:
+                    if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
                             symbol_announcements[sym] = []
                         symbol_announcements[sym].append(ann)

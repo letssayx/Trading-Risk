@@ -45,9 +45,12 @@ def extract_amount_from_pdf(url):
             # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
             text = re.sub(r'(\.\d+)1-', r'\1/-', text)
 
+            # Remove "Regulation \d+", "Reg. \d+", "Regulations \d+ and \d+" to prevent false matches
+            _clean_text = re.sub(r'Regulations?\s*(?:\d+(?:\s*(?:and|&|,)\s*\d+)*)|Reg\.?\s*\d+', '', text, flags=re.IGNORECASE)
+
             # Simple regex for dividend amount
             # Look for "dividend" and then quickly find Rs. X
-            parts = re.split(r'(?i)dividend|(?i)int\s*div|(?i)fin\s*div', text)
+            parts = re.split(r'dividend|int\s*div|fin\s*div', _clean_text, flags=re.IGNORECASE)
             for part in parts[1:]:
                 # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
@@ -67,7 +70,7 @@ def extract_amount_from_pdf(url):
                 r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
             ]
             for pat in ui_patterns:
-                matches2 = re.findall(pat, text, re.IGNORECASE)
+                matches2 = re.findall(pat, _clean_text, re.IGNORECASE)
                 for m in matches2:
                     val = float(m)
                     if val > 0:
