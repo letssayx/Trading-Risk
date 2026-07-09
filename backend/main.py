@@ -30,7 +30,7 @@ from backend.web.api.data import upload_routes
 from backend.web.api import analysis_routes
 from backend.web.api import jules_routes
 from backend.web.api import config_routes
-from backend.web.api.data import view_routes, derivatives_routes, special_sit_routes
+from backend.web.api.data import view_routes, derivatives_routes, special_sit_routes, build_databank
 from backend.web.api import nse_routes
 from backend.web.api import audit_routes
 from backend.web.api import macro_routes
@@ -69,6 +69,7 @@ app.include_router(config_routes.router)
 app.include_router(view_routes.router)
 app.include_router(derivatives_routes.router)
 app.include_router(special_sit_routes.router)
+app.include_router(build_databank.router)
 from backend.web.api.data import options_routes, opt_analysis_routes, volatility_routes
 app.include_router(options_routes.router)
 app.include_router(opt_analysis_routes.router)

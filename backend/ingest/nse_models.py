@@ -1,5 +1,5 @@
 """NSE Database Models - TimescaleDB Optimized"""
-from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func, text, JSON
+from sqlalchemy import Column, Boolean, Integer, BigInteger, String, Float, Date, DateTime, Text, Index, UniqueConstraint, PrimaryKeyConstraint, func, text, JSON
 from sqlalchemy.dialects.postgresql import TIMESTAMP, JSONB
 from backend.infrastructure.db import Base
 
@@ -748,3 +748,27 @@ class EconomicEvent(Base):
     forecast = Column(String(50), nullable=True)
     previous = Column(String(50), nullable=True)
     impact = Column(String(50), nullable=True)
+
+class DividendDatabank(Base, TimescaleMixin):
+    """
+    Unified historical and upcoming dividend databank table.
+    Pre-calculated from corporate_actions and board_meetings to allow lightning-fast API responses.
+    """
+    __tablename__ = "dividend_databank"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    date = Column(Date, nullable=False, index=True) # TimescaleMixin requires a 'date' column. We will use ex_date or announcement_date if ex_date is null
+
+    symbol = Column(String(50), nullable=False, index=True)
+    ex_date = Column(Date, nullable=True, index=True)
+    announcement_date = Column(Date, nullable=True, index=True)
+    broadcast_date = Column(DateTime, nullable=True)
+    record_date = Column(Date, nullable=True)
+
+    dividend_type = Column(String(50), nullable=True)
+    amount = Column(Float, nullable=True)
+    raw_amount = Column(Float, nullable=True)
+    face_value = Column(Float, nullable=True)
+    purpose = Column(String(1000), nullable=True)
+
+    is_awaited = Column(Boolean, default=False, index=True)

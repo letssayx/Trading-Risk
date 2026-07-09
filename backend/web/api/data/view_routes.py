@@ -319,7 +319,9 @@ def get_model_for_type(data_type: str):
         'historical_index_data': models.HistoricalIndexData
     }
     # Safely get CorporateAction if it exists in models (may be unmerged)
-    if data_type in ['corporate_actions', 'dividend'] and hasattr(models, 'CorporateAction'):
+    if data_type == 'dividend' and hasattr(models, 'DividendDatabank'):
+        return getattr(models, 'DividendDatabank')
+    if data_type == 'corporate_actions' and hasattr(models, 'CorporateAction'):
         return getattr(models, 'CorporateAction')
     if data_type in ['board_meetings', 'board_meeting'] and hasattr(models, 'BoardMeeting'):
         return getattr(models, 'BoardMeeting')
@@ -792,16 +794,7 @@ async def list_data(
             else:
                 query = query.filter(filters[0])
 
-    if type == 'dividend':
-        query = query.filter(or_(
-            model.parsed_dividend_amount != None,
-            model.dividend_type.in_(['Bonus', 'Split', 'Demerger']),
-            model.purpose.ilike('%dividend%'),
-            model.purpose.ilike('%intdiv%'),
-            model.purpose.ilike('%int div%'),
-            model.purpose.ilike('%findiv%'),
-            model.purpose.ilike('%fin div%')
-        ))
+
     # Handle FO Instrument filter
     if type == 'bhavcopy_fo' and instrument and instrument.upper() != 'ALL':
         inst_upper = instrument.upper()
