@@ -712,14 +712,16 @@ async def list_data(
     query = db.query(model)
 
     if fo_only:
-        from backend.ingest.nse_models import SymbolMaster
-        # Assuming the field to join on is symbol in the current model
+        from backend.ingest.nse_models import BhavcopyFO
+        # Subquery to get distinct symbols from FO table
+        fo_subquery = db.query(BhavcopyFO.ticker_symb).distinct().subquery()
+
         if hasattr(model, 'symbol'):
-            query = query.join(SymbolMaster, SymbolMaster.symbol == model.symbol)
-            query = query.filter(SymbolMaster.derivative_liquidity_tier != None)
+            query = query.filter(model.symbol.in_(db.query(fo_subquery)))
         elif hasattr(model, 'ticker_symb'):
-            query = query.join(SymbolMaster, SymbolMaster.symbol == model.ticker_symb)
-            query = query.filter(SymbolMaster.derivative_liquidity_tier != None)
+            query = query.filter(model.ticker_symb.in_(db.query(fo_subquery)))
+        elif hasattr(model, 'underlying_stock'):
+            query = query.filter(model.underlying_stock.in_(db.query(fo_subquery)))
 
 
     # Handle Latest Data flag
