@@ -2507,13 +2507,13 @@ async function triggerMasterSync() {
         if (typeof loadMWPLAnalysis === 'function') promises.push(loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
 
         // 6. OI Analysis
-        if (typeof OiTool !== 'undefined' && typeof OiTool.syncAndLoadAggregatedData === 'function') {
-            promises.push(OiTool.syncAndLoadAggregatedData(false).catch(e => console.error("OiTool sync failed", e)));
+        if (typeof window.WorkbookManager !== 'undefined' && window.WorkbookManager.modules['oi_analysis'] && typeof window.WorkbookManager.modules['oi_analysis'].syncAndLoadAggregatedData === 'function') {
+            promises.push(window.WorkbookManager.modules['oi_analysis'].syncAndLoadAggregatedData(false).catch(e => console.error("OiTool sync failed", e)));
         }
 
         // 7. Rollover Analysis
-        if (typeof RolloverTool !== 'undefined' && typeof RolloverTool.syncAndLoadAggregatedData === 'function') {
-            promises.push(RolloverTool.syncAndLoadAggregatedData(false).catch(e => console.error("RolloverTool sync failed", e)));
+        if (typeof window.WorkbookManager !== 'undefined' && window.WorkbookManager.modules['rollover'] && typeof window.WorkbookManager.modules['rollover'].syncAndLoadAggregatedData === 'function') {
+            promises.push(window.WorkbookManager.modules['rollover'].syncAndLoadAggregatedData(false).catch(e => console.error("RolloverTool sync failed", e)));
         }
 
         // 8. Volatility Analysis (All F&O)

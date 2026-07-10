@@ -796,6 +796,6 @@ const OiTool = {
 // Register with WorkbookManager
 window.addEventListener('load', () => {
    if (window.WorkbookManager) {
-       window.WorkbookManager.modules['oi'] = OiTool;
+       window.WorkbookManager.modules['oi_analysis'] = OiTool;
    }
 });
