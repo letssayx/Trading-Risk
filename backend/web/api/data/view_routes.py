@@ -645,7 +645,7 @@ def patch_historical_dividends(db: Session = Depends(get_db)):
         # Fetch all corporate actions that likely contain dividends but haven't been parsed
         actions = db.query(CorporateAction).filter(
             CorporateAction.purpose != None,
-            CorporateAction.parsed_dividend_amount == None,
+            or_(CorporateAction.parsed_dividend_amount == None, CorporateAction.dividend_type.ilike('%special%'), CorporateAction.purpose.ilike('%special%')),
             or_(
                 CorporateAction.purpose.ilike('%dividend%'),
                 CorporateAction.purpose.ilike('%intdiv%'),

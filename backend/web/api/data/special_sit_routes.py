@@ -104,7 +104,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         diff = abs(d1 - d2)
         return min(diff, 365 - diff)
 
-    for sym in target_symbols:
+    for sym in symbols:
         history = ca_by_symbol.get(sym, [])
         spot = spot_prices.get(sym)
         futures = futures_map.get(sym, [])
@@ -170,7 +170,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         broadcast_date = None
 
         # Fetch board meetings regardless of if there is history
-        bms_for_sym = bm_by_symbol.get(sym, [])
+        bms_for_sym = []
 
         # Prioritize meetings that actually have a meeting_date set
         upcoming_bms = [bm for bm in bms_for_sym if bm.meeting_date and bm.meeting_date >= today - datetime.timedelta(days=30)]
@@ -233,8 +233,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
             for h in recent_hist:
                 # Skip special dividends entirely for forecasting
-                if 'special' in (h.get('purpose') or '').lower() or h.get('dividend_type') == 'Special':
-                    continue
+                # if 'special' in (h.get('purpose') or '').lower() or h.get('dividend_type') == 'Special':
+#                    continue
 
                 if h.get('dividend_type') == 'Final':
                     final_cluster.append(h)
@@ -262,7 +262,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                 # Skip clusters that haven't paid in the last 2 years (kill the cycle)
                 if mr_date.year < today.year - 1:
-                    continue
+#                    continue
 
                 if mr_date >= today:
                     # Already announced for future

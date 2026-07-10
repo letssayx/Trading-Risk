@@ -569,12 +569,12 @@ def build_dividend_databank_task(self, force: bool = False):
         ca_query = db.query(CorporateAction).filter(
             or_(
                 CorporateAction.parsed_dividend_amount != None,
-                CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger']),
+                CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger']), CorporateAction.purpose.ilike('%bonus%'), CorporateAction.purpose.ilike('%split%'),
                 CorporateAction.purpose.ilike('%dividend%'),
                 CorporateAction.purpose.ilike('%intdiv%'),
                 CorporateAction.purpose.ilike('%int div%'),
                 CorporateAction.purpose.ilike('%findiv%'),
-                CorporateAction.purpose.ilike('%fin div%')
+                CorporateAction.purpose.ilike('%fin div%'), CorporateAction.purpose.ilike('%special%')
             )
         )
 
@@ -584,7 +584,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 BoardMeeting.purpose.ilike('%intdiv%'),
                 BoardMeeting.purpose.ilike('%int div%'),
                 BoardMeeting.purpose.ilike('%findiv%'),
-                BoardMeeting.purpose.ilike('%fin div%'),
+                BoardMeeting.purpose.ilike('%fin div%'), BoardMeeting.purpose.ilike('%special%'),
                 BoardMeeting.extracted_dividend_amount != None
             )
         )
@@ -675,7 +675,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     "record_date": r.record_date if hasattr(r, 'record_date') else None
                 })
 
-            elif r.parsed_dividend_amount is not None or (r.purpose and 'dividend' in r.purpose.lower()):
+            elif r.parsed_dividend_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
                 ann_date = r.broadcast_date or r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
@@ -857,7 +857,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     sort_dt = sort_dt.date()
 
                 db_items.append(DividendDatabank(
-                    date=sort_dt,
+                    date=sort_dt if sort_dt != datetime.date.min else datetime.date(1900, 1, 1),
                     symbol=sym.upper(),
                     ex_date=ex_date_val,
                     announcement_date=h.get('announcement_date_obj'),
