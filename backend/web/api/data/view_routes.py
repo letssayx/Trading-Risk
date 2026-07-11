@@ -637,6 +637,7 @@ async def delete_data_range(
 
 
 from backend.ingest.field_mapper import FieldMapper
+from backend.ingest.nse_models import CorporateAction
 
 @router.post("/api/data/dividends/patch")
 def patch_historical_dividends(db: Session = Depends(get_db)):

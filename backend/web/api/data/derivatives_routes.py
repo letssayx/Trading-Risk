@@ -47,7 +47,8 @@ def sync_aggregated_oi_analysis(force: str = "false", db: Session = Depends(get_
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         # If we reach here, we need to compute
-        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        # If force is true, we ONLY want to force the computation for the latest available date, not recompute all of history (which `None` does).
+        compute_lookback = str(latest_metric_date) if latest_metric_date else None
         return compute_aggregated_oi_analysis(db, latest_metric_date=compute_lookback)
     except Exception as e:
         import traceback
@@ -1382,7 +1383,7 @@ def sync_mwpl_analysis(force: str = "false", db: Session = Depends(get_db)):
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
-        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        compute_lookback = str(latest_metric_date) if latest_metric_date else None
         return compute_mwpl_analysis(db, latest_metric_date=compute_lookback)
     except Exception as e:
         import traceback
@@ -1548,7 +1549,7 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
-        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        compute_lookback = str(latest_metric_date) if latest_metric_date else None
         return compute_rollover_analysis(db, latest_metric_date=compute_lookback)
     except Exception as e:
         import traceback
@@ -1698,7 +1699,7 @@ def sync_basis_watch(force: str = "false", db: Session = Depends(get_db)):
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
-        compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
+        compute_lookback = str(latest_metric_date) if latest_metric_date else None
         return compute_basis_watch(db, latest_metric_date=compute_lookback)
     except Exception as e:
         import traceback

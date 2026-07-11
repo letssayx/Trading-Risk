@@ -723,7 +723,9 @@ def build_dividend_databank_task(self, force: bool = False):
                                     diff = (ca_date - bm.date).days
                                     if -10 <= diff <= 180 and abs(diff) < min_diff:
                                         if h.get('amount') and bm.extracted_dividend_amount:
-                                            if float(h['amount']) != float(bm.extracted_dividend_amount):
+                                            # If CA amount is smaller than BM amount, they definitely don't match.
+                                            # If CA amount is larger, it might be a sum of multiple components (e.g. Final + Special), so we allow it to match the component BM.
+                                            if float(h['amount']) < float(bm.extracted_dividend_amount):
                                                 continue
                                         min_diff = abs(diff)
                                         best_bm = bm
@@ -759,11 +761,14 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
                         diff_days = abs((bm_date - existing_date).days)
-                        if diff_days == 0 or (diff_days <= 60 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type):
-                            is_duplicate = True
-                            if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
-                                existing['extracted_dividend_amount'] = bm.extracted_dividend_amount
-                            break
+                        # Only deduplicate if they are the exact same type of dividend.
+                        # This prevents dropping a Special dividend that happens on the exact same day as a Final dividend.
+                        if bm.extracted_dividend_type == existing['bm'].extracted_dividend_type:
+                            if diff_days <= 60:
+                                is_duplicate = True
+                                if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
+                                    existing['extracted_dividend_amount'] = bm.extracted_dividend_amount
+                                break
 
                 if not is_duplicate:
                     deduplicated_bms.append({
@@ -795,12 +800,22 @@ def build_dividend_databank_task(self, force: bool = False):
                     is_history_duplicate = False
                     if amt is not None:
                         for h in chained_history:
-                            if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
-                                h_date = h.get('announcement_date_obj') or h.get('ex_date_obj')
-                                if h_date:
-                                    if hasattr(h_date, 'date'): h_date = h_date.date()
-                                if h_date and bm_ann_date:
-                                    if abs((h_date - bm_ann_date).days) <= 300:
+                            h_date = h.get('announcement_date_obj') or h.get('ex_date_obj')
+                            if h_date:
+                                if hasattr(h_date, 'date'): h_date = h_date.date()
+
+                            if h_date and bm_ann_date:
+                                days_diff = abs((h_date - bm_ann_date).days)
+
+                                # Exact match
+                                if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
+                                    if days_diff <= 300:
+                                        is_history_duplicate = True
+                                        break
+
+                                # If the BM amount is likely a component of a combined CA sum
+                                if h.get('amount') and float(h['amount']) > float(amt):
+                                    if days_diff <= 30:
                                         is_history_duplicate = True
                                         break
 
