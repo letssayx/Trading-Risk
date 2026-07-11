@@ -574,7 +574,10 @@ def build_dividend_databank_task(self, force: bool = False):
                 CorporateAction.purpose.ilike('%intdiv%'),
                 CorporateAction.purpose.ilike('%int div%'),
                 CorporateAction.purpose.ilike('%findiv%'),
-                CorporateAction.purpose.ilike('%fin div%'), CorporateAction.purpose.ilike('%special%')
+                CorporateAction.purpose.ilike('%fin div%'), CorporateAction.purpose.ilike('%special%'),
+                CorporateAction.purpose.ilike('%div-%'),
+                CorporateAction.purpose.ilike('%div -%'),
+                CorporateAction.purpose.ilike('% div %')
             )
         )
 
@@ -902,9 +905,6 @@ def build_dividend_databank_task(self, force: bool = False):
                     if h.get('amount') is not None:
                         match.amount = h.get('amount')
                         match.raw_amount = h.get('raw_amount')
-                    elif match.amount is None and h.get('amount') is not None:
-                         match.amount = h.get('amount')
-                         match.raw_amount = h.get('raw_amount')
 
                     if h.get('face_value') is not None:
                         match.face_value = h.get('face_value')

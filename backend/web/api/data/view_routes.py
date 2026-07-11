@@ -651,7 +651,10 @@ def patch_historical_dividends(db: Session = Depends(get_db)):
                 CorporateAction.purpose.ilike('%intdiv%'),
                 CorporateAction.purpose.ilike('%int div%'),
                 CorporateAction.purpose.ilike('%findiv%'),
-                CorporateAction.purpose.ilike('%fin div%')
+                CorporateAction.purpose.ilike('%fin div%'),
+                CorporateAction.purpose.ilike('%div-%'),
+                CorporateAction.purpose.ilike('%div -%'),
+                CorporateAction.purpose.ilike('% div %')
             )
         ).all()
 
