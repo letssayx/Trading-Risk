@@ -284,9 +284,9 @@ class FieldMapper:
         elif has_dividend and has_split:
              parsed_type = f"{dividend_type} & Split"
         elif has_bonus:
-             return None, 'Bonus'
+             parsed_type = 'Bonus'
         elif has_split:
-             return None, 'Split'
+             parsed_type = 'Split'
         elif has_demerger:
              return None, 'Demerger'
         elif has_dividend:

@@ -706,7 +706,10 @@ def build_dividend_databank_task(self, force: bool = False):
             chained_history = []
 
             for h in history:
-                if h.get('dividend_type') not in ['Bonus', 'Split', 'Demerger']:
+                if h.get('dividend_type') in ['Bonus', 'Split', 'Demerger']:
+                     if not h.get('purpose') or h.get('dividend_type') not in h.get('purpose', ''):
+                          h['purpose'] = h.get('purpose', '') + f" ({h.get('dividend_type')} action)"
+                else:
                     ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
                     if ca_date:
                         best_bm = None
@@ -895,12 +898,20 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.announcement_date = h.get('announcement_date_obj')
                     if h.get('broadcast_date'):
                         match.broadcast_date = h.get('broadcast_date')
+                    # If we found an amount in history and DB has none (or they differ), update it
                     if h.get('amount') is not None:
                         match.amount = h.get('amount')
                         match.raw_amount = h.get('raw_amount')
+                    elif match.amount is None and h.get('amount') is not None:
+                         match.amount = h.get('amount')
+                         match.raw_amount = h.get('raw_amount')
+
                     if h.get('face_value') is not None:
                         match.face_value = h.get('face_value')
+
                     if h.get('purpose'):
+                        match.purpose = h.get('purpose')
+                    elif match.purpose is None:
                         match.purpose = h.get('purpose')
                     if h.get('record_date'):
                         match.record_date = h.get('record_date')

@@ -679,6 +679,10 @@ def patch_historical_dividends(db: Session = Depends(get_db)):
         if updated_count > 0:
             db.commit()
 
+            # Fire the background databank rebuild so these newly parsed amounts are actually visible in the UI
+            from backend.ingest.tasks import build_dividend_databank_task
+            build_dividend_databank_task.delay(force=False)
+
         return {"status": "success", "updated_count": updated_count}
 
     except Exception as e:
