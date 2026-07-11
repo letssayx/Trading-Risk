@@ -326,3 +326,4 @@ async function loadMWPLAnalysis(isRefresh = false) {
             loadBtn.innerHTML = originalText;
         }
     }
+window.loadMWPLAnalysis = loadMWPLAnalysis;

@@ -2504,7 +2504,7 @@ async function triggerMasterSync() {
         if (typeof fetchFutureOI === 'function') promises.push(fetchFutureOI(true).catch(e => console.error("fetchFutureOI failed", e)));
 
         // 5. MWPL Data
-        if (typeof loadMWPLAnalysis === 'function') promises.push(loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
+        if (typeof window.loadMWPLAnalysis === 'function') promises.push(window.loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
 
         // 6. OI Analysis
         if (typeof window.WorkbookManager !== 'undefined' && window.WorkbookManager.modules['oi_analysis'] && typeof window.WorkbookManager.modules['oi_analysis'].syncAndLoadAggregatedData === 'function') {

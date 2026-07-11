@@ -96,6 +96,20 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "raw_amount": r.raw_amount
         })
 
+
+    # 4.5 Fetch Board Meetings for the last 30 days
+    recent_bms_date = today - datetime.timedelta(days=30)
+    bm_records = db.query(BoardMeeting).filter(
+        BoardMeeting.symbol.in_(symbols),
+        or_(
+            BoardMeeting.date >= recent_bms_date,
+            BoardMeeting.meeting_date >= recent_bms_date
+        )
+    ).all()
+    bm_by_symbol = defaultdict(list)
+    for bm in bm_records:
+        bm_by_symbol[bm.symbol.upper()].append(bm)
+
     # 5. Process data and generate "guesstimates" using Seasonal Cycle Detection
     results = []
 
@@ -170,7 +184,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         broadcast_date = None
 
         # Fetch board meetings regardless of if there is history
-        bms_for_sym = []
+        bms_for_sym = bm_by_symbol.get(sym, [])
 
         # Prioritize meetings that actually have a meeting_date set
         upcoming_bms = [bm for bm in bms_for_sym if bm.meeting_date and bm.meeting_date >= today - datetime.timedelta(days=30)]
