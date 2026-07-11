@@ -2504,16 +2504,28 @@ async function triggerMasterSync() {
         if (typeof fetchFutureOI === 'function') promises.push(fetchFutureOI(true).catch(e => console.error("fetchFutureOI failed", e)));
 
         // 5. MWPL Data
-        if (typeof window.loadMWPLAnalysis === 'function') promises.push(window.loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
+        if (typeof window.loadMWPLAnalysis === 'function') {
+            promises.push(window.loadMWPLAnalysis(true).catch(e => console.error("loadMWPLAnalysis failed", e)));
+        } else {
+            console.warn("loadMWPLAnalysis is not defined on the window object.");
+        }
 
         // 6. OI Analysis
-        if (typeof window.WorkbookManager !== 'undefined' && window.WorkbookManager.modules['oi_analysis'] && typeof window.WorkbookManager.modules['oi_analysis'].syncAndLoadAggregatedData === 'function') {
+        if (typeof window.OiTool !== 'undefined' && typeof window.OiTool.syncAndLoadAggregatedData === 'function') {
+            promises.push(window.OiTool.syncAndLoadAggregatedData(false).catch(e => console.error("OiTool sync failed", e)));
+        } else if (typeof window.WorkbookManager !== 'undefined' && window.WorkbookManager.modules['oi_analysis'] && typeof window.WorkbookManager.modules['oi_analysis'].syncAndLoadAggregatedData === 'function') {
             promises.push(window.WorkbookManager.modules['oi_analysis'].syncAndLoadAggregatedData(false).catch(e => console.error("OiTool sync failed", e)));
+        } else {
+            console.warn("OiTool syncAndLoadAggregatedData is not defined.");
         }
 
         // 7. Rollover Analysis
-        if (typeof window.WorkbookManager !== 'undefined' && window.WorkbookManager.modules['rollover'] && typeof window.WorkbookManager.modules['rollover'].syncAndLoadAggregatedData === 'function') {
+        if (typeof window.RolloverTool !== 'undefined' && typeof window.RolloverTool.syncAndLoadAggregatedData === 'function') {
+            promises.push(window.RolloverTool.syncAndLoadAggregatedData(false).catch(e => console.error("RolloverTool sync failed", e)));
+        } else if (typeof window.WorkbookManager !== 'undefined' && window.WorkbookManager.modules['rollover'] && typeof window.WorkbookManager.modules['rollover'].syncAndLoadAggregatedData === 'function') {
             promises.push(window.WorkbookManager.modules['rollover'].syncAndLoadAggregatedData(false).catch(e => console.error("RolloverTool sync failed", e)));
+        } else {
+            console.warn("RolloverTool syncAndLoadAggregatedData is not defined.");
         }
 
         // 8. Volatility Analysis (All F&O)

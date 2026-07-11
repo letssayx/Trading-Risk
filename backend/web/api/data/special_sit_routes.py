@@ -137,7 +137,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 # (Ideally, we'd pre-fetch all needed historical prices).
                 # To avoid N+1 we should bulk fetch, but let's just do a single query for now as a fix.
                 try:
-                    pass
                     # If broadcast date has a time after 15:30:00, use <= ref_date.date()
                     # If broadcast date has a time before 15:30:00, use < ref_date.date()
                     # If ref_date is just a date, use < ref_date
@@ -276,8 +275,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
                 # Skip clusters that haven't paid in the last 2 years (kill the cycle)
                 if mr_date.year < today.year - 1:
-                    pass
-                    # continue
+                    continue
 
                 if mr_date >= today:
                     # Already announced for future
