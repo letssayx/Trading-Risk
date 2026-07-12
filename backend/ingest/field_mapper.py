@@ -311,6 +311,12 @@ class FieldMapper:
             total_amount = sum(float(m) for m in rs_matches)
             return total_amount, parsed_type
 
+        # 4. Fallback extraction: just look for the word dividend followed by a number if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
+        div_matches = re.findall(r'(?:dividend).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)\s*(?:per share|/-|per equity share)', _clean_purpose, flags=re.IGNORECASE)
+        if div_matches:
+            total_amount = sum(float(m) for m in div_matches)
+            return total_amount, parsed_type
+
         # Try percentage format: sum all percentages if multiple exist
         pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
         if pct_matches and face_value:

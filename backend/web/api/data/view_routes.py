@@ -659,6 +659,8 @@ def patch_historical_dividends(db: Session = Depends(get_db)):
         ).all()
 
         updated_count = 0
+        from backend.ingest.nse_models import DividendDatabank
+
         for action in actions:
             if not action.purpose:
                 continue
@@ -679,10 +681,24 @@ def patch_historical_dividends(db: Session = Depends(get_db)):
             if needs_update:
                 updated_count += 1
 
+                # Directly patch the DividendDatabank immediately to bypass background task lag
+                if amount is not None:
+                    db_records = db.query(DividendDatabank).filter(
+                        DividendDatabank.symbol == action.symbol,
+                        DividendDatabank.purpose == action.purpose
+                    ).all()
+                    for db_rec in db_records:
+                        # Only update if the amount is missing or incorrect, to prevent overriding intentional splits
+                        if db_rec.amount is None or db_rec.amount == db_rec.raw_amount:
+                            db_rec.amount = amount
+                            db_rec.raw_amount = amount
+                        elif db_rec.raw_amount is None:
+                            db_rec.raw_amount = amount
+
         if updated_count > 0:
             db.commit()
 
-            # Fire the background databank rebuild so these newly parsed amounts are actually visible in the UI
+            # Fire the background databank rebuild just to be safe and ensure any complex matching is done
             from backend.ingest.tasks import build_dividend_databank_task
             build_dividend_databank_task.delay(force=False)
 

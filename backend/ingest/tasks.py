@@ -723,8 +723,8 @@ def build_dividend_databank_task(self, force: bool = False):
                             if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
                                 if bm.date:
                                     diff = (ca_date - bm.date).days
-                                    if -10 <= diff <= 180 and abs(diff) < min_diff:
-                                        if h.get('amount') and bm.extracted_dividend_amount:
+                                    if -10 <= diff <= 60 and abs(diff) < min_diff:
+                                        if h.get('amount') is not None and bm.extracted_dividend_amount is not None:
                                             if float(h['amount']) != float(bm.extracted_dividend_amount):
                                                 continue
                                         min_diff = abs(diff)
@@ -797,14 +797,23 @@ def build_dividend_databank_task(self, force: bool = False):
                     is_history_duplicate = False
                     if amt is not None:
                         for h in chained_history:
-                            if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
-                                h_date = h.get('announcement_date_obj') or h.get('ex_date_obj')
-                                if h_date:
-                                    if hasattr(h_date, 'date'): h_date = h_date.date()
-                                if h_date and bm_ann_date:
+                            # If the amounts match exactly and it's within 300 days OR if they don't have amounts but are within 60 days
+                            h_date = h.get('announcement_date_obj') or h.get('ex_date_obj')
+                            if h_date:
+                                if hasattr(h_date, 'date'): h_date = h_date.date()
+                            if h_date and bm_ann_date:
+                                if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
                                     if abs((h_date - bm_ann_date).days) <= 300:
                                         is_history_duplicate = True
                                         break
+                                elif h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim') and abs((h_date - bm_ann_date).days) <= 60:
+                                    is_history_duplicate = True
+                                    # Update the historical one if it doesn't have an amount
+                                    if h.get('amount') is None:
+                                        h['amount'] = amt
+                                        h['raw_amount'] = amt
+                                        h['announcement_date_obj'] = bm_ann_date
+                                    break
 
                     if not is_history_duplicate:
                         chained_history.append({
@@ -846,7 +855,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                     adjusted_amount *= adj['ratio']
                                     was_adjusted = True
                             h['amount'] = adjusted_amount
-                            if was_adjusted:
+                            if was_adjusted and "(Originally Declared:" not in (h.get('purpose') or ""):
                                 h['purpose'] = f"{h.get('purpose', '')} (Originally Declared: {h.get('raw_amount')})"
 
         if force:
@@ -912,8 +921,6 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.face_value = h.get('face_value')
 
                     if h.get('purpose'):
-                        match.purpose = h.get('purpose')
-                    elif match.purpose is None:
                         match.purpose = h.get('purpose')
                     if h.get('record_date'):
                         match.record_date = h.get('record_date')
