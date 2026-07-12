@@ -82,8 +82,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
         if latest_metric_date_obj:
             dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
         else:
-            # Recompute only the last 30 days max when forced to prevent huge hangs
-            dates_to_compute = all_dates[:30] # Initial backfill
+            dates_to_compute = all_dates # Initial backfill
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute."}
@@ -1408,8 +1407,7 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
         if latest_metric_date_obj:
             dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
         else:
-            # Recompute only the last 30 days max when forced to prevent huge hangs
-            dates_to_compute = all_dates[:30]
+            dates_to_compute = all_dates[:500]
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
@@ -1575,8 +1573,7 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
         if latest_metric_date_obj:
             dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
         else:
-            # Recompute only the last 30 days max when forced to prevent huge hangs
-            dates_to_compute = all_dates[:30]
+            dates_to_compute = all_dates[:500]
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
@@ -1726,8 +1723,7 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
         if latest_metric_date_obj:
             dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
         else:
-            # Recompute only the last 30 days max when forced to prevent huge hangs
-            dates_to_compute = all_dates[:30]
+            dates_to_compute = all_dates[:500]
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
