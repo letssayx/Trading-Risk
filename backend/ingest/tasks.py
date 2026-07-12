@@ -614,54 +614,10 @@ def build_dividend_databank_task(self, force: bool = False):
 
         # Group by symbol
         ca_by_symbol = defaultdict(list)
-        adjustments_by_symbol = defaultdict(list)
         for r in ca_records:
             sym = r.symbol.upper()
 
             if r.dividend_type in ['Bonus', 'Split', 'Demerger']:
-                # Extract ratio from purpose
-                ratio = 1.0
-                purpose_lower = (r.purpose or "").lower()
-                if r.dividend_type == 'Bonus':
-                    match = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                    if match:
-                        bonus_shares = float(match.group(1))
-                        held_shares = float(match.group(2))
-                        if held_shares > 0:
-                            ratio = held_shares / (held_shares + bonus_shares)
-                elif r.dividend_type == 'Split':
-                    match = re.search(r'from\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
-                    if match:
-                        old_fv = float(match.group(1))
-                        new_fv = float(match.group(2))
-                        if old_fv > 0:
-                            ratio = new_fv / old_fv
-                    else:
-                        match2 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                        if match2:
-                            new_shares = float(match2.group(1))
-                            old_shares = float(match2.group(2))
-                            if old_shares > 0 and new_shares > 0:
-                                if new_shares > old_shares:
-                                    ratio = old_shares / new_shares
-                                else:
-                                    ratio = new_shares / old_shares
-                elif r.dividend_type == 'Demerger':
-                    match3 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                    if match3:
-                        new_shares = float(match3.group(1))
-                        old_shares = float(match3.group(2))
-                        if old_shares > 0 and new_shares > 0:
-                            ratio = old_shares / (old_shares + new_shares)
-                    else:
-                        ratio = 0.5
-
-                if ratio != 1.0 and r.date:
-                    adjustments_by_symbol[sym].append({
-                        "date": r.date,
-                        "ratio": ratio
-                    })
-
                 # Still append splits/bonuses to the UI history so they show in the timeline
                 ann_date = r.broadcast_date or r.date
                 if hasattr(ann_date, 'date'):
@@ -841,22 +797,8 @@ def build_dividend_databank_task(self, force: bool = False):
             chained_history.sort(key=get_sort_key, reverse=True)
             ca_by_symbol[sym] = chained_history
 
-        for sym in target_symbols:
-            history = ca_by_symbol.get(sym, [])
-            adjustments = adjustments_by_symbol.get(sym, [])
-            if adjustments:
-                for h in history:
-                    if h['ex_date_obj']:
-                        adjusted_amount = h.get('raw_amount')
-                        if adjusted_amount is not None:
-                            was_adjusted = False
-                            for adj in adjustments:
-                                if adj['date'] > h['ex_date_obj']:
-                                    adjusted_amount *= adj['ratio']
-                                    was_adjusted = True
-                            h['amount'] = adjusted_amount
-                            if was_adjusted and "(Originally Declared:" not in (h.get('purpose') or ""):
-                                h['purpose'] = f"{h.get('purpose', '')} (Originally Declared: {h.get('raw_amount')})"
+        # We purposely do not alter the amounts with ratios here. The Dividend Databank MUST reflect the pure, raw amounts.
+        # Downstream routes (like /api/special-sit/dividends) should handle the split/bonus math dynamically if needed.
 
         if force:
             db.query(DividendDatabank).delete()

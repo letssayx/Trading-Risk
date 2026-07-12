@@ -96,6 +96,59 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "raw_amount": r.raw_amount
         })
 
+    # 4.2 Fetch Bonus/Split actions to dynamically calculate adjustments
+    import re
+    adjustment_records = db.query(CorporateAction).filter(
+        CorporateAction.symbol.in_(symbols),
+        CorporateAction.date >= ten_years_ago,
+        CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger'])
+    ).all()
+
+    adjustments_by_symbol = defaultdict(list)
+    for r in adjustment_records:
+        sym = r.symbol.upper()
+        ratio = 1.0
+        purpose_lower = (r.purpose or "").lower()
+        if r.dividend_type == 'Bonus':
+            match = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
+            if match:
+                bonus_shares = float(match.group(1))
+                held_shares = float(match.group(2))
+                if held_shares > 0:
+                    ratio = held_shares / (held_shares + bonus_shares)
+        elif r.dividend_type == 'Split':
+            match = re.search(r'from\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
+            if match:
+                old_fv = float(match.group(1))
+                new_fv = float(match.group(2))
+                if old_fv > 0:
+                    ratio = new_fv / old_fv
+            else:
+                match2 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
+                if match2:
+                    new_shares = float(match2.group(1))
+                    old_shares = float(match2.group(2))
+                    if old_shares > 0 and new_shares > 0:
+                        if new_shares > old_shares:
+                            ratio = old_shares / new_shares
+                        else:
+                            ratio = new_shares / old_shares
+        elif r.dividend_type == 'Demerger':
+            match3 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
+            if match3:
+                new_shares = float(match3.group(1))
+                old_shares = float(match3.group(2))
+                if old_shares > 0 and new_shares > 0:
+                    ratio = old_shares / (old_shares + new_shares)
+            else:
+                ratio = 0.5
+
+        if ratio != 1.0 and r.date:
+            adjustments_by_symbol[sym].append({
+                "date": r.date,
+                "ratio": ratio
+            })
+
 
     # 4.5 Fetch Board Meetings for the last 30 days
     recent_bms_date = today - datetime.timedelta(days=30)
@@ -122,6 +175,24 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         history = ca_by_symbol.get(sym, [])
         spot = spot_prices.get(sym)
         futures = futures_map.get(sym, [])
+
+        # Apply adjustments first
+        adjustments = adjustments_by_symbol.get(sym, [])
+        if adjustments:
+            for h in history:
+                h_date = h.get('ex_date_obj') or h.get('announcement_date_obj')
+                if h_date:
+                    if hasattr(h_date, 'date'):
+                        h_date = h_date.date()
+                    adjusted_amount = h.get('raw_amount')
+                    if adjusted_amount is not None:
+                        for adj in adjustments:
+                            adj_date = adj['date']
+                            if hasattr(adj_date, 'date'):
+                                adj_date = adj_date.date()
+                            if adj_date > h_date:
+                                adjusted_amount *= adj['ratio']
+                        h['amount'] = adjusted_amount
 
         # Add >2% extraordinary flag to historical records
         for h in history:
