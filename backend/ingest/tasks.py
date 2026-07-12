@@ -717,7 +717,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
                         diff_days = abs((bm_date - existing_date).days)
-                        if diff_days == 0 or (diff_days <= 60 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type):
+                        if diff_days == 0 or (diff_days <= 180 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type):
                             is_duplicate = True
                             if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
                                 existing['extracted_dividend_amount'] = bm.extracted_dividend_amount
