@@ -305,7 +305,7 @@ class FieldMapper:
             if match:
                 return float(match.group(1)), parsed_type
 
-        # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by &)
+        # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by & or /)
         rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
         if rs_matches:
             total_amount = sum(float(m) for m in rs_matches)

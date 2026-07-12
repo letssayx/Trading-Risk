@@ -48,7 +48,9 @@ def sync_aggregated_oi_analysis(force: str = "false", db: Session = Depends(get_
 
         # If we reach here, we need to compute
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        return compute_aggregated_oi_analysis(db, latest_metric_date=compute_lookback)
+        from backend.ingest.tasks import run_oi_analysis_task
+        run_oi_analysis_task.delay(latest_metric_date=compute_lookback)
+        return {"status": "success", "message": "OI analysis computation task started in the background.", "computed": True}
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
@@ -1383,7 +1385,9 @@ def sync_mwpl_analysis(force: str = "false", db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        return compute_mwpl_analysis(db, latest_metric_date=compute_lookback)
+        from backend.ingest.tasks import run_mwpl_analysis_task
+        run_mwpl_analysis_task.delay(latest_metric_date=compute_lookback)
+        return {"status": "success", "message": "MWPL analysis computation task started in the background.", "computed": True}
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
@@ -1549,7 +1553,9 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        return compute_rollover_analysis(db, latest_metric_date=compute_lookback)
+        from backend.ingest.tasks import run_rollover_analysis_task
+        run_rollover_analysis_task.delay(latest_metric_date=compute_lookback)
+        return {"status": "success", "message": "Rollover analysis computation task started in the background.", "computed": True}
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}

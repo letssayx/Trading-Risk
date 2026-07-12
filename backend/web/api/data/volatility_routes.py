@@ -596,7 +596,9 @@ def sync_volatility_analysis(force: str = "false", db: Session = Depends(get_db)
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        return compute_volatility_analysis(db, latest_metric_date=compute_lookback)
+        from backend.ingest.tasks import run_volatility_analysis_task
+        run_volatility_analysis_task.delay(latest_metric_date=compute_lookback)
+        return {"status": "success", "message": "Volatility analysis computation task started in the background.", "computed": True}
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}

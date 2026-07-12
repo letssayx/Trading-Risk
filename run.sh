@@ -19,7 +19,7 @@ CELERY_PID=$!
 
 # 4. Start FastAPI Backend
 echo ">>> Starting Backend API (Port 8000)..."
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload \
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir backend \
     --reload-exclude "venv-wsl/*" \
     --reload-exclude "venv/*" \
     --reload-exclude ".git/*" \
