@@ -628,8 +628,10 @@ def get_rollover_analysis(symbol: str, db: Session = Depends(get_db)):
 
         total_oi = sum([(int(f.open_interest) if f.open_interest else 0) for f in futs])
 
+        if not futs:
+            return {"error": "Insufficient futures data to calculate rollover"}
         near = futs[0]
-        next_month = futs[1]
+        next_month = futs[1] if len(futs) > 1 else None
 
         far_month = futs[2] if len(futs) > 2 else None
 
@@ -1624,8 +1626,10 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
             if len(futs) < 2:
                 continue
 
+            if not futs:
+                continue
             near = futs[0]
-            next_month = futs[1]
+            next_month = futs[1] if len(futs) > 1 else None
             far_oi = sum(f["oi"] for f in futs[2:]) if len(futs) > 2 else 0
 
             total_oi = near["oi"] + next_month["oi"] + far_oi
@@ -1754,6 +1758,8 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
         for key, futs in fo_map.items():
             d, sym = key
             futs.sort(key=lambda x: x["expiry"])
+            if not futs:
+                continue
             near = futs[0]
 
             spot = eq_map.get((d, sym))
