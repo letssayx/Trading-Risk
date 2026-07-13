@@ -4116,17 +4116,6 @@ function renderDividendsData() {
                let f = formatDateTime(d.board_meeting_date);
                bmdDisplay = f.date !== '-' ? `${f.date}${f.time ? `<span style="color:#aaa;font-size:10px;"><br>${f.time}</span>` : ''}` : '-';
             }
-            let fullPurpose = d.subject || d.purpose || '-';
-            if (d.ex_date && fullPurpose.toLowerCase().includes('not yet declared')) {
-                 fullPurpose = fullPurpose.replace(/-\s*Record date not yet declared/gi, '').replace(/Record date not yet declared/gi, '').trim();
-                 if (!fullPurpose || fullPurpose === '-') fullPurpose = 'Dividend';
-            }
-
-            let faceValue = d.face_value || d.faceValue || '-';
-            if (faceValue === '-' && fullPurpose.toUpperCase().includes('FACE VALUE')) {
-                 let match = fullPurpose.match(/FACE VALUE[:\s]+([\d\.]+)/i);
-                 if (match) faceValue = match[1];
-            }
 
             tr.innerHTML = `
                 <td>${bcdDisplay}</td>
@@ -4137,7 +4126,7 @@ function renderDividendsData() {
                 <td style="color: #3176B8;">${amount}</td>
                 <td>${typeBadge}</td>
                 <td>${faceValue}</td>
-                <td style="white-space:normal; max-width:200px;">${fullPurpose}</td>
+                <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
                 <td>${d.record_date || '-'}</td>
             `;
 

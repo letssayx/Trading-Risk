@@ -93,7 +93,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "dividend_type": r.dividend_type,
             "purpose": r.purpose,
             "amount": r.amount,
-            "raw_amount": r.raw_amount
+            "raw_amount": r.raw_amount,
+            "face_value": r.face_value
         })
 
     # 4.2 Fetch Bonus/Split actions to dynamically calculate adjustments
@@ -117,7 +118,9 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 if held_shares > 0:
                     ratio = held_shares / (held_shares + bonus_shares)
         elif r.dividend_type == 'Split':
-            match = re.search(r'from\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
+            match = re.search(r'from\s*(?:rs\.?\s*|re\.?\s*|rupees?\s*)?(\d+(?:\.\d+)?).*?to\s*(?:rs\.?\s*|re\.?\s*|rupees?\s*)?(\d+(?:\.\d+)?)', purpose_lower)
+            if not match:
+                match = re.search(r'(?:rs\.?\s*|re\.?\s*|rupees?\s*|face value of\s*)(\d+(?:\.\d+)?)\s*(?:per share)?\s*(?:to|into)\s*(?:rs\.?\s*|re\.?\s*|rupees?\s*|face value of\s*)(\d+(?:\.\d+)?)', purpose_lower)
             if match:
                 old_fv = float(match.group(1))
                 new_fv = float(match.group(2))

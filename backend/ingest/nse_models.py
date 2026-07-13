@@ -61,6 +61,7 @@ class BhavcopyEQ(Base, TimescaleMixin):
         PrimaryKeyConstraint('trade_date', 'id'),
         UniqueConstraint('symbol', 'series', 'trade_date', name='uq_bhavcopy_eq_unique'),
         Index('idx_bhavcopy_eq_symbol_date', 'symbol', 'trade_date'),
+        Index('idx_bhavcopy_eq_sym_series_date', 'symbol', 'series', 'trade_date'),
     )
 
 
@@ -128,6 +129,8 @@ class BhavcopyFO(Base, TimescaleMixin):
         UniqueConstraint('trade_date', 'ticker_symb', 'instrument_type', 'expiry_date', 'strike_price', 'option_type',
                         name='uq_bhavcopy_fo_unique'),
         Index('idx_bhavcopy_fo_symbol_expiry', 'ticker_symb', 'expiry_date'),
+        Index('idx_bhavcopy_fo_inst_type', 'instrument_type'),
+        Index('idx_bhavcopy_fo_sym_date_inst', 'ticker_symb', 'trade_date', 'instrument_type'),
         Index('idx_bhavcopy_fo_date_symb', text('trade_date DESC'), text('ticker_symb ASC')),
     )
 

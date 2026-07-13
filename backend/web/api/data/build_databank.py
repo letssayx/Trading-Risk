@@ -8,5 +8,5 @@ def build_dividend_databank(force: bool = Query(False)):
     """
     Rebuilds the DividendDatabank table asynchronously via Celery.
     """
-    task = build_dividend_databank_task(force=force)
-    return {"message": "Dividend Databank built successfully", "task_id": "sync"}
+    task = build_dividend_databank_task.delay(force)
+    return {"message": "Dividend Databank build triggered in background via Celery", "task_id": str(task.id)}

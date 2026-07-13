@@ -1513,6 +1513,7 @@ function renderSSDividends() {
                     <tr>
                         <td>${h.ex_date || '-'}</td>
                         <td>${h.dividend_type || '-'}</td>
+                        <td>${h.face_value !== undefined && h.face_value !== null ? h.face_value : '-'}</td>
                         <td>${h.purpose || '-'}</td>
                         <td style="font-weight: bold; color: #60a5fa;">${h.amount ? parseFloat(h.amount).toFixed(2) : '-'}</td>
                         ${histAbove2}
@@ -1523,7 +1524,7 @@ function renderSSDividends() {
 
             html += `
             <tr id="ss-div-hist-${item.symbol}" style="display: none; background: #1a1a1a;">
-                <td colspan="16" style="padding: 15px;">
+                <td colspan="18" style="padding: 15px;">
                     <div style="border-left: 3px solid #3176B8; padding-left: 15px; margin-left: 20px;">
                         <h4 style="margin: 0 0 10px 0; color: #ccc;">Historical Dividends (Last 10 Years)</h4>
                         <table class="data-table" style="width: 50%; min-width: 400px; background: #222;">
@@ -1531,6 +1532,7 @@ function renderSSDividends() {
                                 <tr>
                                     <th>Ex-Date</th>
                                     <th>Type</th>
+                                    <th>Face Value</th>
                                     <th>Purpose</th>
                                     <th>Amount</th>
                                     <th>>2%</th>
