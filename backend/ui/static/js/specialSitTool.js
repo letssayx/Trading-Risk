@@ -1466,8 +1466,8 @@ function renderSSDividends() {
 
         let expectedHighlyLikelyHtml = item.expected_highly_likely || '-';
 
-        let lastFaceValueHtml = (item.history && item.history.length > 0 && item.history[0].face_value !== undefined && item.history[0].face_value !== null) ? item.history[0].face_value : '-';
-        let lastPurposeHtml = (item.history && item.history.length > 0 && item.history[0].purpose) ? item.history[0].purpose : '-';
+        let lastFaceValueHtml = (item.last_face_value !== undefined && item.last_face_value !== null) ? item.last_face_value : '-';
+        let lastPurposeHtml = (item.last_purpose) ? item.last_purpose : '-';
 
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">

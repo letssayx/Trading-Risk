@@ -246,6 +246,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         last_type = "-"
         last_ex_date = "-"
         last_amount = None
+        last_face_value = "-"
+        last_purpose = "-"
         is_above_2_percent = False
 
         expected_amount = None
@@ -283,23 +285,25 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                  broadcast_date = None
 
         if history:
-            # Most recent overall dividend (just for table display purposes)
-            last = history[0]
-            last_type = last['dividend_type'] or '-'
-            last_ex_date = last['ex_date'] or '-'
-            last_amount = last['amount']
+            # Find the most recent actual dividend (skip standalone splits/bonuses if possible)
+            last_div = next((h for h in history if h.get('amount') is not None), history[0])
+            last_type = last_div.get('dividend_type') or '-'
+            last_ex_date = last_div.get('ex_date') or '-'
+            last_amount = last_div.get('amount')
+            last_face_value = last_div.get('face_value') or '-'
+            last_purpose = last_div.get('purpose') or '-'
 
             # Check if the event is still Active (Ex-Date >= today or Ex-Awaited)
             is_active = False
             if last_ex_date == '-' or last_ex_date == 'Record date not yet declared':
                 # Ex-Awaited
                 is_active = True
-            elif last.get('ex_date_obj') and last['ex_date_obj'] >= today:
+            elif last_div.get('ex_date_obj') and last_div['ex_date_obj'] >= today:
                 # Ex-Date in future or today
                 is_active = True
 
             if is_active:
-                is_above_2_percent = last.get('is_above_2_percent', False)
+                is_above_2_percent = last_div.get('is_above_2_percent', False)
             else:
                 is_above_2_percent = False
 
@@ -502,6 +506,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 "last_type": last_type,
                 "last_ex_date": last_ex_date,
                 "last_amount": last_amount,
+                "last_face_value": last_face_value,
+                "last_purpose": last_purpose,
                 "is_above_2_percent": is_above_2_percent,
                 "board_meeting_date": board_meeting_date,
                 "broadcast_date": broadcast_date,
