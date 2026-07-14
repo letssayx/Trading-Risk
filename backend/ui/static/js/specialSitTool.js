@@ -1466,6 +1466,9 @@ function renderSSDividends() {
 
         let expectedHighlyLikelyHtml = item.expected_highly_likely || '-';
 
+        let lastFaceValueHtml = (item.history && item.history.length > 0 && item.history[0].face_value !== undefined && item.history[0].face_value !== null) ? item.history[0].face_value : '-';
+        let lastPurposeHtml = (item.history && item.history.length > 0 && item.history[0].purpose) ? item.history[0].purpose : '-';
+
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
                 <td style="font-weight: bold; color: #fff;">
@@ -1477,6 +1480,8 @@ function renderSSDividends() {
                 ${futuresHTML}
                 <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${lastFaceValueHtml}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${lastPurposeHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
                 <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${bmDateHtml}</td>
                 <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${broadcastDateHtml}</td>
@@ -1551,7 +1556,7 @@ function renderSSDividends() {
     });
 
     if (html === '') {
-        html = '<tr><td colspan="16" style="text-align:center;">No data available for selected criteria</td></tr>';
+        html = '<tr><td colspan="18" style="text-align:center;">No data available for selected criteria</td></tr>';
     }
 
     tbody.innerHTML = html;
