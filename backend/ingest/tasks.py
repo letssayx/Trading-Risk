@@ -291,7 +291,6 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         db = SessionLocal()
         from sqlalchemy import or_
         completed_map = {}
-
         if not force:
             # Only fetch CA and BM from the last 7 days for incremental updates,
             # then find all unique symbols involved, and fetch full history ONLY for those symbols
@@ -340,7 +339,6 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
 
             ca_records = force_ca_query.order_by(desc(CorporateAction.date)).all()
             bm_records = force_bm_query.order_by(desc(BoardMeeting.date)).all()
-
 
         # Group by symbol
         ca_by_symbol = defaultdict(list)
