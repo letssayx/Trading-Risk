@@ -641,71 +641,17 @@ from backend.ingest.field_mapper import FieldMapper
 @router.post("/api/data/dividends/patch")
 def patch_historical_dividends(db: Session = Depends(get_db)):
     try:
-        from sqlalchemy import or_
-        # Fetch all corporate actions that likely contain dividends but haven't been parsed
-        actions = db.query(CorporateAction).filter(
-            CorporateAction.purpose != None,
-            or_(CorporateAction.parsed_dividend_amount == None, CorporateAction.dividend_type.ilike('%special%'), CorporateAction.purpose.ilike('%special%')),
-            or_(
-                CorporateAction.purpose.ilike('%dividend%'),
-                CorporateAction.purpose.ilike('%intdiv%'),
-                CorporateAction.purpose.ilike('%int div%'),
-                CorporateAction.purpose.ilike('%findiv%'),
-                CorporateAction.purpose.ilike('%fin div%'),
-                CorporateAction.purpose.ilike('%div-%'),
-                CorporateAction.purpose.ilike('%div -%'),
-                CorporateAction.purpose.ilike('% div %')
-            )
-        ).all()
+        from backend.ingest.tasks import build_dividend_databank_task
+        task = build_dividend_databank_task.delay(force=True)
 
-        updated_count = 0
-        from backend.ingest.nse_models import DividendDatabank
-
-        for action in actions:
-            if not action.purpose:
-                continue
-
-            # Attempt to parse
-            amount, div_type = FieldMapper._parse_dividend(action.purpose, action.face_value)
-
-            # Check if an update is needed
-            needs_update = False
-            if amount != action.parsed_dividend_amount:
-                action.parsed_dividend_amount = amount
-                needs_update = True
-
-            if div_type and div_type != action.dividend_type:
-                action.dividend_type = div_type
-                needs_update = True
-
-            if needs_update:
-                updated_count += 1
-
-                # Directly patch the DividendDatabank immediately to bypass background task lag
-                if amount is not None:
-                    db_records = db.query(DividendDatabank).filter(
-                        DividendDatabank.symbol == action.symbol,
-                        DividendDatabank.purpose == action.purpose
-                    ).all()
-                    for db_rec in db_records:
-                        # Only update if the amount is missing or incorrect, to prevent overriding intentional splits
-                        if db_rec.amount is None or db_rec.amount == db_rec.raw_amount:
-                            db_rec.amount = amount
-                            db_rec.raw_amount = amount
-                        elif db_rec.raw_amount is None:
-                            db_rec.raw_amount = amount
-
-        if updated_count > 0:
-            db.commit()
-
-            # Fire the background databank rebuild just to be safe and ensure any complex matching is done
-            from backend.ingest.tasks import build_dividend_databank_task
-            build_dividend_databank_task.delay(force=False)
-
-        return {"status": "success", "updated_count": updated_count}
-
+        return {
+            "message": "Full Reparse History triggered in background.",
+            "task_id": str(task.id),
+            "updated_count": "Background Task Started"
+        }
     except Exception as e:
-        db.rollback()
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/data/view/list")
