@@ -1052,6 +1052,7 @@ def build_dividend_databank_task(self, force: bool = False):
         db.rollback()
         raise
     finally:
+        db.close()
 
 @shared_task(bind=True, acks_late=True)
 def run_mwpl_analysis_task(self, latest_metric_date: Optional[str] = None):
