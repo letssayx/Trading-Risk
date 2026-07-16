@@ -826,6 +826,7 @@ def build_dividend_databank_task(self, force: bool = False):
     import re
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank
+    from backend.ingest.field_mapper import FieldMapper
 
     db = SessionLocal()
     try:
@@ -930,6 +931,14 @@ def build_dividend_databank_task(self, force: bool = False):
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
+                parsed_amount = r.parsed_dividend_amount
+                if parsed_amount is None and r.purpose:
+                    reparsed_amt, _ = FieldMapper._parse_dividend(r.purpose, r.face_value if hasattr(r, 'face_value') else None)
+                    if reparsed_amt is not None:
+                        parsed_amount = reparsed_amt
+                        r.parsed_dividend_amount = reparsed_amt
+                        db.add(r)
+
                 ca_by_symbol[sym].append({
                     "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
                     "ex_date_obj": r.ex_date,
@@ -955,8 +964,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
                     "dividend_type": r.dividend_type,
                     "purpose": r.purpose,
-                    "amount": r.parsed_dividend_amount,
-                    "raw_amount": r.parsed_dividend_amount,
+                    "amount": parsed_amount,
+                    "raw_amount": parsed_amount,
                     "face_value": r.face_value if hasattr(r, 'face_value') else None,
                     "record_date": r.record_date if hasattr(r, 'record_date') else None
                 })
@@ -1000,9 +1009,17 @@ def build_dividend_databank_task(self, force: bool = False):
                             if hasattr(best_ann_date, 'date'):
                                 best_ann_date = best_ann_date.date()
                             h['announcement_date_obj'] = best_ann_date
-                            if not h.get('amount') and best_bm.extracted_dividend_amount:
-                                h['amount'] = best_bm.extracted_dividend_amount
-                                h['raw_amount'] = best_bm.extracted_dividend_amount
+                            bm_amt = best_bm.extracted_dividend_amount
+                            if bm_amt is None and best_bm.purpose:
+                                reparsed_amt, _ = FieldMapper._parse_dividend(best_bm.purpose, None)
+                                if reparsed_amt is not None:
+                                    bm_amt = reparsed_amt
+                                    best_bm.extracted_dividend_amount = reparsed_amt
+                                    db.add(best_bm)
+
+                            if not h.get('amount') and bm_amt:
+                                h['amount'] = bm_amt
+                                h['raw_amount'] = bm_amt
                             bms.remove(best_bm)
                 chained_history.append(h)
 
@@ -1045,6 +1062,13 @@ def build_dividend_databank_task(self, force: bool = False):
             for dedup_item in deduplicated_bms:
                 bm = dedup_item['bm']
                 amt = dedup_item['extracted_dividend_amount']
+                if amt is None and bm.purpose:
+                     reparsed_amt, _ = FieldMapper._parse_dividend(bm.purpose, None)
+                     if reparsed_amt is not None:
+                         amt = reparsed_amt
+                         bm.extracted_dividend_amount = reparsed_amt
+                         db.add(bm)
+
                 if bm.date and bm.date < today - datetime.timedelta(days=180):
                     continue
                 purpose_lower = (bm.purpose or '').lower()
@@ -1109,23 +1133,6 @@ def build_dividend_databank_task(self, force: bool = False):
 
             chained_history.sort(key=get_sort_key, reverse=True)
             ca_by_symbol[sym] = chained_history
-
-        for sym in target_symbols:
-            history = ca_by_symbol.get(sym, [])
-            adjustments = adjustments_by_symbol.get(sym, [])
-            if adjustments:
-                for h in history:
-                    if h['ex_date_obj']:
-                        adjusted_amount = h.get('raw_amount')
-                        if adjusted_amount is not None:
-                            was_adjusted = False
-                            for adj in adjustments:
-                                if adj['date'] > h['ex_date_obj']:
-                                    adjusted_amount *= adj['ratio']
-                                    was_adjusted = True
-                            h['amount'] = adjusted_amount
-                            if was_adjusted:
-                                h['purpose'] = f"{h.get('purpose', '')} (Originally Declared: {h.get('raw_amount')})"
 
         if force:
             db.query(DividendDatabank).delete()
