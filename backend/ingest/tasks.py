@@ -645,6 +645,179 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
     finally:
         db.close()
 
+@shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_latest')
+def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
+    """Import data for the most recent trading day."""
+    set_active_task(self.request.id)
+
+    def progress_callback(progress_dict: dict):
+        self.update_state(state='PROGRESS', meta=progress_dict)
+        handle_pause()
+
+    def is_cancelled():
+        return check_cancel_flag(self.request.id)
+
+    def handle_pause():
+        import time
+        if check_pause_flag(self.request.id):
+            self.update_state(state='PROGRESS', meta={'status': 'PAUSED', 'message': 'Task is paused. Waiting to resume...'})
+            while check_pause_flag(self.request.id):
+                if is_cancelled():
+                    break
+                time.sleep(5)
+            self.update_state(state='PROGRESS', meta={'status': 'RESUMED', 'message': 'Task resumed.'})
+
+    try:
+        importer = NSEDataImporter()
+        # Find last trading day using IST
+        utc_now = datetime.utcnow()
+        ist_now = utc_now + timedelta(hours=5, minutes=30)
+        today = ist_now.date()
+
+        # If after 18:00 IST, consider today as potential trading day (data usually available)
+        # Else consider previous day
+        cutoff_time = 18  # 6 PM IST
+
+        if ist_now.hour >= cutoff_time:
+            # Check if today is trading day
+            if NSEHolidayCalendar.is_trading_day(today):
+                target_date = today
+            else:
+                target_date = NSEHolidayCalendar.get_previous_trading_day(today)
+        else:
+            # Before 6 PM, today's data not ready, so look for previous trading day
+            target_date = NSEHolidayCalendar.get_previous_trading_day(today)
+
+        logger.info(f"Auto-importing for latest trading day: {target_date} (IST: {ist_now})")
+        result = importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback, check_cancel=is_cancelled, include_non_fo=include_non_fo, specific_symbol=specific_symbol)
+        if result.get('status') == 'ABORTED':
+            self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
+            return {"status": "ABORTED"}
+        clear_active_task(self.request.id)
+        return result
+
+    except Exception as exc:
+        if self.request.retries >= self.max_retries:
+            err_msg = str(exc)
+            logger.error(f"Max retries exceeded for latest import: {err_msg}")
+            self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Latest Import Failed: {err_msg}"})
+            raise Exception(f"Latest Import Failed: {err_msg}")
+
+        logger.error(f"Latest import failed: {exc}. Retrying... ({self.request.retries}/3)")
+        self.retry(exc=Exception(str(exc)), countdown=300)
+
+@shared_task(bind=True, acks_late=True, name="prepare_morning_data_task")
+def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = None):
+    """
+    Celery task to STRICTLY compute the DailyDerivativesAnalysis table.
+    If end_date_str is provided, computes for the range [target_date_str, end_date_str].
+    """
+    from datetime import datetime
+    from backend.infrastructure.db import SessionLocal
+    from backend.analysis.toolbox.reports.morning_report import MorningReportCalculator
+
+    start_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+
+    results = []
+    try:
+        with SessionLocal() as db:
+            calc = MorningReportCalculator(db)
+
+            if end_date_str:
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                from backend.ingest.nse_models import BhavcopyFO
+                trading_dates = [d[0] for d in db.query(BhavcopyFO.trade_date).filter(
+                    BhavcopyFO.trade_date >= start_date,
+                    BhavcopyFO.trade_date <= end_date
+                ).distinct().order_by(BhavcopyFO.trade_date.asc()).all()]
+
+                for d in trading_dates:
+                    res = calc.calculate_for_date(d)
+                    results.append({"date": str(d), "result": res})
+            else:
+                calc_result = calc.calculate_for_date(start_date)
+                results.append({"date": str(start_date), "result": calc_result})
+
+        return {
+            "status": "SUCCESS",
+            "message": "Data preparation completed for range" if end_date_str else f"Data preparation completed for {target_date_str}",
+            "metrics": results[-1] if not end_date_str else {"batch_processed": len(results)}
+        }
+    except Exception as e:
+        err_msg = str(e)
+        logger.error(f"Morning Report Preparation Failed: {err_msg}")
+        import traceback
+        traceback.print_exc()
+        # Updating state explicitly with exc_type so it isn't swallowed and prevents Celery ValueError
+        self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+        raise Exception(f"Morning Report Preparation Failed: {err_msg}")
+
+@shared_task(bind=True, acks_late=True, name="generate_morning_report_task")
+def generate_morning_report_task(self, target_date_str: str, author: str = "System", logo_path: str = None):
+    """
+    Celery task to STRICTLY generate the PDF report (after prepare_morning_data_task is done).
+    """
+    import asyncio
+    from datetime import datetime
+    from backend.infrastructure.db import SessionLocal
+    from backend.analysis.toolbox.reports.generator import MorningReportGenerator
+
+    target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+
+    # Run async function in sync context since Celery workers are synchronous
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we are already inside a running async event loop (e.g. FastAPI fallback),
+            # we need to create a nested task rather than run_until_complete which crashes.
+            import threading
+            with SessionLocal() as db:
+                generator = MorningReportGenerator(db, target_date)
+
+                # Run the async generator inside a separate thread's new loop
+                def run_in_thread(result_list, error_list):
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        result_list.append(new_loop.run_until_complete(generator.generate_report()))
+                    except Exception as e:
+                        error_list.append(e)
+                    finally:
+                        new_loop.close()
+
+                results = []
+                errors = []
+                t = threading.Thread(target=run_in_thread, args=(results, errors))
+                t.start()
+                t.join()
+                if errors:
+                    raise errors[0]
+                pdf_path = results[0] if results else None
+        else:
+            with SessionLocal() as db:
+                generator = MorningReportGenerator(db, target_date)
+                pdf_path = loop.run_until_complete(generator.generate_report())
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        with SessionLocal() as db:
+            generator = MorningReportGenerator(db, target_date)
+            pdf_path = loop.run_until_complete(generator.generate_report())
+    except Exception as e:
+        err_msg = str(e)
+        logger.error(f"Morning Report Generation Failed: {err_msg}")
+        import traceback
+        traceback.print_exc()
+        self.update_state(state='FAILURE', meta={"error": err_msg, "exc_type": "Exception", "exc_message": err_msg})
+        raise Exception(f"Morning Report Generation Failed: {err_msg}")
+
+    return {
+        "status": "SUCCESS",
+        "message": f"Report generated at {pdf_path}",
+        "url": f"/api/morning-report/download/{target_date_str}"
+    }
+
+
 @shared_task(bind=True, max_retries=3, acks_late=True, reject_on_worker_lost=True)
 def build_dividend_databank_task(self, force: bool = False):
     from sqlalchemy import func, or_, desc
