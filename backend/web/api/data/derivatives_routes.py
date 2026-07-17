@@ -1418,28 +1418,37 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
 
         from sqlalchemy import func
 
-        # MWPLClientPosition contains multiple records per symbol/date (one for each client)
-        # We need the max position_pct, or sum, depending on how MWPL is structured.
-        # But wait, MWPL_client_position_pct usually means the aggregated limit is what we want.
-        # Wait, the frontend code sorts by 'pct' and creates an array of clients.
-        # However, for `MwplAnalysisMetrics`, it just needs the aggregate `mwpl_pct`.
-        # Usually, NSE MWPL csv has an aggregated "MWPL %" column, but if it only has clients, we can take the sum.
-        mwpl_records = db.query(
-            MWPLClientPosition.date,
-            MWPLClientPosition.underlying_stock,
-            func.sum(MWPLClientPosition.position_pct).label('position_pct')
-        ).filter(
-            MWPLClientPosition.date.in_(dates_to_compute)
-        ).group_by(MWPLClientPosition.date, MWPLClientPosition.underlying_stock).all()
+        # Batch process to prevent memory exhaustion from massive EQ records
+        BATCH_SIZE = 50
+        all_mwpl_records = []
+        eq_map = {}
+        fo_records = []
 
-        eq_records = db.query(
-            BhavcopyEQ.trade_date, BhavcopyEQ.symbol, BhavcopyEQ.close_price
-        ).filter(BhavcopyEQ.trade_date.in_(dates_to_compute), BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ'])).all()
-        eq_map = {(r.trade_date, r.symbol): float(r.close_price) if r.close_price else 0.0 for r in eq_records}
+        for i in range(0, len(dates_to_compute), BATCH_SIZE):
+            batch_dates = dates_to_compute[i:i + BATCH_SIZE]
 
-        fo_records = db.query(
-            BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+            # MWPLClientPosition contains multiple records per symbol/date
+            batch_mwpl = db.query(
+                MWPLClientPosition.date,
+                MWPLClientPosition.underlying_stock,
+                func.sum(MWPLClientPosition.position_pct).label('position_pct')
+            ).filter(
+                MWPLClientPosition.date.in_(batch_dates)
+            ).group_by(MWPLClientPosition.date, MWPLClientPosition.underlying_stock).all()
+            all_mwpl_records.extend(batch_mwpl)
+
+            batch_eq = db.query(
+                BhavcopyEQ.trade_date, BhavcopyEQ.symbol, BhavcopyEQ.close_price
+            ).filter(BhavcopyEQ.trade_date.in_(batch_dates), BhavcopyEQ.series.in_(['EQ', 'BE', 'SM', 'BZ'])).all()
+            for r in batch_eq:
+                eq_map[(r.trade_date, r.symbol)] = float(r.close_price) if r.close_price else 0.0
+
+            batch_fo = db.query(
+                BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
+            ).filter(BhavcopyFO.trade_date.in_(batch_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+            fo_records.extend(batch_fo)
+
+        mwpl_records = all_mwpl_records
 
         fo_map = {}
         for r in fo_records:
@@ -1457,9 +1466,13 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
         prev_dates.sort()
 
         # Fast way is to just fetch the last 500 days of required stuff
-        prev_fo_records = db.query(
-            BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+        prev_fo_records = []
+        for i in range(0, len(prev_dates), BATCH_SIZE):
+            batch_prev_dates = prev_dates[i:i+BATCH_SIZE]
+            batch_prev_fo = db.query(
+                BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
+            ).filter(BhavcopyFO.trade_date.in_(batch_prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+            prev_fo_records.extend(batch_prev_fo)
 
         prev_fo_map = {}
         for r in prev_fo_records:
