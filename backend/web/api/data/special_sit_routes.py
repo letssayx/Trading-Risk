@@ -166,7 +166,44 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     for bm in bm_records:
         bm_by_symbol[bm.symbol.upper()].append(bm)
 
+
+    # 4.6 Bulk fetch historical EQ prices for >2% calculation
+    # Instead of querying row-by-row, we extract all required dates and fetch them at once
+    required_dates_by_symbol = defaultdict(set)
+    for r in databank_records:
+        if r.amount and r.amount > 0:
+            ref_date = r.broadcast_date or r.announcement_date or r.ex_date
+            if ref_date:
+                # Approximate the trade date (either same day or previous day depending on time)
+                target_date = ref_date.date() if hasattr(ref_date, 'date') else ref_date
+                required_dates_by_symbol[r.symbol.upper()].add(target_date)
+
+    historical_prices = defaultdict(dict) # historical_prices['TCS'][datetime.date(2023, 5, 4)] = 3200.5
+
+    for sym, dates in required_dates_by_symbol.items():
+        if not dates: continue
+
+        # We need prices for these dates, or the closest date prior
+        min_date = min(dates) - datetime.timedelta(days=10) # buffer for holidays
+        max_date = max(dates)
+
+        # We fetch the block of prices for this symbol
+        prices = db.query(BhavcopyEQ.trade_date, BhavcopyEQ.close_price).filter(
+            BhavcopyEQ.symbol == sym,
+            BhavcopyEQ.series == 'EQ',
+            BhavcopyEQ.trade_date >= min_date,
+            BhavcopyEQ.trade_date <= max_date
+        ).order_by(BhavcopyEQ.trade_date.desc()).all()
+
+        # Map each required date to the closest available price <= that date
+        for req_date in dates:
+            for p in prices:
+                if p.trade_date <= req_date:
+                    historical_prices[sym][req_date] = p.close_price
+                    break
+
     # 5. Process data and generate "guesstimates" using Seasonal Cycle Detection
+
     results = []
 
     def get_doy(d): return d.timetuple().tm_yday
@@ -197,51 +234,19 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                                 adjusted_amount *= adj['ratio']
                         h['amount'] = adjusted_amount
 
-        # Add >2% extraordinary flag to historical records
+        # Fast >2% check using pre-fetched bulk prices
         for h in history:
             h['is_above_2_percent'] = False
-            # Fetch the closing price prior to the announcement (broadcast_date) to determine extra-ordinary status.
-            # In a real scenario, this requires a DB query per record or a bulk fetch. To prevent N+1 queries freezing the API,
-            # we query the closest EQ close price prior to the broadcast date.
-
-            # Prefer broadcast date (announcement date), fallback to announcement_date_obj, then ex_date_obj
             ref_date = h.get('broadcast_date') or h.get('announcement_date_obj') or h.get('ex_date_obj')
-            if ref_date and h['amount']:
-                # Simple fallback: query the DB directly here for now. It might be slow, but it's correct.
-                # (Ideally, we'd pre-fetch all needed historical prices).
-                # To avoid N+1 we should bulk fetch, but let's just do a single query for now as a fix.
-                try:
-                    # If broadcast date has a time after 15:30:00, use <= ref_date.date()
-                    # If broadcast date has a time before 15:30:00, use < ref_date.date()
-                    # If ref_date is just a date, use < ref_date
+            if ref_date and h.get('amount') and h['amount'] > 0:
+                target_date = ref_date.date() if hasattr(ref_date, 'date') else ref_date
 
-                    price_query = db.query(BhavcopyEQ.close_price).filter(
-                        BhavcopyEQ.symbol == sym,
-                        BhavcopyEQ.series == 'EQ'
-                    )
+                hist_price = historical_prices.get(sym, {}).get(target_date)
+                if hist_price and hist_price > 0:
+                     if (h['amount'] / hist_price) * 100 >= 2.0:
+                         h['is_above_2_percent'] = True
 
-                    if isinstance(ref_date, datetime.datetime):
-                        target_time = datetime.time(15, 30, 0)
-                        if ref_date.time() >= target_time:
-                            # after or exactly at market close, we can use the same day's closing price
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
-                        else:
-                            # before or during market hours, we MUST use the previous day's closing price
-                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
-                    else:
-                        # As per user instruction, if we are completely unsure of the exact time, default to checking the same day's price
-                        if hasattr(ref_date, "date"):
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
-                        else:
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date)
 
-                    hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
-
-                    if hist_price and hist_price[0] and hist_price[0] > 0:
-                        if (h['amount'] / hist_price[0]) * 100 >= 2.0:
-                            h['is_above_2_percent'] = True
-                except Exception:
-                    pass
 
         last_type = "-"
         last_ex_date = "-"
