@@ -94,8 +94,37 @@ async def startup_event():
         from backend.ingest.nse_models import DividendDatabank
         DividendDatabank.__table__.create(bind=engine, checkfirst=True)
         print("DividendDatabank table initialized.")
+
+        # Bypassing Alembic to permanently ensure indexes exist for heavy analytics tables
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            # Dividend Databank
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_dividend_databank_symbol ON dividend_databank (symbol);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_dividend_databank_date ON dividend_databank (date);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_dividend_databank_ex_date ON dividend_databank (ex_date);"))
+
+            # Corporate Action & Board Meeting
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_corporate_actions_symbol ON corporate_actions (symbol);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_corporate_actions_date ON corporate_actions (date);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_board_meetings_symbol ON board_meetings (symbol);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_board_meetings_date ON board_meetings (date);"))
+
+            # Derivative Tables
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_bhavcopy_fo_ticker_symb ON bhavcopy_fo (ticker_symb);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_bhavcopy_fo_trade_date ON bhavcopy_fo (trade_date);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_bhavcopy_fo_instrument_type ON bhavcopy_fo (instrument_type);"))
+
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_bhavcopy_eq_symbol ON bhavcopy_eq (symbol);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_bhavcopy_eq_trade_date ON bhavcopy_eq (trade_date);"))
+
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_mwpl_client_position_date ON mwpl_client_position (date);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_mwpl_client_position_underlying_stock ON mwpl_client_position (underlying_stock);"))
+
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_fao_participant_oi_date ON fao_participant_oi (date);"))
+
+        print("Successfully ensured indexes for all heavy analytics tables.")
     except Exception as e:
-        print(f"Error creating DividendDatabank table: {e}")
+        print(f"Error creating tables or indexes: {e}")
 
     try:
         # Base.metadata.create_all(bind=engine)

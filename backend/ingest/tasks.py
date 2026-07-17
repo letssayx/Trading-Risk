@@ -588,8 +588,10 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                                 match = row
                                 break
 
-                            # If no exact date match, check if it's an awaited record we are updating
-                            if row.is_awaited and abs((row.date - final_date).days) < 60:
+                            # If no exact date match, check if it's an awaited record we are updating.
+                            # Bharti Airtel bug: if the ex-date takes > 60 days to declare, it fails to match.
+                            # We loosen this to 180 days to capture late ex-dates for the SAME dividend_type.
+                            if row.is_awaited and abs((row.date - final_date).days) <= 180:
                                 match = row
                                 break
 
@@ -835,26 +837,23 @@ def build_dividend_databank_task(self, force: bool = False):
         ca_query = db.query(CorporateAction).filter(
             or_(
                 CorporateAction.parsed_dividend_amount != None,
-                CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger']), CorporateAction.purpose.ilike('%bonus%'), CorporateAction.purpose.ilike('%split%'),
+                CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger']),
+                CorporateAction.purpose.ilike('%bonus%'),
+                CorporateAction.purpose.ilike('%split%'),
                 CorporateAction.purpose.ilike('%dividend%'),
                 CorporateAction.purpose.ilike('%intdiv%'),
-                CorporateAction.purpose.ilike('%int div%'),
                 CorporateAction.purpose.ilike('%findiv%'),
-                CorporateAction.purpose.ilike('%fin div%'), CorporateAction.purpose.ilike('%special%'),
-                CorporateAction.purpose.ilike('%div-%'),
-                CorporateAction.purpose.ilike('%div -%'),
-                CorporateAction.purpose.ilike('% div %')
+                CorporateAction.purpose.ilike('%special%')
             )
         )
 
         bm_query = db.query(BoardMeeting).filter(
             or_(
+                BoardMeeting.extracted_dividend_amount != None,
                 BoardMeeting.purpose.ilike('%dividend%'),
                 BoardMeeting.purpose.ilike('%intdiv%'),
-                BoardMeeting.purpose.ilike('%int div%'),
                 BoardMeeting.purpose.ilike('%findiv%'),
-                BoardMeeting.purpose.ilike('%fin div%'), BoardMeeting.purpose.ilike('%special%'),
-                BoardMeeting.extracted_dividend_amount != None
+                BoardMeeting.purpose.ilike('%special%')
             )
         )
 
@@ -891,69 +890,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     r.parsed_dividend_amount = reparsed_amt
                     db.add(r)
 
-            if r.dividend_type in ['Bonus', 'Split', 'Demerger']:
-                # Extract ratio from purpose
-                ratio = 1.0
-                purpose_lower = (r.purpose or "").lower()
-                if r.dividend_type == 'Bonus':
-                    match = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                    if match:
-                        bonus_shares = float(match.group(1))
-                        held_shares = float(match.group(2))
-                        if held_shares > 0:
-                            ratio = held_shares / (held_shares + bonus_shares)
-                elif r.dividend_type == 'Split':
-                    match = re.search(r'from\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
-                    if match:
-                        old_fv = float(match.group(1))
-                        new_fv = float(match.group(2))
-                        if old_fv > 0:
-                            ratio = new_fv / old_fv
-                    else:
-                        match2 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                        if match2:
-                            new_shares = float(match2.group(1))
-                            old_shares = float(match2.group(2))
-                            if old_shares > 0 and new_shares > 0:
-                                if new_shares > old_shares:
-                                    ratio = old_shares / new_shares
-                                else:
-                                    ratio = new_shares / old_shares
-                elif r.dividend_type == 'Demerger':
-                    match3 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                    if match3:
-                        new_shares = float(match3.group(1))
-                        old_shares = float(match3.group(2))
-                        if old_shares > 0 and new_shares > 0:
-                            ratio = old_shares / (old_shares + new_shares)
-                    else:
-                        ratio = 0.5
-
-                if ratio != 1.0 and r.date:
-                    adjustments_by_symbol[sym].append({
-                        "date": r.date,
-                        "ratio": ratio
-                    })
-
-                # Still append splits/bonuses to the UI history so they show in the timeline
-                ann_date = r.broadcast_date or r.date
-                if hasattr(ann_date, 'date'):
-                    ann_date = ann_date.date()
-
-                ca_by_symbol[sym].append({
-                    "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
-                    "ex_date_obj": r.ex_date,
-                    "announcement_date_obj": ann_date,
-                    "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
-                    "dividend_type": r.dividend_type,
-                    "purpose": r.purpose,
-                    "amount": parsed_amount,
-                    "raw_amount": parsed_amount,
-                    "face_value": r.face_value if hasattr(r, 'face_value') else None,
-                    "record_date": r.record_date if hasattr(r, 'record_date') else None
-                })
-
-            elif parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
+            if r.dividend_type in ['Bonus', 'Split', 'Demerger'] or parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
                 ann_date = r.broadcast_date or r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
@@ -987,36 +924,51 @@ def build_dividend_databank_task(self, force: bool = False):
             chained_history = []
 
             for h in history:
-                if h.get('dividend_type') in ['Bonus', 'Split', 'Demerger']:
-                     if not h.get('purpose') or h.get('dividend_type') not in h.get('purpose', ''):
-                          h['purpose'] = h.get('purpose', '') + f" ({h.get('dividend_type')} action)"
-                else:
-                    ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
-                    if ca_date:
-                        best_bm = None
-                        min_diff = float('inf')
-                        for bm in bms:
-                            if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
-                                if bm.date:
-                                    diff = (ca_date - bm.date).days
-                                    if -10 <= diff <= 180 and abs(diff) < min_diff:
-                                        if h.get('amount') and bm.extracted_dividend_amount:
-                                            # If CA amount is smaller than BM amount, they definitely don't match.
-                                            # If CA amount is larger, it might be a sum of multiple components (e.g. Final + Special), so we allow it to match the component BM.
-                                            if float(h['amount']) < float(bm.extracted_dividend_amount):
-                                                continue
-                                        min_diff = abs(diff)
-                                        best_bm = bm
-                        if best_bm:
-                            h['broadcast_date'] = best_bm.broadcast_date
-                            best_ann_date = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
-                            if hasattr(best_ann_date, 'date'):
-                                best_ann_date = best_ann_date.date()
-                            h['announcement_date_obj'] = best_ann_date
-                            if not h.get('amount') and best_bm.extracted_dividend_amount:
-                                h['amount'] = best_bm.extracted_dividend_amount
-                                h['raw_amount'] = best_bm.extracted_dividend_amount
-                            bms.remove(best_bm)
+                if h.get('dividend_type') not in ['Bonus', 'Split', 'Demerger']:
+                    ca_ann_date = h.get('announcement_date_obj')
+                    ca_ex_date = h.get('ex_date_obj')
+
+                    best_bm = None
+                    min_diff = float('inf')
+
+                    for bm in bms:
+                        # Match CA to BM based on Announcement Date first (0-15 days diff)
+                        # This avoids 180-day window mismatches where CA steals a completely different BM's amount
+                        if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
+                            bm_ann_date = bm.meeting_date or bm.broadcast_date or bm.date
+                            if hasattr(bm_ann_date, 'date'): bm_ann_date = bm_ann_date.date()
+
+                            diff = 9999
+                            if ca_ann_date and bm_ann_date:
+                                diff = (ca_ann_date - bm_ann_date).days
+                            elif ca_ex_date and bm_ann_date:
+                                # Fallback to checking ex_date to bm date
+                                diff = (ca_ex_date - bm_ann_date).days
+
+                            if -10 <= diff <= 180:
+                                # Strict amount checking to prevent mismatched swapping
+                                if h.get('amount') is not None and bm.extracted_dividend_amount is not None:
+                                    # Amount MUST match to link them across a wide date range
+                                    if float(h['amount']) != float(bm.extracted_dividend_amount):
+                                        continue
+
+                                if abs(diff) < min_diff:
+                                    min_diff = abs(diff)
+                                    best_bm = bm
+
+                    if best_bm:
+                        # Safely link them
+                        best_ann_date = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
+                        if hasattr(best_ann_date, 'date'): best_ann_date = best_ann_date.date()
+                        h['announcement_date_obj'] = best_ann_date
+
+                        # Only inherit amount if CA is completely missing it
+                        if not h.get('amount') and best_bm.extracted_dividend_amount is not None:
+                            h['amount'] = best_bm.extracted_dividend_amount
+                            h['raw_amount'] = best_bm.extracted_dividend_amount
+
+                        bms.remove(best_bm)
+
                 chained_history.append(h)
 
             def safe_date_sort(x):
@@ -1039,10 +991,9 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
                         diff_days = abs((bm_date - existing_date).days)
-                        # Only deduplicate if they are the exact same type of dividend.
-                        # This prevents dropping a Special dividend that happens on the exact same day as a Final dividend.
+                        # Only deduplicate if they are the exact same type AND happened on the exact same day (or very close)
                         if bm.extracted_dividend_type == existing['bm'].extracted_dividend_type:
-                            if diff_days <= 60:
+                            if diff_days <= 5: # Changed from 60 to 5. We don't want to drop a new interim dividend that happens 45 days after a previous one.
                                 is_duplicate = True
                                 if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
                                     existing['extracted_dividend_amount'] = bm.extracted_dividend_amount
@@ -1085,15 +1036,9 @@ def build_dividend_databank_task(self, force: bool = False):
                             if h_date and bm_ann_date:
                                 days_diff = abs((h_date - bm_ann_date).days)
 
-                                # Exact match
-                                if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
-                                    if days_diff <= 300:
-                                        is_history_duplicate = True
-                                        break
-
-                                # If the BM amount is likely a component of a combined CA sum
-                                if h.get('amount') and float(h['amount']) > float(amt):
-                                    if days_diff <= 30:
+                                if h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
+                                    # Only merge if it's within a reasonable window for the SAME board meeting, not across the whole year
+                                    if days_diff <= 15:
                                         is_history_duplicate = True
                                         break
 
@@ -1164,8 +1109,10 @@ def build_dividend_databank_task(self, force: bool = False):
                                 match = row
                                 break
 
-                            # If no exact date match, check if it's an awaited record we are updating
-                            if row.is_awaited and abs((row.date - final_date).days) < 60:
+                            # If no exact date match, check if it's an awaited record we are updating.
+                            # Bharti Airtel bug: if the ex-date takes > 60 days to declare, it fails to match.
+                            # We loosen this to 180 days to capture late ex-dates for the SAME dividend_type.
+                            if row.is_awaited and abs((row.date - final_date).days) <= 180:
                                 match = row
                                 break
 

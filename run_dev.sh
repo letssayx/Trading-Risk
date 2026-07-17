@@ -19,6 +19,7 @@ CELERY_PID=$!
 
 # 4. Start FastAPI Backend
 echo ">>> Starting Backend API (Port 8000)..."
+export WATCHFILES_FORCE_POLLING=true
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir backend \
     --reload-exclude "venv-wsl" \
     --reload-exclude "venv" \
