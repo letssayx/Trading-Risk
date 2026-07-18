@@ -319,6 +319,8 @@ def get_model_for_type(data_type: str):
         'historical_index_data': models.HistoricalIndexData
     }
     # Safely get CorporateAction if it exists in models (may be unmerged)
+    if data_type == 'dividend_databank' and hasattr(models, 'DividendDatabank'):
+        return getattr(models, 'DividendDatabank')
     if data_type == 'dividend' and hasattr(models, 'DividendDatabank'):
         return getattr(models, 'DividendDatabank')
     if data_type == 'corporate_actions' and hasattr(models, 'CorporateAction'):
