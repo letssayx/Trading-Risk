@@ -775,3 +775,5 @@ class DividendDatabank(Base, TimescaleMixin):
     purpose = Column(String(1000), nullable=True)
 
     is_awaited = Column(Boolean, default=False, index=True)
+    board_meeting_date = Column(DateTime, nullable=True)
+    is_synthetic = Column(Boolean, default=False)

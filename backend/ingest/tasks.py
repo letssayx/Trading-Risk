@@ -601,6 +601,10 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                         match.announcement_date = h.get('announcement_date_obj')
                     if h.get('broadcast_date'):
                         match.broadcast_date = h.get('broadcast_date')
+                    if h.get('board_meeting_date'):
+                        match.board_meeting_date = h.get('board_meeting_date')
+                    if h.get('is_synthetic') is not None:
+                        match.is_synthetic = h.get('is_synthetic')
                     # If we found an amount in history and DB has none (or they differ), update it
                     if h.get('amount') is not None:
                         match.amount = h.get('amount')
@@ -629,7 +633,9 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                         face_value=h.get('face_value'),
                         purpose=h.get('purpose'),
                         is_awaited=is_awaited,
-                        record_date=h.get('record_date')
+                        record_date=h.get('record_date'),
+                        board_meeting_date=h.get('board_meeting_date'),
+                        is_synthetic=h.get('is_synthetic', False)
                     )
                     db.add(new_item)
                     if not force:
@@ -982,147 +988,202 @@ def build_dividend_databank_task(self, force: bool = False):
         target_symbols = event_symbols
 
         for sym in target_symbols:
-            history = ca_by_symbol.get(sym, [])
+            ca_history = ca_by_symbol.get(sym, [])
             bms = bm_by_symbol.get(sym, [])
-            chained_history = []
 
-            for h in history:
-                if h.get('dividend_type') in ['Bonus', 'Split', 'Demerger']:
-                     if not h.get('purpose') or h.get('dividend_type') not in h.get('purpose', ''):
-                          h['purpose'] = h.get('purpose', '') + f" ({h.get('dividend_type')} action)"
-                else:
-                    ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
-                    if ca_date:
-                        best_bm = None
-                        min_diff = float('inf')
-                        for bm in bms:
-                            if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
-                                if bm.date:
-                                    diff = (ca_date - bm.date).days
-                                    if -10 <= diff <= 180 and abs(diff) < min_diff:
-                                        if h.get('amount') and bm.extracted_dividend_amount:
-                                            # If CA amount is smaller than BM amount, they definitely don't match.
-                                            # If CA amount is larger, it might be a sum of multiple components (e.g. Final + Special), so we allow it to match the component BM.
-                                            if float(h['amount']) < float(bm.extracted_dividend_amount):
-                                                continue
-                                        min_diff = abs(diff)
-                                        best_bm = bm
-                        if best_bm:
-                            h['broadcast_date'] = best_bm.broadcast_date
-                            best_ann_date = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
-                            if hasattr(best_ann_date, 'date'):
-                                best_ann_date = best_ann_date.date()
-                            h['announcement_date_obj'] = best_ann_date
-                            if not h.get('amount') and best_bm.extracted_dividend_amount:
-                                h['amount'] = best_bm.extracted_dividend_amount
-                                h['raw_amount'] = best_bm.extracted_dividend_amount
-                            bms.remove(best_bm)
-                chained_history.append(h)
+            combined_actions = list(ca_history)
 
-            def safe_date_sort(x):
-                d = x.meeting_date or x.broadcast_date or x.date
-                if d is None:
-                    return datetime.date.min
-                if hasattr(d, 'date'):
-                    return d.date()
-                return d
+            # 1. Synthesize Board Meetings into Actions if they don't have one
+            for m in bms:
+                purpose_lower = (m.purpose or '').lower()
+                has_amount = m.extracted_dividend_amount is not None
+                is_agm = 'agm' in purpose_lower or 'annual general meeting' in purpose_lower or re.search(r'\bagm\b', purpose_lower)
 
-            bms.sort(key=safe_date_sort, reverse=True)
+                if 'dividend' in purpose_lower or 'bonus' in purpose_lower or 'split' in purpose_lower or 'sub-division' in purpose_lower or has_amount or is_agm:
+                    m_date = m.meeting_date if hasattr(m, 'meeting_date') and m.meeting_date else m.date
+                    if hasattr(m_date, 'date'): m_date = m_date.date()
 
-            deduplicated_bms = []
-            for bm in bms:
-                is_duplicate = False
-                bm_date = safe_date_sort(bm)
+                    has_linked_action = False
+                    if m_date:
+                        for a in combined_actions:
+                            if not a.get('is_synthetic'):
+                                a_date = a.get('ex_date_obj')
+                                if hasattr(a_date, 'date'): a_date = a_date.date()
 
-                for existing in deduplicated_bms:
-                    existing_date = existing['sort_date']
-
-                    if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
-                        diff_days = abs((bm_date - existing_date).days)
-                        # Only deduplicate if they are the exact same type of dividend.
-                        # This prevents dropping a Special dividend that happens on the exact same day as a Final dividend.
-                        if bm.extracted_dividend_type == existing['bm'].extracted_dividend_type:
-                            if diff_days <= 60:
-                                is_duplicate = True
-                                if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
-                                    existing['extracted_dividend_amount'] = bm.extracted_dividend_amount
-                                break
-
-                if not is_duplicate:
-                    deduplicated_bms.append({
-                        'bm': bm,
-                        'sort_date': bm_date,
-                        'extracted_dividend_amount': bm.extracted_dividend_amount
-                    })
-
-            for dedup_item in deduplicated_bms:
-                bm = dedup_item['bm']
-                amt = dedup_item['extracted_dividend_amount']
-                if bm.date and bm.date < today - datetime.timedelta(days=180):
-                    continue
-                purpose_lower = (bm.purpose or '').lower()
-
-                is_valid_standalone = False
-                if amt is not None:
-                    is_valid_standalone = True
-                elif bm.date and bm.date >= today:
-                    is_valid_standalone = True
-                elif 'dividend' in purpose_lower:
-                    is_valid_standalone = True
-
-                if is_valid_standalone:
-                    bm_ann_date = bm.meeting_date or bm.broadcast_date or bm.date
-                    if hasattr(bm_ann_date, 'date'):
-                        bm_ann_date = bm_ann_date.date()
-
-                    is_history_duplicate = False
-                    if amt is not None:
-                        for h in chained_history:
-                            h_date = h.get('announcement_date_obj') or h.get('ex_date_obj')
-                            if h_date:
-                                if hasattr(h_date, 'date'): h_date = h_date.date()
-
-                            if h_date and bm_ann_date:
-                                days_diff = abs((h_date - bm_ann_date).days)
-
-                                # Exact match
-                                if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
-                                    if days_diff <= 300:
-                                        is_history_duplicate = True
+                                if a_date and a_date >= m_date:
+                                    diff_days = abs((a_date - m_date).days)
+                                    if diff_days <= 180:
+                                        has_linked_action = True
+                                        if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
+                                            a['amount'] = m.extracted_dividend_amount
+                                            a['raw_amount'] = m.extracted_dividend_amount
+                                        if not a.get('dividend_type') or a.get('dividend_type') == '-':
+                                            a['dividend_type'] = m.extracted_dividend_type or 'Final'
+                                        a['_matchedMeeting'] = m
                                         break
 
-                                # If the BM amount is likely a component of a combined CA sum
-                                if h.get('amount') and float(h['amount']) > float(amt):
-                                    if days_diff <= 30:
-                                        is_history_duplicate = True
+                                a_purpose = (a.get('purpose') or '').lower()
+                                if not a_date and (a_purpose.find('not yet declared') != -1 or a_purpose.find('dividend (') != -1 or a_purpose.find('dividend') != -1):
+                                    is_time_match = True
+                                    if a.get('broadcast_date') and m.meeting_date:
+                                        b_date = a.get('broadcast_date')
+                                        if hasattr(b_date, 'date'): b_date = b_date.date()
+                                        meet_date = m.meeting_date
+                                        if hasattr(meet_date, 'date'): meet_date = meet_date.date()
+                                        diff_days = abs((b_date - meet_date).days)
+                                        if diff_days > 30: is_time_match = False
+
+                                    if is_time_match:
+                                        if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
+                                            a['amount'] = m.extracted_dividend_amount
+                                            a['raw_amount'] = m.extracted_dividend_amount
+                                        if not a.get('dividend_type') or a.get('dividend_type') == '-':
+                                            a['dividend_type'] = m.extracted_dividend_type or 'Final'
+                                        has_linked_action = True
+                                        a['_matchedMeeting'] = m
                                         break
 
-                    if not is_history_duplicate:
-                        chained_history.append({
-                            "ex_date": 'Record date not yet declared',
+                    if not has_linked_action:
+                        # Create Synthetic
+                        amount = m.extracted_dividend_amount if m.extracted_dividend_amount is not None else None
+                        if amount is None and getattr(m, 'parsed_dividend_amount', None) is not None:
+                             amount = m.parsed_dividend_amount
+
+                        div_type = '-'
+                        if 'dividend' in purpose_lower or has_amount:
+                            div_type = 'Dividend'
+                            if 'interim' in purpose_lower: div_type = 'Interim'
+                            if 'special' in purpose_lower: div_type = 'Special'
+                            if 'final' in purpose_lower: div_type = 'Final'
+
+                            if amount is None:
+                                match = re.search(r'(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*\/\-|dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)|dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per|dividend\s*-\s*(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)', purpose_lower)
+                                if match:
+                                    amount = next((g for g in match.groups() if g is not None), None)
+
+                        elif is_agm and 'dividend' not in purpose_lower and not has_amount:
+                            div_type = 'AGM'
+                        elif 'bonus' in purpose_lower:
+                            div_type = 'Bonus'
+                        elif 'split' in purpose_lower or 'sub-division' in purpose_lower:
+                            div_type = 'Split'
+
+                        combined_actions.append({
+                            "symbol": sym,
+                            "purpose": m.purpose,
+                            "dividend_type": div_type,
+                            "ex_date": None,
                             "ex_date_obj": None,
-                            "broadcast_date": bm.broadcast_date,
-                            "announcement_date_obj": bm_ann_date,
-                            "dividend_type": bm.extracted_dividend_type or 'Interim',
-                            "purpose": bm.purpose or "Dividend Declared in Board Meeting",
-                            "amount": amt,
-                            "raw_amount": amt,
+                            "broadcast_date": m.broadcast_date or m.date,
+                            "amount": amount,
+                            "raw_amount": amount,
                             "face_value": None,
-                            "record_date": None
+                            "is_synthetic": True,
+                            "_matchedMeeting": m
                         })
 
-            def get_sort_key(x):
-                if x.get('ex_date_obj'): return x['ex_date_obj']
-                ann_dt = x.get('announcement_date_obj')
-                if ann_dt is None:
-                    return datetime.date.min
-                if hasattr(ann_dt, 'date'):
-                    return ann_dt.date()
-                return ann_dt
+            # 2. Timeline Linkage & Merge
+            group_officials = [a for a in combined_actions if not a.get('is_synthetic')]
+            group_synthetics = [a for a in combined_actions if a.get('is_synthetic')]
 
-            chained_history.sort(key=get_sort_key, reverse=True)
-            ca_by_symbol[sym] = chained_history
+            def safe_date(d):
+                if hasattr(d, 'date'): return d.date()
+                if isinstance(d, datetime.datetime): return d.date()
+                if isinstance(d, datetime.date): return d
+                return datetime.date.min
 
+            def get_sort_date_syn(x):
+                m = x.get('_matchedMeeting')
+                d = m.broadcast_date or m.date if m else x.get('broadcast_date')
+                return safe_date(d)
+
+            group_synthetics.sort(key=get_sort_date_syn, reverse=True)
+
+            dedup_syns = []
+            for syn in group_synthetics:
+                is_duplicate = False
+                syn_m = syn.get('_matchedMeeting')
+                syn_date = safe_date(syn_m.meeting_date if syn_m else None)
+
+                for ex in dedup_syns:
+                    ex_m = ex.get('_matchedMeeting')
+                    ex_date = safe_date(ex_m.meeting_date if ex_m else None)
+
+                    if syn_date != datetime.date.min and ex_date != datetime.date.min:
+                        diff = abs((syn_date - ex_date).days)
+                        if diff <= 60 and syn.get('dividend_type') == ex.get('dividend_type'):
+                            is_duplicate = True
+                            if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
+                                ex['_matchedMeeting'] = syn_m
+                            if (ex.get('amount') is None or ex.get('amount') == "-") and syn.get('amount') is not None:
+                                ex['amount'] = syn.get('amount')
+                                ex['raw_amount'] = syn.get('raw_amount')
+                            break
+                if not is_duplicate:
+                    dedup_syns.append(syn)
+
+            final_actions = []
+            for syn in dedup_syns:
+                matched = False
+                syn_date_val = safe_date(syn.get('broadcast_date') or syn.get('date'))
+
+                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('date')) - syn_date_val).days) if syn_date_val != datetime.date.min else 9999)
+
+                for off in group_officials:
+                    off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('date'))
+                    if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
+                        diff_days = (off_date_val - syn_date_val).days
+                        if -10 <= diff_days <= 180 and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') == '-' or off.get('dividend_type') == '-'):
+                            if off.get('amount') is None or off.get('amount') == "-":
+                                off['amount'] = syn.get('amount')
+                                off['raw_amount'] = syn.get('raw_amount')
+
+                            syn_m = syn.get('_matchedMeeting')
+                            off_m = off.get('_matchedMeeting')
+                            if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
+                                off['_matchedMeeting'] = syn_m
+
+                            matched = True
+                            break
+                if not matched:
+                    final_actions.append(syn)
+
+            for off in group_officials:
+                final_actions.append(off)
+
+            # Sort chronologically
+            def final_sort_key(x):
+                t = safe_date(x.get('ex_date_obj'))
+                if t != datetime.date.min: return t
+                t = safe_date(x.get('announcement_date_obj') or x.get('broadcast_date'))
+                if t != datetime.date.min: return t
+                m = x.get('_matchedMeeting')
+                if m:
+                    t = safe_date(m.meeting_date)
+                    if t != datetime.date.min: return t
+                t = safe_date(x.get('date'))
+                return t
+
+            final_actions.sort(key=final_sort_key, reverse=True)
+
+            ca_by_symbol[sym] = []
+            for action in final_actions:
+                m = action.get('_matchedMeeting')
+                bm_date = m.meeting_date if m else None
+                ca_by_symbol[sym].append({
+                    "ex_date": action.get('ex_date') if action.get('ex_date') else None,
+                    "ex_date_obj": action.get('ex_date_obj'),
+                    "announcement_date_obj": action.get('announcement_date_obj') or action.get('broadcast_date'),
+                    "broadcast_date": action.get('broadcast_date'),
+                    "board_meeting_date": bm_date,
+                    "dividend_type": action.get('dividend_type'),
+                    "purpose": action.get('purpose'),
+                    "amount": action.get('amount'),
+                    "raw_amount": action.get('raw_amount'),
+                    "face_value": action.get('face_value'),
+                    "is_synthetic": action.get('is_synthetic', False),
+                    "record_date": action.get('record_date')
+                })
         if force:
             db.query(DividendDatabank).delete()
             db.commit()
@@ -1177,6 +1238,10 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.announcement_date = h.get('announcement_date_obj')
                     if h.get('broadcast_date'):
                         match.broadcast_date = h.get('broadcast_date')
+                    if h.get('board_meeting_date'):
+                        match.board_meeting_date = h.get('board_meeting_date')
+                    if h.get('is_synthetic') is not None:
+                        match.is_synthetic = h.get('is_synthetic')
                     # If we found an amount in history and DB has none (or they differ), update it
                     if h.get('amount') is not None:
                         match.amount = h.get('amount')
@@ -1207,7 +1272,9 @@ def build_dividend_databank_task(self, force: bool = False):
                         face_value=h.get('face_value'),
                         purpose=h.get('purpose'),
                         is_awaited=is_awaited,
-                        record_date=h.get('record_date')
+                        record_date=h.get('record_date'),
+                        board_meeting_date=h.get('board_meeting_date'),
+                        is_synthetic=h.get('is_synthetic', False)
                     )
                     db.add(new_item)
                     if not force:
