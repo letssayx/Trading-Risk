@@ -636,23 +636,7 @@ async def delete_data_range(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-from backend.ingest.field_mapper import FieldMapper
 
-@router.post("/api/data/dividends/patch")
-def patch_historical_dividends(db: Session = Depends(get_db)):
-    try:
-        from backend.ingest.tasks import build_dividend_databank_task
-        task = build_dividend_databank_task.delay(force=True)
-
-        return {
-            "message": "Full Reparse History triggered in background.",
-            "task_id": str(task.id),
-            "updated_count": "Background Task Started"
-        }
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/data/view/list")
 async def list_data(
