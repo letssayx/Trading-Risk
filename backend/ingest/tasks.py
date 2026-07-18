@@ -544,10 +544,6 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         # We purposely do not alter the amounts with ratios here. The Dividend Databank MUST reflect the pure, raw amounts.
         # Downstream routes (like /api/special-sit/dividends) should handle the split/bonus math dynamically if needed.
 
-        if force:
-            db.query(DividendDatabank).delete()
-            db.commit()
-
         # When force is false, we want to UPSERT instead of delete all history.
         # This solves the "takes a hell lot of time" issue and properly updates rows.
 
@@ -593,7 +589,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                                 match = row
                                 break
 
-                if match and not force:
+                if match:
                     # UPDATE existing row
                     match.date = final_date
                     match.ex_date = ex_date_val
@@ -1184,12 +1180,12 @@ def build_dividend_databank_task(self, force: bool = False):
                     "is_synthetic": action.get('is_synthetic', False),
                     "record_date": action.get('record_date')
                 })
+        # When force is false, we want to UPSERT instead of delete all history.
+        # This solves the "takes a hell lot of time" issue and properly updates rows.
+
         if force:
             db.query(DividendDatabank).delete()
             db.commit()
-
-        # When force is false, we want to UPSERT instead of delete all history.
-        # This solves the "takes a hell lot of time" issue and properly updates rows.
 
         added_count = 0
         updated_count = 0
@@ -1197,8 +1193,7 @@ def build_dividend_databank_task(self, force: bool = False):
         for sym, history in ca_by_symbol.items():
             # If we are not forcing, let's fetch existing rows for this symbol to avoid blind inserts
             existing_rows = []
-            if not force:
-                existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
+            existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
 
             for h in history:
                 ex_date_val = h.get('ex_date_obj')
@@ -1214,8 +1209,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 # UPSERT logic: Try to find a matching existing row
                 match = None
-                if not force:
-                    for row in existing_rows:
+                for row in existing_rows:
                         # Match by identical ex-date OR identical announcement date OR same type within recent window
                         if row.dividend_type == h.get('dividend_type'):
                             if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
@@ -1277,8 +1271,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         is_synthetic=h.get('is_synthetic', False)
                     )
                     db.add(new_item)
-                    if not force:
-                        existing_rows.append(new_item) # Add to existing to prevent dupes in the same loop
+                    existing_rows.append(new_item) # Add to existing to prevent dupes in the same loop
                     added_count += 1
 
         db.commit()
