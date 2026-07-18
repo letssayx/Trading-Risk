@@ -3649,252 +3649,7 @@ function renderDividendsData() {
         const selectedMonths = Array.from(monthCheckboxes).map(cb => parseInt(cb.value));
 
 
-        // Create synthetic actions from board meetings that don't have a corporate action yet
-        let combinedActions = [...divRawData];
-
-        // Find board meetings discussing dividends that don't have a linked corporate action
-        Object.keys(meetingsBySymbol).forEach(sym => {
-            const meetings = meetingsBySymbol[sym];
-            meetings.forEach(m => {
-                const purpose = (m.purpose || '').toLowerCase();
-                const hasAmount = m.extracted_dividend_amount != null && m.extracted_dividend_amount !== '';
-                // Ensure robust case-insensitive AGM matching
-                const isAGM = purpose.includes('agm') || purpose.includes('annual general meeting') || /\bagm\b/i.test(m.purpose || '');
-
-                if (purpose.includes('dividend') || purpose.includes('bonus') || purpose.includes('split') || purpose.includes('sub-division') || hasAmount || isAGM) {
-                    // Check if there is a corporate action after this meeting date
-                    const mDate = m.meeting_date ? new Date(m.meeting_date) : null;
-                    let hasLinkedAction = false;
-
-                    if (mDate) {
-                        for (let a of divRawData) {
-                            if (a.symbol === sym) {
-                                const aDate = a.ex_date ? new Date(a.ex_date) : null;
-                                // If the corporate action ex_date is after the meeting date, consider it linked
-                                if (aDate && aDate >= mDate) {
-                                    // Make sure we only link if the dates are reasonably close (e.g., within 180 days)
-                                    // Otherwise a meeting in 2022 might link to a 2024 action
-                                    const diffDays = Math.abs(aDate - mDate) / (1000 * 60 * 60 * 24);
-                                    if (diffDays <= 180) {
-                                        hasLinkedAction = true;
-                                        // Update amount if missing in action but present in meeting
-                                        if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
-                                            a.parsed_dividend_amount = m.extracted_dividend_amount;
-                                        }
-                                        if (!a.dividend_type || a.dividend_type === '-') {
-                                            a.dividend_type = m.extracted_dividend_type || 'Final';
-                                        }
-                                        break;
-                                    }
-                                }
-                                const aPurpose = ((a.subject || '') + ' ' + (a.purpose || '')).trim().toLowerCase();
-
-                                // If the backend generated a synthetic action or incomplete action without dates, consider it linked
-                                // AND inject the extracted amount before breaking out of the loop.
-                                if (!aDate && (a.is_synthetic || aPurpose.includes('not yet declared') ||
-                                              aPurpose.includes('dividend (') ||
-                                              aPurpose.includes('dividend'))) {
-
-                                    // Make sure we only link if the broadcast date / meeting date roughly matches, to avoid linking to very old dummy actions
-                                    let isTimeMatch = true;
-                                    if (a.broadcast_date && m.meeting_date) {
-                                        const bDate = new Date(a.broadcast_date);
-                                        const meetDate = new Date(m.meeting_date);
-                                        const diffDays = Math.abs(bDate - meetDate) / (1000 * 60 * 60 * 24);
-                                        if (diffDays > 30) isTimeMatch = false; // Must be within 30 days
-                                    }
-
-                                    if (isTimeMatch) {
-                                        if ((a.parsed_dividend_amount == null || a.parsed_dividend_amount == "-") && m.extracted_dividend_amount) {
-                                            a.parsed_dividend_amount = m.extracted_dividend_amount;
-                                        }
-                                        if (!a.dividend_type || a.dividend_type === '-') {
-                                            a.dividend_type = m.extracted_dividend_type || 'Final';
-                                        }
-                                        hasLinkedAction = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (!hasLinkedAction) {
-                        // Create a synthetic action
-
-                        // Parse dividend amount if available (e.g., "Rs. 54 per share" or "54/-")
-                        let amount = parseFloat(m.extracted_dividend_amount) || null;
-                        if (amount == null && m.parsed_dividend_amount) amount = m.parsed_dividend_amount;
-                        let divType = '-';
-                        if (purpose.includes('dividend') || hasAmount) {
-                             divType = 'Dividend';
-                             if (purpose.includes('interim')) divType = 'Interim';
-                             if (purpose.includes('special')) divType = 'Special';
-                             if (purpose.includes('final')) divType = 'Final';
-
-                             // Try to extract amount if not already provided by backend
-                             let amountMatch = purpose.match(/(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/([0-9]+(?:\.[0-9]+)?)\s*\/\-/i) || purpose.match(/dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)/i) || purpose.match(/dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per/i) || purpose.match(/dividend\s*-\s*(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)/i);
-                             if (amountMatch && !amount) {
-                                 amount = amountMatch[1];
-                             }
-                        } else if (isAGM && !purpose.includes('dividend') && !hasAmount) {
-                             // Preserve the explicit AGM context in the Type column if it's purely an AGM intimation
-                             divType = 'AGM';
-                        } else if (purpose.includes('bonus')) {
-                             divType = 'Bonus';
-                        } else if (purpose.includes('split') || purpose.includes('sub-division')) {
-                             divType = 'Split';
-                        }
-
-                        combinedActions.push({
-                            symbol: sym,
-                            company_name: m.company_name || sym,
-                            purpose: m.purpose,
-                            subject: m.purpose, // use purpose as subject
-                            dividend_type: divType,
-                            ex_date: null,
-                            record_date: null,
-                            broadcast_date: m.broadcast_date || m.date,
-                            parsed_dividend_amount: amount,
-                            is_synthetic: true, // flag to identify
-                            _matchedMeeting: m // store the meeting to avoid re-matching
-                        });
-                    }
-                }
-            });
-        });
-
-        // Implement non-destructive timeline linkage:
-        // We do NOT want two separate rows for the identical cycle (e.g., Row 1: Intimation, Row 2: Ex-Date).
-        // Instead, if we generated a synthetic Board Meeting intimation (from above), and there IS a
-        // matching final Corporate Action (ex_date), we MERGE them into ONE row to show the timeline.
-        // We match them if they belong to the same symbol, have the same dividend type, and happen within ~90 days.
-        let finalCombinedActions = [];
-        let symGroups = {};
-
-        combinedActions.forEach(a => {
-            if (!symGroups[a.symbol]) symGroups[a.symbol] = { officials: [], synthetics: [] };
-            if (a.is_synthetic) symGroups[a.symbol].synthetics.push(a);
-            else symGroups[a.symbol].officials.push(a);
-        });
-
-        Object.values(symGroups).forEach(group => {
-            let processedOfficials = new Set();
-
-            // Deduplicate synthetics (multiple board meetings for the same event)
-            let deduplicatedSynthetics = [];
-            group.synthetics.sort((a, b) => new Date(b.broadcast_date || b.date) - new Date(a.broadcast_date || a.date)); // Sort newest first
-
-            group.synthetics.forEach(syn => {
-                let isDuplicate = false;
-                const synMeetingDate = syn._matchedMeeting && syn._matchedMeeting.meeting_date ? new Date(syn._matchedMeeting.meeting_date).getTime() : NaN;
-
-                for (let existing of deduplicatedSynthetics) {
-                    const existingMeetingDate = existing._matchedMeeting && existing._matchedMeeting.meeting_date ? new Date(existing._matchedMeeting.meeting_date).getTime() : NaN;
-
-                    if (!isNaN(synMeetingDate) && !isNaN(existingMeetingDate)) {
-                        const d1 = new Date(synMeetingDate);
-                        const d2 = new Date(existingMeetingDate);
-
-                        // Merge synthetics if they are within 60 days of each other and have the same dividend type
-                        // This handles rescheduled meetings like BPCL (12th to 19th) natively by absorbing the older one
-                        const diffDays = Math.abs(d1 - d2) / (1000 * 60 * 60 * 24);
-
-                        if (diffDays <= 60 && syn.dividend_type === existing.dividend_type) {
-                            isDuplicate = true;
-                            // Keep the latest broadcast/meeting date info in the existing
-                            if (syn._matchedMeeting && (!existing._matchedMeeting || new Date(syn._matchedMeeting.meeting_date) > new Date(existing._matchedMeeting.meeting_date))) {
-                                existing._matchedMeeting = syn._matchedMeeting;
-                            }
-                            // Update amount if the newer duplicate has it
-                            if ((!existing.parsed_dividend_amount || existing.parsed_dividend_amount === '-') && syn.parsed_dividend_amount) {
-                                existing.parsed_dividend_amount = syn.parsed_dividend_amount;
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (!isDuplicate) {
-                    deduplicatedSynthetics.push(syn);
-                }
-            });
-
-            // Try to link each intimation (synthetic) to its final corporate action (official)
-            deduplicatedSynthetics.forEach(syn => {
-                let matched = false;
-                const synDate = new Date(syn.broadcast_date || syn.date).getTime();
-
-                // Sort officials by closest date first to prevent linking to a distant corporate action
-                let availableOfficials = [...group.officials]; // Do not filter out processed ones! Multiple intimations can map to the same CA
-                availableOfficials.sort((a, b) => {
-                    const aDate = new Date(a.ex_date || a.record_date || a.broadcast_date || a.date).getTime();
-                    const bDate = new Date(b.ex_date || b.record_date || b.broadcast_date || b.date).getTime();
-                    return Math.abs(aDate - synDate) - Math.abs(bDate - synDate);
-                });
-
-                for (let off of availableOfficials) {
-                    const offDate = new Date(off.ex_date || off.record_date || off.broadcast_date || off.date).getTime();
-
-                    if (!isNaN(synDate) && !isNaN(offDate)) {
-                        const diffDays = (offDate - synDate) / (1000 * 60 * 60 * 24);
-
-                        // If the corporate action happens -10 to 180 days after the board meeting, it's the same cycle!
-                        // We check that the dividend types loosely match.
-                        if (diffDays >= -10 && diffDays <= 180 && (syn.dividend_type === off.dividend_type || syn.dividend_type === '-' || off.dividend_type === '-')) {
-                            // Link them!
-                            if (!off.parsed_dividend_amount || off.parsed_dividend_amount === "-") {
-                                off.parsed_dividend_amount = syn.parsed_dividend_amount;
-                            }
-
-                            // If this official already matched another meeting, keep the most relevant one (newest meeting date)
-                            if (!off._matchedMeeting || (syn._matchedMeeting && new Date(syn._matchedMeeting.meeting_date) > new Date(off._matchedMeeting.meeting_date))) {
-                                off._matchedMeeting = syn._matchedMeeting;
-                            }
-
-                            matched = true;
-                            break;
-                        }
-                    }
-                }
-
-                // If this board meeting hasn't dropped a corporate action yet (it's upcoming), keep it!
-                if (!matched) {
-                    finalCombinedActions.push(syn);
-                }
-            });
-
-            // Add all official corporate actions
-            group.officials.forEach(off => finalCombinedActions.push(off));
-        });
-
-        // Finally, sort everything chronologically (newest first)
-        finalCombinedActions.sort((a, b) => {
-            const parseDateStringSortLocal = (dateString) => {
-                if (!dateString || dateString === '-' || dateString.includes('not yet declared')) return 0;
-                let dateObj = new Date(dateString);
-                if (!isNaN(dateObj.getTime())) return dateObj.getTime();
-                let parts = dateString.split('-');
-                if (parts.length === 3) {
-                    if (parts[2].length === 4) { dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); }
-                    else if (parts[0].length === 4) { dateObj = new Date(dateString); }
-                }
-                return isNaN(dateObj.getTime()) ? 0 : dateObj.getTime();
-            };
-
-            const getT = (x) => {
-                let t = parseDateStringSortLocal(x.ex_date); if (t > 0) return t;
-                t = parseDateStringSortLocal(x.announcement_date_obj || x.broadcast_date); if (t > 0) return t;
-                if (x._matchedMeeting && x._matchedMeeting.meeting_date) {
-                    t = parseDateStringSortLocal(x._matchedMeeting.meeting_date); if (t > 0) return t;
-                }
-                t = parseDateStringSortLocal(x.date); if (t > 0) return t;
-                return 0;
-            };
-            return getT(b) - getT(a);
-        });
-
-        let filteredActions = finalCombinedActions.filter(d => {
+        let filteredActions = [...divRawData].filter(d => {
             const matchSymbol = !searchFilter ||
                 (d.symbol && d.symbol.toUpperCase().includes(searchFilter)) ||
                 (d.company_name && d.company_name.toUpperCase().includes(searchFilter));
@@ -4024,6 +3779,11 @@ function renderDividendsData() {
                 bmdObj = formatDateTime(matchedMeeting.meeting_date);
                 bmPurpose = matchedMeeting.purpose || '-';
                 bcdObj = formatDateTime(matchedMeeting.broadcast_date || matchedMeeting.date);
+            } else if (d.board_meeting_date) {
+                bmdObj = formatDateTime(d.board_meeting_date);
+                // We don't have the meeting purpose locally easily, but we can just use the action purpose since it's merged now.
+                bmPurpose = d.purpose || '-';
+                bcdObj = formatDateTime(d.broadcast_date);
             } else if (matchingMeetings.length > 0) {
                 let exDateObj = d.ex_date ? new Date(d.ex_date) : null;
 
@@ -4090,7 +3850,8 @@ function renderDividendsData() {
                  if (match) faceValue = match[1];
             }
 
-            let amount = d.parsed_dividend_amount != null ? '₹' + parseFloat(d.parsed_dividend_amount).toFixed(2) : '-';
+            let rawAmt = d.amount != null ? d.amount : (d.parsed_dividend_amount != null ? d.parsed_dividend_amount : null);
+            let amount = rawAmt != null ? '₹' + parseFloat(rawAmt).toFixed(2) : '-';
             if (amount.endsWith('.00')) amount = amount.replace('.00', '');
 
             let divType = d.dividend_type || '-';
