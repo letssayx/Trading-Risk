@@ -67,6 +67,7 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
     def is_cancelled():
         return check_cancel_flag(self.request.id)
 
+    from sqlalchemy import desc
     def handle_pause():
         import time
         if check_pause_flag(self.request.id):
@@ -160,6 +161,7 @@ def retry_failed_imports(self, pattern: str):
     def is_cancelled():
         return check_cancel_flag(self.request.id)
 
+    from sqlalchemy import desc
     def handle_pause():
         import time
         if check_pause_flag(self.request.id):
@@ -258,6 +260,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
     def is_cancelled():
         return check_cancel_flag(self.request.id)
 
+    from sqlalchemy import desc
     def handle_pause():
         import time
         if check_pause_flag(self.request.id):
@@ -659,6 +662,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
     def is_cancelled():
         return check_cancel_flag(self.request.id)
 
+    from sqlalchemy import desc
     def handle_pause():
         import time
         if check_pause_flag(self.request.id):
