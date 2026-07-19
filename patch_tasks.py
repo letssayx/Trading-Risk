@@ -41,6 +41,8 @@ if start_idx != -1 and end_idx != -1:
         finally:
             db.close()
 
+        from datetime import timedelta
+
         while current_date <= end_date:
             handle_pause()
             if is_cancelled():
@@ -50,12 +52,12 @@ if start_idx != -1 and end_idx != -1:
             # Skip weekends (NSE is closed, except for rare special sessions which we'll ignore for bulk)
             if current_date.weekday() >= 5 and not force:
                 logger.info(f"Skipping weekend: {current_date}")
-                current_date += datetime.timedelta(days=1)
+                current_date += timedelta(days=1)
                 processed_days += 1
                 self.update_state(state='PROGRESS', meta={
                     'current_date': current_date.strftime("%Y-%m-%d"),
                     'progress': int((processed_days / total_days) * 100),
-                    'message': f"Skipped weekend {current_date - datetime.timedelta(days=1)}"
+                    'message': f"Skipped weekend {current_date - timedelta(days=1)}"
                 })
                 continue
 
@@ -85,13 +87,13 @@ if start_idx != -1 and end_idx != -1:
                     logger.error(f"Error importing {current_date}: {e}")
                     results.append(f"{current_date}: ERROR - {str(e)}")
 
-            current_date += datetime.timedelta(days=1)
+            current_date += timedelta(days=1)
             processed_days += 1
 
             self.update_state(state='PROGRESS', meta={
                 'current_date': current_date.strftime("%Y-%m-%d"),
                 'progress': int((processed_days / total_days) * 100),
-                'message': f"Completed {current_date - datetime.timedelta(days=1)}"
+                'message': f"Completed {current_date - timedelta(days=1)}"
             })
 
         # Clear Active Task
