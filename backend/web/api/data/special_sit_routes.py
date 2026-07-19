@@ -181,7 +181,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     if all_history_symbols:
         # Fetching 10 years of EQ prices for these symbols
         # For performance, we can just fetch the dates and prices and order them ascending
-        from sqlalchemy import tuple_
 
         # Optimize: Since fetching 10 years of daily prices for ~200 symbols might still be large (200 * 2500 = 500,000 rows),
         # but it's much faster than N+1 queries. Let's do a bulk query.
@@ -203,7 +202,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         prices = hist_prices_map.get(sym.upper())
         if not prices: return None
 
-        # Extract dates for bisect
+        # We can optimize this by pre-computing dates if needed, but for small N (2500) per symbol
+        # this is fast enough. However to be perfectly clean:
         dates = [p[0] for p in prices]
 
         # bisect_right returns the insertion point which comes AFTER any existing entries of target_date.
