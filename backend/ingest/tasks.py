@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from backend.ingest.nse_importer import NSEDataImporter
 from backend.ingest.date_utils import NSEHolidayCalendar
-from backend.ingest.nse_models import ImportLog
+from backend.ingest.nse_models import ImportLog, CorporateAction, BoardMeeting, DividendDatabank
 from backend.infrastructure.db import SessionLocal
 import redis
 import os
