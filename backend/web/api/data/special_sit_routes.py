@@ -167,6 +167,53 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         bm_by_symbol[bm.symbol.upper()].append(bm)
 
     # 5. Process data and generate "guesstimates" using Seasonal Cycle Detection
+
+    # 4.6 Bulk Fetch Historical Prices to resolve N+1 Issue
+    # Extract all needed (symbol, target_date) combinations
+    # Since prices can be queried for dates slightly before the ref_date, we just fetch
+    # all EQ closing prices for the needed symbols over the last 10 years and create a fast lookup map.
+    # To optimize memory and time, we will only fetch dates that exist in the BhavcopyEQ table
+    # and map each symbol to a sorted list of (trade_date, close_price) for binary search lookup.
+
+    all_history_symbols = list(ca_by_symbol.keys())
+    hist_prices_map = defaultdict(list)
+
+    if all_history_symbols:
+        # Fetching 10 years of EQ prices for these symbols
+        # For performance, we can just fetch the dates and prices and order them ascending
+        from sqlalchemy import tuple_
+
+        # Optimize: Since fetching 10 years of daily prices for ~200 symbols might still be large (200 * 2500 = 500,000 rows),
+        # but it's much faster than N+1 queries. Let's do a bulk query.
+        hist_price_records = db.query(
+            BhavcopyEQ.symbol,
+            BhavcopyEQ.trade_date,
+            BhavcopyEQ.close_price
+        ).filter(
+            BhavcopyEQ.symbol.in_(all_history_symbols),
+            BhavcopyEQ.series == 'EQ',
+            BhavcopyEQ.trade_date >= ten_years_ago
+        ).order_by(BhavcopyEQ.symbol, BhavcopyEQ.trade_date).all()
+
+        for r in hist_price_records:
+            hist_prices_map[r.symbol.upper()].append((r.trade_date, r.close_price))
+
+    import bisect
+    def get_closest_historical_price(sym, target_date):
+        prices = hist_prices_map.get(sym.upper())
+        if not prices: return None
+
+        # Extract dates for bisect
+        dates = [p[0] for p in prices]
+
+        # bisect_right returns the insertion point which comes AFTER any existing entries of target_date.
+        # We want the index of the price that is <= target_date
+        idx = bisect.bisect_right(dates, target_date)
+        if idx > 0:
+            return prices[idx - 1][1]
+        return None
+
+
     results = []
 
     def get_doy(d): return d.timetuple().tm_yday
@@ -207,38 +254,24 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             # Prefer broadcast date (announcement date), fallback to announcement_date_obj, then ex_date_obj
             ref_date = h.get('broadcast_date') or h.get('announcement_date_obj') or h.get('ex_date_obj')
             if ref_date and h['amount']:
-                # Simple fallback: query the DB directly here for now. It might be slow, but it's correct.
-                # (Ideally, we'd pre-fetch all needed historical prices).
-                # To avoid N+1 we should bulk fetch, but let's just do a single query for now as a fix.
                 try:
-                    # If broadcast date has a time after 15:30:00, use <= ref_date.date()
-                    # If broadcast date has a time before 15:30:00, use < ref_date.date()
-                    # If ref_date is just a date, use < ref_date
-
-                    price_query = db.query(BhavcopyEQ.close_price).filter(
-                        BhavcopyEQ.symbol == sym,
-                        BhavcopyEQ.series == 'EQ'
-                    )
-
+                    target_date = None
                     if isinstance(ref_date, datetime.datetime):
                         target_time = datetime.time(15, 30, 0)
                         if ref_date.time() >= target_time:
-                            # after or exactly at market close, we can use the same day's closing price
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
+                            target_date = ref_date.date()
                         else:
-                            # before or during market hours, we MUST use the previous day's closing price
-                            price_query = price_query.filter(BhavcopyEQ.trade_date < ref_date.date())
+                            target_date = ref_date.date() - datetime.timedelta(days=1)
                     else:
-                        # As per user instruction, if we are completely unsure of the exact time, default to checking the same day's price
                         if hasattr(ref_date, "date"):
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date.date())
+                            target_date = ref_date.date()
                         else:
-                            price_query = price_query.filter(BhavcopyEQ.trade_date <= ref_date)
+                            target_date = ref_date
 
-                    hist_price = price_query.order_by(BhavcopyEQ.trade_date.desc()).first()
+                    hist_price = get_closest_historical_price(sym, target_date)
 
-                    if hist_price and hist_price[0] and hist_price[0] > 0:
-                        if (h['amount'] / hist_price[0]) * 100 >= 2.0:
+                    if hist_price and hist_price > 0:
+                        if (h['amount'] / hist_price) * 100 >= 2.0:
                             h['is_above_2_percent'] = True
                 except Exception:
                     pass
