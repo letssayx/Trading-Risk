@@ -271,6 +271,8 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
             self.update_state(state='PROGRESS', meta={'status': 'RESUMED', 'message': 'Task resumed.'})
 
     try:
+        from datetime import datetime as dt, timedelta
+        today = dt.now().date()
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
 
@@ -479,7 +481,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
             for dedup_item in deduplicated_bms:
                 bm = dedup_item['bm']
                 amt = dedup_item['extracted_dividend_amount']
-                if bm.date and bm.date < today - datetime.timedelta(days=180):
+                if bm.date and bm.date < today - timedelta(days=180):
                     continue
                 purpose_lower = (bm.purpose or '').lower()
 
