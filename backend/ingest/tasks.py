@@ -474,20 +474,17 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                         'extracted_dividend_amount': bm.extracted_dividend_amount
                     })
 
-            import datetime as dt_internal
-            mock_today = dt_internal.date(2026, 7, 19)
-
             for dedup_item in deduplicated_bms:
                 bm = dedup_item['bm']
                 amt = dedup_item['extracted_dividend_amount']
-                if bm.date and bm.date < mock_today - datetime.timedelta(days=180):
+                if bm.date and bm.date < today - datetime.timedelta(days=180):
                     continue
                 purpose_lower = (bm.purpose or '').lower()
 
                 is_valid_standalone = False
                 if amt is not None:
                     is_valid_standalone = True
-                elif bm.date and bm.date >= mock_today:
+                elif bm.date and bm.date >= today:
                     is_valid_standalone = True
                 elif 'dividend' in purpose_lower:
                     is_valid_standalone = True
@@ -835,7 +832,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
     db = SessionLocal()
     try:
-        today = datetime.date(2026, 7, 19)
+        today = datetime.date.today()
 
         ca_query = db.query(CorporateAction).filter(
             or_(
