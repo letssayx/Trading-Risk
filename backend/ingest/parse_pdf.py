@@ -35,12 +35,39 @@ def extract_amount_from_pdf(url):
 
         if resp.status_code == 200 and b'%PDF' in resp.content[:10]:
             logger.info(f"Successfully downloaded PDF for parsing: {url}")
+
+            extracted_record_date = None
+            found_amount = None
+
             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
                 text = ""
                 for page in pdf.pages[:5]: # Only check first 5 pages
                     extracted = page.extract_text()
                     if extracted:
                         text += extracted + "\n"
+
+                    # Also try to extract tables for record date fallback
+                    tables = page.extract_tables()
+                    if tables and not extracted_record_date:
+                        for table in tables:
+                            record_date_col_idx = -1
+                            for i, row in enumerate(table):
+                                for j, cell in enumerate(row):
+                                    if cell and 'record date' in str(cell).lower():
+                                        record_date_col_idx = j
+                                        break
+                                if record_date_col_idx != -1:
+                                    for k in range(i + 1, len(table)):
+                                        if len(table[k]) > record_date_col_idx:
+                                            val = table[k][record_date_col_idx]
+                                            if val:
+                                                val = str(val).strip().replace('\n', ' ')
+                                                m = re.search(r'([a-zA-Z]+\s+\d{1,2}(?:st|nd|rd|th)?,\s*\d{4}|\d{1,2}(?:st|nd|rd|th)?[- \.][a-zA-Z]+[- \.]\d{4})', val)
+                                                if m:
+                                                    extracted_record_date = m.group(1).strip()
+                                                    break
+                            if extracted_record_date:
+                                break
 
             # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
             text = re.sub(r'(\.\d+)1-', r'\1/-', text)
@@ -60,7 +87,8 @@ def extract_amount_from_pdf(url):
                 if m:
                     val = float(m.group(1))
                     if val > 0:
-                        return val
+                        found_amount = val
+                        break
 
             # More specific fallback regexes
             ui_patterns = [
@@ -74,10 +102,15 @@ def extract_amount_from_pdf(url):
                 for m in matches2:
                     val = float(m)
                     if val > 0:
-                        return val
+                        found_amount = val
+                        break
+                if found_amount:
+                    break
+
+            return {"amount": found_amount, "record_date": extracted_record_date}
 
     except ImportError:
         logger.debug("pdfplumber not installed, skipping PDF parsing.")
     except Exception as e:
         logger.debug(f"Failed to extract PDF {url}: {e}")
-    return None
+    return {"amount": None, "record_date": None}
