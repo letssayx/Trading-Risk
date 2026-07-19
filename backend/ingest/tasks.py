@@ -446,7 +446,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
             def safe_date_sort(x):
                 d = x.meeting_date or x.broadcast_date or x.date
                 if d is None:
-                    return datetime.date.min
+                    return datetime.min.date()
                 if hasattr(d, 'date'):
                     return d.date()
                 return d
@@ -461,7 +461,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                 for existing in deduplicated_bms:
                     existing_date = existing['sort_date']
 
-                    if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
+                    if bm_date and existing_date and bm_date != datetime.min.date() and existing_date != datetime.min.date():
                         diff_days = abs((bm_date - existing_date).days)
                         if diff_days == 0 or (diff_days <= 180 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type):
                             is_duplicate = True
@@ -535,7 +535,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                 if x.get('ex_date_obj'): return x['ex_date_obj']
                 ann_dt = x.get('announcement_date_obj')
                 if ann_dt is None:
-                    return datetime.date.min
+                    return datetime.min.date()
                 if hasattr(ann_dt, 'date'):
                     return ann_dt.date()
                 return ann_dt
@@ -567,11 +567,11 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
                 if ex_date_val is None:
                     is_awaited = True
 
-                sort_dt = ex_date_val or h.get('announcement_date_obj') or datetime.date.min
+                sort_dt = ex_date_val or h.get('announcement_date_obj') or datetime.min.date()
                 if hasattr(sort_dt, 'date'):
                     sort_dt = sort_dt.date()
 
-                final_date = sort_dt if sort_dt != datetime.date.min else datetime.date(1900, 1, 1)
+                final_date = sort_dt if sort_dt != datetime.min.date() else datetime(1900, 1, 1).date()
 
                 # UPSERT logic: Try to find a matching existing row
                 match = None
@@ -1088,7 +1088,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 if hasattr(d, 'date'): return d.date()
                 if isinstance(d, datetime.datetime): return d.date()
                 if isinstance(d, datetime.date): return d
-                return datetime.date.min
+                return datetime.min.date()
 
             def get_sort_date_syn(x):
                 m = x.get('_matchedMeeting')
@@ -1107,7 +1107,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     ex_m = ex.get('_matchedMeeting')
                     ex_date = safe_date(ex_m.meeting_date if ex_m else None)
 
-                    if syn_date != datetime.date.min and ex_date != datetime.date.min:
+                    if syn_date != datetime.min.date() and ex_date != datetime.min.date():
                         diff = abs((syn_date - ex_date).days)
                         if diff <= 60 and syn.get('dividend_type') == ex.get('dividend_type'):
                             is_duplicate = True
@@ -1125,11 +1125,11 @@ def build_dividend_databank_task(self, force: bool = False):
                 matched = False
                 syn_date_val = safe_date(syn.get('broadcast_date') or syn.get('date'))
 
-                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('date')) - syn_date_val).days) if syn_date_val != datetime.date.min else 9999)
+                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('date')) - syn_date_val).days) if syn_date_val != datetime.min.date() else 9999)
 
                 for off in group_officials:
                     off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('date'))
-                    if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
+                    if syn_date_val != datetime.min.date() and off_date_val != datetime.min.date():
                         diff_days = (off_date_val - syn_date_val).days
                         if -10 <= diff_days <= 180 and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') == '-' or off.get('dividend_type') == '-'):
                             if off.get('amount') is None or off.get('amount') == "-":
@@ -1152,13 +1152,13 @@ def build_dividend_databank_task(self, force: bool = False):
             # Sort chronologically
             def final_sort_key(x):
                 t = safe_date(x.get('ex_date_obj'))
-                if t != datetime.date.min: return t
+                if t != datetime.min.date(): return t
                 t = safe_date(x.get('announcement_date_obj') or x.get('broadcast_date'))
-                if t != datetime.date.min: return t
+                if t != datetime.min.date(): return t
                 m = x.get('_matchedMeeting')
                 if m:
                     t = safe_date(m.meeting_date)
-                    if t != datetime.date.min: return t
+                    if t != datetime.min.date(): return t
                 t = safe_date(x.get('date'))
                 return t
 
@@ -1203,11 +1203,11 @@ def build_dividend_databank_task(self, force: bool = False):
                 if ex_date_val is None:
                     is_awaited = True
 
-                sort_dt = ex_date_val or h.get('announcement_date_obj') or datetime.date.min
+                sort_dt = ex_date_val or h.get('announcement_date_obj') or datetime.min.date()
                 if hasattr(sort_dt, 'date'):
                     sort_dt = sort_dt.date()
 
-                final_date = sort_dt if sort_dt != datetime.date.min else datetime.date(1900, 1, 1)
+                final_date = sort_dt if sort_dt != datetime.min.date() else datetime(1900, 1, 1).date()
 
                 # UPSERT logic: Try to find a matching existing row
                 match = None
