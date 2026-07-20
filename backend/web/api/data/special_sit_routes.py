@@ -177,7 +177,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
     hist_price_map = {}
     if symbols and latest_eq_date:
         try:
-            from collections import defaultdict
             hist_price_map = defaultdict(list)
             # Fetch last 3 years of prices for these symbols to be safe for 2% check
             three_years_ago = latest_eq_date - datetime.timedelta(days=1095)

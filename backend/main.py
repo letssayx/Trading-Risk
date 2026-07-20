@@ -125,8 +125,23 @@ async def startup_event():
                     conn.execute(text(f"ALTER TABLE daily_derivatives_analysis ADD COLUMN {col_name} {col_type};"))
                     print(f"Successfully added column {col_name} to daily_derivatives_analysis")
             except Exception:
-                # Ignore DuplicateColumn errors
-                pass
+                pass # column likely exists
+
+        hist_index_cols = [
+            ("total_traded_qty", "BIGINT"),
+            ("turnover_cr", "FLOAT"),
+            ("pe_ratio", "FLOAT"),
+            ("pb_ratio", "FLOAT"),
+            ("div_yield", "FLOAT")
+        ]
+        for col_name, col_type in hist_index_cols:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE historical_index_data ADD COLUMN {col_name} {col_type};"))
+                    print(f"Successfully added column {col_name} to historical_index_data")
+            except Exception:
+                pass # column likely exists
+
     except Exception as e:
         print(f"⚠️ Metadata Create Warning: {e}")
 
