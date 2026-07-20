@@ -777,3 +777,11 @@ class DividendDatabank(Base, TimescaleMixin):
     is_awaited = Column(Boolean, default=False, index=True)
     board_meeting_date = Column(DateTime, nullable=True)
     is_synthetic = Column(Boolean, default=False)
+
+    # New metrics for Dividend Modelling
+    eps = Column(Float, nullable=True)
+    dps = Column(Float, nullable=True)
+    dividend_yield = Column(Float, nullable=True)
+    payout_ratio = Column(Float, nullable=True)
+    agm_announcement_date = Column(Date, nullable=True)
+    agm_date = Column(Date, nullable=True)

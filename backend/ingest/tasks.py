@@ -559,6 +559,11 @@ def build_dividend_databank_task(self, force: bool = False):
     import datetime
     from collections import defaultdict
     import re
+    import logging
+    try:
+        import yfinance as yf
+    except ImportError:
+        yf = None
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank
     from backend.ingest.field_mapper import FieldMapper
@@ -779,6 +784,7 @@ def build_dividend_databank_task(self, force: bool = False):
                              amount = m.parsed_dividend_amount
 
                         div_type = '-'
+                        agm_date = None
                         if 'dividend' in purpose_lower or has_amount:
                             div_type = 'Dividend'
                             if 'interim' in purpose_lower: div_type = 'Interim'
@@ -797,12 +803,23 @@ def build_dividend_databank_task(self, force: bool = False):
                         elif 'split' in purpose_lower or 'sub-division' in purpose_lower:
                             div_type = 'Split'
 
+                        if is_agm:
+                             # Try to find a date in the purpose like 'AGM - 15-Jul-2026'
+                             date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
+                             if date_match:
+                                 try:
+                                     from dateutil.parser import parse
+                                     agm_date = parse(date_match.group(1)).date()
+                                 except:
+                                     pass
+
                         combined_actions.append({
                             "symbol": sym,
                             "purpose": m.purpose,
                             "dividend_type": div_type,
                             "ex_date": None,
                             "ex_date_obj": None,
+                            "agm_date": agm_date,
                             "broadcast_date": m.broadcast_date or m.date,
                             "amount": amount,
                             "raw_amount": amount,
@@ -926,7 +943,33 @@ def build_dividend_databank_task(self, force: bool = False):
         for sym, history in ca_by_symbol.items():
             # If we are not forcing, let's fetch existing rows for this symbol to avoid blind inserts
             existing_rows = []
+
+            # Fetch EPS data from yfinance for the symbol
+            eps_data = {}
+            if yf:
+                try:
+                    ticker = yf.Ticker(f"{sym.upper()}.NS")
+                    # Trailing EPS (for recent missing data)
+                    trailing_eps = ticker.info.get("trailingEps")
+                    # Historical EPS via income_stmt
+                    inc = ticker.income_stmt
+                    if not inc.empty and "Basic EPS" in inc.index:
+                        eps_row = inc.loc["Basic EPS"]
+                        for ts, val in eps_row.items():
+                            try:
+                                if ts.year > 1900:
+                                    import math
+                                    if val and not math.isnan(val):
+                                        eps_data[ts.year] = float(val)
+                            except:
+                                pass
+                    if trailing_eps:
+                        eps_data['trailing'] = float(trailing_eps)
+                except Exception as e:
+                    logging.getLogger(__name__).warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
+
             existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
+
 
             for h in history:
                 ex_date_val = h.get('ex_date_obj')
@@ -974,6 +1017,25 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.amount = h.get('amount')
                         match.raw_amount = h.get('raw_amount')
 
+                    # Update EPS if available
+                    fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
+                    eps_val = eps_data.get(fy_year)
+                    if not eps_val:
+                         # fallback to exact year or trailing if it's the current year
+                         eps_val = eps_data.get(final_date.year)
+                    if not eps_val and (datetime.date.today().year - final_date.year) <= 1:
+                         eps_val = eps_data.get('trailing')
+
+                    if eps_val:
+                         match.eps = eps_val
+                         if match.amount:
+                              match.payout_ratio = (match.amount / eps_val) * 100 if eps_val != 0 else None
+                    match.dps = match.amount
+
+                    if h.get('agm_date'):
+                        match.agm_date = h.get('agm_date')
+                        match.agm_announcement_date = final_date
+
                     if h.get('face_value') is not None:
                         match.face_value = h.get('face_value')
 
@@ -1001,8 +1063,25 @@ def build_dividend_databank_task(self, force: bool = False):
                         is_awaited=is_awaited,
                         record_date=h.get('record_date'),
                         board_meeting_date=h.get('board_meeting_date'),
-                        is_synthetic=h.get('is_synthetic', False)
+                        is_synthetic=h.get('is_synthetic', False),
+                        agm_date=h.get('agm_date'),
+                        agm_announcement_date=final_date if h.get('agm_date') else None
                     )
+
+                    # Apply EPS and Payout Ratio
+                    fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
+                    eps_val = eps_data.get(fy_year)
+                    if not eps_val:
+                         eps_val = eps_data.get(final_date.year)
+                    if not eps_val and (datetime.date.today().year - final_date.year) <= 1:
+                         eps_val = eps_data.get('trailing')
+
+                    if eps_val:
+                         new_item.eps = eps_val
+                         if new_item.amount:
+                              new_item.payout_ratio = (new_item.amount / eps_val) * 100 if eps_val != 0 else None
+                    new_item.dps = new_item.amount
+
                     db.add(new_item)
                     existing_rows.append(new_item) # Add to existing to prevent dupes in the same loop
                     added_count += 1

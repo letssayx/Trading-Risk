@@ -94,7 +94,14 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "purpose": r.purpose,
             "amount": r.amount,
             "raw_amount": r.raw_amount,
-            "face_value": r.face_value
+            "face_value": r.face_value,
+            "eps": r.eps,
+            "dps": r.dps,
+            "dividend_yield": r.dividend_yield,
+            "payout_ratio": r.payout_ratio,
+            "agm_date": r.agm_date.strftime("%Y-%m-%d") if r.agm_date else None,
+            "agm_announcement_date": r.agm_announcement_date.strftime("%Y-%m-%d") if r.agm_announcement_date else None,
+            "fy_year": r.date.year if r.date.month > 3 else r.date.year - 1
         })
 
     # 4.2 Fetch Bonus/Split actions to dynamically calculate adjustments
@@ -505,6 +512,45 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         # If it has no history, no upcoming board meetings, and no expectations, we can skip it.
         # But if we just look at the return format, we need to include things that are pending or have history.
+
+        # Calculate Delta DPS and Total FY Dividend
+        # We process history which is sorted chronologically descending
+        fy_groups = defaultdict(list)
+        for h in history:
+             fy = h.get('fy_year')
+             if fy:
+                  fy_groups[fy].append(h)
+
+        # FY Aggregates
+        fy_totals = {}
+        for fy, items in fy_groups.items():
+             tot_div = sum((i.get('amount') or 0) for i in items)
+             eps_val = next((i.get('eps') for i in items if i.get('eps') is not None), None)
+             fy_totals[fy] = {
+                  'total_dps': tot_div,
+                  'eps': eps_val
+             }
+
+        for h in history:
+             fy = h.get('fy_year')
+             if fy:
+                  h['fy_total_dps'] = fy_totals[fy]['total_dps']
+                  # Delta DPS vs Prev Year
+                  prev_fy_tot = fy_totals.get(fy - 1)
+                  if prev_fy_tot and prev_fy_tot['total_dps']:
+                       h['delta_dps_pct'] = round(((fy_totals[fy]['total_dps'] - prev_fy_tot['total_dps']) / prev_fy_tot['total_dps']) * 100, 2)
+                  else:
+                       h['delta_dps_pct'] = None
+
+                  # Delta EPS vs Prev Year
+                  if fy_totals[fy]['eps'] and prev_fy_tot and prev_fy_tot['eps']:
+                       h['delta_eps_pct'] = round(((fy_totals[fy]['eps'] - prev_fy_tot['eps']) / abs(prev_fy_tot['eps'])) * 100, 2)
+                  else:
+                       h['delta_eps_pct'] = None
+
+                  if spot and h.get('amount'):
+                       h['dividend_yield'] = round((h['amount'] / spot) * 100, 2)
+
         if history or board_meeting_date or expected_amount or expected_highly_likely != "-":
             results.append({
                 "symbol": sym,
