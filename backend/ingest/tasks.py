@@ -290,7 +290,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         # We can do this efficiently by querying the ImportLog table
         db = SessionLocal()
         from sqlalchemy import or_
-        db = SessionLocal()
+        completed_map = {}
         try:
             from backend.ingest.nse_models import ImportLog
             from sqlalchemy import and_
