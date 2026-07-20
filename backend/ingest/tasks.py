@@ -1150,3 +1150,116 @@ def run_volatility_analysis_task(self, latest_metric_date: Optional[str] = None)
     except Exception as e:
         logger.error(f"Error in volatility analysis task: {e}")
         return {"status": "error", "message": str(e)}
+
+
+
+@shared_task(bind=True, acks_late=True)
+def patch_historical_eps_agm_task(self):
+    from sqlalchemy import func
+    import datetime
+    import re
+    import logging
+    try:
+        import yfinance as yf
+    except ImportError:
+        yf = None
+    from backend.infrastructure.db import SessionLocal
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank
+
+    db = SessionLocal()
+    try:
+        symbols = db.query(DividendDatabank.symbol).distinct().all()
+        symbols = [s[0] for s in symbols]
+
+        updated_count = 0
+        logger = logging.getLogger(__name__)
+
+        for sym in symbols:
+            # 1. Fetch EPS
+            eps_data = {}
+            if yf:
+                try:
+                    ticker = yf.Ticker(f"{sym}.NS")
+                    trailing_eps = ticker.info.get("trailingEps")
+                    inc = ticker.income_stmt
+                    if not inc.empty and "Basic EPS" in inc.index:
+                        eps_row = inc.loc["Basic EPS"]
+                        for ts, val in eps_row.items():
+                            try:
+                                if ts.year > 1900:
+                                    import math
+                                    if val and not math.isnan(val):
+                                        eps_data[ts.year] = float(val)
+                            except:
+                                pass
+                    if trailing_eps:
+                        eps_data['trailing'] = float(trailing_eps)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
+
+            # 2. Fetch all databank rows for this symbol
+            rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
+            for row in rows:
+                row_date = row.date
+                if not row_date: continue
+
+                # Apply EPS and Payout Ratio
+                fy_year = row_date.year if row_date.month > 3 else row_date.year - 1
+                eps_val = eps_data.get(fy_year)
+                if not eps_val:
+                     eps_val = eps_data.get(row_date.year)
+                if not eps_val and (datetime.date.today().year - row_date.year) <= 1:
+                     eps_val = eps_data.get('trailing')
+
+                if eps_val:
+                     row.eps = eps_val
+                     if row.amount:
+                          row.payout_ratio = (row.amount / eps_val) * 100 if eps_val != 0 else None
+                row.dps = row.amount
+
+                # 3. Patch AGM Dates
+                # We look at historical board meetings near this date (within 90 days)
+                if not row.agm_date:
+                    bm = db.query(BoardMeeting).filter(
+                        BoardMeeting.symbol == sym,
+                        BoardMeeting.purpose.ilike('%annual general meeting%'),
+                        func.abs(func.extract('epoch', BoardMeeting.date) - func.extract('epoch', row_date)) < 7776000 # 90 days
+                    ).first()
+
+                    if bm:
+                        row.agm_announcement_date = bm.date
+                        date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (bm.purpose or '').lower())
+                        if date_match:
+                             try:
+                                 from dateutil.parser import parse
+                                 row.agm_date = parse(date_match.group(1)).date()
+                             except:
+                                 pass
+
+                    # Or check corporate actions
+                    if not row.agm_date:
+                        ca = db.query(CorporateAction).filter(
+                            CorporateAction.symbol == sym,
+                            CorporateAction.purpose.ilike('%annual general meeting%'),
+                            func.abs(func.extract('epoch', CorporateAction.date) - func.extract('epoch', row_date)) < 7776000
+                        ).first()
+                        if ca:
+                            row.agm_announcement_date = ca.date
+                            date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (ca.purpose or '').lower())
+                            if date_match:
+                                 try:
+                                     from dateutil.parser import parse
+                                     row.agm_date = parse(date_match.group(1)).date()
+                                 except:
+                                     pass
+
+                updated_count += 1
+
+            db.commit() # Commit per symbol to avoid massive transaction blocks
+
+        return f"Successfully patched historical EPS and AGM for {updated_count} rows."
+    except Exception as e:
+        db.rollback()
+        raise
+    finally:
+        db.close()
