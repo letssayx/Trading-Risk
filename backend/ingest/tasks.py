@@ -370,6 +370,9 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         # Clear Active Task
         clear_active_task(self.request.id)
 
+        # Trigger databank rebuild now that import is done
+        build_dividend_databank_task.delay(force=True)
+
         return f"Range import finished: {start_date} to {end_date}. Details: {len(results)} days processed."
     except Exception as e:
         logger.error(f"Error in range import: {e}")

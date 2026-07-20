@@ -646,11 +646,12 @@ class NSELib:
 
                     if not has_dividend_mention and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
-                            if 'dividend' in str(ann.get('subject', '')).lower():
+                            subj = str(ann.get('subject', '')).lower()
+                            if 'dividend' in subj or 'record date' in subj:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 5:
+                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
                                         has_dividend_mention = True
                                         break
                                 except ValueError:
@@ -721,12 +722,12 @@ class NSELib:
                                 bm_date_obj = None
 
                             for ann in symbol_announcements[symbol]:
-                                # Check if announcement is within 10 days of board meeting
+                                # Check if announcement is within 180 days of board meeting
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     # Format: "16-Apr-2026 13:07:29"
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 10:
+                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
                                         attchmntText = ann.get('attchmntText', '')
 
                                         # Extract Amount
