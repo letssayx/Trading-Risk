@@ -1519,12 +1519,19 @@ function renderSSDividends() {
                 // Track FY borders
                 let fyBorder = '';
                 if (window._prevFy !== undefined && window._prevFy !== h.fy_year) {
-                    fyBorder = 'border-top: 3px solid #555;';
+                    // Add a distinct separator row instead of just a thick border
+                    histRows += `
+                    <tr style="background: #2a2a2a;">
+                        <td colspan="14" style="text-align: center; font-size: 0.85em; color: #888; padding: 2px 0; border-top: 2px solid #555; border-bottom: 2px solid #555;">
+                            --- End of Financial Year ---
+                        </td>
+                    </tr>`;
                 }
                 window._prevFy = h.fy_year;
 
                 let dpsHtml = h.amount !== null && h.amount !== undefined ? parseFloat(h.amount).toFixed(2) : '-';
                 let epsHtml = h.eps !== null && h.eps !== undefined ? parseFloat(h.eps).toFixed(2) : '-';
+                let npHtml = h.net_profit !== null && h.net_profit !== undefined ? parseFloat(h.net_profit).toFixed(2) : '-';
                 let payoutHtml = h.payout_ratio !== null && h.payout_ratio !== undefined ? parseFloat(h.payout_ratio).toFixed(1) + '%' : '-';
                 let yieldHtml = h.dividend_yield !== null && h.dividend_yield !== undefined ? parseFloat(h.dividend_yield).toFixed(2) + '%' : '-';
 
@@ -1540,13 +1547,14 @@ function renderSSDividends() {
                 let agmDate = h.agm_date || '-';
 
                 histRows += `
-                    <tr style="${fyBorder}">
+                    <tr>
                         <td>${h.ex_date || '-'}</td>
                         <td>${h.dividend_type || '-'}</td>
                         <td>${h.face_value !== undefined && h.face_value !== null ? h.face_value : '-'}</td>
                         <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${h.purpose || '-'}">${h.purpose || '-'}</td>
                         <td style="font-weight: bold; color: #60a5fa;">${dpsHtml}</td>
                         <td style="color: #ffd700;">${epsHtml}</td>
+                        <td style="color: #ff9800;">${npHtml}</td>
                         <td style="color: #bbb;">${payoutHtml}</td>
                         <td style="color: #8fbc8f;">${yieldHtml}</td>
                         <td>${deltaDpsHtml}</td>
@@ -1573,6 +1581,7 @@ function renderSSDividends() {
                                     <th>Purpose</th>
                                     <th>DPS</th>
                                     <th>EPS</th>
+                                    <th>Net Profit</th>
                                     <th>Payout %</th>
                                     <th>Yield %</th>
                                     <th>Δ DPS %</th>

@@ -564,10 +564,12 @@ class NSELib:
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
                 announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
+                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Shareholders%20meeting"
                 announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
                 div_announcements = []
                 rec_announcements = []
+                agm_announcements = []
                 out_announcements = []
 
                 resp_div = self.get(announcement_url_div)
@@ -583,6 +585,13 @@ class NSELib:
                         rec_announcements = resp_rec.json()
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
+
+                resp_agm = self.get(announcement_url_agm)
+                if resp_agm and resp_agm.status_code == 200:
+                    try:
+                        agm_announcements = resp_agm.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse AGM announcements: {e}")
 
                 # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
                 target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
@@ -605,7 +614,7 @@ class NSELib:
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
 
-                for ann in div_announcements + rec_announcements + out_announcements:
+                for ann in div_announcements + rec_announcements + agm_announcements + out_announcements:
                     sym = ann.get('symbol')
                     if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
@@ -644,7 +653,9 @@ class NSELib:
                     except ValueError:
                         bm_date_obj_check = None
 
-                    if not has_dividend_mention and symbol and symbol in symbol_announcements and bm_date_obj_check:
+                    is_agm = 'annual general meeting' in purpose or 'agm' in purpose
+
+                    if not has_dividend_mention and not is_agm and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
                             subj = str(ann.get('subject', '')).lower()
                             if 'dividend' in subj or 'record date' in subj:
@@ -656,8 +667,15 @@ class NSELib:
                                         break
                                 except ValueError:
                                     pass
-
-                    is_agm = 'annual general meeting' in purpose or 'agm' in purpose
+                            elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
+                                ann_date_str = ann.get('an_dt', '')
+                                try:
+                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                        is_agm = True
+                                        break
+                                except ValueError:
+                                    pass
 
                     if has_dividend_mention or is_agm:
                         found_amount = None
@@ -939,6 +957,57 @@ class NSELib:
                         logger.error(f"Error parsing Contract Delta from {url}: {e}")
         except Exception as outer_e:
             logger.error(f"Unexpected error in get_contract_delta for {trade_date}: {outer_e}")
+
+        return pd.DataFrame()
+
+    def get_financial_results(self, trade_date: date) -> pd.DataFrame:
+        """Fetch Financial Results from NSE Corporate Announcements."""
+        from datetime import timedelta
+        # Usually results come in during earning season, check a window
+        from_date_str = trade_date.strftime("%d-%m-%Y")
+        to_date_str = (trade_date + timedelta(days=7)).strftime("%d-%m-%Y")
+        url = f"{self.BASE_URL}/api/corporate-financial-results?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+
+        resp = self.get(url)
+        if resp is None:
+            return pd.DataFrame()
+
+        if resp.status_code == 200:
+            try:
+                data = resp.json()
+                if not data:
+                    return pd.DataFrame()
+
+                records = []
+                for item in data:
+                    # Depending on exact payload structure, NSE financial results often have 'reDilEPS', 'reNetPrftBfrTx', etc.
+                    # Or they may have an attachment. Let's extract what we can.
+                    reDilEPS = item.get('reDilEPS')
+                    reBasEPS = item.get('reBasEPS')
+                    netProfit = item.get('reProLossAftTaxAftExtrdItemAttDrtAndMnrit') or item.get('reProLossBefTax') or item.get('reNetPrftLoss')
+
+                    symbol = item.get('symbol')
+                    period = item.get('period') # e.g. Q1, Q2, Yearly
+                    bdate = item.get('bm_timestamp', item.get('seqDate'))
+                    pend = item.get('period_end_date', item.get('toDate'))
+                    att = item.get('attachment')
+
+                    if symbol:
+                        records.append({
+                            'symbol': symbol,
+                            'broadcast_date': bdate,
+                            'period': period,
+                            'period_end_date': pend,
+                            'basic_eps': reBasEPS,
+                            'diluted_eps': reDilEPS,
+                            'net_profit': netProfit,
+                            'attachment': att
+                        })
+
+                if records:
+                    return pd.DataFrame(records)
+            except Exception as e:
+                logger.error(f"Financial Results parse error: {e}")
 
         return pd.DataFrame()
 

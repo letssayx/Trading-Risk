@@ -96,6 +96,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "raw_amount": r.raw_amount,
             "face_value": r.face_value,
             "eps": r.eps,
+            "net_profit": r.net_profit,
             "dps": r.dps,
             "dividend_yield": r.dividend_yield,
             "payout_ratio": r.payout_ratio,

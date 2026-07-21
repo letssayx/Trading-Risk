@@ -568,7 +568,7 @@ def build_dividend_databank_task(self, force: bool = False):
     except ImportError:
         yf = None
     from backend.infrastructure.db import SessionLocal
-    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
     from backend.ingest.field_mapper import FieldMapper
 
     db = SessionLocal()
@@ -597,6 +597,8 @@ def build_dividend_databank_task(self, force: bool = False):
                 BoardMeeting.purpose.ilike('%int div%'),
                 BoardMeeting.purpose.ilike('%findiv%'),
                 BoardMeeting.purpose.ilike('%fin div%'), BoardMeeting.purpose.ilike('%special%'),
+                BoardMeeting.purpose.ilike('%agm%'),
+                BoardMeeting.purpose.ilike('%annual general meeting%'),
                 BoardMeeting.extracted_dividend_amount != None
             )
         )
@@ -721,12 +723,22 @@ def build_dividend_databank_task(self, force: bool = False):
         # Commit newly parsed CA amounts before we do anything else
         db.commit()
 
+        # Also fetch financials to enrich the databank
+        fin_records = db.query(FinancialResult).all()
+        fin_by_symbol = defaultdict(list)
+        for fin in fin_records:
+            fin_by_symbol[fin.symbol.upper()].append(fin)
+
         event_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys()))
         target_symbols = event_symbols
 
         for sym in target_symbols:
             ca_history = ca_by_symbol.get(sym, [])
             bms = bm_by_symbol.get(sym, [])
+            fins = fin_by_symbol.get(sym, [])
+
+            # Sort financials by date descending
+            fins.sort(key=lambda x: x.date, reverse=True)
 
             combined_actions = list(ca_history)
 
@@ -957,36 +969,27 @@ def build_dividend_databank_task(self, force: bool = False):
                 'EICHER': 'EICHERMOT',
             }
             eps_data = {}
-            if yf:
-                try:
-                    query_sym = symbol_aliases.get(sym.upper(), sym.upper())
-                    ticker = yf.Ticker(f"{query_sym}.NS")
+            sym_fins = fin_by_symbol.get(sym, [])
+            for fin in sym_fins:
+                # Group EPS and Net Profit by financial year
+                dt = fin.period_end_date or fin.date
+                if not dt: continue
+                # Indian FY ends in March. So if month > 3, it's the current year's FY ending next March.
+                # Usually annual results come out around April-May with period ending March.
+                # So if date is May 2026, period_end_date is Mar 2026.
+                # Let's map it to the calendar year of the period end date to be consistent.
+                fy_year = dt.year
 
-                    try:
-                        inc = ticker.income_stmt
-                    except Exception as yf_err:
-                        if "404" in str(yf_err):
-                            inc = None
-                        else:
-                            raise yf_err
+                # If we have basic_eps or net_profit, aggregate them
+                if fy_year not in eps_data:
+                    eps_data[fy_year] = {'eps': None, 'net_profit': None}
 
-                    if inc is not None and not inc.empty and "Basic EPS" in inc.index:
-                        eps_row = inc.loc["Basic EPS"]
-                        for ts, val in eps_row.items():
-                            try:
-                                if ts.year > 1900:
-                                    import math
-                                    if val and not math.isnan(val):
-                                        eps_data[ts.year] = float(val)
-                            except:
-                                pass
-
-                    trailing_eps = ticker.info.get("trailingEps") if inc is not None and not inc.empty else None
-                    if trailing_eps:
-                        eps_data['trailing'] = float(trailing_eps)
-                except Exception as e:
-                    if "404" not in str(e):
-                        logging.getLogger(__name__).warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
+                # We'll just take the most recent available annual figure or aggregate quarters if needed,
+                # but for simplicity let's take the first non-null we find since it's sorted descending.
+                if eps_data[fy_year]['eps'] is None and fin.basic_eps is not None:
+                    eps_data[fy_year]['eps'] = fin.basic_eps
+                if eps_data[fy_year]['net_profit'] is None and fin.net_profit is not None:
+                    eps_data[fy_year]['net_profit'] = fin.net_profit
 
             existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
 
@@ -1037,19 +1040,20 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.amount = h.get('amount')
                         match.raw_amount = h.get('raw_amount')
 
-                    # Update EPS if available
+                    # Update EPS and Net Profit if available
                     fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
-                    eps_val = eps_data.get(fy_year)
-                    if not eps_val:
-                         # fallback to exact year or trailing if it's the current year
-                         eps_val = eps_data.get(final_date.year)
-                    if not eps_val and (datetime.date.today().year - final_date.year) <= 1:
-                         eps_val = eps_data.get('trailing')
+                    fy_data = eps_data.get(fy_year)
+                    if not fy_data:
+                         fy_data = eps_data.get(final_date.year)
 
-                    if eps_val:
-                         match.eps = eps_val
-                         if match.amount:
-                              match.payout_ratio = (match.amount / eps_val) * 100 if eps_val != 0 else None
+                    if fy_data:
+                         if fy_data['eps'] is not None:
+                             match.eps = fy_data['eps']
+                             if match.amount:
+                                  match.payout_ratio = (match.amount / match.eps) * 100 if match.eps != 0 else None
+                         if fy_data['net_profit'] is not None:
+                             match.net_profit = fy_data['net_profit']
+
                     match.dps = match.amount
 
                     if h.get('agm_date'):
@@ -1088,18 +1092,20 @@ def build_dividend_databank_task(self, force: bool = False):
                         agm_announcement_date=final_date if h.get('agm_date') else None
                     )
 
-                    # Apply EPS and Payout Ratio
+                    # Apply EPS, Net Profit, and Payout Ratio
                     fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
-                    eps_val = eps_data.get(fy_year)
-                    if not eps_val:
-                         eps_val = eps_data.get(final_date.year)
-                    if not eps_val and (datetime.date.today().year - final_date.year) <= 1:
-                         eps_val = eps_data.get('trailing')
+                    fy_data = eps_data.get(fy_year)
+                    if not fy_data:
+                         fy_data = eps_data.get(final_date.year)
 
-                    if eps_val:
-                         new_item.eps = eps_val
-                         if new_item.amount:
-                              new_item.payout_ratio = (new_item.amount / eps_val) * 100 if eps_val != 0 else None
+                    if fy_data:
+                         if fy_data['eps'] is not None:
+                             new_item.eps = fy_data['eps']
+                             if new_item.amount:
+                                  new_item.payout_ratio = (new_item.amount / new_item.eps) * 100 if new_item.eps != 0 else None
+                         if fy_data['net_profit'] is not None:
+                             new_item.net_profit = fy_data['net_profit']
+
                     new_item.dps = new_item.amount
 
                     db.add(new_item)
