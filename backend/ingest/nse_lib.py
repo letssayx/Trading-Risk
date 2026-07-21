@@ -646,11 +646,12 @@ class NSELib:
 
                     if not has_dividend_mention and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
-                            if 'dividend' in str(ann.get('subject', '')).lower():
+                            subj = str(ann.get('subject', '')).lower()
+                            if 'dividend' in subj or 'record date' in subj:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 5:
+                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
                                         has_dividend_mention = True
                                         break
                                 except ValueError:
@@ -721,12 +722,12 @@ class NSELib:
                                 bm_date_obj = None
 
                             for ann in symbol_announcements[symbol]:
-                                # Check if announcement is within 10 days of board meeting
+                                # Check if announcement is within 180 days of board meeting
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     # Format: "16-Apr-2026 13:07:29"
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 10:
+                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
                                         attchmntText = ann.get('attchmntText', '')
 
                                         # Extract Amount
@@ -793,16 +794,18 @@ class NSELib:
                         # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
                         # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
                         # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
-                        if found_amount is None and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
+                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
-                                pdf_amount = extract_amount_from_pdf(attachment_url)
-                                if pdf_amount:
+                                pdf_amount, pdf_record_date = extract_amount_from_pdf(attachment_url)
+                                if pdf_amount and found_amount is None:
                                     found_amount = pdf_amount
+                                if pdf_record_date and found_record_date is None:
+                                    found_record_date = pdf_record_date
 
                             # Fallback 4: Cross-reference with global corporate announcements for the actual outcome PDF
-                            if found_amount is None:
+                            if found_amount is None or found_record_date is None:
                                 sym = item.get('SYMBOL', item.get('bm_symbol'))
                                 if sym and symbol_announcements.get(sym):
                                     for ann in symbol_announcements[sym]:
@@ -813,9 +816,12 @@ class NSELib:
                                                 if bm_date_obj.strftime("%d-%b-%Y").lower() in ann_date_str.lower():
                                                     ann_pdf = ann.get('attchmntFile')
                                                     if ann_pdf and ann_pdf.startswith('http'):
-                                                        pdf_amount = extract_amount_from_pdf(ann_pdf)
-                                                        if pdf_amount:
+                                                        pdf_amount, pdf_record_date = extract_amount_from_pdf(ann_pdf)
+                                                        if pdf_amount and found_amount is None:
                                                             found_amount = pdf_amount
+                                                        if pdf_record_date and found_record_date is None:
+                                                            found_record_date = pdf_record_date
+                                                        if found_amount and found_record_date:
                                                             break
                                             except Exception:
                                                 pass

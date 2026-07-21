@@ -3538,7 +3538,33 @@ async function syncDividendsData() {
         const force = document.getElementById('forceRebuildDatabank')?.checked || false;
         const res = await fetch(`/api/data/dividends/build-databank?force=${force}`, { method: 'POST' });
         if (res.ok) {
-            alert('Sync task triggered in the background. It will optimize and rebuild the latest data. Please click "Load Database Data" after a few seconds.');
+            const data = await res.json();
+            const taskId = data.task_id;
+
+            if (taskId) {
+                // Poll for completion
+                let isDone = false;
+                while (!isDone) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    const statusRes = await fetch(`/api/v1/nse/ingest/import/status/${taskId}`);
+                    if (statusRes.ok) {
+                        const statusData = await statusRes.json();
+                        if (statusData.status === 'SUCCESS') {
+                            isDone = true;
+                            alert('Sync task completed successfully! Please click "Load Database Data".');
+                        } else if (statusData.status === 'FAILURE') {
+                            isDone = true;
+                            alert('Sync task failed in the background.');
+                        }
+                    } else {
+                        // Polling endpoint failed, just break and notify
+                        isDone = true;
+                        alert('Sync task triggered in the background (polling failed). Please wait a few seconds and Load Database Data.');
+                    }
+                }
+            } else {
+                alert('Sync task triggered in the background. Please click "Load Database Data" after a few seconds.');
+            }
         } else {
             alert('Failed to trigger sync task.');
         }

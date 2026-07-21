@@ -10,8 +10,11 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1024)
 def extract_amount_from_pdf(url):
+    amount = None
+    record_date = None
     try:
         import pdfplumber
+        import pandas as pd
         # Add headers to bypass simple bot protection
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -37,10 +40,33 @@ def extract_amount_from_pdf(url):
             logger.info(f"Successfully downloaded PDF for parsing: {url}")
             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
                 text = ""
+                tables = []
                 for page in pdf.pages[:5]: # Only check first 5 pages
                     extracted = page.extract_text()
                     if extracted:
                         text += extracted + "\n"
+                    page_tables = page.extract_tables()
+                    if page_tables:
+                        tables.extend(page_tables)
+
+            # Record Date extraction
+            if "record date" in text.lower():
+                rd_patterns = [
+                    r'record\s*date[^\n]*?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\s*,?\s*\d{4})',
+                    r'record\s*date[^\n]*?(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})',
+                    r'record\s*date[^\n]*?(\d{1,2}\s*[-/]\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*[-/]\s*\d{4})',
+                    r'record\s*date[^\n]*?(\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{4})'
+                ]
+                for p in rd_patterns:
+                    m = re.search(p, text, re.IGNORECASE)
+                    if m:
+                        record_date_str = m.group(1).replace('\n', ' ').strip()
+                        try:
+                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                            break
+                        except Exception:
+                            record_date = record_date_str
+                            break
 
             # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
             text = re.sub(r'(\.\d+)1-', r'\1/-', text)
@@ -60,24 +86,98 @@ def extract_amount_from_pdf(url):
                 if m:
                     val = float(m.group(1))
                     if val > 0:
-                        return val
+                        amount = val
+                        break
 
-            # More specific fallback regexes
-            ui_patterns = [
-                r'(?:dividend|int\s*div|fin\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
-                r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*per\s*share',
-                r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
-                r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
-            ]
-            for pat in ui_patterns:
-                matches2 = re.findall(pat, _clean_text, re.IGNORECASE)
-                for m in matches2:
-                    val = float(m)
-                    if val > 0:
-                        return val
+            if amount is None:
+                # More specific fallback regexes
+                ui_patterns = [
+                    r'(?:dividend|int\s*div|fin\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
+                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*per\s*share',
+                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
+                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
+                ]
+                for pat in ui_patterns:
+                    matches2 = re.findall(pat, _clean_text, re.IGNORECASE)
+                    found = False
+                    for m in matches2:
+                        val = float(m)
+                        if val > 0:
+                            amount = val
+                            found = True
+                            break
+                    if found:
+                        break
+
+            # Fallback 3: Try Tables
+            if (amount is None or record_date is None) and tables:
+                for table in tables:
+                    for row in table:
+                        row_text = [str(cell).strip().lower() for cell in row if cell]
+
+                        # Amount extraction from table
+                        if amount is None and any('dividend' in cell for cell in row_text):
+                            for cell in row_text:
+                                if 'dividend' in cell: continue
+                                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', cell, re.IGNORECASE)
+                                if m:
+                                    val = float(m.group(1))
+                                    if val > 0:
+                                        amount = val
+                                        break
+                                m2 = re.match(r'^\s*(\d+(?:\.\d+)?)\s*$', cell)
+                                if m2:
+                                    val = float(m2.group(1))
+                                    if val > 0:
+                                        amount = val
+                                        break
+
+                        # Record date extraction from table
+                        if record_date is None and any('record date' in cell for cell in row_text):
+                            for cell in row_text:
+                                if 'record date' in cell: continue
+                                m = re.search(r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\s*,?\s*\d{4})', cell, re.IGNORECASE)
+                                if m:
+                                    record_date_str = m.group(1).replace('\n', ' ').strip()
+                                    try:
+                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        break
+                                    except Exception:
+                                        pass
+                                m2 = re.search(r'(\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{4})', cell, re.IGNORECASE)
+                                if m2:
+                                    record_date_str = m2.group(1).replace('\n', ' ').strip()
+                                    try:
+                                        record_date = pd.to_datetime(record_date_str, format="%d-%m-%Y").strftime('%d-%b-%Y')
+                                        break
+                                    except Exception:
+                                        try:
+                                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                            break
+                                        except Exception:
+                                            pass
+                                m3 = re.search(r'(\d{1,2}\s*[-/]\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*[-/]\s*\d{4})', cell, re.IGNORECASE)
+                                if m3:
+                                    record_date_str = m3.group(1).replace('\n', ' ').strip()
+                                    try:
+                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        break
+                                    except Exception:
+                                        pass
+                                m4 = re.search(r'(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})', cell, re.IGNORECASE)
+                                if m4:
+                                    record_date_str = m4.group(1).replace('\n', ' ').strip()
+                                    try:
+                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        break
+                                    except Exception:
+                                        pass
+
+                    if amount is not None and record_date is not None:
+                        break
 
     except ImportError:
         logger.debug("pdfplumber not installed, skipping PDF parsing.")
     except Exception as e:
         logger.debug(f"Failed to extract PDF {url}: {e}")
-    return None
+    return amount, record_date

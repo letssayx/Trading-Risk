@@ -291,361 +291,94 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         db = SessionLocal()
         from sqlalchemy import or_
         completed_map = {}
-        if not force:
-            # Only fetch CA and BM from the last 7 days for incremental updates,
-            # then find all unique symbols involved, and fetch full history ONLY for those symbols
-            recent_cutoff = today - datetime.timedelta(days=7)
-            recent_cas = ca_query.filter(CorporateAction.date >= recent_cutoff).all()
-            recent_bms = bm_query.filter(BoardMeeting.date >= recent_cutoff).all()
+        try:
+            from backend.ingest.nse_models import ImportLog
+            from sqlalchemy import and_
 
-            affected_symbols = set([r.symbol for r in recent_cas]).union(set([r.symbol for r in recent_bms]))
-
-            if not affected_symbols:
-                return "No recent dividend actions found. Databank is up to date."
-
-            ca_records = ca_query.filter(CorporateAction.symbol.in_(affected_symbols)).order_by(desc(CorporateAction.date)).all()
-            bm_records = bm_query.filter(BoardMeeting.symbol.in_(affected_symbols)).order_by(desc(BoardMeeting.date)).all()
-        else:
-            db.query(DividendDatabank).delete()
-            db.commit()
-
-            # Since it's a force rebuild, we should run the query without filtering by `parsed_dividend_amount != None`
-            # because the old parsed amounts were corrupted (stuck as NULL).
-            # We want to pull ALL corporate actions that look like dividends and reparse them entirely.
-
-            force_ca_query = db.query(CorporateAction).filter(
-                or_(
-                    CorporateAction.dividend_type.in_(['Bonus', 'Split', 'Demerger']), CorporateAction.purpose.ilike('%bonus%'), CorporateAction.purpose.ilike('%split%'),
-                    CorporateAction.purpose.ilike('%dividend%'),
-                    CorporateAction.purpose.ilike('%intdiv%'),
-                    CorporateAction.purpose.ilike('%int div%'),
-                    CorporateAction.purpose.ilike('%findiv%'),
-                    CorporateAction.purpose.ilike('%fin div%'), CorporateAction.purpose.ilike('%special%'),
-                    CorporateAction.purpose.ilike('%div-%'),
-                    CorporateAction.purpose.ilike('%div -%'),
-                    CorporateAction.purpose.ilike('% div %')
+            logs = db.query(ImportLog).filter(
+                and_(
+                    ImportLog.date >= start_date,
+                    ImportLog.date <= end_date,
+                    ImportLog.status == 'SUCCESS'
                 )
-            )
+            ).all()
 
-            force_bm_query = db.query(BoardMeeting).filter(
-                or_(
-                    BoardMeeting.purpose.ilike('%dividend%'),
-                    BoardMeeting.purpose.ilike('%intdiv%'),
-                    BoardMeeting.purpose.ilike('%int div%'),
-                    BoardMeeting.purpose.ilike('%findiv%'),
-                    BoardMeeting.purpose.ilike('%fin div%'), BoardMeeting.purpose.ilike('%special%'),
-                )
-            )
+            for log in logs:
+                if log.date not in completed_map:
+                    completed_map[log.date] = set()
+                completed_map[log.date].add(log.pattern)
+        except Exception as e:
+            logger.warning(f"Could not pre-fetch import logs: {e}")
+        finally:
+            db.close()
 
-            ca_records = force_ca_query.order_by(desc(CorporateAction.date)).all()
-            bm_records = force_bm_query.order_by(desc(BoardMeeting.date)).all()
+        from datetime import timedelta
 
-        # Group by symbol
-        ca_by_symbol = defaultdict(list)
-        from backend.ingest.field_mapper import FieldMapper
+        while current_date <= end_date:
+            handle_pause()
+            if is_cancelled():
+                results.append(f"Task cancelled at date {current_date}")
+                break
 
-        for r in ca_records:
-            sym = r.symbol.upper()
+            # Skip weekends (NSE is closed, except for rare special sessions which we'll ignore for bulk)
+            if current_date.weekday() >= 5 and not force:
+                logger.info(f"Skipping weekend: {current_date}")
+                current_date += timedelta(days=1)
+                processed_days += 1
+                self.update_state(state='PROGRESS', meta={
+                    'current_date': current_date.strftime("%Y-%m-%d"),
+                    'progress': int((processed_days / total_days) * 100),
+                    'message': f"Skipped weekend {current_date - timedelta(days=1)}"
+                })
+                continue
 
-            # Dynamically heal and reparse the amount on the fly
-            dynamic_amt, dynamic_type = FieldMapper._parse_dividend(r.purpose, r.face_value if hasattr(r, 'face_value') else None)
+            patterns_to_run = []
+            if force:
+                patterns_to_run = target_patterns
+            else:
+                completed_for_date = completed_map.get(current_date, set())
+                for pat in target_patterns:
+                    if pat not in completed_for_date:
+                        patterns_to_run.append(pat)
 
-            # Heal the DB cache if we found a better/new amount
-            if dynamic_amt is not None and r.parsed_dividend_amount != dynamic_amt:
-                r.parsed_dividend_amount = dynamic_amt
-
-            use_amount = r.parsed_dividend_amount
-
-            if r.dividend_type in ['Bonus', 'Split', 'Demerger'] and not (use_amount is not None):
-                # Still append splits/bonuses to the UI history so they show in the timeline
-                ann_date = r.broadcast_date or r.date
-                if hasattr(ann_date, 'date'):
-                    ann_date = ann_date.date()
-
-                ca_by_symbol[sym].append({
-                    "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
-                    "ex_date_obj": r.ex_date,
-                    "announcement_date_obj": ann_date,
-                    "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
-                    "dividend_type": r.dividend_type,
-                    "purpose": r.purpose,
-                    "amount": None,
-                    "raw_amount": None,
-                    "face_value": r.face_value if hasattr(r, 'face_value') else None,
-                    "record_date": r.record_date if hasattr(r, 'record_date') else None
+            if not patterns_to_run:
+                logger.info(f"All requested patterns already completed for {current_date}. Skipping.")
+                results.append(f"{current_date}: Already completed")
+            else:
+                self.update_state(state='PROGRESS', meta={
+                    'current_date': current_date.strftime("%Y-%m-%d"),
+                    'progress': int((processed_days / total_days) * 100),
+                    'message': f"Importing {current_date} ({len(patterns_to_run)} patterns)..."
                 })
 
-            elif use_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
-                ann_date = r.broadcast_date or r.date
-                if hasattr(ann_date, 'date'):
-                    ann_date = ann_date.date()
+                try:
+                    res = importer.import_date(current_date, patterns_to_run, force=force)
+                    results.append(f"{current_date}: {res}")
+                except Exception as e:
+                    logger.error(f"Error importing {current_date}: {e}")
+                    results.append(f"{current_date}: ERROR - {str(e)}")
 
-                ca_by_symbol[sym].append({
-                    "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
-                    "ex_date_obj": r.ex_date,
-                    "announcement_date_obj": ann_date,
-                    "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
-                    "dividend_type": r.dividend_type,
-                    "purpose": r.purpose,
-                    "amount": use_amount,
-                    "raw_amount": use_amount,
-                    "face_value": r.face_value if hasattr(r, 'face_value') else None,
-                    "record_date": r.record_date if hasattr(r, 'record_date') else None
-                })
+            current_date += timedelta(days=1)
+            processed_days += 1
 
-        bm_by_symbol = defaultdict(list)
-        for bm in bm_records:
-            # Dynamically heal BM amounts
-            bm_amt, bm_type = FieldMapper._parse_dividend(bm.purpose, None)
-            if bm_amt is not None and bm.extracted_dividend_amount != bm_amt:
-                bm.extracted_dividend_amount = bm_amt
+            self.update_state(state='PROGRESS', meta={
+                'current_date': current_date.strftime("%Y-%m-%d"),
+                'progress': int((processed_days / total_days) * 100),
+                'message': f"Completed {current_date - timedelta(days=1)}"
+            })
 
-            bm_by_symbol[bm.symbol.upper()].append(bm)
+        # Clear Active Task
+        clear_active_task(self.request.id)
 
-        event_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys()))
-        target_symbols = event_symbols
+        # Trigger databank rebuild now that import is done
+        build_dividend_databank_task.delay(force=True)
 
-        for sym in target_symbols:
-            history = ca_by_symbol.get(sym, [])
-            bms = bm_by_symbol.get(sym, [])
-            chained_history = []
-
-            for h in history:
-                if h.get('dividend_type') in ['Bonus', 'Split', 'Demerger']:
-                     if not h.get('purpose') or h.get('dividend_type') not in h.get('purpose', ''):
-                          h['purpose'] = h.get('purpose', '') + f" ({h.get('dividend_type')} action)"
-                else:
-                    ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
-                    if ca_date:
-                        best_bm = None
-                        min_diff = float('inf')
-                        for bm in bms:
-                            if bm.extracted_dividend_type == h['dividend_type'] or not bm.extracted_dividend_type:
-                                if bm.date:
-                                    diff = (ca_date - bm.date).days
-                                    if -10 <= diff <= 60 and abs(diff) < min_diff:
-                                        if h.get('amount') is not None and bm.extracted_dividend_amount is not None:
-                                            if float(h['amount']) != float(bm.extracted_dividend_amount):
-                                                continue
-                                        min_diff = abs(diff)
-                                        best_bm = bm
-                        if best_bm:
-                            h['broadcast_date'] = best_bm.broadcast_date
-                            best_ann_date = best_bm.meeting_date or best_bm.broadcast_date or best_bm.date
-                            if hasattr(best_ann_date, 'date'):
-                                best_ann_date = best_ann_date.date()
-                            h['announcement_date_obj'] = best_ann_date
-                            if not h.get('amount') and best_bm.extracted_dividend_amount:
-                                h['amount'] = best_bm.extracted_dividend_amount
-                                h['raw_amount'] = best_bm.extracted_dividend_amount
-                            bms.remove(best_bm)
-                chained_history.append(h)
-
-            def safe_date_sort(x):
-                d = x.meeting_date or x.broadcast_date or x.date
-                if d is None:
-                    return datetime.date.min
-                if hasattr(d, 'date'):
-                    return d.date()
-                return d
-
-            bms.sort(key=safe_date_sort, reverse=True)
-
-            deduplicated_bms = []
-            for bm in bms:
-                is_duplicate = False
-                bm_date = safe_date_sort(bm)
-
-                for existing in deduplicated_bms:
-                    existing_date = existing['sort_date']
-
-                    if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
-                        diff_days = abs((bm_date - existing_date).days)
-                        if diff_days == 0 or (diff_days <= 180 and bm.extracted_dividend_type == existing['bm'].extracted_dividend_type):
-                            is_duplicate = True
-                            if not existing['extracted_dividend_amount'] and bm.extracted_dividend_amount:
-                                existing['extracted_dividend_amount'] = bm.extracted_dividend_amount
-                            break
-
-                if not is_duplicate:
-                    deduplicated_bms.append({
-                        'bm': bm,
-                        'sort_date': bm_date,
-                        'extracted_dividend_amount': bm.extracted_dividend_amount
-                    })
-
-            for dedup_item in deduplicated_bms:
-                bm = dedup_item['bm']
-                amt = dedup_item['extracted_dividend_amount']
-                if bm.date and bm.date < today - datetime.timedelta(days=180):
-                    continue
-                purpose_lower = (bm.purpose or '').lower()
-
-                is_valid_standalone = False
-                if amt is not None:
-                    is_valid_standalone = True
-                elif bm.date and bm.date >= today:
-                    is_valid_standalone = True
-                elif 'dividend' in purpose_lower:
-                    is_valid_standalone = True
-
-                if is_valid_standalone:
-                    bm_ann_date = bm.meeting_date or bm.broadcast_date or bm.date
-                    if hasattr(bm_ann_date, 'date'):
-                        bm_ann_date = bm_ann_date.date()
-
-                    is_history_duplicate = False
-                    if amt is not None:
-                        for h in chained_history:
-                            # If the amounts match exactly and it's within 300 days OR if they don't have amounts but are within 60 days
-                            h_date = h.get('announcement_date_obj') or h.get('ex_date_obj')
-                            if h_date:
-                                if hasattr(h_date, 'date'): h_date = h_date.date()
-                            if h_date and bm_ann_date:
-                                if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
-                                    if abs((h_date - bm_ann_date).days) <= 300:
-                                        is_history_duplicate = True
-                                        break
-                                elif h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim') and abs((h_date - bm_ann_date).days) <= 60:
-                                    is_history_duplicate = True
-                                    # Update the historical one if it doesn't have an amount
-                                    if h.get('amount') is None:
-                                        h['amount'] = amt
-                                        h['raw_amount'] = amt
-                                        h['announcement_date_obj'] = bm_ann_date
-                                    break
-
-                    if not is_history_duplicate:
-                        chained_history.append({
-                            "ex_date": 'Record date not yet declared',
-                            "ex_date_obj": None,
-                            "broadcast_date": bm.broadcast_date,
-                            "announcement_date_obj": bm_ann_date,
-                            "dividend_type": bm.extracted_dividend_type or 'Interim',
-                            "purpose": bm.purpose or "Dividend Declared in Board Meeting",
-                            "amount": amt,
-                            "raw_amount": amt,
-                            "face_value": None,
-                            "record_date": None
-                        })
-
-            def get_sort_key(x):
-                if x.get('ex_date_obj'): return x['ex_date_obj']
-                ann_dt = x.get('announcement_date_obj')
-                if ann_dt is None:
-                    return datetime.date.min
-                if hasattr(ann_dt, 'date'):
-                    return ann_dt.date()
-                return ann_dt
-
-            chained_history.sort(key=get_sort_key, reverse=True)
-            ca_by_symbol[sym] = chained_history
-
-        # We purposely do not alter the amounts with ratios here. The Dividend Databank MUST reflect the pure, raw amounts.
-        # Downstream routes (like /api/special-sit/dividends) should handle the split/bonus math dynamically if needed.
-
-        # When force is false, we want to UPSERT instead of delete all history.
-        # This solves the "takes a hell lot of time" issue and properly updates rows.
-
-        added_count = 0
-        updated_count = 0
-
-        for sym, history in ca_by_symbol.items():
-            # If we are not forcing, let's fetch existing rows for this symbol to avoid blind inserts
-            existing_rows = []
-
-            # Fetch existing rows for both force and not force, but if force we insert all anyway.
-            # Wait, if force, the table is empty!
-            if not force:
-                existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
-
-            for h in history:
-                ex_date_val = h.get('ex_date_obj')
-                is_awaited = False
-                if ex_date_val is None:
-                    is_awaited = True
-
-                sort_dt = ex_date_val or h.get('announcement_date_obj') or datetime.date.min
-                if hasattr(sort_dt, 'date'):
-                    sort_dt = sort_dt.date()
-
-                final_date = sort_dt if sort_dt != datetime.date.min else datetime.date(1900, 1, 1)
-
-                # UPSERT logic: Try to find a matching existing row
-                match = None
-                if not force:
-                    for row in existing_rows:
-                        # Match by identical ex-date OR identical announcement date OR same type within recent window
-                        if row.dividend_type == h.get('dividend_type'):
-                            if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
-                                match = row
-                                break
-                            if row.announcement_date and h.get('announcement_date_obj') and row.announcement_date == h.get('announcement_date_obj'):
-                                match = row
-                                break
-
-                            # If no exact date match, check if it's an awaited record we are updating
-                            if row.is_awaited and abs((row.date - final_date).days) < 60:
-                                match = row
-                                break
-
-                if match:
-                    # UPDATE existing row
-                    match.date = final_date
-                    match.ex_date = ex_date_val
-                    if h.get('announcement_date_obj'):
-                        match.announcement_date = h.get('announcement_date_obj')
-                    if h.get('broadcast_date'):
-                        match.broadcast_date = h.get('broadcast_date')
-                    if h.get('board_meeting_date'):
-                        match.board_meeting_date = h.get('board_meeting_date')
-                    if h.get('is_synthetic') is not None:
-                        match.is_synthetic = h.get('is_synthetic')
-                    # If we found an amount in history and DB has none (or they differ), update it
-                    if h.get('amount') is not None:
-                        match.amount = h.get('amount')
-                        match.raw_amount = h.get('raw_amount')
-
-                    if h.get('face_value') is not None:
-                        match.face_value = h.get('face_value')
-
-                    if h.get('purpose'):
-                        match.purpose = h.get('purpose')
-                    if h.get('record_date'):
-                        match.record_date = h.get('record_date')
-                    match.is_awaited = is_awaited
-                    updated_count += 1
-                else:
-                    # INSERT new row
-                    new_item = DividendDatabank(
-                        date=final_date,
-                        symbol=sym.upper(),
-                        ex_date=ex_date_val,
-                        announcement_date=h.get('announcement_date_obj'),
-                        broadcast_date=h.get('broadcast_date'),
-                        dividend_type=h.get('dividend_type'),
-                        amount=h.get('amount'),
-                        raw_amount=h.get('raw_amount'),
-                        face_value=h.get('face_value'),
-                        purpose=h.get('purpose'),
-                        is_awaited=is_awaited,
-                        record_date=h.get('record_date'),
-                        board_meeting_date=h.get('board_meeting_date'),
-                        is_synthetic=h.get('is_synthetic', False)
-                    )
-                    db.add(new_item)
-                    if not force:
-                        existing_rows.append(new_item) # Add to existing to prevent dupes in the same loop
-                    added_count += 1
-
-        db.commit()
-        return f"Successfully rebuilt databank. Added: {added_count}, Updated: {updated_count} records."
+        return f"Range import finished: {start_date} to {end_date}. Details: {len(results)} days processed."
     except Exception as e:
-        logger.error(f"Error rebuilding dividend databank: {e}")
-        db.rollback()
+        logger.error(f"Error in range import: {e}")
+        clear_active_task(self.request.id)
         raise
-    finally:
-        db.close()
+
 
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_latest')
 def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
