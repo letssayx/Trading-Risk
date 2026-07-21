@@ -560,8 +560,11 @@ def build_dividend_databank_task(self, force: bool = False):
     from collections import defaultdict
     import re
     import logging
+
     try:
         import yfinance as yf
+        yf_logger = logging.getLogger("yfinance")
+        yf_logger.setLevel(logging.CRITICAL)
     except ImportError:
         yf = None
     from backend.infrastructure.db import SessionLocal
@@ -945,15 +948,29 @@ def build_dividend_databank_task(self, force: bool = False):
             existing_rows = []
 
             # Fetch EPS data from yfinance for the symbol
+            symbol_aliases = {
+                'COLGATE': 'COLPAL',
+                'DHANI': 'DHANI',
+                'EQUITAS': 'EQUITASBNK',
+                'BANKRAJAS': 'BANKRAJAS',
+                'CINEMAXIN': 'CINEMAXIN',
+                'EICHER': 'EICHERMOT',
+            }
             eps_data = {}
             if yf:
                 try:
-                    ticker = yf.Ticker(f"{sym.upper()}.NS")
-                    # Trailing EPS (for recent missing data)
-                    trailing_eps = ticker.info.get("trailingEps")
-                    # Historical EPS via income_stmt
-                    inc = ticker.income_stmt
-                    if not inc.empty and "Basic EPS" in inc.index:
+                    query_sym = symbol_aliases.get(sym.upper(), sym.upper())
+                    ticker = yf.Ticker(f"{query_sym}.NS")
+
+                    try:
+                        inc = ticker.income_stmt
+                    except Exception as yf_err:
+                        if "404" in str(yf_err):
+                            inc = None
+                        else:
+                            raise yf_err
+
+                    if inc is not None and not inc.empty and "Basic EPS" in inc.index:
                         eps_row = inc.loc["Basic EPS"]
                         for ts, val in eps_row.items():
                             try:
@@ -963,10 +980,13 @@ def build_dividend_databank_task(self, force: bool = False):
                                         eps_data[ts.year] = float(val)
                             except:
                                 pass
+
+                    trailing_eps = ticker.info.get("trailingEps") if inc is not None and not inc.empty else None
                     if trailing_eps:
                         eps_data['trailing'] = float(trailing_eps)
                 except Exception as e:
-                    logging.getLogger(__name__).warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
+                    if "404" not in str(e):
+                        logging.getLogger(__name__).warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
 
             existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
 
@@ -1159,8 +1179,11 @@ def patch_historical_eps_agm_task(self):
     import datetime
     import re
     import logging
+
     try:
         import yfinance as yf
+        yf_logger = logging.getLogger("yfinance")
+        yf_logger.setLevel(logging.CRITICAL)
     except ImportError:
         yf = None
     from backend.infrastructure.db import SessionLocal
@@ -1174,15 +1197,36 @@ def patch_historical_eps_agm_task(self):
         updated_count = 0
         logger = logging.getLogger(__name__)
 
+
+        symbol_aliases = {
+            'COLGATE': 'COLPAL',
+            'DHANI': 'DHANI', # Might be delisted/suspended on Yahoo? Try skipping
+            'EQUITAS': 'EQUITASBNK', # Equitas Holdings merged into Equitas Small Finance Bank
+            'BANKRAJAS': 'BANKRAJAS', # Delisted / Merged long ago
+            'CINEMAXIN': 'CINEMAXIN', # Merged into PVR
+            'EICHER': 'EICHERMOT',
+            # We can add more common ones if needed, but for now we'll handle the ones the user raised.
+        }
+
         for sym in symbols:
             # 1. Fetch EPS
             eps_data = {}
             if yf:
                 try:
-                    ticker = yf.Ticker(f"{sym}.NS")
-                    trailing_eps = ticker.info.get("trailingEps")
-                    inc = ticker.income_stmt
-                    if not inc.empty and "Basic EPS" in inc.index:
+                    query_sym = symbol_aliases.get(sym.upper(), sym.upper())
+                    ticker = yf.Ticker(f"{query_sym}.NS")
+
+                    # Instead of letting it spam the console with 404s, catch the exception early or use history
+                    # yfinance raises HTTP errors internally, but we can suppress logging output slightly
+                    try:
+                        inc = ticker.income_stmt
+                    except Exception as yf_err:
+                        if "404" in str(yf_err):
+                            inc = None
+                        else:
+                            raise yf_err
+
+                    if inc is not None and not inc.empty and "Basic EPS" in inc.index:
                         eps_row = inc.loc["Basic EPS"]
                         for ts, val in eps_row.items():
                             try:
@@ -1192,10 +1236,15 @@ def patch_historical_eps_agm_task(self):
                                         eps_data[ts.year] = float(val)
                             except:
                                 pass
+
+                    trailing_eps = ticker.info.get("trailingEps") if inc is not None and not inc.empty else None
                     if trailing_eps:
                         eps_data['trailing'] = float(trailing_eps)
                 except Exception as e:
-                    logger.warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
+                    # Only log non-404 errors as warnings to avoid console spam for delisted symbols
+                    if "404" not in str(e):
+                        logger.warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
+
 
             # 2. Fetch all databank rows for this symbol
             rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
