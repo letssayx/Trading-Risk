@@ -564,7 +564,7 @@ class NSELib:
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
                 announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
-                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Shareholders%20meeting"
+                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
                 announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
                 announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
@@ -591,7 +591,13 @@ class NSELib:
                 resp_agm = self.get(announcement_url_agm)
                 if resp_agm and resp_agm.status_code == 200:
                     try:
-                        agm_announcements = resp_agm.json()
+                        agm_data = resp_agm.json()
+                        agm_announcements = []
+                        for ann in (agm_data if isinstance(agm_data, list) else []):
+                            subj = str(ann.get('subject', '')).lower()
+                            desc = str(ann.get('desc', '')).lower()
+                            if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'shareholders meeting' in desc:
+                                agm_announcements.append(ann)
                     except Exception as e:
                         logger.error(f"Failed to parse AGM announcements: {e}")
 
@@ -995,16 +1001,37 @@ class NSELib:
                     reBasEPS = item.get('reBasEPS')
                     netProfit = item.get('reProLossAftTaxAftExtrdItemAttDrtAndMnrit') or item.get('reProLossBefTax') or item.get('reNetPrftLoss')
 
+                    try:
+                        reBasEPS = float(reBasEPS) if reBasEPS is not None else None
+                        reDilEPS = float(reDilEPS) if reDilEPS is not None else None
+                        netProfit = float(netProfit) if netProfit is not None else None
+                    except:
+                        pass
+
                     symbol = item.get('symbol')
                     period = item.get('period') # e.g. Q1, Q2, Yearly
                     bdate = item.get('bm_timestamp', item.get('seqDate'))
                     pend = item.get('period_end_date', item.get('toDate'))
                     att = item.get('attachment')
 
+                    bdate_obj = None
+                    if bdate:
+                        try:
+                            import re
+                            bdate_clean = re.sub(r'\.\d+', '', str(bdate)).strip()
+                            bdate_obj = datetime.strptime(bdate_clean, "%d-%b-%Y %H:%M:%S").date()
+                        except:
+                            try:
+                                bdate_obj = datetime.strptime(str(bdate).split(' ')[0], "%d-%b-%Y").date()
+                            except:
+                                bdate_obj = trade_date
+                    else:
+                        bdate_obj = trade_date
+
                     if symbol:
                         records.append({
                             'symbol': symbol,
-                            'broadcast_date': bdate,
+                            'date': bdate_obj,
                             'period': period,
                             'period_end_date': pend,
                             'basic_eps': reBasEPS,

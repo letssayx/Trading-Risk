@@ -18,8 +18,16 @@ def fetch_historical_agm():
     db = SessionLocal()
     lib = NSELib()
 
-    end_date = datetime.date(2026, 7, 19)
-    start_date = datetime.date(2020, 1, 1)
+    if len(sys.argv) == 3:
+        try:
+            start_date = datetime.datetime.strptime(sys.argv[1], "%Y-%m-%d").date()
+            end_date = datetime.datetime.strptime(sys.argv[2], "%Y-%m-%d").date()
+        except Exception as e:
+            print(f"Error parsing dates, expected format YYYY-MM-DD: {e}")
+            sys.exit(1)
+    else:
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=365) # Default to 1 year back
 
     print(f"Starting historical AGM import from {end_date} back to {start_date}...")
 
@@ -33,8 +41,8 @@ def fetch_historical_agm():
 
         print(f"Fetching AGM Announcements for range {curr_start} to {curr_end}...")
 
-        # We search specifically for 'Shareholders meeting' subject since we know that's how NSE classifies them
-        url = f"{lib.BASE_URL}/api/corporate-announcements?index=equities&subject=Shareholders%20meeting&from_date={curr_start.strftime('%d-%m-%Y')}&to_date={curr_end.strftime('%d-%m-%Y')}"
+        # Search globally across all announcements, filter manually for AGM related keywords
+        url = f"{lib.BASE_URL}/api/corporate-announcements?index=equities&from_date={curr_start.strftime('%d-%m-%Y')}&to_date={curr_end.strftime('%d-%m-%Y')}"
 
         try:
             resp = lib.get(url)
@@ -43,10 +51,14 @@ def fetch_historical_agm():
                 if data:
                     for item in data:
                         symbol = item.get('symbol')
+                        subject = (item.get('subject') or '').lower()
+                        desc = (item.get('desc') or '').lower()
                         purpose = item.get('desc') or item.get('subject')
                         ann_dt_str = item.get('an_dt') # e.g. 13-May-2026 17:01:36
 
-                        if symbol and ann_dt_str:
+                        is_agm = 'annual general meeting' in subject or 'agm' in subject or 'shareholders meeting' in subject or 'annual general meeting' in desc or 'agm' in desc or 'shareholders meeting' in desc
+
+                        if symbol and ann_dt_str and is_agm:
                             try:
                                 import re
                                 ann_dt_clean = re.sub(r'\.\d+', '', str(ann_dt_str)).strip()

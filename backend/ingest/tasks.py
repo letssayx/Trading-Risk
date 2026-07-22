@@ -561,12 +561,6 @@ def build_dividend_databank_task(self, force: bool = False):
     import re
     import logging
 
-    try:
-        import yfinance as yf
-        yf_logger = logging.getLogger("yfinance")
-        yf_logger.setLevel(logging.CRITICAL)
-    except ImportError:
-        yf = None
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
     from backend.ingest.field_mapper import FieldMapper
@@ -959,15 +953,6 @@ def build_dividend_databank_task(self, force: bool = False):
             # If we are not forcing, let's fetch existing rows for this symbol to avoid blind inserts
             existing_rows = []
 
-            # Fetch EPS data from yfinance for the symbol
-            symbol_aliases = {
-                'COLGATE': 'COLPAL',
-                'DHANI': 'DHANI',
-                'EQUITAS': 'EQUITASBNK',
-                'BANKRAJAS': 'BANKRAJAS',
-                'CINEMAXIN': 'CINEMAXIN',
-                'EICHER': 'EICHERMOT',
-            }
             eps_data = {}
             sym_fins = fin_by_symbol.get(sym, [])
             for fin in sym_fins:
@@ -1186,14 +1171,8 @@ def patch_historical_eps_agm_task(self):
     import re
     import logging
 
-    try:
-        import yfinance as yf
-        yf_logger = logging.getLogger("yfinance")
-        yf_logger.setLevel(logging.CRITICAL)
-    except ImportError:
-        yf = None
     from backend.infrastructure.db import SessionLocal
-    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
 
     db = SessionLocal()
     try:
@@ -1203,54 +1182,23 @@ def patch_historical_eps_agm_task(self):
         updated_count = 0
         logger = logging.getLogger(__name__)
 
-
-        symbol_aliases = {
-            'COLGATE': 'COLPAL',
-            'DHANI': 'DHANI', # Might be delisted/suspended on Yahoo? Try skipping
-            'EQUITAS': 'EQUITASBNK', # Equitas Holdings merged into Equitas Small Finance Bank
-            'BANKRAJAS': 'BANKRAJAS', # Delisted / Merged long ago
-            'CINEMAXIN': 'CINEMAXIN', # Merged into PVR
-            'EICHER': 'EICHERMOT',
-            # We can add more common ones if needed, but for now we'll handle the ones the user raised.
-        }
-
         for sym in symbols:
-            # 1. Fetch EPS
+            # 1. Fetch EPS and Net Profit natively from FinancialResult table
             eps_data = {}
-            if yf:
-                try:
-                    query_sym = symbol_aliases.get(sym.upper(), sym.upper())
-                    ticker = yf.Ticker(f"{query_sym}.NS")
+            fin_records = db.query(FinancialResult).filter(FinancialResult.symbol == sym).all()
 
-                    # Instead of letting it spam the console with 404s, catch the exception early or use history
-                    # yfinance raises HTTP errors internally, but we can suppress logging output slightly
-                    try:
-                        inc = ticker.income_stmt
-                    except Exception as yf_err:
-                        if "404" in str(yf_err):
-                            inc = None
-                        else:
-                            raise yf_err
+            for fin in fin_records:
+                if not fin.date: continue
+                # We group by financial year. Indian FY ends in March.
+                fy_year = fin.date.year if fin.date.month > 3 else fin.date.year - 1
+                if fy_year not in eps_data:
+                    eps_data[fy_year] = {'eps': None, 'net_profit': None}
 
-                    if inc is not None and not inc.empty and "Basic EPS" in inc.index:
-                        eps_row = inc.loc["Basic EPS"]
-                        for ts, val in eps_row.items():
-                            try:
-                                if ts.year > 1900:
-                                    import math
-                                    if val and not math.isnan(val):
-                                        eps_data[ts.year] = float(val)
-                            except:
-                                pass
-
-                    trailing_eps = ticker.info.get("trailingEps") if inc is not None and not inc.empty else None
-                    if trailing_eps:
-                        eps_data['trailing'] = float(trailing_eps)
-                except Exception as e:
-                    # Only log non-404 errors as warnings to avoid console spam for delisted symbols
-                    if "404" not in str(e):
-                        logger.warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
-
+                # Take the latest reported non-null values for the FY
+                if fin.basic_eps is not None:
+                    eps_data[fy_year]['eps'] = fin.basic_eps
+                if fin.net_profit is not None:
+                    eps_data[fy_year]['net_profit'] = fin.net_profit
 
             # 2. Fetch all databank rows for this symbol
             rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
@@ -1258,18 +1206,23 @@ def patch_historical_eps_agm_task(self):
                 row_date = row.date
                 if not row_date: continue
 
-                # Apply EPS and Payout Ratio
+                # Apply EPS, Net Profit, and Payout Ratio
                 fy_year = row_date.year if row_date.month > 3 else row_date.year - 1
-                eps_val = eps_data.get(fy_year)
-                if not eps_val:
-                     eps_val = eps_data.get(row_date.year)
-                if not eps_val and (datetime.date.today().year - row_date.year) <= 1:
-                     eps_val = eps_data.get('trailing')
+                fy_data = eps_data.get(fy_year)
 
-                if eps_val:
-                     row.eps = eps_val
-                     if row.amount:
-                          row.payout_ratio = (row.amount / eps_val) * 100 if eps_val != 0 else None
+                # Fallback to current year if FY is missing
+                if not fy_data:
+                     fy_data = eps_data.get(row_date.year)
+
+                if fy_data:
+                     eps_val = fy_data.get('eps')
+                     np_val = fy_data.get('net_profit')
+                     if eps_val is not None:
+                         row.eps = eps_val
+                         if row.amount:
+                              row.payout_ratio = (row.amount / eps_val) * 100 if eps_val != 0 else None
+                     if np_val is not None:
+                         row.net_profit = np_val
                 row.dps = row.amount
 
                 # 3. Patch AGM Dates
