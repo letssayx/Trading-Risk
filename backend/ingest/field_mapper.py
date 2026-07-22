@@ -396,9 +396,9 @@ class FieldMapper:
                 'symbol': str(cls._get_val(row, ['symbol']) or '').strip(),
                 'period': str(cls._get_val(row, ['period']) or '').strip() or None,
                 'period_end_date': period_end_date,
-                'basic_eps': safe_float(cls._get_val(row, ['basic_eps'])),
-                'diluted_eps': safe_float(cls._get_val(row, ['diluted_eps'])),
-                'net_profit': safe_float(cls._get_val(row, ['net_profit'])),
+                'basic_eps': cls._clean_numeric(cls._get_val(row, ['basic_eps'])),
+                'diluted_eps': cls._clean_numeric(cls._get_val(row, ['diluted_eps'])),
+                'net_profit': cls._clean_numeric(cls._get_val(row, ['net_profit'])),
                 'attachment_url': str(cls._get_val(row, ['attachment']) or '').strip() or None,
             }
             if record['symbol'] and record['date']:
