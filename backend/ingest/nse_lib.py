@@ -993,20 +993,33 @@ class NSELib:
                 if not data:
                     return pd.DataFrame()
 
+                from backend.ingest.parse_financials import extract_financials_from_xbrl, extract_financials_from_pdf
+
                 records = []
                 for item in data:
-                    # Depending on exact payload structure, NSE financial results often have 'reDilEPS', 'reNetPrftBfrTx', etc.
-                    # Or they may have an attachment. Let's extract what we can.
-                    reDilEPS = item.get('reDilEPS')
-                    reBasEPS = item.get('reBasEPS')
-                    netProfit = item.get('reProLossAftTaxAftExtrdItemAttDrtAndMnrit') or item.get('reProLossBefTax') or item.get('reNetPrftLoss')
+                    reBasEPS = None
+                    reDilEPS = None
+                    netProfit = None
 
-                    try:
-                        reBasEPS = float(reBasEPS) if reBasEPS is not None else None
-                        reDilEPS = float(reDilEPS) if reDilEPS is not None else None
-                        netProfit = float(netProfit) if netProfit is not None else None
-                    except:
-                        pass
+                    xbrl_url = item.get('xbrl')
+                    att = item.get('attachment') or item.get('attchmntFile')
+
+                    if xbrl_url and xbrl_url != '-' and 'nsearchives.nseindia.com' in xbrl_url:
+                        eps, np = extract_financials_from_xbrl(xbrl_url)
+                        if eps is not None:
+                            reBasEPS = eps
+                            reDilEPS = eps
+                        if np is not None:
+                            netProfit = np
+
+                    if (reBasEPS is None or netProfit is None) and att and 'nsearchives.nseindia.com' in att:
+                        eps, np = extract_financials_from_pdf(att)
+                        if eps is not None and reBasEPS is None:
+                            reBasEPS = eps
+                            reDilEPS = eps
+                        if np is not None and netProfit is None:
+                            netProfit = np
+
 
                     symbol = item.get('symbol')
                     period = item.get('period') # e.g. Q1, Q2, Yearly

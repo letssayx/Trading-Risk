@@ -78,16 +78,29 @@ def fetch_historical_financials():
                             bdate = curr_end
 
                         period = item.get('period', 'N/A')
-                        reBasEPS = item.get('reBasEPS')
-                        reDilEPS = item.get('reDilEPS')
-                        netProfit = item.get('reProLossAftTaxAftExtrdItemAttDrtAndMnrit') or item.get('reProLossBefTax') or item.get('reNetPrftLoss')
 
-                        try:
-                            reBasEPS = float(reBasEPS) if reBasEPS else None
-                            reDilEPS = float(reDilEPS) if reDilEPS else None
-                            netProfit = float(netProfit) if netProfit else None
-                        except:
-                            pass
+                        from backend.ingest.parse_financials import extract_financials_from_xbrl, extract_financials_from_pdf
+
+                        reBasEPS = None
+                        reDilEPS = None
+                        netProfit = None
+
+                        xbrl_url = item.get('xbrl')
+                        if xbrl_url and xbrl_url != '-' and 'nsearchives.nseindia.com' in xbrl_url:
+                            eps, np = extract_financials_from_xbrl(xbrl_url)
+                            if eps is not None:
+                                reBasEPS = eps
+                                reDilEPS = eps
+                            if np is not None:
+                                netProfit = np
+
+                        if (reBasEPS is None or netProfit is None) and att and 'nsearchives.nseindia.com' in att:
+                            eps, np = extract_financials_from_pdf(att)
+                            if eps is not None and reBasEPS is None:
+                                reBasEPS = eps
+                                reDilEPS = eps
+                            if np is not None and netProfit is None:
+                                netProfit = np
 
                         if symbol:
                             existing = db.query(FinancialResult).filter_by(
