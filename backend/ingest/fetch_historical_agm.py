@@ -57,6 +57,25 @@ def fetch_historical_agm():
                                 except:
                                     ann_date = None
 
+                            # Extract actual AGM date from purpose
+                            import re
+                            agm_date = None
+                            # Match dates like "09-Aug-2023", "09-August-2023", "9 August, 2023"
+                            date_matches = re.findall(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ,]+(\d{2,4})', str(purpose))
+                            if date_matches:
+                                try:
+                                    # take the first matching date as the AGM date
+                                    d, m, y = date_matches[0]
+                                    if len(y) == 2:
+                                        y = "20" + y
+                                    if m.isdigit():
+                                        agm_date = datetime.datetime.strptime(f"{d}-{m}-{y}", "%d-%m-%Y").date()
+                                    else:
+                                        m = m[:3] # Jan, Feb
+                                        agm_date = datetime.datetime.strptime(f"{d}-{m}-{y}", "%d-%b-%Y").date()
+                                except:
+                                    pass
+
                             if ann_date:
                                 # We store AGMs as Corporate Actions (or Board Meetings) with 'AGM' type/purpose
                                 # Since they don't have amounts, just the date and purpose matters.

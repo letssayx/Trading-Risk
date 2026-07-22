@@ -565,11 +565,13 @@ class NSELib:
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
                 announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
                 announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Shareholders%20meeting"
+                announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
                 announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
                 div_announcements = []
                 rec_announcements = []
                 agm_announcements = []
+                fin_announcements = []
                 out_announcements = []
 
                 resp_div = self.get(announcement_url_div)
@@ -593,6 +595,13 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse AGM announcements: {e}")
 
+                resp_fin = self.get(announcement_url_fin)
+                if resp_fin and resp_fin.status_code == 200:
+                    try:
+                        fin_announcements = resp_fin.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse Financial Results announcements: {e}")
+
                 # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
                 target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
 
@@ -614,7 +623,7 @@ class NSELib:
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
 
-                for ann in div_announcements + rec_announcements + agm_announcements + out_announcements:
+                for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
                     sym = ann.get('symbol')
                     if sym and sym in target_symbols:
                         if sym not in symbol_announcements:

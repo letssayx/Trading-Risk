@@ -18,9 +18,6 @@ def fetch_historical_financials():
     db = SessionLocal()
     lib = NSELib()
 
-    # We will fetch roughly 5 years of historical financial results
-    # NSE provides this by searching date ranges.
-    # To avoid timeouts, we do it in 6 month chunks from today (19-07-2026) back to 2020.
     end_date = datetime.date(2026, 7, 19)
     start_date = datetime.date(2020, 1, 1)
 
@@ -30,30 +27,33 @@ def fetch_historical_financials():
 
     total_records = 0
     while curr_end > start_date:
-        curr_start = curr_end - datetime.timedelta(days=180)
+        curr_start = curr_end - datetime.timedelta(days=90)
         if curr_start < start_date:
             curr_start = start_date
 
         print(f"Fetching Financial Results for range {curr_start} to {curr_end}...")
 
-        url = f"{lib.BASE_URL}/api/corporate-financial-results?index=equities&from_date={curr_start.strftime('%d-%m-%Y')}&to_date={curr_end.strftime('%d-%m-%Y')}"
+        url = f"{lib.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results&from_date={curr_start.strftime('%d-%m-%Y')}&to_date={curr_end.strftime('%d-%m-%Y')}"
 
         try:
             resp = lib.get(url)
+            print(f"Response status: {resp.status_code if resp else 'None'}")
             if resp and resp.status_code == 200:
                 data = resp.json()
                 if data:
                     records = []
-                    for item in data:
-                        reDilEPS = item.get('reDilEPS')
-                        reBasEPS = item.get('reBasEPS')
-                        netProfit = item.get('reProLossAftTaxAftExtrdItemAttDrtAndMnrit') or item.get('reProLossBefTax') or item.get('reNetPrftLoss')
+                    if isinstance(data, list):
+                        items = data
+                    elif isinstance(data, dict) and 'data' in data:
+                        items = data['data']
+                    else:
+                        items = []
 
+                    for item in items:
                         symbol = item.get('symbol')
-                        period = item.get('period')
-                        bdate_str = item.get('bm_timestamp', item.get('seqDate'))
-                        pend_str = item.get('period_end_date', item.get('toDate'))
-                        att = item.get('attachment')
+                        att = item.get('attchmntFile')
+
+                        bdate_str = item.get('an_dt')
 
                         bdate = None
                         if bdate_str:
@@ -67,24 +67,12 @@ def fetch_historical_financials():
                                 except:
                                     pass
 
-                        pend = None
-                        if pend_str:
-                            try:
-                                pend = datetime.datetime.strptime(str(pend_str).split(' ')[0], "%d-%b-%Y").date()
-                            except:
-                                pass
-
                         if not bdate:
                             bdate = curr_end # Fallback
-
-                        def safe_float(v):
-                            try: return float(v)
-                            except: return None
 
                         if symbol:
                             existing = db.query(FinancialResult).filter_by(
                                 symbol=symbol,
-                                period=period,
                                 date=bdate
                             ).first()
 
@@ -92,11 +80,7 @@ def fetch_historical_financials():
                                 fr = FinancialResult(
                                     symbol=symbol,
                                     date=bdate,
-                                    period=period,
-                                    period_end_date=pend,
-                                    basic_eps=safe_float(reBasEPS),
-                                    diluted_eps=safe_float(reDilEPS),
-                                    net_profit=safe_float(netProfit),
+                                    period="N/A", # Will be patched by yfinance
                                     attachment_url=att
                                 )
                                 db.add(fr)
