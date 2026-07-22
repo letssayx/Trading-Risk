@@ -41,10 +41,10 @@ def fetch_historical_financials():
 
         print(f"Fetching Financial Results for range {curr_start} to {curr_end}...")
 
-        url = f"{lib.BASE_URL}/api/corporate-financial-results?index=equities&from_date={curr_start.strftime('%d-%m-%Y')}&to_date={curr_end.strftime('%d-%m-%Y')}"
+        url = f"{lib.BASE_URL}/api/corporates-financial-results?index=equities&period=Quarterly&from_date={curr_start.strftime('%d-%m-%Y')}&to_date={curr_end.strftime('%d-%m-%Y')}"
 
         try:
-            resp = lib.get(url)
+            resp = lib.get(url, use_curl=True)
             print(f"Response status: {resp.status_code if resp else 'None'}")
             if resp and resp.status_code == 200:
                 data = resp.json()

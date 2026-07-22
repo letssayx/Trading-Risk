@@ -981,9 +981,9 @@ class NSELib:
         # Usually results come in during earning season, check a window
         from_date_str = trade_date.strftime("%d-%m-%Y")
         to_date_str = (trade_date + timedelta(days=7)).strftime("%d-%m-%Y")
-        url = f"{self.BASE_URL}/api/corporate-financial-results?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+        url = f"{self.BASE_URL}/api/corporates-financial-results?index=equities&period=Quarterly&from_date={from_date_str}&to_date={to_date_str}"
 
-        resp = self.get(url)
+        resp = self.get(url, use_curl=True)
         if resp is None:
             return pd.DataFrame()
 
