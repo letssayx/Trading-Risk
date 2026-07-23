@@ -937,7 +937,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     "raw_amount": action.get('raw_amount'),
                     "face_value": action.get('face_value'),
                     "is_synthetic": action.get('is_synthetic', False),
-                    "record_date": action.get('record_date')
+                    "record_date": action.get('record_date'),
+                    "agm_date": action.get('agm_date')
                 })
         # When force is false, we want to UPSERT instead of delete all history.
         # This solves the "takes a hell lot of time" issue and properly updates rows.
@@ -953,28 +954,7 @@ def build_dividend_databank_task(self, force: bool = False):
             # If we are not forcing, let's fetch existing rows for this symbol to avoid blind inserts
             existing_rows = []
 
-            eps_data = {}
             sym_fins = fin_by_symbol.get(sym, [])
-            for fin in sym_fins:
-                # Group EPS and Net Profit by financial year
-                dt = fin.period_end_date or fin.date
-                if not dt: continue
-                # Indian FY ends in March. So if month > 3, it's the current year's FY ending next March.
-                # Usually annual results come out around April-May with period ending March.
-                # So if date is May 2026, period_end_date is Mar 2026.
-                # Let's map it to the calendar year of the period end date to be consistent.
-                fy_year = dt.year
-
-                # If we have basic_eps or net_profit, aggregate them
-                if fy_year not in eps_data:
-                    eps_data[fy_year] = {'eps': None, 'net_profit': None}
-
-                # We'll just take the most recent available annual figure or aggregate quarters if needed,
-                # but for simplicity let's take the first non-null we find since it's sorted descending.
-                if eps_data[fy_year]['eps'] is None and fin.basic_eps is not None:
-                    eps_data[fy_year]['eps'] = fin.basic_eps
-                if eps_data[fy_year]['net_profit'] is None and fin.net_profit is not None:
-                    eps_data[fy_year]['net_profit'] = fin.net_profit
 
             existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
 
@@ -1051,7 +1031,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     match.dps = match.amount
 
-                    if h.get('agm_date'):
+                    if h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower():
                         match.agm_date = h.get('agm_date')
                         match.agm_announcement_date = final_date
 
@@ -1083,8 +1063,8 @@ def build_dividend_databank_task(self, force: bool = False):
                         record_date=h.get('record_date'),
                         board_meeting_date=h.get('board_meeting_date'),
                         is_synthetic=h.get('is_synthetic', False),
-                        agm_date=h.get('agm_date'),
-                        agm_announcement_date=final_date if h.get('agm_date') else None
+                        agm_date=h.get('agm_date') if (h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None,
+                        agm_announcement_date=final_date if (h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None
                     )
 
                     # 1. EPS & Net Profit: Link by Board Meeting Date
@@ -1204,21 +1184,7 @@ def patch_historical_eps_agm_task(self):
 
         for sym in symbols:
             # 1. Fetch EPS and Net Profit natively from FinancialResult table
-            eps_data = {}
-            fin_records = db.query(FinancialResult).filter(FinancialResult.symbol == sym).all()
-
-            for fin in fin_records:
-                if not fin.date: continue
-                # We group by financial year. Indian FY ends in March.
-                fy_year = fin.date.year if fin.date.month > 3 else fin.date.year - 1
-                if fy_year not in eps_data:
-                    eps_data[fy_year] = {'eps': None, 'net_profit': None}
-
-                # Take the latest reported non-null values for the FY
-                if fin.basic_eps is not None:
-                    eps_data[fy_year]['eps'] = fin.basic_eps
-                if fin.net_profit is not None:
-                    eps_data[fy_year]['net_profit'] = fin.net_profit
+            fin_records = db.query(FinancialResult).filter(FinancialResult.symbol == sym).order_by(FinancialResult.date.desc()).all()
 
             # 2. Fetch all databank rows for this symbol
             rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
@@ -1226,33 +1192,42 @@ def patch_historical_eps_agm_task(self):
                 row_date = row.date
                 if not row_date: continue
 
-                # Apply EPS, Net Profit, and Payout Ratio
-                fy_year = row_date.year if row_date.month > 3 else row_date.year - 1
-                fy_data = eps_data.get(fy_year)
+                # Apply EPS, Net Profit, and Payout Ratio based on Board Meeting Date
+                ref_date = row.board_meeting_date or row_date
+                if hasattr(ref_date, 'date'): ref_date = ref_date.date()
+                elif isinstance(ref_date, datetime.datetime): ref_date = ref_date.date()
 
-                # Fallback to current year if FY is missing
-                if not fy_data:
-                     fy_data = eps_data.get(row_date.year)
+                latest_fin = None
+                for fin in fin_records:
+                    f_date = fin.date
+                    if hasattr(f_date, 'date'): f_date = f_date.date()
+                    elif isinstance(f_date, datetime.datetime): f_date = f_date.date()
 
-                if fy_data:
-                     eps_val = fy_data.get('eps')
-                     np_val = fy_data.get('net_profit')
-                     if eps_val is not None:
-                         row.eps = eps_val
+                    if f_date and f_date <= ref_date:
+                        latest_fin = fin
+                        break
+
+                if latest_fin:
+                     if latest_fin.basic_eps is not None:
+                         row.eps = latest_fin.basic_eps
                          if row.amount:
-                              row.payout_ratio = (row.amount / eps_val) * 100 if eps_val != 0 else None
-                     if np_val is not None:
-                         row.net_profit = np_val
+                              row.payout_ratio = (row.amount / row.eps) * 100 if row.eps != 0 else None
+                     if latest_fin.net_profit is not None:
+                         row.net_profit = latest_fin.net_profit
+
                 row.dps = row.amount
 
                 # 3. Patch AGM Dates
-                # We look at historical board meetings near this date (within 90 days)
-                if not row.agm_date:
+                # AGM Dates only apply to Final dividends.
+                # Look for an AGM announcement that happens *after* the dividend event (up to 6 months / ~180 days).
+                # Meaning the AGM event date > dividend row_date, but within 180 days.
+                if not row.agm_date and row.dividend_type and 'final' in row.dividend_type.lower():
                     bm = db.query(BoardMeeting).filter(
                         BoardMeeting.symbol == sym,
                         BoardMeeting.purpose.ilike('%annual general meeting%'),
-                        func.abs(func.extract('epoch', BoardMeeting.date) - func.extract('epoch', row_date)) < 7776000 # 90 days
-                    ).first()
+                        BoardMeeting.date >= row_date,
+                        func.extract('epoch', BoardMeeting.date) - func.extract('epoch', row_date) < 15552000 # ~180 days
+                    ).order_by(BoardMeeting.date.asc()).first()
 
                     if bm:
                         row.agm_announcement_date = bm.date
@@ -1269,8 +1244,10 @@ def patch_historical_eps_agm_task(self):
                         ca = db.query(CorporateAction).filter(
                             CorporateAction.symbol == sym,
                             CorporateAction.purpose.ilike('%annual general meeting%'),
-                            func.abs(func.extract('epoch', CorporateAction.date) - func.extract('epoch', row_date)) < 7776000
-                        ).first()
+                            CorporateAction.date >= row_date,
+                            func.extract('epoch', CorporateAction.date) - func.extract('epoch', row_date) < 15552000
+                        ).order_by(CorporateAction.date.asc()).first()
+
                         if ca:
                             row.agm_announcement_date = ca.date
                             date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (ca.purpose or '').lower())

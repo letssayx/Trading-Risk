@@ -103,19 +103,12 @@ def extract_financials_from_pdf(url):
     net_profit = None
     try:
         import pdfplumber
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/pdf',
-            'Referer': 'https://www.nseindia.com/',
-        }
-        logger.info(f"Downloading PDF for financials parsing: {url}")
+        logger.info(f"Downloading PDF for financials parsing via curl_cffi: {url}")
 
-        session = requests.Session()
-        try: session.get("https://www.nseindia.com", headers=headers, timeout=2)
-        except: pass
+        nse = NSELib()
+        resp = nse.get(url, use_curl=True)
 
-        resp = session.get(url, headers=headers, timeout=5)
-        if resp.status_code == 200 and b'%PDF' in resp.content[:10]:
+        if resp and resp.status_code == 200 and hasattr(resp, 'content') and b'%PDF' in resp.content[:10]:
             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
                 for page in pdf.pages[:3]: # Usually in the first few pages
                     tables = page.extract_tables()
