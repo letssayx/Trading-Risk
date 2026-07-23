@@ -561,12 +561,6 @@ def build_dividend_databank_task(self, force: bool = False):
     import re
     import logging
 
-    try:
-        import yfinance as yf
-        yf_logger = logging.getLogger("yfinance")
-        yf_logger.setLevel(logging.CRITICAL)
-    except ImportError:
-        yf = None
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
     from backend.ingest.field_mapper import FieldMapper
@@ -943,7 +937,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     "raw_amount": action.get('raw_amount'),
                     "face_value": action.get('face_value'),
                     "is_synthetic": action.get('is_synthetic', False),
-                    "record_date": action.get('record_date')
+                    "record_date": action.get('record_date'),
+                    "agm_date": action.get('agm_date')
                 })
         # When force is false, we want to UPSERT instead of delete all history.
         # This solves the "takes a hell lot of time" issue and properly updates rows.
@@ -959,37 +954,7 @@ def build_dividend_databank_task(self, force: bool = False):
             # If we are not forcing, let's fetch existing rows for this symbol to avoid blind inserts
             existing_rows = []
 
-            # Fetch EPS data from yfinance for the symbol
-            symbol_aliases = {
-                'COLGATE': 'COLPAL',
-                'DHANI': 'DHANI',
-                'EQUITAS': 'EQUITASBNK',
-                'BANKRAJAS': 'BANKRAJAS',
-                'CINEMAXIN': 'CINEMAXIN',
-                'EICHER': 'EICHERMOT',
-            }
-            eps_data = {}
             sym_fins = fin_by_symbol.get(sym, [])
-            for fin in sym_fins:
-                # Group EPS and Net Profit by financial year
-                dt = fin.period_end_date or fin.date
-                if not dt: continue
-                # Indian FY ends in March. So if month > 3, it's the current year's FY ending next March.
-                # Usually annual results come out around April-May with period ending March.
-                # So if date is May 2026, period_end_date is Mar 2026.
-                # Let's map it to the calendar year of the period end date to be consistent.
-                fy_year = dt.year
-
-                # If we have basic_eps or net_profit, aggregate them
-                if fy_year not in eps_data:
-                    eps_data[fy_year] = {'eps': None, 'net_profit': None}
-
-                # We'll just take the most recent available annual figure or aggregate quarters if needed,
-                # but for simplicity let's take the first non-null we find since it's sorted descending.
-                if eps_data[fy_year]['eps'] is None and fin.basic_eps is not None:
-                    eps_data[fy_year]['eps'] = fin.basic_eps
-                if eps_data[fy_year]['net_profit'] is None and fin.net_profit is not None:
-                    eps_data[fy_year]['net_profit'] = fin.net_profit
 
             existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
 
@@ -1040,23 +1005,33 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.amount = h.get('amount')
                         match.raw_amount = h.get('raw_amount')
 
-                    # Update EPS and Net Profit if available
-                    fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
-                    fy_data = eps_data.get(fy_year)
-                    if not fy_data:
-                         fy_data = eps_data.get(final_date.year)
+                    # 1. EPS & Net Profit: Link by Board Meeting Date
+                    # Find the most recent FinancialResult available ON or BEFORE the board meeting date (or final_date)
+                    ref_date = match.board_meeting_date or final_date
+                    if hasattr(ref_date, 'date'): ref_date = ref_date.date()
+                    elif isinstance(ref_date, datetime.datetime): ref_date = ref_date.date()
 
-                    if fy_data:
-                         if fy_data['eps'] is not None:
-                             match.eps = fy_data['eps']
-                             if match.amount:
-                                  match.payout_ratio = (match.amount / match.eps) * 100 if match.eps != 0 else None
-                         if fy_data['net_profit'] is not None:
-                             match.net_profit = fy_data['net_profit']
+                    latest_fin = None
+                    for fin in sym_fins:
+                        f_date = fin.date
+                        if hasattr(f_date, 'date'): f_date = f_date.date()
+                        elif isinstance(f_date, datetime.datetime): f_date = f_date.date()
+
+                        if f_date and f_date <= ref_date:
+                            latest_fin = fin
+                            break  # sym_fins is already sorted descending by date
+
+                    if latest_fin:
+                        if latest_fin.basic_eps is not None:
+                            match.eps = latest_fin.basic_eps
+                            if match.amount:
+                                match.payout_ratio = (match.amount / match.eps) * 100 if match.eps != 0 else None
+                        if latest_fin.net_profit is not None:
+                            match.net_profit = latest_fin.net_profit
 
                     match.dps = match.amount
 
-                    if h.get('agm_date'):
+                    if h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower():
                         match.agm_date = h.get('agm_date')
                         match.agm_announcement_date = final_date
 
@@ -1088,23 +1063,33 @@ def build_dividend_databank_task(self, force: bool = False):
                         record_date=h.get('record_date'),
                         board_meeting_date=h.get('board_meeting_date'),
                         is_synthetic=h.get('is_synthetic', False),
-                        agm_date=h.get('agm_date'),
-                        agm_announcement_date=final_date if h.get('agm_date') else None
+                        agm_date=h.get('agm_date') if (h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None,
+                        agm_announcement_date=final_date if (h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None
                     )
 
-                    # Apply EPS, Net Profit, and Payout Ratio
-                    fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
-                    fy_data = eps_data.get(fy_year)
-                    if not fy_data:
-                         fy_data = eps_data.get(final_date.year)
+                    # 1. EPS & Net Profit: Link by Board Meeting Date
+                    # Find the most recent FinancialResult available ON or BEFORE the board meeting date (or final_date)
+                    ref_date = new_item.board_meeting_date or final_date
+                    if hasattr(ref_date, 'date'): ref_date = ref_date.date()
+                    elif isinstance(ref_date, datetime.datetime): ref_date = ref_date.date()
 
-                    if fy_data:
-                         if fy_data['eps'] is not None:
-                             new_item.eps = fy_data['eps']
-                             if new_item.amount:
-                                  new_item.payout_ratio = (new_item.amount / new_item.eps) * 100 if new_item.eps != 0 else None
-                         if fy_data['net_profit'] is not None:
-                             new_item.net_profit = fy_data['net_profit']
+                    latest_fin = None
+                    for fin in sym_fins:
+                        f_date = fin.date
+                        if hasattr(f_date, 'date'): f_date = f_date.date()
+                        elif isinstance(f_date, datetime.datetime): f_date = f_date.date()
+
+                        if f_date and f_date <= ref_date:
+                            latest_fin = fin
+                            break  # sym_fins is already sorted descending by date
+
+                    if latest_fin:
+                        if latest_fin.basic_eps is not None:
+                            new_item.eps = latest_fin.basic_eps
+                            if new_item.amount:
+                                new_item.payout_ratio = (new_item.amount / new_item.eps) * 100 if new_item.eps != 0 else None
+                        if latest_fin.net_profit is not None:
+                            new_item.net_profit = latest_fin.net_profit
 
                     new_item.dps = new_item.amount
 
@@ -1186,14 +1171,8 @@ def patch_historical_eps_agm_task(self):
     import re
     import logging
 
-    try:
-        import yfinance as yf
-        yf_logger = logging.getLogger("yfinance")
-        yf_logger.setLevel(logging.CRITICAL)
-    except ImportError:
-        yf = None
     from backend.infrastructure.db import SessionLocal
-    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
 
     db = SessionLocal()
     try:
@@ -1203,54 +1182,9 @@ def patch_historical_eps_agm_task(self):
         updated_count = 0
         logger = logging.getLogger(__name__)
 
-
-        symbol_aliases = {
-            'COLGATE': 'COLPAL',
-            'DHANI': 'DHANI', # Might be delisted/suspended on Yahoo? Try skipping
-            'EQUITAS': 'EQUITASBNK', # Equitas Holdings merged into Equitas Small Finance Bank
-            'BANKRAJAS': 'BANKRAJAS', # Delisted / Merged long ago
-            'CINEMAXIN': 'CINEMAXIN', # Merged into PVR
-            'EICHER': 'EICHERMOT',
-            # We can add more common ones if needed, but for now we'll handle the ones the user raised.
-        }
-
         for sym in symbols:
-            # 1. Fetch EPS
-            eps_data = {}
-            if yf:
-                try:
-                    query_sym = symbol_aliases.get(sym.upper(), sym.upper())
-                    ticker = yf.Ticker(f"{query_sym}.NS")
-
-                    # Instead of letting it spam the console with 404s, catch the exception early or use history
-                    # yfinance raises HTTP errors internally, but we can suppress logging output slightly
-                    try:
-                        inc = ticker.income_stmt
-                    except Exception as yf_err:
-                        if "404" in str(yf_err):
-                            inc = None
-                        else:
-                            raise yf_err
-
-                    if inc is not None and not inc.empty and "Basic EPS" in inc.index:
-                        eps_row = inc.loc["Basic EPS"]
-                        for ts, val in eps_row.items():
-                            try:
-                                if ts.year > 1900:
-                                    import math
-                                    if val and not math.isnan(val):
-                                        eps_data[ts.year] = float(val)
-                            except:
-                                pass
-
-                    trailing_eps = ticker.info.get("trailingEps") if inc is not None and not inc.empty else None
-                    if trailing_eps:
-                        eps_data['trailing'] = float(trailing_eps)
-                except Exception as e:
-                    # Only log non-404 errors as warnings to avoid console spam for delisted symbols
-                    if "404" not in str(e):
-                        logger.warning(f"Failed to fetch EPS for {sym} via yfinance: {e}")
-
+            # 1. Fetch EPS and Net Profit natively from FinancialResult table
+            fin_records = db.query(FinancialResult).filter(FinancialResult.symbol == sym).order_by(FinancialResult.date.desc()).all()
 
             # 2. Fetch all databank rows for this symbol
             rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
@@ -1258,28 +1192,42 @@ def patch_historical_eps_agm_task(self):
                 row_date = row.date
                 if not row_date: continue
 
-                # Apply EPS and Payout Ratio
-                fy_year = row_date.year if row_date.month > 3 else row_date.year - 1
-                eps_val = eps_data.get(fy_year)
-                if not eps_val:
-                     eps_val = eps_data.get(row_date.year)
-                if not eps_val and (datetime.date.today().year - row_date.year) <= 1:
-                     eps_val = eps_data.get('trailing')
+                # Apply EPS, Net Profit, and Payout Ratio based on Board Meeting Date
+                ref_date = row.board_meeting_date or row_date
+                if hasattr(ref_date, 'date'): ref_date = ref_date.date()
+                elif isinstance(ref_date, datetime.datetime): ref_date = ref_date.date()
 
-                if eps_val:
-                     row.eps = eps_val
-                     if row.amount:
-                          row.payout_ratio = (row.amount / eps_val) * 100 if eps_val != 0 else None
+                latest_fin = None
+                for fin in fin_records:
+                    f_date = fin.date
+                    if hasattr(f_date, 'date'): f_date = f_date.date()
+                    elif isinstance(f_date, datetime.datetime): f_date = f_date.date()
+
+                    if f_date and f_date <= ref_date:
+                        latest_fin = fin
+                        break
+
+                if latest_fin:
+                     if latest_fin.basic_eps is not None:
+                         row.eps = latest_fin.basic_eps
+                         if row.amount:
+                              row.payout_ratio = (row.amount / row.eps) * 100 if row.eps != 0 else None
+                     if latest_fin.net_profit is not None:
+                         row.net_profit = latest_fin.net_profit
+
                 row.dps = row.amount
 
                 # 3. Patch AGM Dates
-                # We look at historical board meetings near this date (within 90 days)
-                if not row.agm_date:
+                # AGM Dates only apply to Final dividends.
+                # Look for an AGM announcement that happens *after* the dividend event (up to 6 months / ~180 days).
+                # Meaning the AGM event date > dividend row_date, but within 180 days.
+                if not row.agm_date and row.dividend_type and 'final' in row.dividend_type.lower():
                     bm = db.query(BoardMeeting).filter(
                         BoardMeeting.symbol == sym,
                         BoardMeeting.purpose.ilike('%annual general meeting%'),
-                        func.abs(func.extract('epoch', BoardMeeting.date) - func.extract('epoch', row_date)) < 7776000 # 90 days
-                    ).first()
+                        BoardMeeting.date >= row_date,
+                        func.extract('epoch', BoardMeeting.date) - func.extract('epoch', row_date) < 15552000 # ~180 days
+                    ).order_by(BoardMeeting.date.asc()).first()
 
                     if bm:
                         row.agm_announcement_date = bm.date
@@ -1296,8 +1244,10 @@ def patch_historical_eps_agm_task(self):
                         ca = db.query(CorporateAction).filter(
                             CorporateAction.symbol == sym,
                             CorporateAction.purpose.ilike('%annual general meeting%'),
-                            func.abs(func.extract('epoch', CorporateAction.date) - func.extract('epoch', row_date)) < 7776000
-                        ).first()
+                            CorporateAction.date >= row_date,
+                            func.extract('epoch', CorporateAction.date) - func.extract('epoch', row_date) < 15552000
+                        ).order_by(CorporateAction.date.asc()).first()
+
                         if ca:
                             row.agm_announcement_date = ca.date
                             date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (ca.purpose or '').lower())
