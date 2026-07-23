@@ -1025,19 +1025,29 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.amount = h.get('amount')
                         match.raw_amount = h.get('raw_amount')
 
-                    # Update EPS and Net Profit if available
-                    fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
-                    fy_data = eps_data.get(fy_year)
-                    if not fy_data:
-                         fy_data = eps_data.get(final_date.year)
+                    # 1. EPS & Net Profit: Link by Board Meeting Date
+                    # Find the most recent FinancialResult available ON or BEFORE the board meeting date (or final_date)
+                    ref_date = match.board_meeting_date or final_date
+                    if hasattr(ref_date, 'date'): ref_date = ref_date.date()
+                    elif isinstance(ref_date, datetime.datetime): ref_date = ref_date.date()
 
-                    if fy_data:
-                         if fy_data['eps'] is not None:
-                             match.eps = fy_data['eps']
-                             if match.amount:
-                                  match.payout_ratio = (match.amount / match.eps) * 100 if match.eps != 0 else None
-                         if fy_data['net_profit'] is not None:
-                             match.net_profit = fy_data['net_profit']
+                    latest_fin = None
+                    for fin in sym_fins:
+                        f_date = fin.date
+                        if hasattr(f_date, 'date'): f_date = f_date.date()
+                        elif isinstance(f_date, datetime.datetime): f_date = f_date.date()
+
+                        if f_date and f_date <= ref_date:
+                            latest_fin = fin
+                            break  # sym_fins is already sorted descending by date
+
+                    if latest_fin:
+                        if latest_fin.basic_eps is not None:
+                            match.eps = latest_fin.basic_eps
+                            if match.amount:
+                                match.payout_ratio = (match.amount / match.eps) * 100 if match.eps != 0 else None
+                        if latest_fin.net_profit is not None:
+                            match.net_profit = latest_fin.net_profit
 
                     match.dps = match.amount
 
@@ -1077,19 +1087,29 @@ def build_dividend_databank_task(self, force: bool = False):
                         agm_announcement_date=final_date if h.get('agm_date') else None
                     )
 
-                    # Apply EPS, Net Profit, and Payout Ratio
-                    fy_year = final_date.year if final_date.month > 3 else final_date.year - 1
-                    fy_data = eps_data.get(fy_year)
-                    if not fy_data:
-                         fy_data = eps_data.get(final_date.year)
+                    # 1. EPS & Net Profit: Link by Board Meeting Date
+                    # Find the most recent FinancialResult available ON or BEFORE the board meeting date (or final_date)
+                    ref_date = new_item.board_meeting_date or final_date
+                    if hasattr(ref_date, 'date'): ref_date = ref_date.date()
+                    elif isinstance(ref_date, datetime.datetime): ref_date = ref_date.date()
 
-                    if fy_data:
-                         if fy_data['eps'] is not None:
-                             new_item.eps = fy_data['eps']
-                             if new_item.amount:
-                                  new_item.payout_ratio = (new_item.amount / new_item.eps) * 100 if new_item.eps != 0 else None
-                         if fy_data['net_profit'] is not None:
-                             new_item.net_profit = fy_data['net_profit']
+                    latest_fin = None
+                    for fin in sym_fins:
+                        f_date = fin.date
+                        if hasattr(f_date, 'date'): f_date = f_date.date()
+                        elif isinstance(f_date, datetime.datetime): f_date = f_date.date()
+
+                        if f_date and f_date <= ref_date:
+                            latest_fin = fin
+                            break  # sym_fins is already sorted descending by date
+
+                    if latest_fin:
+                        if latest_fin.basic_eps is not None:
+                            new_item.eps = latest_fin.basic_eps
+                            if new_item.amount:
+                                new_item.payout_ratio = (new_item.amount / new_item.eps) * 100 if new_item.eps != 0 else None
+                        if latest_fin.net_profit is not None:
+                            new_item.net_profit = latest_fin.net_profit
 
                     new_item.dps = new_item.amount
 
