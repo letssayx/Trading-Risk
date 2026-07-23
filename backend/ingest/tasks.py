@@ -580,7 +580,8 @@ def build_dividend_databank_task(self, force: bool = False):
                 CorporateAction.purpose.ilike('%fin div%'), CorporateAction.purpose.ilike('%special%'),
                 CorporateAction.purpose.ilike('%div-%'),
                 CorporateAction.purpose.ilike('%div -%'),
-                CorporateAction.purpose.ilike('% div %')
+                CorporateAction.purpose.ilike('% div %'),
+                CorporateAction.purpose.ilike('%record date%')
             )
         )
 
@@ -813,14 +814,18 @@ def build_dividend_databank_task(self, force: bool = False):
                             div_type = 'Split'
 
                         if is_agm:
-                             # Try to find a date in the purpose like 'AGM - 15-Jul-2026'
-                             date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
-                             if date_match:
-                                 try:
-                                     from dateutil.parser import parse
-                                     agm_date = parse(date_match.group(1)).date()
-                                 except:
-                                     pass
+                             # Use the extracted agm_date directly if we already parsed it correctly from nse_lib
+                             if hasattr(m, 'agm_date') and m.agm_date:
+                                 agm_date = m.agm_date
+                             else:
+                                 # Try to find a date in the purpose like 'AGM - 15-Jul-2026'
+                                 date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
+                                 if date_match:
+                                     try:
+                                         from dateutil.parser import parse
+                                         agm_date = parse(date_match.group(1)).date()
+                                     except:
+                                         pass
 
                         combined_actions.append({
                             "symbol": sym,
@@ -859,6 +864,15 @@ def build_dividend_databank_task(self, force: bool = False):
                 is_duplicate = False
                 syn_m = syn.get('_matchedMeeting')
                 syn_date = safe_date(syn_m.meeting_date if syn_m else None)
+
+                # Check against other synthetics first to remove strict exchange duplicates
+                for existing in dedup_syns:
+                    ex_m = existing.get('_matchedMeeting')
+                    ex_date = safe_date(ex_m.meeting_date if ex_m else None)
+                    if syn_date != datetime.date.min and ex_date != datetime.date.min:
+                        if syn_date == ex_date and (syn.get('purpose') or '').lower() == (existing.get('purpose') or '').lower():
+                            is_duplicate = True
+                            break
 
                 for ex in dedup_syns:
                     ex_m = ex.get('_matchedMeeting')

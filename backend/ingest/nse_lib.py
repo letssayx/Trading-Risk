@@ -616,11 +616,6 @@ class NSELib:
                     try:
                         all_out = resp_out.json()
                         if isinstance(all_out, list):
-                            # Filter to only Outcome of Board Meeting to save memory/processing.
-                            # However, memory instructs us to NOT restrict to just 'Outcome' because NSE frequently miscategorizes them under 'General Updates' or 'None'
-                            # Still, we will keep them if they might contain 'Outcome' or are simply in the all_out list if needed,
-                            # but let's fetch all general announcements on the specific date later if needed.
-                            # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
                             # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
                             out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
                     except Exception as e:
@@ -648,6 +643,19 @@ class NSELib:
                             symbol_ca_map[sym].append(ca)
 
                 enriched_data = []
+
+                # Issue 4: Deduplicate identical exchange broadcasts before processing
+                dedup_data = []
+                seen_events = set()
+                for item in data:
+                    sym = item.get('bm_symbol')
+                    dt = item.get('bm_date')
+                    purp = (item.get('bm_purpose') or '').lower()
+                    key = f"{sym}_{dt}_{purp}"
+                    if key not in seen_events:
+                        seen_events.add(key)
+                        dedup_data.append(item)
+                data = dedup_data
 
                 for item in data:
                     item['EXTRACTED_DIVIDEND_AMOUNT'] = None
@@ -679,16 +687,16 @@ class NSELib:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
                                     if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
                                         has_dividend_mention = True
-                                        break
+                                        # Do NOT break immediately here; let it continue so other announcements (e.g., AGM) can be caught too
+                                        # actually we can break for has_dividend_mention if we only care about it, but wait!
                                 except ValueError:
                                     pass
-                            elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
+                            if 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
                                     if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
                                         is_agm = True
-                                        break
                                 except ValueError:
                                     pass
 
@@ -700,6 +708,32 @@ class NSELib:
                         if is_agm:
                             found_type = 'AGM'
                             item['bm_purpose'] = 'Annual General Meeting'
+
+                            # Parse AGM date from purpose or announcements using the regex from fetch_historical_agm
+                            # item['bm_desc'] and item['bm_purpose'] might contain it
+                            agm_date_found = None
+                            date_matches = re.findall(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ,]+(\d{2,4})', str(desc) + " " + str(purpose))
+                            if not date_matches and symbol in symbol_announcements:
+                                for ann in symbol_announcements[symbol]:
+                                    ann_subj = str(ann.get('subject', '')).lower()
+                                    ann_desc = str(ann.get('desc', '')).lower()
+                                    if 'agm' in ann_subj or 'annual general meeting' in ann_subj or 'shareholders meeting' in ann_subj:
+                                        date_matches = re.findall(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ,]+(\d{2,4})', ann_desc + " " + ann_subj)
+                                        if date_matches:
+                                            break
+                            if date_matches:
+                                try:
+                                    d, m, y = date_matches[0]
+                                    if len(y) == 2: y = "20" + y
+                                    if m.isdigit():
+                                        agm_date_found = datetime.strptime(f"{d}-{m}-{y}", "%d-%m-%Y").date()
+                                    else:
+                                        agm_date_found = datetime.strptime(f"{d}-{m[:3]}-{y}", "%d-%b-%Y").date()
+                                except:
+                                    pass
+
+                            if agm_date_found:
+                                item['agm_date'] = agm_date_found
 
                         # First try mapping to CA data for dates
                         if symbol and symbol in symbol_ca_map:
@@ -876,7 +910,8 @@ class NSELib:
                     'bm_date': 'MEETING DATE',
                     'bm_timestamp': 'BROADCAST DATE',
                     'sysTime': 'SYSTIME',
-                    'ATTACHMENT': 'ATTACHMENT'
+                    'ATTACHMENT': 'ATTACHMENT',
+                    'agm_date': 'agm_date'
                 }
                 df = df.rename(columns=mapping)
                 return df
