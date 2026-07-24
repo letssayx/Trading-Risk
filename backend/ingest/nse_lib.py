@@ -673,24 +673,20 @@ class NSELib:
                     if not has_dividend_mention and not is_agm and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
                             subj = str(ann.get('subject', '')).lower()
-                            if 'dividend' in subj or 'record date' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                            ann_date_str = ann.get('an_dt', '')
+                            try:
+                                ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                # Restrict linkage to 3 days to correctly tag Board Meetings
+                                # without prematurely merging future Corporate Actions or triggering infinite PDF scraping
+                                if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
+                                    if 'dividend' in subj or 'record date' in subj:
                                         has_dividend_mention = True
                                         break
-                                except ValueError:
-                                    pass
-                            elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
                                         is_agm = True
                                         break
-                                except ValueError:
-                                    pass
+                            except ValueError:
+                                pass
 
                     if has_dividend_mention or is_agm:
                         found_amount = None
@@ -755,12 +751,12 @@ class NSELib:
                                 bm_date_obj = None
 
                             for ann in symbol_announcements[symbol]:
-                                # Check if announcement is within 180 days of board meeting
+                                # Check if announcement is within 0-3 days of board meeting
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     # Format: "16-Apr-2026 13:07:29"
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
+                                    if bm_date_obj and 0 <= (ann_date_obj - bm_date_obj).days <= 3:
                                         attchmntText = ann.get('attchmntText', '')
 
                                         # Extract Amount
