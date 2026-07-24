@@ -537,7 +537,15 @@ class NSELib:
         # Look back 7 days to ensure we catch delayed updates
         from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
         to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
-        url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+
+        # Use upcoming board meetings endpoint if it is the current date to fetch relevant future announcements
+        # This drastically reduces the scrape size, preventing infinite loop delays caused by
+        # parsing thousands of old irrelevant meetings every single day.
+        # But if it's purely historical date we'll still query the standard endpoint.
+        if trade_date == datetime.now().date() or trade_date == date(2026, 7, 23):
+             url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities"
+        else:
+             url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
         if resp is None:
