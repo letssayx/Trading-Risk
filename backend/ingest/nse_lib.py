@@ -678,27 +678,24 @@ class NSELib:
 
                     is_agm = 'annual general meeting' in purpose or 'agm' in purpose
 
+                    # PHASE 1: Pure Raw Ingestion. No complex lookaheads.
+                    # We only check if an announcement published on the EXACT SAME DAY or NEXT DAY mentions dividend or AGM
+                    # to correctly classify this board meeting's outcome.
                     if not has_dividend_mention and not is_agm and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
                             subj = str(ann.get('subject', '')).lower()
-                            if 'dividend' in subj or 'record date' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                            ann_date_str = ann.get('an_dt', '')
+                            try:
+                                ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                # Only tie an outcome announcement to this board meeting if it was broadcast within 0-3 days.
+                                # Future corporate actions (like Ex-Dates 180 days later) are linked later in tasks.py, not here.
+                                if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
+                                    if 'dividend' in subj or 'record date' in subj:
                                         has_dividend_mention = True
-                                        # Do NOT break immediately here; let it continue so other announcements (e.g., AGM) can be caught too
-                                        # actually we can break for has_dividend_mention if we only care about it, but wait!
-                                except ValueError:
-                                    pass
-                            if 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    if 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
                                         is_agm = True
-                                except ValueError:
-                                    pass
+                            except ValueError:
+                                pass
 
                     if has_dividend_mention or is_agm:
                         found_amount = None
@@ -859,10 +856,8 @@ class NSELib:
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
                         # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
-                        # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
-                        # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
-                        # OPTIMIZATION HACK: Only scrape PDFs if we couldn't find the AMOUNT.
-                        # Scraping PDFs for thousands of announcements just to find a record_date takes too long.
+                        # We only scrape PDFs if the AMOUNT is missing. We do not scrape PDFs just to find a Record Date,
+                        # because Record Dates are natively captured from the CorporateAction table later.
                         if found_amount is None and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))

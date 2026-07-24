@@ -1280,6 +1280,7 @@
                                     <th>FACEVALUE</th>
                                     <th>PURPOSE</th>
                                     <th>RECORD DATE</th>
+                                    <th>AGM DATE</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -3967,6 +3968,7 @@ function renderDividendsData() {
                 <td>${faceValue}</td>
                 <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
                 <td>${d.record_date || '-'}</td>
+                <td>${d.agm_date || '-'}</td>
             `;
 
             tbodyActions.appendChild(tr);

@@ -759,13 +759,30 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 if a_date and a_date >= m_date:
                                     diff_days = abs((a_date - m_date).days)
-                                    if diff_days <= 180:
+
+                                    # PHASE 2 Smart Linkage Window:
+                                    # - Interim & Special dividends legally require 30-day payout (we use 45-day window for safety)
+                                    # - Final, Bonus, Split, AGM events can occur much later, up to 180 days.
+                                    a_type = str(a.get('dividend_type', '')).lower()
+                                    m_type = str(m.extracted_dividend_type or '').lower()
+                                    m_purp = str(m.purpose or '').lower()
+
+                                    is_interim_or_special = 'interim' in a_type or 'special' in a_type or 'interim' in m_type or 'special' in m_type or 'interim' in m_purp or 'special' in m_purp
+
+                                    max_window = 45 if is_interim_or_special else 180
+
+                                    if diff_days <= max_window:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
                                             a['amount'] = m.extracted_dividend_amount
                                             a['raw_amount'] = m.extracted_dividend_amount
                                         if not a.get('dividend_type') or a.get('dividend_type') == '-':
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
+
+                                        # Also persist AGM date to the action if we have it
+                                        if hasattr(m, 'agm_date') and m.agm_date:
+                                            a['agm_date'] = m.agm_date
+
                                         a['_matchedMeeting'] = m
                                         break
 
@@ -835,6 +852,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             "purpose": m.purpose,
                             "dividend_type": div_type,
                             "ex_date": None,
+                            "agm_date": agm_date,
                             "ex_date_obj": None,
                             "agm_date": agm_date,
                             "broadcast_date": m.broadcast_date or m.date,
@@ -948,14 +966,14 @@ def build_dividend_databank_task(self, force: bool = False):
                     "announcement_date_obj": action.get('announcement_date_obj') or action.get('broadcast_date'),
                     "broadcast_date": action.get('broadcast_date'),
                     "board_meeting_date": bm_date,
+                    "agm_date": action.get('agm_date') or (m.agm_date if m else None),
                     "dividend_type": action.get('dividend_type'),
                     "purpose": action.get('purpose'),
                     "amount": action.get('amount'),
                     "raw_amount": action.get('raw_amount'),
                     "face_value": action.get('face_value'),
                     "is_synthetic": action.get('is_synthetic', False),
-                    "record_date": action.get('record_date'),
-                    "agm_date": action.get('agm_date')
+                    "record_date": action.get('record_date')
                 })
         # When force is false, we want to UPSERT instead of delete all history.
         # This solves the "takes a hell lot of time" issue and properly updates rows.
@@ -1048,7 +1066,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     match.dps = match.amount
 
-                    if h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower():
+                    # Capture AGM dates into the databank entry if available
+                    if h.get('agm_date'):
                         match.agm_date = h.get('agm_date')
                         match.agm_announcement_date = final_date
 
@@ -1080,8 +1099,8 @@ def build_dividend_databank_task(self, force: bool = False):
                         record_date=h.get('record_date'),
                         board_meeting_date=h.get('board_meeting_date'),
                         is_synthetic=h.get('is_synthetic', False),
-                        agm_date=h.get('agm_date') if (h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None,
-                        agm_announcement_date=final_date if (h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None
+                        agm_date=h.get('agm_date'),
+                        agm_announcement_date=final_date if h.get('agm_date') else None
                     )
 
                     # 1. EPS & Net Profit: Link by Board Meeting Date
