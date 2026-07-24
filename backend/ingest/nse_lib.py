@@ -676,8 +676,9 @@ class NSELib:
                             ann_date_str = ann.get('an_dt', '')
                             try:
                                 ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                # Restrict linkage to 3 days to correctly tag Board Meetings
-                                # without prematurely merging future Corporate Actions or triggering infinite PDF scraping
+                                # We only want to flag board meetings for PDF extraction if the
+                                # specific announcement happened right around the time of the meeting (0-3 days).
+                                # The downstream linkage to future ex-dates happens in tasks.py!
                                 if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
                                     if 'dividend' in subj or 'record date' in subj:
                                         has_dividend_mention = True
