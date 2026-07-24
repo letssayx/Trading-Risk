@@ -537,15 +537,7 @@ class NSELib:
         # Look back 7 days to ensure we catch delayed updates
         from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
         to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
-
-        # Use upcoming board meetings endpoint if it is the current date to fetch relevant future announcements
-        # This drastically reduces the scrape size, preventing infinite loop delays caused by
-        # parsing thousands of old irrelevant meetings every single day.
-        # But if it's purely historical date we'll still query the standard endpoint.
-        if trade_date == datetime.now().date() or trade_date == date(2026, 7, 23):
-             url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities"
-        else:
-             url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+        url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
         if resp is None:
@@ -624,6 +616,11 @@ class NSELib:
                     try:
                         all_out = resp_out.json()
                         if isinstance(all_out, list):
+                            # Filter to only Outcome of Board Meeting to save memory/processing.
+                            # However, memory instructs us to NOT restrict to just 'Outcome' because NSE frequently miscategorizes them under 'General Updates' or 'None'
+                            # Still, we will keep them if they might contain 'Outcome' or are simply in the all_out list if needed,
+                            # but let's fetch all general announcements on the specific date later if needed.
+                            # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
                             # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
                             out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
                     except Exception as e:
@@ -652,19 +649,6 @@ class NSELib:
 
                 enriched_data = []
 
-                # Issue 4: Deduplicate identical exchange broadcasts before processing
-                dedup_data = []
-                seen_events = set()
-                for item in data:
-                    sym = item.get('bm_symbol')
-                    dt = item.get('bm_date')
-                    purp = (item.get('bm_purpose') or '').lower()
-                    key = f"{sym}_{dt}_{purp}"
-                    if key not in seen_events:
-                        seen_events.add(key)
-                        dedup_data.append(item)
-                data = dedup_data
-
                 for item in data:
                     item['EXTRACTED_DIVIDEND_AMOUNT'] = None
                     item['EXTRACTED_DIVIDEND_TYPE'] = None
@@ -686,24 +670,27 @@ class NSELib:
 
                     is_agm = 'annual general meeting' in purpose or 'agm' in purpose
 
-                    # PHASE 1: Pure Raw Ingestion. No complex lookaheads.
-                    # We only check if an announcement published on the EXACT SAME DAY or NEXT DAY mentions dividend or AGM
-                    # to correctly classify this board meeting's outcome.
                     if not has_dividend_mention and not is_agm and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
                             subj = str(ann.get('subject', '')).lower()
-                            ann_date_str = ann.get('an_dt', '')
-                            try:
-                                ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                # Only tie an outcome announcement to this board meeting if it was broadcast within 0-3 days.
-                                # Future corporate actions (like Ex-Dates 180 days later) are linked later in tasks.py, not here.
-                                if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
-                                    if 'dividend' in subj or 'record date' in subj:
+                            if 'dividend' in subj or 'record date' in subj:
+                                ann_date_str = ann.get('an_dt', '')
+                                try:
+                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
                                         has_dividend_mention = True
-                                    if 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
+                                        break
+                                except ValueError:
+                                    pass
+                            elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
+                                ann_date_str = ann.get('an_dt', '')
+                                try:
+                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
                                         is_agm = True
-                            except ValueError:
-                                pass
+                                        break
+                                except ValueError:
+                                    pass
 
                     if has_dividend_mention or is_agm:
                         found_amount = None
@@ -713,32 +700,6 @@ class NSELib:
                         if is_agm:
                             found_type = 'AGM'
                             item['bm_purpose'] = 'Annual General Meeting'
-
-                            # Parse AGM date from purpose or announcements using the regex from fetch_historical_agm
-                            # item['bm_desc'] and item['bm_purpose'] might contain it
-                            agm_date_found = None
-                            date_matches = re.findall(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ,]+(\d{2,4})', str(desc) + " " + str(purpose))
-                            if not date_matches and symbol in symbol_announcements:
-                                for ann in symbol_announcements[symbol]:
-                                    ann_subj = str(ann.get('subject', '')).lower()
-                                    ann_desc = str(ann.get('desc', '')).lower()
-                                    if 'agm' in ann_subj or 'annual general meeting' in ann_subj or 'shareholders meeting' in ann_subj:
-                                        date_matches = re.findall(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ,]+(\d{2,4})', ann_desc + " " + ann_subj)
-                                        if date_matches:
-                                            break
-                            if date_matches:
-                                try:
-                                    d, m, y = date_matches[0]
-                                    if len(y) == 2: y = "20" + y
-                                    if m.isdigit():
-                                        agm_date_found = datetime.strptime(f"{d}-{m}-{y}", "%d-%m-%Y").date()
-                                    else:
-                                        agm_date_found = datetime.strptime(f"{d}-{m[:3]}-{y}", "%d-%b-%Y").date()
-                                except:
-                                    pass
-
-                            if agm_date_found:
-                                item['agm_date'] = agm_date_found
 
                         # First try mapping to CA data for dates
                         if symbol and symbol in symbol_ca_map:
@@ -864,9 +825,9 @@ class NSELib:
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
                         # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
-                        # We only scrape PDFs if the AMOUNT is missing. We do not scrape PDFs just to find a Record Date,
-                        # because Record Dates are natively captured from the CorporateAction table later.
-                        if found_amount is None and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
+                        # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
+                        # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
+                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
@@ -877,7 +838,7 @@ class NSELib:
                                     found_record_date = pdf_record_date
 
                             # Fallback 4: Cross-reference with global corporate announcements for the actual outcome PDF
-                            if found_amount is None:
+                            if found_amount is None or found_record_date is None:
                                 sym = item.get('SYMBOL', item.get('bm_symbol'))
                                 if sym and symbol_announcements.get(sym):
                                     for ann in symbol_announcements[sym]:
@@ -915,8 +876,7 @@ class NSELib:
                     'bm_date': 'MEETING DATE',
                     'bm_timestamp': 'BROADCAST DATE',
                     'sysTime': 'SYSTIME',
-                    'ATTACHMENT': 'ATTACHMENT',
-                    'agm_date': 'agm_date'
+                    'ATTACHMENT': 'ATTACHMENT'
                 }
                 df = df.rename(columns=mapping)
                 return df

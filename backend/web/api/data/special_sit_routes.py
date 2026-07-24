@@ -290,11 +290,14 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
         if upcoming_bms:
             bm = upcoming_bms[0]
             if bm.meeting_date:
-                 board_meeting_date = bm.meeting_date.isoformat()
+                 board_meeting_date = bm.meeting_date.strftime('%Y-%m-%dT%H:%M:%S')
             else:
                  # DO NOT fallback to broadcast_date or date for the 'Upcoming Meeting' filter,
                  # as it represents when the intimation was received, not when the meeting actually is.
                  board_meeting_date = None
+
+            if board_meeting_date is None and bm.date:
+                 board_meeting_date = bm.date.strftime('%Y-%m-%dT%H:%M:%S')
 
             if bm.broadcast_date:
                  broadcast_date = bm.broadcast_date.strftime('%Y-%m-%dT%H:%M:%S')
@@ -309,6 +312,15 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_amount = last_div.get('amount')
             last_face_value = last_div.get('face_value') or '-'
             last_purpose = last_div.get('purpose') or '-'
+
+            # If we don't have an upcoming board meeting from the BM table, check if the last action has a future board meeting date
+            if board_meeting_date is None and last_div.get('board_meeting_date'):
+                try:
+                    last_bmd = datetime.datetime.fromisoformat(last_div['board_meeting_date']).date()
+                    if last_bmd >= today:
+                        board_meeting_date = last_div['board_meeting_date']
+                except:
+                    pass
 
             # Check if the event is still Active (Ex-Date >= today or Ex-Awaited)
             is_active = False
