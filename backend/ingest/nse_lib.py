@@ -689,14 +689,14 @@ class NSELib:
                             except ValueError:
                                 pass
 
-                    if has_dividend_mention or is_agm:
+                    if is_agm and not has_dividend_mention:
+                        # Process AGM purely for tagging, absolutely NO amount extraction or PDF scraping
+                        item['EXTRACTED_DIVIDEND_TYPE'] = 'AGM'
+                        item['bm_purpose'] = 'Annual General Meeting'
+                    elif has_dividend_mention:
                         found_amount = None
                         found_record_date = None
                         found_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else ('Special' if 'special' in purpose else 'Final'))
-
-                        if is_agm:
-                            found_type = 'AGM'
-                            item['bm_purpose'] = 'Annual General Meeting'
 
                         # First try mapping to CA data for dates
                         if symbol and symbol in symbol_ca_map:
