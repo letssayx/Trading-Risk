@@ -873,14 +873,23 @@ def build_dividend_databank_task(self, force: bool = False):
                         div_type_lower = (syn.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
 
-                        # Fix Deduplication: Check Symbol + Date + Dividend Type to properly deduplicate multiple announcements for exact same event
-                        if syn.get('symbol') == ex.get('symbol') and diff <= window and syn.get('dividend_type') == ex.get('dividend_type'):
+                        # Fix Deduplication: Check Symbol + Date + Dividend/Event Type to properly deduplicate multiple announcements for exact same event
+                        # E.g. General Updates vs Record Date on the same day for Coal India
+                        syn_type = syn.get('dividend_type')
+                        ex_type = ex.get('dividend_type')
+                        if syn.get('symbol') == ex.get('symbol') and diff <= window and syn_type == ex_type:
                             is_duplicate = True
                             if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
                                 ex['_matchedMeeting'] = syn_m
                             if (ex.get('amount') is None or ex.get('amount') == "-") and syn.get('amount') is not None:
                                 ex['amount'] = syn.get('amount')
                                 ex['raw_amount'] = syn.get('raw_amount')
+                            if (ex.get('record_date') is None) and syn.get('record_date') is not None:
+                                ex['record_date'] = syn.get('record_date')
+                                # In India, T+1 settlement means Ex-Date is the same as Record Date
+                                if ex.get('ex_date_obj') is None:
+                                    ex['ex_date_obj'] = syn.get('record_date')
+                                    ex['ex_date'] = syn.get('record_date')
                             # Also pull forward agm_date if not present
                             if ex.get('agm_date') is None and syn.get('agm_date') is not None:
                                 ex['agm_date'] = syn.get('agm_date')
@@ -916,6 +925,19 @@ def build_dividend_databank_task(self, force: bool = False):
                                 syn['ex_date'] = off.get('ex_date')
                             if off.get('record_date'):
                                 syn['record_date'] = off.get('record_date')
+                                # In India T+1, if we just set the record date on the synthetic row and it still lacks an ex-date, set it
+                                if syn.get('ex_date_obj') is None:
+                                    # Record date from CA might be a string like '04-Sep-2026' or datetime.date
+                                    # we need to make sure we set ex_date_obj to a valid date or datetime string
+                                    syn_rd = off.get('record_date')
+                                    if isinstance(syn_rd, str):
+                                        try:
+                                            syn['ex_date_obj'] = datetime.datetime.strptime(syn_rd, "%d-%b-%Y").date()
+                                        except ValueError:
+                                            syn['ex_date_obj'] = syn_rd
+                                    else:
+                                        syn['ex_date_obj'] = syn_rd
+                                    syn['ex_date'] = syn_rd
                             if off.get('agm_date'):
                                 syn['agm_date'] = off.get('agm_date')
 

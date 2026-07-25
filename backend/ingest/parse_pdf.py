@@ -175,6 +175,10 @@ def extract_amount_from_pdf(url):
                     if amount is not None and record_date is not None:
                         break
 
+        # Since India now has T+1 settlement, if a record date is announced, the ex-date is exactly the same
+        # Downstream `tasks.py` sets the `ex_date` using the `record_date` we return here if `ex_date` is empty.
+
+
     except ImportError:
         logger.debug("pdfplumber not installed, skipping PDF parsing.")
     except Exception as e:
