@@ -651,6 +651,11 @@ class NSELib:
                 seen_events = set()
 
                 for item in data:
+                    dedup_key = f"{item.get('bm_symbol')}_{item.get('bm_date')}_{item.get('bm_purpose')}"
+                    if dedup_key in seen_events:
+                        continue
+                    seen_events.add(dedup_key)
+
                     item['EXTRACTED_DIVIDEND_AMOUNT'] = None
                     item['EXTRACTED_DIVIDEND_TYPE'] = None
                     item['EXTRACTED_RECORD_DATE'] = None
@@ -866,10 +871,7 @@ class NSELib:
                         if found_record_date:
                             item['EXTRACTED_RECORD_DATE'] = found_record_date
 
-                    dedup_key = f"{item.get('bm_symbol')}_{item.get('bm_date')}_{item.get('bm_purpose')}"
-                    if dedup_key not in seen_events:
-                        seen_events.add(dedup_key)
-                        enriched_data.append(item)
+                    enriched_data.append(item)
 
                 df = pd.DataFrame(enriched_data)
                 mapping = {
