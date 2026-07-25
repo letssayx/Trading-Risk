@@ -25,9 +25,8 @@ def extract_amount_from_pdf(url):
 
         logger.info(f"Downloading PDF for parsing: {url}")
 
-        # Use a session to persist cookies which sometimes NSE requires
-        session = requests.Session()
-        # Initial request intentionally has a very short timeout to avoid hanging if the site is slow
+        from curl_cffi import requests as curl_requests
+        session = curl_requests.Session(impersonate="chrome110")
         try:
             session.get("https://www.nseindia.com", headers=headers, timeout=2)
         except Exception as e:

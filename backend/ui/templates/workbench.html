@@ -602,7 +602,9 @@
                                     <th style="background: #2b3a4a;">Face Value</th>
                                     <th style="background: #2b3a4a;">Purpose</th>
                                     <th style="background: #2b3a4a;">Amount</th>
-                                    <th style="background: #1a1a1a;">Upcoming<br>Meeting</th>
+                                    <th style="background: #2b3a4a;">AGM Date</th>
+                                    <th style="background: #2b3a4a;">AGM Ann.</th>
+                                    <th style="background: #1a1a1a;">Board Meeting<br>Date</th>
                                     <th style="background: #1a1a1a;">Broadcast<br>Date & Time</th>
                                     <th>Is above 2%<br>(Extra-ordinary)</th>
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
@@ -1273,7 +1275,6 @@
                                 <tr>
                                     <th>BROADCAST DATE</th>
                                     <th>BOARD MEETING DATE</th>
-                                    <th>MEETING PURPOSE</th>
                                     <th style="cursor: pointer;" onclick="sortDividends('ex_date')">EX-DATE <span id="sort-icon-ex_date">▼</span></th>
                                     <th style="cursor: pointer;" onclick="sortDividends('symbol')">SYMBOL <span id="sort-icon-symbol"></span></th>
                                     <th>AMOUNT</th>
@@ -3961,13 +3962,12 @@ function renderDividendsData() {
             tr.innerHTML = `
                 <td>${bcdDisplay}</td>
                 <td>${bmdDisplay}</td>
-                <td style="white-space:normal; max-width:200px;">${bmPurpose}</td>
                 <td>${d.ex_date || '-'}</td>
                 <td><strong style="color: #4da6ff;">${series}</strong></td>
                 <td style="color: #3176B8;">${amount}</td>
                 <td>${typeBadge}</td>
                 <td>${faceValue}</td>
-                <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
+                <td style="white-space:normal; max-width:400px;">${fullPurpose !== '-' ? fullPurpose : bmPurpose}</td>
                 <td>${d.record_date || '-'}</td>
             `;
 

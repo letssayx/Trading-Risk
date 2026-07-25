@@ -550,6 +550,15 @@ class NSELib:
                 if not data:
                      return pd.DataFrame()
 
+                dedup_bm = []
+                seen_bm = set()
+                for item in data:
+                    dedup_key = f"{item.get('bm_symbol')}_{item.get('bm_date')}_{item.get('bm_purpose')}"
+                    if dedup_key not in seen_bm:
+                        seen_bm.add(dedup_key)
+                        dedup_bm.append(item)
+                data = dedup_bm
+
                 # Get all CA events globally in one request rather than N+1
                 ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
                 ca_resp = self.get(ca_url)
@@ -597,7 +606,8 @@ class NSELib:
                             subj = str(ann.get('subject', '')).lower()
                             desc = str(ann.get('desc', '')).lower()
                             if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'shareholders meeting' in desc:
-                                agm_announcements.append(ann)
+                                if 'dividend' in subj or 'dividend' in desc:
+                                    agm_announcements.append(ann)
                     except Exception as e:
                         logger.error(f"Failed to parse AGM announcements: {e}")
 
@@ -677,7 +687,7 @@ class NSELib:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
                                         has_dividend_mention = True
                                         break
                                 except ValueError:
@@ -686,7 +696,7 @@ class NSELib:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
                                         is_agm = True
                                         break
                                 except ValueError:
@@ -755,12 +765,12 @@ class NSELib:
                                 bm_date_obj = None
 
                             for ann in symbol_announcements[symbol]:
-                                # Check if announcement is within 180 days of board meeting
+                                # Check if announcement is strictly within 0-3 days of board meeting
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     # Format: "16-Apr-2026 13:07:29"
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
+                                    if bm_date_obj and 0 <= (ann_date_obj - bm_date_obj).days <= 3:
                                         attchmntText = ann.get('attchmntText', '')
 
                                         # Extract Amount
@@ -901,7 +911,18 @@ class NSELib:
                 data = resp.json()
                 if not data:
                      return pd.DataFrame()
-                df = pd.DataFrame(data)
+
+                dedup_data = []
+                seen_events = set()
+                for item in data:
+                    # Some endpoints return identical broadcasts, deduplicate by Symbol + Date + Subject/Purpose
+                    # For CA, date usually refers to exDate or broadcastDate. We use caBroadcastDate if available.
+                    dedup_key = f"{item.get('symbol')}_{item.get('exDate') or item.get('caBroadcastDate')}_{item.get('subject')}"
+                    if dedup_key not in seen_events:
+                        seen_events.add(dedup_key)
+                        dedup_data.append(item)
+
+                df = pd.DataFrame(dedup_data)
                 # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
                 mapping = {
                     'symbol': 'SYMBOL',

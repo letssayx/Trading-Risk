@@ -552,6 +552,15 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                   if spot and h.get('amount'):
                        h['dividend_yield'] = round((h['amount'] / spot) * 100, 2)
 
+        last_agm_date = None
+        last_agm_announcement_date = None
+        if history:
+            for h in history:
+                if h.get('agm_date'):
+                    last_agm_date = h.get('agm_date')
+                    last_agm_announcement_date = h.get('agm_announcement_date')
+                    break
+
         if history or board_meeting_date or expected_amount or expected_highly_likely != "-":
             results.append({
                 "symbol": sym,
@@ -564,6 +573,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 "last_amount": last_amount,
                 "last_face_value": last_face_value,
                 "last_purpose": last_purpose,
+                "last_agm_date": last_agm_date,
+                "last_agm_announcement_date": last_agm_announcement_date,
                 "is_above_2_percent": is_above_2_percent,
                 "board_meeting_date": board_meeting_date,
                 "broadcast_date": broadcast_date,

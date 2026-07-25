@@ -297,16 +297,16 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
 
             logs = db.query(ImportLog).filter(
                 and_(
-                    ImportLog.date >= start_date,
-                    ImportLog.date <= end_date,
+                    ImportLog.import_date >= start_date,
+                    ImportLog.import_date <= end_date,
                     ImportLog.status == 'SUCCESS'
                 )
             ).all()
 
             for log in logs:
-                if log.date not in completed_map:
-                    completed_map[log.date] = set()
-                completed_map[log.date].add(log.pattern)
+                if log.import_date not in completed_map:
+                    completed_map[log.import_date] = set()
+                completed_map[log.import_date].add(log.table_name)
         except Exception as e:
             logger.warning(f"Could not pre-fetch import logs: {e}")
         finally:
@@ -755,7 +755,9 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 if a_date and a_date >= m_date:
                                     diff_days = abs((a_date - m_date).days)
-                                    if diff_days <= 180:
+                                    div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
+                                    window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                    if diff_days <= window:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
                                             a['amount'] = m.extracted_dividend_amount
@@ -774,7 +776,9 @@ def build_dividend_databank_task(self, force: bool = False):
                                         meet_date = m.meeting_date
                                         if hasattr(meet_date, 'date'): meet_date = meet_date.date()
                                         diff_days = abs((b_date - meet_date).days)
-                                        if diff_days > 30: is_time_match = False
+                                        div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
+                                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                        if diff_days > window: is_time_match = False
 
                                     if is_time_match:
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
@@ -866,7 +870,9 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if syn_date != datetime.date.min and ex_date != datetime.date.min:
                         diff = abs((syn_date - ex_date).days)
-                        if diff <= 60 and syn.get('dividend_type') == ex.get('dividend_type'):
+                        div_type_lower = (syn.get('dividend_type') or '').lower()
+                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        if diff <= window and syn.get('dividend_type') == ex.get('dividend_type'):
                             is_duplicate = True
                             if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
                                 ex['_matchedMeeting'] = syn_m
@@ -888,7 +894,9 @@ def build_dividend_databank_task(self, force: bool = False):
                     off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('date'))
                     if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
                         diff_days = (off_date_val - syn_date_val).days
-                        if -10 <= diff_days <= 180 and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') == '-' or off.get('dividend_type') == '-'):
+                        div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
+                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') == '-' or off.get('dividend_type') == '-'):
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
@@ -984,7 +992,10 @@ def build_dividend_databank_task(self, force: bool = False):
                                 break
 
                             # If no exact date match, check if it's an awaited record we are updating
-                            if row.is_awaited and abs((row.date - final_date).days) < 60:
+                            # Use dynamic windows: 180 for Final/Bonus/Split, 45 for Interim/Special
+                            div_type_lower = (row.dividend_type or '').lower()
+                            window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                            if row.is_awaited and abs((row.date - final_date).days) <= window:
                                 match = row
                                 break
 
