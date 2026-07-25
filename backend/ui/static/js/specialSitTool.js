@@ -1468,6 +1468,8 @@ function renderSSDividends() {
 
         let lastFaceValueHtml = (item.last_face_value !== undefined && item.last_face_value !== null) ? item.last_face_value : '-';
         let lastPurposeHtml = (item.last_purpose) ? item.last_purpose : '-';
+        let lastAgmDateHtml = item.last_agm_date || '-';
+        let lastAgmAnnHtml = item.last_agm_announcement_date || '-';
 
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
@@ -1483,6 +1485,8 @@ function renderSSDividends() {
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastFaceValueHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastPurposeHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${lastAgmDateHtml}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${lastAgmAnnHtml}</td>
                 <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${bmDateHtml}</td>
                 <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${broadcastDateHtml}</td>
                 ${above2Cell}

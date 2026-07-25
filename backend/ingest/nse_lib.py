@@ -648,6 +648,7 @@ class NSELib:
                             symbol_ca_map[sym].append(ca)
 
                 enriched_data = []
+                seen_events = set()
 
                 for item in data:
                     item['EXTRACTED_DIVIDEND_AMOUNT'] = None
@@ -865,7 +866,10 @@ class NSELib:
                         if found_record_date:
                             item['EXTRACTED_RECORD_DATE'] = found_record_date
 
-                    enriched_data.append(item)
+                    dedup_key = f"{item.get('bm_symbol')}_{item.get('bm_date')}_{item.get('bm_purpose')}"
+                    if dedup_key not in seen_events:
+                        seen_events.add(dedup_key)
+                        enriched_data.append(item)
 
                 df = pd.DataFrame(enriched_data)
                 mapping = {
@@ -901,7 +905,18 @@ class NSELib:
                 data = resp.json()
                 if not data:
                      return pd.DataFrame()
-                df = pd.DataFrame(data)
+
+                dedup_data = []
+                seen_events = set()
+                for item in data:
+                    # Some endpoints return identical broadcasts, deduplicate by Symbol + Date + Subject/Purpose
+                    # For CA, date usually refers to exDate or broadcastDate. We use caBroadcastDate if available.
+                    dedup_key = f"{item.get('symbol')}_{item.get('exDate') or item.get('caBroadcastDate')}_{item.get('subject')}"
+                    if dedup_key not in seen_events:
+                        seen_events.add(dedup_key)
+                        dedup_data.append(item)
+
+                df = pd.DataFrame(dedup_data)
                 # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
                 mapping = {
                     'symbol': 'SYMBOL',
