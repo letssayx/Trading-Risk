@@ -606,7 +606,8 @@ class NSELib:
                             subj = str(ann.get('subject', '')).lower()
                             desc = str(ann.get('desc', '')).lower()
                             if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'shareholders meeting' in desc:
-                                agm_announcements.append(ann)
+                                if 'dividend' in subj or 'dividend' in desc:
+                                    agm_announcements.append(ann)
                     except Exception as e:
                         logger.error(f"Failed to parse AGM announcements: {e}")
 
@@ -686,7 +687,7 @@ class NSELib:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
                                         has_dividend_mention = True
                                         break
                                 except ValueError:
@@ -695,7 +696,7 @@ class NSELib:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
                                         is_agm = True
                                         break
                                 except ValueError:
@@ -764,12 +765,12 @@ class NSELib:
                                 bm_date_obj = None
 
                             for ann in symbol_announcements[symbol]:
-                                # Check if announcement is within 180 days of board meeting
+                                # Check if announcement is strictly within 0-3 days of board meeting
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     # Format: "16-Apr-2026 13:07:29"
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
+                                    if bm_date_obj and 0 <= (ann_date_obj - bm_date_obj).days <= 3:
                                         attchmntText = ann.get('attchmntText', '')
 
                                         # Extract Amount
