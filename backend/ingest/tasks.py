@@ -872,13 +872,18 @@ def build_dividend_databank_task(self, force: bool = False):
                         diff = abs((syn_date - ex_date).days)
                         div_type_lower = (syn.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                        if diff <= window and syn.get('dividend_type') == ex.get('dividend_type'):
+
+                        # Fix Deduplication: Check Symbol + Date + Dividend Type to properly deduplicate multiple announcements for exact same event
+                        if syn.get('symbol') == ex.get('symbol') and diff <= window and syn.get('dividend_type') == ex.get('dividend_type'):
                             is_duplicate = True
                             if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
                                 ex['_matchedMeeting'] = syn_m
                             if (ex.get('amount') is None or ex.get('amount') == "-") and syn.get('amount') is not None:
                                 ex['amount'] = syn.get('amount')
                                 ex['raw_amount'] = syn.get('raw_amount')
+                            # Also pull forward agm_date if not present
+                            if ex.get('agm_date') is None and syn.get('agm_date') is not None:
+                                ex['agm_date'] = syn.get('agm_date')
                             break
                 if not is_duplicate:
                     dedup_syns.append(syn)
@@ -903,6 +908,17 @@ def build_dividend_databank_task(self, force: bool = False):
 
                             syn_m = syn.get('_matchedMeeting')
                             off_m = off.get('_matchedMeeting')
+
+                            # strictly unify ex_date and record_date into the synthetic row
+                            # when a corporate action matches a board meeting, the corporate action carries the official dates
+                            if off.get('ex_date_obj'):
+                                syn['ex_date_obj'] = off.get('ex_date_obj')
+                                syn['ex_date'] = off.get('ex_date')
+                            if off.get('record_date'):
+                                syn['record_date'] = off.get('record_date')
+                            if off.get('agm_date'):
+                                syn['agm_date'] = off.get('agm_date')
+
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
@@ -1043,7 +1059,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     match.dps = match.amount
 
                     if h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower():
-                        match.agm_date = h.get('agm_date')
+                        if match.agm_date is None:
+                            match.agm_date = h.get('agm_date')
                         match.agm_announcement_date = final_date
 
                     if h.get('face_value') is not None:
