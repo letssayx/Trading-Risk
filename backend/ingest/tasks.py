@@ -297,16 +297,16 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
 
             logs = db.query(ImportLog).filter(
                 and_(
-                    ImportLog.date >= start_date,
-                    ImportLog.date <= end_date,
+                    ImportLog.import_date >= start_date,
+                    ImportLog.import_date <= end_date,
                     ImportLog.status == 'SUCCESS'
                 )
             ).all()
 
             for log in logs:
-                if log.date not in completed_map:
-                    completed_map[log.date] = set()
-                completed_map[log.date].add(log.pattern)
+                if log.import_date not in completed_map:
+                    completed_map[log.import_date] = set()
+                completed_map[log.import_date].add(log.table_name)
         except Exception as e:
             logger.warning(f"Could not pre-fetch import logs: {e}")
         finally:

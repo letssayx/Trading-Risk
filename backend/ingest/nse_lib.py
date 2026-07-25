@@ -550,6 +550,15 @@ class NSELib:
                 if not data:
                      return pd.DataFrame()
 
+                dedup_bm = []
+                seen_bm = set()
+                for item in data:
+                    dedup_key = f"{item.get('bm_symbol')}_{item.get('bm_date')}_{item.get('bm_purpose')}"
+                    if dedup_key not in seen_bm:
+                        seen_bm.add(dedup_key)
+                        dedup_bm.append(item)
+                data = dedup_bm
+
                 # Get all CA events globally in one request rather than N+1
                 ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
                 ca_resp = self.get(ca_url)
@@ -648,14 +657,8 @@ class NSELib:
                             symbol_ca_map[sym].append(ca)
 
                 enriched_data = []
-                seen_events = set()
 
                 for item in data:
-                    dedup_key = f"{item.get('bm_symbol')}_{item.get('bm_date')}_{item.get('bm_purpose')}"
-                    if dedup_key in seen_events:
-                        continue
-                    seen_events.add(dedup_key)
-
                     item['EXTRACTED_DIVIDEND_AMOUNT'] = None
                     item['EXTRACTED_DIVIDEND_TYPE'] = None
                     item['EXTRACTED_RECORD_DATE'] = None
