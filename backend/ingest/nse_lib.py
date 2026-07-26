@@ -752,9 +752,14 @@ class NSELib:
                                 desc_ann = str(ann.get('desc', '')).lower()
                                 text_lower = attchmntText.lower() + " " + subj + " " + desc_ann
                                 if 'interim' in text_lower or 'intdiv' in text_lower or 'int div' in text_lower: found_type = 'Interim'
-                                elif 'final' in text_lower or 'findiv' in text_lower or 'fin div' in text_lower: found_type = 'Final'
+                                elif 'final' in text_lower or 'finai' in text_lower or 'findiv' in text_lower or 'fin div' in text_lower: found_type = 'Final'
                                 elif 'special' in text_lower: found_type = 'Special'
                                 elif 'quarterly' in text_lower: found_type = 'Interim'
+
+                                # Add AGM explicit regex check for text fallback if XML fails/404s
+                                if re.search(r'\b(agm|annual general meeting)\b', text_lower):
+                                    found_type = 'AGM'
+
 
                                 date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
                                 record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
@@ -856,7 +861,8 @@ class NSELib:
 
                             if found_amount:
                                 if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
-                                elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower(): found_type = 'Final'
+                                elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
+                                elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()): found_type = 'AGM'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
                         if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:

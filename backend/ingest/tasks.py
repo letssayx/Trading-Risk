@@ -898,6 +898,25 @@ def build_dividend_databank_task(self, force: bool = False):
                                 is_potential_duplicate = True
                                 upgrade_ex_type = syn_type
 
+                        # STRICT Deduplication Check:
+                        # Do NOT merge if they both have explicit, differing record dates,
+                        # OR if they both have explicit, differing amounts.
+                        # This prevents squashing Interim and Final dividends announced on the same day into one row.
+
+                        syn_amount = syn.get('amount')
+                        ex_amount = ex.get('amount')
+                        syn_rec = syn.get('record_date')
+                        ex_rec = ex.get('record_date')
+
+                        amounts_conflict = (syn_amount is not None and str(syn_amount) != '-' and
+                                            ex_amount is not None and str(ex_amount) != '-' and
+                                            syn_amount != ex_amount)
+
+                        records_conflict = (syn_rec is not None and ex_rec is not None and syn_rec != ex_rec)
+
+                        if amounts_conflict or records_conflict:
+                            is_potential_duplicate = False
+
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
                             if upgrade_syn_type:
