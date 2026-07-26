@@ -885,17 +885,20 @@ def build_dividend_databank_task(self, force: bool = False):
 
                         # Only allow fallback to general 'Dividend' / '-' if the other is a specific dividend type,
                         # but do not merge 'Interim' with 'Final'
+
+                        is_potential_duplicate = is_duplicate_event
                         upgrade_syn_type = None
                         upgrade_ex_type = None
-                        if not is_duplicate_event:
+
+                        if not is_potential_duplicate:
                             if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
-                                is_duplicate_event = True
+                                is_potential_duplicate = True
                                 upgrade_syn_type = ex_type
                             elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
-                                is_duplicate_event = True
+                                is_potential_duplicate = True
                                 upgrade_ex_type = syn_type
 
-                        if syn.get('symbol') == ex.get('symbol') and diff <= window and is_duplicate_event:
+                        if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
                             if upgrade_syn_type:
                                 syn['dividend_type'] = upgrade_syn_type
@@ -1129,6 +1132,9 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.purpose = h.get('purpose')
                     if h.get('record_date'):
                         match.record_date = h.get('record_date')
+                        # Ensure Ex-Date gets populated from Record Date at the DB level too
+                        if not match.ex_date:
+                            match.ex_date = h.get('record_date')
                     match.is_awaited = is_awaited
                     updated_count += 1
                 else:
@@ -1136,7 +1142,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     new_item = DividendDatabank(
                         date=final_date,
                         symbol=sym.upper(),
-                        ex_date=ex_date_val,
+                        ex_date=ex_date_val or h.get('record_date'),
                         announcement_date=h.get('announcement_date_obj'),
                         broadcast_date=h.get('broadcast_date'),
                         dividend_type=h.get('dividend_type'),
