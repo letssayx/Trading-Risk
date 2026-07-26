@@ -914,21 +914,6 @@ def build_dividend_databank_task(self, force: bool = False):
                             if syn.get('record_date') is not None:
                                 if ex.get('record_date') is None:
                                     ex['record_date'] = syn.get('record_date')
-
-                            # In India, T+1 settlement means Ex-Date is the same as Record Date
-                            # Check ex-date explicitly outside the record_date condition
-                            if ex.get('ex_date_obj') is None and ex.get('record_date') is not None:
-                                syn_rd = ex.get('record_date')
-                                if isinstance(syn_rd, str):
-                                    import datetime
-                                    try:
-                                        ex['ex_date_obj'] = datetime.datetime.strptime(syn_rd, "%d-%b-%Y").date()
-                                    except ValueError:
-                                        ex['ex_date_obj'] = syn_rd
-                                else:
-                                    ex['ex_date_obj'] = syn_rd
-                                ex['ex_date'] = syn_rd
-
                             # Also pull forward agm_date if not present
                             if ex.get('agm_date') is None and syn.get('agm_date') is not None:
                                 ex['agm_date'] = syn.get('agm_date')
@@ -965,17 +950,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             if off.get('record_date'):
                                 syn['record_date'] = off.get('record_date')
                                 # In India T+1, if we just set the record date on the synthetic row and it still lacks an ex-date, set it
-                                if syn.get('ex_date_obj') is None:
-                                    syn_rd = off.get('record_date')
-                                    if isinstance(syn_rd, str):
-                                        import datetime
-                                        try:
-                                            syn['ex_date_obj'] = datetime.datetime.strptime(syn_rd, "%d-%b-%Y").date()
-                                        except ValueError:
-                                            syn['ex_date_obj'] = syn_rd
-                                    else:
-                                        syn['ex_date_obj'] = syn_rd
-                                    syn['ex_date'] = syn_rd
+
                             if off.get('agm_date'):
                                 syn['agm_date'] = off.get('agm_date')
 
@@ -1002,6 +977,21 @@ def build_dividend_databank_task(self, force: bool = False):
                     if t != datetime.date.min: return t
                 t = safe_date(x.get('date'))
                 return t
+
+
+            # Universal T+1 Ex-Date Logic (India Market)
+            for action in final_actions:
+                if action.get('ex_date_obj') is None and action.get('record_date') is not None:
+                    rec_date = action.get('record_date')
+                    if isinstance(rec_date, str):
+                        import datetime
+                        try:
+                            action['ex_date_obj'] = datetime.datetime.strptime(rec_date, "%d-%b-%Y").date()
+                        except ValueError:
+                            action['ex_date_obj'] = rec_date
+                    else:
+                        action['ex_date_obj'] = rec_date
+                    action['ex_date'] = rec_date
 
             final_actions.sort(key=final_sort_key, reverse=True)
 
