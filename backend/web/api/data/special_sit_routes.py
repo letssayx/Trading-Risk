@@ -522,15 +522,30 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
              if fy:
                   fy_groups[fy].append(h)
 
-        # FY Aggregates
+        # FY Aggregates and AGM merging
         fy_totals = {}
         for fy, items in fy_groups.items():
              tot_div = sum((i.get('amount') or 0) for i in items)
              eps_val = next((i.get('eps') for i in items if i.get('eps') is not None), None)
+
+             # Map standalone AGM rows to the Final Dividend row in the same FY
+             agm_event = next((i for i in items if i.get('dividend_type') == 'AGM'), None)
+             final_div_event = next((i for i in items if i.get('dividend_type') == 'Final'), None)
+
+             if agm_event and final_div_event and agm_event != final_div_event:
+                 # Pull AGM dates into Final dividend row
+                 if not final_div_event.get('agm_date') and agm_event.get('agm_date'):
+                     final_div_event['agm_date'] = agm_event.get('agm_date')
+                 if not final_div_event.get('agm_announcement_date') and agm_event.get('agm_announcement_date'):
+                     final_div_event['agm_announcement_date'] = agm_event.get('agm_announcement_date')
+
              fy_totals[fy] = {
                   'total_dps': tot_div,
                   'eps': eps_val
              }
+
+        # Filter out standalone AGM rows now that they are merged, but keep them if they are the ONLY record for that year
+        history = [h for h in history if h.get('dividend_type') != 'AGM' or not next((i for i in fy_groups.get(h.get('fy_year'), []) if i.get('dividend_type') == 'Final'), None)]
 
         for h in history:
              fy = h.get('fy_year')

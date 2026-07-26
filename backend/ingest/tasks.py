@@ -818,11 +818,13 @@ def build_dividend_databank_task(self, force: bool = False):
 
                         if is_agm:
                              # Try to find a date in the purpose like 'AGM - 15-Jul-2026'
-                             date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
+                             date_match = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
+                             if not date_match:
+                                 date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
                              if date_match:
                                  try:
                                      from dateutil.parser import parse
-                                     agm_date = parse(date_match.group(1)).date()
+                                     agm_date = parse(date_match.group(1).replace('st ', ' ').replace('nd ', ' ').replace('rd ', ' ').replace('th ', ' ')).date()
                                  except:
                                      pass
 
@@ -891,12 +893,14 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
-                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
+                            if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                upgrade_syn_type = ex_type
-                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
+                                if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
+                                    upgrade_syn_type = ex_type
+                            elif ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                upgrade_ex_type = syn_type
+                                if ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
+                                    upgrade_ex_type = syn_type
 
                         # STRICT Deduplication Check:
                         # Do NOT merge if they both have explicit, differing record dates,
@@ -916,6 +920,11 @@ def build_dividend_databank_task(self, force: bool = False):
 
                         if amounts_conflict or records_conflict:
                             is_potential_duplicate = False
+
+                        # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
+                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
+                            if not amounts_conflict and not records_conflict:
+                                is_potential_duplicate = True
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True

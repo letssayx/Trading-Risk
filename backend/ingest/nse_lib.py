@@ -708,7 +708,7 @@ class NSELib:
                                     pass
 
                     if has_dividend_mention or is_agm:
-                        base_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose or 'quarterly' in purpose or 'quarterly' in desc else ('Special' if 'special' in purpose else 'Final'))
+                        base_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose or 'quarterly' in purpose or 'quarterly' in desc else ('Special' if 'special' in purpose else 'Dividend'))
                         if is_agm:
                             base_type = 'AGM'
                             item['bm_purpose'] = 'Annual General Meeting'
@@ -730,10 +730,18 @@ class NSELib:
                                 if xbrl_matches:
                                     found_amount = sum(float(m) for m in xbrl_matches)
 
-                                if 'DateOfAnnualGeneralMeeting' in attchmntText:
-                                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
+                                if 'DateOfAnnualGeneralMeeting' in attchmntText or 'dateofannualgeneralmeeting' in attchmntText.lower():
+                                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE)
                                     if agm_date_match:
+                                        new_item['EXTRACTED_AGM_DATE'] = agm_date_match.group(1)
                                         new_item['bm_purpose'] = str(new_item.get('bm_purpose') or '') + f" - AGM - {agm_date_match.group(1)}"
+
+                                # Also check if standard date mentioned next to AGM
+                                if not new_item.get('EXTRACTED_AGM_DATE'):
+                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4})', text_lower, re.IGNORECASE)
+                                    if fallback_agm:
+                                        new_item['EXTRACTED_AGM_DATE'] = fallback_agm.group(1)
+                                        new_item['bm_purpose'] = str(new_item.get('bm_purpose') or '') + f" - AGM - {fallback_agm.group(1)}"
 
                                 if found_amount is None:
                                     _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
@@ -914,6 +922,7 @@ class NSELib:
                             if 'interim' in text_lower or 'intdiv' in text_lower or 'quarterly' in text_lower: found_type = 'Interim'
                             elif 'final' in text_lower or 'findiv' in text_lower: found_type = 'Final'
                             elif 'special' in text_lower: found_type = 'Special'
+                            else: found_type = 'Dividend' # Don't guess Final
 
                             xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?Rs\.?\s*(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
                             if not xbrl_matches:
@@ -925,10 +934,18 @@ class NSELib:
                             if is_agm:
                                 found_type = 'AGM'
                                 bm_purpose = 'Annual General Meeting'
+                                agm_date = None
                                 if 'dateofannualgeneralmeeting' in attchmntText:
-                                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
+                                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE)
                                     if agm_date_match:
-                                        bm_purpose += f" - AGM - {agm_date_match.group(1)}"
+                                        agm_date = agm_date_match.group(1)
+                                        bm_purpose += f" - AGM - {agm_date}"
+
+                                if not agm_date:
+                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4})', text_lower, re.IGNORECASE)
+                                    if fallback_agm:
+                                        agm_date = fallback_agm.group(1)
+                                        bm_purpose += f" - AGM - {agm_date}"
 
                             if found_amount is None:
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)

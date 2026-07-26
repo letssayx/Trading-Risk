@@ -1482,6 +1482,7 @@ function renderSSDividends() {
                 ${futuresHTML}
                 <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${bmDateHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastFaceValueHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastPurposeHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
