@@ -782,13 +782,13 @@ class NSELib:
                                             if xbrl_matches:
                                                 found_amount = sum(float(m) for m in xbrl_matches)
 
-                                            # Also try standard AGM Date extraction here if the event is an AGM
-                                            if is_agm and 'DateOfAnnualGeneralMeeting' in attchmntText:
+                                            # Also try standard AGM Date extraction here
+                                            if 'DateOfAnnualGeneralMeeting' in attchmntText:
                                                 agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
                                                 if agm_date_match:
                                                     # We append this explicitly to the bm_purpose so it can be picked up by the databank tasks
                                                     # similar to how standard AGM dates are passed
-                                                    item['bm_purpose'] = f"Annual General Meeting - AGM - {agm_date_match.group(1)}"
+                                                    item['bm_purpose'] = str(item.get('bm_purpose') or '') + f" - AGM - {agm_date_match.group(1)}"
 
                                             if found_amount is None:
                                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
@@ -805,21 +805,20 @@ class NSELib:
 
                                         # Extract Record Date
                                         if found_record_date is None:
-                                            # Extract Record Date and Explicit Ex-Date from Announcement Text
+                                            # "Record date for the purpose of Dividend is 14-May-2026."
                                             date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
 
-                                            ex_date_match = re.search(r'(?:ex-date|ex date).*?(\d{1,2}-[a-zA-Z]{3}-\d{4})', attchmntText, re.IGNORECASE)
-                                            if ex_date_match:
-                                                found_record_date = ex_date_match.group(1)
-
-                                            # Actually NSE announcements usually only announce Record Date due to T+1 settlement
-                                            # If Record Date is announced, Ex-Date is exactly the same day now in India.
+                                            # Try explicit XBRL tag if present in raw text first
+                                            record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
+                                            if record_date_match:
+                                                found_record_date = record_date_match.group(1)
 
                                             if not found_record_date:
-                                                record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                                                if record_date_match:
-                                                    found_record_date = record_date_match.group(1)
-                                            else:
+                                                ex_date_match = re.search(r'(?:ex-date|ex date).*?(\d{1,2}-[a-zA-Z]{3}-\d{4})', attchmntText, re.IGNORECASE)
+                                                if ex_date_match:
+                                                    found_record_date = ex_date_match.group(1)
+
+                                            if not found_record_date:
                                                 date_match = date_pattern.search(attchmntText)
                                                 if date_match and 'record date' in attchmntText.lower():
                                                     found_record_date = date_match.group(1)
