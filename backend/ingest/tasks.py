@@ -873,14 +873,62 @@ def build_dividend_databank_task(self, force: bool = False):
                         div_type_lower = (syn.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
 
-                        # Fix Deduplication: Check Symbol + Date + Dividend Type to properly deduplicate multiple announcements for exact same event
-                        if syn.get('symbol') == ex.get('symbol') and diff <= window and syn.get('dividend_type') == ex.get('dividend_type'):
+                        # Deduplication Logic: Group by Symbol + Exact Event Type
+                        syn_type = syn.get('dividend_type')
+                        ex_type = ex.get('dividend_type')
+
+                        # Fix Deduplication: General Updates and Record Date announcements happen for the same event.
+                        # Deduplicate them strictly if symbol + div_type matches within window.
+                        # E.g. COALINDIA duplicates have exactly the same symbol and type (like Interim) within days of each other.
+                        # Do NOT merge different dividend types (like Interim and Final) even if they happen on the same day.
+                        is_duplicate_event = (syn_type == ex_type)
+
+                        # Only allow fallback to general 'Dividend' / '-' if the other is a specific dividend type,
+                        # but do not merge 'Interim' with 'Final'
+
+                        is_potential_duplicate = is_duplicate_event
+                        upgrade_syn_type = None
+                        upgrade_ex_type = None
+
+                        if not is_potential_duplicate:
+                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
+                                is_potential_duplicate = True
+                                upgrade_syn_type = ex_type
+                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
+                                is_potential_duplicate = True
+                                upgrade_ex_type = syn_type
+
+                        if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
+                            if upgrade_syn_type:
+                                syn['dividend_type'] = upgrade_syn_type
+                            if upgrade_ex_type:
+                                ex['dividend_type'] = upgrade_ex_type
+
                             if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
                                 ex['_matchedMeeting'] = syn_m
                             if (ex.get('amount') is None or ex.get('amount') == "-") and syn.get('amount') is not None:
                                 ex['amount'] = syn.get('amount')
                                 ex['raw_amount'] = syn.get('raw_amount')
+
+                            if syn.get('record_date') is not None:
+                                if ex.get('record_date') is None:
+                                    ex['record_date'] = syn.get('record_date')
+
+                            # In India, T+1 settlement means Ex-Date is the same as Record Date
+                            # Check ex-date explicitly outside the record_date condition
+                            if ex.get('ex_date_obj') is None and ex.get('record_date') is not None:
+                                syn_rd = ex.get('record_date')
+                                if isinstance(syn_rd, str):
+                                    import datetime
+                                    try:
+                                        ex['ex_date_obj'] = datetime.datetime.strptime(syn_rd, "%d-%b-%Y").date()
+                                    except ValueError:
+                                        ex['ex_date_obj'] = syn_rd
+                                else:
+                                    ex['ex_date_obj'] = syn_rd
+                                ex['ex_date'] = syn_rd
+
                             # Also pull forward agm_date if not present
                             if ex.get('agm_date') is None and syn.get('agm_date') is not None:
                                 ex['agm_date'] = syn.get('agm_date')
@@ -916,6 +964,18 @@ def build_dividend_databank_task(self, force: bool = False):
                                 syn['ex_date'] = off.get('ex_date')
                             if off.get('record_date'):
                                 syn['record_date'] = off.get('record_date')
+                                # In India T+1, if we just set the record date on the synthetic row and it still lacks an ex-date, set it
+                                if syn.get('ex_date_obj') is None:
+                                    syn_rd = off.get('record_date')
+                                    if isinstance(syn_rd, str):
+                                        import datetime
+                                        try:
+                                            syn['ex_date_obj'] = datetime.datetime.strptime(syn_rd, "%d-%b-%Y").date()
+                                        except ValueError:
+                                            syn['ex_date_obj'] = syn_rd
+                                    else:
+                                        syn['ex_date_obj'] = syn_rd
+                                    syn['ex_date'] = syn_rd
                             if off.get('agm_date'):
                                 syn['agm_date'] = off.get('agm_date')
 
@@ -1072,6 +1132,9 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.purpose = h.get('purpose')
                     if h.get('record_date'):
                         match.record_date = h.get('record_date')
+                        # Ensure Ex-Date gets populated from Record Date at the DB level too
+                        if not match.ex_date:
+                            match.ex_date = h.get('record_date')
                     match.is_awaited = is_awaited
                     updated_count += 1
                 else:
@@ -1079,7 +1142,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     new_item = DividendDatabank(
                         date=final_date,
                         symbol=sym.upper(),
-                        ex_date=ex_date_val,
+                        ex_date=ex_date_val or h.get('record_date'),
                         announcement_date=h.get('announcement_date_obj'),
                         broadcast_date=h.get('broadcast_date'),
                         dividend_type=h.get('dividend_type'),
