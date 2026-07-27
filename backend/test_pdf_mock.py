@@ -1,14 +1,7 @@
 import datetime
-from backend.ingest.parse_pdf import extract_amount_from_pdf
-from unittest.mock import patch, MagicMock
+from backend.ingest.nse_lib import NSELib
+import os
 import io
-import requests
 
-class MockResponse:
-    def __init__(self, content, status_code):
-        self.content = content
-        self.status_code = status_code
-        self.headers = {'Content-Type': 'application/pdf'}
+print("Test import success")
 
-# Let's verify that the function runs correctly and handles the tables.
-print("Imports successful")
