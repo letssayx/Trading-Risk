@@ -767,7 +767,7 @@ class NSELib:
                                 # Add AGM explicit regex check for text fallback if XML fails/404s
                                 if re.search(r'\b(agm|annual general meeting)\b', text_lower):
                                     # Don't overwrite if it's already a dividend type we're specifically tracking
-                                    if found_type == 'Dividend':
+                                    if found_type == 'Dividend' and found_amount is None:
                                         found_type = 'AGM'
 
                                 agm_m = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_lower, re.IGNORECASE | re.DOTALL)
@@ -794,7 +794,7 @@ class NSELib:
                                     if date_match and 'record date' in text_lower:
                                         found_record_date = date_match.group(1)
 
-                                if (found_amount is None or found_record_date is None or found_type == 'Dividend' or not new_item.get('EXTRACTED_AGM_DATE')) and bm_date_obj_check and bm_date_obj_check == trade_date:
+                                if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:
                                     attachment_url = str(ann.get('attchmntFile', ''))
                                     if attachment_url.startswith('http'):
                                         pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
@@ -893,9 +893,10 @@ class NSELib:
                             if found_amount or found_type == 'Dividend':
                                 if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
-                                elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()):
-                                    if found_type == 'Dividend': found_type = 'AGM'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
+                                elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()):
+                                    # ONLY override to AGM if we didn't find a dividend amount, otherwise keep it as a Dividend (with potential AGM side-note)
+                                    if found_type == 'Dividend' and found_amount is None: found_type = 'AGM'
 
                             agm_m2 = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_to_search, re.IGNORECASE | re.DOTALL)
                             if agm_m2:
@@ -905,7 +906,7 @@ class NSELib:
                                 except:
                                     pass
 
-                        if (found_amount is None or found_record_date is None or found_type == 'Dividend' or (is_agm and not item.get('EXTRACTED_AGM_DATE'))) and bm_date_obj_check and bm_date_obj_check == trade_date:
+                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
                                 pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
@@ -969,7 +970,8 @@ class NSELib:
 
                             bm_purpose = "General Updates"
                             if is_agm:
-                                found_type = 'AGM'
+                                if found_type == 'Dividend' and found_amount is None:
+                                    found_type = 'AGM'
                                 bm_purpose = 'Annual General Meeting'
                                 agm_date = None
                                 if 'dateofannualgeneralmeeting' in attchmntText:

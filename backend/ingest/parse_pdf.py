@@ -25,7 +25,7 @@ def extract_amount_from_pdf(url):
             'Accept-Language': 'en-US,en;q=0.9',
         }
 
-        logger.info(f"Downloading PDF for parsing: {url}")
+        logger.debug(f"Downloading PDF for parsing: {url}")
 
         from curl_cffi import requests as curl_requests
         session = curl_requests.Session(impersonate="chrome110")
@@ -38,7 +38,7 @@ def extract_amount_from_pdf(url):
         resp = session.get(url, headers=headers, timeout=5)
 
         if resp.status_code == 200 and b'%PDF' in resp.content[:10]:
-            logger.info(f"Successfully downloaded PDF for parsing: {url}")
+            logger.debug(f"Successfully downloaded PDF for parsing: {url}")
             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
                 text = ""
                 tables = []
@@ -83,10 +83,13 @@ def extract_amount_from_pdf(url):
                 snippet = part[:300]
                 _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
 
-                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
-                if m:
-                    val = float(m.group(1))
-                    if val > 0:
+                # Ensure we strictly look for currency or @ symbols, to avoid matching stray numbers like 'on 27th April' where 'n 27' is found
+                m = re.search(r'(?:rs\.?|re\.?|rupees|inr|\u20b9|~|nS?\.|n\s*\.)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
+                m2 = re.search(r'@\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)\s*(?:/-|per\s+share|per\s+equity)', _clean, re.IGNORECASE)
+                match = m or m2
+                if match:
+                    val = float(match.group(1))
+                    if val > 0 and val < 1000: # sanity check to avoid year matching
                         amount = val
                         break
 
@@ -129,7 +132,7 @@ def extract_amount_from_pdf(url):
                     found = False
                     for m in matches2:
                         val = float(m)
-                        if val > 0:
+                        if val > 0 and val < 1000:
                             amount = val
                             found = True
                             break
