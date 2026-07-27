@@ -867,7 +867,7 @@ function exportSSDivXLS() {
     // Main Headers
     wsData.push([
         'Index / Scrip', 'Sector', 'Lot size', 'Spot', 'Future 1', 'Future 2', 'Future 3',
-        'Type', 'Ex-date', 'Amount', 'Upcoming Meeting', 'Broadcast Date & Time',
+        'Type', 'Ex-date', 'Amount', 'Upcoming Meeting', 'Broadcast Date & Time', 'BM Date',
         'Is above 2% (Extra-ordinary)', 'Expected Amount', 'Expected Dividend highly likely',
         'Expected Dividend Less Likely', 'Note'
     ]);
@@ -997,6 +997,8 @@ function exportSSDivXLS() {
 
         let bcastDateCsv = item.broadcast_date ? item.broadcast_date.replace('T', ' ') : '-';
         row.push(bcastDateCsv);
+
+        row.push(item.last_bm_date || '-');
 
         row.push(item.is_above_2_percent ? 'Yes' : 'No');
         let expectedCSV = item.expected_amount ? `${item.expected_amount} (${item.expected_type || 'Interim'})` : '-';
@@ -1403,6 +1405,7 @@ function renderSSDividends() {
 
         let lastAmountHtml = item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-';
         let lastExDateHtml = item.last_ex_date || '-';
+        let lastBmDateHtml = item.last_bm_date || '-';
 
         // Color ex-date and amount blue if it hasn't happened yet (is in the future or today)
         if (item.history && item.history.length > 0) {
@@ -1482,6 +1485,7 @@ function renderSSDividends() {
                 ${futuresHTML}
                 <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
+                <td style="background: rgba(43, 58, 74, 0.4);">${lastBmDateHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastFaceValueHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastPurposeHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
@@ -1549,10 +1553,12 @@ function renderSSDividends() {
 
                 let agmAnnDate = h.agm_announcement_date || '-';
                 let agmDate = h.agm_date || '-';
+                let hBmDate = h.board_meeting_date ? h.board_meeting_date.split('T')[0] : '-';
 
                 histRows += `
                     <tr>
                         <td>${h.ex_date || '-'}</td>
+                        <td>${hBmDate}</td>
                         <td>${h.dividend_type || '-'}</td>
                         <td>${h.face_value !== undefined && h.face_value !== null ? h.face_value : '-'}</td>
                         <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${h.purpose || '-'}">${h.purpose || '-'}</td>
@@ -1580,6 +1586,7 @@ function renderSSDividends() {
                             <thead>
                                 <tr>
                                     <th>Ex-Date</th>
+                                    <th>BM Date</th>
                                     <th>Type</th>
                                     <th>Face Value</th>
                                     <th>Purpose</th>
