@@ -63,7 +63,8 @@ def extract_amount_from_pdf(url):
                     if m:
                         record_date_str = m.group(1).replace('\n', ' ').strip()
                         try:
-                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                            # Use dayfirst=True to avoid ambiguity warnings with formats like DD/MM/YYYY
+                            record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                             break
                         except Exception:
                             record_date = record_date_str
@@ -106,7 +107,7 @@ def extract_amount_from_pdf(url):
                 if agm_m:
                     agm_date_str = agm_m.group(1).replace('\n', ' ').strip()
                     try:
-                        agm_date = pd.to_datetime(agm_date_str).strftime('%Y-%m-%d')
+                        agm_date = pd.to_datetime(agm_date_str, dayfirst=True).strftime('%Y-%m-%d')
                         break
                     except Exception:
                         pass
@@ -170,7 +171,7 @@ def extract_amount_from_pdf(url):
                                 if m:
                                     record_date_str = m.group(1).replace('\n', ' ').strip()
                                     try:
-                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                         break
                                     except Exception:
                                         pass
@@ -182,7 +183,7 @@ def extract_amount_from_pdf(url):
                                         break
                                     except Exception:
                                         try:
-                                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                            record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                             break
                                         except Exception:
                                             pass
@@ -190,7 +191,7 @@ def extract_amount_from_pdf(url):
                                 if m3:
                                     record_date_str = m3.group(1).replace('\n', ' ').strip()
                                     try:
-                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                         break
                                     except Exception:
                                         pass
@@ -198,7 +199,7 @@ def extract_amount_from_pdf(url):
                                 if m4:
                                     record_date_str = m4.group(1).replace('\n', ' ').strip()
                                     try:
-                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                         break
                                     except Exception:
                                         pass
