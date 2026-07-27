@@ -766,7 +766,17 @@ class NSELib:
 
                                 # Add AGM explicit regex check for text fallback if XML fails/404s
                                 if re.search(r'\b(agm|annual general meeting)\b', text_lower):
-                                    found_type = 'AGM'
+                                    # Don't overwrite if it's already a dividend type we're specifically tracking
+                                    if found_type == 'Dividend':
+                                        found_type = 'AGM'
+
+                                agm_m = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_lower, re.IGNORECASE)
+                                if agm_m:
+                                    agm_date_str = agm_m.group(1).replace('\n', ' ').strip()
+                                    try:
+                                        new_item['EXTRACTED_AGM_DATE'] = pd.to_datetime(agm_date_str).strftime('%Y-%m-%d')
+                                    except:
+                                        pass
 
 
                                 date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
@@ -867,20 +877,33 @@ class NSELib:
                                         found_amount = sum(float(m) for m in matches)
                                         break
 
-                            if found_amount:
+                            if found_amount or found_type == 'Dividend':
                                 if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
-                                elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()): found_type = 'AGM'
+                                elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()):
+                                    if found_type == 'Dividend': found_type = 'AGM'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
-                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:
+                            agm_m2 = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_to_search, re.IGNORECASE)
+                            if agm_m2:
+                                agm_date_str2 = agm_m2.group(1).replace('\n', ' ').strip()
+                                try:
+                                    item['EXTRACTED_AGM_DATE'] = pd.to_datetime(agm_date_str2).strftime('%Y-%m-%d')
+                                except:
+                                    pass
+
+                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and bm_date_obj_check and bm_date_obj_check == trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
-                                pdf_amount, pdf_record_date = extract_amount_from_pdf(attachment_url)
+                                pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
                                 if pdf_amount and found_amount is None:
                                     found_amount = pdf_amount
                                 if pdf_record_date and found_record_date is None:
                                     found_record_date = pdf_record_date
+                                if pdf_type and found_type == 'Dividend':
+                                    found_type = pdf_type
+                                if pdf_agm_date:
+                                    item['EXTRACTED_AGM_DATE'] = pdf_agm_date
 
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount

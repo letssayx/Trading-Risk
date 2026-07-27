@@ -306,6 +306,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_div = next((h for h in history if h.get('amount') is not None), history[0])
             last_type = last_div.get('dividend_type') or '-'
             last_ex_date = last_div.get('ex_date') or '-'
+            last_bm_date = last_div.get('board_meeting_date')
+            last_bm_date_str = last_bm_date.strftime('%Y-%m-%d') if last_bm_date else '-'
             last_amount = last_div.get('amount')
             last_face_value = last_div.get('face_value') or '-'
             last_purpose = last_div.get('purpose') or '-'
@@ -585,6 +587,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 "futures": futures[:3], # take up to Future 3
                 "last_type": last_type,
                 "last_ex_date": last_ex_date,
+                "last_bm_date": last_bm_date_str,
                 "last_amount": last_amount,
                 "last_face_value": last_face_value,
                 "last_purpose": last_purpose,
