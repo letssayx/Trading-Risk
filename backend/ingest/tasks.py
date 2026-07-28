@@ -799,15 +799,22 @@ def build_dividend_databank_task(self, force: bool = False):
                         div_type = '-'
                         agm_date = None
                         if 'dividend' in purpose_lower or has_amount:
-                            div_type = 'Dividend'
-                            if 'interim' in purpose_lower: div_type = 'Interim'
-                            if 'special' in purpose_lower: div_type = 'Special'
-                            if 'final' in purpose_lower: div_type = 'Final'
+                            div_type = m.extracted_dividend_type or 'Dividend'
+                            if div_type == 'Dividend' or div_type == '-':
+                                if 'interim' in purpose_lower: div_type = 'Interim'
+                                elif 'special' in purpose_lower: div_type = 'Special'
+                                elif 'final' in purpose_lower: div_type = 'Final'
 
                             if amount is None:
                                 match = re.search(r'(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*\/\-|dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)|dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per|dividend\s*-\s*(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)', purpose_lower)
                                 if match:
                                     amount = next((g for g in match.groups() if g is not None), None)
+
+                            # If it's explicitly an AGM event that just happened to have an amount leaked into it from another record,
+                            # we should respect the AGM tag if the purpose strictly doesn't declare a dividend
+                            if is_agm and 'dividend' not in purpose_lower:
+                                div_type = 'AGM'
+                                amount = None
 
                         elif is_agm and 'dividend' not in purpose_lower and not has_amount:
                             div_type = 'AGM'
@@ -1108,11 +1115,13 @@ def build_dividend_databank_task(self, force: bool = False):
                                 match = row
                                 break
 
-                            # If no exact date match, check if it's an awaited record we are updating
-                            # Use dynamic windows: 180 for Final/Bonus/Split, 45 for Interim/Special
+                            # Strict match for awaited records: ensure they belong to the same event cycle, not just any future event.
                             div_type_lower = (row.dividend_type or '').lower()
                             window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                             if row.is_awaited and abs((row.date - final_date).days) <= window:
+                                # Don't cross-contaminate if both have explicit but differing amounts
+                                if row.amount is not None and h.get('amount') is not None and row.amount != h.get('amount'):
+                                    continue
                                 match = row
                                 break
 
