@@ -960,7 +960,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                 if ex.get('record_date') is None:
                                     ex['record_date'] = syn.get('record_date')
 
-                            if syn.get('dividend_type') and ex.get('dividend_type') in ['Dividend', '-']:
+                            if syn.get('dividend_type') and ex.get('dividend_type') in ['Dividend', '-'] and syn.get('dividend_type') != 'AGM':
                                 ex['dividend_type'] = syn.get('dividend_type')
 
                             # Also pull forward agm_date if not present
@@ -1007,9 +1007,9 @@ def build_dividend_databank_task(self, force: bool = False):
                             elif syn.get('agm_date'):
                                 off['agm_date'] = syn.get('agm_date')
 
-                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-']:
+                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-'] and syn.get('dividend_type') != 'AGM':
                                 off['dividend_type'] = syn.get('dividend_type')
-                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-']:
+                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-'] and off.get('dividend_type') != 'AGM':
                                 syn['dividend_type'] = off.get('dividend_type')
 
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
