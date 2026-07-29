@@ -675,7 +675,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     })
 
                 # Still append splits/bonuses to the UI history so they show in the timeline
-                ann_date = r.broadcast_date or r.date
+                ann_date = getattr(r, "broadcast_date", None) or r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
@@ -693,7 +693,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 })
 
             elif parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
-                ann_date = r.broadcast_date or r.date
+                ann_date = getattr(r, "broadcast_date", None) or r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
@@ -851,7 +851,8 @@ def build_dividend_databank_task(self, force: bool = False):
                             "ex_date": None,
                             "ex_date_obj": None,
                             "agm_date": agm_date,
-                            "broadcast_date": m.broadcast_date or m.date,
+                            "announcement_date_obj": getattr(m, "broadcast_date", None),
+                            "broadcast_date": m.broadcast_date if hasattr(m, "broadcast_date") else None,
                             "amount": amount,
                             "raw_amount": amount,
                             "face_value": None,
@@ -960,7 +961,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                 if ex.get('record_date') is None:
                                     ex['record_date'] = syn.get('record_date')
 
-                            if syn.get('dividend_type') and ex.get('dividend_type') in ['Dividend', '-'] and syn.get('dividend_type') != 'AGM':
+                            if syn.get('dividend_type') and ex.get('dividend_type') in ['Dividend', '-', ''] and syn.get('dividend_type') != 'AGM':
                                 ex['dividend_type'] = syn.get('dividend_type')
 
                             # Also pull forward agm_date if not present
@@ -975,12 +976,12 @@ def build_dividend_databank_task(self, force: bool = False):
             final_actions = []
             for syn in dedup_syns:
                 matched = False
-                syn_date_val = safe_date(syn.get('broadcast_date') or syn.get('date'))
+                syn_date_val = safe_date(syn.get('broadcast_date') or syn.get('date') or syn.get('announcement_date_obj'))
 
-                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('date')) - syn_date_val).days) if syn_date_val != datetime.date.min else 9999)
+                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('announcement_date_obj') or x.get('date')) - syn_date_val).days) if syn_date_val != datetime.date.min else 9999)
 
                 for off in group_officials:
-                    off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('date'))
+                    off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('announcement_date_obj') or off.get('date'))
                     if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
@@ -1000,6 +1001,9 @@ def build_dividend_databank_task(self, force: bool = False):
                                 syn['ex_date'] = off.get('ex_date')
                             if off.get('record_date'):
                                 syn['record_date'] = off.get('record_date')
+                                if not syn.get('ex_date_obj'):
+                                    syn['ex_date_obj'] = off.get('record_date')
+                                    syn['ex_date'] = off.get('record_date').strftime('%Y-%m-%d') if hasattr(off.get('record_date'), 'strftime') else off.get('record_date')
                                 # In India T+1, if we just set the record date on the synthetic row and it still lacks an ex-date, set it
 
                             if off.get('agm_date'):
@@ -1007,9 +1011,9 @@ def build_dividend_databank_task(self, force: bool = False):
                             elif syn.get('agm_date'):
                                 off['agm_date'] = syn.get('agm_date')
 
-                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-'] and syn.get('dividend_type') != 'AGM':
+                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-', ''] and syn.get('dividend_type') != 'AGM':
                                 off['dividend_type'] = syn.get('dividend_type')
-                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-'] and off.get('dividend_type') != 'AGM':
+                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', ''] and off.get('dividend_type') != 'AGM':
                                 syn['dividend_type'] = off.get('dividend_type')
 
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
@@ -1060,7 +1064,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 ca_by_symbol[sym].append({
                     "ex_date": action.get('ex_date') if action.get('ex_date') else None,
                     "ex_date_obj": action.get('ex_date_obj'),
-                    "announcement_date_obj": action.get('announcement_date_obj') or action.get('broadcast_date'),
+                    "announcement_date_obj": action.get("announcement_date_obj"),
                     "broadcast_date": action.get('broadcast_date'),
                     "board_meeting_date": bm_date,
                     "dividend_type": action.get('dividend_type'),
@@ -1127,7 +1131,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 if match:
                     # UPDATE existing row
-                    match.date = final_date
+                    # Do not overwrite event date if we matched a previous record
                     match.ex_date = ex_date_val
                     if h.get('announcement_date_obj'):
                         match.announcement_date = h.get('announcement_date_obj')
