@@ -311,6 +311,9 @@ class FieldMapper:
              if calculated_amt > 0:
                   return calculated_amt, parsed_type
 
+        # 1.8 Remove sentences that look like historical references to avoid bleed.
+        _clean_purpose = re.sub(r'(?:already paid|paid an interim|previous|last year|earlier).*?(?:\.|$)', '', _clean_purpose, flags=re.IGNORECASE)
+
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:
