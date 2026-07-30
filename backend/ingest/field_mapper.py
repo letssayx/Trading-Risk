@@ -308,11 +308,11 @@ class FieldMapper:
                 return float(match.group(1)), parsed_type
 
         # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by & or /)
-        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)(?!\s*(?:%|per cent))', _clean_purpose)
 
         # 4. Fallback extraction: look for numbers immediately following dividend keywords if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
         # Ensure we don't accidentally grab a year like 2024 or rule numbers like 33 by capping at reasonable dividend amounts (<1000 typically unless super high face value)
-        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+|rs\.?\s*|re\.?\s*|rupees?\s*)(\d+(?:\.\d+)?)\b', _clean_purpose, flags=re.IGNORECASE)
+        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+|rs\.?\s*|re\.?\s*|rupees?\s*)(\d+(?:\.\d+)?)(?!\s*(?:%|per cent))\b', _clean_purpose, flags=re.IGNORECASE)
 
         valid_div_matches = [m for m in div_matches if not re.match(r'^(19|20)\d{2}$', m) and float(m) < 1000]
 
@@ -324,13 +324,13 @@ class FieldMapper:
             return total_amount, parsed_type
 
         # 4. Fallback extraction: just look for the word dividend followed by a number if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
-        div_matches = re.findall(r'(?:dividend).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)\s*(?:per share|/-|per equity share)', _clean_purpose, flags=re.IGNORECASE)
+        div_matches = re.findall(r'(?:dividend).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)(?!\s*(?:%|per cent))\s*(?:per share|/-|per equity share)', _clean_purpose, flags=re.IGNORECASE)
         if div_matches:
             total_amount = sum(float(m) for m in div_matches)
             return total_amount, parsed_type
 
         # Try percentage format: sum all percentages if multiple exist
-        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
+        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*(?:%|per cent)', purpose_lower)
         if pct_matches and face_value:
             total_pct = sum(float(m) for m in pct_matches)
             return (total_pct / 100.0) * face_value, parsed_type

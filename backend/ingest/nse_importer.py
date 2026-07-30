@@ -63,7 +63,7 @@ class NSEDataImporter:
         }
         if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
             return getattr(models, 'CorporateAction')
-        if key == 'board_meetings' and hasattr(models, 'BoardMeeting'):
+        if (key == 'board_meetings' or key == 'agm') and hasattr(models, 'BoardMeeting'):
             return getattr(models, 'BoardMeeting')
         if key == 'financial_results' and hasattr(models, 'FinancialResult'):
             return getattr(models, 'FinancialResult')
@@ -94,6 +94,7 @@ class NSEDataImporter:
             # No unique fields for upsert anymore (we do delete-insert)
             'corporate_actions': ['date', 'symbol', 'purpose'],
             'board_meetings': ['date', 'symbol', 'purpose'],
+            'agm': ['date', 'symbol', 'purpose'],
             'financial_results': ['date', 'symbol', 'period'],
 
             'historical_index_data': ['trade_date', 'index_name'],
@@ -191,6 +192,12 @@ class NSEDataImporter:
         elif key == 'corporate_actions':
             return self.lib.get_corporate_actions(trade_date)
         elif key == 'board_meetings':
+            return self.lib.get_board_meetings(trade_date)
+        elif key == 'agm':
+            df = self.lib.get_board_meetings(trade_date)
+            if not df.empty:
+                return df[df['Purpose'].str.contains('AGM|Annual General Meeting', case=False, na=False)] if 'Purpose' in df.columns else df[df['PURPOSE'].str.contains('AGM|Annual General Meeting', case=False, na=False)]
+            return df
             return self.lib.get_board_meetings(trade_date)
         elif key == 'historical_index_data':
             return self.lib.get_historical_index_data(trade_date)
@@ -291,7 +298,7 @@ class NSEDataImporter:
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
             'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions', 'board_meetings',
-            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results'
+            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results', 'agm'
         ]
 
         patterns_to_run = patterns or available_keys
@@ -410,7 +417,7 @@ class NSEDataImporter:
             elif key == 'bhavcopy_fo':
                 if len(df.columns) > 5:
                     format_info = {'type': 'fo_udiff'}
-            elif key == 'board_meetings':
+            elif key == 'board_meetings' or key == 'agm':
                 format_info = {'type': 'board_meetings'}
             elif key == 'corporate_actions':
                 format_info = {'type': 'corporate_actions'}
@@ -473,7 +480,7 @@ class NSEDataImporter:
             records = self._deduplicate_records(records, unique_fields)
 
         # Special handling for Deals, Actions, Meetings: Delete & Insert
-        if key in ['corporate_actions', 'board_meetings']:
+        if key in ['corporate_actions', 'board_meetings', 'agm']:
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
         elif key == 'nse_security':
             # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.
