@@ -910,13 +910,13 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
-                            if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', 'AGM', '-']:
+                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special']:
+                                if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
                                     upgrade_syn_type = ex_type
-                            elif ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', 'AGM', '-']:
+                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                if ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special']:
+                                if ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
                                     upgrade_ex_type = syn_type
 
                         # STRICT Deduplication Check:
@@ -939,9 +939,15 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
+                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
+
+                        # NEVER merge AGM events with real dividend events
+                        if syn_type == 'AGM' or ex_type == 'AGM':
+                            if syn_type != ex_type:
+                                is_potential_duplicate = False
+                                is_duplicate = False
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
@@ -986,7 +992,20 @@ def build_dividend_databank_task(self, force: bool = False):
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend', 'AGM'] or off.get('dividend_type') in ['-', 'Dividend', 'AGM']):
+
+                        is_match = False
+                        if -10 <= diff_days <= window:
+                            if syn.get('dividend_type') == off.get('dividend_type'):
+                                is_match = True
+                            elif syn.get('dividend_type') in ['-', 'Dividend'] or off.get('dividend_type') in ['-', 'Dividend']:
+                                is_match = True
+
+                        # NEVER match an AGM with a real dividend
+                        if syn.get('dividend_type') == 'AGM' or off.get('dividend_type') == 'AGM':
+                            if syn.get('dividend_type') != off.get('dividend_type'):
+                                is_match = False
+
+                        if is_match:
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
@@ -1112,6 +1131,13 @@ def build_dividend_databank_task(self, force: bool = False):
                 for row in existing_rows:
                         # Match by identical ex-date OR identical announcement date OR same type within recent window
                         if row.dividend_type == h.get('dividend_type'):
+                            # Explicitly prevent AGM deduplication across dates - AGMs should only match exact announcement dates
+                            if row.dividend_type == 'AGM':
+                                if row.announcement_date and h.get('announcement_date_obj') and row.announcement_date == h.get('announcement_date_obj'):
+                                    match = row
+                                    break
+                                continue # Do not apply standard window logic to AGMs
+
                             if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
                                 match = row
                                 break

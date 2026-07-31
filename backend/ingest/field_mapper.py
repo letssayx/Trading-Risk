@@ -203,6 +203,8 @@ class FieldMapper:
             return cls._map_margin_trading(df, trade_date)
         elif format_type == 'corporate_actions':
             return cls._map_corporate_actions(df, trade_date)
+        elif format_type == 'agm':
+            return cls._map_agms(df, trade_date)
         elif format_type == 'board_meetings':
             return cls._map_board_meetings(df, trade_date)
         elif format_type == 'financial_results':
@@ -402,6 +404,25 @@ class FieldMapper:
                 'attachment_url': str(cls._get_val(row, ['attachment']) or '').strip() or None,
             }
             if record['symbol'] and record['date']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_agms(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'date': trade_date, # Date of ingestion/announcement
+                'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip(),
+                'company_name': str(cls._get_val(row, ['COMPANY NAME', 'Company Name']) or '').strip(),
+                'dividend_type': 'AGM',
+                'agm_date': parse_nse_date(cls._get_val(row, ['AGM_DATE'])),
+                'agm_announcement_date': trade_date,
+                'is_synthetic': False,
+                'amount': None,
+                'raw_amount': None
+            }
+            if record['symbol'] and record['agm_date']:
                 records.append(record)
         return records
 
