@@ -569,6 +569,8 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse global CA response: {e}")
 
+                target_symbols = list(set([item.get('bm_symbol') for item in data if item.get('bm_symbol')]))
+
                 # Get corporate announcements globally to extract XBRL attachment texts
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
@@ -626,13 +628,12 @@ class NSELib:
                     try:
                         all_out = resp_out.json()
                         if isinstance(all_out, list):
-                            # Filter to only Outcome of Board Meeting to save memory/processing.
-                            # However, memory instructs us to NOT restrict to just 'Outcome' because NSE frequently miscategorizes them under 'General Updates' or 'None'
-                            # Still, we will keep them if they might contain 'Outcome' or are simply in the all_out list if needed,
-                            # but let's fetch all general announcements on the specific date later if needed.
-                            # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
-                            # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
-                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
+                            # The previous logic from the commit included everything in all_out to catch 'General Updates'
+                            # rather than strictly requiring 'Outcome of Board Meeting' in the subject.
+                            # So we just keep all announcements globally across the exact date.
+                            out_announcements = [a for a in all_out if 'Outcome of Board Meeting' in str(a.get('desc', '')) or 'Outcome of Board Meeting' in str(a.get('subject', ''))]
+                            # BUT we still need to include everything for the fallback missing events!
+                            out_announcements = all_out
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -641,7 +642,7 @@ class NSELib:
 
                 for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
                     sym = ann.get('symbol')
-                    if sym and sym in target_symbols:
+                    if sym:
                         if sym not in symbol_announcements:
                             symbol_announcements[sym] = []
                         symbol_announcements[sym].append(ann)
