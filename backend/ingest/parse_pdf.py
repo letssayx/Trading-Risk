@@ -69,16 +69,6 @@ def extract_amount_from_pdf(url):
                             record_date = record_date_str
                             break
 
-                if not record_date:
-                    # Fallback backward search if 'record date' was at the end of the sentence
-                    m = re.search(r'(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})[^\n]{0,50}?record\s*date', text, re.IGNORECASE)
-                    if m:
-                        record_date_str = m.group(1).replace('\n', ' ').strip()
-                        try:
-                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
-                        except Exception:
-                            record_date = record_date_str
-
             # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
             text = re.sub(r'(\.\d+)1-', r'\1/-', text)
 
@@ -94,7 +84,13 @@ def extract_amount_from_pdf(url):
             for part in parts[1:]:
                 # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
-                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', snippet, re.IGNORECASE)
+
+                # Filter out financial year patterns (like 2026-27 or FY 26) so they don't get accidentally matched as amount
+                _no_years = re.sub(r'\b(?:19|20)\d{2}(?:-\d{2})?\b', '', snippet)
+                # Filter out obvious date/th/st references (like 27th July) getting caught as amounts
+                _no_years = re.sub(r'\b\d{1,2}(?:st|nd|rd|th)\b', '', _no_years, flags=re.IGNORECASE)
+
+                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _no_years, re.IGNORECASE)
                 if m:
                     val = float(m.group(1))
                     if val > 0:
@@ -136,8 +132,12 @@ def extract_amount_from_pdf(url):
                     r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(\d+(?:\.\d+)?)',
                     r'(\d+(?:\.\d+)?)\s*(?:/-)?\s*per\s*share',
                 ]
+
+                # Filter out financial year patterns to avoid false matches
+                _no_years_clean = re.sub(r'\b(?:19|20)\d{2}(?:-\d{2})?\b', '', _clean_text)
+
                 for pat in ui_patterns:
-                    matches2 = re.findall(pat, _clean_text, re.IGNORECASE)
+                    matches2 = re.findall(pat, _no_years_clean, re.IGNORECASE)
                     found = False
                     for m in matches2:
                         val = float(m)

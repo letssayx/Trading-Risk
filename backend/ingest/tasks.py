@@ -755,10 +755,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 if a_date and a_date >= m_date:
                                     diff_days = abs((a_date - m_date).days)
-                                    # Strict 5-day window for immediate linkage between BM and CA.
-                                    # Isolated events (like Ex-Dates months later) will remain as standalone rows
-                                    # and are linked dynamically in the special_sit_routes later.
-                                    window = 5
+                                    div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
+                                    window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                                     if diff_days <= window:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
@@ -778,7 +776,8 @@ def build_dividend_databank_task(self, force: bool = False):
                                         meet_date = m.meeting_date
                                         if hasattr(meet_date, 'date'): meet_date = meet_date.date()
                                         diff_days = abs((b_date - meet_date).days)
-                                        window = 5
+                                        div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
+                                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                                         if diff_days > window: is_time_match = False
 
                                     if is_time_match:
@@ -890,7 +889,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if syn_date != datetime.date.min and ex_date != datetime.date.min:
                         diff = abs((syn_date - ex_date).days)
-                        window = 5
+                        div_type_lower = (syn.get('dividend_type') or '').lower()
+                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
 
                         # Deduplication Logic: Group by Symbol + Exact Event Type
                         syn_type = syn.get('dividend_type')
@@ -910,13 +910,13 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
-                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                            if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', 'AGM', '-']:
                                 is_potential_duplicate = True
-                                if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
+                                if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special']:
                                     upgrade_syn_type = ex_type
-                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                            elif ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', 'AGM', '-']:
                                 is_potential_duplicate = True
-                                if ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
+                                if ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special']:
                                     upgrade_ex_type = syn_type
 
                         # STRICT Deduplication Check:
@@ -939,15 +939,9 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
+                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
-
-                        # NEVER merge AGM events with real dividend events
-                        if syn_type == 'AGM' or ex_type == 'AGM':
-                            if syn_type != ex_type:
-                                is_potential_duplicate = False
-                                is_duplicate = False
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
@@ -990,21 +984,9 @@ def build_dividend_databank_task(self, force: bool = False):
                     off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('announcement_date_obj') or off.get('date'))
                     if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
                         diff_days = (off_date_val - syn_date_val).days
-                        window = 5
-
-                        is_match = False
-                        if -10 <= diff_days <= window:
-                            if syn.get('dividend_type') == off.get('dividend_type'):
-                                is_match = True
-                            elif syn.get('dividend_type') in ['-', 'Dividend'] or off.get('dividend_type') in ['-', 'Dividend']:
-                                is_match = True
-
-                        # NEVER match an AGM with a real dividend
-                        if syn.get('dividend_type') == 'AGM' or off.get('dividend_type') == 'AGM':
-                            if syn.get('dividend_type') != off.get('dividend_type'):
-                                is_match = False
-
-                        if is_match:
+                        div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
+                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend', 'AGM'] or off.get('dividend_type') in ['-', 'Dividend', 'AGM']):
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
@@ -1130,13 +1112,6 @@ def build_dividend_databank_task(self, force: bool = False):
                 for row in existing_rows:
                         # Match by identical ex-date OR identical announcement date OR same type within recent window
                         if row.dividend_type == h.get('dividend_type'):
-                            # Explicitly prevent AGM deduplication across dates - AGMs should only match exact announcement dates
-                            if row.dividend_type == 'AGM':
-                                if row.announcement_date and h.get('announcement_date_obj') and row.announcement_date == h.get('announcement_date_obj'):
-                                    match = row
-                                    break
-                                continue # Do not apply standard window logic to AGMs
-
                             if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
                                 match = row
                                 break
@@ -1145,7 +1120,8 @@ def build_dividend_databank_task(self, force: bool = False):
                                 break
 
                             # Strict match for awaited records: ensure they belong to the same event cycle, not just any future event.
-                            window = 5
+                            div_type_lower = (row.dividend_type or '').lower()
+                            window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                             if row.is_awaited and abs((row.date - final_date).days) <= window:
                                 # Don't cross-contaminate if both have explicit but differing amounts
                                 if row.amount is not None and h.get('amount') is not None and row.amount != h.get('amount'):

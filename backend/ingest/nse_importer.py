@@ -95,7 +95,6 @@ class NSEDataImporter:
             'corporate_actions': ['date', 'symbol', 'purpose'],
             'board_meetings': ['date', 'symbol', 'purpose'],
             'financial_results': ['date', 'symbol', 'period'],
-            'agm': [], # AGMs will use upsert logic inside the databank tasks
 
             'historical_index_data': ['trade_date', 'index_name'],
         }
@@ -191,8 +190,6 @@ class NSEDataImporter:
             return self.lib.get_margin_trading(trade_date)
         elif key == 'corporate_actions':
             return self.lib.get_corporate_actions(trade_date)
-        elif key == 'agm':
-            return self.lib.get_agms(trade_date)
         elif key == 'board_meetings':
             return self.lib.get_board_meetings(trade_date)
         elif key == 'historical_index_data':
@@ -294,7 +291,7 @@ class NSEDataImporter:
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
             'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions', 'board_meetings',
-            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results', 'agm'
+            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results'
         ]
 
         patterns_to_run = patterns or available_keys
@@ -419,8 +416,6 @@ class NSEDataImporter:
                 format_info = {'type': 'corporate_actions'}
             elif key == 'financial_results':
                 format_info = {'type': 'financial_results'}
-            elif key == 'agm':
-                format_info = {'type': 'agm'}
 
         if format_info['type'] == 'unknown':
             cols = df.columns.tolist()[:10] # Log first 10 cols
@@ -478,7 +473,7 @@ class NSEDataImporter:
             records = self._deduplicate_records(records, unique_fields)
 
         # Special handling for Deals, Actions, Meetings: Delete & Insert
-        if key in ['corporate_actions', 'board_meetings', 'agm']:
+        if key in ['corporate_actions', 'board_meetings']:
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
         elif key == 'nse_security':
             # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.

@@ -534,8 +534,9 @@ class NSELib:
         from datetime import timedelta, datetime
         import re
 
-        from_date_str = trade_date.strftime("%d-%m-%Y")
-        to_date_str = trade_date.strftime("%d-%m-%Y")
+        # Look back 7 days to ensure we catch delayed updates
+        from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
+        to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
@@ -1045,8 +1046,9 @@ class NSELib:
 
     def get_corporate_actions(self, trade_date: date) -> pd.DataFrame:
         """Get Corporate Actions."""
+        from datetime import timedelta
         from_date_str = trade_date.strftime("%d-%m-%Y")
-        to_date_str = trade_date.strftime("%d-%m-%Y")
+        to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
@@ -1144,65 +1146,12 @@ class NSELib:
 
         return pd.DataFrame()
 
-
-    def get_agms(self, trade_date: date) -> pd.DataFrame:
-        """Get AGM Data from corporate announcements."""
-        from datetime import timedelta
-        import re
-        from_date_str = trade_date.strftime("%d-%m-%Y")
-        to_date_str = trade_date.strftime("%d-%m-%Y")
-
-        # We query general corporate announcements because AGMs are often filed under 'General Updates' or 'Shareholders Meeting'
-        url = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-
-        resp = self.get(url)
-        if resp is None or resp.status_code != 200:
-            return pd.DataFrame()
-
-        try:
-            data = resp.json()
-            if not isinstance(data, list) or not data:
-                return pd.DataFrame()
-
-            agm_records = []
-            seen = set()
-
-            # AGM Date Patterns (from memory/tests)
-            date_pattern = r"(?:AGM|Annual General Meeting).*?(\d{1,2}[\s\-\/][A-Za-z]+[\s\-\/]\d{4}|\d{1,2}[A-Za-z]+\d{4}|[A-Za-z]+\s\d{1,2},?\s\d{4})"
-
-            for item in data:
-                subj = str(item.get('subject', '')).lower()
-                desc = str(item.get('desc', '')).lower()
-
-                if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc:
-                    # Deduplicate
-                    symbol = item.get('symbol')
-                    if symbol in seen:
-                        continue
-
-                    # Try to extract exact AGM date from description or attachment text
-                    full_text = f"{item.get('desc', '')} {item.get('attchmntText', '')}"
-                    match = re.search(date_pattern, full_text, re.IGNORECASE)
-                    agm_date_str = match.group(1) if match else None
-
-                    if agm_date_str:
-                        seen.add(symbol)
-                        agm_records.append({
-                            'SYMBOL': symbol,
-                            'COMPANY NAME': item.get('smName', ''),
-                            'AGM_DATE': agm_date_str,
-                            'BROADCAST DATE': item.get('anDt', '')
-                        })
-
-            return pd.DataFrame(agm_records)
-        except Exception as e:
-            logger.error(f"Failed to parse AGMs: {e}")
-            return pd.DataFrame()
-
     def get_financial_results(self, trade_date: date) -> pd.DataFrame:
         """Fetch Financial Results from NSE Corporate Announcements."""
+        from datetime import timedelta
+        # Usually results come in during earning season, check a window
         from_date_str = trade_date.strftime("%d-%m-%Y")
-        to_date_str = trade_date.strftime("%d-%m-%Y")
+        to_date_str = (trade_date + timedelta(days=7)).strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-financial-results?index=equities&period=Quarterly&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url, use_curl=True)
