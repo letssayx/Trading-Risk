@@ -712,9 +712,18 @@ def build_dividend_databank_task(self, force: bool = False):
 
         bm_by_symbol = defaultdict(list)
         for bm in bm_records:
+            # Also re-parse board meeting missing amounts using field mapper directly.
+            # E.g. "Final Dividend of Rs. 5.25"
+            if bm.extracted_dividend_amount is None and bm.purpose:
+                # Fallback to field_mapper since nse_lib failed. (Usually face_value isn't directly on BM, so we pass None)
+                reparsed_amt, _ = FieldMapper._parse_dividend(bm.purpose, None)
+                if reparsed_amt is not None:
+                    bm.extracted_dividend_amount = reparsed_amt
+                    db.add(bm)
+
             bm_by_symbol[bm.symbol.upper()].append(bm)
 
-        # Commit newly parsed CA amounts before we do anything else
+        # Commit newly parsed CA and BM amounts before we do anything else
         db.commit()
 
         # Also fetch financials to enrich the databank
