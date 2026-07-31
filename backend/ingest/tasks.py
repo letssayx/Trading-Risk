@@ -755,8 +755,10 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 if a_date and a_date >= m_date:
                                     diff_days = abs((a_date - m_date).days)
-                                    div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
-                                    window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                    # Strict 5-day window for immediate linkage between BM and CA.
+                                    # Isolated events (like Ex-Dates months later) will remain as standalone rows
+                                    # and are linked dynamically in the special_sit_routes later.
+                                    window = 5
                                     if diff_days <= window:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
@@ -776,8 +778,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                         meet_date = m.meeting_date
                                         if hasattr(meet_date, 'date'): meet_date = meet_date.date()
                                         diff_days = abs((b_date - meet_date).days)
-                                        div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
-                                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                        window = 5
                                         if diff_days > window: is_time_match = False
 
                                     if is_time_match:
@@ -889,8 +890,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if syn_date != datetime.date.min and ex_date != datetime.date.min:
                         diff = abs((syn_date - ex_date).days)
-                        div_type_lower = (syn.get('dividend_type') or '').lower()
-                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        window = 5
 
                         # Deduplication Logic: Group by Symbol + Exact Event Type
                         syn_type = syn.get('dividend_type')
@@ -990,8 +990,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('announcement_date_obj') or off.get('date'))
                     if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
                         diff_days = (off_date_val - syn_date_val).days
-                        div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
-                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        window = 5
 
                         is_match = False
                         if -10 <= diff_days <= window:
@@ -1146,8 +1145,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                 break
 
                             # Strict match for awaited records: ensure they belong to the same event cycle, not just any future event.
-                            div_type_lower = (row.dividend_type or '').lower()
-                            window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                            window = 5
                             if row.is_awaited and abs((row.date - final_date).days) <= window:
                                 # Don't cross-contaminate if both have explicit but differing amounts
                                 if row.amount is not None and h.get('amount') is not None and row.amount != h.get('amount'):

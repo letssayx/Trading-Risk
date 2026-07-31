@@ -69,11 +69,24 @@ def extract_amount_from_pdf(url):
                             record_date = record_date_str
                             break
 
+                if not record_date:
+                    # Fallback backward search if 'record date' was at the end of the sentence
+                    m = re.search(r'(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})[^\n]{0,50}?record\s*date', text, re.IGNORECASE)
+                    if m:
+                        record_date_str = m.group(1).replace('\n', ' ').strip()
+                        try:
+                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                        except Exception:
+                            record_date = record_date_str
+
             # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
             text = re.sub(r'(\.\d+)1-', r'\1/-', text)
 
             # Remove "Regulation \d+", "Reg. \d+", "Regulations \d+ and \d+" to prevent false matches
             _clean_text = re.sub(r'Regulations?\s*(?:\d+(?:\s*(?:and|&|,)\s*\d+)*)|Reg\.?\s*\d+', '', text, flags=re.IGNORECASE)
+
+            # Clean face value noise more aggressively
+            _clean_text = re.sub(r'(?:on the\s*)?(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean_text, flags=re.IGNORECASE)
 
             # Simple regex for dividend amount
             # Look for "dividend" and then quickly find Rs. X
@@ -81,9 +94,7 @@ def extract_amount_from_pdf(url):
             for part in parts[1:]:
                 # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
-                _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
-
-                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
+                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', snippet, re.IGNORECASE)
                 if m:
                     val = float(m.group(1))
                     if val > 0:
@@ -121,7 +132,9 @@ def extract_amount_from_pdf(url):
                     r'(?:dividend|int\s*div|fin\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*per\s*share',
                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
-                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
+                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
+                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(\d+(?:\.\d+)?)',
+                    r'(\d+(?:\.\d+)?)\s*(?:/-)?\s*per\s*share',
                 ]
                 for pat in ui_patterns:
                     matches2 = re.findall(pat, _clean_text, re.IGNORECASE)
