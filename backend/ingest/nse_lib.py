@@ -569,8 +569,6 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse global CA response: {e}")
 
-                target_symbols = list(set([item.get('bm_symbol') for item in data if item.get('bm_symbol')]))
-
                 # Get corporate announcements globally to extract XBRL attachment texts
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
@@ -621,19 +619,24 @@ class NSELib:
                         logger.error(f"Failed to parse Financial Results announcements: {e}")
 
                 # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
-                target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
+                target_symbols = set([item.get('bm_symbol') for item in data if item.get('bm_symbol')])
+                for ca in ca_data:
+                    sym = ca.get('symbol')
+                    if sym:
+                        target_symbols.add(sym)
 
                 resp_out = self.get(announcement_url_out)
                 if resp_out and resp_out.status_code == 200:
                     try:
                         all_out = resp_out.json()
                         if isinstance(all_out, list):
-                            # The previous logic from the commit included everything in all_out to catch 'General Updates'
-                            # rather than strictly requiring 'Outcome of Board Meeting' in the subject.
-                            # So we just keep all announcements globally across the exact date.
-                            out_announcements = [a for a in all_out if 'Outcome of Board Meeting' in str(a.get('desc', '')) or 'Outcome of Board Meeting' in str(a.get('subject', ''))]
-                            # BUT we still need to include everything for the fallback missing events!
-                            out_announcements = all_out
+                            # Filter to only Outcome of Board Meeting to save memory/processing.
+                            # However, memory instructs us to NOT restrict to just 'Outcome' because NSE frequently miscategorizes them under 'General Updates' or 'None'
+                            # Still, we will keep them if they might contain 'Outcome' or are simply in the all_out list if needed,
+                            # but let's fetch all general announcements on the specific date later if needed.
+                            # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
+                            # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -642,7 +645,7 @@ class NSELib:
 
                 for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
                     sym = ann.get('symbol')
-                    if sym:
+                    if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
                             symbol_announcements[sym] = []
                         symbol_announcements[sym].append(ann)
@@ -956,25 +959,20 @@ class NSELib:
 
                             bm_purpose = "General Updates"
                             if is_agm:
-                                # Only force to AGM if it's not explicitly declaring a dividend
-                                if not has_div and found_amount is None and found_type not in ['Interim', 'Final', 'Special']:
-                                    found_type = 'AGM'
-                                    bm_purpose = 'Annual General Meeting'
-
+                                found_type = 'AGM'
+                                bm_purpose = 'Annual General Meeting'
                                 agm_date = None
                                 if 'dateofannualgeneralmeeting' in attchmntText:
                                     agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE)
                                     if agm_date_match:
                                         agm_date = agm_date_match.group(1)
-                                        if found_type == 'AGM':
-                                            bm_purpose += f" - AGM - {agm_date}"
+                                        bm_purpose += f" - AGM - {agm_date}"
 
                                 if not agm_date:
                                     fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
                                     if fallback_agm:
                                         agm_date = fallback_agm.group(1)
-                                        if found_type == 'AGM':
-                                            bm_purpose += f" - AGM - {agm_date}"
+                                        bm_purpose += f" - AGM - {agm_date}"
 
                             if found_amount is None:
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)

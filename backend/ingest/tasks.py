@@ -844,6 +844,11 @@ def build_dividend_databank_task(self, force: bool = False):
                             # It actually gets appended to bm_purpose in nse_lib.py: `bm_purpose += f" - AGM - {agm_date}"`
                             # Which the regex above should catch, but let's be safe.
 
+                        # The broadcast_date MUST be the exact intimation broadcast_date,
+                        # and we must also explicitly assign the board_meeting_date from m.
+                        syn_broadcast = getattr(m, "broadcast_date", None)
+                        syn_board_meeting = m.meeting_date if hasattr(m, "meeting_date") and m.meeting_date else (m.date if hasattr(m, 'date') else None)
+
                         combined_actions.append({
                             "symbol": sym,
                             "purpose": m.purpose,
@@ -851,8 +856,10 @@ def build_dividend_databank_task(self, force: bool = False):
                             "ex_date": None,
                             "ex_date_obj": None,
                             "agm_date": agm_date,
-                            "announcement_date_obj": getattr(m, "broadcast_date", None),
-                            "broadcast_date": m.broadcast_date if hasattr(m, "broadcast_date") else None,
+                            "announcement_date_obj": syn_broadcast,
+                            "broadcast_date": syn_broadcast,
+                            "board_meeting_date": syn_board_meeting,
+                            "date": syn_board_meeting,
                             "amount": amount,
                             "raw_amount": amount,
                             "face_value": None,
@@ -909,7 +916,15 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_syn_type = None
                         upgrade_ex_type = None
 
-                        if not is_potential_duplicate:
+                        # Do NOT merge AGM events into other events (or vice versa).
+                        if syn_type == 'AGM' and ex_type != 'AGM':
+                            is_potential_duplicate = False
+                        elif ex_type == 'AGM' and syn_type != 'AGM':
+                            is_potential_duplicate = False
+                        elif syn.get('amount') is not None and ex.get('amount') is not None and syn.get('amount') != ex.get('amount'):
+                            # Do NOT merge events if they have conflicting amounts on the exact same day
+                            is_potential_duplicate = False
+                        elif not is_potential_duplicate:
                             if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
                                 if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
@@ -939,13 +954,9 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
+                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
-
-                        # However, if both are purely 'AGM' and have the same date, they can still be deduplicated.
-                        if diff == 0 and syn_type == 'AGM' and ex_type == 'AGM':
-                            is_potential_duplicate = True
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
@@ -990,17 +1001,20 @@ def build_dividend_databank_task(self, force: bool = False):
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        is_potential_match = False
+                        if -10 <= diff_days <= window:
+                            if syn.get('dividend_type') == off.get('dividend_type'):
+                                is_potential_match = True
+                            elif syn.get('dividend_type') in ['-', 'Dividend'] and off.get('dividend_type') in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                                is_potential_match = True
+                            elif off.get('dividend_type') in ['-', 'Dividend'] and syn.get('dividend_type') in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                                is_potential_match = True
 
-                        syn_type = syn.get('dividend_type')
-                        off_type = off.get('dividend_type')
+                        if is_potential_match:
+                            if syn.get('amount') is not None and off.get('amount') is not None and syn.get('amount') != off.get('amount'):
+                                is_potential_match = False
 
-                        # Fix: Don't allow AGM to fall back and merge with standard dividends
-                        is_match = (syn_type == off_type)
-                        if not is_match:
-                            if syn_type in ['-', 'Dividend'] or off_type in ['-', 'Dividend']:
-                                is_match = True
-
-                        if -10 <= diff_days <= window and is_match:
+                        if is_potential_match:
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
@@ -1139,6 +1153,11 @@ def build_dividend_databank_task(self, force: bool = False):
                             if row.is_awaited and abs((row.date - final_date).days) <= window:
                                 # Don't cross-contaminate if both have explicit but differing amounts
                                 if row.amount is not None and h.get('amount') is not None and row.amount != h.get('amount'):
+                                    continue
+                                # Or if it's explicitly an AGM event trying to merge with a non-AGM record
+                                if row.dividend_type == 'AGM' and h.get('dividend_type') != 'AGM':
+                                    continue
+                                if h.get('dividend_type') == 'AGM' and row.dividend_type != 'AGM':
                                     continue
                                 match = row
                                 break

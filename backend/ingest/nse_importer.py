@@ -61,11 +61,13 @@ class NSEDataImporter:
             'fii_dii_cash': models.FIIDIICash,
             'historical_index_data': models.HistoricalIndexData,
         }
+        if key == 'agm':
+            # AGM isn't a direct DB model during import, it piggybacks on board meetings/databank task later.
+            # We'll just map it to BoardMeeting to bypass None checks but skip actual inserts in _process_file
+            return getattr(models, 'BoardMeeting')
         if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
             return getattr(models, 'CorporateAction')
         if key == 'board_meetings' and hasattr(models, 'BoardMeeting'):
-            return getattr(models, 'BoardMeeting')
-        if key == 'agm' and hasattr(models, 'BoardMeeting'):
             return getattr(models, 'BoardMeeting')
         if key == 'financial_results' and hasattr(models, 'FinancialResult'):
             return getattr(models, 'FinancialResult')
@@ -96,7 +98,6 @@ class NSEDataImporter:
             # No unique fields for upsert anymore (we do delete-insert)
             'corporate_actions': ['date', 'symbol', 'purpose'],
             'board_meetings': ['date', 'symbol', 'purpose'],
-            'agm': ['date', 'symbol', 'purpose'],
             'financial_results': ['date', 'symbol', 'period'],
 
             'historical_index_data': ['trade_date', 'index_name'],
@@ -200,9 +201,10 @@ class NSEDataImporter:
         elif key == 'financial_results':
             return self.lib.get_financial_results(trade_date)
         elif key == 'agm':
-            # AGMs are essentially BoardMeetings filtered internally, so just return get_board_meetings
-            # The parse pipeline natively handles 'agm' types
-            return self.lib.get_board_meetings(trade_date)
+            # AGMs are technically parsed within get_corporate_actions & get_board_meetings
+            # By triggering this, we simply instruct the importer it's "successful" and let the databank rebuild handle it
+            import pandas as pd
+            return pd.DataFrame([{"agm_trigger": True}])
 
         return pd.DataFrame()
 
@@ -417,7 +419,7 @@ class NSEDataImporter:
             elif key == 'bhavcopy_fo':
                 if len(df.columns) > 5:
                     format_info = {'type': 'fo_udiff'}
-            elif key == 'board_meetings' or key == 'agm':
+            elif key == 'board_meetings':
                 format_info = {'type': 'board_meetings'}
             elif key == 'corporate_actions':
                 format_info = {'type': 'corporate_actions'}
@@ -480,7 +482,9 @@ class NSEDataImporter:
             records = self._deduplicate_records(records, unique_fields)
 
         # Special handling for Deals, Actions, Meetings: Delete & Insert
-        if key in ['corporate_actions', 'board_meetings', 'agm']:
+        if key == 'agm':
+            inserted, updated = 0, 0
+        elif key in ['corporate_actions', 'board_meetings']:
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
         elif key == 'nse_security':
             # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.
