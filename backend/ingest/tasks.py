@@ -818,6 +818,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                         elif is_agm and 'dividend' not in purpose_lower and not has_amount:
                             div_type = 'AGM'
+                            amount = None
                         elif 'bonus' in purpose_lower:
                             div_type = 'Bonus'
                         elif 'split' in purpose_lower or 'sub-division' in purpose_lower:
@@ -1003,7 +1004,11 @@ def build_dividend_databank_task(self, force: bool = False):
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                         is_potential_match = False
                         if -10 <= diff_days <= window:
-                            if syn.get('dividend_type') == off.get('dividend_type'):
+                            if syn.get('dividend_type') == 'AGM' and off.get('dividend_type') != 'AGM':
+                                is_potential_match = False
+                            elif off.get('dividend_type') == 'AGM' and syn.get('dividend_type') != 'AGM':
+                                is_potential_match = False
+                            elif syn.get('dividend_type') == off.get('dividend_type'):
                                 is_potential_match = True
                             elif syn.get('dividend_type') in ['-', 'Dividend'] and off.get('dividend_type') in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_match = True
@@ -1022,17 +1027,14 @@ def build_dividend_databank_task(self, force: bool = False):
                             syn_m = syn.get('_matchedMeeting')
                             off_m = off.get('_matchedMeeting')
 
-                            # strictly unify ex_date and record_date into the synthetic row
-                            # when a corporate action matches a board meeting, the corporate action carries the official dates
-                            if off.get('ex_date_obj'):
-                                syn['ex_date_obj'] = off.get('ex_date_obj')
-                                syn['ex_date'] = off.get('ex_date')
-                            if off.get('record_date'):
-                                syn['record_date'] = off.get('record_date')
-                                if not syn.get('ex_date_obj'):
-                                    syn['ex_date_obj'] = off.get('record_date')
-                                    syn['ex_date'] = off.get('record_date').strftime('%Y-%m-%d') if hasattr(off.get('record_date'), 'strftime') else off.get('record_date')
-                                # In India T+1, if we just set the record date on the synthetic row and it still lacks an ex-date, set it
+                            # CRITICAL FIX: Merge dates into 'off' (the Corporate Action), NOT 'syn' (the Board Meeting)
+                            # The 'off' record is the official action added to final_actions later,
+                            # whereas 'syn' is discarded if matched=True.
+                            # So all dates from the Board Meeting must flow into the official Corporate Action record.
+                            if syn.get('announcement_date_obj'):
+                                off['board_meeting_broadcast_date'] = syn.get('announcement_date_obj')
+                            if syn.get('board_meeting_date'):
+                                off['board_meeting_date'] = syn.get('board_meeting_date')
 
                             if off.get('agm_date'):
                                 syn['agm_date'] = off.get('agm_date')
