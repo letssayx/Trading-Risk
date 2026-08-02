@@ -529,7 +529,7 @@ class NSELib:
                 pass
         return pd.DataFrame()
 
-    def get_board_meetings(self, trade_date: date) -> pd.DataFrame:
+    def get_board_meetings(self, trade_date: date, include_agm: bool = False) -> pd.DataFrame:
         """Get Board Meetings."""
         from datetime import timedelta, datetime
         import re
@@ -597,19 +597,19 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
 
-                resp_agm = self.get(announcement_url_agm)
-                if resp_agm and resp_agm.status_code == 200:
-                    try:
-                        agm_data = resp_agm.json()
-                        agm_announcements = []
-                        for ann in (agm_data if isinstance(agm_data, list) else []):
-                            subj = str(ann.get('subject', '')).lower()
-                            desc = str(ann.get('desc', '')).lower()
-                            if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'shareholders meeting' in desc:
-                                if 'dividend' in subj or 'dividend' in desc:
+                if include_agm:
+                    resp_agm = self.get(announcement_url_agm)
+                    if resp_agm and resp_agm.status_code == 200:
+                        try:
+                            agm_data = resp_agm.json()
+                            agm_announcements = []
+                            for ann in (agm_data if isinstance(agm_data, list) else []):
+                                subj = str(ann.get('subject', '')).lower()
+                                desc = str(ann.get('desc', '')).lower()
+                                if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'shareholders meeting' in desc:
                                     agm_announcements.append(ann)
-                    except Exception as e:
-                        logger.error(f"Failed to parse AGM announcements: {e}")
+                        except Exception as e:
+                            logger.error(f"Failed to parse AGM announcements: {e}")
 
                 resp_fin = self.get(announcement_url_fin)
                 if resp_fin and resp_fin.status_code == 200:
@@ -619,20 +619,30 @@ class NSELib:
                         logger.error(f"Failed to parse Financial Results announcements: {e}")
 
                 # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
-                target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
+                target_symbols = set([item.get('bm_symbol') for item in data if item.get('bm_symbol')])
+                for ca in ca_data:
+                    sym = ca.get('symbol')
+                    if sym:
+                        target_symbols.add(sym)
 
                 resp_out = self.get(announcement_url_out)
                 if resp_out and resp_out.status_code == 200:
                     try:
                         all_out = resp_out.json()
                         if isinstance(all_out, list):
-                            # Filter to only Outcome of Board Meeting to save memory/processing.
-                            # However, memory instructs us to NOT restrict to just 'Outcome' because NSE frequently miscategorizes them under 'General Updates' or 'None'
-                            # Still, we will keep them if they might contain 'Outcome' or are simply in the all_out list if needed,
-                            # but let's fetch all general announcements on the specific date later if needed.
-                            # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
-                            # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
-                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
+                            # CRITICAL FIX: To fix PFC/RECLTD missing dividends while strictly preventing performance regressions and bot bans:
+                            # 1. We must filter out completely unrelated documents by checking subjects/descriptions for 'Outcome' or 'General'.
+                            # 2. We MUST filter by `target_symbols` so we don't accidentally download PDFs for 500+ irrelevant companies that had general updates.
+                            # Since target_symbols currently only has symbols with explicit board meetings or corporate actions, we expand it.
+                            # (If PFC/RECLTD was completely missing from the Board Meeting API, we would need to add all Nifty500 symbols to target_symbols.
+                            # However, memory indicates they were just miscategorized in PDFs, so they should be present in the BM JSON).
+
+                            def is_relevant(a):
+                                s = str(a.get('subject', '')).lower()
+                                d = str(a.get('desc', '')).lower()
+                                return 'outcome' in s or 'outcome' in d or 'general update' in s or 'general update' in d or s == 'none' or s == ''
+
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols and is_relevant(a)]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 

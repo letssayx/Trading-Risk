@@ -61,6 +61,10 @@ class NSEDataImporter:
             'fii_dii_cash': models.FIIDIICash,
             'historical_index_data': models.HistoricalIndexData,
         }
+        if key == 'agm':
+            # AGM isn't a direct DB model during import, it piggybacks on board meetings/databank task later.
+            # We'll just map it to BoardMeeting to bypass None checks but skip actual inserts in _process_file
+            return getattr(models, 'BoardMeeting')
         if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
             return getattr(models, 'CorporateAction')
         if key == 'board_meetings' and hasattr(models, 'BoardMeeting'):
@@ -149,7 +153,7 @@ class NSEDataImporter:
             logger.error(f"Error parsing content for {key}: {e}")
             return pd.DataFrame()
 
-    def _fetch_data(self, key: str, trade_date: date) -> pd.DataFrame:
+    def _fetch_data(self, key: str, trade_date: date, include_agm: bool = False) -> pd.DataFrame:
         """Route to appropriate NSELibClient method."""
         if key == 'bhavcopy_eq':
             return self.lib.get_bhavcopy_eq(trade_date)
@@ -191,11 +195,17 @@ class NSEDataImporter:
         elif key == 'corporate_actions':
             return self.lib.get_corporate_actions(trade_date)
         elif key == 'board_meetings':
-            return self.lib.get_board_meetings(trade_date)
+            return self.lib.get_board_meetings(trade_date, include_agm=include_agm)
         elif key == 'historical_index_data':
             return self.lib.get_historical_index_data(trade_date)
         elif key == 'financial_results':
             return self.lib.get_financial_results(trade_date)
+        elif key == 'agm':
+            import pandas as pd
+            # AGMs are isolated to prevent cross-contamination of daily data.
+            # When the AGM key is passed, we explicitly fetch Board Meetings and trigger AGM extraction.
+            # Since board_meetings normally suppresses AGM extracting without include_agm=True, we bypass it here.
+            return self.lib.get_board_meetings(trade_date, include_agm=True)
 
         return pd.DataFrame()
 
@@ -291,7 +301,7 @@ class NSEDataImporter:
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
             'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions', 'board_meetings',
-            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results'
+            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results', 'agm'
         ]
 
         patterns_to_run = patterns or available_keys
@@ -341,7 +351,8 @@ class NSEDataImporter:
                 # If using pure SQLAlchemy session, we can rely on begin_nested()
                 try:
                     with db.begin_nested():
-                        self._process_file(db, key, trade_date, results, completed_files, force, include_non_fo, specific_symbol)
+                        include_agm = ('agm' in patterns_to_run)
+                        self._process_file(db, key, trade_date, results, completed_files, force, include_non_fo, specific_symbol, include_agm=include_agm)
 
                     # If we reach here, the nested transaction committed successfully.
                     # We commit the outer transaction periodically or at the end to persist logs.
@@ -374,8 +385,8 @@ class NSEDataImporter:
             'details': results
         }
 
-    def _process_file(self, db: Session, key: str, trade_date: date, results: dict, completed_files: list, force: bool = False, include_non_fo: bool = False, specific_symbol: str | None = None):
-        df = self._fetch_data(key, trade_date)
+    def _process_file(self, db: Session, key: str, trade_date: date, results: dict, completed_files: list, force: bool = False, include_non_fo: bool = False, specific_symbol: str | None = None, include_agm: bool = False):
+        df = self._fetch_data(key, trade_date, include_agm=include_agm)
 
         if df.empty:
             results[key] = {'status': 'EMPTY_DOWNLOAD', 'rows': 0}
@@ -473,7 +484,7 @@ class NSEDataImporter:
             records = self._deduplicate_records(records, unique_fields)
 
         # Special handling for Deals, Actions, Meetings: Delete & Insert
-        if key in ['corporate_actions', 'board_meetings']:
+        if key in ['agm', 'corporate_actions', 'board_meetings']:
             inserted, updated = self._upsert_batch(db, model_class, records, unique_fields)
         elif key == 'nse_security':
             # Security Master doesn't have a date column and isn't a hypertable. We upsert on fin_instrm_id.
