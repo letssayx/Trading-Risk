@@ -823,28 +823,6 @@ def build_dividend_databank_task(self, force: bool = False):
                             div_type = 'Bonus'
                         elif 'split' in purpose_lower or 'sub-division' in purpose_lower:
                             div_type = 'Split'
-
-                        if is_agm:
-                             # Try to find a date in the purpose like 'AGM - 15-Jul-2026'
-                             date_match = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
-                             if not date_match:
-                                 date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
-                             if date_match:
-                                 try:
-                                     from dateutil.parser import parse
-                                     agm_date = parse(date_match.group(1).replace('st ', ' ').replace('nd ', ' ').replace('rd ', ' ').replace('th ', ' ')).date()
-                                 except:
-                                     pass
-
-                        # If AGM date is still missing, try to fetch it from the model if we patched it directly to the model earlier
-                        if agm_date is None:
-                            if hasattr(m, 'agm_date') and m.agm_date:
-                                agm_date = m.agm_date
-                            # also extract from extracted_agm_date if present in json
-                            # Since it was parsed as EXTRACTED_AGM_DATE, let's see if we added it as a column
-                            # It actually gets appended to bm_purpose in nse_lib.py: `bm_purpose += f" - AGM - {agm_date}"`
-                            # Which the regex above should catch, but let's be safe.
-
                         # The broadcast_date MUST be the exact intimation broadcast_date,
                         # and we must also explicitly assign the board_meeting_date from m.
                         syn_broadcast = getattr(m, "broadcast_date", None)
@@ -916,13 +894,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         is_potential_duplicate = is_duplicate_event
                         upgrade_syn_type = None
                         upgrade_ex_type = None
-
-                        # Do NOT merge AGM events into other events (or vice versa).
-                        if syn_type == 'AGM' and ex_type != 'AGM':
-                            is_potential_duplicate = False
-                        elif ex_type == 'AGM' and syn_type != 'AGM':
-                            is_potential_duplicate = False
-                        elif syn.get('amount') is not None and ex.get('amount') is not None and syn.get('amount') != ex.get('amount'):
+                        if syn.get('amount') is not None and ex.get('amount') is not None and syn.get('amount') != ex.get('amount'):
                             # Do NOT merge events if they have conflicting amounts on the exact same day
                             is_potential_duplicate = False
                         elif not is_potential_duplicate:
@@ -953,9 +925,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
                         if amounts_conflict or records_conflict:
                             is_potential_duplicate = False
-
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
+                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
 
@@ -1004,11 +975,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                         is_potential_match = False
                         if -10 <= diff_days <= window:
-                            if syn.get('dividend_type') == 'AGM' and off.get('dividend_type') != 'AGM':
-                                is_potential_match = False
-                            elif off.get('dividend_type') == 'AGM' and syn.get('dividend_type') != 'AGM':
-                                is_potential_match = False
-                            elif syn.get('dividend_type') == off.get('dividend_type'):
+                            if syn.get('dividend_type') == off.get('dividend_type'):
                                 is_potential_match = True
                             elif syn.get('dividend_type') in ['-', 'Dividend'] and off.get('dividend_type') in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_match = True
@@ -1026,24 +993,9 @@ def build_dividend_databank_task(self, force: bool = False):
 
                             syn_m = syn.get('_matchedMeeting')
                             off_m = off.get('_matchedMeeting')
-
-                            # CRITICAL FIX: Merge dates into 'off' (the Corporate Action), NOT 'syn' (the Board Meeting)
-                            # The 'off' record is the official action added to final_actions later,
-                            # whereas 'syn' is discarded if matched=True.
-                            # So all dates from the Board Meeting must flow into the official Corporate Action record.
-                            if syn.get('announcement_date_obj'):
-                                off['board_meeting_broadcast_date'] = syn.get('announcement_date_obj')
-                            if syn.get('board_meeting_date'):
-                                off['board_meeting_date'] = syn.get('board_meeting_date')
-
-                            if off.get('agm_date'):
-                                syn['agm_date'] = off.get('agm_date')
-                            elif syn.get('agm_date'):
-                                off['agm_date'] = syn.get('agm_date')
-
-                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-', ''] and syn.get('dividend_type') != 'AGM':
+                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-', '']:
                                 off['dividend_type'] = syn.get('dividend_type')
-                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', ''] and off.get('dividend_type') != 'AGM':
+                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', '']:
                                 syn['dividend_type'] = off.get('dividend_type')
 
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
