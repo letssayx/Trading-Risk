@@ -955,7 +955,8 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
+                        # EXCEPTION: Do NOT forcefully merge AGMs. Let them stand alone.
+                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
 
@@ -1003,7 +1004,32 @@ def build_dividend_databank_task(self, force: bool = False):
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                         is_potential_match = False
+
+                        # Strict Linkage Fix (DLF Bug): A Board Meeting must happen ON or BEFORE the Ex-Date/Record Date
+                        # We allow a small negative buffer (-10 days) for delayed announcements, but we absolutely prevent
+                        # a future Ex-Date (e.g. 2026) from backward-linking to a past year's Board Meeting (e.g. 2025)
+                        # just because it falls within the 180 day window.
                         if -10 <= diff_days <= window:
+                            # CRITICAL: Verify chronological sequence of events if both dates are well-defined
+                            off_m_date = safe_date(off.get('board_meeting_date'))
+                            syn_m_date = safe_date(syn.get('_matchedMeeting').meeting_date if syn.get('_matchedMeeting') else None)
+
+                            # If the Official Corporate Action already has a Board Meeting Date, and it is entirely different from the Synthetic one, avoid matching
+                            if off_m_date != datetime.date.min and syn_m_date != datetime.date.min:
+                                if abs((off_m_date - syn_m_date).days) > 10:
+                                    continue # Skip this match, they belong to different events
+
+                            # If Ex-Date exists, ensure the Board Meeting didn't happen AFTER the Ex-Date + buffer
+                            off_ex_date = safe_date(off.get('ex_date_obj'))
+                            if off_ex_date != datetime.date.min and syn_m_date != datetime.date.min:
+                                if (syn_m_date - off_ex_date).days > 10:
+                                    continue # Skip, Board Meeting happened long after Ex-Date
+                                # CRITICAL: Prevent a future Ex-Date from linking backwards hundreds of days to a previous year's Board Meeting
+                                # But we MUST respect the 180 day window for Final dividends.
+                                # The true check for a cross-year mismatch is if the Board Meeting is older than the Ex-Date by MORE than the allowed window.
+                                if (off_ex_date - syn_m_date).days > window:
+                                    continue
+
                             if syn.get('dividend_type') == 'AGM' and off.get('dividend_type') != 'AGM':
                                 is_potential_match = False
                             elif off.get('dividend_type') == 'AGM' and syn.get('dividend_type') != 'AGM':
