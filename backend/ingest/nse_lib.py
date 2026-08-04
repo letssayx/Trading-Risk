@@ -637,12 +637,17 @@ class NSELib:
                             # (If PFC/RECLTD was completely missing from the Board Meeting API, we would need to add all Nifty500 symbols to target_symbols.
                             # However, memory indicates they were just miscategorized in PDFs, so they should be present in the BM JSON).
 
+                            # To extract missing dividend data from miscategorized NSE PDFs (e.g., tagged 'General Updates'),
+                            # do NOT apply overly strict 'is_relevant' filters (like unconditionally dropping 'Outcome' documents
+                            # or restricting tightly to 'target_symbols'). Strict filtering silently drops valid corporate actions
+                            # (like missing Final dividends for PFC and RECLTD).
+                            # We check for Outcome or General Updates. We do not restrict by target_symbols anymore to fix missing data.
                             def is_relevant(a):
                                 s = str(a.get('subject', '')).lower()
                                 d = str(a.get('desc', '')).lower()
                                 return 'outcome' in s or 'outcome' in d or 'general update' in s or 'general update' in d or s == 'none' or s == ''
 
-                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols and is_relevant(a)]
+                            out_announcements = [a for a in all_out if is_relevant(a)]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -651,7 +656,7 @@ class NSELib:
 
                 for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
                     sym = ann.get('symbol')
-                    if sym and sym in target_symbols:
+                    if sym:
                         if sym not in symbol_announcements:
                             symbol_announcements[sym] = []
                         symbol_announcements[sym].append(ann)
