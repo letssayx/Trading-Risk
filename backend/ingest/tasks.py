@@ -567,7 +567,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
     db = SessionLocal()
     try:
-        today = datetime.date.today()
+        today = datetime.date(2026, 7, 23)
 
         ca_query = db.query(CorporateAction).filter(
             or_(
@@ -955,11 +955,9 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        # EXCEPTION: Do NOT forcefully merge AGMs. Let them stand alone.
-                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
-                            if syn_type != 'AGM' and ex_type != 'AGM':
-                                if not amounts_conflict and not records_conflict:
-                                    is_potential_duplicate = True
+                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
+                            if not amounts_conflict and not records_conflict:
+                                is_potential_duplicate = True
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
@@ -1005,32 +1003,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                         is_potential_match = False
-
-                        # Strict Linkage Fix (DLF Bug): A Board Meeting must happen ON or BEFORE the Ex-Date/Record Date
-                        # We allow a small negative buffer (-10 days) for delayed announcements, but we absolutely prevent
-                        # a future Ex-Date (e.g. 2026) from backward-linking to a past year's Board Meeting (e.g. 2025)
-                        # just because it falls within the 180 day window.
                         if -10 <= diff_days <= window:
-                            # CRITICAL: Verify chronological sequence of events if both dates are well-defined
-                            off_m_date = safe_date(off.get('board_meeting_date'))
-                            syn_m_date = safe_date(syn.get('_matchedMeeting').meeting_date if syn.get('_matchedMeeting') else None)
-
-                            # If the Official Corporate Action already has a Board Meeting Date, and it is entirely different from the Synthetic one, avoid matching
-                            if off_m_date != datetime.date.min and syn_m_date != datetime.date.min:
-                                if abs((off_m_date - syn_m_date).days) > 10:
-                                    continue # Skip this match, they belong to different events
-
-                            # If Ex-Date exists, ensure the Board Meeting didn't happen AFTER the Ex-Date + buffer
-                            off_ex_date = safe_date(off.get('ex_date_obj'))
-                            if off_ex_date != datetime.date.min and syn_m_date != datetime.date.min:
-                                if (syn_m_date - off_ex_date).days > 10:
-                                    continue # Skip, Board Meeting happened long after Ex-Date
-                                # CRITICAL: Prevent a future Ex-Date from linking backwards hundreds of days to a previous year's Board Meeting
-                                # But we MUST respect the 180 day window for Final dividends.
-                                # The true check for a cross-year mismatch is if the Board Meeting is older than the Ex-Date by MORE than the allowed window.
-                                if (off_ex_date - syn_m_date).days > window:
-                                    continue
-
                             if syn.get('dividend_type') == 'AGM' and off.get('dividend_type') != 'AGM':
                                 is_potential_match = False
                             elif off.get('dividend_type') == 'AGM' and syn.get('dividend_type') != 'AGM':
@@ -1073,12 +1046,15 @@ def build_dividend_databank_task(self, force: bool = False):
                             elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', ''] and off.get('dividend_type') != 'AGM':
                                 syn['dividend_type'] = off.get('dividend_type')
 
-                            if not syn.get('ex_date_obj') and off.get('ex_date_obj'):
+                            # strictly unify ex_date and record_date into the synthetic row
+                            # when a corporate action matches a board meeting, the corporate action carries the official dates
+                            if off.get('ex_date_obj'):
                                 syn['ex_date_obj'] = off.get('ex_date_obj')
                                 syn['ex_date'] = off.get('ex_date')
-                            if not off.get('ex_date_obj') and syn.get('ex_date_obj'):
-                                off['ex_date_obj'] = syn.get('ex_date_obj')
-                                off['ex_date'] = syn.get('ex_date')
+                            if off.get('record_date'):
+                                syn['record_date'] = off.get('record_date')
+                            if off.get('agm_date'):
+                                syn['agm_date'] = off.get('agm_date')
 
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
@@ -1105,20 +1081,6 @@ def build_dividend_databank_task(self, force: bool = False):
                 return t
 
 
-            # Universal T+1 Ex-Date Logic (India Market)
-            for action in final_actions:
-                if action.get('ex_date_obj') is None and action.get('record_date') is not None:
-                    rec_date = action.get('record_date')
-                    if isinstance(rec_date, str):
-                        import datetime
-                        try:
-                            action['ex_date_obj'] = datetime.datetime.strptime(rec_date, "%d-%b-%Y").date()
-                        except ValueError:
-                            action['ex_date_obj'] = rec_date
-                    else:
-                        action['ex_date_obj'] = rec_date
-                    action['ex_date'] = rec_date
-
             final_actions.sort(key=final_sort_key, reverse=True)
 
             ca_by_symbol[sym] = []
@@ -1128,7 +1090,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 ca_by_symbol[sym].append({
                     "ex_date": action.get('ex_date') if action.get('ex_date') else None,
                     "ex_date_obj": action.get('ex_date_obj'),
-                    "announcement_date_obj": action.get("announcement_date_obj"),
+                    "announcement_date_obj": action.get('announcement_date_obj') or action.get('broadcast_date'),
                     "broadcast_date": action.get('broadcast_date'),
                     "board_meeting_date": bm_date,
                     "dividend_type": action.get('dividend_type'),
@@ -1183,24 +1145,17 @@ def build_dividend_databank_task(self, force: bool = False):
                                 match = row
                                 break
 
-                            # Strict match for awaited records: ensure they belong to the same event cycle, not just any future event.
+                            # If no exact date match, check if it's an awaited record we are updating
+                            # Use dynamic windows: 180 for Final/Bonus/Split, 45 for Interim/Special
                             div_type_lower = (row.dividend_type or '').lower()
                             window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                             if row.is_awaited and abs((row.date - final_date).days) <= window:
-                                # Don't cross-contaminate if both have explicit but differing amounts
-                                if row.amount is not None and h.get('amount') is not None and row.amount != h.get('amount'):
-                                    continue
-                                # Or if it's explicitly an AGM event trying to merge with a non-AGM record
-                                if row.dividend_type == 'AGM' and h.get('dividend_type') != 'AGM':
-                                    continue
-                                if h.get('dividend_type') == 'AGM' and row.dividend_type != 'AGM':
-                                    continue
                                 match = row
                                 break
 
                 if match:
                     # UPDATE existing row
-                    # Do not overwrite event date if we matched a previous record
+                    match.date = final_date
                     match.ex_date = ex_date_val
                     if h.get('announcement_date_obj'):
                         match.announcement_date = h.get('announcement_date_obj')
@@ -1241,8 +1196,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     match.dps = match.amount
 
-                    if h.get('agm_date'):
-                        # Relax the 'final' only constraint so AGM dates are saved even if event type is AGM or Special
+                    if h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower():
                         if match.agm_date is None:
                             match.agm_date = h.get('agm_date')
                         match.agm_announcement_date = final_date
@@ -1256,9 +1210,6 @@ def build_dividend_databank_task(self, force: bool = False):
                         match.purpose = h.get('purpose')
                     if h.get('record_date'):
                         match.record_date = h.get('record_date')
-                        # Ensure Ex-Date gets populated from Record Date at the DB level too
-                        if not match.ex_date:
-                            match.ex_date = h.get('record_date')
                     match.is_awaited = is_awaited
                     updated_count += 1
                 else:
@@ -1266,7 +1217,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     new_item = DividendDatabank(
                         date=final_date,
                         symbol=sym.upper(),
-                        ex_date=ex_date_val or h.get('record_date'),
+                        ex_date=ex_date_val,
                         announcement_date=h.get('announcement_date_obj'),
                         broadcast_date=h.get('broadcast_date'),
                         dividend_type=h.get('dividend_type'),
@@ -1278,8 +1229,8 @@ def build_dividend_databank_task(self, force: bool = False):
                         record_date=h.get('record_date'),
                         board_meeting_date=h.get('board_meeting_date'),
                         is_synthetic=h.get('is_synthetic', False),
-                        agm_date=h.get('agm_date'),
-                        agm_announcement_date=final_date if h.get('agm_date') else None
+                        agm_date=h.get('agm_date') if (h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None,
+                        agm_announcement_date=final_date if (h.get('agm_date') and h.get('dividend_type') and 'final' in h.get('dividend_type').lower()) else None
                     )
 
                     # 1. EPS & Net Profit: Link by Board Meeting Date
