@@ -1046,6 +1046,13 @@ def build_dividend_databank_task(self, force: bool = False):
                             elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', ''] and off.get('dividend_type') != 'AGM':
                                 syn['dividend_type'] = off.get('dividend_type')
 
+                            if not syn.get('ex_date_obj') and off.get('ex_date_obj'):
+                                syn['ex_date_obj'] = off.get('ex_date_obj')
+                                syn['ex_date'] = off.get('ex_date')
+                            if not off.get('ex_date_obj') and syn.get('ex_date_obj'):
+                                off['ex_date_obj'] = syn.get('ex_date_obj')
+                                off['ex_date'] = syn.get('ex_date')
+
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
