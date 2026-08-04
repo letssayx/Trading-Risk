@@ -567,7 +567,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
     db = SessionLocal()
     try:
-        today = datetime.date(2026, 7, 23)
+        today = datetime.date.today()
 
         ca_query = db.query(CorporateAction).filter(
             or_(
@@ -962,10 +962,14 @@ def build_dividend_databank_task(self, force: bool = False):
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
 
+                            # Upgrade types so we don't lose Final/Interim tags when merging with a generic Dividend tag
                             if upgrade_syn_type:
                                 syn['dividend_type'] = upgrade_syn_type
                             if upgrade_ex_type:
                                 ex['dividend_type'] = upgrade_ex_type
+
+                            if ex.get('dividend_type') in ['-', 'Dividend', ''] and syn.get('dividend_type') not in ['-', 'Dividend', '', 'AGM']:
+                                ex['dividend_type'] = syn.get('dividend_type')
 
                             if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
                                 ex['_matchedMeeting'] = syn_m
@@ -1046,15 +1050,18 @@ def build_dividend_databank_task(self, force: bool = False):
                             elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', ''] and off.get('dividend_type') != 'AGM':
                                 syn['dividend_type'] = off.get('dividend_type')
 
-                            # strictly unify ex_date and record_date into the synthetic row
+                            # strictly unify ex_date and record_date into the corporate action row (off)
                             # when a corporate action matches a board meeting, the corporate action carries the official dates
-                            if off.get('ex_date_obj'):
-                                syn['ex_date_obj'] = off.get('ex_date_obj')
-                                syn['ex_date'] = off.get('ex_date')
-                            if off.get('record_date'):
-                                syn['record_date'] = off.get('record_date')
-                            if off.get('agm_date'):
-                                syn['agm_date'] = off.get('agm_date')
+                            # but the board meeting might have a newly parsed one if the corporate action is missing it.
+                            if syn.get('ex_date_obj') and not off.get('ex_date_obj'):
+                                off['ex_date_obj'] = syn.get('ex_date_obj')
+                                off['ex_date'] = syn.get('ex_date')
+                            if syn.get('record_date') and not off.get('record_date'):
+                                off['record_date'] = syn.get('record_date')
+
+                            # Same for AGM date
+                            if syn.get('agm_date') and not off.get('agm_date'):
+                                off['agm_date'] = syn.get('agm_date')
 
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
