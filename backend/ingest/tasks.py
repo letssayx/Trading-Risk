@@ -1027,20 +1027,6 @@ def build_dividend_databank_task(self, force: bool = False):
                             syn_m = syn.get('_matchedMeeting')
                             off_m = off.get('_matchedMeeting')
 
-                            # CRITICAL FIX: Merge dates into 'off' (the Corporate Action), NOT 'syn' (the Board Meeting)
-                            # The 'off' record is the official action added to final_actions later,
-                            # whereas 'syn' is discarded if matched=True.
-                            # So all dates from the Board Meeting must flow into the official Corporate Action record.
-                            if syn.get('announcement_date_obj'):
-                                off['board_meeting_broadcast_date'] = syn.get('announcement_date_obj')
-                            if syn.get('board_meeting_date'):
-                                off['board_meeting_date'] = syn.get('board_meeting_date')
-
-                            if off.get('agm_date'):
-                                syn['agm_date'] = off.get('agm_date')
-                            elif syn.get('agm_date'):
-                                off['agm_date'] = syn.get('agm_date')
-
                             if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-', ''] and syn.get('dividend_type') != 'AGM':
                                 off['dividend_type'] = syn.get('dividend_type')
                             elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', ''] and off.get('dividend_type') != 'AGM':

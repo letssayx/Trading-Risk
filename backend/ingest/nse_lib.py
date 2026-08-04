@@ -902,7 +902,7 @@ class NSELib:
                                 except:
                                     pass
 
-                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and bm_date_obj_check and bm_date_obj_check == trade_date:
+                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and bm_date_obj_check and bm_date_obj_check <= trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
                                 pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
