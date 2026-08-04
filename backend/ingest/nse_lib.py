@@ -534,10 +534,9 @@ class NSELib:
         from datetime import timedelta, datetime
         import re
 
-        from_date = trade_date - timedelta(days=7)
-        to_date = trade_date + timedelta(days=180)
-        from_date_str = from_date.strftime("%d-%m-%Y")
-        to_date_str = to_date.strftime("%d-%m-%Y")
+        # Strict daily fetch
+        from_date_str = trade_date.strftime("%d-%m-%Y")
+        to_date_str = trade_date.strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
@@ -643,7 +642,7 @@ class NSELib:
                                 d = str(a.get('desc', '')).lower()
                                 return 'outcome' in s or 'outcome' in d or 'general update' in s or 'general update' in d or s == 'none' or s == ''
 
-                            out_announcements = [a for a in all_out if is_relevant(a)]
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols and is_relevant(a)]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -652,7 +651,7 @@ class NSELib:
 
                 for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
                     sym = ann.get('symbol')
-                    if sym: # removed strict target_symbols filter to allow PFC/RECLTD general updates through
+                    if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
                             symbol_announcements[sym] = []
                         symbol_announcements[sym].append(ann)
@@ -1058,10 +1057,9 @@ class NSELib:
     def get_corporate_actions(self, trade_date: date) -> pd.DataFrame:
         """Get Corporate Actions."""
         from datetime import timedelta
-        from_date = trade_date - timedelta(days=7)
-        to_date = trade_date + timedelta(days=180)
-        from_date_str = from_date.strftime("%d-%m-%Y")
-        to_date_str = to_date.strftime("%d-%m-%Y")
+        # Strict daily fetch
+        from_date_str = trade_date.strftime("%d-%m-%Y")
+        to_date_str = trade_date.strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
