@@ -18,6 +18,7 @@ from backend.ingest.timescale import setup_all_timescale_policies
 from backend.ingest.date_utils import NSEHolidayCalendar
 from backend.ingest.field_mapper import FieldMapper
 from backend.ingest.nse_lib import NSELib # Use hardened internal library
+from backend.ingest.dividend_importer import fetch_and_parse_dividends, fetch_and_parse_agms
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +62,8 @@ class NSEDataImporter:
             'fii_dii_cash': models.FIIDIICash,
             'historical_index_data': models.HistoricalIndexData,
         }
-        if key == 'agm':
-            # AGM isn't a direct DB model during import, it piggybacks on board meetings/databank task later.
-            # We'll just map it to BoardMeeting to bypass None checks but skip actual inserts in _process_file
-            return getattr(models, 'BoardMeeting')
+        if key == 'agm' and hasattr(models, 'AGMEvent'):
+            return getattr(models, 'AGMEvent')
         if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
             return getattr(models, 'CorporateAction')
         if key == 'board_meetings' and hasattr(models, 'BoardMeeting'):
@@ -99,7 +98,7 @@ class NSEDataImporter:
             'corporate_actions': ['date', 'symbol', 'purpose'],
             'board_meetings': ['date', 'symbol', 'purpose'],
             'financial_results': ['date', 'symbol', 'period'],
-
+            'agm': ['symbol', 'agm_announcement_date', 'agm_date'],
             'historical_index_data': ['trade_date', 'index_name'],
         }
         return mapping.get(key, [])
@@ -193,19 +192,18 @@ class NSEDataImporter:
         elif key == 'margin_trading':
             return self.lib.get_margin_trading(trade_date)
         elif key == 'corporate_actions':
-            return self.lib.get_corporate_actions(trade_date)
+            # Bypass old logic - fetch_and_parse_dividends handles both
+            return fetch_and_parse_dividends(trade_date)
         elif key == 'board_meetings':
-            return self.lib.get_board_meetings(trade_date, include_agm=include_agm)
+            # The unified fetch_and_parse_dividends returns a DF that works for both BM and CA mappings
+            # in FieldMapper since it contains 'MEETING DATE', 'BROADCAST DATE', 'PURPOSE', etc.
+            return fetch_and_parse_dividends(trade_date)
         elif key == 'historical_index_data':
             return self.lib.get_historical_index_data(trade_date)
         elif key == 'financial_results':
             return self.lib.get_financial_results(trade_date)
         elif key == 'agm':
-            import pandas as pd
-            # AGMs are isolated to prevent cross-contamination of daily data.
-            # When the AGM key is passed, we explicitly fetch Board Meetings and trigger AGM extraction.
-            # Since board_meetings normally suppresses AGM extracting without include_agm=True, we bypass it here.
-            return self.lib.get_board_meetings(trade_date, include_agm=True)
+            return fetch_and_parse_agms(trade_date)
 
         return pd.DataFrame()
 
@@ -406,6 +404,16 @@ class NSEDataImporter:
         format_info = FieldMapper.detect_format(df)
         if format_info['type'] == 'unknown' and key == 'fii_dii_cash':
             format_info = {'type': 'fii_dii_cash', 'target_table': 'fii_dii_cash'}
+
+        # Explicit format override for board_meetings/corporate actions since their DataFrames
+        # are unified and contain columns that trigger both detection rules in FieldMapper.
+        if key == 'board_meetings':
+            format_info = {'type': 'board_meetings', 'target_table': 'board_meetings'}
+        elif key == 'corporate_actions':
+            format_info = {'type': 'corporate_actions', 'target_table': 'corporate_actions'}
+        elif key == 'agm':
+            format_info = {'type': 'agm', 'target_table': 'agm_events'}
+
         if format_info['type'] == 'unknown':
             # Fallback based on expected file type
             if key == 'mto':
@@ -421,10 +429,6 @@ class NSEDataImporter:
             elif key == 'bhavcopy_fo':
                 if len(df.columns) > 5:
                     format_info = {'type': 'fo_udiff'}
-            elif key == 'board_meetings':
-                format_info = {'type': 'board_meetings'}
-            elif key == 'corporate_actions':
-                format_info = {'type': 'corporate_actions'}
             elif key == 'financial_results':
                 format_info = {'type': 'financial_results'}
 

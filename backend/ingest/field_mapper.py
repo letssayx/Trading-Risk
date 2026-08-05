@@ -157,6 +157,10 @@ class FieldMapper:
         if 'BOARDMEETINGDATE' in upper_cols or 'MEETING DATE' in upper_cols:
             return {'type': 'board_meetings', 'name': 'board_meetings'}
 
+        # AGM Events
+        if 'AGM_ANNOUNCEMENT_DATE' in upper_cols and 'AGM_DATE' in upper_cols:
+            return {'type': 'agm', 'name': 'agm_events'}
+
         # FII/DII Cash
         if 'CATEGORY' in upper_cols and 'BUY_VALUE' in upper_cols and 'SELL_VALUE' in upper_cols:
             return {'type': 'fii_dii_cash', 'name': 'fii_dii_cash'}
@@ -205,6 +209,8 @@ class FieldMapper:
             return cls._map_corporate_actions(df, trade_date)
         elif format_type == 'board_meetings':
             return cls._map_board_meetings(df, trade_date)
+        elif format_type == 'agm':
+            return cls._map_agm(df, trade_date)
         elif format_type == 'financial_results':
             return cls._map_financial_results(df, trade_date)
         elif format_type == 'fii_dii_cash':
@@ -346,7 +352,11 @@ class FieldMapper:
             purpose = str(cls._get_val(row, ['PURPOSE', 'Purpose']) or '').strip()
             face_value = cls._clean_numeric(cls._get_val(row, ['FACE VALUE', 'Face Value']))
 
-            parsed_div_amount, div_type = cls._parse_dividend(purpose, face_value)
+            parsed_div_amount = cls._clean_numeric(cls._get_val(row, ['EXTRACTED_DIVIDEND_AMOUNT']))
+            div_type = cls._get_val(row, ['EXTRACTED_DIVIDEND_TYPE'])
+
+            if parsed_div_amount is None:
+                parsed_div_amount, div_type = cls._parse_dividend(purpose, face_value)
 
             record = {
                 'date': ex_date_val or trade_date,
@@ -406,6 +416,26 @@ class FieldMapper:
         return records
 
     @classmethod
+    def _map_agm(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            agm_ann_date = parse_nse_date(cls._get_val(row, ['AGM_ANNOUNCEMENT_DATE']))
+            agm_date = parse_nse_date(cls._get_val(row, ['AGM_DATE']))
+
+            # The partition key `date` is required for TimescaleMixin.
+            # We'll use the AGM announcement date for it.
+            record = {
+                'date': agm_ann_date or trade_date,
+                'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip().upper(),
+                'company_name': str(cls._get_val(row, ['COMPANY NAME', 'Company Name', 'sm_name']) or '').strip(),
+                'agm_announcement_date': agm_ann_date,
+                'agm_date': agm_date,
+            }
+            if record['symbol']:
+                records.append(record)
+        return records
+
+    @classmethod
     def _map_board_meetings(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
         records = []
         for _, row in df.iterrows():
@@ -418,10 +448,10 @@ class FieldMapper:
 
             # Use broadcast_date for partition key 'date' (representing when the announcement happened)
             # Default to trade_date if no broadcast date.
-            record_date = broadcast_dt.date() if broadcast_dt else trade_date
+            record_date = broadcast_dt.date() if broadcast_dt else (bm_date_val or trade_date)
 
             record = {
-                'date': record_date or bm_date_val,
+                'date': record_date,
                 'meeting_date': bm_date_val, # explicitly store meeting date
                 'broadcast_date': broadcast_dt,
                 'symbol': str(cls._get_val(row, ['SYMBOL', 'Symbol']) or '').strip(),

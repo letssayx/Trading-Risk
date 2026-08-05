@@ -562,7 +562,7 @@ def build_dividend_databank_task(self, force: bool = False):
     import logging
 
     from backend.infrastructure.db import SessionLocal
-    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult, AGMEvent
     from backend.ingest.field_mapper import FieldMapper
 
     db = SessionLocal()
@@ -1345,7 +1345,7 @@ def patch_historical_eps_agm_task(self):
     import logging
 
     from backend.infrastructure.db import SessionLocal
-    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult, AGMEvent
 
     db = SessionLocal()
     try:
@@ -1395,41 +1395,15 @@ def patch_historical_eps_agm_task(self):
                 # Look for an AGM announcement that happens *after* the dividend event (up to 6 months / ~180 days).
                 # Meaning the AGM event date > dividend row_date, but within 180 days.
                 if not row.agm_date and row.dividend_type and 'final' in row.dividend_type.lower():
-                    bm = db.query(BoardMeeting).filter(
-                        BoardMeeting.symbol == sym,
-                        BoardMeeting.purpose.ilike('%annual general meeting%'),
-                        BoardMeeting.date >= row_date,
-                        func.extract('epoch', BoardMeeting.date) - func.extract('epoch', row_date) < 15552000 # ~180 days
-                    ).order_by(BoardMeeting.date.asc()).first()
+                    agm_evt = db.query(AGMEvent).filter(
+                        AGMEvent.symbol == sym,
+                        AGMEvent.agm_announcement_date >= row_date,
+                        func.extract('epoch', AGMEvent.agm_announcement_date) - func.extract('epoch', row_date) < 15552000 # ~180 days
+                    ).order_by(AGMEvent.agm_announcement_date.asc()).first()
 
-                    if bm:
-                        row.agm_announcement_date = bm.date
-                        date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (bm.purpose or '').lower())
-                        if date_match:
-                             try:
-                                 from dateutil.parser import parse
-                                 row.agm_date = parse(date_match.group(1)).date()
-                             except:
-                                 pass
-
-                    # Or check corporate actions
-                    if not row.agm_date:
-                        ca = db.query(CorporateAction).filter(
-                            CorporateAction.symbol == sym,
-                            CorporateAction.purpose.ilike('%annual general meeting%'),
-                            CorporateAction.date >= row_date,
-                            func.extract('epoch', CorporateAction.date) - func.extract('epoch', row_date) < 15552000
-                        ).order_by(CorporateAction.date.asc()).first()
-
-                        if ca:
-                            row.agm_announcement_date = ca.date
-                            date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (ca.purpose or '').lower())
-                            if date_match:
-                                 try:
-                                     from dateutil.parser import parse
-                                     row.agm_date = parse(date_match.group(1)).date()
-                                 except:
-                                     pass
+                    if agm_evt:
+                        row.agm_announcement_date = agm_evt.agm_announcement_date
+                        row.agm_date = agm_evt.agm_date
 
                 updated_count += 1
 

@@ -321,6 +321,9 @@ def get_model_for_type(data_type: str):
     # Safely get CorporateAction if it exists in models (may be unmerged)
     if data_type == 'dividend' and hasattr(models, 'DividendDatabank'):
         return getattr(models, 'DividendDatabank')
+    if data_type in ['agm', 'agms']:
+        if hasattr(models, 'DividendDatabank'):
+            return getattr(models, 'DividendDatabank')
     if data_type == 'corporate_actions' and hasattr(models, 'CorporateAction'):
         return getattr(models, 'CorporateAction')
     if data_type in ['board_meetings', 'board_meeting'] and hasattr(models, 'BoardMeeting'):
