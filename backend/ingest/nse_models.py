@@ -816,3 +816,8 @@ class DividendDatabank(Base, TimescaleMixin):
     payout_ratio = Column(Float, nullable=True)
     agm_announcement_date = Column(Date, nullable=True)
     agm_date = Column(Date, nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('date', 'id'),
+        UniqueConstraint('symbol', 'date', 'dividend_type', name='uq_dividend_databank_unique'),
+    )
