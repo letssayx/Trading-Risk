@@ -560,7 +560,7 @@ def build_dividend_databank_task(self, force: bool = False):
     logger.info("build_dividend_databank_task bypassed. SmartDividendImporter writes directly to DividendDatabank.")
     return "Dividend Databank rebuild bypassed. Smart importer handles this directly."
 
-@celery_app.task(bind=True, max_retries=0)
+@shared_task(bind=True, max_retries=0)
 def _legacy_build_dividend_databank_task(self, force: bool = False):
     from sqlalchemy import func, or_, desc
     import datetime
