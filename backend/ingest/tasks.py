@@ -555,6 +555,13 @@ def generate_morning_report_task(self, target_date_str: str, author: str = "Syst
 
 @shared_task(bind=True, max_retries=3, acks_late=True, reject_on_worker_lost=True)
 def build_dividend_databank_task(self, force: bool = False):
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("build_dividend_databank_task bypassed. SmartDividendImporter writes directly to DividendDatabank.")
+    return "Dividend Databank rebuild bypassed. Smart importer handles this directly."
+
+@celery_app.task(bind=True, max_retries=0)
+def _legacy_build_dividend_databank_task(self, force: bool = False):
     from sqlalchemy import func, or_, desc
     import datetime
     from collections import defaultdict
@@ -562,7 +569,7 @@ def build_dividend_databank_task(self, force: bool = False):
     import logging
 
     from backend.infrastructure.db import SessionLocal
-    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult, AGMEvent
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
     from backend.ingest.field_mapper import FieldMapper
 
     db = SessionLocal()
@@ -1345,7 +1352,7 @@ def patch_historical_eps_agm_task(self):
     import logging
 
     from backend.infrastructure.db import SessionLocal
-    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult, AGMEvent
+    from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
 
     db = SessionLocal()
     try:
@@ -1395,15 +1402,16 @@ def patch_historical_eps_agm_task(self):
                 # Look for an AGM announcement that happens *after* the dividend event (up to 6 months / ~180 days).
                 # Meaning the AGM event date > dividend row_date, but within 180 days.
                 if not row.agm_date and row.dividend_type and 'final' in row.dividend_type.lower():
-                    agm_evt = db.query(AGMEvent).filter(
-                        AGMEvent.symbol == sym,
-                        AGMEvent.agm_announcement_date >= row_date,
-                        func.extract('epoch', AGMEvent.agm_announcement_date) - func.extract('epoch', row_date) < 15552000 # ~180 days
-                    ).order_by(AGMEvent.agm_announcement_date.asc()).first()
+                    agm_evt = db.query(DividendDatabank).filter(
+                        DividendDatabank.symbol == sym,
+                        DividendDatabank.dividend_type == 'AGM',
+                        DividendDatabank.date >= row_date,
+                        func.extract('epoch', DividendDatabank.date) - func.extract('epoch', row_date) < 15552000 # ~180 days
+                    ).order_by(DividendDatabank.date.asc()).first()
 
                     if agm_evt:
-                        row.agm_announcement_date = agm_evt.agm_announcement_date
-                        row.agm_date = agm_evt.agm_date
+                        row.agm_announcement_date = agm_evt.board_meeting_broadcast_date.date() if agm_evt.board_meeting_broadcast_date else agm_evt.date
+                        row.agm_date = agm_evt.ex_date or agm_evt.agm_date
 
                 updated_count += 1
 

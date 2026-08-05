@@ -816,19 +816,3 @@ class DividendDatabank(Base, TimescaleMixin):
     payout_ratio = Column(Float, nullable=True)
     agm_announcement_date = Column(Date, nullable=True)
     agm_date = Column(Date, nullable=True)
-
-
-class AGMEvent(Base, TimescaleMixin):
-    """AGM Event Announcements"""
-    __tablename__ = "agm_events"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(Date, nullable=False, index=True) # Broadcast/Trade Date
-    symbol = Column(String(50), nullable=False, index=True)
-    company_name = Column(String(200))
-    agm_announcement_date = Column(Date, nullable=True)
-    agm_date = Column(Date, nullable=True)
-
-    __table_args__ = (
-        UniqueConstraint('symbol', 'agm_announcement_date', 'agm_date', name='uq_agm_event_unique'),
-    )

@@ -1,341 +1,308 @@
-"""Standalone foolproof importer for Dividends and AGMs."""
-
 import pandas as pd
 import logging
+from datetime import date, timedelta, datetime
 import re
-from datetime import date, datetime, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Tuple
+import requests
 
 from backend.ingest.nse_lib import NSELib
 from backend.ingest.parse_pdf import extract_amount_from_pdf
 
 logger = logging.getLogger(__name__)
 
-def fetch_and_parse_dividends(trade_date: date) -> pd.DataFrame:
-    """
-    Fetches corporate board meetings and actions, merges them cleanly without mixing up old dates,
-    and returns a robust DataFrame matching the DividendDatabank structure.
-    """
-    lib = NSELib()
+class SmartDividendImporter:
+    def __init__(self):
+        self.lib = NSELib()
 
-    # 1. Strict daily fetch window matching the legacy setup (or up to 180 days forward for Ex-Dates)
-    from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
-    to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
-
-    logger.info(f"Fetching standalone dividends for trade_date={trade_date}")
-
-    # Fetch endpoints
-    bm_url = f"{lib.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-    ca_url = f"{lib.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-
-    bm_resp = lib.get(bm_url)
-    ca_resp = lib.get(ca_url)
-
-    bms = bm_resp.json() if bm_resp and bm_resp.status_code == 200 and isinstance(bm_resp.json(), list) else []
-    cas = ca_resp.json() if ca_resp and ca_resp.status_code == 200 and isinstance(ca_resp.json(), list) else []
-
-    # Map CAs by symbol for easy lookup
-    ca_map = {}
-    for ca in cas:
-        sym = ca.get('symbol')
-        if sym:
-            ca_map.setdefault(sym, []).append(ca)
-
-    # 2. Extract specific announcements to extract XBRL attachment texts
-    announcement_urls = [
-        f"{lib.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend",
-        f"{lib.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date",
-        f"{lib.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-    ]
-
-    announcements = []
-    for url in announcement_urls:
-        resp = lib.get(url)
+    def fetch_board_meetings(self, start_date: date, end_date: date) -> List[Dict]:
+        url = f"{self.lib.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={start_date.strftime('%d-%m-%Y')}&to_date={end_date.strftime('%d-%m-%Y')}"
+        resp = self.lib.get(url)
         if resp and resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, list):
-                announcements.extend(data)
+            return resp.json() if isinstance(resp.json(), list) else []
+        return []
 
-    ann_map = {}
-    for ann in announcements:
-        sym = ann.get('symbol')
-        if sym:
-            ann_map.setdefault(sym, []).append(ann)
+    def fetch_corporate_actions(self, start_date: date, end_date: date) -> List[Dict]:
+        url = f"{self.lib.BASE_URL}/api/corporate-actions?index=equities&from_date={start_date.strftime('%d-%m-%Y')}&to_date={end_date.strftime('%d-%m-%Y')}"
+        resp = self.lib.get(url)
+        if resp and resp.status_code == 200:
+            return resp.json() if isinstance(resp.json(), list) else []
+        return []
 
-    results = []
+    def fetch_announcements(self, start_date: date, end_date: date) -> List[Dict]:
+        url = f"{self.lib.BASE_URL}/api/corporate-announcements?index=equities&from_date={start_date.strftime('%d-%m-%Y')}&to_date={end_date.strftime('%d-%m-%Y')}"
+        resp = self.lib.get(url)
+        if resp and resp.status_code == 200:
+            return resp.json() if isinstance(resp.json(), list) else []
+        return []
 
-    # Process Board Meetings
-    for bm in bms:
-        symbol = bm.get('bm_symbol')
-        if not symbol:
-            continue
+    def parse_amount_and_type(self, text: str) -> Tuple[float, str]:
+        text_lower = text.lower()
+        div_type = 'Dividend'
+        if 'bonus' in text_lower: div_type = 'Bonus'
+        elif 'split' in text_lower: div_type = 'Split'
+        elif 'interim' in text_lower: div_type = 'Interim'
+        elif 'final' in text_lower: div_type = 'Final'
+        elif 'special' in text_lower: div_type = 'Special'
 
-        purpose = str(bm.get('bm_purpose', '')).lower()
-        desc = str(bm.get('bm_desc', '')).lower()
+        if div_type in ['Bonus', 'Split']:
+            return 0.0, div_type
 
-        # Check if this BM is about dividends, splits, or bonuses
-        has_div = 'dividend' in purpose or 'dividend' in desc or 'intdiv' in purpose or 'findiv' in purpose
-        has_split = 'split' in purpose or 'sub-division' in purpose
-        has_bonus = 'bonus' in purpose
+        # Clean text
+        _clean = re.sub(r'(?:face value|fv).*?(?:rs\.?|inr)\s*\d+(?:\.\d+)?(?:/-)?', '', text, flags=re.IGNORECASE)
+        _clean = re.sub(r'\d{4}-\d{2,4}', '', _clean) # remove years
 
-        if not (has_div or has_split or has_bonus):
-            continue
+        matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|@)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
+        amount = sum(float(m) for m in matches) if matches else 0.0
 
-        try:
-            bm_date = datetime.strptime(bm.get('bm_date', ''), "%d-%b-%Y").date()
-        except Exception:
-            continue
+        # If still 0, look for %
+        if amount == 0.0:
+            pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', _clean)
+            if pct_matches:
+                # Need face value, but we just return None for amount to signal we need it from DB later, or we can just leave it as None
+                return None, div_type
 
-        if bm_date > trade_date:
-            continue # Don't parse future meetings yet
+        return amount if amount > 0 else None, div_type
 
-        bm_timestamp = bm.get('bm_timestamp')
+    def parse_dates(self, text: str) -> Tuple[str, str]:
+        record_date = None
+        ex_date = None
 
-        # Find matching CAs
-        matched_cas = []
-        for ca in ca_map.get(symbol, []):
-            try:
-                ca_ex_date = datetime.strptime(str(ca.get('exDate', '')), "%d-%b-%Y").date()
-                if ca_ex_date >= bm_date: # Ex-date must be after or on BM date
-                    matched_cas.append(ca)
-            except Exception:
-                pass
+        # Try Record Date
+        rd_match = re.search(r'(?:record date).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2})', text, re.IGNORECASE)
+        if rd_match:
+            record_date = rd_match.group(1).replace('st','').replace('nd','').replace('rd','').replace('th','')
 
-        # Find matching announcements
-        matched_anns = []
-        for ann in ann_map.get(symbol, []):
-            try:
-                ann_date = datetime.strptime(ann.get('an_dt', '').split(' ')[0], "%d-%b-%Y").date()
-                if 0 <= (ann_date - bm_date).days <= 3:
-                    matched_anns.append(ann)
-            except Exception:
-                pass
+        # Try Ex-Date
+        ex_match = re.search(r'(?:ex-date|ex date).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2})', text, re.IGNORECASE)
+        if ex_match:
+            ex_date = ex_match.group(1).replace('st','').replace('nd','').replace('rd','').replace('th','')
 
-        # We will parse amounts, dates, and types strictly
-        def extract_info(text_to_search: str, is_ca: bool = False):
-            info = {'amount': None, 'type': None, 'record_date': None, 'ex_date': None}
-            text_to_search = text_to_search.lower()
+        return record_date, ex_date
 
-            # Type
-            if has_bonus or 'bonus' in text_to_search: info['type'] = 'Bonus'
-            elif has_split or 'split' in text_to_search: info['type'] = 'Split'
-            elif 'interim' in text_to_search or 'intdiv' in text_to_search: info['type'] = 'Interim'
-            elif 'final' in text_to_search or 'findiv' in text_to_search: info['type'] = 'Final'
-            elif 'special' in text_to_search: info['type'] = 'Special'
-            elif has_div: info['type'] = 'Dividend'
+    def process(self, trade_date: date) -> pd.DataFrame:
+        logger.info(f"Running Smart Dividend Importer for {trade_date}")
 
-            # Amount
-            _clean = re.sub(r'(?:face value|fv|paid-up capital|equity shares?).*?(?:rs\.?|inr)\s*\d+(?:\.\d+)?(?:/-)?', '', text_to_search, flags=re.IGNORECASE)
-            matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
-            if matches:
-                info['amount'] = sum(float(m) for m in matches)
-            else:
-                xbrl = re.findall(r'<[^>]*Dividend[^>]*>.*?Rs\.?\s*(\d+(?:\.\d+)?).*?</[^>]*>', text_to_search, re.IGNORECASE)
-                if xbrl:
-                    info['amount'] = sum(float(m) for m in xbrl)
+        # 1. Fetch Board Meetings (the anchor)
+        bms = self.fetch_board_meetings(trade_date - timedelta(days=1), trade_date + timedelta(days=1))
 
-            # Record/Ex Date
-            rd_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', text_to_search, re.IGNORECASE)
-            if rd_match:
-                info['record_date'] = rd_match.group(1)
-            else:
-                ex_match = re.search(r'(?:ex-date|ex date|record date).*?(\d{1,2}-[a-zA-Z]{3}-\d{4})', text_to_search, re.IGNORECASE)
-                if ex_match:
-                    info['record_date'] = ex_match.group(1)
-                    info['ex_date'] = ex_match.group(1)
+        # 2. Fetch all Corporate Actions for a wide range (looking forward 180 days to catch Ex-Dates for Final dividends)
+        cas = self.fetch_corporate_actions(trade_date - timedelta(days=10), trade_date + timedelta(days=180))
 
-            return info
+        # 3. Fetch announcements (to read XBRL text for missing dates)
+        anns = self.fetch_announcements(trade_date - timedelta(days=1), trade_date + timedelta(days=2))
 
-        best_info = extract_info(purpose + " " + desc)
+        results = []
 
-        # Enhance with CA data
-        for ca in matched_cas:
-            ca_info = extract_info(str(ca.get('subject', '')))
-            if ca_info['amount'] and not best_info['amount']: best_info['amount'] = ca_info['amount']
-            if ca_info['type'] and best_info['type'] == 'Dividend': best_info['type'] = ca_info['type']
-            if ca.get('exDate') and ca.get('exDate') != '-': best_info['ex_date'] = ca.get('exDate')
-            if ca.get('recDate') and ca.get('recDate') != '-': best_info['record_date'] = ca.get('recDate')
+        # Map CA by Symbol
+        ca_by_sym = {}
+        for ca in cas:
+            sym = ca.get('symbol')
+            if sym not in ca_by_sym: ca_by_sym[sym] = []
+            ca_by_sym[sym].append(ca)
 
-        # Enhance with Announcements (XBRL)
-        for ann in matched_anns:
-            ann_info = extract_info(str(ann.get('attchmntText', '')) + " " + str(ann.get('subject', '')) + " " + str(ann.get('desc', '')))
-            if ann_info['amount'] and not best_info['amount']: best_info['amount'] = ann_info['amount']
-            if ann_info['type'] and best_info['type'] == 'Dividend': best_info['type'] = ann_info['type']
-            if ann_info['record_date'] and not best_info['record_date']: best_info['record_date'] = ann_info['record_date']
-            if ann_info['ex_date'] and not best_info['ex_date']: best_info['ex_date'] = ann_info['ex_date']
+        # Map Anns by Symbol
+        ann_by_sym = {}
+        for ann in anns:
+            sym = ann.get('symbol')
+            if sym not in ann_by_sym: ann_by_sym[sym] = []
+            ann_by_sym[sym].append(ann)
 
-        # Fallback to PDF Scraping specifically for missing Data (Coal India Fix)
-        if not best_info['ex_date'] or not best_info['amount'] or best_info['type'] == 'Dividend':
-            attachment_url = str(bm.get('ATTACHMENT', ''))
-            if not attachment_url and matched_anns:
-                attachment_url = str(matched_anns[0].get('attchmntFile', ''))
+        processed_ca_ids = set()
 
-            if attachment_url.startswith('http'):
-                pdf_amt, pdf_rd, pdf_type, _ = extract_amount_from_pdf(attachment_url)
-                if pdf_amt and not best_info['amount']: best_info['amount'] = pdf_amt
-                if pdf_rd and not best_info['record_date']:
-                    best_info['record_date'] = pdf_rd
-                    best_info['ex_date'] = pdf_rd # Indian market T+1
-                if pdf_type and best_info['type'] == 'Dividend': best_info['type'] = pdf_type
+        # Phase 1: Process Board Meetings (Anchors)
+        for bm in bms:
+            sym = bm.get('symbol')
+            purpose = str(bm.get('bm_purpose', '')).lower()
 
-        # Ensure Ex-date fallback if missing
-        if best_info['record_date'] and not best_info['ex_date']:
-            best_info['ex_date'] = best_info['record_date']
+            is_relevant = any(kw in purpose for kw in ['dividend', 'bonus', 'split', 'special'])
+            if not is_relevant: continue
 
-        results.append({
-            'SYMBOL': symbol,
-            'COMPANY NAME': bm.get('sm_name', ''),
-            'PURPOSE': bm.get('bm_purpose', ''),
-            'BM_DESC': bm.get('bm_desc', ''),
-            'MEETING DATE': bm.get('bm_date', ''),
-            'BROADCAST DATE': bm_timestamp,
-            'ATTACHMENT': bm.get('ATTACHMENT', ''),
-            'EXTRACTED_DIVIDEND_AMOUNT': best_info['amount'],
-            'EXTRACTED_DIVIDEND_TYPE': best_info['type'],
-            'EXTRACTED_RECORD_DATE': best_info['record_date'],
-            'EX-DATE': best_info['ex_date'],
-        })
+            # Broadcast date = BM Intimation Date
+            bm_broadcast = bm.get('bm_timestamp', '')
+            if not bm_broadcast: bm_broadcast = f"{trade_date.strftime('%Y-%m-%d')} 00:00:00"
 
-    # Add standalone Corporate Actions (that had no matching BM)
-    consumed_cas = set()
-    for row in results:
-        sym = row['SYMBOL']
-        row_ex = row.get('EX-DATE')
-        row_rd = row.get('EXTRACTED_RECORD_DATE')
-        if row_ex or row_rd:
-            for c in ca_map.get(sym, []):
-                c_ex = c.get('exDate')
-                c_rd = c.get('recDate')
-                if (row_ex and c_ex == row_ex) or (row_rd and c_rd == row_rd):
-                    consumed_cas.add(f"{sym}_{c_ex}_{c.get('subject')}")
+            bm_date_str = bm.get('bm_date', '')
 
-    for ca in cas:
-        sym = ca.get('symbol')
-        ex_date = ca.get('exDate')
-        subject = ca.get('subject')
+            amount, div_type = self.parse_amount_and_type(bm.get('bm_purpose', '') + ' ' + bm.get('bm_desc', ''))
 
-        ca_key = f"{sym}_{ex_date}_{subject}"
-        if ca_key in consumed_cas:
-            continue
+            record_date = None
+            ex_date = None
 
-        has_div = 'dividend' in str(subject).lower()
-        has_split = 'split' in str(subject).lower()
-        has_bonus = 'bonus' in str(subject).lower()
+            # Look for matching Corporate Action to get exact Ex-Date (180 day window)
+            matched_cas = ca_by_sym.get(sym, [])
+            for ca in matched_cas:
+                ca_purpose = str(ca.get('subject', '')).lower()
+                ca_amount, ca_type = self.parse_amount_and_type(ca_purpose)
 
-        if not (has_div or has_split or has_bonus):
-            continue
+                # Loose matching to link them (Same type OR both are some kind of dividend, and amount matches if not None)
+                types_match = (ca_type == div_type) or ('dividend' in div_type.lower() and 'dividend' in ca_type.lower())
+                amounts_match = (amount is None) or (ca_amount is None) or (amount == ca_amount)
 
-        info = {'amount': None, 'type': 'Dividend'}
-        if has_bonus: info['type'] = 'Bonus'
-        elif has_split: info['type'] = 'Split'
-        elif 'interim' in str(subject).lower(): info['type'] = 'Interim'
-        elif 'final' in str(subject).lower(): info['type'] = 'Final'
-        elif 'special' in str(subject).lower(): info['type'] = 'Special'
+                if types_match and amounts_match:
+                    if ca.get('exDate') and ca.get('exDate') != '-':
+                        ex_date = ca.get('exDate')
+                    if ca.get('recDate') and ca.get('recDate') != '-':
+                        record_date = ca.get('recDate')
 
-        _clean = re.sub(r'(?:face value|fv).*?(?:rs\.?|inr)\s*\d+(?:\.\d+)?(?:/-)?', '', str(subject), flags=re.IGNORECASE)
-        matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
-        if matches:
-            info['amount'] = sum(float(m) for m in matches)
+                    if ca_type != 'Dividend' and div_type == 'Dividend': div_type = ca_type
+                    if ca_amount and not amount: amount = ca_amount
 
-        results.append({
-            'SYMBOL': sym,
-            'COMPANY NAME': ca.get('comp', ''),
-            'PURPOSE': subject,
-            'BM_DESC': '',
-            'MEETING DATE': None,
-            'BROADCAST DATE': ca.get('caBroadcastDate', ''),
-            'ATTACHMENT': '',
-            'EXTRACTED_DIVIDEND_AMOUNT': info['amount'],
-            'EXTRACTED_DIVIDEND_TYPE': info['type'],
-            'EXTRACTED_RECORD_DATE': ca.get('recDate', ''),
-            'EX-DATE': ex_date if ex_date and ex_date != '-' else ca.get('recDate', ''),
-        })
+                    processed_ca_ids.add(f"{sym}_{ca.get('exDate')}_{ca.get('subject')}")
+                    break
 
-    # Deduplicate strictly (Symbol, Ex-Date, Type) to fix DLF Duplicates
-    df = pd.DataFrame(results)
-    if not df.empty:
-        # Sort by Broadcast Date and prioritize rows that actually HAVE an EX-DATE
-        df['BROADCAST DATE'] = pd.to_datetime(df['BROADCAST DATE'], errors='coerce')
-        df['_has_ex_date'] = df['EX-DATE'].astype(bool)
+            # If still missing Ex-Date, scan announcements (XBRL)
+            if not ex_date:
+                matched_anns = ann_by_sym.get(sym, [])
+                for ann in matched_anns:
+                    if 'dividend' in str(ann.get('subject', '')).lower() or 'outcome' in str(ann.get('subject', '')).lower():
+                        text = str(ann.get('attchmntText', '')) + " " + str(ann.get('desc', ''))
+                        rd, ed = self.parse_dates(text)
+                        if rd and not record_date: record_date = rd
+                        if ed and not ex_date: ex_date = ed
 
-        # Sort so that rows with Ex-Date are kept over rows without Ex-Date
-        df = df.sort_values(['_has_ex_date', 'BROADCAST DATE'])
+                        ann_amt, ann_type = self.parse_amount_and_type(text)
+                        if ann_amt and not amount: amount = ann_amt
+                        if ann_type != 'Dividend' and div_type == 'Dividend': div_type = ann_type
 
-        df['MEETING DATE'] = pd.to_datetime(df['MEETING DATE'], errors='coerce')
+            # If STILL missing Ex-Date/Amount, deep scan PDF (Coal India case)
+            if (not ex_date or not amount or div_type == 'Dividend'):
+                attachment_url = str(bm.get('ATTACHMENT', ''))
+                if not attachment_url and ann_by_sym.get(sym):
+                    attachment_url = str(ann_by_sym.get(sym)[0].get('attchmntFile', ''))
 
-        # DLF Duplicate Fix: If Symbol, Meeting Date, and Dividend Type match, it's the exact same dividend.
-        # We can drop duplicates keeping the last one (which, due to our sort, will have the EX-DATE if one exists).
-        # Important: Don't drop valid distinct standalone CAs where Meeting Date is NaT.
+                if attachment_url.startswith('http'):
+                    pdf_amt, pdf_rd, pdf_type, _ = extract_amount_from_pdf(attachment_url)
+                    if pdf_amt and not amount: amount = pdf_amt
+                    if pdf_rd and not record_date:
+                        record_date = pdf_rd
+                        ex_date = pdf_rd # Default Indian Market T+1
+                    if pdf_type and div_type == 'Dividend': div_type = pdf_type
 
-        # Split into rows with Meeting Date and standalone CAs (without Meeting Date)
-        df_bm = df[df['MEETING DATE'].notna()]
-        df_ca = df[df['MEETING DATE'].isna()]
+            # Fallback Record Date to Ex-Date
+            if record_date and not ex_date:
+                ex_date = record_date
 
-        if not df_bm.empty:
-            df_bm = df_bm.drop_duplicates(subset=['SYMBOL', 'MEETING DATE', 'EXTRACTED_DIVIDEND_TYPE'], keep='last')
+            results.append({
+                'SYMBOL': sym,
+                'COMPANY NAME': bm.get('sm_name', ''),
+                'PURPOSE': bm.get('bm_purpose', ''),
+                'BM_DESC': bm.get('bm_desc', ''),
+                'MEETING DATE': bm_date_str,
+                'BROADCAST DATE': bm_broadcast,
+                'ATTACHMENT': bm.get('ATTACHMENT', ''),
+                'EXTRACTED_DIVIDEND_AMOUNT': amount,
+                'EXTRACTED_DIVIDEND_TYPE': div_type,
+                'EXTRACTED_RECORD_DATE': record_date,
+                'EX-DATE': ex_date,
+                'IS_AGM': False
+            })
 
-        if not df_ca.empty:
-            df_ca = df_ca.drop_duplicates(subset=['SYMBOL', 'EX-DATE', 'EXTRACTED_DIVIDEND_TYPE'], keep='last')
+        # Phase 2: Add orphaned Corporate Actions (actions that had no BM in this date window)
+        for ca in cas:
+            sym = ca.get('symbol')
+            ca_id = f"{sym}_{ca.get('exDate')}_{ca.get('subject')}"
 
-        df = pd.concat([df_bm, df_ca], ignore_index=True)
+            if ca_id in processed_ca_ids: continue
 
-        df['BROADCAST DATE'] = df['BROADCAST DATE'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        df['MEETING DATE'] = df['MEETING DATE'].dt.strftime('%d-%b-%Y')
-        df = df.drop(columns=['_has_ex_date'])
+            subject = str(ca.get('subject', '')).lower()
+            is_relevant = any(kw in subject for kw in ['dividend', 'bonus', 'split', 'special'])
+            if not is_relevant: continue
 
-    return df
+            amount, div_type = self.parse_amount_and_type(ca.get('subject', ''))
 
-def fetch_and_parse_agms(trade_date: date) -> pd.DataFrame:
-    """
-    Fetches strictly AGM events to populate the AGMEvent table separately.
-    """
-    lib = NSELib()
-    from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
-    to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
+            ex_date = ca.get('exDate')
+            if ex_date == '-': ex_date = ca.get('recDate') if ca.get('recDate') != '-' else None
 
-    logger.info(f"Fetching standalone AGMs for trade_date={trade_date}")
+            results.append({
+                'SYMBOL': sym,
+                'COMPANY NAME': ca.get('comp', ''),
+                'PURPOSE': ca.get('subject', ''),
+                'BM_DESC': '',
+                'MEETING DATE': None,  # CA doesn't have BM date natively
+                'BROADCAST DATE': ca.get('caBroadcastDate', f"{trade_date.strftime('%Y-%m-%d')} 00:00:00"),
+                'ATTACHMENT': '',
+                'EXTRACTED_DIVIDEND_AMOUNT': amount,
+                'EXTRACTED_DIVIDEND_TYPE': div_type,
+                'EXTRACTED_RECORD_DATE': ca.get('recDate', None) if ca.get('recDate') != '-' else None,
+                'EX-DATE': ex_date,
+                'IS_AGM': False
+            })
 
-    url = f"{lib.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-    resp = lib.get(url)
+        df = pd.DataFrame(results)
+        if not df.empty:
+            # Format dates nicely
+            df['BROADCAST DATE'] = pd.to_datetime(df['BROADCAST DATE'], errors='coerce')
+            df['MEETING DATE'] = pd.to_datetime(df['MEETING DATE'], errors='coerce')
 
-    agms = []
-    if resp and resp.status_code == 200:
-        data = resp.json()
-        if isinstance(data, list):
-            for ann in data:
-                subj = str(ann.get('subject', '')).lower()
-                desc = str(ann.get('desc', '')).lower()
-                text = str(ann.get('attchmntText', '')).lower()
+            # Deduplication: To fix DLF duplicate, we prioritize the row that has a valid EX-DATE
+            df['_has_ex_date'] = df['EX-DATE'].notna() & (df['EX-DATE'] != '')
 
-                is_agm = 'agm' in subj or 'annual general meeting' in subj or 'agm' in desc or 'annual general meeting' in desc
-                if not is_agm:
-                    continue
+            # Sort so rows with EX-DATE come last (keep='last' will keep them)
+            df = df.sort_values(['_has_ex_date', 'BROADCAST DATE'])
 
-                agm_date = None
-                if 'dateofannualgeneralmeeting' in text:
-                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', text, re.IGNORECASE)
-                    if agm_date_match:
-                        agm_date = agm_date_match.group(1)
+            # Deduplicate strictly on Symbol, Meeting Date (if exists) or Ex-Date, and Type
+            # Split to handle safely
+            df_bm = df[df['MEETING DATE'].notna()]
+            df_ca = df[df['MEETING DATE'].isna()]
 
-                if not agm_date:
-                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text + " " + subj + " " + desc, re.IGNORECASE)
-                    if fallback_agm:
-                        agm_date = fallback_agm.group(1).replace('st', '').replace('nd', '').replace('rd', '').replace('th', '')
+            if not df_bm.empty:
+                df_bm = df_bm.drop_duplicates(subset=['SYMBOL', 'MEETING DATE', 'EXTRACTED_DIVIDEND_TYPE'], keep='last')
 
-                if agm_date:
-                    try:
-                        ann_date = datetime.strptime(ann.get('an_dt', '').split(' ')[0], "%d-%b-%Y").strftime('%Y-%m-%d')
-                    except Exception:
-                        ann_date = trade_date.strftime('%Y-%m-%d')
+            if not df_ca.empty:
+                df_ca = df_ca.drop_duplicates(subset=['SYMBOL', 'EX-DATE', 'EXTRACTED_DIVIDEND_TYPE'], keep='last')
 
-                    agms.append({
-                        'SYMBOL': ann.get('symbol', ''),
-                        'COMPANY NAME': ann.get('sm_name', ''),
-                        'AGM_ANNOUNCEMENT_DATE': ann_date,
-                        'AGM_DATE': agm_date
-                    })
+            df = pd.concat([df_bm, df_ca], ignore_index=True)
 
-    df = pd.DataFrame(agms)
-    if not df.empty:
-        df = df.drop_duplicates(subset=['SYMBOL', 'AGM_ANNOUNCEMENT_DATE', 'AGM_DATE'])
-    return df
+            df['BROADCAST DATE'] = df['BROADCAST DATE'].dt.strftime('%Y-%m-%d %H:%M:%S')
+            df['MEETING DATE'] = df['MEETING DATE'].dt.strftime('%Y-%m-%d')
+            df = df.drop(columns=['_has_ex_date', 'IS_AGM'])
+
+        return df
+
+    def process_agms(self, trade_date: date) -> pd.DataFrame:
+        logger.info(f"Running Smart AGM Importer for {trade_date}")
+
+        anns = self.fetch_announcements(trade_date - timedelta(days=7), trade_date + timedelta(days=180))
+
+        results = []
+        for ann in anns:
+            subj = str(ann.get('subject', '')).lower()
+            desc = str(ann.get('desc', '')).lower()
+            text = str(ann.get('attchmntText', '')).lower()
+
+            is_agm = 'agm' in subj or 'annual general meeting' in subj or 'agm' in desc or 'annual general meeting' in desc
+            if not is_agm: continue
+
+            agm_date = None
+            if 'dateofannualgeneralmeeting' in text:
+                agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', text, re.IGNORECASE)
+                if agm_date_match: agm_date = agm_date_match.group(1)
+
+            if not agm_date:
+                fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text + " " + subj + " " + desc, re.IGNORECASE)
+                if fallback_agm:
+                    agm_date = fallback_agm.group(1).replace('st', '').replace('nd', '').replace('rd', '').replace('th', '')
+
+            if agm_date:
+                try:
+                    ann_date = datetime.strptime(ann.get('an_dt', '').split(' ')[0], "%d-%b-%Y").strftime('%Y-%m-%d')
+                except Exception:
+                    ann_date = trade_date.strftime('%Y-%m-%d')
+
+                results.append({
+                    'SYMBOL': ann.get('symbol', ''),
+                    'COMPANY NAME': ann.get('sm_name', ''),
+                    'PURPOSE': ann.get('subject', ''),
+                    'MEETING DATE': None,
+                    'BROADCAST DATE': ann_date,
+                    'EXTRACTED_DIVIDEND_AMOUNT': None,
+                    'EXTRACTED_DIVIDEND_TYPE': 'AGM',
+                    'EXTRACTED_RECORD_DATE': None,
+                    'EX-DATE': agm_date
+                })
+
+        df = pd.DataFrame(results)
+        if not df.empty:
+            df = df.drop_duplicates(subset=['SYMBOL', 'BROADCAST DATE', 'EX-DATE', 'EXTRACTED_DIVIDEND_TYPE'])
+
+        return df

@@ -18,7 +18,6 @@ from backend.ingest.timescale import setup_all_timescale_policies
 from backend.ingest.date_utils import NSEHolidayCalendar
 from backend.ingest.field_mapper import FieldMapper
 from backend.ingest.nse_lib import NSELib # Use hardened internal library
-from backend.ingest.dividend_importer import fetch_and_parse_dividends, fetch_and_parse_agms
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +61,12 @@ class NSEDataImporter:
             'fii_dii_cash': models.FIIDIICash,
             'historical_index_data': models.HistoricalIndexData,
         }
-        if key == 'agm' and hasattr(models, 'AGMEvent'):
-            return getattr(models, 'AGMEvent')
-        if key == 'corporate_actions' and hasattr(models, 'CorporateAction'):
-            return getattr(models, 'CorporateAction')
-        if key == 'board_meetings' and hasattr(models, 'BoardMeeting'):
-            return getattr(models, 'BoardMeeting')
+        if key == 'agm':
+            return getattr(models, 'DividendDatabank')
+        if key == 'corporate_actions':
+            return getattr(models, 'DividendDatabank')
+        if key == 'board_meetings':
+            return getattr(models, 'DividendDatabank')
         if key == 'financial_results' and hasattr(models, 'FinancialResult'):
             return getattr(models, 'FinancialResult')
 
@@ -95,10 +94,10 @@ class NSEDataImporter:
             'margin_trading': ['date', 'symbol'],
             # Bulk/Block deals and Corporate Actions/Board Meetings:
             # No unique fields for upsert anymore (we do delete-insert)
-            'corporate_actions': ['date', 'symbol', 'purpose'],
-            'board_meetings': ['date', 'symbol', 'purpose'],
+            'corporate_actions': ['symbol', 'date', 'dividend_type'],
+            'board_meetings': ['symbol', 'date', 'dividend_type'],
             'financial_results': ['date', 'symbol', 'period'],
-            'agm': ['symbol', 'agm_announcement_date', 'agm_date'],
+            'agm': ['symbol', 'date', 'dividend_type'],
             'historical_index_data': ['trade_date', 'index_name'],
         }
         return mapping.get(key, [])
@@ -192,18 +191,21 @@ class NSEDataImporter:
         elif key == 'margin_trading':
             return self.lib.get_margin_trading(trade_date)
         elif key == 'corporate_actions':
-            # Bypass old logic - fetch_and_parse_dividends handles both
-            return fetch_and_parse_dividends(trade_date)
+            from backend.ingest.dividend_importer import SmartDividendImporter
+            importer = SmartDividendImporter()
+            return importer.process(trade_date)
         elif key == 'board_meetings':
-            # The unified fetch_and_parse_dividends returns a DF that works for both BM and CA mappings
-            # in FieldMapper since it contains 'MEETING DATE', 'BROADCAST DATE', 'PURPOSE', etc.
-            return fetch_and_parse_dividends(trade_date)
+            from backend.ingest.dividend_importer import SmartDividendImporter
+            importer = SmartDividendImporter()
+            return importer.process(trade_date)
         elif key == 'historical_index_data':
             return self.lib.get_historical_index_data(trade_date)
         elif key == 'financial_results':
             return self.lib.get_financial_results(trade_date)
         elif key == 'agm':
-            return fetch_and_parse_agms(trade_date)
+            from backend.ingest.dividend_importer import SmartDividendImporter
+            importer = SmartDividendImporter()
+            return importer.process_agms(trade_date)
 
         return pd.DataFrame()
 
@@ -408,11 +410,11 @@ class NSEDataImporter:
         # Explicit format override for board_meetings/corporate actions since their DataFrames
         # are unified and contain columns that trigger both detection rules in FieldMapper.
         if key == 'board_meetings':
-            format_info = {'type': 'board_meetings', 'target_table': 'board_meetings'}
+            format_info = {'type': 'board_meetings', 'target_table': 'dividend_databank'}
         elif key == 'corporate_actions':
-            format_info = {'type': 'corporate_actions', 'target_table': 'corporate_actions'}
+            format_info = {'type': 'corporate_actions', 'target_table': 'dividend_databank'}
         elif key == 'agm':
-            format_info = {'type': 'agm', 'target_table': 'agm_events'}
+            format_info = {'type': 'agm', 'target_table': 'dividend_databank'}
 
         if format_info['type'] == 'unknown':
             # Fallback based on expected file type
