@@ -356,11 +356,11 @@ class FieldMapper:
                 'symbol': str(cls._get_val(row, ['SYMBOL'])).strip().upper(),
                 'company_name': str(cls._get_val(row, ['COMPANY NAME'])).strip(),
                 'purpose': str(cls._get_val(row, ['PURPOSE'])).strip(),
-                'board_meeting_broadcast_date': broadcast_date,
-                'announcement_date_obj': broadcast_date,
+                'broadcast_date': broadcast_date,
+                'announcement_date': broadcast_date.date() if broadcast_date else None,
                 'board_meeting_date': meeting_date,
                 'ex_date': ex_date,
-                'parsed_dividend_amount': cls._clean_numeric(cls._get_val(row, ['EXTRACTED_DIVIDEND_AMOUNT'])),
+                'amount': cls._clean_numeric(cls._get_val(row, ['EXTRACTED_DIVIDEND_AMOUNT'])),
                 'dividend_type': str(cls._get_val(row, ['EXTRACTED_DIVIDEND_TYPE'])).strip(),
                 'record_date': parse_nse_date(cls._get_val(row, ['EXTRACTED_RECORD_DATE'])),
             }
@@ -417,12 +417,12 @@ class FieldMapper:
                 'symbol': str(cls._get_val(row, ['SYMBOL'])).strip().upper(),
                 'company_name': str(cls._get_val(row, ['COMPANY NAME'])).strip(),
                 'purpose': str(cls._get_val(row, ['PURPOSE'])).strip(),
-                'board_meeting_broadcast_date': broadcast_date,
-                'announcement_date_obj': broadcast_date,
+                'broadcast_date': broadcast_date,
+                'announcement_date': broadcast_date.date() if broadcast_date else None,
                 'agm_announcement_date': broadcast_date.date() if broadcast_date else None,
                 'agm_date': ex_date,
                 'dividend_type': 'AGM',
-                'parsed_dividend_amount': None,
+                'amount': None,
             }
             if record['symbol']:
                 records.append(record)

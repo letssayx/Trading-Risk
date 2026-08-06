@@ -190,22 +190,17 @@ class NSEDataImporter:
             return self.lib.get_contract_delta(trade_date)
         elif key == 'margin_trading':
             return self.lib.get_margin_trading(trade_date)
-        elif key == 'corporate_actions':
+        elif key == 'corporate_actions' or key == 'board_meetings' or key == 'agm':
             from backend.ingest.dividend_importer import SmartDividendImporter
+            import pandas as pd
             importer = SmartDividendImporter()
-            return importer.process(trade_date)
-        elif key == 'board_meetings':
-            from backend.ingest.dividend_importer import SmartDividendImporter
-            importer = SmartDividendImporter()
-            return importer.process(trade_date)
+            df_div = importer.process(trade_date)
+            df_agm = importer.process_agms(trade_date)
+            return pd.concat([df_div, df_agm], ignore_index=True) if not df_div.empty or not df_agm.empty else pd.DataFrame()
         elif key == 'historical_index_data':
             return self.lib.get_historical_index_data(trade_date)
         elif key == 'financial_results':
             return self.lib.get_financial_results(trade_date)
-        elif key == 'agm':
-            from backend.ingest.dividend_importer import SmartDividendImporter
-            importer = SmartDividendImporter()
-            return importer.process_agms(trade_date)
 
         return pd.DataFrame()
 
@@ -306,6 +301,15 @@ class NSEDataImporter:
 
         patterns_to_run = patterns or available_keys
         patterns_to_run = [p for p in patterns_to_run if p in available_keys]
+
+        # Consolidate redundant dividend imports to prevent calling SmartDividendImporter multiple times
+        dividend_keys = [k for k in ['board_meetings', 'corporate_actions', 'agm'] if k in patterns_to_run]
+        if len(dividend_keys) > 1:
+            for k in dividend_keys[1:]:
+                patterns_to_run.remove(k)
+        # If we have any of them left, we'll process all dividends together via 'corporate_actions' for simplicity
+        if dividend_keys and 'corporate_actions' not in patterns_to_run:
+            patterns_to_run[patterns_to_run.index(dividend_keys[0])] = 'corporate_actions'
 
         total_files = len(patterns_to_run)
         results = {}
