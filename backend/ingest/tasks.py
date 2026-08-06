@@ -695,7 +695,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     })
 
                 # Still append splits/bonuses to the UI history so they show in the timeline
-                ann_date = getattr(r, "broadcast_date", None) or r.date
+                ann_date = r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
@@ -713,7 +713,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 })
 
             elif parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
-                ann_date = getattr(r, "broadcast_date", None) or r.date
+                ann_date = r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
@@ -871,7 +871,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             "ex_date": None,
                             "ex_date_obj": None,
                             "agm_date": agm_date,
-                            "announcement_date_obj": getattr(m, "broadcast_date", None),
+                            "announcement_date_obj": getattr(m, "meeting_date", None) or getattr(m, "date", None),
                             "broadcast_date": m.broadcast_date if hasattr(m, "broadcast_date") else None,
                             "amount": amount if div_type != "AGM" else None,
                             "raw_amount": amount if div_type != "AGM" else None,
@@ -1136,6 +1136,10 @@ def build_dividend_databank_task(self, force: bool = False):
                                 match = row
                                 break
                             if row.announcement_date and h.get('announcement_date_obj') and row.announcement_date == h.get('announcement_date_obj'):
+                                match = row
+                                break
+
+                            if row.broadcast_date and h.get('broadcast_date') and row.broadcast_date == h.get('broadcast_date'):
                                 match = row
                                 break
 
