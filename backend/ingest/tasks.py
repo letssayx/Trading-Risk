@@ -251,6 +251,26 @@ def retry_failed_imports(self, pattern: str):
         logger.error(f"Retry failed: {exc}. Retrying... ({self.request.retries}/3)")
         self.retry(exc=Exception(str(exc)), countdown=60)
 
+
+@shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_agms_range')
+def import_agms_range(self, start_date_str: str, end_date_str: str):
+    """Import standalone historical AGMs"""
+    set_active_task(self.request.id)
+    try:
+        from backend.ingest.fetch_historical_agm import fetch_historical_agm_range
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+        self.update_state(state='PROGRESS', meta={'status': 'FETCHING_AGMS', 'message': f'Fetching AGMs from {start_date} to {end_date}...'})
+        fetch_historical_agm_range(start_date, end_date)
+
+        # Then sync databank
+        build_dividend_databank_task.delay(force=False)
+        return "AGM Import complete"
+    except Exception as exc:
+        logger.error(f"Error in AGM import: {exc}")
+        self.retry(exc=Exception(str(exc)), countdown=60)
+
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
     """Import NSE data for a range of dates. Optimized to skip fully completed dates."""
@@ -853,8 +873,8 @@ def build_dividend_databank_task(self, force: bool = False):
                             "agm_date": agm_date,
                             "announcement_date_obj": getattr(m, "broadcast_date", None),
                             "broadcast_date": m.broadcast_date if hasattr(m, "broadcast_date") else None,
-                            "amount": amount,
-                            "raw_amount": amount,
+                            "amount": amount if div_type != "AGM" else None,
+                            "raw_amount": amount if div_type != "AGM" else None,
                             "face_value": None,
                             "is_synthetic": True,
                             "_matchedMeeting": m
@@ -910,13 +930,13 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
-                            if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', 'AGM', '-']:
+                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special']:
+                                if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
                                     upgrade_syn_type = ex_type
-                            elif ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', 'AGM', '-']:
+                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                if ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special']:
+                                if ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
                                     upgrade_ex_type = syn_type
 
                         # STRICT Deduplication Check:
@@ -939,7 +959,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
+                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
 
@@ -986,7 +1006,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend', 'AGM'] or off.get('dividend_type') in ['-', 'Dividend', 'AGM']):
+                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend'] or off.get('dividend_type') in ['-', 'Dividend']):
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
