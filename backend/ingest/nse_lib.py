@@ -968,7 +968,7 @@ class NSELib:
                                 if fallback_rd:
                                     found_record_date = fallback_rd.group(1).replace('st ', ' ').replace('nd ', ' ').replace('rd ', ' ').replace('th ', ' ')
 
-                            if found_amount or found_record_date or is_agm:
+                            if found_amount or found_record_date:
                                 try:
                                     dt = datetime.strptime(ann.get('an_dt', '').split(' ')[0], "%d-%b-%Y")
                                     bm_date_str = dt.strftime("%d-%b-%Y")
