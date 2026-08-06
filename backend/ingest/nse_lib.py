@@ -535,8 +535,8 @@ class NSELib:
         import re
 
         # Strict daily fetch
-        from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
-        to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
+        from_date_str = trade_date.strftime("%d-%m-%Y")
+        to_date_str = trade_date.strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
@@ -637,17 +637,12 @@ class NSELib:
                             # (If PFC/RECLTD was completely missing from the Board Meeting API, we would need to add all Nifty500 symbols to target_symbols.
                             # However, memory indicates they were just miscategorized in PDFs, so they should be present in the BM JSON).
 
-                            # To extract missing dividend data from miscategorized NSE PDFs (e.g., tagged 'General Updates'),
-                            # do NOT apply overly strict 'is_relevant' filters (like unconditionally dropping 'Outcome' documents
-                            # or restricting tightly to 'target_symbols'). Strict filtering silently drops valid corporate actions
-                            # (like missing Final dividends for PFC and RECLTD).
-                            # We check for Outcome or General Updates. We do not restrict by target_symbols anymore to fix missing data.
                             def is_relevant(a):
                                 s = str(a.get('subject', '')).lower()
                                 d = str(a.get('desc', '')).lower()
                                 return 'outcome' in s or 'outcome' in d or 'general update' in s or 'general update' in d or s == 'none' or s == ''
 
-                            out_announcements = [a for a in all_out if is_relevant(a)]
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols and is_relevant(a)]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -656,7 +651,7 @@ class NSELib:
 
                 for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
                     sym = ann.get('symbol')
-                    if sym:
+                    if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
                             symbol_announcements[sym] = []
                         symbol_announcements[sym].append(ann)
@@ -907,7 +902,7 @@ class NSELib:
                                 except:
                                     pass
 
-                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and bm_date_obj_check and bm_date_obj_check <= trade_date:
+                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and bm_date_obj_check and bm_date_obj_check == trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
                                 pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
@@ -947,30 +942,20 @@ class NSELib:
                         desc = str(ann.get('desc', '')).lower()
                         attchmntText = str(ann.get('attchmntText', '')).lower()
 
-                        text_lower = attchmntText + " " + subj + " " + desc
+                        has_div = 'dividend' in subj or 'dividend' in desc or 'dividend' in attchmntText
+                        has_rd = 'record date' in subj or 'record date' in desc or 'record date' in attchmntText
+                        is_agm = 'agm' in subj or 'annual general meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'agm' in attchmntText or 'annual general meeting' in attchmntText
 
-                        has_div = 'dividend' in text_lower
-                        has_rd = 'record date' in text_lower
-                        is_agm = 'agm' in text_lower or 'annual general meeting' in text_lower
-                        is_bonus = 'bonus' in text_lower
-                        is_split = 'split' in text_lower or 'sub-division' in text_lower
-
-                        if has_div or has_rd or is_agm or is_bonus or is_split:
+                        if has_div or has_rd or is_agm:
                             found_amount = None
                             found_record_date = None
+                            found_type = 'Final'
 
-                            if is_bonus:
-                                found_type = 'Bonus'
-                            elif is_split:
-                                found_type = 'Split'
-                            elif 'interim' in text_lower or 'intdiv' in text_lower or 'quarterly' in text_lower:
-                                found_type = 'Interim'
-                            elif 'final' in text_lower or 'findiv' in text_lower:
-                                found_type = 'Final'
-                            elif 'special' in text_lower:
-                                found_type = 'Special'
-                            else:
-                                found_type = 'Dividend' # Don't guess Final
+                            text_lower = attchmntText + " " + subj + " " + desc
+                            if 'interim' in text_lower or 'intdiv' in text_lower or 'quarterly' in text_lower: found_type = 'Interim'
+                            elif 'final' in text_lower or 'findiv' in text_lower: found_type = 'Final'
+                            elif 'special' in text_lower: found_type = 'Special'
+                            else: found_type = 'Dividend' # Don't guess Final
 
                             xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?Rs\.?\s*(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
                             if not xbrl_matches:
@@ -979,15 +964,10 @@ class NSELib:
                                 found_amount = sum(float(m) for m in xbrl_matches)
 
                             bm_purpose = "General Updates"
-                            if is_agm and not has_div and not is_bonus and not is_split:
+                            if is_agm:
                                 found_type = 'AGM'
                                 bm_purpose = 'Annual General Meeting'
-                            elif is_agm:
-                                # Keep original found_type but append AGM to purpose
-                                bm_purpose = f"General Updates - AGM"
-
-                            agm_date = None
-                            if is_agm:
+                                agm_date = None
                                 if 'dateofannualgeneralmeeting' in attchmntText:
                                     agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE)
                                     if agm_date_match:
@@ -999,9 +979,6 @@ class NSELib:
                                     if fallback_agm:
                                         agm_date = fallback_agm.group(1)
                                         bm_purpose += f" - AGM - {agm_date}"
-
-                                # Ensure we clean up duplicate 'AGM' strings if it was already in bm_purpose
-                                bm_purpose = bm_purpose.replace("General Updates - AGM - AGM -", "General Updates - AGM -")
 
                             if found_amount is None:
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
@@ -1047,7 +1024,6 @@ class NSELib:
                                     'bm_date': bm_date_str,
                                     'bm_timestamp': ann.get('an_dt', ''),
                                     'sysTime': ann.get('an_dt', ''),
-                                    'agm_announcement_date': bm_date_str if is_agm else None, # Strictly bind the AGM declared date to this intimation
                                     'ATTACHMENT': ann.get('attchmntFile', ''),
                                     'EXTRACTED_DIVIDEND_AMOUNT': found_amount,
                                     'EXTRACTED_DIVIDEND_TYPE': found_type,
@@ -1082,8 +1058,8 @@ class NSELib:
         """Get Corporate Actions."""
         from datetime import timedelta
         # Strict daily fetch
-        from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
-        to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
+        from_date_str = trade_date.strftime("%d-%m-%Y")
+        to_date_str = trade_date.strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
@@ -1185,7 +1161,7 @@ class NSELib:
         """Fetch Financial Results from NSE Corporate Announcements."""
         from datetime import timedelta
         # Usually results come in during earning season, check a window
-        from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
+        from_date_str = trade_date.strftime("%d-%m-%Y")
         to_date_str = (trade_date + timedelta(days=7)).strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-financial-results?index=equities&period=Quarterly&from_date={from_date_str}&to_date={to_date_str}"
 
