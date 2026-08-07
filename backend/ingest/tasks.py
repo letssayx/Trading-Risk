@@ -695,7 +695,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     })
 
                 # Still append splits/bonuses to the UI history so they show in the timeline
-                ann_date = getattr(r, "broadcast_date", None) or r.date
+                ann_date = getattr(r, 'broadcast_date', None)
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
@@ -713,7 +713,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 })
 
             elif parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
-                ann_date = getattr(r, "broadcast_date", None) or r.date
+                ann_date = getattr(r, 'broadcast_date', None)
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
@@ -760,7 +760,7 @@ def build_dividend_databank_task(self, force: bool = False):
             for m in bms:
                 purpose_lower = (m.purpose or '').lower()
                 has_amount = m.extracted_dividend_amount is not None
-                is_agm = 'agm' in purpose_lower or 'annual general meeting' in purpose_lower or re.search(r'\bagm\b', purpose_lower)
+                is_agm = False
 
                 if 'dividend' in purpose_lower or 'bonus' in purpose_lower or 'split' in purpose_lower or 'sub-division' in purpose_lower or has_amount or is_agm:
                     m_date = m.meeting_date if hasattr(m, 'meeting_date') and m.meeting_date else m.date
@@ -830,14 +830,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                 if match:
                                     amount = next((g for g in match.groups() if g is not None), None)
 
-                            # If it's explicitly an AGM event that just happened to have an amount leaked into it from another record,
-                            # we should respect the AGM tag if the purpose strictly doesn't declare a dividend
-                            if is_agm and 'dividend' not in purpose_lower:
-                                div_type = 'AGM'
-                                amount = None
 
-                        elif is_agm and 'dividend' not in purpose_lower and not has_amount:
-                            div_type = 'AGM'
                         elif 'bonus' in purpose_lower:
                             div_type = 'Bonus'
                         elif 'split' in purpose_lower or 'sub-division' in purpose_lower:
@@ -880,7 +873,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             "_matchedMeeting": m
                         })
 
-            # 2. Timeline Linkage & Merge
+# 2. Timeline Linkage & Merge
             group_officials = [a for a in combined_actions if not a.get('is_synthetic')]
             group_synthetics = [a for a in combined_actions if a.get('is_synthetic')]
 
@@ -890,162 +883,152 @@ def build_dividend_databank_task(self, force: bool = False):
                 if isinstance(d, datetime.date): return d
                 return datetime.date.min
 
-            def get_sort_date_syn(x):
-                m = x.get('_matchedMeeting')
-                d = m.broadcast_date or m.date if m else x.get('broadcast_date')
-                return safe_date(d)
-
-            group_synthetics.sort(key=get_sort_date_syn, reverse=True)
+            # PHASE 1: Merge Announcements and Outcomes
+            # Strictly group by meeting_date so we don't leave orphaned announcements.
 
             dedup_syns = []
+
+            # Group by safe meeting date
+            meeting_groups = defaultdict(list)
             for syn in group_synthetics:
-                is_duplicate = False
                 syn_m = syn.get('_matchedMeeting')
-                syn_date = safe_date(syn_m.meeting_date if syn_m else None)
+                m_date = safe_date(syn_m.meeting_date if syn_m and syn_m.meeting_date else syn.get('broadcast_date'))
+                meeting_groups[m_date].append(syn)
 
-                for ex in dedup_syns:
-                    ex_m = ex.get('_matchedMeeting')
-                    ex_date = safe_date(ex_m.meeting_date if ex_m else None)
+            for m_date, items in meeting_groups.items():
+                if not items: continue
+                if len(items) == 1:
+                    dedup_syns.append(items[0])
+                    continue
 
-                    if syn_date != datetime.date.min and ex_date != datetime.date.min:
-                        diff = abs((syn_date - ex_date).days)
-                        div_type_lower = (syn.get('dividend_type') or '').lower()
-                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                # We have multiple board meeting records for the same day (e.g., an Announcement and an Outcome).
+                # We need to fold them into one. But if they are distinct events (Interim AND Final on same day), preserve them.
 
-                        # Deduplication Logic: Group by Symbol + Exact Event Type
-                        syn_type = syn.get('dividend_type')
-                        ex_type = ex.get('dividend_type')
+                merged_items = []
+                for item in items:
+                    merged = False
+                    for existing in merged_items:
+                        # Check if they can be merged
+                        s_type = item.get('dividend_type')
+                        e_type = existing.get('dividend_type')
 
-                        # Fix Deduplication: General Updates and Record Date announcements happen for the same event.
-                        # Deduplicate them strictly if symbol + div_type matches within window.
-                        # E.g. COALINDIA duplicates have exactly the same symbol and type (like Interim) within days of each other.
-                        # Do NOT merge different dividend types (like Interim and Final) even if they happen on the same day.
-                        is_duplicate_event = (syn_type == ex_type)
+                        s_amt = item.get('amount')
+                        e_amt = existing.get('amount')
 
-                        # Only allow fallback to general 'Dividend' / '-' if the other is a specific dividend type,
-                        # but do not merge 'Interim' with 'Final'
+                        types_conflict = (s_type in ['Interim', 'Final', 'Special'] and e_type in ['Interim', 'Final', 'Special'] and s_type != e_type)
+                        amounts_conflict = (s_amt is not None and str(s_amt) != '-' and e_amt is not None and str(e_amt) != '-' and s_amt != e_amt)
 
-                        is_potential_duplicate = is_duplicate_event
-                        upgrade_syn_type = None
-                        upgrade_ex_type = None
+                        if not types_conflict and not amounts_conflict:
+                            # Merge them
+                            if (existing.get('amount') is None or existing.get('amount') == "-") and s_amt is not None:
+                                existing['amount'] = s_amt
+                                existing['raw_amount'] = item.get('raw_amount')
 
-                        if not is_potential_duplicate:
-                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
-                                is_potential_duplicate = True
-                                if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
-                                    upgrade_syn_type = ex_type
-                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
-                                is_potential_duplicate = True
-                                if ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
-                                    upgrade_ex_type = syn_type
+                            if existing.get('dividend_type') in ['-', 'Dividend'] and s_type not in ['-', 'Dividend']:
+                                existing['dividend_type'] = s_type
 
-                        # STRICT Deduplication Check:
-                        # Do NOT merge if they both have explicit, differing record dates,
-                        # OR if they both have explicit, differing amounts.
-                        # This prevents squashing Interim and Final dividends announced on the same day into one row.
+                            # Keep the earliest broadcast date (the announcement)
+                            b1 = safe_date(item.get('broadcast_date'))
+                            b2 = safe_date(existing.get('broadcast_date'))
+                            if b1 != datetime.date.min and b2 != datetime.date.min and b1 < b2:
+                                existing['broadcast_date'] = item.get('broadcast_date')
 
-                        syn_amount = syn.get('amount')
-                        ex_amount = ex.get('amount')
-                        syn_rec = syn.get('record_date')
-                        ex_rec = ex.get('record_date')
-
-                        amounts_conflict = (syn_amount is not None and str(syn_amount) != '-' and
-                                            ex_amount is not None and str(ex_amount) != '-' and
-                                            syn_amount != ex_amount)
-
-                        records_conflict = (syn_rec is not None and ex_rec is not None and syn_rec != ex_rec)
-
-                        if amounts_conflict or records_conflict:
-                            is_potential_duplicate = False
-
-                        # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
-                            if not amounts_conflict and not records_conflict:
-                                is_potential_duplicate = True
-
-                        if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
-                            is_duplicate = True
-
-                            if upgrade_syn_type:
-                                syn['dividend_type'] = upgrade_syn_type
-                            if upgrade_ex_type:
-                                ex['dividend_type'] = upgrade_ex_type
-
-                            if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
-                                ex['_matchedMeeting'] = syn_m
-                            if (ex.get('amount') is None or ex.get('amount') == "-") and syn.get('amount') is not None:
-                                ex['amount'] = syn.get('amount')
-                                ex['raw_amount'] = syn.get('raw_amount')
-
-                            if syn.get('record_date') is not None:
-                                if ex.get('record_date') is None:
-                                    ex['record_date'] = syn.get('record_date')
-
-                            if syn.get('dividend_type') and ex.get('dividend_type') in ['Dividend', '-', ''] and syn.get('dividend_type') != 'AGM':
-                                ex['dividend_type'] = syn.get('dividend_type')
-
-                            # Also pull forward agm_date if not present
-                            if ex.get('agm_date') is None and syn.get('agm_date') is not None:
-                                ex['agm_date'] = syn.get('agm_date')
-                            elif syn.get('agm_date') is None and ex.get('agm_date') is not None:
-                                syn['agm_date'] = ex.get('agm_date')
+                            merged = True
                             break
-                if not is_duplicate:
-                    dedup_syns.append(syn)
 
+                    if not merged:
+                        merged_items.append(item)
+
+                dedup_syns.extend(merged_items)
+
+            # PHASE 2: Link Corporate Actions (Ex-Dates) to Unified Meetings
             final_actions = []
-            for syn in dedup_syns:
+
+            # We want to match Corporate Actions backwards to their originating Board Meeting.
+            # A Corporate Action Ex-Date should generally be *after* or *on* the Board Meeting date.
+
+            group_officials.sort(key=lambda x: safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('announcement_date_obj') or x.get('date')), reverse=True)
+
+            matched_syns = set()
+
+            for off in group_officials:
                 matched = False
-                syn_date_val = safe_date(syn.get('broadcast_date') or syn.get('date') or syn.get('announcement_date_obj'))
+                off_date_val = safe_date(off.get('announcement_date_obj') or off.get('broadcast_date') or off.get('ex_date_obj') or off.get('date'))
 
-                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('announcement_date_obj') or x.get('date')) - syn_date_val).days) if syn_date_val != datetime.date.min else 9999)
+                for idx, syn in enumerate(dedup_syns):
+                    if idx in matched_syns: continue
 
-                for off in group_officials:
-                    off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('announcement_date_obj') or off.get('date'))
-                    if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
-                        diff_days = (off_date_val - syn_date_val).days
+                    syn_m = syn.get('_matchedMeeting')
+                    syn_meeting_date = safe_date(syn_m.meeting_date if syn_m and syn_m.meeting_date else syn.get('broadcast_date'))
+
+                    if syn_meeting_date != datetime.date.min and off_date_val != datetime.date.min:
+                        # Diff is (Corporate Action Ex-Date) - (Board Meeting Date)
+                        diff_days = (off_date_val - syn_meeting_date).days
+
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend'] or off.get('dividend_type') in ['-', 'Dividend']):
+
+                        syn_t = syn.get('dividend_type')
+                        off_t = off.get('dividend_type')
+
+                        types_compatible = (syn_t == off_t or syn_t in ['-', 'Dividend'] or off_t in ['-', 'Dividend'])
+                        if syn_t in ['Interim', 'Final', 'Special'] and off_t in ['Interim', 'Final', 'Special'] and syn_t != off_t:
+                            types_compatible = False
+
+                        # Check amount conflicts during synthesis merge
+                        s_amt = syn.get('amount')
+                        o_amt = off.get('amount')
+                        amt_compatible = True
+
+                        try:
+                            s_val = float(s_amt) if s_amt is not None and str(s_amt).strip() != '-' else None
+                            o_val = float(o_amt) if o_amt is not None and str(o_amt).strip() != '-' else None
+                            if s_val is not None and o_val is not None and abs(s_val - o_val) > 0.01:
+                                amt_compatible = False
+                        except ValueError:
+                            if s_amt is not None and str(s_amt) != '-' and o_amt is not None and str(o_amt) != '-' and str(s_amt) != str(o_amt):
+                                amt_compatible = False
+
+                        # Valid link: Corporate action is within the forward window and compatible
+                        if -10 <= diff_days <= window and types_compatible and amt_compatible:
+                            # Merge syn into off (Corporate Action row gets Board Meeting details)
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
 
-                            syn_m = syn.get('_matchedMeeting')
-                            off_m = off.get('_matchedMeeting')
-
-                            # strictly unify ex_date and record_date into the synthetic row
-                            # when a corporate action matches a board meeting, the corporate action carries the official dates
-                            if off.get('ex_date_obj'):
-                                syn['ex_date_obj'] = off.get('ex_date_obj')
-                                syn['ex_date'] = off.get('ex_date')
-                            if off.get('record_date'):
-                                syn['record_date'] = off.get('record_date')
-                                if not syn.get('ex_date_obj'):
-                                    syn['ex_date_obj'] = off.get('record_date')
-                                    syn['ex_date'] = off.get('record_date').strftime('%Y-%m-%d') if hasattr(off.get('record_date'), 'strftime') else off.get('record_date')
-                                # In India T+1, if we just set the record date on the synthetic row and it still lacks an ex-date, set it
-
-                            if off.get('agm_date'):
-                                syn['agm_date'] = off.get('agm_date')
-                            elif syn.get('agm_date'):
-                                off['agm_date'] = syn.get('agm_date')
-
-                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-', ''] and syn.get('dividend_type') != 'AGM':
+                            if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-', '']:
                                 off['dividend_type'] = syn.get('dividend_type')
-                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', ''] and off.get('dividend_type') != 'AGM':
-                                syn['dividend_type'] = off.get('dividend_type')
 
+                            off_m = off.get('_matchedMeeting')
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
-                            matched = True
-                            break
-                if not matched:
-                    final_actions.append(syn)
+                            # Move synthetic fields to official if missing
+                            if off.get('broadcast_date') is None:
+                                off['broadcast_date'] = syn.get('broadcast_date')
+                            if off.get('announcement_date_obj') is None:
+                                off['announcement_date_obj'] = syn.get('announcement_date_obj')
 
-            for off in group_officials:
+                            # ALWAYS copy record date if missing
+                            if off.get('record_date') is None and syn.get('record_date'):
+                                off['record_date'] = syn.get('record_date')
+
+                            # Fallback ex_date to record date universally
+                            if off.get('ex_date_obj') is None and off.get('record_date'):
+                                off['ex_date_obj'] = off.get('record_date')
+                                if hasattr(off['record_date'], 'strftime'):
+                                    off['ex_date'] = off['record_date'].strftime('%Y-%m-%d')
+                                else:
+                                    off['ex_date'] = off['record_date']
+
+                            matched_syns.add(idx)
+                            break
+
                 final_actions.append(off)
+
+            for idx, syn in enumerate(dedup_syns):
+                if idx not in matched_syns:
+                    final_actions.append(syn)
 
             # Sort chronologically
             def final_sort_key(x):
@@ -1151,8 +1134,9 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 if match:
                     # UPDATE existing row
-                    # Do not overwrite event date if we matched a previous record
-                    match.ex_date = ex_date_val
+                    # DO NOT blindly overwrite ex-date if it's currently valid and new one is None
+                    if ex_date_val:
+                        match.ex_date = ex_date_val
                     if h.get('announcement_date_obj'):
                         match.announcement_date = h.get('announcement_date_obj')
                     if h.get('broadcast_date'):
@@ -1217,7 +1201,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     new_item = DividendDatabank(
                         date=final_date,
                         symbol=sym.upper(),
-                        ex_date=ex_date_val or h.get('record_date'),
+                        ex_date=ex_date_val,
                         announcement_date=h.get('announcement_date_obj'),
                         broadcast_date=h.get('broadcast_date'),
                         dividend_type=h.get('dividend_type'),

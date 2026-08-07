@@ -573,13 +573,13 @@ class NSELib:
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
                 announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
-                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+
                 announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
                 announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
                 div_announcements = []
                 rec_announcements = []
-                agm_announcements = []
+
                 fin_announcements = []
                 out_announcements = []
 
@@ -597,19 +597,7 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
 
-                resp_agm = self.get(announcement_url_agm)
-                if resp_agm and resp_agm.status_code == 200:
-                    try:
-                        agm_data = resp_agm.json()
-                        agm_announcements = []
-                        for ann in (agm_data if isinstance(agm_data, list) else []):
-                            subj = str(ann.get('subject', '')).lower()
-                            desc = str(ann.get('desc', '')).lower()
-                            if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'shareholders meeting' in desc:
-                                if 'dividend' in subj or 'dividend' in desc:
-                                    agm_announcements.append(ann)
-                    except Exception as e:
-                        logger.error(f"Failed to parse AGM announcements: {e}")
+
 
                 resp_fin = self.get(announcement_url_fin)
                 if resp_fin and resp_fin.status_code == 200:
@@ -639,7 +627,7 @@ class NSELib:
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
 
-                for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
+                for ann in div_announcements + rec_announcements  +  fin_announcements + out_announcements:
                     sym = ann.get('symbol')
                     if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
@@ -680,8 +668,6 @@ class NSELib:
                     except ValueError:
                         bm_date_obj_check = None
 
-                    is_agm = 'annual general meeting' in purpose or 'agm' in purpose
-
                     matched_anns = []
                     if symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
@@ -696,23 +682,8 @@ class NSELib:
                                         consumed_announcements.add(ann.get('seq_id'))
                                 except ValueError:
                                     pass
-                            elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
-                                        is_agm = True
-                                        matched_anns.append(ann)
-                                        consumed_announcements.add(ann.get('seq_id'))
-                                except ValueError:
-                                    pass
-
-                    if has_dividend_mention or is_agm:
+                    if has_dividend_mention:
                         base_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose or 'quarterly' in purpose or 'quarterly' in desc else ('Special' if 'special' in purpose else 'Dividend'))
-                        if is_agm:
-                            base_type = 'AGM'
-                            item['bm_purpose'] = 'Annual General Meeting'
-
                         added_branches = False
 
                         if matched_anns:
@@ -730,18 +701,7 @@ class NSELib:
                                 if xbrl_matches:
                                     found_amount = sum(float(m) for m in xbrl_matches)
 
-                                if 'DateOfAnnualGeneralMeeting' in attchmntText or 'dateofannualgeneralmeeting' in attchmntText.lower():
-                                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                                    if agm_date_match:
-                                        new_item['EXTRACTED_AGM_DATE'] = agm_date_match.group(1)
-                                        new_item['bm_purpose'] = str(new_item.get('bm_purpose') or '') + f" - AGM - {agm_date_match.group(1)}"
 
-                                # Also check if standard date mentioned next to AGM
-                                if not new_item.get('EXTRACTED_AGM_DATE'):
-                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
-                                    if fallback_agm:
-                                        new_item['EXTRACTED_AGM_DATE'] = fallback_agm.group(1)
-                                        new_item['bm_purpose'] = str(new_item.get('bm_purpose') or '') + f" - AGM - {fallback_agm.group(1)}"
 
                                 if found_amount is None:
                                     _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
@@ -764,19 +724,9 @@ class NSELib:
                                 elif 'special' in text_lower: found_type = 'Special'
                                 elif 'quarterly' in text_lower: found_type = 'Interim'
 
-                                # Add AGM explicit regex check for text fallback if XML fails/404s
-                                if re.search(r'\b(agm|annual general meeting)\b', text_lower):
-                                    # Don't overwrite if it's already a dividend type we're specifically tracking
-                                    if found_type == 'Dividend':
-                                        found_type = 'AGM'
 
-                                agm_m = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_lower, re.IGNORECASE)
-                                if agm_m:
-                                    agm_date_str = agm_m.group(1).replace('\n', ' ').strip()
-                                    try:
-                                        new_item['EXTRACTED_AGM_DATE'] = pd.to_datetime(agm_date_str).strftime('%Y-%m-%d')
-                                    except:
-                                        pass
+
+
 
 
                                 date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
@@ -880,30 +830,22 @@ class NSELib:
                             if found_amount or found_type == 'Dividend':
                                 if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
-                                elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()):
-                                    if found_type == 'Dividend': found_type = 'AGM'
+
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
-                            agm_m2 = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_to_search, re.IGNORECASE)
-                            if agm_m2:
-                                agm_date_str2 = agm_m2.group(1).replace('\n', ' ').strip()
-                                try:
-                                    item['EXTRACTED_AGM_DATE'] = pd.to_datetime(agm_date_str2).strftime('%Y-%m-%d')
-                                except:
-                                    pass
 
-                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and bm_date_obj_check and bm_date_obj_check == trade_date:
+
+                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and has_dividend_mention and bm_date_obj_check and bm_date_obj_check <= trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
-                                pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
+                                pdf_amount, pdf_record_date, pdf_type = extract_amount_from_pdf(attachment_url)
                                 if pdf_amount and found_amount is None:
                                     found_amount = pdf_amount
                                 if pdf_record_date and found_record_date is None:
                                     found_record_date = pdf_record_date
                                 if pdf_type and found_type == 'Dividend':
                                     found_type = pdf_type
-                                if pdf_agm_date:
-                                    item['EXTRACTED_AGM_DATE'] = pdf_agm_date
+
 
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
@@ -934,9 +876,7 @@ class NSELib:
 
                         has_div = 'dividend' in subj or 'dividend' in desc or 'dividend' in attchmntText
                         has_rd = 'record date' in subj or 'record date' in desc or 'record date' in attchmntText
-                        is_agm = 'agm' in subj or 'annual general meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'agm' in attchmntText or 'annual general meeting' in attchmntText
-
-                        if has_div or has_rd or is_agm:
+                        if has_div or has_rd:
                             found_amount = None
                             found_record_date = None
                             found_type = 'Final'
@@ -954,21 +894,6 @@ class NSELib:
                                 found_amount = sum(float(m) for m in xbrl_matches)
 
                             bm_purpose = "General Updates"
-                            if is_agm:
-                                found_type = 'AGM'
-                                bm_purpose = 'Annual General Meeting'
-                                agm_date = None
-                                if 'dateofannualgeneralmeeting' in attchmntText:
-                                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                                    if agm_date_match:
-                                        agm_date = agm_date_match.group(1)
-                                        bm_purpose += f" - AGM - {agm_date}"
-
-                                if not agm_date:
-                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
-                                    if fallback_agm:
-                                        agm_date = fallback_agm.group(1)
-                                        bm_purpose += f" - AGM - {agm_date}"
 
                             if found_amount is None:
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
@@ -999,7 +924,7 @@ class NSELib:
                                 if fallback_rd:
                                     found_record_date = fallback_rd.group(1).replace('st ', ' ').replace('nd ', ' ').replace('rd ', ' ').replace('th ', ' ')
 
-                            if found_amount or found_record_date or is_agm:
+                            if found_amount or found_record_date:
                                 try:
                                     dt = datetime.strptime(ann.get('an_dt', '').split(' ')[0], "%d-%b-%Y")
                                     bm_date_str = dt.strftime("%d-%b-%Y")

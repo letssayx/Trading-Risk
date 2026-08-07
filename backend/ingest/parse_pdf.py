@@ -13,7 +13,7 @@ def extract_amount_from_pdf(url):
     amount = None
     record_date = None
     div_type = None
-    agm_date = None
+
     try:
         import pdfplumber
         import pandas as pd
@@ -91,21 +91,7 @@ def extract_amount_from_pdf(url):
                         break
 
 
-            # AGM Date extraction from PDF
-            agm_patterns = [
-                r'(?:annual general meeting|agm).*?to be held on.*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b',
-                r'(?:annual general meeting|agm).*?scheduled.*?on.*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b',
-                r'\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b.*?(?:annual general meeting|agm)',
-            ]
-            for pat in agm_patterns:
-                agm_m = re.search(pat, text, re.IGNORECASE | re.DOTALL)
-                if agm_m:
-                    agm_date_str = agm_m.group(1).replace('\n', ' ').strip()
-                    try:
-                        agm_date = pd.to_datetime(agm_date_str).strftime('%Y-%m-%d')
-                        break
-                    except Exception:
-                        pass
+
 
             # Dividend type extraction from PDF
             if re.search(r'\b(?:1st|first|2nd|second|3rd|third|4th|fourth)?\s*interim\s+dividend\b', text, re.IGNORECASE):
@@ -206,4 +192,4 @@ def extract_amount_from_pdf(url):
         logger.debug("pdfplumber not installed, skipping PDF parsing.")
     except Exception as e:
         logger.debug(f"Failed to extract PDF {url}: {e}")
-    return amount, record_date, div_type, agm_date
+    return amount, record_date, div_type
