@@ -695,7 +695,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     })
 
                 # Still append splits/bonuses to the UI history so they show in the timeline
-                ann_date = getattr(r, "broadcast_date", None) or r.date
+                ann_date = r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
@@ -713,7 +713,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 })
 
             elif parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
-                ann_date = getattr(r, "broadcast_date", None) or r.date
+                ann_date = r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
 
