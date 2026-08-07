@@ -784,6 +784,11 @@ def build_dividend_databank_task(self, force: bool = False):
                                             a['raw_amount'] = m.extracted_dividend_amount
                                         if not a.get('dividend_type') or a.get('dividend_type') == '-' or a.get('dividend_type') == 'Dividend':
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
+
+                                        # Overwrite Corporate Action broadcast date with true Board Meeting Announcement Date
+                                        if getattr(m, 'broadcast_date', None):
+                                            a['broadcast_date'] = m.broadcast_date
+                                            a['announcement_date_obj'] = m.broadcast_date
                                         a['_matchedMeeting'] = m
                                         break
 
@@ -806,6 +811,12 @@ def build_dividend_databank_task(self, force: bool = False):
                                             a['raw_amount'] = m.extracted_dividend_amount
                                         if not a.get('dividend_type') or a.get('dividend_type') == '-' or a.get('dividend_type') == 'Dividend':
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
+
+                                        # Overwrite Corporate Action broadcast date with true Board Meeting Announcement Date
+                                        if getattr(m, 'broadcast_date', None):
+                                            a['broadcast_date'] = m.broadcast_date
+                                            a['announcement_date_obj'] = m.broadcast_date
+
                                         has_linked_action = True
                                         a['_matchedMeeting'] = m
                                         break
