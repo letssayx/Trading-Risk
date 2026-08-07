@@ -927,7 +927,14 @@ def build_dividend_databank_task(self, force: bool = False):
                         e_amt = existing.get('amount')
 
                         types_conflict = (s_type in ['Interim', 'Final', 'Special'] and e_type in ['Interim', 'Final', 'Special'] and s_type != e_type)
-                        amounts_conflict = (s_amt is not None and str(s_amt) != '-' and e_amt is not None and str(e_amt) != '-' and s_amt != e_amt)
+                        amounts_conflict = False
+                        if s_amt is not None and str(s_amt) != '-' and e_amt is not None and str(e_amt) != '-':
+                            try:
+                                if float(s_amt) != float(e_amt):
+                                    amounts_conflict = True
+                            except ValueError:
+                                if s_amt != e_amt:
+                                    amounts_conflict = True
 
                         if not types_conflict and not amounts_conflict:
                             # Merge them
@@ -1001,8 +1008,13 @@ def build_dividend_databank_task(self, force: bool = False):
                         s_amt = syn.get('amount')
                         o_amt = off.get('amount')
                         amt_compatible = True
-                        if s_amt is not None and str(s_amt) != '-' and o_amt is not None and str(o_amt) != '-' and s_amt != o_amt:
-                            amt_compatible = False
+                        if s_amt is not None and str(s_amt) != '-' and o_amt is not None and str(o_amt) != '-':
+                            try:
+                                if float(s_amt) != float(o_amt):
+                                    amt_compatible = False
+                            except ValueError:
+                                if s_amt != o_amt:
+                                    amt_compatible = False
 
                         # Valid link: Corporate action is within the forward window and compatible
                         if -10 <= diff_days <= window and types_compatible and amt_compatible:
@@ -1120,7 +1132,13 @@ def build_dividend_databank_task(self, force: bool = False):
                 match = None
                 for row in existing_rows:
                         # Match by identical ex-date OR identical announcement date OR same type within recent window
-                        if row.dividend_type == h.get('dividend_type'):
+                        t1 = row.dividend_type
+                        t2 = h.get('dividend_type')
+                        types_match = (t1 == t2 or t1 in ['-', 'Dividend'] or t2 in ['-', 'Dividend'])
+                        if t1 in ['Interim', 'Final', 'Special'] and t2 in ['Interim', 'Final', 'Special'] and t1 != t2:
+                            types_match = False
+
+                        if types_match:
                             if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
                                 match = row
                                 break
@@ -1133,8 +1151,15 @@ def build_dividend_databank_task(self, force: bool = False):
                             window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                             if row.is_awaited and abs((row.date - final_date).days) <= window:
                                 # Don't cross-contaminate if both have explicit but differing amounts
-                                if row.amount is not None and h.get('amount') is not None and row.amount != h.get('amount'):
-                                    continue
+                                r_amt = getattr(row, 'amount', None)
+                                h_amt = h.get('amount')
+                                if r_amt is not None and str(r_amt) != '-' and h_amt is not None and str(h_amt) != '-':
+                                    try:
+                                        if float(r_amt) != float(h_amt):
+                                            continue
+                                    except ValueError:
+                                        if r_amt != h_amt:
+                                            continue
                                 match = row
                                 break
 
@@ -1200,7 +1225,9 @@ def build_dividend_databank_task(self, force: bool = False):
                         # Ensure Ex-Date gets populated from Record Date at the DB level too
                         if not match.ex_date:
                             match.ex_date = h.get('record_date')
-                    match.is_awaited = is_awaited
+
+                    # Only mark as awaited if both incoming and existing have no ex-date
+                    match.is_awaited = True if match.ex_date is None else False
                     updated_count += 1
                 else:
                     # INSERT new row
