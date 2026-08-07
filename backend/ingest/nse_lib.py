@@ -894,21 +894,6 @@ class NSELib:
                                 found_amount = sum(float(m) for m in xbrl_matches)
 
                             bm_purpose = "General Updates"
-                            if is_agm:
-                                found_type = 'AGM'
-                                bm_purpose = 'Annual General Meeting'
-                                agm_date = None
-                                if 'dateofannualgeneralmeeting' in attchmntText:
-                                    agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                                    if agm_date_match:
-                                        agm_date = agm_date_match.group(1)
-                                        bm_purpose += f" - AGM - {agm_date}"
-
-                                if not agm_date:
-                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
-                                    if fallback_agm:
-                                        agm_date = fallback_agm.group(1)
-                                        bm_purpose += f" - AGM - {agm_date}"
 
                             if found_amount is None:
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
