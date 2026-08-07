@@ -835,6 +835,7 @@ class NSELib:
 
 
 
+                        # If we have a dividend mention, but are missing critical fields (amount, record_date, or a specific type), check the PDF.
                         if (found_amount is None or found_record_date is None or found_type == 'Dividend') and has_dividend_mention and bm_date_obj_check and bm_date_obj_check <= trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
@@ -857,8 +858,10 @@ class NSELib:
                             is_dup = False
                             for e in enriched_data:
                                 if e.get('bm_symbol') == item['bm_symbol'] and e.get('EXTRACTED_RECORD_DATE') == item['EXTRACTED_RECORD_DATE'] and e.get('EXTRACTED_DIVIDEND_TYPE') == item['EXTRACTED_DIVIDEND_TYPE'] and e.get('EXTRACTED_DIVIDEND_AMOUNT') == item['EXTRACTED_DIVIDEND_AMOUNT']:
-                                    is_dup = True
-                                    break
+                                    # Ensure we don't accidentally drop valid null values during merging if there is a distinct type
+                                    if e.get('EXTRACTED_DIVIDEND_TYPE') is not None or e.get('EXTRACTED_DIVIDEND_AMOUNT') is not None:
+                                        is_dup = True
+                                        break
                             if not is_dup:
                                 enriched_data.append(item)
                     else:
@@ -947,8 +950,9 @@ class NSELib:
                                 is_dup = False
                                 for e in enriched_data:
                                     if e.get('bm_symbol') == syn_item['bm_symbol'] and e.get('EXTRACTED_RECORD_DATE') == syn_item['EXTRACTED_RECORD_DATE'] and e.get('EXTRACTED_DIVIDEND_TYPE') == syn_item['EXTRACTED_DIVIDEND_TYPE'] and e.get('EXTRACTED_DIVIDEND_AMOUNT') == syn_item['EXTRACTED_DIVIDEND_AMOUNT']:
-                                        is_dup = True
-                                        break
+                                        if e.get('EXTRACTED_DIVIDEND_TYPE') is not None or e.get('EXTRACTED_DIVIDEND_AMOUNT') is not None:
+                                            is_dup = True
+                                            break
                                 if not is_dup:
                                     enriched_data.append(syn_item)
 
@@ -972,7 +976,7 @@ class NSELib:
     def get_corporate_actions(self, trade_date: date) -> pd.DataFrame:
         """Get Corporate Actions."""
         from datetime import timedelta
-        from_date_str = trade_date.strftime("%d-%m-%Y")
+        from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
         to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
@@ -991,8 +995,9 @@ class NSELib:
                 seen_events = set()
                 for item in data:
                     # Some endpoints return identical broadcasts, deduplicate by Symbol + Date + Subject/Purpose
-                    # For CA, date usually refers to exDate or broadcastDate. We use caBroadcastDate if available.
-                    dedup_key = f"{item.get('symbol')}_{item.get('exDate') or item.get('caBroadcastDate')}_{item.get('subject')}"
+                    # For CA, date usually refers to exDate or broadcastDate.
+                    # DO NOT blindly merge items missing exDate, they might be distinct events (Final vs Interim).
+                    dedup_key = f"{item.get('symbol')}_{item.get('exDate') or item.get('caBroadcastDate')}_{item.get('subject')}_{item.get('purpose')}"
                     if dedup_key not in seen_events:
                         seen_events.add(dedup_key)
                         dedup_data.append(item)

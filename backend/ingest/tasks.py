@@ -784,6 +784,11 @@ def build_dividend_databank_task(self, force: bool = False):
                                             a['raw_amount'] = m.extracted_dividend_amount
                                         if not a.get('dividend_type') or a.get('dividend_type') == '-' or a.get('dividend_type') == 'Dividend':
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
+
+                                        # Overwrite Corporate Action broadcast date with true Board Meeting Announcement Date
+                                        if getattr(m, 'broadcast_date', None):
+                                            a['broadcast_date'] = m.broadcast_date
+                                            a['announcement_date_obj'] = m.broadcast_date
                                         a['_matchedMeeting'] = m
                                         break
 
@@ -806,6 +811,12 @@ def build_dividend_databank_task(self, force: bool = False):
                                             a['raw_amount'] = m.extracted_dividend_amount
                                         if not a.get('dividend_type') or a.get('dividend_type') == '-' or a.get('dividend_type') == 'Dividend':
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
+
+                                        # Overwrite Corporate Action broadcast date with true Board Meeting Announcement Date
+                                        if getattr(m, 'broadcast_date', None):
+                                            a['broadcast_date'] = m.broadcast_date
+                                            a['announcement_date_obj'] = m.broadcast_date
+
                                         has_linked_action = True
                                         a['_matchedMeeting'] = m
                                         break
@@ -947,6 +958,21 @@ def build_dividend_databank_task(self, force: bool = False):
             # We want to match Corporate Actions backwards to their originating Board Meeting.
             # A Corporate Action Ex-Date should generally be *after* or *on* the Board Meeting date.
 
+            # Universal T+1 Ex-Date Logic (India Market)
+            # Run this BEFORE linkage so that off_date_val has a valid ex_date_obj for linkage calculations
+            for item in group_officials + dedup_syns:
+                if item.get('ex_date_obj') is None and item.get('record_date') is not None:
+                    rec_date = item.get('record_date')
+                    if isinstance(rec_date, str):
+                        import datetime
+                        try:
+                            item['ex_date_obj'] = datetime.datetime.strptime(rec_date, "%d-%b-%Y").date()
+                        except ValueError:
+                            item['ex_date_obj'] = rec_date
+                    else:
+                        item['ex_date_obj'] = rec_date
+                    item['ex_date'] = rec_date
+
             group_officials.sort(key=lambda x: safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('announcement_date_obj') or x.get('date')), reverse=True)
 
             matched_syns = set()
@@ -1003,10 +1029,12 @@ def build_dividend_databank_task(self, force: bool = False):
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
-                            # Move synthetic fields to official if missing
-                            if off.get('broadcast_date') is None:
+                            # The Board Meeting's broadcast date is the true announcement date of the event.
+                            # Corporate Actions often just reflect the date the CA was filed on the exchange.
+                            # We must explicitly overwrite the CA's broadcast date with the BM's broadcast date.
+                            if syn.get('broadcast_date'):
                                 off['broadcast_date'] = syn.get('broadcast_date')
-                            if off.get('announcement_date_obj') is None:
+                            if syn.get('announcement_date_obj'):
                                 off['announcement_date_obj'] = syn.get('announcement_date_obj')
 
                             # ALWAYS copy record date if missing
@@ -1043,20 +1071,6 @@ def build_dividend_databank_task(self, force: bool = False):
                 t = safe_date(x.get('date'))
                 return t
 
-
-            # Universal T+1 Ex-Date Logic (India Market)
-            for action in final_actions:
-                if action.get('ex_date_obj') is None and action.get('record_date') is not None:
-                    rec_date = action.get('record_date')
-                    if isinstance(rec_date, str):
-                        import datetime
-                        try:
-                            action['ex_date_obj'] = datetime.datetime.strptime(rec_date, "%d-%b-%Y").date()
-                        except ValueError:
-                            action['ex_date_obj'] = rec_date
-                    else:
-                        action['ex_date_obj'] = rec_date
-                    action['ex_date'] = rec_date
 
             final_actions.sort(key=final_sort_key, reverse=True)
 
