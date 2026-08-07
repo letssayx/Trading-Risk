@@ -949,13 +949,17 @@ def build_dividend_databank_task(self, force: bool = False):
 
             group_officials.sort(key=lambda x: safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('announcement_date_obj') or x.get('date')), reverse=True)
 
-            for syn in dedup_syns:
-                matched = False
-                syn_m = syn.get('_matchedMeeting')
-                syn_meeting_date = safe_date(syn_m.meeting_date if syn_m and syn_m.meeting_date else syn.get('broadcast_date'))
+            matched_syns = set()
 
-                for off in group_officials:
-                    off_date_val = safe_date(off.get('announcement_date_obj') or off.get('broadcast_date') or off.get('ex_date_obj') or off.get('date'))
+            for off in group_officials:
+                matched = False
+                off_date_val = safe_date(off.get('announcement_date_obj') or off.get('broadcast_date') or off.get('ex_date_obj') or off.get('date'))
+
+                for idx, syn in enumerate(dedup_syns):
+                    if idx in matched_syns: continue
+
+                    syn_m = syn.get('_matchedMeeting')
+                    syn_meeting_date = safe_date(syn_m.meeting_date if syn_m and syn_m.meeting_date else syn.get('broadcast_date'))
 
                     if syn_meeting_date != datetime.date.min and off_date_val != datetime.date.min:
                         # Diff is (Corporate Action Ex-Date) - (Board Meeting Date)
@@ -975,32 +979,27 @@ def build_dividend_databank_task(self, force: bool = False):
                         s_amt = syn.get('amount')
                         o_amt = off.get('amount')
                         amt_compatible = True
-                        if s_amt is not None and str(s_amt) != '-' and o_amt is not None and str(o_amt) != '-' and s_amt != o_amt:
-                            amt_compatible = False
+
+                        try:
+                            s_val = float(s_amt) if s_amt is not None and str(s_amt).strip() != '-' else None
+                            o_val = float(o_amt) if o_amt is not None and str(o_amt).strip() != '-' else None
+                            if s_val is not None and o_val is not None and abs(s_val - o_val) > 0.01:
+                                amt_compatible = False
+                        except ValueError:
+                            if s_amt is not None and str(s_amt) != '-' and o_amt is not None and str(o_amt) != '-' and str(s_amt) != str(o_amt):
+                                amt_compatible = False
 
                         # Valid link: Corporate action is within the forward window and compatible
                         if -10 <= diff_days <= window and types_compatible and amt_compatible:
+                            # Merge syn into off (Corporate Action row gets Board Meeting details)
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
 
-                            off_m = off.get('_matchedMeeting')
-
-                            # Unify Ex-Date logic: Board Meeting row inherits Ex-Date from Corporate Action
-                            if off.get('ex_date_obj'):
-                                syn['ex_date_obj'] = off.get('ex_date_obj')
-                                syn['ex_date'] = off.get('ex_date')
-                            if off.get('record_date'):
-                                syn['record_date'] = off.get('record_date')
-                                if not syn.get('ex_date_obj'):
-                                    syn['ex_date_obj'] = off.get('record_date')
-                                    syn['ex_date'] = off.get('record_date').strftime('%Y-%m-%d') if hasattr(off.get('record_date'), 'strftime') else off.get('record_date')
-
                             if syn.get('dividend_type') and off.get('dividend_type') in ['Dividend', '-', '']:
                                 off['dividend_type'] = syn.get('dividend_type')
-                            elif off.get('dividend_type') and syn.get('dividend_type') in ['Dividend', '-', '']:
-                                syn['dividend_type'] = off.get('dividend_type')
 
+                            off_m = off.get('_matchedMeeting')
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
@@ -1010,17 +1009,26 @@ def build_dividend_databank_task(self, force: bool = False):
                             if off.get('announcement_date_obj') is None:
                                 off['announcement_date_obj'] = syn.get('announcement_date_obj')
 
-                            matched = True
+                            # ALWAYS copy record date if missing
+                            if off.get('record_date') is None and syn.get('record_date'):
+                                off['record_date'] = syn.get('record_date')
+
+                            # Fallback ex_date to record date universally
+                            if off.get('ex_date_obj') is None and off.get('record_date'):
+                                off['ex_date_obj'] = off.get('record_date')
+                                if hasattr(off['record_date'], 'strftime'):
+                                    off['ex_date'] = off['record_date'].strftime('%Y-%m-%d')
+                                else:
+                                    off['ex_date'] = off['record_date']
+
+                            matched_syns.add(idx)
                             break
 
-                if not matched:
-                    # An upcoming board meeting, or an outcome whose corporate action hasn't been declared yet
-                    final_actions.append(syn)
-
-            for off in group_officials:
-                # 'off' absorbed the matched 'syn' data in the loop above.
-                # So we simply append all officials.
                 final_actions.append(off)
+
+            for idx, syn in enumerate(dedup_syns):
+                if idx not in matched_syns:
+                    final_actions.append(syn)
 
             # Sort chronologically
             def final_sort_key(x):
