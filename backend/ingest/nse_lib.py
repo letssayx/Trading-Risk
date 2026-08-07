@@ -668,8 +668,6 @@ class NSELib:
                     except ValueError:
                         bm_date_obj_check = None
 
-                    is_agm = 'annual general meeting' in purpose or 'agm' in purpose
-
                     matched_anns = []
                     if symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
@@ -684,23 +682,8 @@ class NSELib:
                                         consumed_announcements.add(ann.get('seq_id'))
                                 except ValueError:
                                     pass
-                            elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
-                                        is_agm = True
-                                        matched_anns.append(ann)
-                                        consumed_announcements.add(ann.get('seq_id'))
-                                except ValueError:
-                                    pass
-
-                    if has_dividend_mention or is_agm:
+                    if has_dividend_mention:
                         base_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose or 'quarterly' in purpose or 'quarterly' in desc else ('Special' if 'special' in purpose else 'Dividend'))
-                        if is_agm:
-                            base_type = 'AGM'
-                            item['bm_purpose'] = 'Annual General Meeting'
-
                         added_branches = False
 
                         if matched_anns:
@@ -852,7 +835,7 @@ class NSELib:
 
 
 
-                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and bm_date_obj_check and bm_date_obj_check == trade_date:
+                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and has_dividend_mention and bm_date_obj_check and bm_date_obj_check <= trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
                                 pdf_amount, pdf_record_date, pdf_type = extract_amount_from_pdf(attachment_url)
@@ -893,9 +876,7 @@ class NSELib:
 
                         has_div = 'dividend' in subj or 'dividend' in desc or 'dividend' in attchmntText
                         has_rd = 'record date' in subj or 'record date' in desc or 'record date' in attchmntText
-                        is_agm = 'agm' in subj or 'annual general meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'agm' in attchmntText or 'annual general meeting' in attchmntText
-
-                        if has_div or has_rd or is_agm:
+                        if has_div or has_rd:
                             found_amount = None
                             found_record_date = None
                             found_type = 'Final'
@@ -958,7 +939,7 @@ class NSELib:
                                 if fallback_rd:
                                     found_record_date = fallback_rd.group(1).replace('st ', ' ').replace('nd ', ' ').replace('rd ', ' ').replace('th ', ' ')
 
-                            if found_amount or found_record_date or is_agm:
+                            if found_amount or found_record_date:
                                 try:
                                     dt = datetime.strptime(ann.get('an_dt', '').split(' ')[0], "%d-%b-%Y")
                                     bm_date_str = dt.strftime("%d-%b-%Y")
