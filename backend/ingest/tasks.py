@@ -797,6 +797,9 @@ def build_dividend_databank_task(self, force: bool = False):
                                     is_time_match = False
                                     b_date = a.get('broadcast_date')
                                     meet_date = m.meeting_date
+                                    if not b_date and a.get('date'):
+                                        b_date = a.get('date') # Use generic date if broadcast is missing
+
                                     if b_date and meet_date:
                                         if hasattr(b_date, 'date'): b_date = b_date.date()
                                         if hasattr(meet_date, 'date'): meet_date = meet_date.date()
@@ -807,6 +810,9 @@ def build_dividend_databank_task(self, force: bool = False):
                                             window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                                             if diff_days <= window:
                                                 is_time_match = True
+
+                                    if not b_date and not meet_date:
+                                        is_time_match = True # Extremely rare fallback
 
                                     if is_time_match:
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
