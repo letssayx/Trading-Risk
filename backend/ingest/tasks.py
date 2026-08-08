@@ -1168,6 +1168,8 @@ def build_dividend_databank_task(self, force: bool = False):
                     # DO NOT blindly overwrite ex-date if it's currently valid and new one is None
                     if ex_date_val:
                         match.ex_date = ex_date_val
+                        # If ex_date_val is provided, this record is NO LONGER awaited
+                        match.is_awaited = False
                     if h.get('announcement_date_obj'):
                         match.announcement_date = h.get('announcement_date_obj')
                     if h.get('broadcast_date'):
@@ -1180,6 +1182,9 @@ def build_dividend_databank_task(self, force: bool = False):
                     if h.get('amount') is not None:
                         match.amount = h.get('amount')
                         match.raw_amount = h.get('raw_amount')
+
+                    if h.get('dividend_type') and h.get('dividend_type') not in ['-', 'Dividend', '']:
+                        match.dividend_type = h.get('dividend_type')
 
                     # 1. EPS & Net Profit: Link by Board Meeting Date
                     # Find the most recent FinancialResult available ON or BEFORE the board meeting date (or final_date)
