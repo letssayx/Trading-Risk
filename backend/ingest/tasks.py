@@ -794,16 +794,19 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 a_purpose = (a.get('purpose') or '').lower()
                                 if not a_date and (a_purpose.find('not yet declared') != -1 or a_purpose.find('dividend (') != -1 or a_purpose.find('dividend') != -1):
-                                    is_time_match = True
-                                    if a.get('broadcast_date') and m.meeting_date:
-                                        b_date = a.get('broadcast_date')
+                                    is_time_match = False
+                                    b_date = a.get('broadcast_date')
+                                    meet_date = m.meeting_date
+                                    if b_date and meet_date:
                                         if hasattr(b_date, 'date'): b_date = b_date.date()
-                                        meet_date = m.meeting_date
                                         if hasattr(meet_date, 'date'): meet_date = meet_date.date()
-                                        diff_days = abs((b_date - meet_date).days)
-                                        div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
-                                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                                        if diff_days > window: is_time_match = False
+                                        diff_days = (b_date - meet_date).days
+                                        # Only link if the CA broadcast is on or AFTER the BM date, within the window
+                                        if diff_days >= -10:
+                                            div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
+                                            window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                            if diff_days <= window:
+                                                is_time_match = True
 
                                     if is_time_match:
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
