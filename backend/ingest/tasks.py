@@ -712,9 +712,18 @@ def build_dividend_databank_task(self, force: bool = False):
 
         bm_by_symbol = defaultdict(list)
         for bm in bm_records:
+            # Also re-parse board meeting missing amounts using field mapper directly.
+            # E.g. "Final Dividend of Rs. 5.25"
+            if bm.extracted_dividend_amount is None and bm.purpose:
+                # Fallback to field_mapper since nse_lib failed. (Usually face_value isn't directly on BM, so we pass None)
+                reparsed_amt, _ = FieldMapper._parse_dividend(bm.purpose, None)
+                if reparsed_amt is not None:
+                    bm.extracted_dividend_amount = reparsed_amt
+                    db.add(bm)
+
             bm_by_symbol[bm.symbol.upper()].append(bm)
 
-        # Commit newly parsed CA amounts before we do anything else
+        # Commit newly parsed CA and BM amounts before we do anything else
         db.commit()
 
         # Also fetch financials to enrich the databank
@@ -753,40 +762,39 @@ def build_dividend_databank_task(self, force: bool = False):
                                 a_date = a.get('ex_date_obj')
                                 if hasattr(a_date, 'date'): a_date = a_date.date()
 
-                                if a_date and a_date >= m_date:
-                                    diff_days = abs((a_date - m_date).days)
-                                    div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
-                                    window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                                    if diff_days <= window:
+                                # Enforce diff_days == 0 logic for Corporate Action -> Board Meeting linkage
+                                # If they announce an ex-date months later, it should NOT link directly to the old BM
+                                # Instead, the BM will spawn a synthetic row with the amount, and the CA will remain its own row for the ex-date.
+                                # The UI can stitch them or the user prefers exact date integrity.
+                                # Actually, wait. If we just spawn a synthetic row for the old BM, and leave the new CA alone:
+                                # They will appear as two rows in the databank. One row has Amount + BM Date, One row has Ex-Date.
+                                # Let's only link them if their broadcast/announcement dates exactly match.
+
+                                a_broadcast = a.get('broadcast_date') or a.get('announcement_date_obj')
+                                if hasattr(a_broadcast, 'date'): a_broadcast = a_broadcast.date()
+
+                                if a_broadcast and a_broadcast == m_date:
+                                    # Strict `diff == 0` match for linkage
+                                    a_type = (a.get('dividend_type') or '').lower()
+                                    m_type = (m.extracted_dividend_type or '').lower()
+
+                                    # Don't merge Interim with Final even on same day
+                                    conflict = False
+                                    if a_type in ['interim', 'final'] and m_type in ['interim', 'final'] and a_type != m_type:
+                                        conflict = True
+
+                                    a_amt = a.get('amount')
+                                    m_amt = m.extracted_dividend_amount
+                                    if a_amt is not None and m_amt is not None and str(a_amt) != '-' and str(m_amt) != '-' and a_amt != m_amt:
+                                        conflict = True
+
+                                    if not conflict:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
                                             a['amount'] = m.extracted_dividend_amount
                                             a['raw_amount'] = m.extracted_dividend_amount
                                         if not a.get('dividend_type') or a.get('dividend_type') == '-' or a.get('dividend_type') == 'Dividend':
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
-                                        a['_matchedMeeting'] = m
-                                        break
-
-                                a_purpose = (a.get('purpose') or '').lower()
-                                if not a_date and (a_purpose.find('not yet declared') != -1 or a_purpose.find('dividend (') != -1 or a_purpose.find('dividend') != -1):
-                                    is_time_match = True
-                                    if a.get('broadcast_date') and m.meeting_date:
-                                        b_date = a.get('broadcast_date')
-                                        if hasattr(b_date, 'date'): b_date = b_date.date()
-                                        meet_date = m.meeting_date
-                                        if hasattr(meet_date, 'date'): meet_date = meet_date.date()
-                                        diff_days = abs((b_date - meet_date).days)
-                                        div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
-                                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                                        if diff_days > window: is_time_match = False
-
-                                    if is_time_match:
-                                        if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
-                                            a['amount'] = m.extracted_dividend_amount
-                                            a['raw_amount'] = m.extracted_dividend_amount
-                                        if not a.get('dividend_type') or a.get('dividend_type') == '-' or a.get('dividend_type') == 'Dividend':
-                                            a['dividend_type'] = m.extracted_dividend_type or 'Final'
-                                        has_linked_action = True
                                         a['_matchedMeeting'] = m
                                         break
 
@@ -889,22 +897,16 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if syn_date != datetime.date.min and ex_date != datetime.date.min:
                         diff = abs((syn_date - ex_date).days)
-                        div_type_lower = (syn.get('dividend_type') or '').lower()
-                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
 
-                        # Deduplication Logic: Group by Symbol + Exact Event Type
+                        # Deduplication Logic: STRICT DIFF == 0 OR EXACT SAME RECORD DATE
+                        # We only merge if they happened on the EXACT same day (diff == 0)
+                        # or if they are referencing the exact same explicit record date within a short window.
+                        window = 0
+
                         syn_type = syn.get('dividend_type')
                         ex_type = ex.get('dividend_type')
 
-                        # Fix Deduplication: General Updates and Record Date announcements happen for the same event.
-                        # Deduplicate them strictly if symbol + div_type matches within window.
-                        # E.g. COALINDIA duplicates have exactly the same symbol and type (like Interim) within days of each other.
-                        # Do NOT merge different dividend types (like Interim and Final) even if they happen on the same day.
                         is_duplicate_event = (syn_type == ex_type)
-
-                        # Only allow fallback to general 'Dividend' / '-' if the other is a specific dividend type,
-                        # but do not merge 'Interim' with 'Final'
-
                         is_potential_duplicate = is_duplicate_event
                         upgrade_syn_type = None
                         upgrade_ex_type = None
@@ -922,8 +924,6 @@ def build_dividend_databank_task(self, force: bool = False):
                         # STRICT Deduplication Check:
                         # Do NOT merge if they both have explicit, differing record dates,
                         # OR if they both have explicit, differing amounts.
-                        # This prevents squashing Interim and Final dividends announced on the same day into one row.
-
                         syn_amount = syn.get('amount')
                         ex_amount = ex.get('amount')
                         syn_rec = syn.get('record_date')
@@ -938,12 +938,11 @@ def build_dividend_databank_task(self, force: bool = False):
                         if amounts_conflict or records_conflict:
                             is_potential_duplicate = False
 
-                        # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
                         if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
 
-                        if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
+                        if syn.get('symbol') == ex.get('symbol') and diff == window and is_potential_duplicate:
                             is_duplicate = True
 
                             if upgrade_syn_type:

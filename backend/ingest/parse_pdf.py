@@ -82,6 +82,7 @@ def extract_amount_from_pdf(url):
                 # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
                 _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
+                _clean = re.sub(r'(?:already paid|paid an interim|previous|last year|earlier).*?(?:\.|$)', '', _clean, flags=re.IGNORECASE)
 
                 m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
                 if m:
@@ -123,8 +124,9 @@ def extract_amount_from_pdf(url):
                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
                     r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
                 ]
+                _clean_text2 = re.sub(r'(?:already paid|paid an interim|previous|last year|earlier).*?(?:\.|$)', '', _clean_text, flags=re.IGNORECASE)
                 for pat in ui_patterns:
-                    matches2 = re.findall(pat, _clean_text, re.IGNORECASE)
+                    matches2 = re.findall(pat, _clean_text2, re.IGNORECASE)
                     found = False
                     for m in matches2:
                         val = float(m)

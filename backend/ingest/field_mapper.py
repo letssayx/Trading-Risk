@@ -300,6 +300,9 @@ class FieldMapper:
         # 1. Aggressively remove 'face value' and 'fv' context blocks
         _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
 
+        # 1.8 Remove sentences that look like historical references to avoid bleed.
+        _clean_purpose = re.sub(r'(?:already paid|paid an interim|previous|last year|earlier).*?(?:\.|$)', '', _clean_purpose, flags=re.IGNORECASE)
+
         # 1.5 Parse Percentages (e.g., 100%)
         # If there's a percentage, calculate it based on face value.
         # If multiple percentages exist (e.g. Interim 50% & Special 25%), we sum them.
@@ -308,7 +311,16 @@ class FieldMapper:
              # Calculate total percentage and multiply by face value
              total_pct = sum(float(m) for m in pct_matches)
              calculated_amt = (total_pct / 100.0) * face_value
-             if calculated_amt > 0:
+
+             # Let's ensure calculated_amt matches one of the Rs matches if they are both present
+             rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose, re.IGNORECASE)
+             if rs_matches:
+                  first_rs = float(rs_matches[0])
+                  # Only return the percentage based calculated amount if it is somewhat close or exactly matches the explicitly stated amount
+                  # Some companies state ridiculous percentages, but explicit Rs values are the source of truth
+                  if calculated_amt > 0 and abs(calculated_amt - first_rs) < 0.1:
+                      return calculated_amt, parsed_type
+             elif calculated_amt > 0:
                   return calculated_amt, parsed_type
 
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting

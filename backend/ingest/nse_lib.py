@@ -745,6 +745,7 @@ class NSELib:
 
                                 if found_amount is None:
                                     _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
+                                    _clean_text = re.sub(r'(?:already paid|paid an interim|previous|last year|earlier).*?(?:\.|$)', '', _clean_text, flags=re.IGNORECASE)
 
                                     if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
                                         match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
@@ -754,7 +755,10 @@ class NSELib:
                                         div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
                                         matches = div_pattern.findall(_clean_text)
                                         if matches:
-                                            found_amount = sum(float(m) for m in matches)
+                                            if len(matches) > 1 and ('&' in attchmntText.lower() or 'and special' in attchmntText.lower() or 'and interim' in attchmntText.lower()):
+                                                found_amount = sum(float(m) for m in matches)
+                                            else:
+                                                found_amount = float(matches[0])
 
                                 subj = str(ann.get('subject', '')).lower()
                                 desc_ann = str(ann.get('desc', '')).lower()
@@ -842,7 +846,10 @@ class NSELib:
                                 else:
                                     matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
                                     if matches:
-                                        found_amount = sum(float(m) for m in matches)
+                                        if len(matches) > 1 and ('&' in subject.lower() or 'and special' in subject.lower() or 'and interim' in subject.lower()):
+                                            found_amount = sum(float(m) for m in matches)
+                                        else:
+                                            found_amount = float(matches[0])
 
                                 if found_amount:
                                     if 'interim' in subject.lower() or 'intdiv' in subject.lower() or 'int div' in subject.lower() or 'quarterly' in subject.lower(): found_type = 'Interim'
@@ -874,7 +881,10 @@ class NSELib:
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE)
                                     if matches:
-                                        found_amount = sum(float(m) for m in matches)
+                                        if len(matches) > 1 and ('&' in text_to_search.lower() or 'and special' in text_to_search.lower() or 'and interim' in text_to_search.lower()):
+                                            found_amount = sum(float(m) for m in matches)
+                                        else:
+                                            found_amount = float(matches[0])
                                         break
 
                             if found_amount or found_type == 'Dividend':
@@ -972,12 +982,17 @@ class NSELib:
 
                             if found_amount is None:
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
+                                _clean_text = re.sub(r'(?:already paid|paid an interim|previous|last year|earlier).*?(?:\.|$)', '', _clean_text, flags=re.IGNORECASE)
                                 if 'including' in _clean_text or 'includes' in _clean_text:
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
                                     if match: found_amount = float(match.group(1))
                                 else:
                                     matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
-                                    if matches: found_amount = sum(float(m) for m in matches)
+                                    if matches:
+                                        if len(matches) > 1 and ('&' in text_lower or 'and special' in text_lower or 'and interim' in text_lower):
+                                            found_amount = sum(float(m) for m in matches)
+                                        else:
+                                            found_amount = float(matches[0])
 
                             date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
                             record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
