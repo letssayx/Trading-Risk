@@ -600,7 +600,9 @@ def build_dividend_databank_task(self, force: bool = False):
                 CorporateAction.purpose.ilike('%fin div%'), CorporateAction.purpose.ilike('%special%'),
                 CorporateAction.purpose.ilike('%div-%'),
                 CorporateAction.purpose.ilike('%div -%'),
-                CorporateAction.purpose.ilike('% div %')
+                CorporateAction.purpose.ilike('% div %'),
+                CorporateAction.purpose.ilike('%record date%'),
+                CorporateAction.record_date != None
             )
         )
 
@@ -712,7 +714,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     "record_date": r.record_date if hasattr(r, 'record_date') else None
                 })
 
-            elif parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower())):
+            elif parsed_amount is not None or (r.purpose and ('dividend' in r.purpose.lower() or 'special' in r.purpose.lower() or 'bonus' in r.purpose.lower() or 'split' in r.purpose.lower() or 'record date' in r.purpose.lower())) or getattr(r, 'record_date', None) is not None:
                 ann_date = getattr(r, 'broadcast_date', None)
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
@@ -901,6 +903,12 @@ def build_dividend_databank_task(self, force: bool = False):
                 if hasattr(d, 'date'): return d.date()
                 if isinstance(d, datetime.datetime): return d.date()
                 if isinstance(d, datetime.date): return d
+                if isinstance(d, str):
+                    try:
+                        from dateutil.parser import parse
+                        return parse(d).date()
+                    except:
+                        pass
                 return datetime.date.min
 
             # PHASE 1: Merge Announcements and Outcomes
