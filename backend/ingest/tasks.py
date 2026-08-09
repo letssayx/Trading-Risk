@@ -959,7 +959,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
 
-                        if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
+                        if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate and abs(syn_date.year - ex_date.year) <= 1:
                             is_duplicate = True
 
                             if upgrade_syn_type:
@@ -1015,11 +1015,11 @@ def build_dividend_databank_task(self, force: bool = False):
                             elif off.get('dividend_type') in ['-', 'Dividend'] and syn.get('dividend_type') in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_match = True
 
-                        if is_potential_match:
+                        if is_potential_match and abs(syn_date_val.year - off_date_val.year) <= 1:
                             if syn.get('amount') is not None and off.get('amount') is not None and syn.get('amount') != off.get('amount'):
                                 is_potential_match = False
 
-                        if is_potential_match:
+                        if is_potential_match and abs(syn_date_val.year - off_date_val.year) <= 1:
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
@@ -1395,7 +1395,7 @@ def patch_historical_eps_agm_task(self):
                 # AGM Dates only apply to Final dividends.
                 # Look for an AGM announcement that happens *after* the dividend event (up to 6 months / ~180 days).
                 # Meaning the AGM event date > dividend row_date, but within 180 days.
-                if not row.agm_date and row.dividend_type and 'final' in row.dividend_type.lower():
+                if not row.agm_date:
                     bm = db.query(BoardMeeting).filter(
                         BoardMeeting.symbol == sym,
                         BoardMeeting.purpose.ilike('%annual general meeting%'),
