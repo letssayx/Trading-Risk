@@ -599,6 +599,8 @@
                                     <th id="ss-div-fut3-th">Future 3</th>
                                     <th style="background: #2b3a4a;">Type</th>
                                     <th style="background: #2b3a4a;">Ex-date</th>
+                                    <th style="background: #2b3a4a;">Face Value</th>
+                                    <th style="background: #2b3a4a;">Purpose</th>
                                     <th style="background: #2b3a4a;">Amount</th>
                                     <th style="background: #1a1a1a;">Upcoming<br>Meeting</th>
                                     <th style="background: #1a1a1a;">Broadcast<br>Date & Time</th>
@@ -1206,6 +1208,7 @@
                         </label>
 
                         <button onclick="reparseHistoricalDividends()" class="btn btn-secondary" style="background-color: #6c757d;"><i class="fas fa-tools"></i> Reparse History</button>
+                        <button onclick="patchHistoricalEps()" class="btn btn-secondary" style="background-color: #8b5cf6;" title="Fetches 20 years of historical EPS via yfinance and patches AGM dates"><i class="fas fa-cloud-download-alt"></i> Historical Sync: EPS & AGM</button>
                         <button onclick="syncDividendsData()" class="btn btn-primary" title="Trigger background recalculation/math part for new dividends"><i class="fas fa-sync"></i> Sync Latest</button>
                         <button onclick="downloadDividendsCSV()" class="btn btn-secondary"><i class="fas fa-download"></i> Download CSV</button>
                     </div>
@@ -3524,6 +3527,53 @@ async function reparseHistoricalDividends() {
     } catch (e) {
         console.error(e);
         alert('An error occurred while patching the database.');
+    }
+}
+
+async function patchHistoricalEps() {
+    const btn = document.querySelector('button[onclick="patchHistoricalEps()"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Patching...';
+    }
+
+    try {
+        const res = await fetch('/api/data/dividends/patch-historical-eps', { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            const taskId = data.task_id;
+
+            if (taskId) {
+                let isDone = false;
+                while (!isDone) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    const statRes = await fetch(`/api/v1/nse/ingest/import/status/${taskId}`);
+                    if (statRes.ok) {
+                        const statData = await statRes.json();
+                        if (statData.state === 'SUCCESS' || statData.state === 'FAILURE' || statData.state === 'REVOKED') {
+                            isDone = true;
+                            if (statData.state === 'SUCCESS') {
+                                alert('Historical EPS and AGM patching completed successfully!');
+                            } else {
+                                alert('Task failed or was revoked. Check logs.');
+                            }
+                        }
+                    }
+                }
+            } else {
+                alert('Task triggered but no ID returned.');
+            }
+        } else {
+            alert('Failed to trigger task.');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('An error occurred.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Historical Sync: EPS & AGM';
+        }
     }
 }
 

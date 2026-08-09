@@ -32,3 +32,4 @@ jinja2
 ccxt
 pdfplumber
 pgvector==0.2.5
+yfinance>=0.2.30

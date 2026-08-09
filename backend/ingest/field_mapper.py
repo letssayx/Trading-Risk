@@ -205,6 +205,8 @@ class FieldMapper:
             return cls._map_corporate_actions(df, trade_date)
         elif format_type == 'board_meetings':
             return cls._map_board_meetings(df, trade_date)
+        elif format_type == 'financial_results':
+            return cls._map_financial_results(df, trade_date)
         elif format_type == 'fii_dii_cash':
             return cls._map_fii_dii_cash(df, trade_date)
         elif format_type == 'historical_index_data':
@@ -362,6 +364,42 @@ class FieldMapper:
                 'parsed_dividend_amount': parsed_div_amount,
                 'dividend_type': div_type,
                 'broadcast_date': parse_nse_datetime(cls._get_val(row, ['BROADCAST DATE', 'caBroadcastDate']))
+            }
+            if record['symbol'] and record['date']:
+                records.append(record)
+        return records
+
+    @classmethod
+    def _map_financial_results(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
+        records = []
+        for _, row in df.iterrows():
+            bdate_str = str(cls._get_val(row, ['broadcast_date']) or '')
+            # Clean up the timezone part from broadcast_date string if it exists: e.g., '14-May-2024 16:51:30'
+            bdate_clean = re.sub(r'\.\d+', '', bdate_str).strip()
+            broadcast_date = None
+            if bdate_clean:
+                try:
+                    broadcast_date = pd.to_datetime(bdate_clean).date()
+                except:
+                    pass
+
+            pdate_str = str(cls._get_val(row, ['period_end_date']) or '')
+            period_end_date = None
+            if pdate_str:
+                try:
+                    period_end_date = pd.to_datetime(pdate_str).date()
+                except:
+                    pass
+
+            record = {
+                'date': broadcast_date or trade_date, # Fallback to trade_date if missing
+                'symbol': str(cls._get_val(row, ['symbol']) or '').strip(),
+                'period': str(cls._get_val(row, ['period']) or '').strip() or None,
+                'period_end_date': period_end_date,
+                'basic_eps': safe_float(cls._get_val(row, ['basic_eps'])),
+                'diluted_eps': safe_float(cls._get_val(row, ['diluted_eps'])),
+                'net_profit': safe_float(cls._get_val(row, ['net_profit'])),
+                'attachment_url': str(cls._get_val(row, ['attachment']) or '').strip() or None,
             }
             if record['symbol'] and record['date']:
                 records.append(record)

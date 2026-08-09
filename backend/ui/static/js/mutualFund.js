@@ -231,5 +231,5 @@ function exportTableToCSV(table, filename) {
 
 // Hook into the main tab switcher logic if needed, or simply initialize when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    loadMfFilters();
+    // loadMfFilters(); // Temporarily disabled to prevent backend errors for missing tables
 });
