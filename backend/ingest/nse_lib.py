@@ -673,33 +673,30 @@ class NSELib:
                     if not has_dividend_mention and not is_agm and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
                             subj = str(ann.get('subject', '')).lower()
-                            if 'dividend' in subj or 'record date' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                            ann_date_str = ann.get('an_dt', '')
+                            try:
+                                ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                # We only want to flag board meetings for PDF extraction if the
+                                # specific announcement happened right around the time of the meeting (0-3 days).
+                                # The downstream linkage to future ex-dates happens in tasks.py!
+                                if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
+                                    if 'dividend' in subj or 'record date' in subj:
                                         has_dividend_mention = True
                                         break
-                                except ValueError:
-                                    pass
-                            elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
-                                ann_date_str = ann.get('an_dt', '')
-                                try:
-                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    elif 'shareholders meeting' in subj or 'agm' in subj or 'annual general meeting' in subj:
                                         is_agm = True
                                         break
-                                except ValueError:
-                                    pass
+                            except ValueError:
+                                pass
 
-                    if has_dividend_mention or is_agm:
+                    if is_agm and not has_dividend_mention:
+                        # Process AGM purely for tagging, absolutely NO amount extraction or PDF scraping
+                        item['EXTRACTED_DIVIDEND_TYPE'] = 'AGM'
+                        item['bm_purpose'] = 'Annual General Meeting'
+                    elif has_dividend_mention:
                         found_amount = None
                         found_record_date = None
                         found_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else ('Special' if 'special' in purpose else 'Final'))
-
-                        if is_agm:
-                            found_type = 'AGM'
-                            item['bm_purpose'] = 'Annual General Meeting'
 
                         # First try mapping to CA data for dates
                         if symbol and symbol in symbol_ca_map:
@@ -755,12 +752,12 @@ class NSELib:
                                 bm_date_obj = None
 
                             for ann in symbol_announcements[symbol]:
-                                # Check if announcement is within 180 days of board meeting
+                                # Check if announcement is within 0-3 days of board meeting
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     # Format: "16-Apr-2026 13:07:29"
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
+                                    if bm_date_obj and 0 <= (ann_date_obj - bm_date_obj).days <= 3:
                                         attchmntText = ann.get('attchmntText', '')
 
                                         # Extract Amount
@@ -827,7 +824,8 @@ class NSELib:
                         # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
                         # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
                         # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
-                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
+                        # Crucially, ONLY scrape PDFs for dividends, NOT for AGMs, as AGMs don't have amounts.
+                        if (found_amount is None or found_record_date is None) and not is_agm and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):

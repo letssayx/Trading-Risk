@@ -1273,7 +1273,6 @@
                                 <tr>
                                     <th>BROADCAST DATE</th>
                                     <th>BOARD MEETING DATE</th>
-                                    <th>MEETING PURPOSE</th>
                                     <th style="cursor: pointer;" onclick="sortDividends('ex_date')">EX-DATE <span id="sort-icon-ex_date">▼</span></th>
                                     <th style="cursor: pointer;" onclick="sortDividends('symbol')">SYMBOL <span id="sort-icon-symbol"></span></th>
                                     <th>AMOUNT</th>
@@ -1281,6 +1280,7 @@
                                     <th>FACEVALUE</th>
                                     <th>PURPOSE</th>
                                     <th>RECORD DATE</th>
+                                    <th>AGM DATE</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -3510,7 +3510,11 @@ function switchDividendsTab(tabId) {
     document.querySelectorAll('[id^="div-tab-btn-"]').forEach(btn => btn.classList.remove('active'));
     document.getElementById(`div-tab-btn-${tabId}`).classList.add('active');
 
-    document.getElementById('div-content-actions').style.display = tabId === 'actions' ? 'flex' : 'none';
+    const actionsTab = document.getElementById('div-content-actions');
+    const meetingsTab = document.getElementById('div-content-meetings');
+
+    if (actionsTab) actionsTab.style.display = tabId === 'actions' ? 'flex' : 'none';
+    if (meetingsTab) meetingsTab.style.display = tabId === 'meetings' ? 'flex' : 'none';
 
     currentDivTab = tabId;
 }
@@ -3961,7 +3965,6 @@ function renderDividendsData() {
             tr.innerHTML = `
                 <td>${bcdDisplay}</td>
                 <td>${bmdDisplay}</td>
-                <td style="white-space:normal; max-width:200px;">${bmPurpose}</td>
                 <td>${d.ex_date || '-'}</td>
                 <td><strong style="color: #4da6ff;">${series}</strong></td>
                 <td style="color: #3176B8;">${amount}</td>
@@ -3969,6 +3972,7 @@ function renderDividendsData() {
                 <td>${faceValue}</td>
                 <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
                 <td>${d.record_date || '-'}</td>
+                <td>${d.agm_date || '-'}</td>
             `;
 
             tbodyActions.appendChild(tr);

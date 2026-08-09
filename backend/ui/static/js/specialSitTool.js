@@ -1546,9 +1546,23 @@ function renderSSDividends() {
                 let agmAnnDate = h.agm_announcement_date || '-';
                 let agmDate = h.agm_date || '-';
 
+                let bmdHtml = '-';
+                if (h.board_meeting_date) {
+                    try {
+                        let dt = new Date(h.board_meeting_date);
+                        let y = dt.getFullYear();
+                        let m = ('0' + (dt.getMonth() + 1)).slice(-2);
+                        let d = ('0' + dt.getDate()).slice(-2);
+                        bmdHtml = `${y}-${m}-${d}`;
+                    } catch(e) {
+                        bmdHtml = h.board_meeting_date;
+                    }
+                }
+
                 histRows += `
                     <tr>
                         <td>${h.ex_date || '-'}</td>
+                        <td>${bmdHtml}</td>
                         <td>${h.dividend_type || '-'}</td>
                         <td>${h.face_value !== undefined && h.face_value !== null ? h.face_value : '-'}</td>
                         <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${h.purpose || '-'}">${h.purpose || '-'}</td>
@@ -1576,6 +1590,7 @@ function renderSSDividends() {
                             <thead>
                                 <tr>
                                     <th>Ex-Date</th>
+                                    <th>BM Date</th>
                                     <th>Type</th>
                                     <th>Face Value</th>
                                     <th>Purpose</th>

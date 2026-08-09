@@ -430,7 +430,8 @@ class FieldMapper:
                 'bm_desc': str(cls._get_val(row, ['BM_DESC', 'Description']) or '').strip(),
                 'extracted_dividend_amount': cls._clean_numeric(cls._get_val(row, ['EXTRACTED_DIVIDEND_AMOUNT'])),
                 'extracted_dividend_type': str(cls._get_val(row, ['EXTRACTED_DIVIDEND_TYPE']) or '').strip() or None,
-                'extracted_record_date': str(cls._get_val(row, ['EXTRACTED_RECORD_DATE']) or '').strip() or None
+                'extracted_record_date': str(cls._get_val(row, ['EXTRACTED_RECORD_DATE']) or '').strip() or None,
+                'agm_date': parse_nse_date(cls._get_val(row, ['agm_date'])) if 'agm_date' in row and not pd.isna(row.get('agm_date')) else None
             }
             if record['symbol'] and record['date']:
                 records.append(record)
