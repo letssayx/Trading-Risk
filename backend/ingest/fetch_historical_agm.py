@@ -1,8 +1,10 @@
+
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
 import datetime
+import re
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from backend.ingest.nse_lib import NSELib
@@ -14,36 +16,18 @@ db_url = os.environ.get("DATABASE_URL", "postgresql://jules:jules@localhost:5432
 engine = create_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def fetch_historical_agm():
+def fetch_historical_agm_range(start_date, end_date):
     db = SessionLocal()
     lib = NSELib()
-
-    if len(sys.argv) == 3:
-        try:
-            start_date = datetime.datetime.strptime(sys.argv[1], "%Y-%m-%d").date()
-            end_date = datetime.datetime.strptime(sys.argv[2], "%Y-%m-%d").date()
-        except Exception as e:
-            print(f"Error parsing dates, expected format YYYY-MM-DD: {e}")
-            sys.exit(1)
-    else:
-        end_date = datetime.date.today()
-        start_date = end_date - datetime.timedelta(days=365) # Default to 1 year back
-
-    print(f"Starting historical AGM import from {end_date} back to {start_date}...")
-
+    print(f'Starting historical AGM import from {end_date} back to {start_date}...')
     curr_end = end_date
     total_records = 0
-
-    while curr_end > start_date:
+    while curr_end >= start_date:
         curr_start = curr_end - datetime.timedelta(days=90)
         if curr_start < start_date:
             curr_start = start_date
-
-        print(f"Fetching AGM Announcements for range {curr_start} to {curr_end}...")
-
-        # Search globally across all announcements, filter manually for AGM related keywords
+        print(f'Fetching AGM Announcements for range {curr_start} to {curr_end}...')
         url = f"{lib.BASE_URL}/api/corporate-announcements?index=equities&from_date={curr_start.strftime('%d-%m-%Y')}&to_date={curr_end.strftime('%d-%m-%Y')}"
-
         try:
             resp = lib.get(url)
             if resp and resp.status_code == 200:
@@ -55,12 +39,9 @@ def fetch_historical_agm():
                         desc = (item.get('desc') or '').lower()
                         purpose = item.get('desc') or item.get('subject')
                         ann_dt_str = item.get('an_dt') # e.g. 13-May-2026 17:01:36
-
                         is_agm = 'annual general meeting' in subject or 'agm' in subject or 'shareholders meeting' in subject or 'annual general meeting' in desc or 'agm' in desc or 'shareholders meeting' in desc
-
                         if symbol and ann_dt_str and is_agm:
                             try:
-                                import re
                                 ann_dt_clean = re.sub(r'\.\d+', '', str(ann_dt_str)).strip()
                                 ann_date = datetime.datetime.strptime(ann_dt_clean, "%d-%b-%Y %H:%M:%S").date()
                             except:
@@ -69,57 +50,53 @@ def fetch_historical_agm():
                                 except:
                                     ann_date = None
 
-                            # Extract actual AGM date from purpose
-                            import re
                             agm_date = None
-                            # Match dates like "09-Aug-2023", "09-August-2023", "9 August, 2023"
                             date_matches = re.findall(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ,]+(\d{2,4})', str(purpose))
                             if date_matches:
                                 try:
-                                    # take the first matching date as the AGM date
                                     d, m, y = date_matches[0]
-                                    if len(y) == 2:
-                                        y = "20" + y
-                                    if m.isdigit():
-                                        agm_date = datetime.datetime.strptime(f"{d}-{m}-{y}", "%d-%m-%Y").date()
-                                    else:
-                                        m = m[:3] # Jan, Feb
-                                        agm_date = datetime.datetime.strptime(f"{d}-{m}-{y}", "%d-%b-%Y").date()
+                                    from dateutil.parser import parse
+                                    agm_date = parse(f"{d} {m} {y}").date()
                                 except:
                                     pass
 
                             if ann_date:
-                                # We store AGMs as Corporate Actions (or Board Meetings) with 'AGM' type/purpose
-                                # Since they don't have amounts, just the date and purpose matters.
-                                # Check if it exists
-                                existing = db.query(BoardMeeting).filter_by(
-                                    symbol=symbol,
-                                    date=ann_date,
-                                    purpose=purpose
-                                ).first()
-
+                                existing = db.query(CorporateAction).filter_by(symbol=symbol, date=ann_date, dividend_type='AGM').first()
                                 if not existing:
-                                    bm = BoardMeeting(
+                                    ca = CorporateAction(
                                         symbol=symbol,
                                         date=ann_date,
-                                        broadcast_date=ann_date,
                                         purpose=purpose,
-                                        company_name=item.get('compName')
+                                        dividend_type='AGM',
+                                        ex_date=None,
+                                        record_date=None,
+                                        face_value=None,
+                                        parsed_dividend_amount=None,
+                                        parsed_dividend_type='AGM',
+                                        broadcast_date=ann_date,
+                                        agm_date=agm_date
                                     )
-                                    db.add(bm)
+                                    db.add(ca)
                                     total_records += 1
-
-                    db.commit()
-                    print(f"Added {total_records} records so far.")
+                db.commit()
         except Exception as e:
-            print(f"Error fetching range {curr_start} to {curr_end}: {e}")
-
+            print(f'Error fetching AGM range: {e}')
         curr_end = curr_start - datetime.timedelta(days=1)
-        import time
-        time.sleep(1)
+    print(f'Historical AGM fetch complete. Inserted {total_records} standalone AGM records.')
+    return total_records
 
-    print(f"Finished! Total records inserted: {total_records}")
-    db.close()
+def fetch_historical_agm():
+    if len(sys.argv) == 3:
+        try:
+            start_date = datetime.datetime.strptime(sys.argv[1], "%Y-%m-%d").date()
+            end_date = datetime.datetime.strptime(sys.argv[2], "%Y-%m-%d").date()
+        except Exception as e:
+            print(f"Error parsing dates, expected format YYYY-MM-DD: {e}")
+            sys.exit(1)
+    else:
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=365) # Default to 1 year back
+    fetch_historical_agm_range(start_date, end_date)
 
 if __name__ == "__main__":
     fetch_historical_agm()

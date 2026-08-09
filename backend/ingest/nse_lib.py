@@ -738,7 +738,7 @@ class NSELib:
 
                                 # Also check if standard date mentioned next to AGM
                                 if not new_item.get('EXTRACTED_AGM_DATE'):
-                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4})', text_lower, re.IGNORECASE)
+                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
                                     if fallback_agm:
                                         new_item['EXTRACTED_AGM_DATE'] = fallback_agm.group(1)
                                         new_item['bm_purpose'] = str(new_item.get('bm_purpose') or '') + f" - AGM - {fallback_agm.group(1)}"
@@ -965,7 +965,7 @@ class NSELib:
                                         bm_purpose += f" - AGM - {agm_date}"
 
                                 if not agm_date:
-                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4})', text_lower, re.IGNORECASE)
+                                    fallback_agm = re.search(r'(?:agm|annual general meeting).*?(?:on|dated|scheduled for|-)?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
                                     if fallback_agm:
                                         agm_date = fallback_agm.group(1)
                                         bm_purpose += f" - AGM - {agm_date}"
@@ -993,6 +993,11 @@ class NSELib:
                                 date_match = date_pattern.search(attchmntText)
                                 if date_match and 'record date' in text_lower:
                                     found_record_date = date_match.group(1)
+
+                            if not found_record_date and 'record date' in text_lower:
+                                fallback_rd = re.search(r'(?:record date|fixed).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
+                                if fallback_rd:
+                                    found_record_date = fallback_rd.group(1).replace('st ', ' ').replace('nd ', ' ').replace('rd ', ' ').replace('th ', ' ')
 
                             if found_amount or found_record_date or is_agm:
                                 try:

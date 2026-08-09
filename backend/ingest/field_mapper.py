@@ -312,7 +312,7 @@ class FieldMapper:
 
         # 4. Fallback extraction: look for numbers immediately following dividend keywords if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
         # Ensure we don't accidentally grab a year like 2024 or rule numbers like 33 by capping at reasonable dividend amounts (<1000 typically unless super high face value)
-        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b', _clean_purpose, flags=re.IGNORECASE)
+        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+|rs\.?\s*|re\.?\s*|rupees?\s*)(\d+(?:\.\d+)?)\b', _clean_purpose, flags=re.IGNORECASE)
 
         valid_div_matches = [m for m in div_matches if not re.match(r'^(19|20)\d{2}$', m) and float(m) < 1000]
 
