@@ -311,8 +311,8 @@ class FieldMapper:
         rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
 
         # 4. Fallback extraction: look for numbers immediately following dividend keywords if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
-        # Ensure we don't accidentally grab a year like 2024 or rule numbers like 33 by capping at reasonable dividend amounts (<1000 typically unless super high face value)
-        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b', _clean_purpose, flags=re.IGNORECASE)
+        # We need to make sure we don't grab a date like 31-Jul-2026, so look ahead to ensure it's not followed by a month abbreviation.
+        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b(?!\s*[-/]?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))', _clean_purpose, flags=re.IGNORECASE)
 
         valid_div_matches = [m for m in div_matches if not re.match(r'^(19|20)\d{2}$', m) and float(m) < 1000]
 

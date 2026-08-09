@@ -25,7 +25,7 @@ def extract_amount_from_pdf(url):
             'Accept-Language': 'en-US,en;q=0.9',
         }
 
-        logger.info(f"Downloading PDF for parsing: {url}")
+        logger.debug(f"Downloading PDF for parsing: {url}")
 
         from curl_cffi import requests as curl_requests
         session = curl_requests.Session(impersonate="chrome110")
@@ -38,7 +38,7 @@ def extract_amount_from_pdf(url):
         resp = session.get(url, headers=headers, timeout=5)
 
         if resp.status_code == 200 and b'%PDF' in resp.content[:10]:
-            logger.info(f"Successfully downloaded PDF for parsing: {url}")
+            logger.debug(f"Successfully downloaded PDF for parsing: {url}")
             with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
                 text = ""
                 tables = []
@@ -63,7 +63,8 @@ def extract_amount_from_pdf(url):
                     if m:
                         record_date_str = m.group(1).replace('\n', ' ').strip()
                         try:
-                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                            # Use dayfirst=True to avoid ambiguity warnings with formats like DD/MM/YYYY
+                            record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                             break
                         except Exception:
                             record_date = record_date_str
@@ -83,10 +84,13 @@ def extract_amount_from_pdf(url):
                 snippet = part[:300]
                 _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
 
-                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
-                if m:
-                    val = float(m.group(1))
-                    if val > 0:
+                # Ensure we strictly look for currency or @ symbols, to avoid matching stray numbers like 'on 27th April' where 'n 27' is found
+                m = re.search(r'(?:rs\.?|re\.?|rupees|inr|\u20b9|~|nS?\.|n\s*\.)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
+                m2 = re.search(r'@\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)\s*(?:/-|per\s+share|per\s+equity)', _clean, re.IGNORECASE)
+                match = m or m2
+                if match:
+                    val = float(match.group(1))
+                    if val > 0 and val < 1000: # sanity check to avoid year matching
                         amount = val
                         break
 
@@ -96,13 +100,14 @@ def extract_amount_from_pdf(url):
                 r'(?:annual general meeting|agm).*?to be held on.*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b',
                 r'(?:annual general meeting|agm).*?scheduled.*?on.*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b',
                 r'\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b.*?(?:annual general meeting|agm)',
+                r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b'
             ]
             for pat in agm_patterns:
                 agm_m = re.search(pat, text, re.IGNORECASE | re.DOTALL)
                 if agm_m:
                     agm_date_str = agm_m.group(1).replace('\n', ' ').strip()
                     try:
-                        agm_date = pd.to_datetime(agm_date_str).strftime('%Y-%m-%d')
+                        agm_date = pd.to_datetime(agm_date_str, dayfirst=True).strftime('%Y-%m-%d')
                         break
                     except Exception:
                         pass
@@ -128,7 +133,7 @@ def extract_amount_from_pdf(url):
                     found = False
                     for m in matches2:
                         val = float(m)
-                        if val > 0:
+                        if val > 0 and val < 1000:
                             amount = val
                             found = True
                             break
@@ -166,7 +171,7 @@ def extract_amount_from_pdf(url):
                                 if m:
                                     record_date_str = m.group(1).replace('\n', ' ').strip()
                                     try:
-                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                         break
                                     except Exception:
                                         pass
@@ -178,7 +183,7 @@ def extract_amount_from_pdf(url):
                                         break
                                     except Exception:
                                         try:
-                                            record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                            record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                             break
                                         except Exception:
                                             pass
@@ -186,7 +191,7 @@ def extract_amount_from_pdf(url):
                                 if m3:
                                     record_date_str = m3.group(1).replace('\n', ' ').strip()
                                     try:
-                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                         break
                                     except Exception:
                                         pass
@@ -194,7 +199,7 @@ def extract_amount_from_pdf(url):
                                 if m4:
                                     record_date_str = m4.group(1).replace('\n', ' ').strip()
                                     try:
-                                        record_date = pd.to_datetime(record_date_str).strftime('%d-%b-%Y')
+                                        record_date = pd.to_datetime(record_date_str, dayfirst=True).strftime('%d-%b-%Y')
                                         break
                                     except Exception:
                                         pass

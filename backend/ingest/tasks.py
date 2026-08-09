@@ -925,6 +925,11 @@ def build_dividend_databank_task(self, force: bool = False):
                         if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
+                                # ensure we don't accidentally wipe out specific tags during exact matches later
+                                if ex_type not in ['-', 'Dividend', 'AGM'] and syn_type in ['-', 'Dividend', 'AGM']:
+                                    syn['dividend_type'] = ex_type
+                                elif syn_type not in ['-', 'Dividend', 'AGM'] and ex_type in ['-', 'Dividend', 'AGM']:
+                                    ex['dividend_type'] = syn_type
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
                             is_duplicate = True
