@@ -827,6 +827,7 @@ def build_dividend_databank_task(self, force: bool = False):
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank
     from backend.ingest.field_mapper import FieldMapper
+    import logging
 
     db = SessionLocal()
     try:
@@ -859,9 +860,7 @@ def build_dividend_databank_task(self, force: bool = False):
         )
 
         if not force:
-            # Only fetch CA and BM from the last 7 days for incremental updates,
-            # then find all unique symbols involved, and fetch full history ONLY for those symbols
-            recent_cutoff = today - datetime.timedelta(days=7)
+            recent_cutoff = today - datetime.timedelta(days=365) # keep wide window for late ex dates
             recent_cas = ca_query.filter(CorporateAction.date >= recent_cutoff).all()
             recent_bms = bm_query.filter(BoardMeeting.date >= recent_cutoff).all()
 
@@ -878,7 +877,6 @@ def build_dividend_databank_task(self, force: bool = False):
 
         # Group by symbol
         ca_by_symbol = defaultdict(list)
-        adjustments_by_symbol = defaultdict(list)
         for r in ca_records:
             sym = r.symbol.upper()
 
@@ -892,53 +890,14 @@ def build_dividend_databank_task(self, force: bool = False):
                     db.add(r)
 
             if r.dividend_type in ['Bonus', 'Split', 'Demerger']:
-                # Extract ratio from purpose
-                ratio = 1.0
-                purpose_lower = (r.purpose or "").lower()
-                if r.dividend_type == 'Bonus':
-                    match = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                    if match:
-                        bonus_shares = float(match.group(1))
-                        held_shares = float(match.group(2))
-                        if held_shares > 0:
-                            ratio = held_shares / (held_shares + bonus_shares)
-                elif r.dividend_type == 'Split':
-                    match = re.search(r'from\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?).*?to\s*(?:rs\.?|re\.?|rupees?)?\s*(\d+(?:\.\d+)?)', purpose_lower)
-                    if match:
-                        old_fv = float(match.group(1))
-                        new_fv = float(match.group(2))
-                        if old_fv > 0:
-                            ratio = new_fv / old_fv
-                    else:
-                        match2 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                        if match2:
-                            new_shares = float(match2.group(1))
-                            old_shares = float(match2.group(2))
-                            if old_shares > 0 and new_shares > 0:
-                                if new_shares > old_shares:
-                                    ratio = old_shares / new_shares
-                                else:
-                                    ratio = new_shares / old_shares
-                elif r.dividend_type == 'Demerger':
-                    match3 = re.search(r'(\d+)\s*:\s*(\d+)', purpose_lower)
-                    if match3:
-                        new_shares = float(match3.group(1))
-                        old_shares = float(match3.group(2))
-                        if old_shares > 0 and new_shares > 0:
-                            ratio = old_shares / (old_shares + new_shares)
-                    else:
-                        ratio = 0.5
-
-                if ratio != 1.0 and r.date:
-                    adjustments_by_symbol[sym].append({
-                        "date": r.date,
-                        "ratio": ratio
-                    })
-
                 # Still append splits/bonuses to the UI history so they show in the timeline
                 ann_date = r.broadcast_date or r.date
                 if hasattr(ann_date, 'date'):
                     ann_date = ann_date.date()
+
+                purpose_val = r.purpose
+                if not purpose_val or r.dividend_type not in purpose_val:
+                     purpose_val = (purpose_val or '') + f" ({r.dividend_type} action)"
 
                 ca_by_symbol[sym].append({
                     "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
@@ -946,7 +905,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     "announcement_date_obj": ann_date,
                     "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
                     "dividend_type": r.dividend_type,
-                    "purpose": r.purpose,
+                    "purpose": purpose_val,
                     "amount": parsed_amount,
                     "raw_amount": parsed_amount,
                     "face_value": r.face_value if hasattr(r, 'face_value') else None,
@@ -973,13 +932,19 @@ def build_dividend_databank_task(self, force: bool = False):
 
         bm_by_symbol = defaultdict(list)
         for bm in bm_records:
+            # Dynamically heal BM amounts
+            bm_amt, bm_type = FieldMapper._parse_dividend(bm.purpose, None)
+            if bm_amt is not None and bm.extracted_dividend_amount != bm_amt:
+                bm.extracted_dividend_amount = bm_amt
             bm_by_symbol[bm.symbol.upper()].append(bm)
 
-        # Commit newly parsed CA amounts before we do anything else
+        # Commit newly parsed CA & BM amounts before we do anything else
         db.commit()
 
         event_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys()))
         target_symbols = event_symbols
+
+        all_events = []
 
         for sym in target_symbols:
             history = ca_by_symbol.get(sym, [])
@@ -988,8 +953,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
             for h in history:
                 if h.get('dividend_type') in ['Bonus', 'Split', 'Demerger']:
-                     if not h.get('purpose') or h.get('dividend_type') not in h.get('purpose', ''):
-                          h['purpose'] = h.get('purpose', '') + f" ({h.get('dividend_type')} action)"
+                    pass
                 else:
                     ca_date = h['ex_date_obj'] or h.get('announcement_date_obj')
                     if ca_date:
@@ -1001,8 +965,6 @@ def build_dividend_databank_task(self, force: bool = False):
                                     diff = (ca_date - bm.date).days
                                     if -10 <= diff <= 180 and abs(diff) < min_diff:
                                         if h.get('amount') and bm.extracted_dividend_amount:
-                                            # If CA amount is smaller than BM amount, they definitely don't match.
-                                            # If CA amount is larger, it might be a sum of multiple components (e.g. Final + Special), so we allow it to match the component BM.
                                             if float(h['amount']) < float(bm.extracted_dividend_amount):
                                                 continue
                                         min_diff = abs(diff)
@@ -1039,8 +1001,6 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if bm_date and existing_date and bm_date != datetime.date.min and existing_date != datetime.date.min:
                         diff_days = abs((bm_date - existing_date).days)
-                        # Only deduplicate if they are the exact same type of dividend.
-                        # This prevents dropping a Special dividend that happens on the exact same day as a Final dividend.
                         if bm.extracted_dividend_type == existing['bm'].extracted_dividend_type:
                             if diff_days <= 60:
                                 is_duplicate = True
@@ -1085,13 +1045,11 @@ def build_dividend_databank_task(self, force: bool = False):
                             if h_date and bm_ann_date:
                                 days_diff = abs((h_date - bm_ann_date).days)
 
-                                # Exact match
                                 if h.get('amount') == amt and h.get('dividend_type') == (bm.extracted_dividend_type or 'Interim'):
                                     if days_diff <= 300:
                                         is_history_duplicate = True
                                         break
 
-                                # If the BM amount is likely a component of a combined CA sum
                                 if h.get('amount') and float(h['amount']) > float(amt):
                                     if days_diff <= 30:
                                         is_history_duplicate = True
@@ -1111,112 +1069,116 @@ def build_dividend_databank_task(self, force: bool = False):
                             "record_date": None
                         })
 
-            def get_sort_key(x):
-                if x.get('ex_date_obj'): return x['ex_date_obj']
-                ann_dt = x.get('announcement_date_obj')
-                if ann_dt is None:
-                    return datetime.date.min
-                if hasattr(ann_dt, 'date'):
-                    return ann_dt.date()
-                return ann_dt
-
-            chained_history.sort(key=get_sort_key, reverse=True)
-            ca_by_symbol[sym] = chained_history
+            for h in chained_history:
+                is_awaited = (h.get('ex_date_obj') is None)
+                all_events.append({
+                    "symbol": sym,
+                    "ex_date": h.get('ex_date_obj'),
+                    "announcement_date": h.get('announcement_date_obj'),
+                    "broadcast_date": h.get('broadcast_date'),
+                    "dividend_type": h.get('dividend_type'),
+                    "purpose": h.get('purpose'),
+                    "amount": h.get('amount'),
+                    "raw_amount": h.get('raw_amount'),
+                    "face_value": h.get('face_value'),
+                    "record_date": h.get('record_date'),
+                    "is_awaited": is_awaited
+                })
 
         if force:
             db.query(DividendDatabank).delete()
             db.commit()
 
-        # When force is false, we want to UPSERT instead of delete all history.
-        # This solves the "takes a hell lot of time" issue and properly updates rows.
-
         added_count = 0
         updated_count = 0
 
-        for sym, history in ca_by_symbol.items():
-            # If we are not forcing, let's fetch existing rows for this symbol to avoid blind inserts
-            existing_rows = []
+        # Build existing rows mapping for fast UPSERT
+        # Dictionary structure: { symbol: [list of DividendDatabank objects] }
+        existing_rows_map = defaultdict(list)
+        if not force:
+            all_symbols = set(e['symbol'] for e in all_events)
+            existing_db_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol.in_(all_symbols)).all()
+            for row in existing_db_rows:
+                existing_rows_map[row.symbol].append(row)
+
+        for ev in all_events:
+            sym = ev['symbol']
+            ex_date_val = ev['ex_date']
+            is_awaited = ev['is_awaited']
+
+            sort_dt = ex_date_val or ev['announcement_date'] or datetime.date.min
+            if hasattr(sort_dt, 'date'):
+                sort_dt = sort_dt.date()
+
+            final_date = sort_dt if sort_dt != datetime.date.min else datetime.date(1900, 1, 1)
+
+            match = None
             if not force:
-                existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
+                existing_rows = existing_rows_map[sym]
+                for row in existing_rows:
+                    if row.dividend_type == ev['dividend_type']:
+                        # Exact ex-date match
+                        if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
+                            match = row
+                            break
+                        # Exact announcement date match
+                        if row.announcement_date and ev['announcement_date'] and row.announcement_date == ev['announcement_date']:
+                            match = row
+                            break
+                        # Loose match for awaited updates (same type, close date)
+                        if row.is_awaited and abs((row.date - final_date).days) < 60:
+                            match = row
+                            break
 
-            for h in history:
-                ex_date_val = h.get('ex_date_obj')
-                is_awaited = False
-                if ex_date_val is None:
-                    is_awaited = True
+            if match and not force:
+                # Update existing
+                match.date = final_date
+                match.ex_date = ex_date_val
+                if ev['announcement_date']:
+                    match.announcement_date = ev['announcement_date']
+                if ev['broadcast_date']:
+                    match.broadcast_date = ev['broadcast_date']
 
-                sort_dt = ex_date_val or h.get('announcement_date_obj') or datetime.date.min
-                if hasattr(sort_dt, 'date'):
-                    sort_dt = sort_dt.date()
+                # Only overwrite amount if we have a better one
+                if ev['amount'] is not None:
+                    match.amount = ev['amount']
+                    match.raw_amount = ev['raw_amount']
+                if ev['face_value'] is not None:
+                    match.face_value = ev['face_value']
+                if ev['purpose']:
+                    match.purpose = ev['purpose']
+                elif match.purpose is None:
+                    match.purpose = ev['purpose']
+                if ev['record_date']:
+                    match.record_date = ev['record_date']
 
-                final_date = sort_dt if sort_dt != datetime.date.min else datetime.date(1900, 1, 1)
-
-                # UPSERT logic: Try to find a matching existing row
-                match = None
+                match.is_awaited = is_awaited
+                updated_count += 1
+            else:
+                # Insert new
+                new_item = DividendDatabank(
+                    date=final_date,
+                    symbol=sym,
+                    ex_date=ex_date_val,
+                    announcement_date=ev['announcement_date'],
+                    broadcast_date=ev['broadcast_date'],
+                    dividend_type=ev['dividend_type'],
+                    amount=ev['amount'],
+                    raw_amount=ev['raw_amount'],
+                    face_value=ev['face_value'],
+                    purpose=ev['purpose'],
+                    is_awaited=is_awaited,
+                    record_date=ev['record_date']
+                )
+                db.add(new_item)
                 if not force:
-                    for row in existing_rows:
-                        # Match by identical ex-date OR identical announcement date OR same type within recent window
-                        if row.dividend_type == h.get('dividend_type'):
-                            if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
-                                match = row
-                                break
-                            if row.announcement_date and h.get('announcement_date_obj') and row.announcement_date == h.get('announcement_date_obj'):
-                                match = row
-                                break
-
-                            # If no exact date match, check if it's an awaited record we are updating
-                            if row.is_awaited and abs((row.date - final_date).days) < 60:
-                                match = row
-                                break
-
-                if match:
-                    # UPDATE existing row
-                    match.date = final_date
-                    match.ex_date = ex_date_val
-                    if h.get('announcement_date_obj'):
-                        match.announcement_date = h.get('announcement_date_obj')
-                    if h.get('broadcast_date'):
-                        match.broadcast_date = h.get('broadcast_date')
-                    # If we found an amount in history and DB has none (or they differ), update it
-                    if h.get('amount') is not None:
-                        match.amount = h.get('amount')
-                        match.raw_amount = h.get('raw_amount')
-
-                    if h.get('face_value') is not None:
-                        match.face_value = h.get('face_value')
-
-                    if h.get('purpose'):
-                        match.purpose = h.get('purpose')
-                    elif match.purpose is None:
-                        match.purpose = h.get('purpose')
-                    if h.get('record_date'):
-                        match.record_date = h.get('record_date')
-                    match.is_awaited = is_awaited
-                    updated_count += 1
-                else:
-                    # INSERT new row
-                    new_item = DividendDatabank(
-                        date=final_date,
-                        symbol=sym.upper(),
-                        ex_date=ex_date_val,
-                        announcement_date=h.get('announcement_date_obj'),
-                        broadcast_date=h.get('broadcast_date'),
-                        dividend_type=h.get('dividend_type'),
-                        amount=h.get('amount'),
-                        raw_amount=h.get('raw_amount'),
-                        face_value=h.get('face_value'),
-                        purpose=h.get('purpose'),
-                        is_awaited=is_awaited,
-                        record_date=h.get('record_date')
-                    )
-                    db.add(new_item)
-                    if not force:
-                        existing_rows.append(new_item) # Add to existing to prevent dupes in the same loop
-                    added_count += 1
+                    existing_rows_map[sym].append(new_item)
+                added_count += 1
 
         db.commit()
         return f"Successfully rebuilt databank. Added: {added_count}, Updated: {updated_count} records."
     except Exception as e:
+        import logging
         logger.error(f"Error rebuilding dividend databank: {e}")
         db.rollback()
         raise
