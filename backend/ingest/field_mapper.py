@@ -300,6 +300,17 @@ class FieldMapper:
         # 1. Aggressively remove 'face value' and 'fv' context blocks
         _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
 
+        # 1.5 Parse Percentages (e.g., 100%)
+        # If there's a percentage, calculate it based on face value.
+        # If multiple percentages exist (e.g. Interim 50% & Special 25%), we sum them.
+        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', _clean_purpose)
+        if pct_matches and face_value:
+             # Calculate total percentage and multiply by face value
+             total_pct = sum(float(m) for m in pct_matches)
+             calculated_amt = (total_pct / 100.0) * face_value
+             if calculated_amt > 0:
+                  return calculated_amt, parsed_type
+
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:

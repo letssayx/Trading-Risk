@@ -535,8 +535,8 @@ class NSELib:
         import re
 
         # Look back 7 days to ensure we catch delayed updates
-        from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
-        to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
+        from_date_str = (trade_date).strftime("%d-%m-%Y")
+        to_date_str = (trade_date).strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporate-board-meetings?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
@@ -1048,7 +1048,7 @@ class NSELib:
         """Get Corporate Actions."""
         from datetime import timedelta
         from_date_str = trade_date.strftime("%d-%m-%Y")
-        to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
+        to_date_str = trade_date.strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url)
@@ -1151,7 +1151,7 @@ class NSELib:
         from datetime import timedelta
         # Usually results come in during earning season, check a window
         from_date_str = trade_date.strftime("%d-%m-%Y")
-        to_date_str = (trade_date + timedelta(days=7)).strftime("%d-%m-%Y")
+        to_date_str = trade_date.strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-financial-results?index=equities&period=Quarterly&from_date={from_date_str}&to_date={to_date_str}"
 
         resp = self.get(url, use_curl=True)
