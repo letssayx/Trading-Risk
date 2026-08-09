@@ -75,15 +75,22 @@ def extract_amount_from_pdf(url):
             # Remove "Regulation \d+", "Reg. \d+", "Regulations \d+ and \d+" to prevent false matches
             _clean_text = re.sub(r'Regulations?\s*(?:\d+(?:\s*(?:and|&|,)\s*\d+)*)|Reg\.?\s*\d+', '', text, flags=re.IGNORECASE)
 
+            # Clean face value noise more aggressively
+            _clean_text = re.sub(r'(?:on the\s*)?(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean_text, flags=re.IGNORECASE)
+
             # Simple regex for dividend amount
             # Look for "dividend" and then quickly find Rs. X
             parts = re.split(r'dividend|int\s*div|fin\s*div', _clean_text, flags=re.IGNORECASE)
             for part in parts[1:]:
                 # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
-                _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
 
-                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
+                # Filter out financial year patterns (like 2026-27 or FY 26) so they don't get accidentally matched as amount
+                _no_years = re.sub(r'\b(?:19|20)\d{2}(?:-\d{2})?\b', '', snippet)
+                # Filter out obvious date/th/st references (like 27th July) getting caught as amounts
+                _no_years = re.sub(r'\b\d{1,2}(?:st|nd|rd|th)\b', '', _no_years, flags=re.IGNORECASE)
+
+                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _no_years, re.IGNORECASE)
                 if m:
                     val = float(m.group(1))
                     if val > 0:
@@ -121,10 +128,16 @@ def extract_amount_from_pdf(url):
                     r'(?:dividend|int\s*div|fin\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*per\s*share',
                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
-                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
+                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
+                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(\d+(?:\.\d+)?)',
+                    r'(\d+(?:\.\d+)?)\s*(?:/-)?\s*per\s*share',
                 ]
+
+                # Filter out financial year patterns to avoid false matches
+                _no_years_clean = re.sub(r'\b(?:19|20)\d{2}(?:-\d{2})?\b', '', _clean_text)
+
                 for pat in ui_patterns:
-                    matches2 = re.findall(pat, _clean_text, re.IGNORECASE)
+                    matches2 = re.findall(pat, _no_years_clean, re.IGNORECASE)
                     found = False
                     for m in matches2:
                         val = float(m)
