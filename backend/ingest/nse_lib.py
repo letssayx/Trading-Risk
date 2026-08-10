@@ -1002,6 +1002,28 @@ class NSELib:
                         seen_events.add(dedup_key)
                         dedup_data.append(item)
 
+                # Intercept missing amounts via PDF parsing
+                for item in dedup_data:
+                    # Generic purposes like "General Updates" or "Record Date" might hide dividend details
+                    # Or missing amount but has subject "Dividend"
+                    purpose = str(item.get('purpose', '')).lower()
+                    subject = str(item.get('subject', '')).lower()
+                    attachment_url = str(item.get('attchmntFile', ''))
+
+                    has_dividend_mention = 'dividend' in purpose or 'dividend' in subject or 'record date' in purpose or 'record date' in subject
+
+                    if has_dividend_mention and attachment_url.startswith('http'):
+                        pdf_amount, pdf_record_date, pdf_type = extract_amount_from_pdf(attachment_url)
+                        if pdf_amount:
+                            # We don't overwrite if it exists, only if missing
+                            # Actually, Corporate Actions rarely have extracted numeric amounts in raw JSON except as strings in purpose.
+                            # We'll prepend it to the purpose so FieldMapper can catch it easily.
+                            item['purpose'] = f"{item.get('purpose', '')} - Rs {pdf_amount} extracted from PDF"
+                        if pdf_record_date and not item.get('recDate'):
+                            item['recDate'] = pdf_record_date
+                            # T+1 fallback directly applied
+                            item['exDate'] = pdf_record_date
+
                 df = pd.DataFrame(dedup_data)
                 # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
                 mapping = {
