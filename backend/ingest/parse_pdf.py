@@ -12,8 +12,6 @@ logger = logging.getLogger(__name__)
 def extract_amount_from_pdf(url):
     amount = None
     record_date = None
-    div_type = None
-
     try:
         import pdfplumber
         import pandas as pd
@@ -27,8 +25,9 @@ def extract_amount_from_pdf(url):
 
         logger.info(f"Downloading PDF for parsing: {url}")
 
-        from curl_cffi import requests as curl_requests
-        session = curl_requests.Session(impersonate="chrome110")
+        # Use a session to persist cookies which sometimes NSE requires
+        session = requests.Session()
+        # Initial request intentionally has a very short timeout to avoid hanging if the site is slow
         try:
             session.get("https://www.nseindia.com", headers=headers, timeout=2)
         except Exception as e:
@@ -89,17 +88,6 @@ def extract_amount_from_pdf(url):
                     if val > 0:
                         amount = val
                         break
-
-
-
-
-            # Dividend type extraction from PDF
-            if re.search(r'\b(?:1st|first|2nd|second|3rd|third|4th|fourth)?\s*interim\s+dividend\b', text, re.IGNORECASE):
-                div_type = 'Interim'
-            elif re.search(r'\bfinal\s+dividend\b', text, re.IGNORECASE):
-                div_type = 'Final'
-            elif re.search(r'\bspecial\s+dividend\b', text, re.IGNORECASE):
-                div_type = 'Special'
 
             if amount is None:
                 # More specific fallback regexes
@@ -192,4 +180,4 @@ def extract_amount_from_pdf(url):
         logger.debug("pdfplumber not installed, skipping PDF parsing.")
     except Exception as e:
         logger.debug(f"Failed to extract PDF {url}: {e}")
-    return amount, record_date, div_type
+    return amount, record_date

@@ -599,13 +599,8 @@
                                     <th id="ss-div-fut3-th">Future 3</th>
                                     <th style="background: #2b3a4a;">Type</th>
                                     <th style="background: #2b3a4a;">Ex-date</th>
-                                    <th style="background: #2b3a4a;">BM Date</th>
-                                    <th style="background: #2b3a4a;">Face Value</th>
-                                    <th style="background: #2b3a4a;">Purpose</th>
                                     <th style="background: #2b3a4a;">Amount</th>
-                                    <th style="background: #2b3a4a;">AGM Date</th>
-                                    <th style="background: #2b3a4a;">AGM Ann.</th>
-                                    <th style="background: #1a1a1a;">Board Meeting<br>Date</th>
+                                    <th style="background: #1a1a1a;">Upcoming<br>Meeting</th>
                                     <th style="background: #1a1a1a;">Broadcast<br>Date & Time</th>
                                     <th>Is above 2%<br>(Extra-ordinary)</th>
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
@@ -1211,7 +1206,6 @@
                         </label>
 
                         <button onclick="reparseHistoricalDividends()" class="btn btn-secondary" style="background-color: #6c757d;"><i class="fas fa-tools"></i> Reparse History</button>
-                        <button onclick="patchHistoricalEps()" class="btn btn-secondary" style="background-color: #8b5cf6;" title="Patches historical EPS and AGM dates from DB into the Dividend Databank"><i class="fas fa-cloud-download-alt"></i> Historical Sync: EPS & AGM</button>
                         <button onclick="syncDividendsData()" class="btn btn-primary" title="Trigger background recalculation/math part for new dividends"><i class="fas fa-sync"></i> Sync Latest</button>
                         <button onclick="downloadDividendsCSV()" class="btn btn-secondary"><i class="fas fa-download"></i> Download CSV</button>
                     </div>
@@ -1276,6 +1270,7 @@
                                 <tr>
                                     <th>BROADCAST DATE</th>
                                     <th>BOARD MEETING DATE</th>
+                                    <th>MEETING PURPOSE</th>
                                     <th style="cursor: pointer;" onclick="sortDividends('ex_date')">EX-DATE <span id="sort-icon-ex_date">▼</span></th>
                                     <th style="cursor: pointer;" onclick="sortDividends('symbol')">SYMBOL <span id="sort-icon-symbol"></span></th>
                                     <th>AMOUNT</th>
@@ -3066,7 +3061,6 @@
                         <option value="margin_trading">Margin Trading</option>
                         <option value="security_master">Security Master</option>
                         <option value="board_meetings">Board Meetings</option>
-                        <option value="financial_results">Financial Results (EPS & NP)</option>
                         <option value="corporate_actions">Corporate Actions</option>
 
                     </select>
@@ -3226,7 +3220,6 @@
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="historical_index_data"> Historical Index Data</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="corporate_actions" id="latest-ca-cb"> Corporate Actions</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="board_meetings" id="latest-bm-cb"> Board Meetings</label>
-                                <label class="checkbox-label"><input type="checkbox" class="latest-type" value="financial_results"> Financial Results (EPS & NP)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="nse_security"> Security Master</label>
                                 <label class="checkbox-label"><input type="checkbox" class="latest-type" value="contract_delta"> Contract Delta</label>
                             </div>
@@ -3263,7 +3256,6 @@
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="historical_index_data"> Historical Index Data</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="corporate_actions" id="range-ca-cb"> Corporate Actions</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="board_meetings" id="range-bm-cb"> Board Meetings</label>
-                                <label class="checkbox-label"><input type="checkbox" class="range-type" value="financial_results"> Financial Results (EPS & NP)</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="nse_security"> Security Master</label>
                                 <label class="checkbox-label"><input type="checkbox" class="range-type" value="contract_delta"> Contract Delta</label>
                             </div>
@@ -3297,7 +3289,6 @@
                                     <option value="historical_index_data">Historical Index Data</option>
                                     <option value="nse_security">Security Master</option>
                                     <option value="contract_delta">Contract Delta</option>
-                                    <option value="financial_results">Financial Results (EPS & NP)</option>
                                     <option value="dividend_override">Dividend Data Override (Special Sits)</option>
                                 </select>
                             </div>
@@ -3533,53 +3524,6 @@ async function reparseHistoricalDividends() {
     } catch (e) {
         console.error(e);
         alert('An error occurred while patching the database.');
-    }
-}
-
-async function patchHistoricalEps() {
-    const btn = document.querySelector('button[onclick="patchHistoricalEps()"]');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Patching...';
-    }
-
-    try {
-        const res = await fetch('/api/data/dividends/patch-historical-eps', { method: 'POST' });
-        if (res.ok) {
-            const data = await res.json();
-            const taskId = data.task_id;
-
-            if (taskId) {
-                let isDone = false;
-                while (!isDone) {
-                    await new Promise(r => setTimeout(r, 2000));
-                    const statRes = await fetch(`/api/v1/nse/ingest/import/status/${taskId}`);
-                    if (statRes.ok) {
-                        const statData = await statRes.json();
-                        if (statData.state === 'SUCCESS' || statData.state === 'FAILURE' || statData.state === 'REVOKED') {
-                            isDone = true;
-                            if (statData.state === 'SUCCESS') {
-                                alert('Historical EPS and AGM patching completed successfully!');
-                            } else {
-                                alert('Task failed or was revoked. Check logs.');
-                            }
-                        }
-                    }
-                }
-            } else {
-                alert('Task triggered but no ID returned.');
-            }
-        } else {
-            alert('Failed to trigger task.');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('An error occurred.');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Historical Sync: EPS & AGM';
-        }
     }
 }
 
@@ -3963,12 +3907,13 @@ function renderDividendsData() {
             tr.innerHTML = `
                 <td>${bcdDisplay}</td>
                 <td>${bmdDisplay}</td>
+                <td style="white-space:normal; max-width:200px;">${bmPurpose}</td>
                 <td>${d.ex_date || '-'}</td>
                 <td><strong style="color: #4da6ff;">${series}</strong></td>
                 <td style="color: #3176B8;">${amount}</td>
                 <td>${typeBadge}</td>
                 <td>${faceValue}</td>
-                <td style="white-space:normal; max-width:400px;">${fullPurpose !== '-' ? fullPurpose : bmPurpose}</td>
+                <td style="white-space:normal; max-width:400px;">${fullPurpose}</td>
                 <td>${d.record_date || '-'}</td>
             `;
 

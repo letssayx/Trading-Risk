@@ -94,15 +94,7 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             "purpose": r.purpose,
             "amount": r.amount,
             "raw_amount": r.raw_amount,
-            "face_value": r.face_value,
-            "eps": r.eps,
-            "net_profit": r.net_profit,
-            "dps": r.dps,
-            "dividend_yield": r.dividend_yield,
-            "payout_ratio": r.payout_ratio,
-            "agm_date": r.agm_date.strftime("%Y-%m-%d") if r.agm_date else None,
-            "agm_announcement_date": r.agm_announcement_date.strftime("%Y-%m-%d") if r.agm_announcement_date else None,
-            "fy_year": r.date.year if r.date.month > 3 else r.date.year - 1
+            "face_value": r.face_value
         })
 
     # 4.2 Fetch Bonus/Split actions to dynamically calculate adjustments
@@ -306,8 +298,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
             last_div = next((h for h in history if h.get('amount') is not None), history[0])
             last_type = last_div.get('dividend_type') or '-'
             last_ex_date = last_div.get('ex_date') or '-'
-            last_bm_date = last_div.get('board_meeting_date')
-            last_bm_date_str = last_bm_date.strftime('%Y-%m-%d') if last_bm_date else '-'
             last_amount = last_div.get('amount')
             last_face_value = last_div.get('face_value') or '-'
             last_purpose = last_div.get('purpose') or '-'
@@ -515,69 +505,6 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
         # If it has no history, no upcoming board meetings, and no expectations, we can skip it.
         # But if we just look at the return format, we need to include things that are pending or have history.
-
-        # Calculate Delta DPS and Total FY Dividend
-        # We process history which is sorted chronologically descending
-        fy_groups = defaultdict(list)
-        for h in history:
-             fy = h.get('fy_year')
-             if fy:
-                  fy_groups[fy].append(h)
-
-        # FY Aggregates and AGM merging
-        fy_totals = {}
-        for fy, items in fy_groups.items():
-             tot_div = sum((i.get('amount') or 0) for i in items)
-             eps_val = next((i.get('eps') for i in items if i.get('eps') is not None), None)
-
-             # Map standalone AGM rows to the Final Dividend row in the same FY
-             agm_event = next((i for i in items if i.get('dividend_type') == 'AGM'), None)
-             final_div_event = next((i for i in items if i.get('dividend_type') == 'Final'), None)
-
-             if agm_event and final_div_event and agm_event != final_div_event:
-                 # Pull AGM dates into Final dividend row
-                 if not final_div_event.get('agm_date') and agm_event.get('agm_date'):
-                     final_div_event['agm_date'] = agm_event.get('agm_date')
-                 if not final_div_event.get('agm_announcement_date') and agm_event.get('agm_announcement_date'):
-                     final_div_event['agm_announcement_date'] = agm_event.get('agm_announcement_date')
-
-             fy_totals[fy] = {
-                  'total_dps': tot_div,
-                  'eps': eps_val
-             }
-
-        # Filter out standalone AGM rows now that they are merged, but keep them if they are the ONLY record for that year
-        history = [h for h in history if h.get('dividend_type') != 'AGM' or not next((i for i in fy_groups.get(h.get('fy_year'), []) if i.get('dividend_type') == 'Final'), None)]
-
-        for h in history:
-             fy = h.get('fy_year')
-             if fy:
-                  h['fy_total_dps'] = fy_totals[fy]['total_dps']
-                  # Delta DPS vs Prev Year
-                  prev_fy_tot = fy_totals.get(fy - 1)
-                  if prev_fy_tot and prev_fy_tot['total_dps']:
-                       h['delta_dps_pct'] = round(((fy_totals[fy]['total_dps'] - prev_fy_tot['total_dps']) / prev_fy_tot['total_dps']) * 100, 2)
-                  else:
-                       h['delta_dps_pct'] = None
-
-                  # Delta EPS vs Prev Year
-                  if fy_totals[fy]['eps'] and prev_fy_tot and prev_fy_tot['eps']:
-                       h['delta_eps_pct'] = round(((fy_totals[fy]['eps'] - prev_fy_tot['eps']) / abs(prev_fy_tot['eps'])) * 100, 2)
-                  else:
-                       h['delta_eps_pct'] = None
-
-                  if spot and h.get('amount'):
-                       h['dividend_yield'] = round((h['amount'] / spot) * 100, 2)
-
-        last_agm_date = None
-        last_agm_announcement_date = None
-        if history:
-            for h in history:
-                if h.get('agm_date'):
-                    last_agm_date = h.get('agm_date')
-                    last_agm_announcement_date = h.get('agm_announcement_date')
-                    break
-
         if history or board_meeting_date or expected_amount or expected_highly_likely != "-":
             results.append({
                 "symbol": sym,
@@ -587,12 +514,9 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
                 "futures": futures[:3], # take up to Future 3
                 "last_type": last_type,
                 "last_ex_date": last_ex_date,
-                "last_bm_date": last_bm_date_str,
                 "last_amount": last_amount,
                 "last_face_value": last_face_value,
                 "last_purpose": last_purpose,
-                "last_agm_date": last_agm_date,
-                "last_agm_announcement_date": last_agm_announcement_date,
                 "is_above_2_percent": is_above_2_percent,
                 "board_meeting_date": board_meeting_date,
                 "broadcast_date": broadcast_date,

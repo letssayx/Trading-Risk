@@ -65,8 +65,6 @@ class NSEDataImporter:
             return getattr(models, 'CorporateAction')
         if key == 'board_meetings' and hasattr(models, 'BoardMeeting'):
             return getattr(models, 'BoardMeeting')
-        if key == 'financial_results' and hasattr(models, 'FinancialResult'):
-            return getattr(models, 'FinancialResult')
 
         return mapping.get(key)
 
@@ -94,7 +92,6 @@ class NSEDataImporter:
             # No unique fields for upsert anymore (we do delete-insert)
             'corporate_actions': ['date', 'symbol', 'purpose'],
             'board_meetings': ['date', 'symbol', 'purpose'],
-            'financial_results': ['date', 'symbol', 'period'],
 
             'historical_index_data': ['trade_date', 'index_name'],
         }
@@ -194,8 +191,6 @@ class NSEDataImporter:
             return self.lib.get_board_meetings(trade_date)
         elif key == 'historical_index_data':
             return self.lib.get_historical_index_data(trade_date)
-        elif key == 'financial_results':
-            return self.lib.get_financial_results(trade_date)
 
         return pd.DataFrame()
 
@@ -291,7 +286,7 @@ class NSEDataImporter:
             'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
             'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
             'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions', 'board_meetings',
-            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results'
+            'nse_security', 'fii_dii_cash', 'historical_index_data'
         ]
 
         patterns_to_run = patterns or available_keys
@@ -414,8 +409,6 @@ class NSEDataImporter:
                 format_info = {'type': 'board_meetings'}
             elif key == 'corporate_actions':
                 format_info = {'type': 'corporate_actions'}
-            elif key == 'financial_results':
-                format_info = {'type': 'financial_results'}
 
         if format_info['type'] == 'unknown':
             cols = df.columns.tolist()[:10] # Log first 10 cols

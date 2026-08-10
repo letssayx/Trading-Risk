@@ -205,8 +205,6 @@ class FieldMapper:
             return cls._map_corporate_actions(df, trade_date)
         elif format_type == 'board_meetings':
             return cls._map_board_meetings(df, trade_date)
-        elif format_type == 'financial_results':
-            return cls._map_financial_results(df, trade_date)
         elif format_type == 'fii_dii_cash':
             return cls._map_fii_dii_cash(df, trade_date)
         elif format_type == 'historical_index_data':
@@ -278,7 +276,7 @@ class FieldMapper:
         has_split = 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower
         has_demerger = 'demerger' in purpose_lower or 'spin-off' in purpose_lower or 'spin off' in purpose_lower
 
-        dividend_type = 'Interim' if ('interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower) else 'Special' if 'special' in purpose_lower else 'Final' if ('final' in purpose_lower or 'finai' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower) else 'Dividend'
+        dividend_type = 'Interim' if ('interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower) else 'Special' if 'special' in purpose_lower else 'Final' if ('final' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower) else 'Final'
 
         parsed_type = None
         if has_dividend and has_bonus:
@@ -303,16 +301,16 @@ class FieldMapper:
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:
-            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+            match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
             if match:
                 return float(match.group(1)), parsed_type
 
         # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by & or /)
-        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
 
         # 4. Fallback extraction: look for numbers immediately following dividend keywords if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
         # Ensure we don't accidentally grab a year like 2024 or rule numbers like 33 by capping at reasonable dividend amounts (<1000 typically unless super high face value)
-        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+|rs\.?\s*|re\.?\s*|rupees?\s*)(\d+(?:\.\d+)?)\b', _clean_purpose, flags=re.IGNORECASE)
+        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b', _clean_purpose, flags=re.IGNORECASE)
 
         valid_div_matches = [m for m in div_matches if not re.match(r'^(19|20)\d{2}$', m) and float(m) < 1000]
 
@@ -364,42 +362,6 @@ class FieldMapper:
                 'parsed_dividend_amount': parsed_div_amount,
                 'dividend_type': div_type,
                 'broadcast_date': parse_nse_datetime(cls._get_val(row, ['BROADCAST DATE', 'caBroadcastDate']))
-            }
-            if record['symbol'] and record['date']:
-                records.append(record)
-        return records
-
-    @classmethod
-    def _map_financial_results(cls, df: pd.DataFrame, trade_date: Optional[date]) -> List[Dict]:
-        records = []
-        for _, row in df.iterrows():
-            bdate_str = str(cls._get_val(row, ['broadcast_date']) or '')
-            # Clean up the timezone part from broadcast_date string if it exists: e.g., '14-May-2024 16:51:30'
-            bdate_clean = re.sub(r'\.\d+', '', bdate_str).strip()
-            broadcast_date = None
-            if bdate_clean:
-                try:
-                    broadcast_date = pd.to_datetime(bdate_clean).date()
-                except:
-                    pass
-
-            pdate_str = str(cls._get_val(row, ['period_end_date']) or '')
-            period_end_date = None
-            if pdate_str:
-                try:
-                    period_end_date = pd.to_datetime(pdate_str).date()
-                except:
-                    pass
-
-            record = {
-                'date': broadcast_date or trade_date, # Fallback to trade_date if missing
-                'symbol': str(cls._get_val(row, ['symbol']) or '').strip(),
-                'period': str(cls._get_val(row, ['period']) or '').strip() or None,
-                'period_end_date': period_end_date,
-                'basic_eps': cls._clean_numeric(cls._get_val(row, ['basic_eps'])),
-                'diluted_eps': cls._clean_numeric(cls._get_val(row, ['diluted_eps'])),
-                'net_profit': cls._clean_numeric(cls._get_val(row, ['net_profit'])),
-                'attachment_url': str(cls._get_val(row, ['attachment']) or '').strip() or None,
             }
             if record['symbol'] and record['date']:
                 records.append(record)

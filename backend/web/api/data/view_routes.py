@@ -325,8 +325,6 @@ def get_model_for_type(data_type: str):
         return getattr(models, 'CorporateAction')
     if data_type in ['board_meetings', 'board_meeting'] and hasattr(models, 'BoardMeeting'):
         return getattr(models, 'BoardMeeting')
-    if data_type == 'financial_results' and hasattr(models, 'FinancialResult'):
-        return getattr(models, 'FinancialResult')
 
     return mapping.get(data_type)
 

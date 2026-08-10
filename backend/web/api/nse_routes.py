@@ -311,23 +311,6 @@ async def trigger_import_range(
         logger.error(f"Failed to trigger range import task: {e}")
         raise HTTPException(status_code=503, detail={"message": "Failed to queue import task", "error": str(e)})
 
-
-@router.post("/ingest/import/agms")
-async def trigger_import_agms(
-    start_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
-):
-    """
-    Trigger an async import for historical AGMs.
-    """
-    try:
-        from backend.ingest.tasks import import_agms_range
-        task = import_agms_range.delay(start_date, end_date)
-        return {"success": True, "task_id": str(task.id), "message": "Historical AGM import started in background"}
-    except Exception as e:
-        logger.error(f"Failed to trigger AGM import task: {e}")
-        raise HTTPException(status_code=503, detail={"message": "Failed to queue AGM import task", "error": str(e)})
-
 @router.post("/ingest/import/latest")
 async def trigger_import_latest(
     patterns: list[str] | None = Query(None),

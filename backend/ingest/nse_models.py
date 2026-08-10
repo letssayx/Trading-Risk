@@ -416,25 +416,6 @@ class ExchangeCircular(Base, TimescaleMixin):
     department = Column(String(100), nullable=True)
     link = Column(String(500), nullable=True)
 
-class FinancialResult(Base, TimescaleMixin):
-    """
-    Model for Financial Results (EPS, Net Profit).
-    """
-    __tablename__ = "financial_results"
-
-    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-    date = Column(Date, nullable=False, index=True) # Broadcast date
-    symbol = Column(String(50), nullable=False, index=True)
-    period = Column(String(50), nullable=True) # e.g. 'Q1', 'FY', 'Annual'
-    period_end_date = Column(Date, nullable=True)
-
-    basic_eps = Column(Float, nullable=True)
-    diluted_eps = Column(Float, nullable=True)
-    net_profit = Column(Float, nullable=True)
-
-    attachment_url = Column(String(1000), nullable=True)
-
-
 class CorporateAction(Base, TimescaleMixin):
     """Corporate Actions for Equities"""
     __tablename__ = "corporate_actions"
@@ -793,26 +774,6 @@ class DividendDatabank(Base, TimescaleMixin):
     face_value = Column(Float, nullable=True)
     purpose = Column(String(1000), nullable=True)
 
-    # Financial & AGM data
-    agm_announcement_date = Column(Date, nullable=True)
-    agm_date = Column(Date, nullable=True)
-    eps = Column(Float, nullable=True)
-    net_profit = Column(Float, nullable=True)
-
-    # Derived Financials
-    dps = Column(Float, nullable=True)
-    delta_dps = Column(Float, nullable=True)
-    delta_eps = Column(Float, nullable=True)
-    fy_total = Column(Float, nullable=True)
-
     is_awaited = Column(Boolean, default=False, index=True)
     board_meeting_date = Column(DateTime, nullable=True)
     is_synthetic = Column(Boolean, default=False)
-
-    # New metrics for Dividend Modelling
-    eps = Column(Float, nullable=True)
-    dps = Column(Float, nullable=True)
-    dividend_yield = Column(Float, nullable=True)
-    payout_ratio = Column(Float, nullable=True)
-    agm_announcement_date = Column(Date, nullable=True)
-    agm_date = Column(Date, nullable=True)

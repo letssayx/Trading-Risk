@@ -550,15 +550,6 @@ class NSELib:
                 if not data:
                      return pd.DataFrame()
 
-                dedup_bm = []
-                seen_bm = set()
-                for item in data:
-                    dedup_key = f"{item.get('bm_symbol')}_{item.get('bm_date')}_{item.get('bm_purpose')}"
-                    if dedup_key not in seen_bm:
-                        seen_bm.add(dedup_key)
-                        dedup_bm.append(item)
-                data = dedup_bm
-
                 # Get all CA events globally in one request rather than N+1
                 ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
                 ca_resp = self.get(ca_url)
@@ -573,14 +564,10 @@ class NSELib:
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
                 announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
                 announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
-
-                announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
                 announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
                 div_announcements = []
                 rec_announcements = []
-
-                fin_announcements = []
                 out_announcements = []
 
                 resp_div = self.get(announcement_url_div)
@@ -596,15 +583,6 @@ class NSELib:
                         rec_announcements = resp_rec.json()
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
-
-
-
-                resp_fin = self.get(announcement_url_fin)
-                if resp_fin and resp_fin.status_code == 200:
-                    try:
-                        fin_announcements = resp_fin.json()
-                    except Exception as e:
-                        logger.error(f"Failed to parse Financial Results announcements: {e}")
 
                 # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
                 target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
@@ -627,7 +605,7 @@ class NSELib:
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
 
-                for ann in div_announcements + rec_announcements  +  fin_announcements + out_announcements:
+                for ann in div_announcements + rec_announcements + out_announcements:
                     sym = ann.get('symbol')
                     if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
@@ -645,12 +623,7 @@ class NSELib:
                                 symbol_ca_map[sym] = []
                             symbol_ca_map[sym].append(ca)
 
-
-
-
-
                 enriched_data = []
-                consumed_announcements = set()
 
                 for item in data:
                     item['EXTRACTED_DIVIDEND_AMOUNT'] = None
@@ -661,6 +634,9 @@ class NSELib:
                     desc = str(item.get('bm_desc', '')).lower()
                     symbol = item.get('bm_symbol')
 
+                    # We want to check for dividend announcements even if the main purpose says "Financial Results"
+                    # But we only proceed if we find a dividend mention in the purpose, desc, OR if there's a matching corporate announcement
+                    # We MUST correlate the dates to prevent flagging every board meeting for this company!
                     has_dividend_mention = 'dividend' in purpose or 'dividend' in desc or 'intdiv' in purpose or 'int div' in purpose or 'intdiv' in desc or 'int div' in desc or 'findiv' in purpose or 'fin div' in purpose or 'findiv' in desc or 'fin div' in desc
 
                     try:
@@ -668,102 +644,31 @@ class NSELib:
                     except ValueError:
                         bm_date_obj_check = None
 
-                    matched_anns = []
-                    if symbol and symbol in symbol_announcements and bm_date_obj_check:
+                    if not has_dividend_mention and symbol and symbol in symbol_announcements and bm_date_obj_check:
                         for ann in symbol_announcements[symbol]:
                             subj = str(ann.get('subject', '')).lower()
                             if 'dividend' in subj or 'record date' in subj:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if 0 <= (ann_date_obj - bm_date_obj_check).days <= 3:
+                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
                                         has_dividend_mention = True
-                                        matched_anns.append(ann)
-                                        consumed_announcements.add(ann.get('seq_id'))
+                                        break
                                 except ValueError:
                                     pass
-                    if has_dividend_mention:
-                        base_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose or 'quarterly' in purpose or 'quarterly' in desc else ('Special' if 'special' in purpose else 'Dividend'))
-                        added_branches = False
 
-                        if matched_anns:
-                            for ann in matched_anns:
-                                new_item = item.copy()
-                                found_amount = None
-                                found_record_date = None
-                                found_type = base_type
+                    is_agm = 'annual general meeting' in purpose or 'agm' in purpose
 
-                                attchmntText = ann.get('attchmntText', '')
-
-                                xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?Rs\.?\s*(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                                if not xbrl_matches:
-                                    xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                                if xbrl_matches:
-                                    found_amount = sum(float(m) for m in xbrl_matches)
-
-
-
-                                if found_amount is None:
-                                    _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
-
-                                    if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
-                                        match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
-                                        if match:
-                                            found_amount = float(match.group(1))
-                                    else:
-                                        div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
-                                        matches = div_pattern.findall(_clean_text)
-                                        if matches:
-                                            found_amount = sum(float(m) for m in matches)
-
-                                subj = str(ann.get('subject', '')).lower()
-                                desc_ann = str(ann.get('desc', '')).lower()
-                                text_lower = attchmntText.lower() + " " + subj + " " + desc_ann
-                                if 'interim' in text_lower or 'intdiv' in text_lower or 'int div' in text_lower: found_type = 'Interim'
-                                elif 'final' in text_lower or 'finai' in text_lower or 'findiv' in text_lower or 'fin div' in text_lower: found_type = 'Final'
-                                elif 'special' in text_lower: found_type = 'Special'
-                                elif 'quarterly' in text_lower: found_type = 'Interim'
-
-
-
-
-
-
-                                date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
-                                record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                                if record_date_match:
-                                    found_record_date = record_date_match.group(1)
-
-                                if not found_record_date:
-                                    ex_date_match = re.search(r'(?:ex-date|ex date).*?(\d{1,2}-[a-zA-Z]{3}-\d{4})', attchmntText, re.IGNORECASE)
-                                    if ex_date_match:
-                                        found_record_date = ex_date_match.group(1)
-
-                                if not found_record_date:
-                                    date_match = date_pattern.search(attchmntText)
-                                    if date_match and 'record date' in text_lower:
-                                        found_record_date = date_match.group(1)
-
-                                if found_amount:
-                                    new_item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
-                                    new_item['EXTRACTED_DIVIDEND_TYPE'] = found_type
-                                if found_record_date:
-                                    new_item['EXTRACTED_RECORD_DATE'] = found_record_date
-
-                                if found_amount or found_record_date:
-                                    is_dup = False
-                                    for e in enriched_data:
-                                        if e.get('bm_symbol') == new_item['bm_symbol'] and e.get('EXTRACTED_RECORD_DATE') == new_item['EXTRACTED_RECORD_DATE'] and e.get('EXTRACTED_DIVIDEND_TYPE') == new_item['EXTRACTED_DIVIDEND_TYPE']:
-                                            is_dup = True
-                                            break
-                                    if not is_dup:
-                                        enriched_data.append(new_item)
-                                        added_branches = True
-
+                    if has_dividend_mention or is_agm:
                         found_amount = None
                         found_record_date = None
-                        found_type = base_type
+                        found_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else ('Special' if 'special' in purpose else 'Final'))
 
+                        if is_agm:
+                            found_type = 'AGM'
+                            item['bm_purpose'] = 'Annual General Meeting'
+
+                        # First try mapping to CA data for dates
                         if symbol and symbol in symbol_ca_map:
                             try:
                                 bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
@@ -777,13 +682,16 @@ class NSELib:
                                 except ValueError:
                                     ca_ex_date_obj = None
 
+                                # Usually the CA is valid if the ex-date is after the board meeting
                                 if bm_date_obj and ca_ex_date_obj:
                                     days_diff = (ca_ex_date_obj - bm_date_obj).days
+                                    # the exDate should be at least on or after the BM date
                                     if days_diff < -1:
                                         continue
 
                                 subject = str(ca.get('subject', ''))
 
+                                # Extract amount from the CA subject: e.g. 'Dividend - Rs 31 Per Share'
                                 _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
@@ -795,7 +703,7 @@ class NSELib:
                                         found_amount = sum(float(m) for m in matches)
 
                                 if found_amount:
-                                    if 'interim' in subject.lower() or 'intdiv' in subject.lower() or 'int div' in subject.lower() or 'quarterly' in subject.lower(): found_type = 'Interim'
+                                    if 'interim' in subject.lower() or 'intdiv' in subject.lower() or 'int div' in subject.lower(): found_type = 'Interim'
                                     elif 'findiv' in subject.lower() or 'fin div' in subject.lower() or 'final' in subject.lower(): found_type = 'Final'
                                     elif 'special' in subject.lower(): found_type = 'Special'
 
@@ -804,8 +712,58 @@ class NSELib:
                                     found_record_date = rec_date
 
                                 if found_amount or found_record_date:
-                                    break
+                                    break # Matched the first valid future CA for this symbol
 
+                        # Fallback 1: Announcements API
+                        if symbol and symbol in symbol_announcements:
+                            try:
+                                bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
+                            except ValueError:
+                                bm_date_obj = None
+
+                            for ann in symbol_announcements[symbol]:
+                                # Check if announcement is within 180 days of board meeting
+                                ann_date_str = ann.get('an_dt', '')
+                                try:
+                                    # Format: "16-Apr-2026 13:07:29"
+                                    ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
+                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
+                                        attchmntText = ann.get('attchmntText', '')
+
+                                        # Extract Amount
+                                        if found_amount is None:
+                                            # Check XBRL format first (e.g. <in-capmkt:RateOfFinalDividendRecommendedPerEquityShare>Rs 0.50 per share</in-capmkt:RateOfFinalDividendRecommendedPerEquityShare>)
+                                            xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?Rs\.?\s*(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
+                                            if not xbrl_matches:
+                                                xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
+                                            if xbrl_matches:
+                                                found_amount = sum(float(m) for m in xbrl_matches)
+
+                                            if found_amount is None:
+                                                _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
+
+                                                if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
+                                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
+                                                    if match:
+                                                        found_amount = float(match.group(1))
+                                                else:
+                                                    div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
+                                                    matches = div_pattern.findall(_clean_text)
+                                                    if matches:
+                                                        found_amount = sum(float(m) for m in matches)
+
+                                        # Extract Record Date
+                                        if found_record_date is None:
+                                            # "Record date for the purpose of Dividend is 14-May-2026."
+                                            date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
+                                            date_match = date_pattern.search(attchmntText)
+                                            if date_match and 'record date' in attchmntText.lower():
+                                                found_record_date = date_match.group(1)
+
+                                except ValueError:
+                                    pass
+
+                        # Fallback 2: Extracting from bm_desc and bm_purpose
                         if found_amount is None:
                             text_to_search = f"{purpose} {desc}"
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE)
@@ -815,6 +773,7 @@ class NSELib:
                                 if match:
                                     found_amount = float(match.group(1))
                             else:
+                                # Extract using the common UI regex patterns
                                 ui_patterns = [
                                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
                                     r'(\d+(?:\.\d+)?)\s*\/\-',
@@ -827,26 +786,45 @@ class NSELib:
                                         found_amount = sum(float(m) for m in matches)
                                         break
 
-                            if found_amount or found_type == 'Dividend':
-                                if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
-                                elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
-
+                            if found_amount:
+                                if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower(): found_type = 'Interim'
+                                elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower(): found_type = 'Final'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
-
-
-                        # If we have a dividend mention, but are missing critical fields (amount, record_date, or a specific type), check the PDF.
-                        if (found_amount is None or found_record_date is None or found_type == 'Dividend') and has_dividend_mention and bm_date_obj_check and bm_date_obj_check <= trade_date:
+                        # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
+                        # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
+                        # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
+                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
+                            # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
-                                pdf_amount, pdf_record_date, pdf_type = extract_amount_from_pdf(attachment_url)
+                                pdf_amount, pdf_record_date = extract_amount_from_pdf(attachment_url)
                                 if pdf_amount and found_amount is None:
                                     found_amount = pdf_amount
                                 if pdf_record_date and found_record_date is None:
                                     found_record_date = pdf_record_date
-                                if pdf_type and found_type == 'Dividend':
-                                    found_type = pdf_type
 
+                            # Fallback 4: Cross-reference with global corporate announcements for the actual outcome PDF
+                            if found_amount is None or found_record_date is None:
+                                sym = item.get('SYMBOL', item.get('bm_symbol'))
+                                if sym and symbol_announcements.get(sym):
+                                    for ann in symbol_announcements[sym]:
+                                        ann_date_str = ann.get('an_dt', '') # e.g. 13-May-2026 17:01:36
+                                        if bm_date_obj:
+                                            try:
+                                                # If announcement date matches board meeting date
+                                                if bm_date_obj.strftime("%d-%b-%Y").lower() in ann_date_str.lower():
+                                                    ann_pdf = ann.get('attchmntFile')
+                                                    if ann_pdf and ann_pdf.startswith('http'):
+                                                        pdf_amount, pdf_record_date = extract_amount_from_pdf(ann_pdf)
+                                                        if pdf_amount and found_amount is None:
+                                                            found_amount = pdf_amount
+                                                        if pdf_record_date and found_record_date is None:
+                                                            found_record_date = pdf_record_date
+                                                        if found_amount and found_record_date:
+                                                            break
+                                            except Exception:
+                                                pass
 
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
@@ -854,107 +832,7 @@ class NSELib:
                         if found_record_date:
                             item['EXTRACTED_RECORD_DATE'] = found_record_date
 
-                        if not added_branches or found_amount or found_record_date:
-                            is_dup = False
-                            for e in enriched_data:
-                                if e.get('bm_symbol') == item['bm_symbol'] and e.get('EXTRACTED_RECORD_DATE') == item['EXTRACTED_RECORD_DATE'] and e.get('EXTRACTED_DIVIDEND_TYPE') == item['EXTRACTED_DIVIDEND_TYPE'] and e.get('EXTRACTED_DIVIDEND_AMOUNT') == item['EXTRACTED_DIVIDEND_AMOUNT']:
-                                    # Ensure we don't accidentally drop valid null values during merging if there is a distinct type
-                                    if e.get('EXTRACTED_DIVIDEND_TYPE') is not None or e.get('EXTRACTED_DIVIDEND_AMOUNT') is not None:
-                                        is_dup = True
-                                        break
-                            if not is_dup:
-                                enriched_data.append(item)
-                    else:
-                        enriched_data.append(item)
-
-                # Finally, synthesize standalone announcements (like COALINDIA General Updates for AGM/Record Date) that were missed
-                for sym, anns in symbol_announcements.items():
-                    for ann in anns:
-                        if ann.get('seq_id') in consumed_announcements:
-                            continue
-
-                        subj = str(ann.get('subject', '')).lower()
-                        desc = str(ann.get('desc', '')).lower()
-                        attchmntText = str(ann.get('attchmntText', '')).lower()
-
-                        has_div = 'dividend' in subj or 'dividend' in desc or 'dividend' in attchmntText
-                        has_rd = 'record date' in subj or 'record date' in desc or 'record date' in attchmntText
-                        if has_div or has_rd:
-                            found_amount = None
-                            found_record_date = None
-                            found_type = 'Final'
-
-                            text_lower = attchmntText + " " + subj + " " + desc
-                            if 'interim' in text_lower or 'intdiv' in text_lower or 'quarterly' in text_lower: found_type = 'Interim'
-                            elif 'final' in text_lower or 'findiv' in text_lower: found_type = 'Final'
-                            elif 'special' in text_lower: found_type = 'Special'
-                            else: found_type = 'Dividend' # Don't guess Final
-
-                            xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?Rs\.?\s*(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                            if not xbrl_matches:
-                                xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                            if xbrl_matches:
-                                found_amount = sum(float(m) for m in xbrl_matches)
-
-                            bm_purpose = "General Updates"
-
-                            if found_amount is None:
-                                _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
-                                if 'including' in _clean_text or 'includes' in _clean_text:
-                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
-                                    if match: found_amount = float(match.group(1))
-                                else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
-                                    if matches: found_amount = sum(float(m) for m in matches)
-
-                            date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
-                            record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE)
-                            if record_date_match:
-                                found_record_date = record_date_match.group(1)
-
-                            if not found_record_date:
-                                ex_date_match = re.search(r'(?:ex-date|ex date).*?(\d{1,2}-[a-zA-Z]{3}-\d{4})', attchmntText, re.IGNORECASE)
-                                if ex_date_match:
-                                    found_record_date = ex_date_match.group(1)
-
-                            if not found_record_date:
-                                date_match = date_pattern.search(attchmntText)
-                                if date_match and 'record date' in text_lower:
-                                    found_record_date = date_match.group(1)
-
-                            if not found_record_date and 'record date' in text_lower:
-                                fallback_rd = re.search(r'(?:record date|fixed).*?(\d{1,2}(?:st|nd|rd|th)?\s+[a-zA-Z]{3,9}\s+\d{4}|\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', text_lower, re.IGNORECASE)
-                                if fallback_rd:
-                                    found_record_date = fallback_rd.group(1).replace('st ', ' ').replace('nd ', ' ').replace('rd ', ' ').replace('th ', ' ')
-
-                            if found_amount or found_record_date:
-                                try:
-                                    dt = datetime.strptime(ann.get('an_dt', '').split(' ')[0], "%d-%b-%Y")
-                                    bm_date_str = dt.strftime("%d-%b-%Y")
-                                except:
-                                    bm_date_str = trade_date.strftime("%d-%b-%Y")
-
-                                syn_item = {
-                                    'bm_symbol': sym,
-                                    'sm_name': ann.get('sm_name', ''),
-                                    'bm_purpose': bm_purpose,
-                                    'bm_desc': ann.get('attchmntText', ''),
-                                    'bm_date': bm_date_str,
-                                    'bm_timestamp': ann.get('an_dt', ''),
-                                    'sysTime': ann.get('an_dt', ''),
-                                    'ATTACHMENT': ann.get('attchmntFile', ''),
-                                    'EXTRACTED_DIVIDEND_AMOUNT': found_amount,
-                                    'EXTRACTED_DIVIDEND_TYPE': found_type,
-                                    'EXTRACTED_RECORD_DATE': found_record_date
-                                }
-                                is_dup = False
-                                for e in enriched_data:
-                                    if e.get('bm_symbol') == syn_item['bm_symbol'] and e.get('EXTRACTED_RECORD_DATE') == syn_item['EXTRACTED_RECORD_DATE'] and e.get('EXTRACTED_DIVIDEND_TYPE') == syn_item['EXTRACTED_DIVIDEND_TYPE'] and e.get('EXTRACTED_DIVIDEND_AMOUNT') == syn_item['EXTRACTED_DIVIDEND_AMOUNT']:
-                                        if e.get('EXTRACTED_DIVIDEND_TYPE') is not None or e.get('EXTRACTED_DIVIDEND_AMOUNT') is not None:
-                                            is_dup = True
-                                            break
-                                if not is_dup:
-                                    enriched_data.append(syn_item)
+                    enriched_data.append(item)
 
                 df = pd.DataFrame(enriched_data)
                 mapping = {
@@ -976,7 +854,7 @@ class NSELib:
     def get_corporate_actions(self, trade_date: date) -> pd.DataFrame:
         """Get Corporate Actions."""
         from datetime import timedelta
-        from_date_str = (trade_date - timedelta(days=7)).strftime("%d-%m-%Y")
+        from_date_str = trade_date.strftime("%d-%m-%Y")
         to_date_str = (trade_date + timedelta(days=180)).strftime("%d-%m-%Y")
         url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
 
@@ -990,41 +868,7 @@ class NSELib:
                 data = resp.json()
                 if not data:
                      return pd.DataFrame()
-
-                dedup_data = []
-                seen_events = set()
-                for item in data:
-                    # Some endpoints return identical broadcasts, deduplicate by Symbol + Date + Subject/Purpose
-                    # For CA, date usually refers to exDate or broadcastDate.
-                    # DO NOT blindly merge items missing exDate, they might be distinct events (Final vs Interim).
-                    dedup_key = f"{item.get('symbol')}_{item.get('exDate') or item.get('caBroadcastDate')}_{item.get('subject')}_{item.get('purpose')}"
-                    if dedup_key not in seen_events:
-                        seen_events.add(dedup_key)
-                        dedup_data.append(item)
-
-                # Intercept missing amounts via PDF parsing
-                for item in dedup_data:
-                    # Generic purposes like "General Updates" or "Record Date" might hide dividend details
-                    # Or missing amount but has subject "Dividend"
-                    purpose = str(item.get('purpose', '')).lower()
-                    subject = str(item.get('subject', '')).lower()
-                    attachment_url = str(item.get('attchmntFile', ''))
-
-                    has_dividend_mention = 'dividend' in purpose or 'dividend' in subject or 'record date' in purpose or 'record date' in subject
-
-                    if has_dividend_mention and attachment_url.startswith('http'):
-                        pdf_amount, pdf_record_date, pdf_type = extract_amount_from_pdf(attachment_url)
-                        if pdf_amount:
-                            # We don't overwrite if it exists, only if missing
-                            # Actually, Corporate Actions rarely have extracted numeric amounts in raw JSON except as strings in purpose.
-                            # We'll prepend it to the purpose so FieldMapper can catch it easily.
-                            item['purpose'] = f"{item.get('purpose', '')} - Rs {pdf_amount} extracted from PDF"
-                        if pdf_record_date and not item.get('recDate'):
-                            item['recDate'] = pdf_record_date
-                            # T+1 fallback directly applied
-                            item['exDate'] = pdf_record_date
-
-                df = pd.DataFrame(dedup_data)
+                df = pd.DataFrame(data)
                 # Map expected JSON keys to the upper-case CSV format our FieldMapper expects
                 mapping = {
                     'symbol': 'SYMBOL',
@@ -1095,91 +939,6 @@ class NSELib:
                         logger.error(f"Error parsing Contract Delta from {url}: {e}")
         except Exception as outer_e:
             logger.error(f"Unexpected error in get_contract_delta for {trade_date}: {outer_e}")
-
-        return pd.DataFrame()
-
-    def get_financial_results(self, trade_date: date) -> pd.DataFrame:
-        """Fetch Financial Results from NSE Corporate Announcements."""
-        from datetime import timedelta
-        # Usually results come in during earning season, check a window
-        from_date_str = trade_date.strftime("%d-%m-%Y")
-        to_date_str = (trade_date + timedelta(days=7)).strftime("%d-%m-%Y")
-        url = f"{self.BASE_URL}/api/corporates-financial-results?index=equities&period=Quarterly&from_date={from_date_str}&to_date={to_date_str}"
-
-        resp = self.get(url, use_curl=True)
-        if resp is None:
-            return pd.DataFrame()
-
-        if resp.status_code == 200:
-            try:
-                data = resp.json()
-                if not data:
-                    return pd.DataFrame()
-
-                from backend.ingest.parse_financials import extract_financials_from_xbrl, extract_financials_from_pdf
-
-                records = []
-                for item in data:
-                    reBasEPS = None
-                    reDilEPS = None
-                    netProfit = None
-
-                    xbrl_url = item.get('xbrl')
-                    att = item.get('attachment') or item.get('attchmntFile')
-
-                    if xbrl_url and xbrl_url != '-' and 'nsearchives.nseindia.com' in xbrl_url:
-                        eps, np = extract_financials_from_xbrl(xbrl_url)
-                        if eps is not None:
-                            reBasEPS = eps
-                            reDilEPS = eps
-                        if np is not None:
-                            netProfit = np
-
-                    if (reBasEPS is None or netProfit is None) and att and 'nsearchives.nseindia.com' in att:
-                        eps, np = extract_financials_from_pdf(att)
-                        if eps is not None and reBasEPS is None:
-                            reBasEPS = eps
-                            reDilEPS = eps
-                        if np is not None and netProfit is None:
-                            netProfit = np
-
-
-                    symbol = item.get('symbol')
-                    period = item.get('period') # e.g. Q1, Q2, Yearly
-                    bdate = item.get('bm_timestamp', item.get('seqDate'))
-                    pend = item.get('period_end_date', item.get('toDate'))
-                    att = item.get('attachment')
-
-                    bdate_obj = None
-                    if bdate:
-                        try:
-                            import re
-                            bdate_clean = re.sub(r'\.\d+', '', str(bdate)).strip()
-                            bdate_obj = datetime.strptime(bdate_clean, "%d-%b-%Y %H:%M:%S").date()
-                        except:
-                            try:
-                                bdate_obj = datetime.strptime(str(bdate).split(' ')[0], "%d-%b-%Y").date()
-                            except:
-                                bdate_obj = trade_date
-                    else:
-                        bdate_obj = trade_date
-
-                    if symbol:
-                        records.append({
-                            'symbol': symbol,
-                            'date': bdate_obj,
-                            'period': period,
-                            'period_end_date': pend,
-                            'basic_eps': reBasEPS,
-                            'diluted_eps': reDilEPS,
-                            'net_profit': netProfit,
-                            'attachment': att
-                        })
-
-                if records:
-                    return pd.DataFrame(records)
-            except Exception as e:
-                logger.error(f"Financial Results parse error: {e}")
 
         return pd.DataFrame()
 

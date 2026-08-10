@@ -867,7 +867,7 @@ function exportSSDivXLS() {
     // Main Headers
     wsData.push([
         'Index / Scrip', 'Sector', 'Lot size', 'Spot', 'Future 1', 'Future 2', 'Future 3',
-        'Type', 'Ex-date', 'Amount', 'Upcoming Meeting', 'Broadcast Date & Time', 'BM Date',
+        'Type', 'Ex-date', 'Amount', 'Upcoming Meeting', 'Broadcast Date & Time',
         'Is above 2% (Extra-ordinary)', 'Expected Amount', 'Expected Dividend highly likely',
         'Expected Dividend Less Likely', 'Note'
     ]);
@@ -997,8 +997,6 @@ function exportSSDivXLS() {
 
         let bcastDateCsv = item.broadcast_date ? item.broadcast_date.replace('T', ' ') : '-';
         row.push(bcastDateCsv);
-
-        row.push(item.last_bm_date || '-');
 
         row.push(item.is_above_2_percent ? 'Yes' : 'No');
         let expectedCSV = item.expected_amount ? `${item.expected_amount} (${item.expected_type || 'Interim'})` : '-';
@@ -1405,7 +1403,6 @@ function renderSSDividends() {
 
         let lastAmountHtml = item.last_amount ? parseFloat(item.last_amount).toFixed(2) : '-';
         let lastExDateHtml = item.last_ex_date || '-';
-        let lastBmDateHtml = item.last_bm_date || '-';
 
         // Color ex-date and amount blue if it hasn't happened yet (is in the future or today)
         if (item.history && item.history.length > 0) {
@@ -1471,8 +1468,6 @@ function renderSSDividends() {
 
         let lastFaceValueHtml = (item.last_face_value !== undefined && item.last_face_value !== null) ? item.last_face_value : '-';
         let lastPurposeHtml = (item.last_purpose) ? item.last_purpose : '-';
-        let lastAgmDateHtml = item.last_agm_date || '-';
-        let lastAgmAnnHtml = item.last_agm_announcement_date || '-';
 
         html += `
             <tr style="cursor: pointer; border-bottom: 2px solid #222;" onclick="toggleSSDivHistory('${item.symbol}')">
@@ -1485,12 +1480,9 @@ function renderSSDividends() {
                 ${futuresHTML}
                 <td style="background: rgba(43, 58, 74, 0.4);">${item.last_type || '-'}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastExDateHtml}</td>
-                <td style="background: rgba(43, 58, 74, 0.4);">${lastBmDateHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastFaceValueHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4);">${lastPurposeHtml}</td>
                 <td style="background: rgba(43, 58, 74, 0.4); font-weight: bold;">${lastAmountHtml}</td>
-                <td style="background: rgba(43, 58, 74, 0.4);">${lastAgmDateHtml}</td>
-                <td style="background: rgba(43, 58, 74, 0.4);">${lastAgmAnnHtml}</td>
                 <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${bmDateHtml}</td>
                 <td style="background: rgba(26, 26, 26, 0.6); color: #bbb; text-align: center;">${broadcastDateHtml}</td>
                 ${above2Cell}
@@ -1504,7 +1496,6 @@ function renderSSDividends() {
 
         if (item.history && item.history.length > 0) {
             let histRows = '';
-            window._prevFy = undefined;
             item.history.forEach(h => {
                 // We don't make history editable, only the main row. But to be consistent:
                 const histAbove2 = h.is_above_2_percent ? `<td style="color: #ff4d4d; font-weight: bold;">Yes</td>` : `<td>No</td>`;
@@ -1523,56 +1514,15 @@ function renderSSDividends() {
                     }
                 }
 
-
-                // Track FY borders
-                let fyBorder = '';
-                if (window._prevFy !== undefined && window._prevFy !== h.fy_year) {
-                    // Add a distinct separator row instead of just a thick border
-                    histRows += `
-                    <tr style="background: #2a2a2a;">
-                        <td colspan="14" style="text-align: center; font-size: 0.85em; color: #888; padding: 2px 0; border-top: 2px solid #555; border-bottom: 2px solid #555;">
-                            --- End of Financial Year ---
-                        </td>
-                    </tr>`;
-                }
-                window._prevFy = h.fy_year;
-
-                let dpsHtml = h.amount !== null && h.amount !== undefined ? parseFloat(h.amount).toFixed(2) : '-';
-                let epsHtml = h.eps !== null && h.eps !== undefined ? parseFloat(h.eps).toFixed(2) : '-';
-                let npHtml = h.net_profit !== null && h.net_profit !== undefined ? parseFloat(h.net_profit).toFixed(2) : '-';
-                let payoutHtml = h.payout_ratio !== null && h.payout_ratio !== undefined ? parseFloat(h.payout_ratio).toFixed(1) + '%' : '-';
-                let yieldHtml = h.dividend_yield !== null && h.dividend_yield !== undefined ? parseFloat(h.dividend_yield).toFixed(2) + '%' : '-';
-
-                let deltaDpsColor = h.delta_dps_pct > 0 ? '#4caf50' : (h.delta_dps_pct < 0 ? '#f44336' : '#aaa');
-                let deltaDpsHtml = h.delta_dps_pct !== null && h.delta_dps_pct !== undefined ? `<span style="color:${deltaDpsColor}">${h.delta_dps_pct}%</span>` : '-';
-
-                let deltaEpsColor = h.delta_eps_pct > 0 ? '#4caf50' : (h.delta_eps_pct < 0 ? '#f44336' : '#aaa');
-                let deltaEpsHtml = h.delta_eps_pct !== null && h.delta_eps_pct !== undefined ? `<span style="color:${deltaEpsColor}">${h.delta_eps_pct}%</span>` : '-';
-
-                let fyTotalHtml = h.fy_total_dps !== null && h.fy_total_dps !== undefined ? parseFloat(h.fy_total_dps).toFixed(2) : '-';
-
-                let agmAnnDate = h.agm_announcement_date || '-';
-                let agmDate = h.agm_date || '-';
-                let hBmDate = h.board_meeting_date ? h.board_meeting_date.split('T')[0] : '-';
-
                 histRows += `
                     <tr>
                         <td>${h.ex_date || '-'}</td>
-                        <td>${hBmDate}</td>
                         <td>${h.dividend_type || '-'}</td>
                         <td>${h.face_value !== undefined && h.face_value !== null ? h.face_value : '-'}</td>
-                        <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${h.purpose || '-'}">${h.purpose || '-'}</td>
-                        <td style="font-weight: bold; color: #60a5fa;">${dpsHtml}</td>
-                        <td style="color: #ffd700;">${epsHtml}</td>
-                        <td style="color: #ff9800;">${npHtml}</td>
-                        <td style="color: #bbb;">${payoutHtml}</td>
-                        <td style="color: #8fbc8f;">${yieldHtml}</td>
-                        <td>${deltaDpsHtml}</td>
-                        <td>${deltaEpsHtml}</td>
-                        <td style="font-weight: bold; color: #fff;">${fyTotalHtml} <small style="color:#666;">(FY${h.fy_year})</small></td>
-                        <td>${agmAnnDate}</td>
-                        <td>${agmDate}</td>
+                        <td>${h.purpose || '-'}</td>
+                        <td style="font-weight: bold; color: #60a5fa;">${h.amount ? parseFloat(h.amount).toFixed(2) : '-'}</td>
                         ${histAbove2}
+                        <td>${annDateHtml}</td>
                     </tr>
                 `;
             });
@@ -1582,25 +1532,16 @@ function renderSSDividends() {
                 <td colspan="18" style="padding: 15px;">
                     <div style="border-left: 3px solid #3176B8; padding-left: 15px; margin-left: 20px;">
                         <h4 style="margin: 0 0 10px 0; color: #ccc;">Historical Dividends (Last 10 Years)</h4>
-                        <table class="data-table" style="width: 95%; min-width: 800px; background: #222; border-collapse: separate; border-spacing: 0;">
+                        <table class="data-table" style="width: 50%; min-width: 400px; background: #222;">
                             <thead>
                                 <tr>
                                     <th>Ex-Date</th>
-                                    <th>BM Date</th>
                                     <th>Type</th>
                                     <th>Face Value</th>
                                     <th>Purpose</th>
-                                    <th>DPS</th>
-                                    <th>EPS</th>
-                                    <th>Net Profit</th>
-                                    <th>Payout %</th>
-                                    <th>Yield %</th>
-                                    <th>Δ DPS %</th>
-                                    <th>Δ EPS %</th>
-                                    <th>FY Total</th>
-                                    <th>AGM Announce</th>
-                                    <th>AGM Date</th>
+                                    <th>Amount</th>
                                     <th>>2%</th>
+                                    <th>Announced Date</th>
                                 </tr>
                             </thead>
                             <tbody>
