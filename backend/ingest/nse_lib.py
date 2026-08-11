@@ -651,7 +651,9 @@ class NSELib:
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if abs((ann_date_obj - bm_date_obj_check).days) <= 180:
+                                    # Only look forward in time for outcomes/announcements related to a board meeting
+                                    days_diff = (ann_date_obj - bm_date_obj_check).days
+                                    if -5 <= days_diff <= 180:
                                         has_dividend_mention = True
                                         break
                                 except ValueError:
@@ -722,12 +724,20 @@ class NSELib:
                                 bm_date_obj = None
 
                             for ann in symbol_announcements[symbol]:
+                                # Quick keyword filter before parsing date and text
+                                ann_subj_desc = f"{ann.get('subject', '')} {ann.get('desc', '')}".lower()
+                                if not any(kw in ann_subj_desc for kw in ['dividend', 'outcome', 'record date', 'bonus', 'split']):
+                                    continue
+
                                 # Check if announcement is within 180 days of board meeting
                                 ann_date_str = ann.get('an_dt', '')
                                 try:
                                     # Format: "16-Apr-2026 13:07:29"
                                     ann_date_obj = datetime.strptime(ann_date_str.split(' ')[0], "%d-%b-%Y").date()
-                                    if bm_date_obj and abs((ann_date_obj - bm_date_obj).days) <= 180:
+                                    # Only look forward in time for outcomes/announcements related to a board meeting,
+                                    # or at most a few days backward if there was a typo, but not 180 days backward!
+                                    days_diff = (ann_date_obj - bm_date_obj).days
+                                    if bm_date_obj and -5 <= days_diff <= 180:
                                         attchmntText = ann.get('attchmntText', '')
 
                                         # Extract Amount
@@ -795,9 +805,20 @@ class NSELib:
                         # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
                         # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
                         if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= datetime.now().date():
+                            # Function to check if we should even download the PDF
+                            def should_download_pdf(text_to_check):
+                                if not text_to_check:
+                                    return False
+                                text_lower = str(text_to_check).lower()
+                                keywords = ['dividend', 'outcome', 'record date', 'bonus', 'split']
+                                return any(kw in text_lower for kw in keywords)
+
+                            # Check if the board meeting itself looks like it's worth downloading
+                            bm_search_text = f"{item.get('bm_purpose', '')} {item.get('bm_desc', '')} {item.get('SUBJECT', '')}"
+
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
-                            if attachment_url.startswith('http'):
+                            if attachment_url.startswith('http') and should_download_pdf(bm_search_text):
                                 pdf_amount, pdf_record_date = extract_amount_from_pdf(attachment_url)
                                 if pdf_amount and found_amount is None:
                                     found_amount = pdf_amount
@@ -815,7 +836,11 @@ class NSELib:
                                                 # If announcement date matches board meeting date
                                                 if bm_date_obj.strftime("%d-%b-%Y").lower() in ann_date_str.lower():
                                                     ann_pdf = ann.get('attchmntFile')
-                                                    if ann_pdf and ann_pdf.startswith('http'):
+                                                    ann_subj = ann.get('subject', '')
+                                                    ann_desc = ann.get('desc', '')
+                                                    ann_search_text = f"{ann_subj} {ann_desc}"
+
+                                                    if ann_pdf and ann_pdf.startswith('http') and should_download_pdf(ann_search_text):
                                                         pdf_amount, pdf_record_date = extract_amount_from_pdf(ann_pdf)
                                                         if pdf_amount and found_amount is None:
                                                             found_amount = pdf_amount

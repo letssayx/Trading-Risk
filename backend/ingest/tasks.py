@@ -872,6 +872,11 @@ def build_dividend_databank_task(self, force: bool = False):
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
 
+                            # Transfer missing Final/Interim tags to generic Corporate Actions
+                            if not off.get('dividend_type') or off.get('dividend_type') == '-' or off.get('dividend_type') == 'Dividend':
+                                if syn.get('dividend_type') and syn.get('dividend_type') not in ['-', 'Dividend']:
+                                    off['dividend_type'] = syn.get('dividend_type')
+
                             syn_m = syn.get('_matchedMeeting')
                             off_m = off.get('_matchedMeeting')
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
@@ -907,6 +912,18 @@ def build_dividend_databank_task(self, force: bool = False):
 
             ca_by_symbol[sym] = []
             for action in final_actions:
+                # Derived T+1 Ex-Date logic for Indian Market
+                if not action.get('ex_date_obj') and action.get('record_date'):
+                    rd_str = action.get('record_date')
+                    try:
+                        import pandas as pd
+                        rd_obj = pd.to_datetime(rd_str).date()
+                        # T+1 market standard: Ex-Date = Record Date
+                        action['ex_date_obj'] = rd_obj
+                        action['ex_date'] = rd_obj.strftime('%d-%b-%Y')
+                    except Exception:
+                        pass
+
                 m = action.get('_matchedMeeting')
                 bm_date = m.meeting_date if m else None
                 ca_by_symbol[sym].append({
@@ -970,7 +987,10 @@ def build_dividend_databank_task(self, force: bool = False):
                 if match:
                     # UPDATE existing row
                     match.date = final_date
-                    match.ex_date = ex_date_val
+
+                    # Fix: Never overwrite a valid ex_date with None during deduplication merges
+                    if ex_date_val is not None:
+                        match.ex_date = ex_date_val
                     if h.get('announcement_date_obj'):
                         match.announcement_date = h.get('announcement_date_obj')
                     if h.get('broadcast_date'):
