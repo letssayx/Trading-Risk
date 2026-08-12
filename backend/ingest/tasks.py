@@ -449,6 +449,7 @@ def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = No
     If end_date_str is provided, computes for the range [target_date_str, end_date_str].
     """
     from datetime import datetime
+    import datetime as dt_mod
     from backend.infrastructure.db import SessionLocal
     from backend.analysis.toolbox.reports.morning_report import MorningReportCalculator
 
@@ -495,6 +496,7 @@ def generate_morning_report_task(self, target_date_str: str, author: str = "Syst
     """
     import asyncio
     from datetime import datetime
+    import datetime as dt_mod
     from backend.infrastructure.db import SessionLocal
     from backend.analysis.toolbox.reports.generator import MorningReportGenerator
 
@@ -558,6 +560,7 @@ def generate_morning_report_task(self, target_date_str: str, author: str = "Syst
 def build_dividend_databank_task(self, force: bool = False):
     from sqlalchemy import func, or_, desc
     import datetime
+    import datetime as dt_mod
     from collections import defaultdict
     import re
     import logging
@@ -766,6 +769,12 @@ def build_dividend_databank_task(self, force: bool = False):
                                         if not a.get('dividend_type') or a.get('dividend_type') == '-':
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
                                         a['_matchedMeeting'] = m
+                                        if m.broadcast_date:
+                                            a['broadcast_date'] = m.broadcast_date
+                                        if getattr(m, 'date', None):
+                                            a['announcement_date_obj'] = m.date
+                                        if m.meeting_date:
+                                            a['board_meeting_date'] = m.meeting_date
                                         break
 
                                 a_purpose = (a.get('purpose') or '').lower()
@@ -789,6 +798,12 @@ def build_dividend_databank_task(self, force: bool = False):
                                             a['dividend_type'] = m.extracted_dividend_type or 'Final'
                                         has_linked_action = True
                                         a['_matchedMeeting'] = m
+                                        if m.broadcast_date:
+                                            a['broadcast_date'] = m.broadcast_date
+                                        if getattr(m, 'date', None):
+                                            a['announcement_date_obj'] = m.date
+                                        if m.meeting_date:
+                                            a['board_meeting_date'] = m.meeting_date
                                         break
 
                     if not has_linked_action:
@@ -849,7 +864,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 if hasattr(d, 'date'): return d.date()
                 if isinstance(d, datetime.datetime): return d.date()
                 if isinstance(d, datetime.date): return d
-                return datetime.date.min
+                return dt_mod.date.min
 
             def get_sort_date_syn(x):
                 m = x.get('_matchedMeeting')
@@ -868,7 +883,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     ex_m = ex.get('_matchedMeeting')
                     ex_date = safe_date(ex_m.meeting_date if ex_m else None)
 
-                    if syn_date != datetime.date.min and ex_date != datetime.date.min:
+                    if syn_date != dt_mod.date.min and ex_date != dt_mod.date.min:
                         diff = abs((syn_date - ex_date).days)
                         div_type_lower = (syn.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
@@ -893,11 +908,11 @@ def build_dividend_databank_task(self, force: bool = False):
                 matched = False
                 syn_date_val = safe_date(syn.get('broadcast_date') or syn.get('date'))
 
-                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('date')) - syn_date_val).days) if syn_date_val != datetime.date.min else 9999)
+                group_officials.sort(key=lambda x: abs((safe_date(x.get('ex_date_obj') or x.get('broadcast_date') or x.get('date')) - syn_date_val).days) if syn_date_val != dt_mod.date.min else 9999)
 
                 for off in group_officials:
                     off_date_val = safe_date(off.get('ex_date_obj') or off.get('broadcast_date') or off.get('date'))
-                    if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
+                    if syn_date_val != dt_mod.date.min and off_date_val != dt_mod.date.min:
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
@@ -948,13 +963,13 @@ def build_dividend_databank_task(self, force: bool = False):
             # Sort chronologically
             def final_sort_key(x):
                 t = safe_date(x.get('ex_date_obj'))
-                if t != datetime.date.min: return t
+                if t != dt_mod.date.min: return t
                 t = safe_date(x.get('announcement_date_obj') or x.get('broadcast_date'))
-                if t != datetime.date.min: return t
+                if t != dt_mod.date.min: return t
                 m = x.get('_matchedMeeting')
                 if m:
                     t = safe_date(m.meeting_date)
-                    if t != datetime.date.min: return t
+                    if t != dt_mod.date.min: return t
                 t = safe_date(x.get('date'))
                 return t
 
@@ -1017,16 +1032,12 @@ def build_dividend_databank_task(self, force: bool = False):
                 if ex_date_val is None:
                     is_awaited = True
 
-                # Memory explicit instruction: "missing date fields (like ex-date) must default to 1900-01-01 to prevent corrupting historical records with the current date"
-                # Memory explicit instruction: "When constructing timeline UI history elements, broadcast_date, announcement_date_obj (board meeting date), and ex_date must be independently preserved. Do not allow these distinct dates to fall back to each other"
-                if ex_date_val:
-                    sort_dt = ex_date_val
-                    if hasattr(sort_dt, 'date'):
-                        sort_dt = sort_dt.date()
-                    final_date = sort_dt
-                else:
-                    import datetime as dt_mod
-                    final_date = dt_mod.date(1900, 1, 1)
+                # We must allow final_date to fallback to announcement_date_obj so that missing ex-dates don't disappear into 1900
+                sort_dt = ex_date_val or h.get('announcement_date_obj') or dt_mod.date.min
+                if hasattr(sort_dt, 'date'):
+                    sort_dt = sort_dt.date()
+
+                final_date = sort_dt if sort_dt != dt_mod.date.min else dt_mod.date(1900, 1, 1)
 
                 # UPSERT logic: Try to find a matching existing row
                 match = None
@@ -1229,6 +1240,7 @@ def run_volatility_analysis_task(self, latest_metric_date: Optional[str] = None)
 def patch_historical_eps_agm_task(self):
     from sqlalchemy import func
     import datetime
+    import datetime as dt_mod
     import re
     import logging
 
