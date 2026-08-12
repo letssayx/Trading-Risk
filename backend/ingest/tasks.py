@@ -1017,11 +1017,16 @@ def build_dividend_databank_task(self, force: bool = False):
                 if ex_date_val is None:
                     is_awaited = True
 
-                sort_dt = ex_date_val or h.get('announcement_date_obj') or datetime.date.min
-                if hasattr(sort_dt, 'date'):
-                    sort_dt = sort_dt.date()
-
-                final_date = sort_dt if sort_dt != datetime.date.min else datetime.date(1900, 1, 1)
+                # Memory explicit instruction: "missing date fields (like ex-date) must default to 1900-01-01 to prevent corrupting historical records with the current date"
+                # Memory explicit instruction: "When constructing timeline UI history elements, broadcast_date, announcement_date_obj (board meeting date), and ex_date must be independently preserved. Do not allow these distinct dates to fall back to each other"
+                if ex_date_val:
+                    sort_dt = ex_date_val
+                    if hasattr(sort_dt, 'date'):
+                        sort_dt = sort_dt.date()
+                    final_date = sort_dt
+                else:
+                    import datetime as dt_mod
+                    final_date = dt_mod.date(1900, 1, 1)
 
                 # UPSERT logic: Try to find a matching existing row
                 match = None
