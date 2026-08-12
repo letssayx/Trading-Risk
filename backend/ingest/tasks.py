@@ -1,3 +1,4 @@
+from dateutil.parser import parse
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from datetime import datetime, timedelta
@@ -821,8 +822,7 @@ def build_dividend_databank_task(self, force: bool = False):
                              date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
                              if date_match:
                                  try:
-                                     from dateutil.parser import parse
-                                     agm_date = parse(date_match.group(1)).date()
+                                              agm_date = parse(date_match.group(1)).date()
                                  except:
                                      pass
 
@@ -919,6 +919,21 @@ def build_dividend_databank_task(self, force: bool = False):
                             if off.get('agm_date'):
                                 syn['agm_date'] = off.get('agm_date')
 
+                            # Also inherit from syn to off just in case it is off that gets appended
+                            if syn.get('broadcast_date'):
+                                off['broadcast_date'] = syn.get('broadcast_date')
+                            if syn.get('announcement_date_obj'):
+                                off['announcement_date_obj'] = syn.get('announcement_date_obj')
+                            if syn.get('agm_date') and not off.get('agm_date'):
+                                off['agm_date'] = syn.get('agm_date')
+                            if syn.get('board_meeting_date'):
+                                off['board_meeting_date'] = syn.get('board_meeting_date')
+
+                            if off.get('dividend_type') == '-' and syn.get('dividend_type') != '-':
+                                off['dividend_type'] = syn.get('dividend_type')
+                            if syn.get('dividend_type') == '-' and off.get('dividend_type') != '-':
+                                syn['dividend_type'] = off.get('dividend_type')
+
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
@@ -949,9 +964,22 @@ def build_dividend_databank_task(self, force: bool = False):
             for action in final_actions:
                 m = action.get('_matchedMeeting')
                 bm_date = m.meeting_date if m else None
+
+                # Ex-date fallback strictly outside deduplication loops per memory instructions
+                final_ex_date_str = action.get('ex_date')
+                final_ex_date_obj = action.get('ex_date_obj')
+
+                if not final_ex_date_str or final_ex_date_str == '-':
+                    if action.get('record_date') and action.get('record_date') != '-':
+                        final_ex_date_str = action.get('record_date')
+                        try:
+                            final_ex_date_obj = parse(final_ex_date_str)
+                        except:
+                            pass
+
                 ca_by_symbol[sym].append({
-                    "ex_date": action.get('ex_date') if action.get('ex_date') else None,
-                    "ex_date_obj": action.get('ex_date_obj'),
+                    "ex_date": final_ex_date_str if final_ex_date_str else None,
+                    "ex_date_obj": final_ex_date_obj,
                     "announcement_date_obj": action.get('announcement_date_obj') or action.get('broadcast_date'),
                     "broadcast_date": action.get('broadcast_date'),
                     "board_meeting_date": bm_date,
@@ -1262,8 +1290,7 @@ def patch_historical_eps_agm_task(self):
                         date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (bm.purpose or '').lower())
                         if date_match:
                              try:
-                                 from dateutil.parser import parse
-                                 row.agm_date = parse(date_match.group(1)).date()
+                                      row.agm_date = parse(date_match.group(1)).date()
                              except:
                                  pass
 
@@ -1281,8 +1308,7 @@ def patch_historical_eps_agm_task(self):
                             date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', (ca.purpose or '').lower())
                             if date_match:
                                  try:
-                                     from dateutil.parser import parse
-                                     row.agm_date = parse(date_match.group(1)).date()
+                                              row.agm_date = parse(date_match.group(1)).date()
                                  except:
                                      pass
 

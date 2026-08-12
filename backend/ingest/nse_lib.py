@@ -576,12 +576,12 @@ class NSELib:
                 announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
                 announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
                 announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-
                 div_announcements = []
                 rec_announcements = []
                 agm_announcements = []
                 fin_announcements = []
                 out_announcements = []
+
 
                 resp_div = self.get(announcement_url_div)
                 if resp_div and resp_div.status_code == 200:
@@ -601,7 +601,6 @@ class NSELib:
                 if resp_agm and resp_agm.status_code == 200:
                     try:
                         agm_data = resp_agm.json()
-                        agm_announcements = []
                         for ann in (agm_data if isinstance(agm_data, list) else []):
                             subj = str(ann.get('subject', '')).lower()
                             desc = str(ann.get('desc', '')).lower()
@@ -872,6 +871,11 @@ class NSELib:
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
                             item['EXTRACTED_DIVIDEND_TYPE'] = found_type
+                            if found_type == '-':
+                                _search_text = f"{purpose} {desc}".lower()
+                                if 'final' in _search_text: item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
+                                elif 'interim' in _search_text: item['EXTRACTED_DIVIDEND_TYPE'] = 'Interim'
+                                else: item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
                         if found_record_date:
                             item['EXTRACTED_RECORD_DATE'] = found_record_date
 
