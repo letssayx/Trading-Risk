@@ -312,9 +312,8 @@ def get_special_sit_dividends(db: Session = Depends(get_db)):
 
             # Check if the event is still Active (Ex-Date >= today or Ex-Awaited)
             is_active = False
-            if last_ex_date == '-' or last_ex_date == 'Record date not yet declared' or last_ex_date == '1900-01-01':
+            if last_ex_date == '-' or last_ex_date == 'Record date not yet declared':
                 # Ex-Awaited
-                last_ex_date = "-"
                 is_active = True
             elif last_div.get('ex_date_obj') and last_div['ex_date_obj'] >= today:
                 # Ex-Date in future or today
