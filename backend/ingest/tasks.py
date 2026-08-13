@@ -912,6 +912,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
             dedup_syns = []
             for syn in group_synthetics:
+                # IMPORTANT: If the synthetic has an amount but NO ex_date, do NOT let it get absorbed and dropped
+                # if there is no other synthetic event for the SAME type/amount.
                 is_duplicate = False
                 syn_m = syn.get('_matchedMeeting')
                 syn_date = safe_date(syn_m.meeting_date if syn_m else None)
@@ -927,16 +929,27 @@ def build_dividend_databank_task(self, force: bool = False):
 
                         # Fix Deduplication: Check Symbol + Date + Dividend Type to properly deduplicate multiple announcements for exact same event
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and syn.get('dividend_type') == ex.get('dividend_type'):
-                            is_duplicate = True
-                            if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
-                                ex['_matchedMeeting'] = syn_m
-                            if (ex.get('amount') is None or ex.get('amount') == "-") and syn.get('amount') is not None:
-                                ex['amount'] = syn.get('amount')
-                                ex['raw_amount'] = syn.get('raw_amount')
-                            # Also pull forward agm_date if not present
-                            if ex.get('agm_date') is None and syn.get('agm_date') is not None:
-                                ex['agm_date'] = syn.get('agm_date')
-                            break
+                            amount_conflict = False
+                            syn_amt = syn.get('amount')
+                            ex_amt = ex.get('amount')
+                            if syn_amt is not None and syn_amt != '-' and ex_amt is not None and ex_amt != '-':
+                                try:
+                                    if abs(float(syn_amt) - float(ex_amt)) > 0.01:
+                                        amount_conflict = True
+                                except (ValueError, TypeError):
+                                    pass
+
+                            if not amount_conflict:
+                                is_duplicate = True
+                                if syn_m and (not ex_m or safe_date(syn_m.meeting_date) > safe_date(ex_m.meeting_date)):
+                                    ex['_matchedMeeting'] = syn_m
+                                if (ex.get('amount') is None or ex.get('amount') == "-") and syn.get('amount') is not None:
+                                    ex['amount'] = syn.get('amount')
+                                    ex['raw_amount'] = syn.get('raw_amount')
+                                # Also pull forward agm_date if not present
+                                if ex.get('agm_date') is None and syn.get('agm_date') is not None:
+                                    ex['agm_date'] = syn.get('agm_date')
+                                break
                 if not is_duplicate:
                     dedup_syns.append(syn)
 
@@ -1008,9 +1021,16 @@ def build_dividend_databank_task(self, force: bool = False):
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
+                            # IMPORTANT: If the synthetic event represents a valid parsed dividend (e.g., 5.25 Final)
+                            # but we matched it with a Corporate Action that literally has NO Ex-Date, NO Record Date,
+                            # we shouldn't "absorb" the synthetic into an empty row that never appears correctly.
+                            # But wait, corporate actions ALWAYS have an Ex-Date... unless it's genuinely an empty CA.
+                            # Just set matched = True to unify them.
                             matched = True
                             break
                 if not matched:
+                    # If this synthetic event has an amount, but we couldn't match it to a Corporate Action (e.g., Ex-Date not yet announced)
+                    # We MUST preserve it in the databank! It will have ex_date = None, meaning "Awaited".
                     final_actions.append(syn)
 
             for off in group_officials:
@@ -1100,20 +1120,32 @@ def build_dividend_databank_task(self, force: bool = False):
                 for row in existing_rows:
                         # Match by identical ex-date OR identical announcement date OR same type within recent window
                         if row.dividend_type == h.get('dividend_type'):
-                            if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
-                                match = row
-                                break
-                            if row.announcement_date and h.get('announcement_date_obj') and row.announcement_date == h.get('announcement_date_obj'):
-                                match = row
-                                break
+                            # Ensure we don't merge different amounts!
+                            row_amt = row.amount
+                            h_amt = h.get('amount')
+                            amounts_differ = False
+                            if row_amt is not None and h_amt is not None and row_amt != '-' and h_amt != '-':
+                                try:
+                                    if abs(float(row_amt) - float(h_amt)) > 0.01:
+                                        amounts_differ = True
+                                except (ValueError, TypeError):
+                                    pass
 
-                            # If no exact date match, check if it's an awaited record we are updating
-                            # Use dynamic windows: 180 for Final/Bonus/Split, 45 for Interim/Special
-                            div_type_lower = (row.dividend_type or '').lower()
-                            window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                            if row.is_awaited and abs((row.date - final_date).days) <= window:
-                                match = row
-                                break
+                            if not amounts_differ:
+                                if row.ex_date and ex_date_val and row.ex_date == ex_date_val:
+                                    match = row
+                                    break
+                                if row.announcement_date and h.get('announcement_date_obj') and row.announcement_date == h.get('announcement_date_obj'):
+                                    match = row
+                                    break
+
+                                # If no exact date match, check if it's an awaited record we are updating
+                                # Use dynamic windows: 180 for Final/Bonus/Split, 45 for Interim/Special
+                                div_type_lower = (row.dividend_type or '').lower()
+                                window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                if row.is_awaited and abs((row.date - final_date).days) <= window:
+                                    match = row
+                                    break
 
                 if match:
                     # UPDATE existing row
