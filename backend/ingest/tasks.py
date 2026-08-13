@@ -761,7 +761,26 @@ def build_dividend_databank_task(self, force: bool = False):
                                     diff_days = abs((a_date - m_date).days)
                                     div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
                                     window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                                    if diff_days <= window:
+
+                                    # Add explicit check for amount conflicts and type conflicts before merging
+                                    type_conflict = False
+                                    a_type = a.get('dividend_type')
+                                    m_type = m.extracted_dividend_type
+                                    if a_type and a_type != '-' and m_type and m_type != '-':
+                                        if a_type.lower() != m_type.lower():
+                                            type_conflict = True
+
+                                    amount_conflict = False
+                                    a_amt = a.get('amount')
+                                    m_amt = m.extracted_dividend_amount
+                                    if a_amt is not None and a_amt != '-' and m_amt is not None and m_amt != '-':
+                                        try:
+                                            if abs(float(a_amt) - float(m_amt)) > 0.01:
+                                                amount_conflict = True
+                                        except (ValueError, TypeError):
+                                            pass
+
+                                    if diff_days <= window and not type_conflict and not amount_conflict:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
                                             a['amount'] = m.extracted_dividend_amount
@@ -790,7 +809,25 @@ def build_dividend_databank_task(self, force: bool = False):
                                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                                         if diff_days > window: is_time_match = False
 
-                                    if is_time_match:
+                                    # Add explicit check for amount conflicts and type conflicts before merging
+                                    type_conflict = False
+                                    a_type = a.get('dividend_type')
+                                    m_type = m.extracted_dividend_type
+                                    if a_type and a_type != '-' and m_type and m_type != '-':
+                                        if a_type.lower() != m_type.lower():
+                                            type_conflict = True
+
+                                    amount_conflict = False
+                                    a_amt = a.get('amount')
+                                    m_amt = m.extracted_dividend_amount
+                                    if a_amt is not None and a_amt != '-' and m_amt is not None and m_amt != '-':
+                                        try:
+                                            if abs(float(a_amt) - float(m_amt)) > 0.01:
+                                                amount_conflict = True
+                                        except (ValueError, TypeError):
+                                            pass
+
+                                    if is_time_match and not type_conflict and not amount_conflict:
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
                                             a['amount'] = m.extracted_dividend_amount
                                             a['raw_amount'] = m.extracted_dividend_amount
@@ -916,7 +953,26 @@ def build_dividend_databank_task(self, force: bool = False):
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') == '-' or off.get('dividend_type') == '-'):
+
+                        # Fix Deduplication: Strict check for type and amount conflicts before merging
+                        type_conflict = False
+                        syn_type = syn.get('dividend_type')
+                        off_type = off.get('dividend_type')
+                        if syn_type and syn_type != '-' and off_type and off_type != '-':
+                            if syn_type.lower() != off_type.lower():
+                                type_conflict = True
+
+                        amount_conflict = False
+                        syn_amt = syn.get('amount')
+                        off_amt = off.get('amount')
+                        if syn_amt is not None and syn_amt != '-' and off_amt is not None and off_amt != '-':
+                            try:
+                                if abs(float(syn_amt) - float(off_amt)) > 0.01:
+                                    amount_conflict = True
+                            except (ValueError, TypeError):
+                                pass
+
+                        if -10 <= diff_days <= window and not type_conflict and not amount_conflict:
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
