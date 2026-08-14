@@ -785,11 +785,11 @@ class NSELib:
                                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
 
                                                 if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
-                                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
+                                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
                                                     if match:
                                                         found_amount = float(match.group(1))
                                                 else:
-                                                    div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
+                                                    div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
                                                     matches = div_pattern.findall(_clean_text)
                                                     if matches:
                                                         found_amount = sum(float(m) for m in matches)
@@ -811,13 +811,13 @@ class NSELib:
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
-                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
+                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
                                 if match:
                                     found_amount = float(match.group(1))
                             else:
                                 # Extract using the common UI regex patterns
                                 ui_patterns = [
-                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
+                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)',
                                     r'(\d+(?:\.\d+)?)\s*\/\-',
                                     r'(?:dividend|int\s*div)\s+of\s+(\d+(?:\.\d+)?)',
                                     r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?)\s+per'

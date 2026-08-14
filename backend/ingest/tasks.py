@@ -858,9 +858,19 @@ def build_dividend_databank_task(self, force: bool = False):
                             if 'final' in purpose_lower: div_type = 'Final'
 
                             if amount is None:
-                                match = re.search(r'(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*\/\-|dividend\s+of\s+([0-9]+(?:\.[0-9]+)?)|dividend.*?\s+([0-9]+(?:\.[0-9]+)?)\s+per|dividend\s*-\s*(?:rs\.?|rupees?|re\.?)\s*([0-9]+(?:\.[0-9]+)?)', purpose_lower)
-                                if match:
-                                    amount = next((g for g in match.groups() if g is not None), None)
+                                _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
+                                rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_purpose, flags=re.IGNORECASE)
+                                if rs_matches:
+                                    amount = rs_matches[0]
+                                else:
+                                    div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b', _clean_purpose, flags=re.IGNORECASE)
+                                    valid_div_matches = [m for m in div_matches if not re.match(r'^(19|20)\d{2}$', m) and float(m) < 1000]
+                                    if valid_div_matches:
+                                        amount = valid_div_matches[0]
+                                    else:
+                                        div_matches_2 = re.findall(r'(?:dividend).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)?\s*(\d+(?:\.\d+)?)\s*(?:per share|/-|per equity share)', _clean_purpose, flags=re.IGNORECASE)
+                                        if div_matches_2:
+                                            amount = div_matches_2[0]
 
                         elif is_agm and 'dividend' not in purpose_lower and not has_amount:
                             div_type = 'AGM'
