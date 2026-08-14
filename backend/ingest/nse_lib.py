@@ -704,7 +704,7 @@ class NSELib:
                     if has_dividend_mention or is_agm:
                         found_amount = None
                         found_record_date = None
-                        found_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else ('Special' if 'special' in purpose else 'Final'))
+                        found_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else ('Special' if 'special' in purpose else '-'))
 
                         if is_agm:
                             found_type = 'AGM'
@@ -836,7 +836,7 @@ class NSELib:
                         # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
                         # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
                         # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
-                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:
+                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= trade_date:
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
@@ -1266,7 +1266,7 @@ class NSELib:
 
                                 try:
                                     row_date = pd.to_datetime(parsed_date_str).date()
-                                    if row_date == trade_date:
+                                    if row_date <= trade_date:
                                         buy_val = float(text_vals[1].replace(',', ''))
                                         sell_val = float(text_vals[2].replace(',', ''))
                                         net_val = float(text_vals[3].replace(',', ''))
