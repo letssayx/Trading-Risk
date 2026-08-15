@@ -830,7 +830,6 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     if eps is not None: matched_row.eps = eps
                     if net_profit is not None: matched_row.net_profit = net_profit
-                    if linked_fin is not None: matched_row.financial_result_id = linked_fin.id
 
                     if act.get('agm_date') and not matched_row.agm_date:
                         matched_row.agm_date = act.get('agm_date')
@@ -851,7 +850,6 @@ def build_dividend_databank_task(self, force: bool = False):
                         announcement_date=ann_d,
                         eps=eps,
                         net_profit=net_profit,
-                        financial_result_id=linked_fin.id if linked_fin else None,
                         agm_date=act.get('agm_date')
                     )
                     db.add(new_row)
