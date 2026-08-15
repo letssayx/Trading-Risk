@@ -816,6 +816,10 @@ def build_dividend_databank_task(self, force: bool = False):
                     if broad_date:
                         matched_row.broadcast_date = broad_date
 
+                    ann_d = act.get('announcement_date_obj')
+                    if ann_d and not matched_row.announcement_date:
+                        matched_row.announcement_date = ann_d
+
                     if amount_val is not None:
                         matched_row.amount = amount_val
                     if raw_amt is not None:
@@ -831,17 +835,20 @@ def build_dividend_databank_task(self, force: bool = False):
                     if act.get('agm_date') and not matched_row.agm_date:
                         matched_row.agm_date = act.get('agm_date')
                 else:
+                    ex_d = ex_date_val if ex_date_val != datetime.date(1900, 1, 1) else None
+                    ann_d = act.get('announcement_date_obj')
                     new_row = DividendDatabank(
                         symbol=sym,
+                        date=ex_d or ann_d or datetime.date.today(),
                         amount=amount_val,
                         raw_amount=raw_amt,
                         dividend_type=dividend_type_val,
-                        ex_date=ex_date_val if ex_date_val != datetime.date(1900, 1, 1) else None,
+                        ex_date=ex_d,
                         purpose=act.get('purpose'),
                         face_value=face_val,
                         is_awaited=is_awaited,
                         broadcast_date=broad_date,
-                        announcement_date_obj=act.get('announcement_date_obj'),
+                        announcement_date=ann_d,
                         eps=eps,
                         net_profit=net_profit,
                         financial_result_id=linked_fin.id if linked_fin else None,
