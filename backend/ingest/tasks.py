@@ -769,12 +769,12 @@ def build_dividend_databank_task(self, force: bool = False):
                 if fin_link_date:
                     for fin in fins:
                         if hasattr(fin.date, 'date') and fin.date.date() <= fin_link_date:
-                            eps = fin.eps
+                            eps = fin.basic_eps
                             net_profit = fin.net_profit
                             linked_fin = fin
                             break
                         elif type(fin.date) == datetime.date and fin.date <= fin_link_date:
-                            eps = fin.eps
+                            eps = fin.basic_eps
                             net_profit = fin.net_profit
                             linked_fin = fin
                             break
