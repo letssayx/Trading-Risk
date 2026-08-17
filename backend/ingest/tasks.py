@@ -793,17 +793,18 @@ def build_dividend_databank_task(self, force: bool = False):
                                 merged_bms.add(other_m.id)
 
                     # Ensure we use the latest broadcast date among the merged BMs (Outcome > Intimation)
+                    # We only want to compare BMs that share the EXACT same date as the best match
+                    # for THIS specific corporate action to avoid leaking broadcast dates across different dividend events.
                     latest_bd = best_match.broadcast_date or best_match.date
-                    for m_id in merged_bms:
-                        for m in bms:
-                            if m.id == m_id:
-                                m_bd = m.broadcast_date or m.date
-                                if type(m_bd) == datetime.date:
-                                    m_bd = datetime.datetime.combine(m_bd, datetime.time.min)
-                                if type(latest_bd) == datetime.date:
-                                    latest_bd = datetime.datetime.combine(latest_bd, datetime.time.min)
-                                if m_bd > latest_bd:
-                                    latest_bd = m_bd
+                    for m in bms:
+                        if m.id in merged_bms and m.date == best_match.date:
+                            m_bd = m.broadcast_date or m.date
+                            if type(m_bd) == datetime.date:
+                                m_bd = datetime.datetime.combine(m_bd, datetime.time.min)
+                            if type(latest_bd) == datetime.date:
+                                latest_bd = datetime.datetime.combine(latest_bd, datetime.time.min)
+                            if m_bd > latest_bd:
+                                latest_bd = m_bd
 
                     ca['broadcast_date'] = latest_bd
                     ca['announcement_date_obj'] = best_match.date
