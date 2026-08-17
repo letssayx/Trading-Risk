@@ -592,7 +592,20 @@ def build_dividend_databank_task(self, force: bool = False):
         bm_query = db.query(BoardMeeting).filter(
             or_(
                 BoardMeeting.purpose.ilike('%agm%'),
-                BoardMeeting.purpose.ilike('%annual general meeting%')
+                BoardMeeting.purpose.ilike('%annual general meeting%'),
+                BoardMeeting.extracted_dividend_amount != None,
+                BoardMeeting.extracted_dividend_type.in_(['Bonus', 'Split', 'Demerger']),
+                BoardMeeting.purpose.ilike('%bonus%'),
+                BoardMeeting.purpose.ilike('%split%'),
+                BoardMeeting.purpose.ilike('%dividend%'),
+                BoardMeeting.purpose.ilike('%intdiv%'),
+                BoardMeeting.purpose.ilike('%int div%'),
+                BoardMeeting.purpose.ilike('%findiv%'),
+                BoardMeeting.purpose.ilike('%fin div%'),
+                BoardMeeting.purpose.ilike('%special%'),
+                BoardMeeting.purpose.ilike('%div-%'),
+                BoardMeeting.purpose.ilike('%div -%'),
+                BoardMeeting.purpose.ilike('% div %')
             )
         )
 
@@ -712,12 +725,71 @@ def build_dividend_databank_task(self, force: bool = False):
 
             fins.sort(key=lambda x: x.date, reverse=True)
 
+            # Phase 1: Parse First, Link Later.
+            # Match Corporate Actions back to their corresponding Board Meetings.
+            merged_bms = set()
+            for ca in ca_history:
+                ca_ann_date = ca['announcement_date_obj']
+                if hasattr(ca_ann_date, 'date'):
+                    ca_ann_date = ca_ann_date.date()
+                elif isinstance(ca_ann_date, datetime.datetime):
+                    ca_ann_date = ca_ann_date.date()
+
+                ca_type = (ca['dividend_type'] or '').lower().strip()
+                ca_amt = ca['amount']
+
+                best_match = None
+                best_diff = None
+
+                for m in bms:
+                    m_date = m.date
+                    if hasattr(m_date, 'date'):
+                        m_date = m_date.date()
+                    elif isinstance(m_date, datetime.datetime):
+                        m_date = m_date.date()
+
+                    if ca_ann_date and m_date:
+                        diff_days = (ca_ann_date - m_date).days
+                        if 0 <= diff_days <= 180:
+                            m_type = (m.extracted_dividend_type or '').lower().strip()
+                            m_amt = m.extracted_dividend_amount
+
+                            type_conflict = False
+                            if ca_type and m_type and ca_type != '-' and m_type != '-':
+                                if ca_type != m_type:
+                                    type_conflict = True
+
+                            amount_conflict = False
+                            if ca_amt is not None and m_amt is not None:
+                                try:
+                                    if abs(float(ca_amt) - float(m_amt)) > 0.01:
+                                        amount_conflict = True
+                                except (ValueError, TypeError):
+                                    amount_conflict = True
+
+                            if not type_conflict and not amount_conflict:
+                                if best_diff is None or diff_days < best_diff:
+                                    best_diff = diff_days
+                                    best_match = m
+
+                if best_match:
+                    merged_bms.add(best_match.id)
+                    ca['broadcast_date'] = best_match.broadcast_date or best_match.date
+                    ca['announcement_date_obj'] = best_match.date
+
+                    if not ca['amount'] and best_match.extracted_dividend_amount:
+                        ca['amount'] = best_match.extracted_dividend_amount
+                        ca['raw_amount'] = best_match.extracted_dividend_amount
+                    if (not ca['dividend_type'] or ca['dividend_type'] == '-') and best_match.extracted_dividend_type:
+                        ca['dividend_type'] = best_match.extracted_dividend_type
+
             final_actions = list(ca_history)
 
-            # Synthesize AGMs as separate entries
+            # Phase 2: Append Unmerged BMs and AGMs as separate entries
             for m in bms:
                 purpose_lower = (m.purpose or '').lower()
                 is_agm = 'agm' in purpose_lower or 'annual general meeting' in purpose_lower or re.search(r'\bagm\b', purpose_lower)
+
                 if is_agm:
                     agm_date = None
                     date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
@@ -746,6 +818,19 @@ def build_dividend_databank_task(self, force: bool = False):
                         "raw_amount": None,
                         "face_value": None,
                         "agm_date": agm_date
+                    })
+                elif m.id not in merged_bms and m.extracted_dividend_amount is not None:
+                    final_actions.append({
+                        "dividend_type": m.extracted_dividend_type,
+                        "purpose": m.purpose,
+                        "ex_date": None,
+                        "ex_date_obj": None,
+                        "broadcast_date": m.broadcast_date or m.date,
+                        "announcement_date_obj": m.date,
+                        "amount": m.extracted_dividend_amount,
+                        "raw_amount": m.extracted_dividend_amount,
+                        "face_value": None,
+                        "agm_date": None
                     })
 
             for act in final_actions:
