@@ -810,6 +810,12 @@ class NSELib:
                             text_to_search = f"{purpose} {desc}"
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE)
 
+                            # Aggressively remove dates to prevent numbers like "25" in "25-Oct-2024" or "25th" from being parsed as amounts
+                            _clean_text_2 = re.sub(r'\d{1,2}-[a-zA-Z]{3}-\d{4}', '', _clean_text_2, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'\d{1,2}(?:st|nd|rd|th)\s+[a-zA-Z]{3,10}\s+\d{4}', '', _clean_text_2, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'\d{1,2}/\d{1,2}/\d{2,4}', '', _clean_text_2, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'\b20\d{2}-\d{2}\b', '', _clean_text_2, flags=re.IGNORECASE) # financial years like 2026-27
+
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
                                 match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
                                 if match:

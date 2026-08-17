@@ -768,12 +768,30 @@ def build_dividend_databank_task(self, force: bool = False):
                                     amount_conflict = True
 
                             if not type_conflict and not amount_conflict:
+                                # We want to pick the latest broadcast date among BMs on the same date
                                 if best_diff is None or diff_days < best_diff:
                                     best_diff = diff_days
                                     best_match = m
+                                elif diff_days == best_diff:
+                                    # If same day, prefer the one with the latest broadcast date (Outcome > Intimation)
+                                    bm_bd = m.broadcast_date if m.broadcast_date else datetime.datetime.min
+                                    best_bd = best_match.broadcast_date if best_match.broadcast_date else datetime.datetime.min
+                                    if type(bm_bd) == datetime.date: bm_bd = datetime.datetime.combine(bm_bd, datetime.time.min)
+                                    if type(best_bd) == datetime.date: best_bd = datetime.datetime.combine(best_bd, datetime.time.min)
+                                    if bm_bd > best_bd:
+                                        best_match = m
 
                 if best_match:
                     merged_bms.add(best_match.id)
+
+                    # Also mark all other BMs with the exact same date and amount as merged to prevent duplicates
+                    for other_m in bms:
+                        if other_m.id != best_match.id and other_m.date == best_match.date:
+                            o_amt = other_m.extracted_dividend_amount
+                            b_amt = best_match.extracted_dividend_amount
+                            if (o_amt is None) or (b_amt is not None and abs(float(o_amt) - float(b_amt)) < 0.01):
+                                merged_bms.add(other_m.id)
+
                     ca['broadcast_date'] = best_match.broadcast_date or best_match.date
                     ca['announcement_date_obj'] = best_match.date
 
@@ -820,11 +838,25 @@ def build_dividend_databank_task(self, force: bool = False):
                         "agm_date": agm_date
                     })
                 elif m.id not in merged_bms and m.extracted_dividend_amount is not None:
+                    parsed_ex_date = None
+                    try:
+                        # Sometimes extracted_record_date is present in the BM directly (from nse_lib pdf parsing)
+                        if hasattr(m, 'extracted_record_date') and m.extracted_record_date:
+                            from datetime import datetime as dt_internal
+                            for fmt in ['%d-%b-%Y', '%d/%m/%Y', '%Y-%m-%d']:
+                                try:
+                                    parsed_ex_date = dt_internal.strptime(m.extracted_record_date, fmt).date()
+                                    break
+                                except ValueError:
+                                    continue
+                    except Exception:
+                        pass
+
                     final_actions.append({
                         "dividend_type": m.extracted_dividend_type,
                         "purpose": m.purpose,
-                        "ex_date": None,
-                        "ex_date_obj": None,
+                        "ex_date": parsed_ex_date.strftime("%Y-%m-%d") if parsed_ex_date else None,
+                        "ex_date_obj": parsed_ex_date,
                         "broadcast_date": m.broadcast_date or m.date,
                         "announcement_date_obj": m.date,
                         "amount": m.extracted_dividend_amount,
