@@ -812,7 +812,9 @@ class NSELib:
 
                             # Aggressively remove dates to prevent numbers like "25" in "25-Oct-2024" or "25th" from being parsed as amounts
                             _clean_text_2 = re.sub(r'\d{1,2}-[a-zA-Z]{3}-\d{4}', '', _clean_text_2, flags=re.IGNORECASE)
-                            _clean_text_2 = re.sub(r'\d{1,2}(?:st|nd|rd|th)\s+[a-zA-Z]{3,10}\s+\d{4}', '', _clean_text_2, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'\b\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:uary|ruary|arch|ril|ust|ember|tember|ober)?\s+\d{4}?\b', '', _clean_text_2, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:uary|ruary|arch|ril|ust|ember|tember|ober)?\s+\d{4}\b', '', _clean_text_2, flags=re.IGNORECASE)
+                            _clean_text_2 = re.sub(r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:uary|ruary|arch|ril|ust|ember|tember|ober)?\b', '', _clean_text_2, flags=re.IGNORECASE)
                             _clean_text_2 = re.sub(r'\d{1,2}/\d{1,2}/\d{2,4}', '', _clean_text_2, flags=re.IGNORECASE)
                             _clean_text_2 = re.sub(r'\b20\d{2}-\d{2}\b', '', _clean_text_2, flags=re.IGNORECASE) # financial years like 2026-27
 
@@ -825,8 +827,8 @@ class NSELib:
                                 ui_patterns = [
                                     r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)',
                                     r'(\d+(?:\.\d+)?)\s*\/\-',
-                                    r'(?:dividend|int\s*div)\s+of\s+(\d+(?:\.\d+)?)',
-                                    r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?)\s+per'
+                                    r'(?:dividend|int\s*div|fin\s*div)\s+of\s+(\d+(?:\.\d+)?)',
+                                    r'(?:dividend|int\s*div|fin\s*div).{0,25}?\s+(\d+(?:\.\d+)?)\s+per'
                                 ]
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE)

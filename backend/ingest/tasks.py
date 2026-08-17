@@ -789,10 +789,23 @@ def build_dividend_databank_task(self, force: bool = False):
                         if other_m.id != best_match.id and other_m.date == best_match.date:
                             o_amt = other_m.extracted_dividend_amount
                             b_amt = best_match.extracted_dividend_amount
-                            if (o_amt is None) or (b_amt is not None and abs(float(o_amt) - float(b_amt)) < 0.01):
+                            if (o_amt is None) or (b_amt is not None and o_amt is not None and abs(float(o_amt) - float(b_amt)) < 0.01):
                                 merged_bms.add(other_m.id)
 
-                    ca['broadcast_date'] = best_match.broadcast_date or best_match.date
+                    # Ensure we use the latest broadcast date among the merged BMs (Outcome > Intimation)
+                    latest_bd = best_match.broadcast_date or best_match.date
+                    for m_id in merged_bms:
+                        for m in bms:
+                            if m.id == m_id:
+                                m_bd = m.broadcast_date or m.date
+                                if type(m_bd) == datetime.date:
+                                    m_bd = datetime.datetime.combine(m_bd, datetime.time.min)
+                                if type(latest_bd) == datetime.date:
+                                    latest_bd = datetime.datetime.combine(latest_bd, datetime.time.min)
+                                if m_bd > latest_bd:
+                                    latest_bd = m_bd
+
+                    ca['broadcast_date'] = latest_bd
                     ca['announcement_date_obj'] = best_match.date
 
                     if not ca['amount'] and best_match.extracted_dividend_amount:
