@@ -931,11 +931,15 @@ def build_dividend_databank_task(self, force: bool = False):
                         matched_row.is_awaited = False
 
                     # Only inherit broadcast date if it's earlier or if current is None
-                    if broad_date and (not matched_row.broadcast_date or broad_date < matched_row.broadcast_date):
+                    bd1 = broad_date.date() if hasattr(broad_date, 'date') else broad_date
+                    bd2 = matched_row.broadcast_date.date() if hasattr(matched_row.broadcast_date, 'date') else matched_row.broadcast_date
+                    if broad_date and (not matched_row.broadcast_date or bd1 < bd2):
                         matched_row.broadcast_date = broad_date
 
                     ann_d = act.get('announcement_date_obj')
-                    if ann_d and (not matched_row.announcement_date or ann_d < matched_row.announcement_date):
+                    ad1 = ann_d.date() if hasattr(ann_d, 'date') else ann_d
+                    ad2 = matched_row.announcement_date.date() if hasattr(matched_row.announcement_date, 'date') else matched_row.announcement_date
+                    if ann_d and (not matched_row.announcement_date or ad1 < ad2):
                         matched_row.announcement_date = ann_d
 
                     if amount_val is not None:
