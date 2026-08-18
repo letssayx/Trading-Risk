@@ -674,20 +674,19 @@ def build_dividend_databank_task(self, force: bool = False):
             # Phase 1: Deduplication Linkage - Match CA backward to BM
             best_bm = None
             best_diff = 9999
-            merged_bm_date = None
 
             ca_date = r.date
             if hasattr(ca_date, 'date'): ca_date = ca_date.date()
 
+            # Find the true outcome board meeting (the one that announced the amount)
             for bm in bm_by_symbol.get(sym, []):
                 if bm.purpose and ('agm' in bm.purpose.lower() or 'annual general meeting' in bm.purpose.lower()):
-                    continue # Skip pure AGMs from linking to CAs for amounts
+                    continue
 
                 bm_d = bm.date
                 if hasattr(bm_d, 'date'): bm_d = bm_d.date()
 
                 diff_days = (ca_date - bm_d).days
-                # 180 days backward window as per memory
                 if 0 <= diff_days <= 180:
                     type_conflict = False
                     if r.dividend_type and bm.extracted_dividend_type:
@@ -703,35 +702,48 @@ def build_dividend_databank_task(self, force: bool = False):
                                 amount_conflict = True
                         except:
                             pass
+                    elif parsed_amount is not None and bm.extracted_dividend_amount is None:
+                        # Intimations usually don't have amounts. We prefer an outcome (which has amount).
+                        # We will allow it to match an intimation IF we don't find an outcome, but penalize it.
+                        diff_days += 30
 
                     if not type_conflict and not amount_conflict:
                         if diff_days < best_diff:
                             best_diff = diff_days
                             best_bm = bm
-                            merged_bm_date = bm_d
 
-            # Inherit broadcast date and announcement date
             final_broadcast = r.broadcast_date
             final_ann_date = ca_date
 
             if best_bm:
-                # Inherit from best_bm
-                final_broadcast = best_bm.broadcast_date or r.broadcast_date
-                final_ann_date = best_bm.date
-                if hasattr(final_ann_date, 'date'): final_ann_date = final_ann_date.date()
+                # The meeting date is the date of the outcome BM
+                bm_outcome_date = best_bm.date
+                if hasattr(bm_outcome_date, 'date'): bm_outcome_date = bm_outcome_date.date()
 
-                # Mark all BMs on same day as merged to prevent duplicates
+                final_ann_date = bm_outcome_date
+                final_broadcast = best_bm.broadcast_date or r.broadcast_date
+
+                # Now find the EARLIEST intimation for THIS specific meeting date to get the true broadcast date
+                # We also mark all intimations and outcomes for this event as merged to prevent duplicates
                 for bm in bm_by_symbol.get(sym, []):
                     bm_d = bm.date
                     if hasattr(bm_d, 'date'): bm_d = bm_d.date()
-                    if bm_d == merged_bm_date:
+
+                    # If this BM is on the same day as the outcome, it's part of the event
+                    if bm_d == bm_outcome_date:
                         bm._is_merged_to_ca = True
-                        # If multiple BMs exist on the same date, prefer the latest broadcast date
-                        if bm.broadcast_date and (not final_broadcast or bm.broadcast_date > final_broadcast):
+                        if bm.broadcast_date and (not final_broadcast or bm.broadcast_date < final_broadcast):
                             final_broadcast = bm.broadcast_date
 
+                    # What if it's an intimation days prior?
+                    # Intimations specify the meeting date in their text usually, or they just announce a meeting in the future.
+                    # A robust heuristic: any board meeting within 45 days prior to the outcome date that has NO amount and matching generic type.
+                    elif 0 < (bm_outcome_date - bm_d).days <= 45:
+                        if bm.extracted_dividend_amount is None:
+                            bm._is_merged_to_ca = True
+                            if bm.broadcast_date and (not final_broadcast or bm.broadcast_date < final_broadcast):
+                                final_broadcast = bm.broadcast_date
 
-            # Apply T+1 ex-date fallback if ex_date is missing but record_date exists
             ex_date_val = r.ex_date
             if not ex_date_val and r.record_date:
                 ex_date_val = r.record_date
@@ -778,8 +790,11 @@ def build_dividend_databank_task(self, force: bool = False):
 
             final_actions = list(ca_history)
 
-            # Phase 2 Deduplication: Synthesize unmerged BMs as separate entries
-            for m in bms:
+            # Pre-group unmerged BMs to prevent duplicate awaited dividends (e.g. Intimation + Outcome missing CA)
+            unmerged_bms = [m for m in bms if not getattr(m, '_is_merged_to_ca', False)]
+
+            # Group unmerged AGMs and Dividends separately
+            for m in unmerged_bms:
                 purpose_lower = (m.purpose or '').lower()
                 is_agm = 'agm' in purpose_lower or 'annual general meeting' in purpose_lower or re.search(r'\bagm\b', purpose_lower)
                 if is_agm:
@@ -811,12 +826,28 @@ def build_dividend_databank_task(self, force: bool = False):
                         "agm_date": agm_date,
                         "is_ca": False
                     })
-                elif not getattr(m, '_is_merged_to_ca', False):
+                else:
                     # Unmerged dividend BM -> awaited dividend
                     bm_d = m.date
                     if hasattr(bm_d, 'date'): bm_d = bm_d.date()
 
-                    # Parse record date dynamically from BM if present
+                    # IF this BM has no amount, and there's another BM in unmerged_bms within 45 days forward that HAS an amount,
+                    # it is an intimation for an awaited dividend. We should skip inserting the intimation itself.
+                    if m.extracted_dividend_amount is None:
+                         has_outcome = False
+                         for future_bm in unmerged_bms:
+                              if future_bm.extracted_dividend_amount is not None:
+                                   f_d = future_bm.date
+                                   if hasattr(f_d, 'date'): f_d = f_d.date()
+                                   if 0 < (f_d - bm_d).days <= 45:
+                                        has_outcome = True
+                                        # Inherit broadcast date forward to the outcome
+                                        if m.broadcast_date and (not future_bm.broadcast_date or m.broadcast_date < future_bm.broadcast_date):
+                                             future_bm.broadcast_date = m.broadcast_date
+                                        break
+                         if has_outcome:
+                              continue # Skip standalone intimation since outcome handles it
+
                     bm_record_date = None
                     if m.bm_desc:
                          rd_match = re.search(r'record date.*?(?P<date>\d{2}-\w{3}-\d{4}|\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})', m.bm_desc.lower())
@@ -833,7 +864,6 @@ def build_dividend_databank_task(self, force: bool = False):
                              except:
                                  pass
 
-                    # Expected ex-date becomes record date as per Indian T+1
                     ex_date_val = bm_record_date
 
                     final_actions.append({
@@ -896,7 +926,6 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     r_type = row.dividend_type
 
-                    # Upgrade generic type if needed
                     if (not r_type or r_type == '-' or r_type.lower() == 'dividend') and dividend_type_val and dividend_type_val not in ['-', '']:
                          r_type = dividend_type_val
 
@@ -918,10 +947,15 @@ def build_dividend_databank_task(self, force: bool = False):
                     if type_conflict or amount_conflict:
                          continue
 
-                    # Prioritize exact matching Ex-Date or resolving awaited Ex-Date
-                    is_ex_date_match = (r_ex == r_ex_val) or (row.is_awaited and r_ex == datetime.date(1900, 1, 1) and r_ex_val != datetime.date(1900, 1, 1))
+                    # Allow match if it's identical ex-date OR resolving an awaited ex-date OR it's the exact same announcement date (protects vs duplicate missing ex-dates)
+                    ann_d = act.get('announcement_date_obj')
+                    ad1 = ann_d.date() if hasattr(ann_d, 'date') else ann_d
+                    ad2 = row.announcement_date.date() if hasattr(row.announcement_date, 'date') else row.announcement_date
 
-                    if is_ex_date_match and r_type == dividend_type_val:
+                    is_ex_date_match = (r_ex == r_ex_val) or (row.is_awaited and r_ex == datetime.date(1900, 1, 1) and r_ex_val != datetime.date(1900, 1, 1))
+                    is_ann_date_match = (ad1 == ad2 and ad1 is not None)
+
+                    if (is_ex_date_match or is_ann_date_match) and r_type == dividend_type_val:
                         matched_row = row
                         break
 
@@ -930,7 +964,6 @@ def build_dividend_databank_task(self, force: bool = False):
                         matched_row.ex_date = ex_date_val
                         matched_row.is_awaited = False
 
-                    # Only inherit broadcast date if it's earlier or if current is None
                     bd1 = broad_date.date() if hasattr(broad_date, 'date') else broad_date
                     bd2 = matched_row.broadcast_date.date() if hasattr(matched_row.broadcast_date, 'date') else matched_row.broadcast_date
                     if broad_date and (not matched_row.broadcast_date or bd1 < bd2):
