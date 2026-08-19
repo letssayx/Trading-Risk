@@ -795,7 +795,7 @@ def build_dividend_databank_task(self, force: bool = False):
             if not ex_date_val and r.record_date:
                 ex_date_val = r.record_date
 
-            ca_by_symbol[sym].append({
+            new_ca = {
                 "ex_date": ex_date_val.strftime("%Y-%m-%d") if ex_date_val else None,
                 "ex_date_obj": ex_date_val,
                 "announcement_date_obj": final_ann_date,
@@ -807,7 +807,18 @@ def build_dividend_databank_task(self, force: bool = False):
                 "face_value": r.face_value if hasattr(r, 'face_value') else None,
                 "record_date": r.record_date if hasattr(r, 'record_date') else None,
                 "is_ca": True
-            })
+            }
+
+            # STRICT DEDUPLICATION: If we already have a CA with the EXACT same amount, ex-date, and dividend type, do not append it.
+            is_duplicate = False
+            for existing_ca in ca_by_symbol[sym]:
+                if existing_ca.get('amount') == new_ca.get('amount') and \
+                   existing_ca.get('ex_date') == new_ca.get('ex_date') and \
+                   existing_ca.get('dividend_type') == new_ca.get('dividend_type'):
+                       is_duplicate = True
+                       break
+            if not is_duplicate:
+                ca_by_symbol[sym].append(new_ca)
 
         db.commit()
 
@@ -918,7 +929,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                     ex_date_val = bm_record_date
 
-                    final_actions.append({
+                    new_bm_action = {
                         "dividend_type": m.extracted_dividend_type,
                         "purpose": m.purpose,
                         "ex_date": ex_date_val.strftime("%Y-%m-%d") if ex_date_val else None,
@@ -931,7 +942,18 @@ def build_dividend_databank_task(self, force: bool = False):
                         "agm_date": agm_date,
                         "record_date": bm_record_date,
                         "is_ca": False
-                    })
+                    }
+
+                    # STRICT DEDUPLICATION for awaited BMs:
+                    is_bm_duplicate = False
+                    for existing_act in final_actions:
+                        if existing_act.get('amount') == new_bm_action.get('amount') and \
+                           existing_act.get('announcement_date_obj') == new_bm_action.get('announcement_date_obj') and \
+                           existing_act.get('dividend_type') == new_bm_action.get('dividend_type'):
+                               is_bm_duplicate = True
+                               break
+                    if not is_bm_duplicate:
+                        final_actions.append(new_bm_action)
 
             for act in final_actions:
                 ex_date_val = act.get('ex_date_obj')
@@ -1004,10 +1026,16 @@ def build_dividend_databank_task(self, force: bool = False):
                     ad1 = ann_d.date() if hasattr(ann_d, 'date') else ann_d
                     ad2 = row.announcement_date.date() if hasattr(row.announcement_date, 'date') else row.announcement_date
 
-                    is_ex_date_match = (r_ex == r_ex_val) or (row.is_awaited and r_ex == datetime.date(1900, 1, 1) and r_ex_val != datetime.date(1900, 1, 1))
-                    is_ann_date_match = (ad1 == ad2 and ad1 is not None)
+                    # EXPLICIT DATE MATCHING:
+                    # We ONLY match if they share the exact same Ex-Date.
+                    # Or, if the DB row is missing an ex-date (awaited), we can link it if it shares the exact same Announcement Date.
+                    is_ex_date_match = (r_ex == r_ex_val and r_ex != datetime.date(1900, 1, 1))
+                    is_awaited_match = (row.is_awaited and r_ex == datetime.date(1900, 1, 1) and r_ex_val != datetime.date(1900, 1, 1) and ad1 == ad2)
 
-                    if (is_ex_date_match or is_ann_date_match) and r_type == dividend_type_val:
+                    # If BOTH are missing an ex-date (1900-01-01), they are both awaited. Match by announcement date.
+                    is_both_awaited_match = (r_ex == datetime.date(1900, 1, 1) and r_ex_val == datetime.date(1900, 1, 1) and ad1 == ad2)
+
+                    if (is_ex_date_match or is_awaited_match or is_both_awaited_match) and r_type == dividend_type_val:
                         matched_row = row
                         break
 
