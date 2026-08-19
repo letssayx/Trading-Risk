@@ -755,11 +755,12 @@ def build_dividend_databank_task(self, force: bool = False):
                 bm_outcome_date = best_bm.date
                 if hasattr(bm_outcome_date, 'date'): bm_outcome_date = bm_outcome_date.date()
 
+                # ONLY use the Outcome board meeting for dates. Do not inherit earlier intimation dates.
                 final_ann_date = bm_outcome_date
                 final_broadcast = best_bm.broadcast_date or r.broadcast_date
 
-                # Now aggressively find and merge surrounding intimations and ex-date general updates
-                # that belong to this same dividend event.
+                # Now merge surrounding intimations and ex-date general updates
+                # that belong to this same dividend event so they don't appear as duplicates.
                 for bm in bm_by_symbol.get(sym, []):
                     bm_d = bm.date
                     if hasattr(bm_d, 'date'): bm_d = bm_d.date()
@@ -767,24 +768,22 @@ def build_dividend_databank_task(self, force: bool = False):
                     # Same day as outcome
                     if bm_d == bm_outcome_date:
                         bm._is_merged_to_ca = True
+                        # If multiple on same day, pick earliest broadcast ONLY for that specific day
                         if bm.broadcast_date and (not final_broadcast or bm.broadcast_date < final_broadcast):
                             final_broadcast = bm.broadcast_date
 
-                    # Past Intimations: up to 60 days prior with NO conflicting amount
+                    # Past Intimations: up to 60 days prior with NO amount
                     elif 0 < (bm_outcome_date - bm_d).days <= 60:
                         if bm.extracted_dividend_amount is None:
-                            # Avoid merging intimations for purely unrelated things if it's way off,
-                            # but usually safe if it mentions meeting or dividend
                             if 'div' in (bm.purpose or '').lower() or 'meet' in (bm.purpose or '').lower():
                                 bm._is_merged_to_ca = True
-                                if bm.broadcast_date and (not final_broadcast or bm.broadcast_date < final_broadcast):
-                                    final_broadcast = bm.broadcast_date
+                                # DO NOT inherit the broadcast date from the intimation.
 
-                    # Future Ex-Date Announcements: up to 180 days after, with NO conflicting amount
+                    # Future Ex-Date Announcements: up to 180 days after, with NO amount
                     elif 0 < (bm_d - bm_outcome_date).days <= 180:
                         # Only merge if it's explicitly tied to a record date or same dividend type
-                        # AND doesn't have an amount (or has the EXACT same amount)
-                        if bm.extracted_dividend_amount is None or bm.extracted_dividend_amount == best_bm.extracted_dividend_amount:
+                        # AND it explicitly lacks an amount (to avoid swallowing future legitimate dividends)
+                        if bm.extracted_dividend_amount is None:
                              is_related_type = False
                              if bm.extracted_dividend_type and best_bm.extracted_dividend_type:
                                   is_related_type = (bm.extracted_dividend_type.lower() == best_bm.extracted_dividend_type.lower())
