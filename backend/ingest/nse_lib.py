@@ -1055,7 +1055,6 @@ class NSELib:
                     bdate_obj = None
                     if bdate:
                         try:
-                            import re
                             bdate_clean = re.sub(r'\.\d+', '', str(bdate)).strip()
                             bdate_obj = datetime.strptime(bdate_clean, "%d-%b-%Y %H:%M:%S").date()
                         except:
