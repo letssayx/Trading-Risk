@@ -300,6 +300,12 @@ class FieldMapper:
         # 1. Aggressively remove 'face value' and 'fv' context blocks
         _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
 
+        # Strip explicit dates and ordinals to prevent them being parsed as amounts
+        _clean_purpose = re.sub(r'\b\d{1,2}(st|nd|rd|th)?\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*\d{0,4}\b', '', _clean_purpose)
+        _clean_purpose = re.sub(r'\b\d{1,2}-\w{3}-\d{2,4}\b', '', _clean_purpose)
+        _clean_purpose = re.sub(r'\b\d{4}-\d{2}\b', '', _clean_purpose)
+        _clean_purpose = re.sub(r'\b\d{4}\b', '', _clean_purpose)
+
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:
