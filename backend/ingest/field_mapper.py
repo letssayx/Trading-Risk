@@ -300,6 +300,16 @@ class FieldMapper:
         # 1. Aggressively remove 'face value' and 'fv' context blocks
         _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
 
+        # 1.5 Aggressively strip dates to prevent fallback regex from capturing days/years as amounts
+        # e.g., '24-Oct-2024', '24/10/2024', '24th October 2024', 'FY 2024-25', '2024-25'
+        _clean_purpose = re.sub(r'\b\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(?:,)?\s*\d{2,4}\b', '', _clean_purpose, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?\s*(?:,)?\s*\d{2,4}\b', '', _clean_purpose, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'\b\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4}\b', '', _clean_purpose)
+        _clean_purpose = re.sub(r'\b\d{1,2}[-/\.][a-z]{3}[-/\.]\d{2,4}\b', '', _clean_purpose, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'\bfy\s*\d{2,4}(?:-\d{2,4})?\b', '', _clean_purpose, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'\b20\d{2}-\d{2,4}\b', '', _clean_purpose)
+        _clean_purpose = re.sub(r'\b20[2-3]\d\b', '', _clean_purpose)
+
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:

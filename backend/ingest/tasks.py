@@ -724,11 +724,17 @@ def build_dividend_databank_task(self, force: bool = False):
                                         break
                                 except (ValueError, TypeError):
                                     pass
+
                     if linked_bm:
+                        # Mark ALL matching board meetings in this cluster to prevent duplicates
+                        for bm in cluster:
+                            if bm.extracted_dividend_type and r.dividend_type and bm.extracted_dividend_type.lower() == r.dividend_type.lower():
+                                # Only mark if they match the type (e.g. Interim), preventing deletion of unrelated events
+                                bm._is_merged_to_ca = True
                         break
 
             if linked_bm:
-                linked_bm._is_merged_to_ca = True
+                # Corporate Action STRICTLY absorbs the Outcome board meeting's announcement dates
                 ann_date = linked_bm.date
                 broad_date = linked_bm.broadcast_date
             else:
@@ -928,7 +934,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         matched_row.broadcast_date = broad_date
 
                     ann_d = act.get('announcement_date_obj')
-                    if ann_d and not matched_row.announcement_date:
+                    if ann_d:
                         matched_row.announcement_date = ann_d
 
                     if amount_val is not None:
