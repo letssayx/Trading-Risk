@@ -591,8 +591,13 @@ def build_dividend_databank_task(self, force: bool = False):
 
         bm_query = db.query(BoardMeeting).filter(
             or_(
+                BoardMeeting.extracted_dividend_amount != None,
                 BoardMeeting.purpose.ilike('%agm%'),
-                BoardMeeting.purpose.ilike('%annual general meeting%')
+                BoardMeeting.purpose.ilike('%annual general meeting%'),
+                BoardMeeting.purpose.ilike('%dividend%'),
+                BoardMeeting.purpose.ilike('%bonus%'),
+                BoardMeeting.purpose.ilike('%split%'),
+                BoardMeeting.purpose.ilike('%demerger%')
             )
         )
 
@@ -667,11 +672,73 @@ def build_dividend_databank_task(self, force: bool = False):
             if hasattr(ann_date, 'date'):
                 ann_date = ann_date.date()
 
+            # Phase 1: Linkage (Corporate Action to Board Meeting)
+            # Try to find the original Board Meeting that announced this corporate action
+            linked_bm = None
+            if True:  # Always allow linking even for Bonus/Split
+                # Find matching board meetings in the last 180 days
+                potential_bms = []
+                r_date_val = r.ex_date or r.date
+                if hasattr(r_date_val, 'date'): r_date_val = r_date_val.date()
+                elif isinstance(r_date_val, datetime.datetime): r_date_val = r_date_val.date()
+
+                for bm in bm_records:
+                    if bm.symbol.upper() == sym:
+                        bm_date_val = bm.date
+                        if hasattr(bm_date_val, 'date'): bm_date_val = bm_date_val.date()
+                        elif isinstance(bm_date_val, datetime.datetime): bm_date_val = bm_date_val.date()
+
+                        try:
+                            if bm_date_val <= r_date_val and abs((r_date_val - bm_date_val).days) <= 180:
+                                potential_bms.append(bm)
+                        except TypeError:
+                            pass
+
+                # Group into clusters if same day
+                clusters = defaultdict(list)
+                for bm in potential_bms:
+                    bm_d = bm.date
+                    if hasattr(bm_d, 'date'): bm_d = bm_d.date()
+                    elif isinstance(bm_d, datetime.datetime): bm_d = bm_d.date()
+                    clusters[bm_d].append(bm)
+
+                # Sort clusters by chronological proximity to Corporate Action
+                sorted_dates = sorted(clusters.keys(), key=lambda d: abs((r_date_val - d).days) if type(d) == type(r_date_val) else 999)
+
+                for d in sorted_dates:
+                    cluster = clusters[d]
+                    # Find "Outcome" meeting in cluster (has dividend amount)
+                    for bm in cluster:
+                        bm_type = bm.extracted_dividend_type
+                        bm_amt = bm.extracted_dividend_amount
+                        # For non-dividends (Bonus/Split/Demerger), match just on type.
+                        if r.dividend_type in ['Bonus', 'Split', 'Demerger']:
+                            if bm_type and r.dividend_type and bm_type.lower() == r.dividend_type.lower():
+                                linked_bm = bm
+                                break
+                        elif bm_type and r.dividend_type and bm_type.lower() == r.dividend_type.lower():
+                            if parsed_amount is not None and bm_amt is not None:
+                                try:
+                                    if abs(float(parsed_amount) - float(bm_amt)) < 0.01:
+                                        linked_bm = bm
+                                        break
+                                except (ValueError, TypeError):
+                                    pass
+                    if linked_bm:
+                        break
+
+            if linked_bm:
+                linked_bm._is_merged_to_ca = True
+                ann_date = linked_bm.date
+                broad_date = linked_bm.broadcast_date
+            else:
+                broad_date = r.broadcast_date if hasattr(r, 'broadcast_date') else None
+
             ca_by_symbol[sym].append({
                 "ex_date": r.ex_date.strftime("%Y-%m-%d") if r.ex_date else None,
                 "ex_date_obj": r.ex_date,
                 "announcement_date_obj": ann_date,
-                "broadcast_date": r.broadcast_date if hasattr(r, 'broadcast_date') else None,
+                "broadcast_date": broad_date,
                 "dividend_type": r.dividend_type,
                 "purpose": r.purpose,
                 "amount": parsed_amount,
@@ -747,6 +814,50 @@ def build_dividend_databank_task(self, force: bool = False):
                         "face_value": None,
                         "agm_date": agm_date
                     })
+
+                # Skip if already merged to a corporate action
+                if getattr(m, '_is_merged_to_ca', False):
+                    continue
+
+                # If it's a dividend/bonus/split announcement that hasn't hit CA yet
+                if m.extracted_dividend_amount is not None or any(k in purpose_lower for k in ['bonus', 'split', 'demerger', 'dividend', 'div-']):
+
+                    ext_type = m.extracted_dividend_type
+                    ext_amt = m.extracted_dividend_amount
+                    if ext_amt is None and not any(k in purpose_lower for k in ['bonus', 'split', 'demerger']):
+                        reparsed_amt, _ = FieldMapper._parse_dividend(m.purpose, None)
+                        if reparsed_amt is not None:
+                            ext_amt = reparsed_amt
+
+                    if not ext_type:
+                        if 'interim' in purpose_lower: ext_type = 'Interim'
+                        elif 'final' in purpose_lower: ext_type = 'Final'
+                        elif 'special' in purpose_lower: ext_type = 'Special'
+                        else: ext_type = '-'
+
+                    # Try to parse record date from the purpose to use as expected ex_date
+                    rec_date = None
+                    rec_match = re.search(r'record date.*?(?:is|as)?\s*(\d{1,2}(?:st|nd|rd|th)?\s*[a-zA-Z]{3,9}\s*\d{4}|\d{1,2}-\d{1,2}-\d{4})', purpose_lower)
+                    if rec_match:
+                        from dateutil.parser import parse
+                        try:
+                            rec_date = parse(rec_match.group(1)).date()
+                        except:
+                            pass
+
+                    if ext_amt is not None or ext_type in ['Bonus', 'Split', 'Demerger']:
+                        final_actions.append({
+                            "dividend_type": ext_type,
+                            "purpose": m.purpose,
+                            "ex_date": None,
+                            "ex_date_obj": rec_date,  # Use derived record date if any
+                            "broadcast_date": m.broadcast_date or m.date,
+                            "announcement_date_obj": m.date,
+                            "amount": ext_amt,
+                            "raw_amount": ext_amt,
+                            "face_value": None,
+                            "agm_date": None
+                        })
 
             for act in final_actions:
                 ex_date_val = act.get('ex_date_obj')
