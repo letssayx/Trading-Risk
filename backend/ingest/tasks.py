@@ -762,12 +762,21 @@ def build_dividend_databank_task(self, force: bool = False):
                     # Find dividend type
                     div_type = m.extracted_dividend_type or '-'
                     if div_type == '-':
-                        if 'interim' in purpose_lower: div_type = 'Interim'
-                        elif 'special' in purpose_lower: div_type = 'Special'
-                        elif 'final' in purpose_lower or 'yearly audited' in purpose_lower or 'annual results' in purpose_lower: div_type = 'Final'
-                        elif 'bonus' in purpose_lower: div_type = 'Bonus'
-                        elif 'split' in purpose_lower or 'sub-division' in purpose_lower: div_type = 'Split'
-                        else: div_type = 'Dividend'
+                        if 'interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower:
+                            div_type = 'Interim'
+                        elif 'final' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower:
+                            div_type = 'Final'
+                        elif 'special' in purpose_lower:
+                            div_type = 'Special'
+                        elif 'yearly audited' in purpose_lower or 'annual results' in purpose_lower:
+                            # Yearly/Annual results typically declare Final dividend
+                            div_type = 'Final'
+                        elif 'bonus' in purpose_lower:
+                            div_type = 'Bonus'
+                        elif 'split' in purpose_lower or 'sub-division' in purpose_lower:
+                            div_type = 'Split'
+                        else:
+                            div_type = 'Dividend'
 
                     # Extract amount using FieldMapper if missing
                     if amount is None:
