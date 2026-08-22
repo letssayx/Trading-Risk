@@ -687,29 +687,22 @@ def build_dividend_databank_task(self, force: bool = False):
                 # Try to find BM with STRICT type + amount match first
                 best_bm = None
 
-                # PASS 1: Strict match (type + amount)
+                # PASS 1: Strict match (Type + Amount) - PRIMARY
                 for bm in bms:
                     if bm.id in matched_bm_ids:
                         continue
 
-                    bm_date = bm.date
-                    if hasattr(bm_date, 'date'):
-                        bm_date = bm_date.date()
-
+                    bm_date = bm.date.date() if hasattr(bm.date, 'date') else bm.date
                     if bm_date and ca_ex_date and bm_date > ca_ex_date:
                         continue
 
                     # Get BM type
-                    bm_type = None
                     bm_purpose = (bm.purpose or '').lower()
-                    if 'final' in bm_purpose or 'findiv' in bm_purpose or 'fin div' in bm_purpose:
-                        bm_type = 'Final'
-                    elif 'interim' in bm_purpose or 'intdiv' in bm_purpose or 'int div' in bm_purpose:
-                        bm_type = 'Interim'
-                    elif 'special' in bm_purpose:
-                        bm_type = 'Special'
+                    bm_type = 'Final' if ('final' in bm_purpose or 'findiv' in bm_purpose) else \
+                              'Interim' if ('interim' in bm_purpose or 'intdiv' in bm_purpose) else \
+                              'Special' if 'special' in bm_purpose else None
 
-                    # Skip if no type match
+                    # Type must match
                     if ca_type and bm_type and ca_type != bm_type:
                         continue
 
@@ -722,70 +715,44 @@ def build_dividend_databank_task(self, force: bool = False):
                                 break  # Perfect match found
                         except:
                             continue
-                    elif bm_amt is None and ca_amt is None:
-                        # Both have no amount - weak match, but acceptable
-                        if best_bm is None:
-                            best_bm = bm
 
-                # PASS 2: If no strict match, try chronological match
+                # PASS 2: Type match + Chronological Anchor - FALLBACK
+                # If strict amount match failed (e.g., BM amount is missing or mismatched),
+                # we still link to the earliest valid BM of the same Type to preserve the timeline anchor.
                 if not best_bm:
                     for bm in bms:
                         if bm.id in matched_bm_ids:
                             continue
 
-                        bm_date = bm.date
-                        if hasattr(bm_date, 'date'):
-                            bm_date = bm_date.date()
-
+                        bm_date = bm.date.date() if hasattr(bm.date, 'date') else bm.date
                         if bm_date and ca_ex_date and bm_date > ca_ex_date:
                             continue
 
                         # Get BM type
-                        bm_type = None
                         bm_purpose = (bm.purpose or '').lower()
-                        if 'final' in bm_purpose or 'findiv' in bm_purpose or 'fin div' in bm_purpose:
-                            bm_type = 'Final'
-                        elif 'interim' in bm_purpose or 'intdiv' in bm_purpose or 'int div' in bm_purpose:
-                            bm_type = 'Interim'
-                        elif 'special' in bm_purpose:
-                            bm_type = 'Special'
+                        bm_type = 'Final' if ('final' in bm_purpose or 'findiv' in bm_purpose) else \
+                                  'Interim' if ('interim' in bm_purpose or 'intdiv' in bm_purpose) else \
+                                  'Special' if 'special' in bm_purpose else None
 
-                        # Skip AGMs (unless it's AGM+dividend)
-                        if 'agm' in bm_purpose and not ca_type == 'Final':
-                            continue
-
-                        # Type compatibility check
+                        # Type must match
                         if ca_type and bm_type and ca_type != bm_type:
                             continue
 
-                        # Amount check (allow if BM amount is None, but prefer exact match)
-                        bm_amt = bm.extracted_dividend_amount
-                        amount_ok = False
-
-                        if bm_amt is not None and ca_amt is not None:
-                            try:
-                                if abs(float(bm_amt) - float(ca_amt)) < 0.01:
-                                    amount_ok = True
-                            except:
-                                pass
-                        elif bm_amt is None:
-                            # Only allow if there's no CA with better match
-                            amount_ok = True
-
-                        if amount_ok:
-                            best_bm = bm
-                            break  # Take earliest BM with type compatibility
+                        # If Type matches, link to this earliest BM to anchor the broadcast date
+                        best_bm = bm
+                        break  # Since bms are sorted chronologically, first match is the earliest anchor
 
                 if best_bm:
                     matched_bm_ids.add(best_bm.id)
-                    broad_date = best_bm.broadcast_date
-                    ann_date = best_bm.date
+                    broad_date = best_bm.broadcast_date  # Anchors to April 23
+                    ann_date = best_bm.date              # Anchors to April 27
                     bm_date_for_agm = best_bm.date
                 else:
-                    # No match found - use CA's own dates
+                    # No type match found - use CA's own dates (e.g., July announcement)
                     broad_date = ca.get('broadcast_date')
                     ann_date = ca.get('announcement_date_obj')
                     bm_date_for_agm = None
+
 
                 # Determine if this is "awaited" (no ex-date yet)
                 is_awaited = ca_ex_date is None

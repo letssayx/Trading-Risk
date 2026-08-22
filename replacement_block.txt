@@ -1,49 +1,22 @@
-        for sym in event_symbols:
-            ca_history = ca_by_symbol.get(sym, [])
-            bms = bm_by_symbol.get(sym, [])
-            fins = fin_by_symbol.get(sym, [])
-            fins.sort(key=lambda x: x.date, reverse=True)
-
-            # Sort CAs by Ex-date (ascending) and BMs by date (ascending)
-            ca_history.sort(key=lambda x: x.get('ex_date_obj') or datetime.date(1900, 1, 1))
-            bms.sort(key=lambda x: x.date if x.date else datetime.date(1900, 1, 1))
-
-            final_actions = []
-            matched_bm_ids = set()
-
-            for ca in ca_history:
-                ca_type = ca.get('dividend_type')
-                ca_amt = ca.get('amount')
-                ca_ex_date = ca.get('ex_date_obj')
-                if hasattr(ca_ex_date, 'date'):
-                    ca_ex_date = ca_ex_date.date()
-
                 # Try to find BM with STRICT type + amount match first
                 best_bm = None
 
-                # PASS 1: Strict match (type + amount)
+                # PASS 1: Strict match (Type + Amount) - PRIMARY
                 for bm in bms:
                     if bm.id in matched_bm_ids:
                         continue
 
-                    bm_date = bm.date
-                    if hasattr(bm_date, 'date'):
-                        bm_date = bm_date.date()
-
+                    bm_date = bm.date.date() if hasattr(bm.date, 'date') else bm.date
                     if bm_date and ca_ex_date and bm_date > ca_ex_date:
                         continue
 
                     # Get BM type
-                    bm_type = None
                     bm_purpose = (bm.purpose or '').lower()
-                    if 'final' in bm_purpose or 'findiv' in bm_purpose or 'fin div' in bm_purpose:
-                        bm_type = 'Final'
-                    elif 'interim' in bm_purpose or 'intdiv' in bm_purpose or 'int div' in bm_purpose:
-                        bm_type = 'Interim'
-                    elif 'special' in bm_purpose:
-                        bm_type = 'Special'
+                    bm_type = 'Final' if ('final' in bm_purpose or 'findiv' in bm_purpose) else \
+                              'Interim' if ('interim' in bm_purpose or 'intdiv' in bm_purpose) else \
+                              'Special' if 'special' in bm_purpose else None
 
-                    # Skip if no type match
+                    # Type must match
                     if ca_type and bm_type and ca_type != bm_type:
                         continue
 
@@ -56,98 +29,40 @@
                                 break  # Perfect match found
                         except:
                             continue
-                    elif bm_amt is None and ca_amt is None:
-                        # Both have no amount - weak match, but acceptable
-                        if best_bm is None:
-                            best_bm = bm
 
-                # PASS 2: If no strict match, try chronological match
+                # PASS 2: Type match + Chronological Anchor - FALLBACK
+                # If strict amount match failed (e.g., BM amount is missing or mismatched),
+                # we still link to the earliest valid BM of the same Type to preserve the timeline anchor.
                 if not best_bm:
                     for bm in bms:
                         if bm.id in matched_bm_ids:
                             continue
 
-                        bm_date = bm.date
-                        if hasattr(bm_date, 'date'):
-                            bm_date = bm_date.date()
-
+                        bm_date = bm.date.date() if hasattr(bm.date, 'date') else bm.date
                         if bm_date and ca_ex_date and bm_date > ca_ex_date:
                             continue
 
                         # Get BM type
-                        bm_type = None
                         bm_purpose = (bm.purpose or '').lower()
-                        if 'final' in bm_purpose or 'findiv' in bm_purpose or 'fin div' in bm_purpose:
-                            bm_type = 'Final'
-                        elif 'interim' in bm_purpose or 'intdiv' in bm_purpose or 'int div' in bm_purpose:
-                            bm_type = 'Interim'
-                        elif 'special' in bm_purpose:
-                            bm_type = 'Special'
+                        bm_type = 'Final' if ('final' in bm_purpose or 'findiv' in bm_purpose) else \
+                                  'Interim' if ('interim' in bm_purpose or 'intdiv' in bm_purpose) else \
+                                  'Special' if 'special' in bm_purpose else None
 
-                        # Skip AGMs (unless it's AGM+dividend)
-                        if 'agm' in bm_purpose and not ca_type == 'Final':
-                            continue
-
-                        # Type compatibility check
+                        # Type must match
                         if ca_type and bm_type and ca_type != bm_type:
                             continue
 
-                        # Amount check (allow if BM amount is None, but prefer exact match)
-                        bm_amt = bm.extracted_dividend_amount
-                        amount_ok = False
-
-                        if bm_amt is not None and ca_amt is not None:
-                            try:
-                                if abs(float(bm_amt) - float(ca_amt)) < 0.01:
-                                    amount_ok = True
-                            except:
-                                pass
-                        elif bm_amt is None:
-                            # Only allow if there's no CA with better match
-                            amount_ok = True
-
-                        if amount_ok:
-                            best_bm = bm
-                            break  # Take earliest BM with type compatibility
+                        # If Type matches, link to this earliest BM to anchor the broadcast date
+                        best_bm = bm
+                        break  # Since bms are sorted chronologically, first match is the earliest anchor
 
                 if best_bm:
                     matched_bm_ids.add(best_bm.id)
-                    broad_date = best_bm.broadcast_date
-                    ann_date = best_bm.date
+                    broad_date = best_bm.broadcast_date  # Anchors to April 23
+                    ann_date = best_bm.date              # Anchors to April 27
                     bm_date_for_agm = best_bm.date
                 else:
-                    # No match found - use CA's own dates
+                    # No type match found - use CA's own dates (e.g., July announcement)
                     broad_date = ca.get('broadcast_date')
                     ann_date = ca.get('announcement_date_obj')
                     bm_date_for_agm = None
-
-                # Determine if this is "awaited" (no ex-date yet)
-                is_awaited = ca_ex_date is None
-
-                # 9. Check for duplicates in existing dividend events
-                duplicate = False
-                for existing in final_actions:
-                    # Check for same dividend (same type, amount, within 30 days)
-                    if (existing.get('dividend_type') == ca_type and
-                        existing.get('amount') and ca_amt and
-                        abs(float(existing['amount']) - float(ca_amt)) < 0.01):
-                        duplicate = True
-                        break
-
-                if not duplicate:
-                    final_actions.append({
-                        "ex_date": ca.get('ex_date'),
-                        "ex_date_obj": ca_ex_date,
-                        "announcement_date_obj": ann_date,
-                        "broadcast_date": broad_date,
-                        "bm_date": bm_date_for_agm,
-                        "dividend_type": ca_type,
-                        "purpose": ca.get('purpose'),
-                        "amount": ca_amt,
-                        "raw_amount": ca.get('raw_amount'),
-                        "face_value": ca.get('face_value'),
-                        "record_date": ca.get('record_date'),
-                        "source": "CA",
-                        "is_awaited": is_awaited,
-                        "ca_id": ca.get('id')
-                    })
