@@ -715,6 +715,8 @@ def build_dividend_databank_task(self, force: bool = False):
             final_actions = list(ca_history)
 
             # Synthesize AGMs and Awaited Dividends as separate entries
+            # Keep track of dates we've successfully mapped to avoid duplicate intimation/outcome leakage
+            merged_bm_dates = set()
             for m in bms:
                 purpose_lower = (m.purpose or '').lower()
                 is_agm = 'agm' in purpose_lower or 'annual general meeting' in purpose_lower or re.search(r'\bagm\b', purpose_lower)
@@ -751,6 +753,10 @@ def build_dividend_databank_task(self, force: bool = False):
                         "agm_date": agm_date
                     })
                 elif is_div and not is_agm:
+                    m_date_check = m.date
+                    if hasattr(m_date_check, "date"): m_date_check = m_date_check.date()
+                    if m_date_check in merged_bm_dates:
+                        continue
                     # Check if this BM dividend already exists in Corporate Actions (don't create duplicate)
                     m_date = m.date
                     if hasattr(m_date, 'date'): m_date = m_date.date()
@@ -815,6 +821,8 @@ def build_dividend_databank_task(self, force: bool = False):
                             exists_in_ca = True
                             break
 
+                    if exists_in_ca:
+                        merged_bm_dates.add(m_date)
                     if not exists_in_ca and amount is not None:
                         final_actions.append({
                             "dividend_type": div_type,
