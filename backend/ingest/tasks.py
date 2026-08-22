@@ -714,10 +714,13 @@ def build_dividend_databank_task(self, force: bool = False):
 
             final_actions = list(ca_history)
 
-            # Synthesize AGMs as separate entries
+            # Synthesize AGMs and Awaited Dividends as separate entries
             for m in bms:
                 purpose_lower = (m.purpose or '').lower()
                 is_agm = 'agm' in purpose_lower or 'annual general meeting' in purpose_lower or re.search(r'\bagm\b', purpose_lower)
+                has_amount = m.extracted_dividend_amount is not None
+                is_div = 'dividend' in purpose_lower or 'bonus' in purpose_lower or 'split' in purpose_lower or has_amount
+
                 if is_agm:
                     agm_date = None
                     date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})', purpose_lower)
@@ -747,6 +750,75 @@ def build_dividend_databank_task(self, force: bool = False):
                         "face_value": None,
                         "agm_date": agm_date
                     })
+                elif is_div and not is_agm:
+                    # Check if this BM dividend already exists in Corporate Actions (don't create duplicate)
+                    m_date = m.date
+                    if hasattr(m_date, 'date'): m_date = m_date.date()
+
+                    amount = m.extracted_dividend_amount
+                    if amount is None and getattr(m, 'parsed_dividend_amount', None) is not None:
+                        amount = m.parsed_dividend_amount
+
+                    # Find dividend type
+                    div_type = m.extracted_dividend_type or '-'
+                    if div_type == '-':
+                        if 'interim' in purpose_lower: div_type = 'Interim'
+                        elif 'special' in purpose_lower: div_type = 'Special'
+                        elif 'final' in purpose_lower or 'yearly audited' in purpose_lower or 'annual results' in purpose_lower: div_type = 'Final'
+                        elif 'bonus' in purpose_lower: div_type = 'Bonus'
+                        elif 'split' in purpose_lower or 'sub-division' in purpose_lower: div_type = 'Split'
+                        else: div_type = 'Dividend'
+
+                    # Extract amount using FieldMapper if missing
+                    if amount is None:
+                        reparsed_amt, _ = FieldMapper._parse_dividend(m.purpose, None)
+                        if reparsed_amt is not None:
+                            amount = reparsed_amt
+
+                    # Check for existence in CA
+                    exists_in_ca = False
+                    for a in final_actions:
+                        a_type = a.get('dividend_type')
+                        a_amt = a.get('amount')
+                        a_date = a.get('announcement_date_obj') or a.get('broadcast_date')
+                        if hasattr(a_date, 'date'): a_date = a_date.date()
+
+                        type_match = True
+                        if div_type not in ['-', '', 'Dividend'] and a_type not in ['-', '', 'Dividend'] and a_type != 'AGM':
+                            if div_type.lower() != str(a_type).lower():
+                                type_match = False
+
+                        amt_match = True
+                        if amount is not None and a_amt is not None:
+                            try:
+                                if abs(float(amount) - float(a_amt)) > 0.01:
+                                    amt_match = False
+                            except (ValueError, TypeError):
+                                pass
+
+                        time_match = False
+                        if m_date and a_date:
+                            diff = abs((a_date - m_date).days)
+                            if diff <= 180:
+                                time_match = True
+
+                        if type_match and amt_match and time_match:
+                            exists_in_ca = True
+                            break
+
+                    if not exists_in_ca and amount is not None:
+                        final_actions.append({
+                            "dividend_type": div_type,
+                            "purpose": m.purpose,
+                            "ex_date": None,
+                            "ex_date_obj": None,
+                            "broadcast_date": m.broadcast_date or m.date,
+                            "announcement_date_obj": m.date,
+                            "amount": amount,
+                            "raw_amount": amount,
+                            "face_value": None,
+                            "agm_date": None
+                        })
 
             for act in final_actions:
                 ex_date_val = act.get('ex_date_obj')
