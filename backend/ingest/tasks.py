@@ -819,6 +819,16 @@ def build_dividend_databank_task(self, force: bool = False):
 
                         if type_match and amt_match and time_match:
                             exists_in_ca = True
+                            # FIX: Use BM dates ONLY if the CA doesn't have its own distinct broadcast date.
+                            ca_broadcast = a.get('broadcast_date')
+                            if ca_broadcast:
+                                # If CA has its own broadcast date, use it (it's more specific than the BM date)
+                                a['broadcast_date'] = ca_broadcast
+                                a['announcement_date_obj'] = m_date  # Still use BM for the actual meeting date
+                            else:
+                                # Fallback to BM dates if CA broadcast is missing
+                                a['announcement_date_obj'] = m_date
+                                a['broadcast_date'] = getattr(m, 'broadcast_date', None)
                             break
 
                     if exists_in_ca:
