@@ -126,7 +126,48 @@
                         elif 'special' in purpose_lower: ext_type = 'Special'
                         else: ext_type = '-'
 
-                    if ext_amt is not None or ext_type in ['Bonus', 'Split', 'Demerger']:
+                    # We must also do a fallback check for any existing CA that might have missed linkage
+                    m_date = m.date
+                    if hasattr(m_date, 'date'): m_date = m_date.date()
+
+                    exists_in_ca = False
+                    for a in final_actions:
+                        if a.get('source') != 'CA': continue
+
+                        a_type = a.get('dividend_type')
+                        a_amt = a.get('amount')
+                        a_date = a.get('announcement_date_obj') or a.get('broadcast_date')
+                        if hasattr(a_date, 'date'): a_date = a_date.date()
+
+                        type_match = True
+                        if ext_type not in ['-', '', 'Dividend'] and a_type not in ['-', '', 'Dividend'] and a_type != 'AGM':
+                            if ext_type.lower() != str(a_type).lower():
+                                type_match = False
+
+                        amt_match = True
+                        if ext_amt is not None and a_amt is not None:
+                            try:
+                                if abs(float(ext_amt) - float(a_amt)) > 0.01:
+                                    amt_match = False
+                            except (ValueError, TypeError):
+                                pass
+
+                        time_match = False
+                        if m_date and a_date:
+                            diff = abs((a_date - m_date).days)
+                            if diff <= 180:
+                                time_match = True
+
+                        if type_match and amt_match and time_match:
+                            exists_in_ca = True
+                            # Overwrite the CA's dates with the BM's original dates
+                            if m.broadcast_date:
+                                a['broadcast_date'] = m.broadcast_date
+                            if m.date:
+                                a['announcement_date_obj'] = m.date
+                            break
+
+                    if not exists_in_ca and (ext_amt is not None or ext_type in ['Bonus', 'Split', 'Demerger']):
                         final_actions.append({
                             "dividend_type": ext_type,
                             "purpose": m.purpose,
