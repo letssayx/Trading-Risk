@@ -778,11 +778,11 @@ def build_dividend_databank_task(self, force: bool = False):
                         else:
                             div_type = 'Dividend'
 
-                    # Extract amount using FieldMapper if missing
-                    if amount is None:
-                        reparsed_amt, _ = FieldMapper._parse_dividend(m.purpose, None)
-                        if reparsed_amt is not None:
-                            amount = reparsed_amt
+                    # FIX: Do NOT re-parse from purpose if amount is None.
+                    # nselib.py is the authoritative source and already uses CA data, announcements, and PDFs.
+                    # If amount is still None, it's an Intimation without a declared amount yet.
+                    # Re-parsing here causes the regex to incorrectly grab date fragments (e.g., "08" from "08-May-2023")
+                    # or ordinal numbers (e.g., "4" from "4th interim dividend") as the dividend amount.
 
                     # Check for existence in CA
                     exists_in_ca = False
