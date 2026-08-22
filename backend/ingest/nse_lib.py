@@ -576,12 +576,12 @@ class NSELib:
                 announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
                 announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
                 announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-
                 div_announcements = []
                 rec_announcements = []
                 agm_announcements = []
                 fin_announcements = []
                 out_announcements = []
+
 
                 resp_div = self.get(announcement_url_div)
                 if resp_div and resp_div.status_code == 200:
@@ -601,7 +601,6 @@ class NSELib:
                 if resp_agm and resp_agm.status_code == 200:
                     try:
                         agm_data = resp_agm.json()
-                        agm_announcements = []
                         for ann in (agm_data if isinstance(agm_data, list) else []):
                             subj = str(ann.get('subject', '')).lower()
                             desc = str(ann.get('desc', '')).lower()
@@ -705,18 +704,30 @@ class NSELib:
                     if has_dividend_mention or is_agm:
                         found_amount = None
                         found_record_date = None
-                        found_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else ('Special' if 'special' in purpose else 'Final'))
+                        found_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose else ('Special' if 'special' in purpose else '-'))
 
                         if is_agm:
                             found_type = 'AGM'
                             item['bm_purpose'] = 'Annual General Meeting'
 
-                        # First try mapping to CA data for dates
+                        # First try mapping to CA data for dates (Scoring-based to prevent Interim/Final mix-ups)
                         if symbol and symbol in symbol_ca_map:
                             try:
                                 bm_date_obj = datetime.strptime(item.get('bm_date', ''), "%d-%b-%Y").date()
                             except ValueError:
                                 bm_date_obj = None
+
+                            # 1. Determine expected CA type from BM to prevent matching Final BM to Interim CA
+                            expected_type = None
+                            if 'final' in purpose or 'findiv' in purpose or 'fin div' in purpose or 'yearly audited' in purpose or 'annual results' in purpose:
+                                expected_type = 'final'
+                            elif 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose:
+                                expected_type = 'interim'
+                            elif 'special' in purpose:
+                                expected_type = 'special'
+
+                            best_match_ca = None
+                            best_match_score = -1
 
                             for ca in symbol_ca_map[symbol]:
                                 ca_ex_date_str = str(ca.get('exDate', ''))
@@ -725,16 +736,56 @@ class NSELib:
                                 except ValueError:
                                     ca_ex_date_obj = None
 
-                                # Usually the CA is valid if the ex-date is after the board meeting
                                 if bm_date_obj and ca_ex_date_obj:
                                     days_diff = (ca_ex_date_obj - bm_date_obj).days
-                                    # the exDate should be at least on or after the BM date
-                                    if days_diff < -1:
+                                    # Ex-date should be on/after BM date, and within 180 days max (India final dividend rule)
+                                    if days_diff < -1 or days_diff > 180:
                                         continue
 
                                 subject = str(ca.get('subject', ''))
+                                ca_type_lower = subject.lower()
 
-                                # Extract amount from the CA subject: e.g. 'Dividend - Rs 31 Per Share'
+                                # 2. Check if CA type matches expected type
+                                type_match = False
+                                if expected_type == 'final' and ('final' in ca_type_lower or 'findiv' in ca_type_lower or 'fin div' in ca_type_lower):
+                                    type_match = True
+                                elif expected_type == 'interim' and ('interim' in ca_type_lower or 'intdiv' in ca_type_lower or 'int div' in ca_type_lower):
+                                    type_match = True
+                                elif expected_type == 'special' and 'special' in ca_type_lower:
+                                    type_match = True
+                                elif expected_type is None:
+                                    type_match = True # Fallback if BM didn't specify
+
+                                # 3. Extract amount temporarily to score
+                                temp_amount = None
+                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE)
+                                if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
+                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
+                                    if match:
+                                        temp_amount = float(match.group(1))
+                                else:
+                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
+                                    if matches:
+                                        temp_amount = sum(float(m) for m in matches)
+
+                                # 4. Score the match: Type match is heavily weighted (100 pts), amount exists (10 pts), date proximity (up to 50 pts)
+                                score = 0
+                                if type_match:
+                                    score += 100
+                                if temp_amount is not None:
+                                    score += 10
+
+                                if bm_date_obj and ca_ex_date_obj:
+                                    days_diff = (ca_ex_date_obj - bm_date_obj).days
+                                    score += max(0, 50 - days_diff) # Closer is better
+
+                                if score > best_match_score:
+                                    best_match_score = score
+                                    best_match_ca = ca
+
+                            # 5. Apply the best match
+                            if best_match_ca:
+                                subject = str(best_match_ca.get('subject', ''))
                                 _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
@@ -750,12 +801,9 @@ class NSELib:
                                     elif 'findiv' in subject.lower() or 'fin div' in subject.lower() or 'final' in subject.lower(): found_type = 'Final'
                                     elif 'special' in subject.lower(): found_type = 'Special'
 
-                                rec_date = ca.get('recDate')
+                                rec_date = best_match_ca.get('recDate')
                                 if rec_date and rec_date != '-':
                                     found_record_date = rec_date
-
-                                if found_amount or found_record_date:
-                                    break # Matched the first valid future CA for this symbol
 
                         # Fallback 1: Announcements API
                         if symbol and symbol in symbol_announcements:
@@ -786,11 +834,11 @@ class NSELib:
                                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
 
                                                 if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
-                                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
+                                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)
                                                     if match:
                                                         found_amount = float(match.group(1))
                                                 else:
-                                                    div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
+                                                    div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
                                                     matches = div_pattern.findall(_clean_text)
                                                     if matches:
                                                         found_amount = sum(float(m) for m in matches)
@@ -812,13 +860,13 @@ class NSELib:
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
-                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
+                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
                                 if match:
                                     found_amount = float(match.group(1))
                             else:
                                 # Extract using the common UI regex patterns
                                 ui_patterns = [
-                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
+                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)',
                                     r'(\d+(?:\.\d+)?)\s*\/\-',
                                     r'(?:dividend|int\s*div)\s+of\s+(\d+(?:\.\d+)?)',
                                     r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?)\s+per'
@@ -837,7 +885,7 @@ class NSELib:
                         # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
                         # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
                         # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
-                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:
+                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= trade_date:
                             # Fallback 3: Parse PDF attachment from board meeting
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
@@ -872,6 +920,11 @@ class NSELib:
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
                             item['EXTRACTED_DIVIDEND_TYPE'] = found_type
+                            if found_type == '-':
+                                _search_text = f"{purpose} {desc}".lower()
+                                if 'final' in _search_text: item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
+                                elif 'interim' in _search_text: item['EXTRACTED_DIVIDEND_TYPE'] = 'Interim'
+                                else: item['EXTRACTED_DIVIDEND_TYPE'] = 'Final'
                         if found_record_date:
                             item['EXTRACTED_RECORD_DATE'] = found_record_date
 
@@ -1262,7 +1315,7 @@ class NSELib:
 
                                 try:
                                     row_date = pd.to_datetime(parsed_date_str).date()
-                                    if row_date == trade_date:
+                                    if row_date <= trade_date:
                                         buy_val = float(text_vals[1].replace(',', ''))
                                         sell_val = float(text_vals[2].replace(',', ''))
                                         net_val = float(text_vals[3].replace(',', ''))
