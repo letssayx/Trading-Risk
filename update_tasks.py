@@ -3,15 +3,15 @@ import re
 with open("backend/ingest/tasks.py", "r") as f:
     content = f.read()
 
-start_marker = r"                # Try to find BM with STRICT type \+ amount match first\n                best_bm = None"
-end_marker = r"                    bm_date_for_agm = None"
+start_marker = r"        for sym in event_symbols:\n            ca_history = ca_by_symbol.get\(sym, \[\]\)"
+end_marker = r"        return \"Dividend databank updated successfully!\""
 
 with open("replacement_block.txt", "r") as f:
     replacement_block = f.read()
 
 updated_content = re.sub(
     f"{start_marker}.*?{end_marker}",
-    replacement_block.replace('\\', '\\\\'),
+    replacement_block.replace('\\', '\\\\') + "\n        return \"Dividend databank updated successfully!\"",
     content,
     flags=re.DOTALL
 )
