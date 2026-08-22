@@ -667,36 +667,27 @@ def build_dividend_databank_task(self, force: bool = False):
         for sym in event_symbols:
             ca_history = ca_by_symbol.get(sym, [])
             bms = bm_by_symbol.get(sym, [])
+            fins = fin_by_symbol.get(sym, [])
+            fins.sort(key=lambda x: x.date, reverse=True)
 
-            # Sort BMs chronologically (ascending)
+            # Sort CAs by Ex-date (ascending) and BMs by date (ascending)
+            ca_history.sort(key=lambda x: x.get('ex_date_obj') or datetime.date(1900, 1, 1))
             bms.sort(key=lambda x: x.date if x.date else datetime.date(1900, 1, 1))
 
-            # Sort CAs by ex_date (ascending) - only those with ex_date
-            ca_with_ex = [ca for ca in ca_history if ca.get('ex_date_obj')]
-            ca_without_ex = [ca for ca in ca_history if not ca.get('ex_date_obj')]
-
-            # Sort CA by ex_date
-            ca_with_ex.sort(key=lambda x: x['ex_date_obj'] if x['ex_date_obj'] else datetime.date(1900, 1, 1))
-
-            # Reconstruct: CA with ex_date first, then CA without
-            sorted_ca = ca_with_ex + ca_without_ex
-
-            # Track matched BMs to avoid duplication
+            final_actions = []
             matched_bm_ids = set()
-            final_dividend_events = []
 
-            # 7. Match each CA with its corresponding BM
-            for ca in sorted_ca:
+            for ca in ca_history:
                 ca_type = ca.get('dividend_type')
                 ca_amt = ca.get('amount')
                 ca_ex_date = ca.get('ex_date_obj')
                 if hasattr(ca_ex_date, 'date'):
                     ca_ex_date = ca_ex_date.date()
 
+                # Try to find BM with STRICT type + amount match first
                 best_bm = None
-                best_score = -1
 
-                # Find matching BM for this CA
+                # PASS 1: Strict match (type + amount)
                 for bm in bms:
                     if bm.id in matched_bm_ids:
                         continue
@@ -705,59 +696,93 @@ def build_dividend_databank_task(self, force: bool = False):
                     if hasattr(bm_date, 'date'):
                         bm_date = bm_date.date()
 
-                    # BM must be before or on CA ex-date
                     if bm_date and ca_ex_date and bm_date > ca_ex_date:
                         continue
 
-                    # Check type compatibility
+                    # Get BM type
+                    bm_type = None
                     bm_purpose = (bm.purpose or '').lower()
-                    bm_is_final = ('final' in bm_purpose or 'findiv' in bm_purpose or
-                                   'yearly audited' in bm_purpose or 'annual results' in bm_purpose)
-                    bm_is_interim = ('interim' in bm_purpose or 'intdiv' in bm_purpose)
+                    if 'final' in bm_purpose or 'findiv' in bm_purpose or 'fin div' in bm_purpose:
+                        bm_type = 'Final'
+                    elif 'interim' in bm_purpose or 'intdiv' in bm_purpose or 'int div' in bm_purpose:
+                        bm_type = 'Interim'
+                    elif 'special' in bm_purpose:
+                        bm_type = 'Special'
 
-                    # Strict type matching
-                    if ca_type == 'Final' and bm_is_interim:
-                        continue
-                    if ca_type == 'Interim' and bm_is_final:
+                    # Skip if no type match
+                    if ca_type and bm_type and ca_type != bm_type:
                         continue
 
-                    # Check amount match
+                    # Strict amount match
                     bm_amt = bm.extracted_dividend_amount
-                    score = 0
                     if bm_amt is not None and ca_amt is not None:
                         try:
                             if abs(float(bm_amt) - float(ca_amt)) < 0.01:
-                                score = 100  # Perfect match
-                            else:
-                                continue  # Amount mismatch
+                                best_bm = bm
+                                break  # Perfect match found
                         except:
                             continue
                     elif bm_amt is None and ca_amt is None:
-                        score = 50  # Both None, weak match
-                    elif bm_amt is not None and ca_amt is None:
-                        score = 30  # BM has amount, CA doesn't
-                    else:
-                        continue  # CA has amount, BM doesn't
+                        # Both have no amount - weak match, but acceptable
+                        if best_bm is None:
+                            best_bm = bm
 
-                    # Date proximity bonus
-                    if bm_date and ca_ex_date:
-                        days_diff = (ca_ex_date - bm_date).days
-                        if days_diff >= 0:  # BM before or on ex-date
-                            score += max(0, 50 - days_diff)  # Closer is better
+                # PASS 2: If no strict match, try chronological match
+                if not best_bm:
+                    for bm in bms:
+                        if bm.id in matched_bm_ids:
+                            continue
 
-                    if score > best_score:
-                        best_score = score
-                        best_bm = bm
+                        bm_date = bm.date
+                        if hasattr(bm_date, 'date'):
+                            bm_date = bm_date.date()
 
-                # 8. Create dividend event
+                        if bm_date and ca_ex_date and bm_date > ca_ex_date:
+                            continue
+
+                        # Get BM type
+                        bm_type = None
+                        bm_purpose = (bm.purpose or '').lower()
+                        if 'final' in bm_purpose or 'findiv' in bm_purpose or 'fin div' in bm_purpose:
+                            bm_type = 'Final'
+                        elif 'interim' in bm_purpose or 'intdiv' in bm_purpose or 'int div' in bm_purpose:
+                            bm_type = 'Interim'
+                        elif 'special' in bm_purpose:
+                            bm_type = 'Special'
+
+                        # Skip AGMs (unless it's AGM+dividend)
+                        if 'agm' in bm_purpose and not ca_type == 'Final':
+                            continue
+
+                        # Type compatibility check
+                        if ca_type and bm_type and ca_type != bm_type:
+                            continue
+
+                        # Amount check (allow if BM amount is None, but prefer exact match)
+                        bm_amt = bm.extracted_dividend_amount
+                        amount_ok = False
+
+                        if bm_amt is not None and ca_amt is not None:
+                            try:
+                                if abs(float(bm_amt) - float(ca_amt)) < 0.01:
+                                    amount_ok = True
+                            except:
+                                pass
+                        elif bm_amt is None:
+                            # Only allow if there's no CA with better match
+                            amount_ok = True
+
+                        if amount_ok:
+                            best_bm = bm
+                            break  # Take earliest BM with type compatibility
+
                 if best_bm:
                     matched_bm_ids.add(best_bm.id)
-                    # Use BM's dates for announcement
                     broad_date = best_bm.broadcast_date
                     ann_date = best_bm.date
                     bm_date_for_agm = best_bm.date
                 else:
-                    # No BM found, use CA's dates
+                    # No match found - use CA's own dates
                     broad_date = ca.get('broadcast_date')
                     ann_date = ca.get('announcement_date_obj')
                     bm_date_for_agm = None
@@ -767,7 +792,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 # 9. Check for duplicates in existing dividend events
                 duplicate = False
-                for existing in final_dividend_events:
+                for existing in final_actions:
                     # Check for same dividend (same type, amount, within 30 days)
                     if (existing.get('dividend_type') == ca_type and
                         existing.get('amount') and ca_amt and
@@ -776,7 +801,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         break
 
                 if not duplicate:
-                    final_dividend_events.append({
+                    final_actions.append({
                         "ex_date": ca.get('ex_date'),
                         "ex_date_obj": ca_ex_date,
                         "announcement_date_obj": ann_date,
@@ -804,7 +829,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 if 'agm' in purpose_lower or 'annual general meeting' in purpose_lower:
                     # Check if AGM is already in final_events
                     agm_exists = False
-                    for ev in final_dividend_events:
+                    for ev in final_actions:
                         if ev.get('dividend_type') == 'AGM' and ev.get('symbol') == sym:
                             agm_exists = True
                             break
@@ -824,7 +849,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             except:
                                 pass
 
-                        final_dividend_events.append({
+                        final_actions.append({
                             "dividend_type": 'AGM',
                             "purpose": bm.purpose,
                             "ex_date": None,
@@ -855,7 +880,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         else:
                             ext_type = '-'
 
-                    final_dividend_events.append({
+                    final_actions.append({
                         "dividend_type": ext_type,
                         "purpose": bm.purpose,
                         "ex_date": None,
@@ -887,7 +912,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 existing_lookup[key] = row
 
             # Process each event
-            for event in final_dividend_events:
+            for event in final_actions:
                 ex_date_val = event.get('ex_date_obj')
                 amount_val = event.get('amount')
                 broad_date = event.get('broadcast_date')

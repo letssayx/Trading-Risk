@@ -3,21 +3,21 @@ import re
 with open("backend/ingest/tasks.py", "r") as f:
     content = f.read()
 
-# Define the start and end markers for replacement
-start_marker = r"@shared_task\(bind=True, max_retries=3, acks_late=True, reject_on_worker_lost=True\)\ndef build_dividend_databank_task"
-end_marker = r"        return f\"Error building dividend databank: \{str\(e\)\}\"\n    finally:\n        db.close\(\)"
+start_marker = r"        for sym in event_symbols:\n            ca_history = ca_by_symbol.get\(sym, \[\]\)"
+end_marker = r"            # 10\. Process unmatched BMs \(awaited dividends / AGMs\)"
 
-# Read the replacement block from a file
 with open("replacement_block.txt", "r") as f:
     replacement_block = f.read()
 
-# Replace the block
 updated_content = re.sub(
     f"{start_marker}.*?{end_marker}",
-    replacement_block.replace('\\', '\\\\'),
+    replacement_block.replace('\\', '\\\\') + "\n            # 10. Process unmatched BMs (awaited dividends / AGMs)",
     content,
     flags=re.DOTALL
 )
+
+# the original code used 'final_dividend_events', but the prompt uses 'final_actions'
+updated_content = updated_content.replace('final_dividend_events', 'final_actions')
 
 with open("backend/ingest/tasks.py", "w") as f:
     f.write(updated_content)
