@@ -1,0 +1,192 @@
+        for sym in event_symbols:
+            ca_history = ca_by_symbol.get(sym, [])
+            bms = bm_by_symbol.get(sym, [])
+            fins = fin_by_symbol.get(sym, [])
+            fins.sort(key=lambda x: x.date, reverse=True)
+
+            final_actions = []
+
+            # --- PHASE 1: Process ALL CAs as-is (Source of Truth) ---
+            for ca in ca_history:
+                ca_type = ca.get('dividend_type')
+                ca_amt = ca.get('amount')
+                ca_ex_date = ca.get('ex_date_obj')
+                if hasattr(ca_ex_date, 'date'):
+                    ca_ex_date = ca_ex_date.date()
+
+                # Use CA's OWN dates - NEVER overwrite
+                final_actions.append({
+                    "ex_date": ca.get('ex_date'),
+                    "ex_date_obj": ca_ex_date,
+                    "announcement_date_obj": ca.get('announcement_date_obj'),
+                    "broadcast_date": ca.get('broadcast_date'),
+                    "dividend_type": ca_type,
+                    "purpose": ca.get('purpose'),
+                    "amount": ca_amt,
+                    "raw_amount": ca.get('raw_amount'),
+                    "face_value": ca.get('face_value'),
+                    "record_date": ca.get('record_date'),
+                    "source": "CA",
+                    "is_awaited": False
+                })
+
+            # --- PHASE 2: Process BMs ONLY for pending events ---
+            for bm in bms:
+                purpose_lower = (bm.purpose or '').lower()
+
+                # Skip if no dividend info
+                if bm.extracted_dividend_amount is None and 'dividend' not in purpose_lower and 'bonus' not in purpose_lower and 'split' not in purpose_lower:
+                    continue
+
+                bm_type = bm.extracted_dividend_type
+                bm_amt = bm.extracted_dividend_amount
+
+                if not bm_type:
+                    if 'final' in purpose_lower or 'findiv' in purpose_lower or 'yearly audited' in purpose_lower:
+                        bm_type = 'Final'
+                    elif 'interim' in purpose_lower or 'intdiv' in purpose_lower:
+                        bm_type = 'Interim'
+                    elif 'special' in purpose_lower:
+                        bm_type = 'Special'
+                    elif 'bonus' in purpose_lower:
+                        bm_type = 'Bonus'
+                    elif 'split' in purpose_lower:
+                        bm_type = 'Split'
+                    else:
+                        continue
+
+                # Check if this BM event already exists in CA
+                is_covered = False
+                for action in final_actions:
+                    if action['source'] != 'CA': continue
+                    if action['dividend_type'] != bm_type: continue
+
+                    # Strict Amount Matching
+                    if bm_amt is not None and action['amount'] is not None:
+                        try:
+                            if abs(float(bm_amt) - float(action['amount'])) < 0.01:
+                                is_covered = True
+                                break
+                        except: pass
+                    elif bm_amt is None and action['amount'] is None:
+                        # Both have no amount, treat as match
+                        is_covered = True
+                        break
+                    # If one has amount and other doesn't, they are DIFFERENT events. Do not match.
+
+                # If not covered by CA, add as awaited
+                if not is_covered:
+                    final_actions.append({
+                        "dividend_type": bm_type,
+                        "purpose": bm.purpose,
+                        "ex_date": None,
+                        "ex_date_obj": None,
+                        "announcement_date_obj": bm.date,
+                        "broadcast_date": bm.broadcast_date or bm.date,
+                        "amount": bm_amt,
+                        "raw_amount": bm_amt,
+                        "face_value": None,
+                        "record_date": None,
+                        "source": "BM_AWAITED",
+                        "is_awaited": True
+                    })
+
+            # --- UPSERT into DividendDatabank ---
+            for act in final_actions:
+                ex_date_val = act.get('ex_date_obj')
+                if not ex_date_val: ex_date_val = act.get('record_date')
+
+                amount_val = act.get('amount')
+                broad_date = act.get('broadcast_date')
+                ann_d = act.get('announcement_date_obj')
+                is_awaited = act.get('is_awaited', False)
+
+                # Link Financials
+                eps = None
+                net_profit = None
+                fin_link_date = broad_date or ann_d or ex_date_val
+                if hasattr(fin_link_date, 'date'): fin_link_date = fin_link_date.date()
+
+                if fin_link_date:
+                    for fin in fins:
+                        f_date = fin.date
+                        if hasattr(f_date, 'date'): f_date = f_date.date()
+                        if f_date and f_date <= fin_link_date:
+                            eps = fin.basic_eps
+                            net_profit = fin.net_profit
+                            break
+
+                dividend_type_val = act.get('dividend_type')
+
+                # UPSERT LOGIC:
+                # 1. If CA arrives (has ex_date) and Awaited row exists -> UPDATE Awaited row.
+                # 2. If BM arrives (is_awaited) and CA row exists -> SKIP (CA is source of truth).
+                matched_row = None
+                skip_insert = False
+
+                existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
+                for row in existing_rows:
+                    if row.dividend_type != dividend_type_val: continue
+
+                    # Amount match check
+                    amt_match = False
+                    if row.amount is not None and amount_val is not None:
+                        try:
+                            if abs(float(row.amount) - float(amount_val)) < 0.01: amt_match = True
+                        except: pass
+                    elif row.amount is None and amount_val is None:
+                        amt_match = True
+
+                    if not amt_match: continue
+
+                    # Logic:
+                    if ex_date_val and row.is_awaited:
+                        # CA arrived for an awaited row -> UPDATE
+                        matched_row = row
+                        break
+                    elif is_awaited and not row.is_awaited:
+                        # BM arrived but CA already exists -> SKIP
+                        skip_insert = True
+                        break
+                    else:
+                        # Same state -> UPDATE
+                        matched_row = row
+                        break
+
+                if skip_insert:
+                    continue
+                elif matched_row:
+                    # Update existing
+                    if ex_date_val:
+                        matched_row.ex_date = ex_date_val
+                        matched_row.is_awaited = False
+                    if broad_date: matched_row.broadcast_date = broad_date
+                    if ann_d: matched_row.announcement_date = ann_d
+                    if amount_val is not None: matched_row.amount = amount_val
+                    if act.get('raw_amount') is not None: matched_row.raw_amount = act.get('raw_amount')
+                    if act.get('face_value') is not None: matched_row.face_value = act.get('face_value')
+                    if eps is not None: matched_row.eps = eps
+                    if net_profit is not None: matched_row.net_profit = net_profit
+                else:
+                    # Insert new
+                    ex_d = ex_date_val if ex_date_val else None
+                    new_row = DividendDatabank(
+                        symbol=sym,
+                        date=ex_d or ann_d or datetime.date.today(),
+                        amount=amount_val,
+                        raw_amount=act.get('raw_amount'),
+                        dividend_type=dividend_type_val,
+                        ex_date=ex_d,
+                        purpose=act.get('purpose'),
+                        face_value=act.get('face_value'),
+                        is_awaited=is_awaited,
+                        broadcast_date=broad_date,
+                        announcement_date=ann_d,
+                        eps=eps,
+                        net_profit=net_profit
+                    )
+                    db.add(new_row)
+
+        db.commit()
+
+        return "Dividend databank updated successfully!"
