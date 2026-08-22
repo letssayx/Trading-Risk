@@ -571,69 +571,45 @@ class NSELib:
 
                 # Get corporate announcements globally to extract XBRL attachment texts
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
-                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
-                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
-                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-                announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
-                announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+                # Get corporate announcements - Fetch ALL announcements, not just filtered by subject
+                # NSE frequently miscategorizes dividend announcements under "General Updates"
+                announcement_url_all = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+                all_announcements = []
+
+                resp_all = self.get(announcement_url_all)
+                if resp_all and resp_all.status_code == 200:
+                    try:
+                        all_announcements = resp_all.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse all announcements: {e}")
+
+                # Categorize announcements by scanning their content for keywords
                 div_announcements = []
                 rec_announcements = []
                 agm_announcements = []
                 fin_announcements = []
                 out_announcements = []
 
+                for ann in all_announcements:
+                    subj = str(ann.get('subject', '')).lower()
+                    desc = str(ann.get('desc', '')).lower()
+                    sym = ann.get('symbol')
 
-                resp_div = self.get(announcement_url_div)
-                if resp_div and resp_div.status_code == 200:
-                    try:
-                        div_announcements = resp_div.json()
-                    except Exception as e:
-                        logger.error(f"Failed to parse dividend announcements: {e}")
-
-                resp_rec = self.get(announcement_url_rec)
-                if resp_rec and resp_rec.status_code == 200:
-                    try:
-                        rec_announcements = resp_rec.json()
-                    except Exception as e:
-                        logger.error(f"Failed to parse record date announcements: {e}")
-
-                resp_agm = self.get(announcement_url_agm)
-                if resp_agm and resp_agm.status_code == 200:
-                    try:
-                        agm_data = resp_agm.json()
-                        for ann in (agm_data if isinstance(agm_data, list) else []):
-                            subj = str(ann.get('subject', '')).lower()
-                            desc = str(ann.get('desc', '')).lower()
-                            if 'agm' in subj or 'annual general meeting' in subj or 'shareholders meeting' in subj or 'agm' in desc or 'annual general meeting' in desc or 'shareholders meeting' in desc:
-                                if 'dividend' in subj or 'dividend' in desc:
-                                    agm_announcements.append(ann)
-                    except Exception as e:
-                        logger.error(f"Failed to parse AGM announcements: {e}")
-
-                resp_fin = self.get(announcement_url_fin)
-                if resp_fin and resp_fin.status_code == 200:
-                    try:
-                        fin_announcements = resp_fin.json()
-                    except Exception as e:
-                        logger.error(f"Failed to parse Financial Results announcements: {e}")
-
-                # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
-                target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
-
-                resp_out = self.get(announcement_url_out)
-                if resp_out and resp_out.status_code == 200:
-                    try:
-                        all_out = resp_out.json()
-                        if isinstance(all_out, list):
-                            # Filter to only Outcome of Board Meeting to save memory/processing.
-                            # However, memory instructs us to NOT restrict to just 'Outcome' because NSE frequently miscategorizes them under 'General Updates' or 'None'
-                            # Still, we will keep them if they might contain 'Outcome' or are simply in the all_out list if needed,
-                            # but let's fetch all general announcements on the specific date later if needed.
-                            # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
-                            # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
-                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
-                    except Exception as e:
-                        logger.error(f"Failed to parse outcome announcements: {e}")
+                    # Only process announcements for our target symbols
+                    if sym and sym in target_symbols:
+                        # Check for dividend-related content (even if miscategorized)
+                        if 'dividend' in subj or 'dividend' in desc or 'intdiv' in subj or 'intdiv' in desc:
+                            div_announcements.append(ann)
+                        elif 'record date' in subj or 'record date' in desc:
+                            rec_announcements.append(ann)
+                        elif ('agm' in subj or 'annual general meeting' in subj or
+                              'agm' in desc or 'annual general meeting' in desc):
+                            if 'dividend' in subj or 'dividend' in desc:
+                                agm_announcements.append(ann)
+                        elif 'financial results' in subj or 'financial results' in desc:
+                            fin_announcements.append(ann)
+                        elif 'outcome' in subj or 'outcome' in desc or 'board meeting' in subj:
+                            out_announcements.append(ann)
 
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
@@ -882,40 +858,42 @@ class NSELib:
                                 elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower(): found_type = 'Final'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
 
-                        # Only execute PDF fallbacks if the board meeting date exactly matches the current trade date.
-                        # It is impossible to parse an outcome PDF for a meeting that hasn't happened yet, and we
-                        # don't want to re-scrape old PDFs repeatedly every single day which causes 4-5 hr delays.
-                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check <= trade_date:
-                            # Fallback 3: Parse PDF attachment from board meeting
-                            attachment_url = str(item.get('ATTACHMENT', ''))
-                            if attachment_url.startswith('http'):
-                                pdf_amount, pdf_record_date = extract_amount_from_pdf(attachment_url)
-                                if pdf_amount and found_amount is None:
-                                    found_amount = pdf_amount
-                                if pdf_record_date and found_record_date is None:
-                                    found_record_date = pdf_record_date
+                        # Only execute PDF fallbacks if amount/record date not found from text/XBRL
+                        # and the board meeting date is recent (to avoid scraping thousands of old PDFs)
+                        if (found_amount is None or found_record_date is None) and bm_date_obj_check:
+                            # Check if this BM is from the last 30 days (recent enough to justify PDF parsing)
+                            days_old = (trade_date - bm_date_obj_check).days if isinstance(trade_date, date) else 0
+                            if 0 <= days_old <= 30:  # Only parse PDFs for recent meetings
+                                # Fallback 3: Parse PDF attachment from board meeting
+                                attachment_url = str(item.get('ATTACHMENT', ''))
+                                if attachment_url.startswith('http'):
+                                    pdf_amount, pdf_record_date = extract_amount_from_pdf(attachment_url)
+                                    if pdf_amount and found_amount is None:
+                                        found_amount = pdf_amount
+                                    if pdf_record_date and found_record_date is None:
+                                        found_record_date = pdf_record_date
 
-                            # Fallback 4: Cross-reference with global corporate announcements for the actual outcome PDF
-                            if found_amount is None or found_record_date is None:
-                                sym = item.get('SYMBOL', item.get('bm_symbol'))
-                                if sym and symbol_announcements.get(sym):
-                                    for ann in symbol_announcements[sym]:
-                                        ann_date_str = ann.get('an_dt', '') # e.g. 13-May-2026 17:01:36
-                                        if bm_date_obj:
-                                            try:
-                                                # If announcement date matches board meeting date
-                                                if bm_date_obj.strftime("%d-%b-%Y").lower() in ann_date_str.lower():
-                                                    ann_pdf = ann.get('attchmntFile')
-                                                    if ann_pdf and ann_pdf.startswith('http'):
-                                                        pdf_amount, pdf_record_date = extract_amount_from_pdf(ann_pdf)
-                                                        if pdf_amount and found_amount is None:
-                                                            found_amount = pdf_amount
-                                                        if pdf_record_date and found_record_date is None:
-                                                            found_record_date = pdf_record_date
-                                                        if found_amount and found_record_date:
-                                                            break
-                                            except Exception:
-                                                pass
+                                # Fallback 4: Cross-reference with global announcements for PDF
+                                if found_amount is None or found_record_date is None:
+                                    sym = item.get('SYMBOL', item.get('bm_symbol'))
+                                    if sym and symbol_announcements.get(sym):
+                                        for ann in symbol_announcements[sym]:
+                                            ann_date_str = ann.get('an_dt', '') # e.g. 13-May-2026 17:01:36
+                                            if bm_date_obj:
+                                                try:
+                                                    # If announcement date matches board meeting date
+                                                    if bm_date_obj.strftime("%d-%b-%Y").lower() in ann_date_str.lower():
+                                                        ann_pdf = ann.get('attchmntFile')
+                                                        if ann_pdf and ann_pdf.startswith('http'):
+                                                            pdf_amount, pdf_record_date = extract_amount_from_pdf(ann_pdf)
+                                                            if pdf_amount and found_amount is None:
+                                                                found_amount = pdf_amount
+                                                            if pdf_record_date and found_record_date is None:
+                                                                found_record_date = pdf_record_date
+                                                            if found_amount and found_record_date:
+                                                                break
+                                                except Exception:
+                                                    pass
 
                         if found_amount:
                             item['EXTRACTED_DIVIDEND_AMOUNT'] = found_amount
