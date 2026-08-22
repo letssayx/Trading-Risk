@@ -671,7 +671,7 @@ def build_dividend_databank_task(self, force: bool = False):
             fins = fin_by_symbol.get(sym, [])
             fins.sort(key=lambda x: x.date, reverse=True)
 
-            # Sort BMs chronologically (ascending) so we process earlier meetings first
+            # FIX: Sort BMs chronologically (ascending) so we process earlier meetings first
             bms.sort(key=lambda x: x.date)
 
             final_actions = []
@@ -910,6 +910,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     )
                     db.add(new_row)
                     existing_rows_map[sym].append(new_row)
+
         db.commit()
         return "Dividend databank simplified and updated successfully!"
     except Exception as e:
