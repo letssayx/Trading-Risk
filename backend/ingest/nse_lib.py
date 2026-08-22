@@ -583,6 +583,9 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse all announcements: {e}")
 
+                # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
+                target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
+
                 # Categorize announcements by scanning their content for keywords
                 div_announcements = []
                 rec_announcements = []

@@ -708,6 +708,8 @@ def build_dividend_databank_task(self, force: bool = False):
         for sym in event_symbols:
             ca_history = ca_by_symbol.get(sym, [])
             bms = bm_by_symbol.get(sym, [])
+            # FIX: Sort BMs by date (chronological) to match Final dividends to earlier BMs (where they were declared)
+            bms.sort(key=lambda x: x.date if hasattr(x, 'date') else datetime.date.today())
             fins = fin_by_symbol.get(sym, [])
 
             fins.sort(key=lambda x: x.date, reverse=True)
