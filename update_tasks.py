@@ -11,7 +11,7 @@ with open("replacement_block.txt", "r") as f:
 
 updated_content = re.sub(
     f"{start_marker}.*?{end_marker}",
-    replacement_block.replace('\\', '\\\\') + "\n        return \"Dividend databank updated successfully!\"",
+    replacement_block.replace('\\', '\\\\'),
     content,
     flags=re.DOTALL
 )
