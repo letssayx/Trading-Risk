@@ -680,62 +680,12 @@ def build_dividend_databank_task(self, force: bool = False):
             # --- Process each CA and find its matching BM ---
             for ca in ca_history:
                 ca_type = ca.get('dividend_type')
-                ca_amt = ca.get('amount')
-                ca_ex_date = ca.get('ex_date_obj')
-                if hasattr(ca_ex_date, 'date'): ca_ex_date = ca_ex_date.date()
 
-                best_bm = None
-                best_score = -1
-
-                # Find the BEST matching BM for this CA
-                for bm in bms:
-                    if bm.id in matched_bm_ids:
-                        continue  # Skip already-matched BMs
-
-                    bm_date = bm.date
-                    if hasattr(bm_date, 'date'): bm_date = bm_date.date()
-
-                    # BM must be before or on CA ex-date
-                    if bm_date and ca_ex_date and bm_date > ca_ex_date:
-                        continue
-
-                    # Check type compatibility
-                    bm_purpose = (bm.purpose or '').lower()
-                    bm_is_final = ('final' in bm_purpose or 'findiv' in bm_purpose or
-                                   'yearly audited' in bm_purpose or 'annual results' in bm_purpose)
-                    bm_is_interim = ('interim' in bm_purpose or 'intdiv' in bm_purpose)
-
-                    if ca_type == 'Final' and bm_is_interim:
-                        continue  # Final CA cannot match Interim BM
-                    if ca_type == 'Interim' and bm_is_final:
-                        continue  # Interim CA cannot match Final BM
-
-                    # Check amount match
-                    bm_amt = bm.extracted_dividend_amount
-                    score = 0
-                    if bm_amt is not None and ca_amt is not None:
-                        try:
-                            if abs(float(bm_amt) - float(ca_amt)) < 0.01:
-                                score = 100  # Perfect match
-                            else:
-                                continue  # Amount mismatch, skip
-                        except:
-                            continue
-                    elif bm_amt is None and ca_amt is None:
-                        score = 50  # Both None, weak match
-
-                    # Prefer earlier BMs (chronological priority)
-                    if bm_date and ca_ex_date:
-                        days_diff = (ca_ex_date - bm_date).days
-                        score += max(0, 50 - days_diff)  # Closer is better
-
-                    if score > best_score:
-                        best_score = score
-                        best_bm = bm
+                best_bm = find_best_bm_for_ca(ca, bms, matched_bm_ids)
 
                 if best_bm:
                     # Use BM's original announcement dates
-                    matched_bm_ids.add(best_bm.id)
+                    matched_bm_ids.add((best_bm.id, ca_type))
                     broad_date = best_bm.broadcast_date
                     ann_date = best_bm.date
                 else:
@@ -759,8 +709,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
             # --- Process unmatched BMs as awaited dividends ---
             for bm in bms:
-                if bm.id in matched_bm_ids:
-                    continue  # Skip already-matched BMs
+                # Determine what types this BM has supplied to CAs
+                supplied_types = [typ for (bm_id, typ) in matched_bm_ids if bm_id == bm.id]
 
                 purpose_lower = (bm.purpose or '').lower()
 
@@ -803,6 +753,9 @@ def build_dividend_databank_task(self, force: bool = False):
                             ext_type = 'Special'
                         else:
                             ext_type = '-'
+
+                    if ext_type in supplied_types:
+                        continue # This BM already successfully linked a CA of this type
 
                     final_actions.append({
                         "dividend_type": ext_type,
@@ -854,7 +807,27 @@ def build_dividend_databank_task(self, force: bool = False):
                     r_ex = row.ex_date if row.ex_date else datetime.date(1900, 1, 1)
                     r_ex_val = ex_date_val if ex_date_val else datetime.date(1900, 1, 1)
 
-                    is_ex_date_match = (r_ex == r_ex_val) or (row.is_awaited and r_ex == datetime.date(1900, 1, 1) and r_ex_val != datetime.date(1900, 1, 1))
+                    EPOCH = datetime.date(1900, 1, 1)
+                    # For awaited merging, ensure they are within MATCH_WINDOW_DAYS
+                    time_match = True
+                    if r_ex_val != EPOCH and r_ex == EPOCH:
+                        if row.broadcast_date and broad_date:
+                            r_b_date = row.broadcast_date.date() if hasattr(row.broadcast_date, 'date') else row.broadcast_date
+                            n_b_date = broad_date.date() if hasattr(broad_date, 'date') else broad_date
+                            if r_b_date and n_b_date and abs((r_b_date - n_b_date).days) > MATCH_WINDOW_DAYS:
+                                time_match = False
+                    elif r_ex_val == EPOCH and r_ex != EPOCH:
+                        if row.broadcast_date and broad_date:
+                            r_b_date = row.broadcast_date.date() if hasattr(row.broadcast_date, 'date') else row.broadcast_date
+                            n_b_date = broad_date.date() if hasattr(broad_date, 'date') else broad_date
+                            if r_b_date and n_b_date and abs((r_b_date - n_b_date).days) > MATCH_WINDOW_DAYS:
+                                time_match = False
+
+                    is_ex_date_match = (
+                        (r_ex == r_ex_val) or
+                        (row.is_awaited and r_ex == EPOCH and r_ex_val != EPOCH and time_match) or
+                        (is_awaited and r_ex_val == EPOCH and r_ex != EPOCH and time_match)
+                    )
 
                     if is_ex_date_match and row.dividend_type == dividend_type_val:
                         if row.amount is not None and amount_val is not None:
@@ -912,6 +885,24 @@ def build_dividend_databank_task(self, force: bool = False):
                     existing_rows_map[sym].append(new_row)
 
         db.commit()
+
+        # --- Uniqueness Validation Pass ---
+        for sym in event_symbols:
+            seen_pairs = defaultdict(list)
+            for row in existing_rows_map[sym]:
+                # In your system it's announcement_date for BM date, or board_meeting_date? The schema has announcement_date and board_meeting_date?
+                # Actually, original code has row.announcement_date
+                key = (row.broadcast_date, getattr(row, 'board_meeting_date', row.announcement_date))
+                if key != (None, None):
+                    seen_pairs[key].append(row)
+            for key, rows in seen_pairs.items():
+                if len(rows) > 1:
+                    for r in rows:
+                        r.needs_review = True
+                        r.audit_flag = f"Duplicate broadcast/board_meeting_date ({key}) shared with {len(rows)-1} other row(s): ids {[x.id for x in rows if x.id != r.id]}"
+                    logger.warning(f"[DIVIDEND DEDUP] {sym}: {len(rows)} rows share broadcast/BM date {key} — flagged for review, NOT auto-merged.")
+        db.commit()
+
         return "Dividend databank simplified and updated successfully!"
     except Exception as e:
         db.rollback()
@@ -983,6 +974,7 @@ def patch_historical_eps_agm_task(self):
     import datetime as dt_mod
     import re
     import logging
+from backend.ingest.dividend_matcher import find_best_bm_for_ca, MATCH_WINDOW_DAYS
 
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult

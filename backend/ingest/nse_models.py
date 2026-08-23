@@ -798,6 +798,8 @@ class DividendDatabank(Base, TimescaleMixin):
     agm_date = Column(Date, nullable=True)
     eps = Column(Float, nullable=True)
     net_profit = Column(Float, nullable=True)
+    needs_review = Column(Boolean, default=False)
+    audit_flag = Column(Text, nullable=True)
 
     # Derived Financials
     dps = Column(Float, nullable=True)

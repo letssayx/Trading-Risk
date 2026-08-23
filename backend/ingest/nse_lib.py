@@ -592,6 +592,7 @@ class NSELib:
                 agm_announcements = []
                 fin_announcements = []
                 out_announcements = []
+                gen_announcements = []
 
                 for ann in all_announcements:
                     subj = str(ann.get('subject', '')).lower()
@@ -613,11 +614,13 @@ class NSELib:
                             fin_announcements.append(ann)
                         elif 'outcome' in subj or 'outcome' in desc or 'board meeting' in subj:
                             out_announcements.append(ann)
+                        elif 'general updates' in subj or 'general updates' in desc:
+                            gen_announcements.append(ann)
 
                 # Build lookup dictionaries by symbol
                 symbol_announcements = {}
 
-                for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements:
+                for ann in div_announcements + rec_announcements + agm_announcements + fin_announcements + out_announcements + gen_announcements:
                     sym = ann.get('symbol')
                     if sym and sym in target_symbols:
                         if sym not in symbol_announcements:
@@ -836,7 +839,7 @@ class NSELib:
                         # Fallback 2: Extracting from bm_desc and bm_purpose
                         if found_amount is None:
                             text_to_search = f"{purpose} {desc}"
-                            _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE)
+                            _clean_text_2 = strip_date_fragments(text_to_search)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
                                 match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE)
@@ -850,10 +853,12 @@ class NSELib:
                                     r'(?:dividend|int\s*div)\s+of\s+(\d+(?:\.\d+)?)',
                                     r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?)\s+per'
                                 ]
+                                from backend.ingest.text_utils import is_valid_dividend_amount
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE)
-                                    if matches:
-                                        found_amount = sum(float(m) for m in matches)
+                                    valid_matches = [m for m in matches if is_valid_dividend_amount(m)]
+                                    if valid_matches:
+                                        found_amount = sum(float(m) for m in valid_matches)
                                         break
 
                             if found_amount:
