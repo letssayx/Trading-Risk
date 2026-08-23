@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'add_needs_review_audit_flag'
-down_revision = '20260714072610'
+down_revision = 'fix_pe_ratio_length_006'
 branch_labels = None
 depends_on = None
 
