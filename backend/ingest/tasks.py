@@ -669,11 +669,16 @@ def build_dividend_databank_task(self, force: bool = False):
         # 5. Build dividend events per symbol
         event_symbols = set(ca_by_symbol.keys()).union(set(bm_by_symbol.keys()))
 
+        existing_rows_map = defaultdict(list)
         if force:
             logger.info("FORCE REBUILD: Wiping DividendDatabank table...")
             from sqlalchemy import text
             db.execute(text("TRUNCATE TABLE dividend_databank RESTART IDENTITY CASCADE"))
             db.commit()
+        elif event_symbols:
+            existing = db.query(DividendDatabank).filter(DividendDatabank.symbol.in_(event_symbols)).all()
+            for row in existing:
+                existing_rows_map[row.symbol].append(row)
 
         # 6. Process each symbol's dividend events
         for sym in event_symbols:
@@ -843,10 +848,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 # Check for existing row to update
                 matched_row = None
-                # Since we wiped the table if force=True, this query will be empty on force rebuild
-                existing_rows = db.query(DividendDatabank).filter(DividendDatabank.symbol == sym).all()
-
-                for row in existing_rows:
+                for row in existing_rows_map[sym]:
                     r_ex = row.ex_date if row.ex_date else datetime.date(1900, 1, 1)
                     r_ex_val = ex_date_val if ex_date_val else datetime.date(1900, 1, 1)
 
@@ -896,6 +898,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         net_profit=net_profit,
                     )
                     db.add(new_row)
+                    existing_rows_map[sym].append(new_row)
 
             # Commit per symbol to save progress
             db.commit()
