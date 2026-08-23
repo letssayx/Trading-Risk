@@ -671,7 +671,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
         if force:
             logger.info("FORCE REBUILD: Wiping DividendDatabank table...")
-            db.query(DividendDatabank).delete()
+            from sqlalchemy import text
+            db.execute(text("TRUNCATE TABLE dividend_databank RESTART IDENTITY CASCADE"))
             db.commit()
 
         # 6. Process each symbol's dividend events
