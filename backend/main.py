@@ -137,7 +137,7 @@ async def startup_event():
         for col_name, col_type in hist_index_cols:
             try:
                 with engine.begin() as conn:
-                    conn.execute(text(f"ALTER TABLE historical_index_data ADD COLUMN {col_name} {col_type};"))
+                    conn.execute(text(f"ALTER TABLE historical_index_data ADD COLUMN IF NOT EXISTS {col_name} {col_type};"))
                     print(f"Successfully added column {col_name} to historical_index_data")
             except Exception:
                 pass # column likely exists
