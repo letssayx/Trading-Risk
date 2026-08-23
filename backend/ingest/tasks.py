@@ -565,6 +565,7 @@ def build_dividend_databank_task(self, force: bool = False):
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
     from backend.ingest.field_mapper import FieldMapper
+    from backend.ingest.dividend_matcher import find_best_bm_for_ca, MATCH_WINDOW_DAYS
 
     db = SessionLocal()
     try:
@@ -974,7 +975,6 @@ def patch_historical_eps_agm_task(self):
     import datetime as dt_mod
     import re
     import logging
-from backend.ingest.dividend_matcher import find_best_bm_for_ca, MATCH_WINDOW_DAYS
 
     from backend.infrastructure.db import SessionLocal
     from backend.ingest.nse_models import CorporateAction, BoardMeeting, DividendDatabank, FinancialResult
