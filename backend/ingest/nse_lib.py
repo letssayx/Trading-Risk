@@ -740,7 +740,10 @@ class NSELib:
 
                                 # 3. Extract amount temporarily to score
                                 temp_amount = None
-                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE)
+                                _clean_subject = re.sub(r'(\d{1,2}(?:st|nd|rd|th)?\s*[-/]?\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[-/]?\s*(?:\d{2,4})?)', '', subject, flags=re.IGNORECASE)
+                                _clean_subject = re.sub(r'(\d{4}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{1,2})', '', _clean_subject)
+                                _clean_subject = re.sub(r'(\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{4})', '', _clean_subject)
+                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean_subject, flags=re.IGNORECASE)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
                                     if match:
@@ -768,7 +771,10 @@ class NSELib:
                             # 5. Apply the best match
                             if best_match_ca:
                                 subject = str(best_match_ca.get('subject', ''))
-                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE)
+                                _clean_subject = re.sub(r'(\d{1,2}(?:st|nd|rd|th)?\s*[-/]?\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[-/]?\s*(?:\d{2,4})?)', '', subject, flags=re.IGNORECASE)
+                                _clean_subject = re.sub(r'(\d{4}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{1,2})', '', _clean_subject)
+                                _clean_subject = re.sub(r'(\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{4})', '', _clean_subject)
+                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean_subject, flags=re.IGNORECASE)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE)
                                     if match:
@@ -813,7 +819,10 @@ class NSELib:
                                                 found_amount = sum(float(m) for m in xbrl_matches)
 
                                             if found_amount is None:
-                                                _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE)
+                                                _clean_text = re.sub(r'(\d{1,2}(?:st|nd|rd|th)?\s*[-/]?\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[-/]?\s*(?:\d{2,4})?)', '', attchmntText, flags=re.IGNORECASE)
+                                                _clean_text = re.sub(r'(\d{4}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{1,2})', '', _clean_text)
+                                                _clean_text = re.sub(r'(\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{4})', '', _clean_text)
+                                                _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean_text, flags=re.IGNORECASE)
 
                                                 if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
                                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE)

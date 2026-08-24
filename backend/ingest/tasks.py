@@ -684,21 +684,21 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 best_bm = find_best_bm_for_ca(ca, bms, matched_bm_ids)
 
+                best_bm_date = None
                 if best_bm:
-                    # Use BM's original announcement dates
                     matched_bm_ids.add((best_bm.id, ca_type))
-                    broad_date = best_bm.broadcast_date
-                    ann_date = best_bm.date
-                else:
-                    # No BM found, use CA's dates
-                    broad_date = ca.get('broadcast_date')
-                    ann_date = ca.get('announcement_date_obj')
+                    best_bm_date = best_bm.date
+
+                # CA is Source of Truth. Use CA's broadcast and announcement dates.
+                broad_date = ca.get('broadcast_date')
+                ann_date = ca.get('announcement_date_obj')
 
                 final_actions.append({
                     "ex_date": ca.get('ex_date'),
                     "ex_date_obj": ca.get('ex_date_obj'),
                     "announcement_date_obj": ann_date,
                     "broadcast_date": broad_date,
+                    "board_meeting_date": best_bm_date,
                     "dividend_type": ca_type,
                     "purpose": ca.get('purpose'),
                     "amount": ca.get('amount'),
@@ -737,6 +737,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         "ex_date": None, "ex_date_obj": None,
                         "broadcast_date": bm.broadcast_date or bm.date,
                         "announcement_date_obj": bm.date,
+                        "board_meeting_date": bm.date,
                         "amount": None, "raw_amount": None, "face_value": None,
                         "agm_date": agm_date, "source": "BM_AGM"
                     })
@@ -764,6 +765,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         "ex_date": None, "ex_date_obj": None,
                         "broadcast_date": bm.broadcast_date or bm.date,
                         "announcement_date_obj": bm.date,
+                        "board_meeting_date": bm.date,
                         "amount": bm.extracted_dividend_amount,
                         "raw_amount": bm.extracted_dividend_amount,
                         "face_value": None,
@@ -851,6 +853,8 @@ def build_dividend_databank_task(self, force: bool = False):
                         matched_row.broadcast_date = broad_date
                     if ann_d:
                         matched_row.announcement_date = ann_d
+                    if act.get('board_meeting_date'):
+                        matched_row.board_meeting_date = act.get('board_meeting_date')
                     if amount_val is not None:
                         matched_row.amount = amount_val
                     if act.get('raw_amount') is not None:
@@ -878,6 +882,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         is_awaited=is_awaited,
                         broadcast_date=broad_date,
                         announcement_date=ann_d,
+                        board_meeting_date=act.get('board_meeting_date'),
                         eps=eps,
                         net_profit=net_profit,
                         agm_date=act.get('agm_date')
@@ -887,22 +892,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
         db.commit()
 
-        # --- Uniqueness Validation Pass ---
-        for sym in event_symbols:
-            seen_pairs = defaultdict(list)
-            for row in existing_rows_map[sym]:
-                # In your system it's announcement_date for BM date, or board_meeting_date? The schema has announcement_date and board_meeting_date?
-                # Actually, original code has row.announcement_date
-                key = (row.broadcast_date, getattr(row, 'board_meeting_date', row.announcement_date))
-                if key != (None, None):
-                    seen_pairs[key].append(row)
-            for key, rows in seen_pairs.items():
-                if len(rows) > 1:
-                    for r in rows:
-                        r.needs_review = True
-                        r.audit_flag = f"Duplicate broadcast/board_meeting_date ({key}) shared with {len(rows)-1} other row(s): ids {[x.id for x in rows if x.id != r.id]}"
-                    logger.warning(f"[DIVIDEND DEDUP] {sym}: {len(rows)} rows share broadcast/BM date {key} — flagged for review, NOT auto-merged.")
-        db.commit()
+
 
         return "Dividend databank simplified and updated successfully!"
     except Exception as e:
