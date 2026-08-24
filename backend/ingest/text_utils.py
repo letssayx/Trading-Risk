@@ -13,11 +13,13 @@ def strip_date_fragments(text: str) -> str:
 
     clean_text = text
 
+
     # 1. Remove calendar date formats
     clean_text = re.sub(r'(\d{1,2}(?:st|nd|rd|th)?\s*[-/]?\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[-/]?\s*(?:\d{2,4})?)', '', clean_text, flags=re.IGNORECASE)
+    clean_text = re.sub(r'\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{2,4})?\b', '', clean_text, flags=re.IGNORECASE)
+    clean_text = re.sub(r'\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{4}\b', '', clean_text, flags=re.IGNORECASE)
     clean_text = re.sub(r'(\d{4}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{1,2})', '', clean_text)
     clean_text = re.sub(r'(\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{4})', '', clean_text)
-
     # 2. Remove specific date/event phrases that precede numbers
     date_phrases = [
         r'ex-date', r'ex date', r'record date', r'book closure',

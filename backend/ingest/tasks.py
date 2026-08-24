@@ -826,11 +826,22 @@ def build_dividend_databank_task(self, force: bool = False):
                             if r_b_date and n_b_date and abs((r_b_date - n_b_date).days) > MATCH_WINDOW_DAYS:
                                 time_match = False
 
-                    is_ex_date_match = (
-                        (r_ex == r_ex_val) or
-                        (row.is_awaited and r_ex == EPOCH and r_ex_val != EPOCH and time_match) or
-                        (is_awaited and r_ex_val == EPOCH and r_ex != EPOCH and time_match)
-                    )
+                    is_ex_date_match = False
+                    if r_ex == r_ex_val:
+                        # If both have the same Ex-Date (or both are Epoch), they are candidates.
+                        # However, we must prevent merging two distinct awaited events on the same day simply because they lack an Ex-Date.
+                        # Ex-Dates are a hard constraint. If they are both missing (Epoch), we rely on time_match of their broadcasts.
+                        if r_ex == EPOCH:
+                            if time_match:
+                                is_ex_date_match = True
+                        else:
+                            is_ex_date_match = True
+                    elif row.is_awaited and r_ex == EPOCH and r_ex_val != EPOCH and time_match:
+                        # Existing row is awaited (no ex-date), new row has ex-date, they are within time window
+                        is_ex_date_match = True
+                    elif is_awaited and r_ex_val == EPOCH and r_ex != EPOCH and time_match:
+                        # Existing row has ex-date, new row is awaited (no ex-date), they are within time window
+                        is_ex_date_match = True
 
                     if is_ex_date_match and row.dividend_type == dividend_type_val:
                         if row.amount is not None and amount_val is not None:
@@ -845,18 +856,32 @@ def build_dividend_databank_task(self, force: bool = False):
                             break
 
                 if matched_row:
-                    # Update existing
+                    # Update existing ONLY if new CA data provides something we didn't have (CA is source of truth)
+                    # We do not blindly overwrite historical CA dates with BM dates.
                     if ex_date_val != datetime.date(1900, 1, 1):
                         matched_row.ex_date = ex_date_val
                         matched_row.is_awaited = False
-                    if broad_date:
-                        matched_row.broadcast_date = broad_date
-                    if ann_d:
-                        matched_row.announcement_date = ann_d
+
+                    if act.get('source') == 'CA':
+                        # If incoming is CA, it takes precedence for broadcast and announcement dates
+                        if broad_date:
+                            matched_row.broadcast_date = broad_date
+                        if ann_d:
+                            matched_row.announcement_date = ann_d
+                        if amount_val is not None:
+                            matched_row.amount = amount_val
+                    else:
+                        # Incoming is a BM. Only set these if the existing row doesn't have them
+                        if broad_date and not matched_row.broadcast_date:
+                            matched_row.broadcast_date = broad_date
+                        if ann_d and not matched_row.announcement_date:
+                            matched_row.announcement_date = ann_d
+                        # Do NOT overwrite a CA's amount with a BM's amount unless the CA was missing it
+                        if amount_val is not None and matched_row.amount is None:
+                            matched_row.amount = amount_val
+
                     if act.get('board_meeting_date'):
                         matched_row.board_meeting_date = act.get('board_meeting_date')
-                    if amount_val is not None:
-                        matched_row.amount = amount_val
                     if act.get('raw_amount') is not None:
                         matched_row.raw_amount = act.get('raw_amount')
                     if act.get('face_value') is not None:
