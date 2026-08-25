@@ -877,8 +877,16 @@ def build_dividend_databank_task(self, force: bool = False):
                         ext_type = '-'
 
                 # Parse record date from purpose (use as expected ex-date for upcoming)
-                rec_date = None
-                rec_date = bm.extracted_record_date
+                rec_date = getattr(bm, 'extracted_record_date', None)
+                if not rec_date:
+                    rec_match = re.search(r'record date.*?(?:is|as)?\s*(\d{1,2}(?:st|nd|rd|th)?\s*[a-zA-Z]{3,9}\s*\d{4}|\d{1,2}-\d{1,2}-\d{4})', purpose_lower)
+                    if rec_match:
+                        try:
+                            from dateutil.parser import parse
+                            rec_date = parse(rec_match.group(1)).date()
+                        except:
+                            pass
+
                 if ext_amt is not None or ext_type in ['Bonus', 'Split', 'Demerger']:
                     final_actions_by_symbol[sym].append({
                         "dividend_type": ext_type,
