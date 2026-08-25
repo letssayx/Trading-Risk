@@ -877,16 +877,28 @@ def build_dividend_databank_task(self, force: bool = False):
                         ext_type = '-'
 
                 # Parse record date from purpose (use as expected ex-date for upcoming)
-                rec_date = getattr(bm, 'extracted_record_date', None)
-                if not rec_date:
-                    rec_match = re.search(r'record date.*?(?:is|as)?\s*(\d{1,2}(?:st|nd|rd|th)?\s*[a-zA-Z]{3,9}\s*\d{4}|\d{1,2}-\d{1,2}-\d{4})', purpose_lower)
-                    if rec_match:
+                # Parse record date from purpose and description (use as expected ex-date for upcoming)
+                rec_date = None
+                text_to_search = (purpose_lower + ' ' + (bm.bm_desc or '').lower())
+
+                # First try standard record date regex
+                rec_match = re.search(r'record date.*?(?:is|as)?\s*(\d{1,2}(?:st|nd|rd|th)?\s*[a-zA-Z]{3,9}\s*\d{4}|\d{1,2}-\d{1,2}-\d{4})', text_to_search)
+                if rec_match:
+                    try:
+                        from dateutil.parser import parse
+                        rec_date = parse(rec_match.group(1)).date()
+                    except:
+                        pass
+
+                # If still none, check for standard standalone date formats often found in XBRL texts or short desc
+                if not rec_date and 'record date' in text_to_search:
+                    date_match = re.search(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})', text_to_search)
+                    if date_match:
                         try:
-                            from dateutil.parser import parse
-                            rec_date = parse(rec_match.group(1)).date()
+                            from datetime import datetime as dt_internal
+                            rec_date = dt_internal.strptime(date_match.group(1), "%d-%b-%Y").date()
                         except:
                             pass
-
                 if ext_amt is not None or ext_type in ['Bonus', 'Split', 'Demerger']:
                     final_actions_by_symbol[sym].append({
                         "dividend_type": ext_type,

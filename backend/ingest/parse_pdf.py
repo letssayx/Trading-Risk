@@ -51,6 +51,9 @@ def extract_amount_from_pdf(url):
             # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
             text = re.sub(r'(\.\d+)1-', r'\1/-', text)
 
+            # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
+            text = re.sub(r'(\.\d+)1-', r'\1/-', text)
+
             # Record Date extraction
             if "record date" in text.lower():
                 rd_patterns = [
