@@ -48,6 +48,9 @@ def extract_amount_from_pdf(url):
                     if page_tables:
                         tables.extend(page_tables)
 
+            # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
+            text = re.sub(r'(\.\d+)1-', r'\1/-', text)
+
             # Record Date extraction
             if "record date" in text.lower():
                 rd_patterns = [
@@ -67,9 +70,6 @@ def extract_amount_from_pdf(url):
                             record_date = record_date_str
                             break
 
-            # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
-            text = re.sub(r'(\.\d+)1-', r'\1/-', text)
-
             # Remove "Regulation \d+", "Reg. \d+", "Regulations \d+ and \d+" to prevent false matches
             _clean_text = re.sub(r'Regulations?\s*(?:\d+(?:\s*(?:and|&|,)\s*\d+)*)|Reg\.?\s*\d+', '', text, flags=re.IGNORECASE)
 
@@ -81,7 +81,7 @@ def extract_amount_from_pdf(url):
                 snippet = part[:300]
                 _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
 
-                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
+                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
                 if m:
                     val = float(m.group(1))
                     if val > 0:
@@ -91,10 +91,10 @@ def extract_amount_from_pdf(url):
             if amount is None:
                 # More specific fallback regexes
                 ui_patterns = [
-                    r'(?:dividend|int\s*div|fin\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)',
-                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)\s*per\s*share',
-                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
-                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)'
+                    r'(?:dividend|int\s*div|fin\s*div).*?of\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)',
+                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*per\s*share',
+                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)\s*/-\s*per\s*share',
+                    r'(?:dividend|int\s*div|fin\s*div).*?(?:at|@)\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)'
                 ]
                 for pat in ui_patterns:
                     matches2 = re.findall(pat, _clean_text, re.IGNORECASE)

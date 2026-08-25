@@ -625,12 +625,6 @@ def build_dividend_databank_task(self, force: bool = False):
             sym = r.symbol.upper()
             # Re-parse dividend amount if needed
             parsed_amount = r.parsed_dividend_amount
-            if parsed_amount is None and r.purpose:
-                reparsed_amt, _ = FieldMapper._parse_dividend(r.purpose, r.face_value if hasattr(r, 'face_value') else None)
-                if reparsed_amt is not None:
-                    parsed_amount = reparsed_amt
-                    r.parsed_dividend_amount = reparsed_amt
-                    db.add(r)
 
             # Handle Bonus/Split/Demerger ratios
             ratio = 1.0
@@ -868,13 +862,6 @@ def build_dividend_databank_task(self, force: bool = False):
                 ext_amt = bm.extracted_dividend_amount
 
                 # Re-parse if needed
-                if ext_amt is None and not any(k in purpose_lower for k in ['bonus', 'split', 'demerger']):
-                    reparsed_amt, reparsed_type = FieldMapper._parse_dividend(bm.purpose, None)
-                    if reparsed_amt is not None:
-                        ext_amt = reparsed_amt
-                        if reparsed_type:
-                            ext_type = reparsed_type
-
                 # Determine type if not extracted
                 if not ext_type:
                     if 'interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower:
@@ -891,15 +878,7 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 # Parse record date from purpose (use as expected ex-date for upcoming)
                 rec_date = None
-                rec_match = re.search(r'record date.*?(?:is|as)?\s*(\d{1,2}(?:st|nd|rd|th)?\s*[a-zA-Z]{3,9}\s*\d{4}|\d{1,2}-\d{1,2}-\d{4})', purpose_lower)
-                if rec_match:
-                    try:
-                        from dateutil.parser import parse
-                        rec_date = parse(rec_match.group(1)).date()
-                    except:
-                        pass
-
-                # Only add if it has amount or is Bonus/Split/Demerger
+                rec_date = bm.extracted_record_date
                 if ext_amt is not None or ext_type in ['Bonus', 'Split', 'Demerger']:
                     final_actions_by_symbol[sym].append({
                         "dividend_type": ext_type,
@@ -978,7 +957,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     # Match on ex_date, type, and amount
                     is_ex_date_match = (r_ex == r_ex_val) or (row.is_awaited and r_ex == datetime.date(1900, 1, 1) and r_ex_val != datetime.date(1900, 1, 1))
 
-                    if is_ex_date_match and r_type == dividend_type_val:
+                    if is_ex_date_match and (r_type == dividend_type_val or r_type == '-' or dividend_type_val == '-'):
                         if r_amt is not None and amount_val is not None:
                             try:
                                 if abs(float(r_amt) - float(amount_val)) < 0.01:
