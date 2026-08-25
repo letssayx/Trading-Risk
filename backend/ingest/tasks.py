@@ -877,6 +877,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         ext_type = '-'
 
                 # Parse record date from purpose (use as expected ex-date for upcoming)
+                rec_date = None
                 # Parse record date from purpose and description (use as expected ex-date for upcoming)
                 rec_date = None
                 text_to_search = (purpose_lower + ' ' + (bm.bm_desc or '').lower())

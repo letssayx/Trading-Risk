@@ -474,7 +474,6 @@ class BoardMeeting(Base, TimescaleMixin):
     bm_desc = Column(Text)
     extracted_dividend_amount = Column(Float)
     extracted_dividend_type = Column(String(50))
-    extracted_record_date = Column(Date, nullable=True)
     broadcast_date = Column(DateTime)
 
     __table_args__ = (

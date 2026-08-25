@@ -51,9 +51,6 @@ def extract_amount_from_pdf(url):
             # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
             text = re.sub(r'(\.\d+)1-', r'\1/-', text)
 
-            # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
-            text = re.sub(r'(\.\d+)1-', r'\1/-', text)
-
             # Record Date extraction
             if "record date" in text.lower():
                 rd_patterns = [
@@ -72,6 +69,9 @@ def extract_amount_from_pdf(url):
                         except Exception:
                             record_date = record_date_str
                             break
+
+            # Pre-process text to fix common OCR issues (e.g., 1.551- instead of 1.55/-)
+            text = re.sub(r'(\.\d+)1-', r'\1/-', text)
 
             # Remove "Regulation \d+", "Reg. \d+", "Regulations \d+ and \d+" to prevent false matches
             _clean_text = re.sub(r'Regulations?\s*(?:\d+(?:\s*(?:and|&|,)\s*\d+)*)|Reg\.?\s*\d+', '', text, flags=re.IGNORECASE)
