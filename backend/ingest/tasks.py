@@ -693,7 +693,13 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 has_dividend_intent = 'dividend' in purpose_lower or 'bonus' in purpose_lower or 'split' in purpose_lower or 'sub-division' in purpose_lower or amount is not None
                 is_agm = 'agm' in purpose_lower or 'annual general meeting' in purpose_lower or re.search(r'\bagm\b', purpose_lower)
+                # If it's explicitly a Final dividend, it takes precedence over pure AGM classification
+                if amount is not None and getattr(m, 'extracted_dividend_type', None) == 'Final':
+                    has_dividend_intent = True
 
+                # Ensure events with amount are always captured
+                if amount is not None:
+                    has_dividend_intent = True
                 if not has_dividend_intent and not is_agm:
                     continue
 
@@ -707,6 +713,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     elif 'bonus' in purpose_lower: div_type = 'Bonus'
                     elif 'split' in purpose_lower or 'sub-division' in purpose_lower: div_type = 'Split'
 
+                # If there is a dividend intent, explicitly block it from being overridden to just AGM
                 if div_type == '-' and is_agm and not has_dividend_intent:
                     div_type = 'AGM'
 
@@ -779,7 +786,7 @@ def build_dividend_databank_task(self, force: bool = False):
                 is_agm_ca = 'agm' in ca_purpose_lower or 'annual general meeting' in ca_purpose_lower
 
                 # Special rule: If a CA is purely an AGM, its ex_date is actually the scheduled AGM Date
-                if is_agm_ca and not ca_amount and ca_type not in ['Interim', 'Final', 'Special', 'Bonus', 'Split']:
+                if is_agm_ca and ca_amount is None and ca_type not in ['Interim', 'Final', 'Special', 'Bonus', 'Split']:
                     ca_agm_date = safe_date(ca.ex_date)
                     if ca_agm_date != datetime.date.min:
                         # Find the corresponding Final dividend anchor within 180 days backward
@@ -798,6 +805,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     continue # Do not create a separate row for this CA
 
                 ca_date_val = safe_date(ca.ex_date or ca.broadcast_date or ca.date)
+                ca_broadcast_val = safe_date(ca.broadcast_date or ca.date)
 
                 # Find matching anchor looking BACKWARDS in time
                 matched_anchor = None
@@ -805,11 +813,13 @@ def build_dividend_databank_task(self, force: bool = False):
                     a_date = safe_date(a['board_meeting_date'])
                     # Diff must be positive (CA happens AFTER or ON BM)
                     diff = (ca_date_val - a_date).days
+                    broadcast_diff = (ca_broadcast_val - a_date).days
 
                     window = 180 if a['dividend_type'] in ['Final', 'Bonus', 'Split'] else 45
 
-                    if 0 <= diff <= window:
-                        type_match = (a['dividend_type'] == ca_type) or (a['dividend_type'] in ['-', 'Dividend'] and ca_type in ['Interim', 'Final', 'Special', 'Dividend', '-']) or (ca_type in ['-', 'Dividend'] and a['dividend_type'] in ['Interim', 'Final', 'Special', 'Dividend', '-'])
+                    # Diff must be positive (CA happens AFTER or ON BM)
+                    if diff >= -2 and broadcast_diff >= -2 and broadcast_diff <= window:
+                        type_match = (a['dividend_type'] == ca_type) or (a['dividend_type'] in ['-', 'Dividend', 'AGM'] and ca_type in ['Interim', 'Final', 'Special', 'Dividend', '-', 'AGM']) or (ca_type in ['-', 'Dividend', 'AGM'] and a['dividend_type'] in ['Interim', 'Final', 'Special', 'Dividend', '-', 'AGM'])
                         amount_conflict = (a['amount'] is not None and ca_amount is not None and a['amount'] != ca_amount)
 
                         if type_match and not amount_conflict:
@@ -818,6 +828,8 @@ def build_dividend_databank_task(self, force: bool = False):
 
                 if matched_anchor:
                     # Enrich the anchor!
+                    # IMPORTANT: We DO NOT overwrite the anchor's original board_meeting_date or broadcast_date
+                    # because the anchor represents the original declaration.
                     if ca.ex_date:
                         matched_anchor['ex_date'] = safe_date(ca.ex_date)
                         matched_anchor['is_awaited'] = False
@@ -834,7 +846,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         matched_anchor['amount'] = ca_amount
                         matched_anchor['raw_amount'] = ca_amount
 
-                    if matched_anchor['dividend_type'] in ['-', 'Dividend'] and ca_type not in ['-', 'Dividend']:
+                    if matched_anchor['dividend_type'] in ['-', 'Dividend', 'AGM'] and ca_type not in ['-', 'Dividend', 'AGM']:
                         matched_anchor['dividend_type'] = ca_type
                 else:
                     # Orphaned CA (No anchor found). Treat it as a standalone event.
@@ -886,8 +898,13 @@ def build_dividend_databank_task(self, force: bool = False):
                     # Update
                     match.date = final_date
                     if h['ex_date']: match.ex_date = h['ex_date']
-                    if h['broadcast_date']: match.broadcast_date = h['broadcast_date']
-                    if h['board_meeting_date']: match.board_meeting_date = h['board_meeting_date']
+                    if h['broadcast_date']:
+                        # Only update if the new broadcast date is strictly earlier to preserve origin declaration
+                        if not match.broadcast_date or h['broadcast_date'] < safe_date(match.broadcast_date):
+                            match.broadcast_date = h['broadcast_date']
+                    if h['board_meeting_date']:
+                        if not match.board_meeting_date or h['board_meeting_date'] < safe_date(match.board_meeting_date):
+                            match.board_meeting_date = h['board_meeting_date']
                     if h['amount'] is not None:
                         match.amount = h['amount']
                         match.raw_amount = h['raw_amount']
