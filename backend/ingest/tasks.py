@@ -892,10 +892,10 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_syn_type = None
                         upgrade_ex_type = None
 
-                        if not is_potential_duplicate:
-                            generic_types = ['-', 'Dividend', 'AGM']
-                            specific_types = ['Interim', 'Final', 'Special']
+                        generic_types = ['-', 'Dividend', 'AGM']
+                        specific_types = ['Interim', 'Final', 'Special', 'Bonus', 'Split']
 
+                        if not is_potential_duplicate:
                             if syn_type in generic_types and ex_type in (specific_types + generic_types):
                                 is_potential_duplicate = True
                                 if ex_type in specific_types:
