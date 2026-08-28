@@ -893,13 +893,13 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
-                            if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special']:
+                                if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
                                     upgrade_syn_type = ex_type
-                            elif ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
                                 is_potential_duplicate = True
-                                if ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special']:
+                                if ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
                                     upgrade_ex_type = syn_type
 
                         # STRICT Deduplication Check:
@@ -922,13 +922,13 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
+                        if diff == 0 and (syn_type in ['-', 'Dividend'] or ex_type in ['-', 'Dividend']):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
                                 # ensure we don't accidentally wipe out specific tags during exact matches later
-                                if ex_type not in ['-', 'Dividend', 'AGM'] and syn_type in ['-', 'Dividend', 'AGM']:
+                                if ex_type not in ['-', 'Dividend'] and syn_type in ['-', 'Dividend']:
                                     syn['dividend_type'] = ex_type
-                                elif syn_type not in ['-', 'Dividend', 'AGM'] and ex_type in ['-', 'Dividend', 'AGM']:
+                                elif syn_type not in ['-', 'Dividend'] and ex_type in ['-', 'Dividend']:
                                     ex['dividend_type'] = syn_type
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
@@ -968,7 +968,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend', 'AGM'] or off.get('dividend_type') in ['-', 'Dividend', 'AGM']):
+                        if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend'] or off.get('dividend_type') in ['-', 'Dividend']):
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
@@ -991,7 +991,19 @@ def build_dividend_databank_task(self, force: bool = False):
                             if not off_m or (syn_m and safe_date(syn_m.meeting_date) > safe_date(off_m.meeting_date)):
                                 off['_matchedMeeting'] = syn_m
 
+                            # Inherit the original broadcast date of the Board Meeting so late AGM announcements
+                            # don't falsely bump the declaration date.
+                            if syn.get('broadcast_date') and off.get('broadcast_date'):
+                                # if the synthetic event (BM) is earlier than the official event (general update),
+                                # the declaration date (broadcast date) must be the BM date.
+                                syn_b_date = safe_date(syn.get('broadcast_date'))
+                                off_b_date = safe_date(off.get('broadcast_date'))
+                                if syn_b_date != datetime.date.min and off_b_date != datetime.date.min and syn_b_date < off_b_date:
+                                    off['broadcast_date'] = syn.get('broadcast_date')
+                                    off['announcement_date_obj'] = syn.get('broadcast_date')
+
                             matched = True
+
                             break
                 if not matched:
                     final_actions.append(syn)
@@ -1033,11 +1045,21 @@ def build_dividend_databank_task(self, force: bool = False):
             for action in final_actions:
                 m = action.get('_matchedMeeting')
                 bm_date = m.meeting_date if m else None
+                # broadcast_date should be the date on which the board meeting outcome was announced
+                final_broadcast = None
+                if m:
+                    final_broadcast = m.broadcast_date or m.date
+                if not final_broadcast:
+                    final_broadcast = action.get('broadcast_date')
+                if hasattr(final_broadcast, 'date'):
+                    final_broadcast = final_broadcast.date()
+
                 ca_by_symbol[sym].append({
                     "ex_date": action.get('ex_date') if action.get('ex_date') else None,
                     "ex_date_obj": action.get('ex_date_obj'),
-                    "announcement_date_obj": action.get('announcement_date_obj') or action.get('broadcast_date'),
-                    "broadcast_date": action.get('broadcast_date'),
+                    "announcement_date_obj": action.get('announcement_date_obj') or final_broadcast,
+                    "broadcast_date": final_broadcast,
+
                     "board_meeting_date": bm_date,
                     "dividend_type": action.get('dividend_type'),
                     "purpose": action.get('purpose'),
