@@ -879,7 +879,7 @@ def build_dividend_databank_task(self, force: bool = False):
                         syn_type = syn.get('dividend_type')
                         ex_type = ex.get('dividend_type')
 
-                        # Fix Deduplication: General Updates and Record Date announcements happen for the same event.
+                                                # Fix Deduplication: General Updates and Record Date announcements happen for the same event.
                         # Deduplicate them strictly if symbol + div_type matches within window.
                         # E.g. COALINDIA duplicates have exactly the same symbol and type (like Interim) within days of each other.
                         # Do NOT merge different dividend types (like Interim and Final) even if they happen on the same day.
@@ -893,13 +893,16 @@ def build_dividend_databank_task(self, force: bool = False):
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
-                            if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                            generic_types = ['-', 'Dividend', 'AGM']
+                            specific_types = ['Interim', 'Final', 'Special']
+
+                            if syn_type in generic_types and ex_type in (specific_types + generic_types):
                                 is_potential_duplicate = True
-                                if syn_type in ['-', 'Dividend'] and ex_type in ['Interim', 'Final', 'Special']:
+                                if ex_type in specific_types:
                                     upgrade_syn_type = ex_type
-                            elif ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
+                            elif ex_type in generic_types and syn_type in (specific_types + generic_types):
                                 is_potential_duplicate = True
-                                if ex_type in ['-', 'Dividend'] and syn_type in ['Interim', 'Final', 'Special']:
+                                if syn_type in specific_types:
                                     upgrade_ex_type = syn_type
 
                         # STRICT Deduplication Check:
@@ -922,13 +925,13 @@ def build_dividend_databank_task(self, force: bool = False):
                             is_potential_duplicate = False
 
                         # If diff is exactly 0 (same day) and it's a generic dividend vs a specific one, or amount is missing in one, forcefully merge
-                        if diff == 0 and (syn_type in ['-', 'Dividend', 'AGM'] or ex_type in ['-', 'Dividend', 'AGM']):
+                        if diff == 0 and (syn_type in generic_types or ex_type in generic_types):
                             if not amounts_conflict and not records_conflict:
                                 is_potential_duplicate = True
                                 # ensure we don't accidentally wipe out specific tags during exact matches later
-                                if ex_type not in ['-', 'Dividend', 'AGM'] and syn_type in ['-', 'Dividend', 'AGM']:
+                                if ex_type not in generic_types and syn_type in generic_types:
                                     syn['dividend_type'] = ex_type
-                                elif syn_type not in ['-', 'Dividend', 'AGM'] and ex_type in ['-', 'Dividend', 'AGM']:
+                                elif syn_type not in generic_types and ex_type in generic_types:
                                     ex['dividend_type'] = syn_type
 
                         if syn.get('symbol') == ex.get('symbol') and diff <= window and is_potential_duplicate:
@@ -992,9 +995,17 @@ def build_dividend_databank_task(self, force: bool = False):
                                 off['_matchedMeeting'] = syn_m
 
                             # Ensure that generic 'AGM' or 'Dividend' updates do not wipe out specific 'Interim'/'Final' types
-                            if syn.get('dividend_type') and syn.get('dividend_type') not in ['-', 'Dividend', 'AGM']:
-                                if not off.get('dividend_type') or off.get('dividend_type') in ['-', 'Dividend', 'AGM']:
-                                    off['dividend_type'] = syn.get('dividend_type')
+                            syn_type_val = syn.get('dividend_type')
+                            off_type_val = off.get('dividend_type')
+                            generic_types = ['-', 'Dividend', 'AGM']
+
+                            if syn_type_val and syn_type_val not in generic_types:
+                                if not off_type_val or off_type_val in generic_types:
+                                    off['dividend_type'] = syn_type_val
+
+                            if off_type_val and off_type_val not in generic_types:
+                                if not syn_type_val or syn_type_val in generic_types:
+                                    syn['dividend_type'] = off_type_val
 
                             if syn.get('record_date') is not None and off.get('record_date') is None:
                                 off['record_date'] = syn.get('record_date')
@@ -1004,16 +1015,12 @@ def build_dividend_databank_task(self, force: bool = False):
 
                             # Inherit the original broadcast date of the Board Meeting so late AGM announcements
                             # don't falsely bump the declaration date.
-                            if syn.get('broadcast_date') and off.get('broadcast_date'):
-                                syn_b_date = safe_date(syn.get('broadcast_date'))
-                                off_b_date = safe_date(off.get('broadcast_date'))
-                                # Use the earlier of the two as the definitive declaration date,
-                                # BUT only if the synthetic event was actually a dividend outcome (amount is present)
-                                # to avoid falling back to an early generic intimation.
-                                if syn_b_date != datetime.date.min and off_b_date != datetime.date.min and syn_b_date < off_b_date:
-                                    if syn.get('amount'):
-                                        off['broadcast_date'] = syn.get('broadcast_date')
-                                        off['announcement_date_obj'] = syn.get('broadcast_date')
+                            # ALWAYS trust the synthetic (Board Meeting) broadcast date over the official (Corporate Action/Update)
+                            # if the board meeting actually declared the dividend (has amount).
+                            if syn.get('broadcast_date'):
+                                if syn.get('amount') is not None or syn_type_val not in generic_types:
+                                    off['broadcast_date'] = syn.get('broadcast_date')
+                                    off['announcement_date_obj'] = syn.get('broadcast_date')
 
                             matched = True
 
