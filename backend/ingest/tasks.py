@@ -568,11 +568,12 @@ def build_dividend_databank_task(self, force: bool = False):
     db = SessionLocal()
     try:
         today = datetime.date.today()
-            def safe_date(d):
-                if hasattr(d, 'date'): return d.date()
-                if isinstance(d, datetime.datetime): return d.date()
-                if isinstance(d, datetime.date): return d
-                return datetime.date.min
+
+        def safe_date(d):
+            if hasattr(d, 'date'): return d.date()
+            if isinstance(d, datetime.datetime): return d.date()
+            if isinstance(d, datetime.date): return d
+            return datetime.date.min
 
 
         ca_query = db.query(CorporateAction).filter(
