@@ -568,6 +568,12 @@ def build_dividend_databank_task(self, force: bool = False):
     db = SessionLocal()
     try:
         today = datetime.date.today()
+            def safe_date(d):
+                if hasattr(d, 'date'): return d.date()
+                if isinstance(d, datetime.datetime): return d.date()
+                if isinstance(d, datetime.date): return d
+                return datetime.date.min
+
 
         ca_query = db.query(CorporateAction).filter(
             or_(
@@ -866,12 +872,6 @@ def build_dividend_databank_task(self, force: bool = False):
             # 2. Timeline Linkage & Merge
             group_officials = [a for a in combined_actions if not a.get('is_synthetic')]
             group_synthetics = [a for a in combined_actions if a.get('is_synthetic')]
-
-            def safe_date(d):
-                if hasattr(d, 'date'): return d.date()
-                if isinstance(d, datetime.datetime): return d.date()
-                if isinstance(d, datetime.date): return d
-                return datetime.date.min
 
             def get_sort_date_syn(x):
                 m = x.get('_matchedMeeting')
