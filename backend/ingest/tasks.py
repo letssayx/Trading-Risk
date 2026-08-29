@@ -624,7 +624,7 @@ def build_dividend_databank_task(self, force: bool = False):
             # Attempt to reparse any missing dividend amounts first for all corporate actions
             parsed_amount = r.parsed_dividend_amount
             if parsed_amount is None and r.purpose:
-                reparsed_amt, _ = FieldMapper._parse_dividend(r.purpose, r.face_value if hasattr(r, 'face_value') else None)
+                reparsed_amt = None # Disable fallback parsing to prevent regex errors
                 if reparsed_amt is not None:
                     parsed_amount = reparsed_amt
                     r.parsed_dividend_amount = reparsed_amt
@@ -841,7 +841,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     if not has_linked_action:
                         # Create Synthetic
                         amount = m.extracted_dividend_amount if m.extracted_dividend_amount is not None else None
-                        if amount is None and getattr(m, 'parsed_dividend_amount', None) is not None:
+                        if False: # Disabled parsed amount to rely only on extracted amount
                              amount = m.parsed_dividend_amount
 
                         div_type = '-'
@@ -1021,6 +1021,18 @@ def build_dividend_databank_task(self, force: bool = False):
                         if syn.get('dividend_type') == 'AGM' or off.get('dividend_type') == 'AGM':
                             pass # Do not merge
                         elif -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend'] or off.get('dividend_type') in ['-', 'Dividend']):
+                            syn_amount = syn.get('amount')
+                            off_amount = off.get('amount')
+                            amounts_conflict = False
+                            if syn_amount is not None and str(syn_amount) != '-' and off_amount is not None and str(off_amount) != '-':
+                                try:
+                                    if abs(float(syn_amount) - float(off_amount)) > 0.001:
+                                        amounts_conflict = True
+                                except:
+                                    if str(syn_amount) != str(off_amount):
+                                        amounts_conflict = True
+                            if amounts_conflict:
+                                continue
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
                                 off['raw_amount'] = syn.get('raw_amount')
@@ -1045,12 +1057,11 @@ def build_dividend_databank_task(self, force: bool = False):
 
                             # FIX: Broadcast date must always be the declaration date (Board Meeting date / outcome date)
                             # Never overwrite an earlier broadcast date with a later one.
-                            syn_b_date = syn.get('broadcast_date') or (syn_m.date if syn_m else None)
+                            syn_b_date = (syn_m.date if syn_m else None) or syn.get('broadcast_date')
                             off_b_date = off.get('broadcast_date')
                             if syn_b_date:
-                                if not off_b_date or safe_date(syn_b_date) < safe_date(off_b_date):
-                                    off['broadcast_date'] = syn_b_date
-                                    syn['broadcast_date'] = syn_b_date
+                                off['broadcast_date'] = syn_b_date
+                                syn['broadcast_date'] = syn_b_date
 
                             matched = True
                             break
