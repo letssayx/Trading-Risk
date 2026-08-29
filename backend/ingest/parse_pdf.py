@@ -79,7 +79,10 @@ def extract_amount_from_pdf(url):
             for part in parts[1:]:
                 # Only look at the next 300 chars after 'dividend'
                 snippet = part[:300]
-                _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
+                _clean = re.sub(r'(\d{1,2}(?:st|nd|rd|th)?\s*[-/]?\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*[-/]?\s*(?:\d{2,4})?)', '', snippet, flags=re.IGNORECASE)
+                _clean = re.sub(r'(\d{4}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{1,2})', '', _clean)
+                _clean = re.sub(r'(\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{4})', '', _clean)
+                _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean, flags=re.IGNORECASE)
 
                 m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~)\s*(\d+(?:\.\d+)?)', _clean, re.IGNORECASE)
                 if m:
