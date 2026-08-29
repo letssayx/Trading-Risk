@@ -728,7 +728,13 @@ def build_dividend_databank_task(self, force: bool = False):
                     diff = abs((m_date - a_date).days) if a_date != datetime.date.min else 999
 
                     # Strictly check amounts to prevent squashing Interim & Final on same day
-                    amount_conflict = (a['amount'] is not None and amount is not None and a['amount'] != amount)
+                    amount_conflict = False
+                    if a['amount'] is not None and amount is not None:
+                        try:
+                            # Use epsilon for float comparison to avoid type mismatch issues
+                            amount_conflict = abs(float(a['amount']) - float(amount)) > 0.001
+                        except ValueError:
+                            amount_conflict = str(a['amount']) != str(amount)
 
                     # STRICT type conflict check
                     type_conflict = False
@@ -830,7 +836,12 @@ def build_dividend_databank_task(self, force: bool = False):
                             type_conflict = True
 
                         type_match = (a['dividend_type'] == ca_type) or (a['dividend_type'] in ['-', 'Dividend', 'AGM'] or ca_type in ['-', 'Dividend', 'AGM'])
-                        amount_conflict = (a['amount'] is not None and ca_amount is not None and a['amount'] != ca_amount)
+                        amount_conflict = False
+                        if a['amount'] is not None and ca_amount is not None:
+                            try:
+                                amount_conflict = abs(float(a['amount']) - float(ca_amount)) > 0.001
+                            except ValueError:
+                                amount_conflict = str(a['amount']) != str(ca_amount)
 
                         if type_match and not amount_conflict and not type_conflict:
                             matched_anchor = a
@@ -901,18 +912,28 @@ def build_dividend_databank_task(self, force: bool = False):
                             break
                         # Strict matching for awaited rows
                         if row.is_awaited and h['board_meeting_date'] and row.board_meeting_date == h['board_meeting_date']:
-                            match = row
-                            break
+                            # Also match on amount to prevent joining an Interim with a Final if they share a BM date but split types later
+                            if row.amount is not None and h['amount'] is not None:
+                                try:
+                                    if abs(float(row.amount) - float(h['amount'])) <= 0.001:
+                                        match = row
+                                        break
+                                except ValueError:
+                                    pass
+                            else:
+                                match = row
+                                break
 
                 if match:
                     # Update
                     match.date = final_date
                     if h['ex_date']: match.ex_date = h['ex_date']
                     if h['broadcast_date']:
-                        # Only update if the new broadcast date is strictly earlier to preserve origin declaration
+                        # STRICT: Only update if broadcast_date is missing. NEVER overwrite an existing broadcast date with a later announcement date.
                         if not match.broadcast_date or h['broadcast_date'] < safe_date(match.broadcast_date):
                             match.broadcast_date = h['broadcast_date']
                     if h['board_meeting_date']:
+                        # Same strict logic for board_meeting_date
                         if not match.board_meeting_date or h['board_meeting_date'] < safe_date(match.board_meeting_date):
                             match.board_meeting_date = h['board_meeting_date']
                     if h['amount'] is not None:
