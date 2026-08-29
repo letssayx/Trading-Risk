@@ -1,3 +1,4 @@
+from backend.ingest.text_utils import strip_date_fragments
 from typing import Dict, Any, List, Optional
 import pandas as pd
 import logging
@@ -270,6 +271,8 @@ class FieldMapper:
             return None, None
 
         purpose_lower = purpose.lower()
+        from backend.ingest.text_utils import strip_date_fragments
+        purpose_clean = strip_date_fragments(purpose_lower)
 
         import re
 
@@ -297,8 +300,10 @@ class FieldMapper:
              return None, None
 
         # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
+        # 0. Strip dates first
+        _clean_purpose = purpose_clean
         # 1. Aggressively remove 'face value' and 'fv' context blocks
-        _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean_purpose, flags=re.IGNORECASE)
 
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
@@ -330,7 +335,7 @@ class FieldMapper:
             return total_amount, parsed_type
 
         # Try percentage format: sum all percentages if multiple exist
-        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
+        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', _clean_purpose)
         if pct_matches and face_value:
             total_pct = sum(float(m) for m in pct_matches)
             return (total_pct / 100.0) * face_value, parsed_type
