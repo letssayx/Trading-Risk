@@ -1,3 +1,4 @@
+from backend.ingest.text_utils import strip_date_fragments
 from typing import Dict, Any, List, Optional
 import pandas as pd
 import logging
@@ -270,6 +271,8 @@ class FieldMapper:
             return None, None
 
         purpose_lower = purpose.lower()
+        from backend.ingest.text_utils import strip_date_fragments
+        purpose_clean = strip_date_fragments(purpose_lower)
 
         import re
 
@@ -297,8 +300,10 @@ class FieldMapper:
              return None, None
 
         # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
+        # 0. Strip dates first
+        _clean_purpose = purpose_clean
         # 1. Aggressively remove 'face value' and 'fv' context blocks
-        _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', _clean_purpose, flags=re.IGNORECASE)
 
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
@@ -310,9 +315,15 @@ class FieldMapper:
         # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by & or /)
         rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
 
+        # Strip explicit dates to prevent extracting a day (like "29") as a dividend amount.
+        # Strips DD-MMM-YYYY, DD/MM/YYYY, YYYY-MM-DD
+        _clean_purpose_no_dates = re.sub(r'\b\d{1,2}\s*(?:[-/.]\s*)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(?:[-/.]\s*)?\d{2,4}\b', '', _clean_purpose, flags=re.IGNORECASE)
+        _clean_purpose_no_dates = re.sub(r'\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b', '', _clean_purpose_no_dates)
+        _clean_purpose_no_dates = re.sub(r'\b\d{1,2}[-/.]\d{1,2}[-/.]\d{4}\b', '', _clean_purpose_no_dates)
+
         # 4. Fallback extraction: look for numbers immediately following dividend keywords if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
-        # We need to make sure we don't grab a date like 31-Jul-2026, so look ahead to ensure it's not followed by a month abbreviation.
-        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b(?!\s*[-/]?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))', _clean_purpose, flags=re.IGNORECASE)
+        # Now running against the text with explicit date structures completely removed.
+        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b', _clean_purpose_no_dates, flags=re.IGNORECASE)
 
         valid_div_matches = [m for m in div_matches if not re.match(r'^(19|20)\d{2}$', m) and float(m) < 1000]
 
@@ -330,7 +341,7 @@ class FieldMapper:
             return total_amount, parsed_type
 
         # Try percentage format: sum all percentages if multiple exist
-        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', purpose_lower)
+        pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', _clean_purpose)
         if pct_matches and face_value:
             total_pct = sum(float(m) for m in pct_matches)
             return (total_pct / 100.0) * face_value, parsed_type
