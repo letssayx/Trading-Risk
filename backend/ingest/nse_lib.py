@@ -838,6 +838,9 @@ class NSELib:
                             except ValueError:
                                 bm_date_obj = None
 
+                            best_ca = None
+                            best_ca_score = -9999
+
                             for ca in symbol_ca_map[symbol]:
                                 ca_ex_date_str = str(ca.get('exDate', ''))
                                 try:
@@ -868,15 +871,27 @@ class NSELib:
                                     if days_diff > window:
                                         continue
 
-                                subject = str(ca.get('subject', ''))
+                                # Calculate a score for this match
+                                score = 0
+                                if base_type != 'Dividend' and ca_type == base_type:
+                                    score += 100 # Exact type match
+                                if bm_date_obj and ca_ex_date_obj:
+                                    score -= days_diff # Penalize for distance in time. We want the CLOSEST matching action.
 
-                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE | re.DOTALL)
+                                if score > best_ca_score:
+                                    best_ca_score = score
+                                    best_ca = ca
+
+                            if best_ca:
+                                subject = str(best_ca.get('subject', ''))
+
+                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|₹)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE | re.DOTALL)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
-                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
+                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
                                     if match:
                                         found_amount = float(match.group(1))
                                 else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
+                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
                                     if matches:
                                         found_amount = sum(float(m) for m in matches)
 
@@ -885,7 +900,7 @@ class NSELib:
                                     elif 'findiv' in subject.lower() or 'fin div' in subject.lower() or 'final' in subject.lower() or 'finai' in subject.lower(): found_type = 'Final'
                                     elif 'special' in subject.lower(): found_type = 'Special'
 
-                                rec_date = ca.get('recDate')
+                                rec_date = best_ca.get('recDate')
                                 if rec_date and rec_date != '-':
                                     found_record_date = rec_date
 
