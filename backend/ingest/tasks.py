@@ -889,16 +889,44 @@ def build_dividend_databank_task(self, force: bool = False):
                         # but do not merge 'Interim' with 'Final'
 
                         is_potential_duplicate = is_duplicate_event
+
+                        syn_amount_check = syn.get('amount')
+                        ex_amount_check = ex.get('amount')
+                        amounts_conflict_check = (syn_amount_check is not None and str(syn_amount_check) != '-' and
+                                            ex_amount_check is not None and str(ex_amount_check) != '-' and
+                                            syn_amount_check != ex_amount_check)
+                        try:
+                            if amounts_conflict_check and abs(float(syn_amount_check) - float(ex_amount_check)) <= 0.001:
+                                amounts_conflict_check = False
+                        except Exception:
+                            pass
+
+                        if is_potential_duplicate and amounts_conflict_check:
+                            is_potential_duplicate = False
+
+                        # CRITICAL: Prevent merging back-to-back same-type dividends if they are declared in different months
+                        # e.g., if a company declares Interim in May and Interim in July, they shouldn't merge even if amount is same
+                        if is_potential_duplicate and syn_m and ex_m:
+                            # if diff between actual broadcast/meeting dates is > 15 days, do NOT merge them!
+                            bm_diff = abs((safe_date(syn_m.meeting_date) - safe_date(ex_m.meeting_date)).days)
+                            if bm_diff > 15:
+                                is_potential_duplicate = False
                         upgrade_syn_type = None
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
                             if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
-                                is_potential_duplicate = True
+                                if syn_m and ex_m and abs((safe_date(syn_m.meeting_date) - safe_date(ex_m.meeting_date)).days) > 15:
+                                    pass
+                                else:
+                                    is_potential_duplicate = True
                                 if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special']:
                                     upgrade_syn_type = ex_type
                             elif ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
-                                is_potential_duplicate = True
+                                if syn_m and ex_m and abs((safe_date(syn_m.meeting_date) - safe_date(ex_m.meeting_date)).days) > 15:
+                                    pass
+                                else:
+                                    is_potential_duplicate = True
                                 if ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special']:
                                     upgrade_ex_type = syn_type
 
