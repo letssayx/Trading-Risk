@@ -571,16 +571,16 @@ class NSELib:
 
                 # Get corporate announcements globally to extract XBRL attachment texts
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
-                trade_date_str = trade_date.strftime("%d-%m-%Y")
-                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend&from_date={from_date_str}&to_date={trade_date_str}"
-                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date&from_date={from_date_str}&to_date={trade_date_str}"
+                # Announcements often come out a few days after a Board Meeting is scheduled (especially Outcomes).
+                # A 180-day future lookahead crashes the NSE server with massive payloads (curl 28 timeout).
+                # We cap the announcements to a reasonable +14 days to capture delayed Outcomes without crashing the API.
+                to_date_ann = (trade_date + timedelta(days=14)).strftime("%d-%m-%Y")
 
-                # Announcements are broadcast dates, not future dates. Fetching +180 days for announcements causes massive payloads and timeouts.
-                # Restrict announcement fetching to the actual ingestion window (from_date_str to trade_date).
-                trade_date_str = trade_date.strftime("%d-%m-%Y")
-                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={trade_date_str}"
+                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend&from_date={from_date_str}&to_date={to_date_ann}"
+                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date&from_date={from_date_str}&to_date={to_date_ann}"
+                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_ann}"
                 announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
-                announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={trade_date_str}"
+                announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_ann}"
 
                 div_announcements = []
                 rec_announcements = []
