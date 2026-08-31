@@ -561,7 +561,7 @@ class NSELib:
 
                 # Get all CA events globally in one request rather than N+1
                 ca_url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities&from_date={from_date_str}&to_date={to_date_str}"
-                ca_resp = self.get(ca_url)
+                ca_resp = self.get(ca_url, timeout=45)
                 ca_data = []
                 if ca_resp and ca_resp.status_code == 200:
                     try:
@@ -597,7 +597,7 @@ class NSELib:
                     except Exception as e:
                         logger.error(f"Failed to parse record date announcements: {e}")
 
-                resp_agm = self.get(announcement_url_agm)
+                resp_agm = self.get(announcement_url_agm, timeout=45)
                 if resp_agm and resp_agm.status_code == 200:
                     try:
                         agm_data = resp_agm.json()
@@ -621,7 +621,7 @@ class NSELib:
                 # To prevent scraping thousands of PDFs for unrelated symbols, we extract the target symbols from the fetched board meetings
                 target_symbols = {item.get('bm_symbol') for item in data if item.get('bm_symbol')}
 
-                resp_out = self.get(announcement_url_out)
+                resp_out = self.get(announcement_url_out, timeout=45)
                 if resp_out and resp_out.status_code == 200:
                     try:
                         all_out = resp_out.json()
