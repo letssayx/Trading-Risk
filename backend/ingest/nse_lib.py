@@ -571,8 +571,9 @@ class NSELib:
 
                 # Get corporate announcements globally to extract XBRL attachment texts
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
-                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
-                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
+                trade_date_str = trade_date.strftime("%d-%m-%Y")
+                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend&from_date={from_date_str}&to_date={trade_date_str}"
+                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date&from_date={from_date_str}&to_date={trade_date_str}"
 
                 # Announcements are broadcast dates, not future dates. Fetching +180 days for announcements causes massive payloads and timeouts.
                 # Restrict announcement fetching to the actual ingestion window (from_date_str to trade_date).
