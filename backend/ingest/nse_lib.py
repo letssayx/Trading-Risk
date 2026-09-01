@@ -2,6 +2,7 @@
 from curl_cffi import requests as cffi_requests
 import pandas as pd
 from backend.ingest.parse_pdf import extract_amount_from_pdf
+from backend.ingest.field_mapper import FieldMapper
 import io
 import zipfile
 import logging
@@ -637,7 +638,7 @@ class NSELib:
                             # but let's fetch all general announcements on the specific date later if needed.
                             # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
                             # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
-                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols and ('Outcome of Board Meeting' in str(a.get('desc', '')) or 'Outcome of Board Meeting' in str(a.get('subject', '')))]
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -713,7 +714,7 @@ class NSELib:
                                     pass
 
                     if has_dividend_mention or is_agm:
-                        base_type = 'Final' if ('final' in purpose.lower() or 'findiv' in purpose.lower() or 'fin div' in purpose.lower() or 'yearly audited' in purpose.lower() or 'annual results' in purpose.lower() or 'yearly audited' in desc.lower() or 'annual results' in desc.lower()) else ('Interim' if 'interim' in purpose.lower() or 'intdiv' in purpose.lower() or 'int div' in purpose.lower() or 'quarterly' in purpose.lower() or 'quarterly' in desc.lower() else ('Special' if 'special' in purpose.lower() else 'Dividend'))
+                        base_type = 'Final' if ('final' in purpose.lower() or 'findiv' in purpose.lower() or 'fin div' in purpose.lower() or 'yearly audited' in purpose.lower() or 'annual results' in purpose.lower() or 'yearly audited' in desc.lower() or 'annual results' in desc.lower()) else ('Interim' if 'interim' in purpose.lower() or 'intdiv' in purpose.lower() or 'int div' in purpose.lower() or 'quarterly' in purpose.lower() or 'quarterly' in desc.lower() else ('Special' if 'special' in purpose.lower() else 'Final'))
                         if is_agm:
                             base_type = 'AGM'
                             item['bm_purpose'] = 'Annual General Meeting'
@@ -733,7 +734,7 @@ class NSELib:
                                 if not xbrl_matches:
                                     xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
                                 if xbrl_matches:
-                                    found_amount = sum(float(m) for m in xbrl_matches)
+                                    found_amount = float(xbrl_matches[0])
 
                                 if 'DateOfAnnualGeneralMeeting' in attchmntText or 'dateofannualgeneralmeeting' in attchmntText.lower():
                                     agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
@@ -749,17 +750,20 @@ class NSELib:
                                         new_item['bm_purpose'] = str(new_item.get('bm_purpose') or '') + f" - AGM - {fallback_agm.group(1)}"
 
                                 if found_amount is None:
+                                    attchmntText = re.sub(r'\(i\.e\..*?\)', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                    attchmntText = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                    attchmntText = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                     _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
 
                                     if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
-                                        match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
+                                        match = re.search(r'(?:dividend|int\s*div).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))', _clean_text, re.IGNORECASE | re.DOTALL)
                                         if match:
                                             found_amount = float(match.group(1))
                                     else:
                                         div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE | re.DOTALL)
                                         matches = div_pattern.findall(_clean_text)
                                         if matches:
-                                            found_amount = sum(float(m) for m in matches)
+                                            found_amount = float(matches[0])
 
                                 subj = str(ann.get('subject', '')).lower()
                                 desc_ann = str(ann.get('desc', '')).lower()
@@ -772,7 +776,7 @@ class NSELib:
                                 # Add AGM explicit regex check for text fallback if XML fails/404s
                                 if re.search(r'\b(agm|annual general meeting)\b', text_lower):
                                     # Don't overwrite if it's already a dividend type we're specifically tracking
-                                    if found_type == 'Dividend' and found_amount is None:
+                                    if found_type in ['Dividend', 'Final'] and found_amount is None:
                                         found_type = 'AGM'
 
                                 agm_m = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_lower, re.IGNORECASE | re.DOTALL)
@@ -885,15 +889,22 @@ class NSELib:
                             if best_ca:
                                 subject = str(best_ca.get('subject', ''))
 
+                                subject = re.sub(r'\(i\.e\..*?\)', '', subject, flags=re.IGNORECASE | re.DOTALL)
+                                subject = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', subject, flags=re.IGNORECASE | re.DOTALL)
+                                subject = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', subject, flags=re.IGNORECASE | re.DOTALL)
                                 _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|₹)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE | re.DOTALL)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
                                     if match:
                                         found_amount = float(match.group(1))
                                 else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
-                                    if matches:
-                                        found_amount = sum(float(m) for m in matches)
+                                    parsed_amt, _ = FieldMapper._parse_dividend(subject, None)
+                                    if parsed_amt is not None:
+                                        found_amount = parsed_amt
+                                    else:
+                                        matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
+                                        if matches:
+                                            found_amount = float(matches[0])
 
                                 if found_amount:
                                     if 'interim' in subject.lower() or 'intdiv' in subject.lower() or 'int div' in subject.lower() or 'quarterly' in subject.lower(): found_type = 'Interim'
@@ -904,35 +915,42 @@ class NSELib:
                                 if rec_date and rec_date != '-':
                                     found_record_date = rec_date
 
-                        if found_amount is None:
+                        ca_fully_resolved = False
+                        if found_amount is not None and found_record_date is not None:
+                            ca_fully_resolved = True
+
+                        if found_amount is None and not ca_fully_resolved:
                             text_to_search = f"{purpose} {desc}"
+                            text_to_search = re.sub(r'\(i\.e\..*?\)', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
+                            text_to_search = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
+                            text_to_search = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
-                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE | re.DOTALL)
+                                match = re.search(r'(?:dividend|int\s*div).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))', _clean_text_2, re.IGNORECASE | re.DOTALL)
                                 if match:
                                     found_amount = float(match.group(1))
                             else:
                                 ui_patterns = [
-                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
-                                    r'(\d+(?:\.\d+)?)\s*\/\-',
-                                    r'(?:dividend|int\s*div)\s+of\s+(\d+(?:\.\d+)?)',
-                                    r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?)\s+per'
+                                    r'(?:dividend|int\s*div).*?of.*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))',
+                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))\s*per\s*share.*?dividend',
+                                    r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?(?!\s*%))\s*per',
+                                    r'(\d+(?:\.\d+)?(?!\s*%))\s*\/\-.*?dividend'
                                 ]
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE | re.DOTALL)
                                     if matches:
-                                        found_amount = sum(float(m) for m in matches)
+                                        found_amount = float(matches[0])
                                         break
 
-                            if found_amount or found_type == 'Dividend':
+                            if found_amount or found_type in ['Dividend', 'Final']:
                                 if 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
                                 elif 'yearly audited' in text_to_search.lower() or 'annual results' in text_to_search.lower(): found_type = 'Final'
                                 elif 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
                                 elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()):
                                     # ONLY override to AGM if we didn't find a dividend amount, otherwise keep it as a Dividend (with potential AGM side-note)
-                                    if found_type == 'Dividend' and found_amount is None: found_type = 'AGM'
+                                    if found_type in ['Dividend', 'Final'] and found_amount is None: found_type = 'AGM'
 
                             agm_m2 = re.search(r'(?:agm|annual general meeting).*?\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*,?\s*\d{4})\b', text_to_search, re.IGNORECASE | re.DOTALL)
                             if agm_m2:
@@ -942,7 +960,7 @@ class NSELib:
                                 except:
                                     pass
 
-                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:
+                        if (found_amount is None or found_record_date is None) and not ca_fully_resolved and bm_date_obj_check and bm_date_obj_check == trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
                                 pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
@@ -997,17 +1015,17 @@ class NSELib:
                             elif 'yearly audited' in text_lower or 'annual results' in text_lower: found_type = 'Final'
                             elif 'interim' in text_lower or 'intdiv' in text_lower or 'int div' in text_lower or 'quarterly' in text_lower: found_type = 'Interim'
                             elif 'special' in text_lower: found_type = 'Special'
-                            else: found_type = 'Dividend' # Don't guess Final
+                            else: found_type = 'Final'
 
                             xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?Rs\.?\s*(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
                             if not xbrl_matches:
                                 xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
                             if xbrl_matches:
-                                found_amount = sum(float(m) for m in xbrl_matches)
+                                found_amount = float(xbrl_matches[0])
 
                             bm_purpose = "General Updates"
                             if is_agm:
-                                if found_type == 'Dividend' and found_amount is None:
+                                if found_type in ['Dividend', 'Final'] and found_amount is None:
                                     found_type = 'AGM'
                                 bm_purpose = 'Annual General Meeting'
                                 agm_date = None
@@ -1024,13 +1042,25 @@ class NSELib:
                                         bm_purpose += f" - AGM - {agm_date}"
 
                             if found_amount is None:
+                                attchmntText = re.sub(r'\(i\.e\..*?\)', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                attchmntText = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                attchmntText = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                 if 'including' in _clean_text or 'includes' in _clean_text:
-                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
+                                    match = re.search(r'(?:dividend|int\s*div).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))', _clean_text, re.IGNORECASE | re.DOTALL)
                                     if match: found_amount = float(match.group(1))
                                 else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
-                                    if matches: found_amount = sum(float(m) for m in matches)
+                                    ui_patterns_2 = [
+                                        r'(?:dividend|int\s*div).*?of.*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))',
+                                        r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))\s*per\s*share.*?dividend',
+                                        r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?(?!\s*%))\s*per',
+                                        r'(\d+(?:\.\d+)?(?!\s*%))\s*\/\-.*?dividend'
+                                    ]
+                                    for pat in ui_patterns_2:
+                                        matches = re.findall(pat, _clean_text, re.IGNORECASE | re.DOTALL)
+                                        if matches:
+                                            found_amount = float(matches[0])
+                                            break
 
                             date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
                             record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
@@ -1053,7 +1083,7 @@ class NSELib:
                             except:
                                 ann_date_obj = trade_date
 
-                            if (found_amount is None or found_record_date is None or found_type == 'Dividend' or not agm_date) and ann_date_obj == trade_date:
+                            if not (found_amount is not None and found_record_date is not None) and ann_date_obj == trade_date:
                                 attachment_url = str(ann.get('attchmntFile', ''))
                                 if attachment_url.startswith('http'):
                                     pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)

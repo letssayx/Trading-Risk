@@ -272,13 +272,16 @@ class FieldMapper:
         purpose_lower = purpose.lower()
 
         import re
-
+        # Apply rigorous stripping of already declared/breakdown components
+        purpose_lower = re.sub(r'\(i\.e\..*?\)', '', purpose_lower, flags=re.IGNORECASE | re.DOTALL)
+        purpose_lower = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', purpose_lower, flags=re.IGNORECASE | re.DOTALL)
+        purpose_lower = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', purpose_lower, flags=re.IGNORECASE | re.DOTALL)
         has_dividend = bool('dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower or 'special' in purpose_lower or re.search(r'\bdiv\b|\bdiv-', purpose_lower))
         has_bonus = 'bonus' in purpose_lower
         has_split = 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower
         has_demerger = 'demerger' in purpose_lower or 'spin-off' in purpose_lower or 'spin off' in purpose_lower
 
-        dividend_type = 'Interim' if ('interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower) else 'Special' if 'special' in purpose_lower else 'Final' if ('final' in purpose_lower or 'finai' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower) else 'Dividend'
+        dividend_type = 'Interim' if ('interim' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower) else 'Special' if 'special' in purpose_lower else 'Final' if ('final' in purpose_lower or 'finai' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower) else 'Final'
 
         parsed_type = None
         if has_dividend and has_bonus:
@@ -300,6 +303,11 @@ class FieldMapper:
         # 1. Aggressively remove 'face value' and 'fv' context blocks
         _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
 
+
+        # Strip out historical context clauses that duplicate amounts
+        _clean_purpose = re.sub(r'in addition to.*?already.*?declared.*?(?:dividend|intdiv|findiv).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', _clean_purpose, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?of.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', _clean_purpose, flags=re.IGNORECASE)
+
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
         if 'including' in _clean_purpose or 'includes' in _clean_purpose:
@@ -308,23 +316,24 @@ class FieldMapper:
                 return float(match.group(1)), parsed_type
 
         # 3. Standard extraction: find all Rs matches and sum them up (for explicitly separate components joined by & or /)
-        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)', _clean_purpose)
+        rs_matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)(?!\s*(?:lakhs?|crores?|millions?|billions?|lacs?))', _clean_purpose)
 
         # 4. Fallback extraction: look for numbers immediately following dividend keywords if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
         # We need to make sure we don't grab a date like 31-Jul-2026, so look ahead to ensure it's not followed by a month abbreviation.
-        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b(?!\s*[-/]?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))', _clean_purpose, flags=re.IGNORECASE)
+        div_matches = re.findall(r'(?:dividend|intdiv|findiv|special)[^\d]{0,25}?(?:\s+|-\s*|of\s+)(\d+(?:\.\d+)?)\b(?!\s*[-/]?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)|\.?\d*\s*%)', _clean_purpose, flags=re.IGNORECASE)
 
         valid_div_matches = [m for m in div_matches if not re.match(r'^(19|20)\d{2}$', m) and float(m) < 1000]
 
         if not rs_matches and valid_div_matches:
             rs_matches = valid_div_matches
 
+        rs_matches = [m for m in rs_matches if float(m) < 1000]
         if rs_matches:
             total_amount = sum(float(m) for m in rs_matches)
             return total_amount, parsed_type
 
         # 4. Fallback extraction: just look for the word dividend followed by a number if it's missing 'Rs' entirely (e.g., "Interim Dividend 3 Per Share")
-        div_matches = re.findall(r'(?:dividend).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)\s*(?:per share|/-|per equity share)', _clean_purpose, flags=re.IGNORECASE)
+        div_matches = re.findall(r'(?:dividend).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)(?!\s*%)\s*(?:per share|/-|per equity share)', _clean_purpose, flags=re.IGNORECASE)
         if div_matches:
             total_amount = sum(float(m) for m in div_matches)
             return total_amount, parsed_type
