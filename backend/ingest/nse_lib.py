@@ -2,6 +2,7 @@
 from curl_cffi import requests as cffi_requests
 import pandas as pd
 from backend.ingest.parse_pdf import extract_amount_from_pdf
+from backend.ingest.field_mapper import FieldMapper
 import io
 import zipfile
 import logging
@@ -749,6 +750,9 @@ class NSELib:
                                         new_item['bm_purpose'] = str(new_item.get('bm_purpose') or '') + f" - AGM - {fallback_agm.group(1)}"
 
                                 if found_amount is None:
+                                    attchmntText = re.sub(r'\(i\.e\..*?\)', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                    attchmntText = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                    attchmntText = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                     _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
 
                                     if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
@@ -885,6 +889,9 @@ class NSELib:
                             if best_ca:
                                 subject = str(best_ca.get('subject', ''))
 
+                                subject = re.sub(r'\(i\.e\..*?\)', '', subject, flags=re.IGNORECASE | re.DOTALL)
+                                subject = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', subject, flags=re.IGNORECASE | re.DOTALL)
+                                subject = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', subject, flags=re.IGNORECASE | re.DOTALL)
                                 _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|₹)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE | re.DOTALL)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
@@ -914,6 +921,9 @@ class NSELib:
 
                         if found_amount is None and not ca_fully_resolved:
                             text_to_search = f"{purpose} {desc}"
+                            text_to_search = re.sub(r'\(i\.e\..*?\)', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
+                            text_to_search = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
+                            text_to_search = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
@@ -1032,6 +1042,9 @@ class NSELib:
                                         bm_purpose += f" - AGM - {agm_date}"
 
                             if found_amount is None:
+                                attchmntText = re.sub(r'\(i\.e\..*?\)', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                attchmntText = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
+                                attchmntText = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                 if 'including' in _clean_text or 'includes' in _clean_text:
                                     match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
@@ -1061,7 +1074,7 @@ class NSELib:
                             except:
                                 ann_date_obj = trade_date
 
-                            if (found_amount is None or found_record_date is None or found_type in ['Dividend', 'Final'] or not agm_date) and ann_date_obj == trade_date:
+                            if (found_amount is None or found_record_date is None) and ann_date_obj == trade_date:
                                 attachment_url = str(ann.get('attchmntFile', ''))
                                 if attachment_url.startswith('http'):
                                     pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)

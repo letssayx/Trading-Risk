@@ -272,11 +272,10 @@ class FieldMapper:
         purpose_lower = purpose.lower()
 
         import re
-
-        # Strip out historical context clauses that duplicate amounts and misclassify types
-        purpose_lower = re.sub(r'in addition to.*?already.*?declared.*?(?:dividend|intdiv|findiv).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', purpose_lower, flags=re.IGNORECASE)
-        purpose_lower = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?of.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', purpose_lower, flags=re.IGNORECASE)
-
+        # Apply rigorous stripping of already declared/breakdown components
+        purpose_lower = re.sub(r'\(i\.e\..*?\)', '', purpose_lower, flags=re.IGNORECASE | re.DOTALL)
+        purpose_lower = re.sub(r'(?:in addition to|already declared).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', purpose_lower, flags=re.IGNORECASE | re.DOTALL)
+        purpose_lower = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', purpose_lower, flags=re.IGNORECASE | re.DOTALL)
         has_dividend = bool('dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower or 'special' in purpose_lower or re.search(r'\bdiv\b|\bdiv-', purpose_lower))
         has_bonus = 'bonus' in purpose_lower
         has_split = 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower
