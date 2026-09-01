@@ -273,6 +273,10 @@ class FieldMapper:
 
         import re
 
+        # Strip out historical context clauses that duplicate amounts and misclassify types
+        purpose_lower = re.sub(r'in addition to.*?already.*?declared.*?(?:dividend|intdiv|findiv).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', purpose_lower, flags=re.IGNORECASE)
+        purpose_lower = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?of.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', purpose_lower, flags=re.IGNORECASE)
+
         has_dividend = bool('dividend' in purpose_lower or 'intdiv' in purpose_lower or 'int div' in purpose_lower or 'findiv' in purpose_lower or 'fin div' in purpose_lower or 'special' in purpose_lower or re.search(r'\bdiv\b|\bdiv-', purpose_lower))
         has_bonus = 'bonus' in purpose_lower
         has_split = 'split' in purpose_lower or 'sub-division' in purpose_lower or 'sub division' in purpose_lower
@@ -299,6 +303,11 @@ class FieldMapper:
         # Try Rs format: sum all amounts if multiple exist (e.g. "Dividend - Rs 3 & Special - Rs 3")
         # 1. Aggressively remove 'face value' and 'fv' context blocks
         _clean_purpose = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9|~|nS?\.?|n\s*\.?)*\s*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', purpose_lower, flags=re.IGNORECASE)
+
+
+        # Strip out historical context clauses that duplicate amounts
+        _clean_purpose = re.sub(r'in addition to.*?already.*?declared.*?(?:dividend|intdiv|findiv).*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', _clean_purpose, flags=re.IGNORECASE)
+        _clean_purpose = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?of.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?', '', _clean_purpose, flags=re.IGNORECASE)
 
         # 2. Check for the 'including' or 'includes' pattern to avoid double counting
         # e.g. 'Dividend Rs 16/- (including Rs 10 special dividend)' -> We should just extract the 16.
