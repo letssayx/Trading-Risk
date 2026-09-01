@@ -908,7 +908,11 @@ class NSELib:
                                 if rec_date and rec_date != '-':
                                     found_record_date = rec_date
 
-                        if found_amount is None:
+                        ca_fully_resolved = False
+                        if found_amount is not None and found_record_date is not None:
+                            ca_fully_resolved = True
+
+                        if found_amount is None and not ca_fully_resolved:
                             text_to_search = f"{purpose} {desc}"
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
 
