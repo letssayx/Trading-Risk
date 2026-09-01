@@ -637,7 +637,7 @@ class NSELib:
                             # but let's fetch all general announcements on the specific date later if needed.
                             # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
                             # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
-                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols and ('Outcome of Board Meeting' in str(a.get('desc', '')) or 'Outcome of Board Meeting' in str(a.get('subject', '')))]
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
