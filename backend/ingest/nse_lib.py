@@ -756,7 +756,7 @@ class NSELib:
                                     _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
 
                                     if 'including' in _clean_text.lower() or 'includes' in _clean_text.lower():
-                                        match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
+                                        match = re.search(r'(?:dividend|int\s*div).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))', _clean_text, re.IGNORECASE | re.DOTALL)
                                         if match:
                                             found_amount = float(match.group(1))
                                     else:
@@ -927,15 +927,15 @@ class NSELib:
                             _clean_text_2 = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', text_to_search, flags=re.IGNORECASE | re.DOTALL)
 
                             if 'including' in _clean_text_2.lower() or 'includes' in _clean_text_2.lower():
-                                match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text_2, re.IGNORECASE | re.DOTALL)
+                                match = re.search(r'(?:dividend|int\s*div).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))', _clean_text_2, re.IGNORECASE | re.DOTALL)
                                 if match:
                                     found_amount = float(match.group(1))
                             else:
                                 ui_patterns = [
-                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)',
-                                    r'(\d+(?:\.\d+)?)\s*\/\-',
-                                    r'(?:dividend|int\s*div)\s+of\s+(\d+(?:\.\d+)?)',
-                                    r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?)\s+per'
+                                    r'(?:dividend|int\s*div).*?of.*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))',
+                                    r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))\s*per\s*share.*?dividend',
+                                    r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?(?!\s*%))\s*per',
+                                    r'(\d+(?:\.\d+)?(?!\s*%))\s*\/\-.*?dividend'
                                 ]
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE | re.DOTALL)
@@ -960,7 +960,7 @@ class NSELib:
                                 except:
                                     pass
 
-                        if (found_amount is None or found_record_date is None) and bm_date_obj_check and bm_date_obj_check == trade_date:
+                        if (found_amount is None or found_record_date is None) and not ca_fully_resolved and bm_date_obj_check and bm_date_obj_check == trade_date:
                             attachment_url = str(item.get('ATTACHMENT', ''))
                             if attachment_url.startswith('http'):
                                 pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)
@@ -1047,11 +1047,20 @@ class NSELib:
                                 attchmntText = re.sub(r'(?:thereby\s*)?making(?:\s*a)?\s*total\s*dividend.*?(?:rs\.?|re\.?|rupees?|inr|₹|~|nS?\.?|n\s*\.?)\s*\d+(?:\.\d+)?(?:/-)?(?:\s*per\s*share)?(?:\s*\(.*?\))?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                 _clean_text = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', attchmntText, flags=re.IGNORECASE | re.DOTALL)
                                 if 'including' in _clean_text or 'includes' in _clean_text:
-                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
+                                    match = re.search(r'(?:dividend|int\s*div).*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))', _clean_text, re.IGNORECASE | re.DOTALL)
                                     if match: found_amount = float(match.group(1))
                                 else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
-                                    if matches: found_amount = float(matches[0])
+                                    ui_patterns_2 = [
+                                        r'(?:dividend|int\s*div).*?of.*?(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))',
+                                        r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?(?!\s*%))\s*per\s*share.*?dividend',
+                                        r'(?:dividend|int\s*div).*?\s+(\d+(?:\.\d+)?(?!\s*%))\s*per',
+                                        r'(\d+(?:\.\d+)?(?!\s*%))\s*\/\-.*?dividend'
+                                    ]
+                                    for pat in ui_patterns_2:
+                                        matches = re.findall(pat, _clean_text, re.IGNORECASE | re.DOTALL)
+                                        if matches:
+                                            found_amount = float(matches[0])
+                                            break
 
                             date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
                             record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
@@ -1074,7 +1083,7 @@ class NSELib:
                             except:
                                 ann_date_obj = trade_date
 
-                            if (found_amount is None or found_record_date is None) and ann_date_obj == trade_date:
+                            if not (found_amount is not None and found_record_date is not None) and ann_date_obj == trade_date:
                                 attachment_url = str(ann.get('attchmntFile', ''))
                                 if attachment_url.startswith('http'):
                                     pdf_amount, pdf_record_date, pdf_type, pdf_agm_date = extract_amount_from_pdf(attachment_url)

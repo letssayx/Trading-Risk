@@ -85,7 +85,7 @@ def extract_amount_from_pdf(url):
                 _clean = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', snippet, flags=re.IGNORECASE)
 
                 # Ensure we strictly look for currency or @ symbols, to avoid matching stray numbers like 'on 27th April' where 'n 27' is found
-                m = re.search(r'(?:rs\.?|re\.?|rupees|inr|\u20b9|~|nS?\.|n\s*\.)\s*(\d+(?:\.\d+)?)(?!\s*(?:lakhs?|crores?|millions?|billions?|lacs?))', _clean, re.IGNORECASE)
+                m = re.search(r'(?:dividend|int\s*div).*?(?:rs\.?|re\.?|rupees|inr|\u20b9|~|nS?\.|n\s*\.)\s*(\d+(?:\.\d+)?(?!\s*%)(?!\s*(?:lakhs?|crores?|millions?|billions?|lacs?)))', _clean, re.IGNORECASE)
                 m2 = re.search(r'@\s*(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)?\s*(\d+(?:\.\d+)?)\s*(?:/-|per\s+share|per\s+equity)', _clean, re.IGNORECASE)
                 match = m or m2
                 if match:
@@ -152,7 +152,7 @@ def extract_amount_from_pdf(url):
                         if amount is None and any('dividend' in cell for cell in row_text):
                             for cell in row_text:
                                 if 'dividend' in cell: continue
-                                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)(?!\s*(?:lakhs?|crores?|millions?|billions?|lacs?))', cell, re.IGNORECASE)
+                                m = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9|~|nS?\.?|n\s*\.?)\s*(\d+(?:\.\d+)?)(?!\s*%)(?!\s*(?:lakhs?|crores?|millions?|billions?|lacs?))', cell, re.IGNORECASE)
                                 if m:
                                     val = float(m.group(1))
                                     if val > 0:
