@@ -766,7 +766,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                             type_conflict = True
 
                                     div_type_lower = (a_type or m_type or '')
-                                    window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                    window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split', 'agm']) else 5
 
                                     if diff_days <= window and not type_conflict:
                                         has_linked_action = True
@@ -780,15 +780,16 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 a_purpose = (a.get('purpose') or '').lower()
                                 if not a_date and (a_purpose.find('not yet declared') != -1 or a_purpose.find('dividend (') != -1 or a_purpose.find('dividend') != -1):
-                                    is_time_match = True
+                                    is_time_match = False
                                     if a.get('broadcast_date') and m.meeting_date:
+                                        is_time_match = True
                                         b_date = a.get('broadcast_date')
                                         if hasattr(b_date, 'date'): b_date = b_date.date()
                                         meet_date = m.meeting_date
                                         if hasattr(meet_date, 'date'): meet_date = meet_date.date()
                                         diff_days = abs((b_date - meet_date).days)
                                         div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
-                                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split', 'agm']) else 5
                                         if diff_days > window: is_time_match = False
 
                                     if is_time_match:
@@ -827,7 +828,7 @@ def build_dividend_databank_task(self, force: bool = False):
                                 if match:
                                     amount = next((g for g in match.groups() if g is not None), None)
 
-                        elif is_agm and 'dividend' not in purpose_lower and not has_amount:
+                        elif is_agm and not has_amount:
                             div_type = 'AGM'
                         elif 'bonus' in purpose_lower:
                             div_type = 'Bonus'
@@ -850,8 +851,8 @@ def build_dividend_databank_task(self, force: bool = False):
                             "symbol": sym,
                             "purpose": m.purpose,
                             "dividend_type": div_type,
-                            "ex_date": None,
-                            "ex_date_obj": None,
+                            "ex_date": m.extracted_record_date.strftime('%d-%b-%Y') if hasattr(m, 'extracted_record_date') and m.extracted_record_date else None,
+                            "ex_date_obj": m.extracted_record_date if hasattr(m, 'extracted_record_date') else None,
                             "agm_date": agm_date,
                             "broadcast_date": m.broadcast_date or m.date,
                             "amount": amount,
@@ -891,7 +892,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     if syn_date != datetime.date.min and ex_date != datetime.date.min:
                         diff = abs((syn_date - ex_date).days)
                         div_type_lower = (syn.get('dividend_type') or '').lower()
-                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split', 'agm']) else 5
 
                         # Deduplication Logic: Group by Symbol + Exact Event Type
                         syn_type = syn.get('dividend_type')
@@ -1013,7 +1014,7 @@ def build_dividend_databank_task(self, force: bool = False):
                     if syn_date_val != datetime.date.min and off_date_val != datetime.date.min:
                         diff_days = (off_date_val - syn_date_val).days
                         div_type_lower = (syn.get('dividend_type') or off.get('dividend_type') or '').lower()
-                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                        window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split', 'agm']) else 5
                         if -10 <= diff_days <= window and (syn.get('dividend_type') == off.get('dividend_type') or syn.get('dividend_type') in ['-', 'Dividend', 'AGM'] or off.get('dividend_type') in ['-', 'Dividend', 'AGM']):
                             if off.get('amount') is None or off.get('amount') == "-":
                                 off['amount'] = syn.get('amount')
@@ -1140,7 +1141,7 @@ def build_dividend_databank_task(self, force: bool = False):
                             # If no exact date match, check if it's an awaited record we are updating
                             # Use dynamic windows: 180 for Final/Bonus/Split, 45 for Interim/Special
                             div_type_lower = (row.dividend_type or '').lower()
-                            window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
+                            window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split', 'agm']) else 5
                             if row.is_awaited and abs((row.date - final_date).days) <= window:
                                 match = row
                                 break
