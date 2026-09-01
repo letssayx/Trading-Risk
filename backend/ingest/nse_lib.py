@@ -733,7 +733,7 @@ class NSELib:
                                 if not xbrl_matches:
                                     xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
                                 if xbrl_matches:
-                                    found_amount = sum(float(m) for m in xbrl_matches)
+                                    found_amount = float(xbrl_matches[0])
 
                                 if 'DateOfAnnualGeneralMeeting' in attchmntText or 'dateofannualgeneralmeeting' in attchmntText.lower():
                                     agm_date_match = re.search(r'<[^>]*DateOfAnnualGeneralMeeting[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}|\d{4}-\d{2}-\d{2}).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
@@ -759,7 +759,7 @@ class NSELib:
                                         div_pattern = re.compile(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', re.IGNORECASE | re.DOTALL)
                                         matches = div_pattern.findall(_clean_text)
                                         if matches:
-                                            found_amount = sum(float(m) for m in matches)
+                                            found_amount = float(matches[0])
 
                                 subj = str(ann.get('subject', '')).lower()
                                 desc_ann = str(ann.get('desc', '')).lower()
@@ -891,9 +891,13 @@ class NSELib:
                                     if match:
                                         found_amount = float(match.group(1))
                                 else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
-                                    if matches:
-                                        found_amount = sum(float(m) for m in matches)
+                                    parsed_amt, _ = FieldMapper._parse_dividend(subject, None)
+                                    if parsed_amt is not None:
+                                        found_amount = parsed_amt
+                                    else:
+                                        matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
+                                        if matches:
+                                            found_amount = float(matches[0])
 
                                 if found_amount:
                                     if 'interim' in subject.lower() or 'intdiv' in subject.lower() or 'int div' in subject.lower() or 'quarterly' in subject.lower(): found_type = 'Interim'
@@ -922,7 +926,7 @@ class NSELib:
                                 for pat in ui_patterns:
                                     matches = re.findall(pat, _clean_text_2, re.IGNORECASE | re.DOTALL)
                                     if matches:
-                                        found_amount = sum(float(m) for m in matches)
+                                        found_amount = float(matches[0])
                                         break
 
                             if found_amount or found_type in ['Dividend', 'Final']:
@@ -1003,7 +1007,7 @@ class NSELib:
                             if not xbrl_matches:
                                 xbrl_matches = re.findall(r'<[^>]*Dividend[^>]*>.*?(\d+(?:\.\d+)?).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
                             if xbrl_matches:
-                                found_amount = sum(float(m) for m in xbrl_matches)
+                                found_amount = float(xbrl_matches[0])
 
                             bm_purpose = "General Updates"
                             if is_agm:
@@ -1030,7 +1034,7 @@ class NSELib:
                                     if match: found_amount = float(match.group(1))
                                 else:
                                     matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_text, re.IGNORECASE | re.DOTALL)
-                                    if matches: found_amount = sum(float(m) for m in matches)
+                                    if matches: found_amount = float(matches[0])
 
                             date_pattern = re.compile(r'(\d{1,2}-[a-zA-Z]{3}-\d{4})')
                             record_date_match = re.search(r'<[^>]*RecordDate[^>]*>.*?(\d{1,2}-[a-zA-Z]{3}-\d{4}).*?</[^>]*>', attchmntText, re.IGNORECASE | re.DOTALL)
