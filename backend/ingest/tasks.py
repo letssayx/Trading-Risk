@@ -755,9 +755,20 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 if a_date and a_date >= m_date:
                                     diff_days = abs((a_date - m_date).days)
-                                    div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
+
+                                    a_type = (a.get('dividend_type') or '').lower()
+                                    m_type = (m.extracted_dividend_type or '').lower()
+
+                                    # Strict Type Check during Phase 1 Anchor & Enrich
+                                    type_conflict = False
+                                    if a_type and a_type not in ['-', 'dividend', 'agm'] and m_type and m_type not in ['-', 'dividend', 'agm']:
+                                        if a_type != m_type:
+                                            type_conflict = True
+
+                                    div_type_lower = (a_type or m_type or '')
                                     window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                                    if diff_days <= window:
+
+                                    if diff_days <= window and not type_conflict:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
                                             a['amount'] = m.extracted_dividend_amount
@@ -779,6 +790,13 @@ def build_dividend_databank_task(self, force: bool = False):
                                         div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
                                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                                         if diff_days > window: is_time_match = False
+
+                                    if is_time_match:
+                                        a_type = (a.get('dividend_type') or '').lower()
+                                        m_type = (m.extracted_dividend_type or '').lower()
+                                        if a_type and a_type not in ['-', 'dividend', 'agm'] and m_type and m_type not in ['-', 'dividend', 'agm']:
+                                            if a_type != m_type:
+                                                is_time_match = False
 
                                     if is_time_match:
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
