@@ -491,7 +491,7 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
             target_months = 24
             # Get historical expiry dates
             expiries = db.query(BhavcopyFO.expiry_date).filter(
-                BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])
+                BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
             ).distinct().order_by(desc(BhavcopyFO.expiry_date)).all()
             expiry_dates = [e[0] for e in expiries]
 
@@ -1242,7 +1242,7 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
         ).filter(
             BhavcopyFO.trade_date == trade_date,
             BhavcopyFO.expiry_date >= trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
         ).order_by(BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
 
         # Map futures by symbol
@@ -1325,7 +1325,7 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
     if is_expiry_only:
         # Get historical expiry dates
         expiries = db.query(BhavcopyFO.expiry_date).filter(
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
         ).distinct().order_by(desc(BhavcopyFO.expiry_date)).all()
         expiry_dates = [e[0] for e in expiries]
 
@@ -1419,9 +1419,7 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
         query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc())
 
         if latest_metric_date_obj:
-            new_dates = query.filter(MWPLClientPosition.date > latest_metric_date_obj).all()
-            old_dates = query.filter(MWPLClientPosition.date <= latest_metric_date_obj).limit(2).all()
-            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
+            all_dates = [d[0] for d in query.filter(MWPLClientPosition.date > latest_metric_date_obj).all()]
         else:
             all_dates = [d[0] for d in query.limit(500).all()]
 
@@ -1462,7 +1460,7 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
 
         fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
 
         fo_map = {}
         for r in fo_records:
@@ -1482,7 +1480,7 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
         # Fast way is to just fetch the last 500 days of required stuff
         prev_fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
 
         prev_fo_map = {}
         for r in prev_fo_records:
@@ -1621,7 +1619,7 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
 
         fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
 
         fo_map = {}
         for r in fo_records:
@@ -1639,7 +1637,7 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
         # Fast way is to just fetch the last 500 days of required stuff
         prev_fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
 
         prev_fo_map = {}
         for r in prev_fo_records:
@@ -1756,7 +1754,7 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Starting compute_basis_watch with latest_metric_date={latest_metric_date}")
+        logger.info(f"Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}")
 
         query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
 
@@ -1767,7 +1765,7 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
         else:
             all_dates = [d[0] for d in query.limit(502).all()]
 
-        logger.info(f"Found {len(all_dates)} dates for Basis Watch.")
+        logger.info(f"Found {len(all_dates)} dates for Rollover analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
@@ -1788,7 +1786,7 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
 
         fo_map = {}
         for r in fo_records:
