@@ -1200,7 +1200,7 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
 
     # Get last 3 expiry dates
     latest_futs = db.query(BhavcopyFO.expiry_date)\
-        .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX']))\
+        .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK']))\
         .distinct()\
         .order_by(desc(BhavcopyFO.expiry_date))\
         .limit(3).all()
@@ -1419,7 +1419,9 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
         query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc())
 
         if latest_metric_date_obj:
-            all_dates = [d[0] for d in query.filter(MWPLClientPosition.date > latest_metric_date_obj).all()]
+            new_dates = query.filter(MWPLClientPosition.date > latest_metric_date_obj).all()
+            old_dates = query.filter(MWPLClientPosition.date <= latest_metric_date_obj).limit(2).all()
+            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
         else:
             all_dates = [d[0] for d in query.limit(500).all()]
 
@@ -1567,7 +1569,7 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
         from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics
         from sqlalchemy import func
 
-        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).scalar()
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).scalar()
         latest_metric_date = db.query(func.max(RolloverAnalysisMetrics.trade_date)).scalar()
 
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
@@ -1594,7 +1596,7 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
         logger = logging.getLogger(__name__)
         logger.info(f"Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}")
 
-        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
 
         if latest_metric_date_obj:
             new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
@@ -1731,7 +1733,7 @@ def sync_basis_watch(force: str = "false", db: Session = Depends(get_db)):
         from backend.ingest.nse_models import BhavcopyFO, BasisWatchMetrics
         from sqlalchemy import func
 
-        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).scalar()
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).scalar()
         latest_metric_date = db.query(func.max(BasisWatchMetrics.trade_date)).scalar()
 
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
@@ -1754,9 +1756,9 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}")
+        logger.info(f"Starting compute_basis_watch with latest_metric_date={latest_metric_date}")
 
-        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
 
         if latest_metric_date_obj:
             new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
@@ -1765,7 +1767,7 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
         else:
             all_dates = [d[0] for d in query.limit(502).all()]
 
-        logger.info(f"Found {len(all_dates)} dates for Rollover analysis.")
+        logger.info(f"Found {len(all_dates)} dates for Basis Watch.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
