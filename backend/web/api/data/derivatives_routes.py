@@ -69,13 +69,24 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_aggregated_oi_analysis with latest_metric_date={latest_metric_date}")
+
         # First, find all dates in BhavcopyFO
-        all_dates_query = db.query(BhavcopyFO.trade_date)\
+        query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc()).all()
+                  .order_by(BhavcopyFO.trade_date.desc())
 
-        all_dates = [d[0] for d in all_dates_query]
+        if latest_metric_date_obj:
+            new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
+            old_dates = query.filter(BhavcopyFO.trade_date <= latest_metric_date_obj).limit(35).all()
+            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
+        else:
+            all_dates = [d[0] for d in query.limit(500).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for OI analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found in BhavcopyFO."}
@@ -1401,8 +1412,18 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_mwpl_analysis with latest_metric_date={latest_metric_date}")
+
+        query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc())
+
+        if latest_metric_date_obj:
+            all_dates = [d[0] for d in query.filter(MWPLClientPosition.date > latest_metric_date_obj).all()]
+        else:
+            all_dates = [d[0] for d in query.limit(500).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for MWPL analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
@@ -1569,8 +1590,20 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}")
+
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+
+        if latest_metric_date_obj:
+            new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
+            old_dates = query.filter(BhavcopyFO.trade_date <= latest_metric_date_obj).limit(2).all()
+            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
+        else:
+            all_dates = [d[0] for d in query.limit(502).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for Rollover analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
@@ -1719,8 +1752,20 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}")
+
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+
+        if latest_metric_date_obj:
+            new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
+            old_dates = query.filter(BhavcopyFO.trade_date <= latest_metric_date_obj).limit(2).all()
+            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
+        else:
+            all_dates = [d[0] for d in query.limit(502).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for Rollover analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
