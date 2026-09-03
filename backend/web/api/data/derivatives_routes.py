@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -48,9 +51,9 @@ def sync_aggregated_oi_analysis(force: str = "false", db: Session = Depends(get_
 
         # If we reach here, we need to compute
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        from backend.ingest.tasks import run_oi_analysis_task
-        run_oi_analysis_task.delay(latest_metric_date=compute_lookback)
-        return {"status": "success", "message": "OI analysis computation task started in the background.", "computed": True}
+        # Directly call the compute function synchronously
+        result = compute_aggregated_oi_analysis(db=db, latest_metric_date=compute_lookback)
+        return result
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
@@ -61,6 +64,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
     """
     Computes OI vs Price Quadrant Analysis for all F&O symbols over 32 days and caches it.
     """
+    logger.info(f'Starting compute_aggregated_oi_analysis with latest_metric_date={latest_metric_date}')
     try:
         from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV
         from sqlalchemy.dialects.postgresql import insert
@@ -70,12 +74,26 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
         # First, find all dates in BhavcopyFO
-        all_dates_query = db.query(BhavcopyFO.trade_date)\
+        # Optimized for hypertable: only fetch dates we actually need
+        query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc()).all()
+                  .order_by(BhavcopyFO.trade_date.desc())
 
-        all_dates = [d[0] for d in all_dates_query]
+        if latest_metric_date_obj:
+             # Add limit + 35 for 30-day historical lookback needed later, plus buffer
+             query = query.filter(BhavcopyFO.trade_date >= latest_metric_date_obj)
+             all_dates_query = query.all()
+             # We need up to 35 older dates for historical context
+             older_dates_query = db.query(BhavcopyFO.trade_date)\
+                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
+                  .filter(BhavcopyFO.trade_date < latest_metric_date_obj)\
+                  .distinct()\
+                  .order_by(BhavcopyFO.trade_date.desc()).limit(35).all()
+             all_dates = [d[0] for d in all_dates_query] + [d[0] for d in older_dates_query]
+        else:
+             all_dates_query = query.all()
+             all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found in BhavcopyFO."}
@@ -1385,15 +1403,16 @@ def sync_mwpl_analysis(force: str = "false", db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        from backend.ingest.tasks import run_mwpl_analysis_task
-        run_mwpl_analysis_task.delay(latest_metric_date=compute_lookback)
-        return {"status": "success", "message": "MWPL analysis computation task started in the background.", "computed": True}
+        # Directly call the compute function synchronously
+        result = compute_mwpl_analysis(db=db, latest_metric_date=compute_lookback)
+        return result
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/mwpl/compute")
 def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
+    logger.info(f'Starting compute_mwpl_analysis with latest_metric_date={latest_metric_date}')
     try:
         from backend.ingest.nse_models import MWPLClientPosition, BhavcopyEQ, BhavcopyFO, MwplAnalysisMetrics
         from sqlalchemy.dialects.postgresql import insert
@@ -1401,17 +1420,20 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).all()
+        query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc())
+        if latest_metric_date_obj:
+            # We don't need historical lookback for MWPL, just dates > latest
+            query = query.filter(MWPLClientPosition.date > latest_metric_date_obj)
+            all_dates_query = query.all()
+        else:
+            all_dates_query = query.limit(500).all()
+
         all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
 
-        dates_to_compute = []
-        if latest_metric_date_obj:
-            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
-        else:
-            dates_to_compute = all_dates[:500]
+        dates_to_compute = all_dates
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
@@ -1553,15 +1575,16 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        from backend.ingest.tasks import run_rollover_analysis_task
-        run_rollover_analysis_task.delay(latest_metric_date=compute_lookback)
-        return {"status": "success", "message": "Rollover analysis computation task started in the background.", "computed": True}
+        # Directly call the compute function synchronously
+        result = compute_rollover_analysis(db=db, latest_metric_date=compute_lookback)
+        return result
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/rollover/compute")
 def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
+    logger.info(f'Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}')
     try:
         from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics
         from sqlalchemy.dialects.postgresql import insert
@@ -1569,17 +1592,20 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+
+        if latest_metric_date_obj:
+             query = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj)
+             all_dates_query = query.all()
+             all_dates = [d[0] for d in all_dates_query]
+        else:
+             all_dates_query = query.limit(500).all()
+             all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
 
-        dates_to_compute = []
-        if latest_metric_date_obj:
-            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
-        else:
-            dates_to_compute = all_dates[:500]
+        dates_to_compute = all_dates
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
@@ -1719,17 +1745,20 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+
+        if latest_metric_date_obj:
+             query = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj)
+             all_dates_query = query.all()
+             all_dates = [d[0] for d in all_dates_query]
+        else:
+             all_dates_query = query.limit(500).all()
+             all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
 
-        dates_to_compute = []
-        if latest_metric_date_obj:
-            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
-        else:
-            dates_to_compute = all_dates[:500]
+        dates_to_compute = all_dates
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}

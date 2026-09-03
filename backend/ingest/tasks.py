@@ -1269,48 +1269,6 @@ def build_dividend_databank_task(self, force: bool = False):
         db.close()
 
 @shared_task(bind=True, acks_late=True)
-def run_mwpl_analysis_task(self, latest_metric_date: Optional[str] = None):
-    try:
-        from backend.infrastructure.db import SessionLocal
-        from backend.web.api.data.derivatives_routes import compute_mwpl_analysis
-        db = SessionLocal()
-        try:
-            return compute_mwpl_analysis(db=db, latest_metric_date=latest_metric_date)
-        finally:
-            db.close()
-    except Exception as e:
-        logger.error(f"Error in MWPL analysis task: {e}")
-        return {"status": "error", "message": str(e)}
-
-@shared_task(bind=True, acks_late=True)
-def run_oi_analysis_task(self, latest_metric_date: Optional[str] = None):
-    try:
-        from backend.infrastructure.db import SessionLocal
-        from backend.web.api.data.derivatives_routes import compute_aggregated_oi_analysis
-        db = SessionLocal()
-        try:
-            return compute_aggregated_oi_analysis(db=db, latest_metric_date=latest_metric_date)
-        finally:
-            db.close()
-    except Exception as e:
-        logger.error(f"Error in OI analysis task: {e}")
-        return {"status": "error", "message": str(e)}
-
-@shared_task(bind=True, acks_late=True)
-def run_rollover_analysis_task(self, latest_metric_date: Optional[str] = None):
-    try:
-        from backend.infrastructure.db import SessionLocal
-        from backend.web.api.data.derivatives_routes import compute_rollover_analysis
-        db = SessionLocal()
-        try:
-            return compute_rollover_analysis(db=db, latest_metric_date=latest_metric_date)
-        finally:
-            db.close()
-    except Exception as e:
-        logger.error(f"Error in rollover analysis task: {e}")
-        return {"status": "error", "message": str(e)}
-
-@shared_task(bind=True, acks_late=True)
 def run_volatility_analysis_task(self, latest_metric_date: Optional[str] = None):
     try:
         from backend.infrastructure.db import SessionLocal
