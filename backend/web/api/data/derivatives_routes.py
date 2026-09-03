@@ -1,6 +1,3 @@
-import logging
-logger = logging.getLogger(__name__)
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -51,9 +48,9 @@ def sync_aggregated_oi_analysis(force: str = "false", db: Session = Depends(get_
 
         # If we reach here, we need to compute
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        # Directly call the compute function synchronously
-        result = compute_aggregated_oi_analysis(db=db, latest_metric_date=compute_lookback)
-        return result
+        from backend.ingest.tasks import run_oi_analysis_task
+        run_oi_analysis_task.delay(latest_metric_date=compute_lookback)
+        return {"status": "success", "message": "OI analysis computation task started in the background.", "computed": True}
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
@@ -64,7 +61,6 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
     """
     Computes OI vs Price Quadrant Analysis for all F&O symbols over 32 days and caches it.
     """
-    logger.info(f'Starting compute_aggregated_oi_analysis with latest_metric_date={latest_metric_date}')
     try:
         from backend.ingest.nse_models import BhavcopyFO, HistoricalATMIV
         from sqlalchemy.dialects.postgresql import insert
@@ -74,26 +70,12 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
         # First, find all dates in BhavcopyFO
-        # Optimized for hypertable: only fetch dates we actually need
-        query = db.query(BhavcopyFO.trade_date)\
+        all_dates_query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc())
+                  .order_by(BhavcopyFO.trade_date.desc()).all()
 
-        if latest_metric_date_obj:
-             # Add limit + 35 for 30-day historical lookback needed later, plus buffer
-             query = query.filter(BhavcopyFO.trade_date >= latest_metric_date_obj)
-             all_dates_query = query.all()
-             # We need up to 35 older dates for historical context
-             older_dates_query = db.query(BhavcopyFO.trade_date)\
-                  .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
-                  .filter(BhavcopyFO.trade_date < latest_metric_date_obj)\
-                  .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc()).limit(35).all()
-             all_dates = [d[0] for d in all_dates_query] + [d[0] for d in older_dates_query]
-        else:
-             all_dates_query = query.all()
-             all_dates = [d[0] for d in all_dates_query]
+        all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found in BhavcopyFO."}
@@ -498,7 +480,7 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
             target_months = 24
             # Get historical expiry dates
             expiries = db.query(BhavcopyFO.expiry_date).filter(
-                BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+                BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])
             ).distinct().order_by(desc(BhavcopyFO.expiry_date)).all()
             expiry_dates = [e[0] for e in expiries]
 
@@ -1207,7 +1189,7 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
 
     # Get last 3 expiry dates
     latest_futs = db.query(BhavcopyFO.expiry_date)\
-        .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK']))\
+        .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX']))\
         .distinct()\
         .order_by(desc(BhavcopyFO.expiry_date))\
         .limit(3).all()
@@ -1249,7 +1231,7 @@ def get_sector_rollover_history(db: Session = Depends(get_db)):
         ).filter(
             BhavcopyFO.trade_date == trade_date,
             BhavcopyFO.expiry_date >= trade_date,
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])
         ).order_by(BhavcopyFO.ticker_symb.asc(), BhavcopyFO.expiry_date.asc()).all()
 
         # Map futures by symbol
@@ -1332,7 +1314,7 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
     if is_expiry_only:
         # Get historical expiry dates
         expiries = db.query(BhavcopyFO.expiry_date).filter(
-            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])
         ).distinct().order_by(desc(BhavcopyFO.expiry_date)).all()
         expiry_dates = [e[0] for e in expiries]
 
@@ -1403,16 +1385,15 @@ def sync_mwpl_analysis(force: str = "false", db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        # Directly call the compute function synchronously
-        result = compute_mwpl_analysis(db=db, latest_metric_date=compute_lookback)
-        return result
+        from backend.ingest.tasks import run_mwpl_analysis_task
+        run_mwpl_analysis_task.delay(latest_metric_date=compute_lookback)
+        return {"status": "success", "message": "MWPL analysis computation task started in the background.", "computed": True}
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/mwpl/compute")
 def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
-    logger.info(f'Starting compute_mwpl_analysis with latest_metric_date={latest_metric_date}')
     try:
         from backend.ingest.nse_models import MWPLClientPosition, BhavcopyEQ, BhavcopyFO, MwplAnalysisMetrics
         from sqlalchemy.dialects.postgresql import insert
@@ -1420,20 +1401,17 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc())
-        if latest_metric_date_obj:
-            # We don't need historical lookback for MWPL, just dates > latest
-            query = query.filter(MWPLClientPosition.date > latest_metric_date_obj)
-            all_dates_query = query.all()
-        else:
-            all_dates_query = query.limit(500).all()
-
+        all_dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).all()
         all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
 
-        dates_to_compute = all_dates
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:500]
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
@@ -1461,7 +1439,7 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
 
         fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
 
         fo_map = {}
         for r in fo_records:
@@ -1481,7 +1459,7 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
         # Fast way is to just fetch the last 500 days of required stuff
         prev_fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
 
         prev_fo_map = {}
         for r in prev_fo_records:
@@ -1568,23 +1546,22 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
         from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics
         from sqlalchemy import func
 
-        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).scalar()
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).scalar()
         latest_metric_date = db.query(func.max(RolloverAnalysisMetrics.trade_date)).scalar()
 
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        # Directly call the compute function synchronously
-        result = compute_rollover_analysis(db=db, latest_metric_date=compute_lookback)
-        return result
+        from backend.ingest.tasks import run_rollover_analysis_task
+        run_rollover_analysis_task.delay(latest_metric_date=compute_lookback)
+        return {"status": "success", "message": "Rollover analysis computation task started in the background.", "computed": True}
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/rollover/compute")
 def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date: str = None):
-    logger.info(f'Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}')
     try:
         from backend.ingest.nse_models import BhavcopyFO, RolloverAnalysisMetrics
         from sqlalchemy.dialects.postgresql import insert
@@ -1592,27 +1569,24 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
-
-        if latest_metric_date_obj:
-             query = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj)
-             all_dates_query = query.all()
-             all_dates = [d[0] for d in all_dates_query]
-        else:
-             all_dates_query = query.limit(500).all()
-             all_dates = [d[0] for d in all_dates_query]
+        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
+        all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
 
-        dates_to_compute = all_dates
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:500]
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
 
         fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
 
         fo_map = {}
         for r in fo_records:
@@ -1630,7 +1604,7 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
         # Fast way is to just fetch the last 500 days of required stuff
         prev_fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(prev_dates), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
 
         prev_fo_map = {}
         for r in prev_fo_records:
@@ -1724,7 +1698,7 @@ def sync_basis_watch(force: str = "false", db: Session = Depends(get_db)):
         from backend.ingest.nse_models import BhavcopyFO, BasisWatchMetrics
         from sqlalchemy import func
 
-        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).scalar()
+        latest_raw_date = db.query(func.max(BhavcopyFO.trade_date)).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).scalar()
         latest_metric_date = db.query(func.max(BasisWatchMetrics.trade_date)).scalar()
 
         if latest_raw_date and latest_metric_date and latest_raw_date <= latest_metric_date and force.lower() != "true":
@@ -1745,20 +1719,17 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
-
-        if latest_metric_date_obj:
-             query = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj)
-             all_dates_query = query.all()
-             all_dates = [d[0] for d in all_dates_query]
-        else:
-             all_dates_query = query.limit(500).all()
-             all_dates = [d[0] for d in all_dates_query]
+        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
+        all_dates = [d[0] for d in all_dates_query]
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
 
-        dates_to_compute = all_dates
+        dates_to_compute = []
+        if latest_metric_date_obj:
+            dates_to_compute = [d for d in all_dates if d > latest_metric_date_obj]
+        else:
+            dates_to_compute = all_dates[:500]
 
         if not dates_to_compute:
             return {"status": "success", "message": "No new dates to compute.", "computed": False}
@@ -1770,7 +1741,7 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         fo_records = db.query(
             BhavcopyFO.trade_date, BhavcopyFO.ticker_symb, BhavcopyFO.close_price, BhavcopyFO.expiry_date, BhavcopyFO.open_interest
-        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).all()
+        ).filter(BhavcopyFO.trade_date.in_(dates_to_compute), BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'STO', 'IDO', 'OPTSTK', 'OPTIDX'])).all()
 
         fo_map = {}
         for r in fo_records:
