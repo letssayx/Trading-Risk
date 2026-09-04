@@ -14,7 +14,7 @@ def _chunked_upsert(db: Session, model, rows: list[dict], constraint: str, pk_co
         return 0
 
     num_cols = len(rows[0])
-    batch_size = max(1, min(2000, 30000 // num_cols))
+    batch_size = max(1, min(500, 10000 // num_cols))
 
     total = 0
     for i in range(0, len(rows), batch_size):
