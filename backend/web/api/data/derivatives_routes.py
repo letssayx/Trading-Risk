@@ -9,7 +9,6 @@ import logging
 
 def _chunked_upsert(db: Session, model, rows: list[dict], constraint: str, pk_cols=("trade_date", "symbol"), logger=None):
     from sqlalchemy.dialects.postgresql import insert
-
     if not rows:
         return 0
 
@@ -17,19 +16,20 @@ def _chunked_upsert(db: Session, model, rows: list[dict], constraint: str, pk_co
     batch_size = max(1, min(500, 10000 // num_cols))
 
     total = 0
+    # Collect all unique dates in the rows
+    dates_to_replace = list(set([r['trade_date'] for r in rows]))
+
+    # Delete existing records for these dates to simulate an upsert without relying on broken unique constraints
+    db.query(model).filter(model.trade_date.in_(dates_to_replace)).delete(synchronize_session=False)
+    db.commit()
+
     for i in range(0, len(rows), batch_size):
         batch = rows[i:i + batch_size]
         stmt = insert(model).values(batch)
-        set_ = {
-            c.name: getattr(stmt.excluded, c.name)
-            for c in model.__table__.columns
-            if c.name not in pk_cols and c.name != 'id'
-        }
-        stmt = stmt.on_conflict_do_update(index_elements=pk_cols, set_=set_)
         db.execute(stmt)
         db.commit()
         total += len(batch)
-        if logger:
+    if logger:
             logger.info(f"Upserted {len(batch)} rows into {model.__tablename__} ({total}/{len(rows)})")
 
     return total
