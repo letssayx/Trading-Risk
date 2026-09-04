@@ -25,7 +25,7 @@ def _chunked_upsert(db: Session, model, rows: list[dict], constraint: str, pk_co
             for c in model.__table__.columns
             if c.name not in pk_cols and c.name != 'id'
         }
-        stmt = stmt.on_conflict_do_update(constraint=constraint, set_=set_)
+        stmt = stmt.on_conflict_do_update(index_elements=pk_cols, set_=set_)
         db.execute(stmt)
         db.commit()
         total += len(batch)
