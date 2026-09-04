@@ -572,27 +572,27 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
                 if len(history_arr) < target_len and dt in hist_dates:
                     history_arr.append({
                         "date": str(dt),
-                        "rollover_pct": round(c_rollover_pct, 2),
-                        "rollover_cost": round(c_spread, 2),
-                        "rollover_cost_pct": round(c_spread_pct, 2),
-                        "price": c_price,
-                        "oi": c_total_oi,
-                        "price_chg_pct": round(p_price_chg, 2),
-                        "oi_chg_pct": round(p_oi_chg, 2)
+                        "rollover_pct": round(c_rollover_pct, 2) if c_rollover_pct is not None else 0,
+                        "rollover_cost": round(c_spread, 2) if c_spread is not None else 0,
+                        "rollover_cost_pct": round(c_spread_pct, 2) if c_spread_pct is not None else 0,
+                        "price": c_price if c_price is not None else 0,
+                        "oi": c_total_oi if c_total_oi is not None else 0,
+                        "price_chg_pct": round(p_price_chg, 2) if p_price_chg is not None else 0,
+                        "oi_chg_pct": round(p_oi_chg, 2) if p_oi_chg is not None else 0
                     })
 
             results.append({
                 "symbol": sym,
                 "sector": sector_map.get(sym, "Unknown"),
-                "rollover_pct": round(rollover_pct, 2),
-                "rollover_cost": round(spread, 2),
-                "rollover_cost_pct": round(spread_pct, 2),
+                "rollover_pct": round(rollover_pct, 2) if rollover_pct is not None else 0,
+                "rollover_cost": round(spread, 2) if spread is not None else 0,
+                "rollover_cost_pct": round(spread_pct, 2) if spread_pct is not None else 0,
                 "near_oi": latest_r.near_month_oi,
                 "total_oi": latest_r.total_oi,
-                "price": near_price,
-                "near_price": near_price,
-                "price_chg_pct": round(price_chg_pct_today, 2),
-                "oi_chg_pct": round(oi_chg_pct_today, 2),
+                "price": near_price if near_price is not None else 0,
+                "near_price": near_price if near_price is not None else 0,
+                "price_chg_pct": round(price_chg_pct_today, 2) if price_chg_pct_today is not None else 0,
+                "oi_chg_pct": round(oi_chg_pct_today, 2) if oi_chg_pct_today is not None else 0,
                 "history": history_arr
             })
 

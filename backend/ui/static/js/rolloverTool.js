@@ -260,14 +260,14 @@ const RolloverTool = {
         // Sort Data
         if (this.currentSortCol === 'bps') {
             displayData.sort((a, b) => {
-                let valA = (a.price && a.price > 0) ? ((a.rollover_cost / a.price) * 10000) : 0;
-                let valB = (b.price && b.price > 0) ? ((b.rollover_cost / b.price) * 10000) : 0;
+                let valA = (a.price && a.price > 0 && a.rollover_cost != null) ? ((a.rollover_cost / a.price) * 10000) : 0;
+                let valB = (b.price && b.price > 0 && b.rollover_cost != null) ? ((b.rollover_cost / b.price) * 10000) : 0;
                 return this.currentSortAsc ? valA - valB : valB - valA;
             });
         } else {
             displayData.sort((a, b) => {
-                let valA = a[this.currentSortCol];
-                let valB = b[this.currentSortCol];
+                let valA = a[this.currentSortCol] || 0;
+                let valB = b[this.currentSortCol] || 0;
 
                 if (typeof valA === 'string') valA = valA.toUpperCase();
                 if (typeof valB === 'string') valB = valB.toUpperCase();
@@ -351,8 +351,8 @@ const RolloverTool = {
         // Custom sorting for calculated BPS
         if (col === 'bps') {
             this.aggregatedData.sort((a, b) => {
-                let valA = (a.price && a.price > 0) ? ((a.rollover_cost / a.price) * 10000) : 0;
-                let valB = (b.price && b.price > 0) ? ((b.rollover_cost / b.price) * 10000) : 0;
+                let valA = (a.price && a.price > 0 && a.rollover_cost != null) ? ((a.rollover_cost / a.price) * 10000) : 0;
+                let valB = (b.price && b.price > 0 && b.rollover_cost != null) ? ((b.rollover_cost / b.price) * 10000) : 0;
                 return this.currentSortAsc ? valA - valB : valB - valA;
             });
         }
