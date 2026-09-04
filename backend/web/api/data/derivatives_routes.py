@@ -48,9 +48,9 @@ def sync_aggregated_oi_analysis(force: str = "false", db: Session = Depends(get_
 
         # If we reach here, we need to compute
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        from backend.ingest.tasks import run_oi_analysis_task
-        run_oi_analysis_task.delay(latest_metric_date=compute_lookback)
-        return {"status": "success", "message": "OI analysis computation task started in the background.", "computed": True}
+        # Directly call the compute function synchronously
+        result = compute_aggregated_oi_analysis(db=db, latest_metric_date=compute_lookback)
+        return result
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
@@ -69,13 +69,24 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_aggregated_oi_analysis with latest_metric_date={latest_metric_date}")
+
         # First, find all dates in BhavcopyFO
-        all_dates_query = db.query(BhavcopyFO.trade_date)\
+        query = db.query(BhavcopyFO.trade_date)\
                   .filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK', 'FUTIVX', 'FUTIRC', 'OPTIDX', 'OPTSTK', 'STO', 'IDO', 'CE', 'PE']))\
                   .distinct()\
-                  .order_by(BhavcopyFO.trade_date.desc()).all()
+                  .order_by(BhavcopyFO.trade_date.desc())
 
-        all_dates = [d[0] for d in all_dates_query]
+        if latest_metric_date_obj:
+            new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
+            old_dates = query.filter(BhavcopyFO.trade_date <= latest_metric_date_obj).limit(35).all()
+            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
+        else:
+            all_dates = [d[0] for d in query.limit(500).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for OI analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found in BhavcopyFO."}
@@ -561,27 +572,27 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
                 if len(history_arr) < target_len and dt in hist_dates:
                     history_arr.append({
                         "date": str(dt),
-                        "rollover_pct": round(c_rollover_pct, 2),
-                        "rollover_cost": round(c_spread, 2),
-                        "rollover_cost_pct": round(c_spread_pct, 2),
-                        "price": c_price,
-                        "oi": c_total_oi,
-                        "price_chg_pct": round(p_price_chg, 2),
-                        "oi_chg_pct": round(p_oi_chg, 2)
+                        "rollover_pct": round(c_rollover_pct, 2) if c_rollover_pct is not None else 0,
+                        "rollover_cost": round(c_spread, 2) if c_spread is not None else 0,
+                        "rollover_cost_pct": round(c_spread_pct, 2) if c_spread_pct is not None else 0,
+                        "price": c_price if c_price is not None else 0,
+                        "oi": c_total_oi if c_total_oi is not None else 0,
+                        "price_chg_pct": round(p_price_chg, 2) if p_price_chg is not None else 0,
+                        "oi_chg_pct": round(p_oi_chg, 2) if p_oi_chg is not None else 0
                     })
 
             results.append({
                 "symbol": sym,
                 "sector": sector_map.get(sym, "Unknown"),
-                "rollover_pct": round(rollover_pct, 2),
-                "rollover_cost": round(spread, 2),
-                "rollover_cost_pct": round(spread_pct, 2),
+                "rollover_pct": round(rollover_pct, 2) if rollover_pct is not None else 0,
+                "rollover_cost": round(spread, 2) if spread is not None else 0,
+                "rollover_cost_pct": round(spread_pct, 2) if spread_pct is not None else 0,
                 "near_oi": latest_r.near_month_oi,
                 "total_oi": latest_r.total_oi,
-                "price": near_price,
-                "near_price": near_price,
-                "price_chg_pct": round(price_chg_pct_today, 2),
-                "oi_chg_pct": round(oi_chg_pct_today, 2),
+                "price": near_price if near_price is not None else 0,
+                "near_price": near_price if near_price is not None else 0,
+                "price_chg_pct": round(price_chg_pct_today, 2) if price_chg_pct_today is not None else 0,
+                "oi_chg_pct": round(oi_chg_pct_today, 2) if oi_chg_pct_today is not None else 0,
                 "history": history_arr
             })
 
@@ -1385,9 +1396,9 @@ def sync_mwpl_analysis(force: str = "false", db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        from backend.ingest.tasks import run_mwpl_analysis_task
-        run_mwpl_analysis_task.delay(latest_metric_date=compute_lookback)
-        return {"status": "success", "message": "MWPL analysis computation task started in the background.", "computed": True}
+        # Directly call the compute function synchronously
+        result = compute_mwpl_analysis(db=db, latest_metric_date=compute_lookback)
+        return result
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
@@ -1401,8 +1412,18 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_mwpl_analysis with latest_metric_date={latest_metric_date}")
+
+        query = db.query(MWPLClientPosition.date).distinct().order_by(MWPLClientPosition.date.desc())
+
+        if latest_metric_date_obj:
+            all_dates = [d[0] for d in query.filter(MWPLClientPosition.date > latest_metric_date_obj).all()]
+        else:
+            all_dates = [d[0] for d in query.limit(500).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for MWPL analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
@@ -1553,9 +1574,9 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
             return {"status": "success", "message": "Data is already up to date.", "computed": False, "latest_date": str(latest_raw_date)}
 
         compute_lookback = None if force.lower() == "true" else (str(latest_metric_date) if latest_metric_date else None)
-        from backend.ingest.tasks import run_rollover_analysis_task
-        run_rollover_analysis_task.delay(latest_metric_date=compute_lookback)
-        return {"status": "success", "message": "Rollover analysis computation task started in the background.", "computed": True}
+        # Directly call the compute function synchronously
+        result = compute_rollover_analysis(db=db, latest_metric_date=compute_lookback)
+        return result
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
@@ -1569,8 +1590,20 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}")
+
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+
+        if latest_metric_date_obj:
+            new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
+            old_dates = query.filter(BhavcopyFO.trade_date <= latest_metric_date_obj).limit(2).all()
+            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
+        else:
+            all_dates = [d[0] for d in query.limit(502).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for Rollover analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
@@ -1719,8 +1752,20 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
 
         latest_metric_date_obj = datetime.datetime.strptime(latest_metric_date, "%Y-%m-%d").date() if latest_metric_date else None
 
-        all_dates_query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc()).all()
-        all_dates = [d[0] for d in all_dates_query]
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting compute_rollover_analysis with latest_metric_date={latest_metric_date}")
+
+        query = db.query(BhavcopyFO.trade_date).filter(BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])).distinct().order_by(BhavcopyFO.trade_date.desc())
+
+        if latest_metric_date_obj:
+            new_dates = query.filter(BhavcopyFO.trade_date > latest_metric_date_obj).all()
+            old_dates = query.filter(BhavcopyFO.trade_date <= latest_metric_date_obj).limit(2).all()
+            all_dates = [d[0] for d in new_dates] + [d[0] for d in old_dates]
+        else:
+            all_dates = [d[0] for d in query.limit(502).all()]
+
+        logger.info(f"Found {len(all_dates)} dates for Rollover analysis.")
 
         if not all_dates:
             return {"status": "error", "message": "No data found."}
