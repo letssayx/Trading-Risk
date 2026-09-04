@@ -5,6 +5,36 @@ from sqlalchemy import desc
 from backend.infrastructure.db import get_db
 from backend.ingest.nse_models import BhavcopyFO, BhavcopyEQ
 
+import logging
+
+def _chunked_upsert(db: Session, model, rows: list[dict], constraint: str, pk_cols=("trade_date", "symbol"), logger=None):
+    from sqlalchemy.dialects.postgresql import insert
+
+    if not rows:
+        return 0
+
+    num_cols = len(rows[0])
+    batch_size = max(1, min(2000, 30000 // num_cols))
+
+    total = 0
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i:i + batch_size]
+        stmt = insert(model).values(batch)
+        set_ = {
+            c.name: getattr(stmt.excluded, c.name)
+            for c in model.__table__.columns
+            if c.name not in pk_cols and c.name != 'id'
+        }
+        stmt = stmt.on_conflict_do_update(constraint=constraint, set_=set_)
+        db.execute(stmt)
+        db.commit()
+        total += len(batch)
+        if logger:
+            logger.info(f"Upserted {len(batch)} rows into {model.__tablename__} ({total}/{len(rows)})")
+
+    return total
+
+
 router = APIRouter()
 
 
@@ -250,56 +280,13 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
                 })
 
         if insert_data:
-            if db.bind.dialect.name == 'postgresql':
-                # Chunk to avoid 32767 parameter limit
-                chunk_size = 2000
-                for i in range(0, len(insert_data), chunk_size):
-                    chunk = insert_data[i:i + chunk_size]
-                    stmt = insert(OiAnalysisMetrics).values(chunk)
-                    stmt = stmt.on_conflict_do_update(
-                    constraint='uq_oi_analysis_metrics_date_symbol',
-                    set_={
-                        'price': stmt.excluded.price,
-                        'price_chg_pct': stmt.excluded.price_chg_pct,
-                        'fut_oi': stmt.excluded.fut_oi,
-                        'call_oi': stmt.excluded.call_oi,
-                        'put_oi': stmt.excluded.put_oi,
-                        'total_oi': stmt.excluded.total_oi,
-                        'fut_oi_chg_pct': stmt.excluded.fut_oi_chg_pct,
-                        'call_oi_chg_pct': stmt.excluded.call_oi_chg_pct,
-                        'put_oi_chg_pct': stmt.excluded.put_oi_chg_pct,
-                        'oi_chg_pct': stmt.excluded.oi_chg_pct,
-                        'fut_oi_chg_pct_30d': stmt.excluded.fut_oi_chg_pct_30d,
-                        'call_oi_chg_pct_30d': stmt.excluded.call_oi_chg_pct_30d,
-                        'put_oi_chg_pct_30d': stmt.excluded.put_oi_chg_pct_30d,
-                        'fut_oi_chg': stmt.excluded.fut_oi_chg,
-                        'call_oi_chg': stmt.excluded.call_oi_chg,
-                        'put_oi_chg': stmt.excluded.put_oi_chg,
-                        'pcr': stmt.excluded.pcr,
-                        'atm_iv': stmt.excluded.atm_iv
-                    }
-                )
-                    db.execute(stmt)
-            else:
-                for data in insert_data:
-                    existing = db.query(OiAnalysisMetrics).filter(
-                        OiAnalysisMetrics.trade_date == data['trade_date'],
-                        OiAnalysisMetrics.symbol == data['symbol']
-                    ).first()
-                    if existing:
-                        for k, v in data.items():
-                            setattr(existing, k, v)
-                    else:
-                        db.add(OiAnalysisMetrics(**data))
+            n = _chunked_upsert(db, OiAnalysisMetrics, insert_data, constraint='uq_oi_analysis_metrics_date_symbol', logger=logger)
 
-            db.commit()
-
-        return {"status": "success", "message": f"Upserted {len(insert_data)} OI Analysis records."}
+        return {"status": "success", "message": f"Computed {len(insert_data)} records.", "computed": True}
     except Exception as e:
         db.rollback()
         import traceback
-        import logging
-        logging.error(f"Computation Error: {traceback.format_exc()}")
+        logger.error(f"compute_aggregated_oi_analysis failed: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
@@ -1551,29 +1538,13 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
             })
 
         if metrics:
-            chunk_size = 2000
-            for i in range(0, len(metrics), chunk_size):
-                chunk = metrics[i:i + chunk_size]
-                stmt = insert(MwplAnalysisMetrics).values(chunk)
-                stmt = stmt.on_conflict_do_update(
-                constraint='uq_mwpl_analysis_metrics_date_symbol',
-                set_={
-                    'mwpl_pct': stmt.excluded.mwpl_pct,
-                    'mwpl_chg_pct': stmt.excluded.mwpl_chg_pct,
-                    'open_interest': stmt.excluded.open_interest,
-                    'limit_for_next_day': stmt.excluded.limit_for_next_day,
-                    'price': stmt.excluded.price,
-                    'price_chg_pct': stmt.excluded.price_chg_pct
-                }
-            )
-                db.execute(stmt)
-            db.commit()
+            n = _chunked_upsert(db, MwplAnalysisMetrics, metrics, constraint='uq_mwpl_analysis_metrics_date_symbol', logger=logger)
 
         return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
     except Exception as e:
+        db.rollback()
         import traceback
-        import logging
-        logging.error(f"Computation Error: {traceback.format_exc()}")
+        logger.error(f"compute_mwpl_analysis failed: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/rollover/sync")
@@ -1719,32 +1690,13 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
             })
 
         if metrics:
-            chunk_size = 2000
-            for i in range(0, len(metrics), chunk_size):
-                chunk = metrics[i:i + chunk_size]
-                stmt = insert(RolloverAnalysisMetrics).values(chunk)
-                stmt = stmt.on_conflict_do_update(
-                constraint='uq_rollover_analysis_metrics_date_symbol',
-                set_={
-                    'rollover_pct': stmt.excluded.rollover_pct,
-                    'rollover_cost': stmt.excluded.rollover_cost,
-                    'rollover_cost_pct': stmt.excluded.rollover_cost_pct,
-                    'near_month_oi': stmt.excluded.near_month_oi,
-                    'next_month_oi': stmt.excluded.next_month_oi,
-                    'total_oi': stmt.excluded.total_oi,
-                    'fut_close': stmt.excluded.fut_close,
-                    'price_chg_pct': stmt.excluded.price_chg_pct,
-                    'oi_chg_pct': stmt.excluded.oi_chg_pct
-                }
-            )
-                db.execute(stmt)
-            db.commit()
+            n = _chunked_upsert(db, RolloverAnalysisMetrics, metrics, constraint='uq_rollover_analysis_metrics_date_symbol', logger=logger)
 
         return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
     except Exception as e:
+        db.rollback()
         import traceback
-        import logging
-        logging.error(f"Computation Error: {traceback.format_exc()}")
+        logger.error(f"compute_rollover_analysis failed: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/basis/sync")
@@ -1855,29 +1807,13 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
             })
 
         if metrics:
-            chunk_size = 2000
-            for i in range(0, len(metrics), chunk_size):
-                chunk = metrics[i:i + chunk_size]
-                stmt = insert(BasisWatchMetrics).values(chunk)
-                stmt = stmt.on_conflict_do_update(
-                constraint='uq_basis_watch_metrics_date_symbol',
-                set_={
-                    'basis_value': stmt.excluded.basis_value,
-                    'basis_pct': stmt.excluded.basis_pct,
-                    'near_fut_close': stmt.excluded.near_fut_close,
-                    'cash_close': stmt.excluded.cash_close,
-                    'price_chg_pct': stmt.excluded.price_chg_pct,
-                    'carry_cost_annualized': stmt.excluded.carry_cost_annualized
-                }
-            )
-                db.execute(stmt)
-            db.commit()
+            n = _chunked_upsert(db, BasisWatchMetrics, metrics, constraint='uq_basis_watch_metrics_date_symbol', logger=logger)
 
         return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
     except Exception as e:
+        db.rollback()
         import traceback
-        import logging
-        logging.error(f"Computation Error: {traceback.format_exc()}")
+        logger.error(f"compute_basis_watch failed: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
