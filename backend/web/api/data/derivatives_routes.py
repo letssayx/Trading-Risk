@@ -1357,9 +1357,9 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
                 seen_expiries.add(e_date)
                 results.append({
                     "date": str(e_date),  # Show the expiry date as the label
-                    "rollover_pct": round(closest_record.rollover_pct, 2),
-                    "rollover_cost": round(closest_record.rollover_cost, 2),
-                    "rollover_cost_pct": round(closest_record.rollover_cost_pct, 2),
+                    "rollover_pct": round(closest_record.rollover_pct, 2) if closest_record.rollover_pct is not None else 0,
+                    "rollover_cost": round(closest_record.rollover_cost, 2) if closest_record.rollover_cost is not None else 0,
+                    "rollover_cost_pct": round(closest_record.rollover_cost_pct, 2) if closest_record.rollover_cost_pct is not None else 0,
                     "price": float(closest_record.fut_close) if closest_record.fut_close else None
                 })
     else:
@@ -1372,9 +1372,9 @@ def get_stock_rollover_history(symbol: str, expiry_only: str = "false", db: Sess
         for r in records:
             results.append({
                 "date": str(r.trade_date),
-                "rollover_pct": round(r.rollover_pct, 2),
-                "rollover_cost": round(r.rollover_cost, 2),
-                "rollover_cost_pct": round(r.rollover_cost_pct, 2),
+                "rollover_pct": round(r.rollover_pct, 2) if r.rollover_pct is not None else 0,
+                "rollover_cost": round(r.rollover_cost, 2) if r.rollover_cost is not None else 0,
+                "rollover_cost_pct": round(r.rollover_cost_pct, 2) if r.rollover_cost_pct is not None else 0,
                 "price": float(r.fut_close) if r.fut_close else None
             })
 
