@@ -53,6 +53,8 @@ def sync_aggregated_oi_analysis(force: str = "false", db: Session = Depends(get_
         return result
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
@@ -249,8 +251,12 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
 
         if insert_data:
             if db.bind.dialect.name == 'postgresql':
-                stmt = insert(OiAnalysisMetrics).values(insert_data)
-                stmt = stmt.on_conflict_do_update(
+                # Chunk to avoid 32767 parameter limit
+                chunk_size = 2000
+                for i in range(0, len(insert_data), chunk_size):
+                    chunk = insert_data[i:i + chunk_size]
+                    stmt = insert(OiAnalysisMetrics).values(chunk)
+                    stmt = stmt.on_conflict_do_update(
                     constraint='uq_oi_analysis_metrics_date_symbol',
                     set_={
                         'price': stmt.excluded.price,
@@ -273,7 +279,7 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
                         'atm_iv': stmt.excluded.atm_iv
                     }
                 )
-                db.execute(stmt)
+                    db.execute(stmt)
             else:
                 for data in insert_data:
                     existing = db.query(OiAnalysisMetrics).filter(
@@ -292,6 +298,8 @@ def compute_aggregated_oi_analysis(db: Session = Depends(get_db), latest_metric_
     except Exception as e:
         db.rollback()
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
@@ -1401,6 +1409,8 @@ def sync_mwpl_analysis(force: str = "false", db: Session = Depends(get_db)):
         return result
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/mwpl/compute")
@@ -1541,8 +1551,11 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
             })
 
         if metrics:
-            stmt = insert(MwplAnalysisMetrics).values(metrics)
-            stmt = stmt.on_conflict_do_update(
+            chunk_size = 2000
+            for i in range(0, len(metrics), chunk_size):
+                chunk = metrics[i:i + chunk_size]
+                stmt = insert(MwplAnalysisMetrics).values(chunk)
+                stmt = stmt.on_conflict_do_update(
                 constraint='uq_mwpl_analysis_metrics_date_symbol',
                 set_={
                     'mwpl_pct': stmt.excluded.mwpl_pct,
@@ -1553,12 +1566,14 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
                     'price_chg_pct': stmt.excluded.price_chg_pct
                 }
             )
-            db.execute(stmt)
+                db.execute(stmt)
             db.commit()
 
         return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/rollover/sync")
@@ -1579,6 +1594,8 @@ def sync_rollover_analysis(force: str = "false", db: Session = Depends(get_db)):
         return result
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/rollover/compute")
@@ -1702,8 +1719,11 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
             })
 
         if metrics:
-            stmt = insert(RolloverAnalysisMetrics).values(metrics)
-            stmt = stmt.on_conflict_do_update(
+            chunk_size = 2000
+            for i in range(0, len(metrics), chunk_size):
+                chunk = metrics[i:i + chunk_size]
+                stmt = insert(RolloverAnalysisMetrics).values(chunk)
+                stmt = stmt.on_conflict_do_update(
                 constraint='uq_rollover_analysis_metrics_date_symbol',
                 set_={
                     'rollover_pct': stmt.excluded.rollover_pct,
@@ -1717,12 +1737,14 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
                     'oi_chg_pct': stmt.excluded.oi_chg_pct
                 }
             )
-            db.execute(stmt)
+                db.execute(stmt)
             db.commit()
 
         return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/basis/sync")
@@ -1741,6 +1763,8 @@ def sync_basis_watch(force: str = "false", db: Session = Depends(get_db)):
         return compute_basis_watch(db, latest_metric_date=compute_lookback)
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.post("/api/data/analysis/basis/compute")
@@ -1831,8 +1855,11 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
             })
 
         if metrics:
-            stmt = insert(BasisWatchMetrics).values(metrics)
-            stmt = stmt.on_conflict_do_update(
+            chunk_size = 2000
+            for i in range(0, len(metrics), chunk_size):
+                chunk = metrics[i:i + chunk_size]
+                stmt = insert(BasisWatchMetrics).values(chunk)
+                stmt = stmt.on_conflict_do_update(
                 constraint='uq_basis_watch_metrics_date_symbol',
                 set_={
                     'basis_value': stmt.excluded.basis_value,
@@ -1843,12 +1870,14 @@ def compute_basis_watch(db: Session = Depends(get_db), latest_metric_date: str =
                     'carry_cost_annualized': stmt.excluded.carry_cost_annualized
                 }
             )
-            db.execute(stmt)
+                db.execute(stmt)
             db.commit()
 
         return {"status": "success", "message": f"Computed {len(metrics)} records for {len(dates_to_compute)} dates.", "computed": True}
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Computation Error: {traceback.format_exc()}")
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
