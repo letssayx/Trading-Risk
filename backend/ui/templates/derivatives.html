@@ -787,6 +787,7 @@
         });
 
         function switchClientTab(tabId) {
+            localStorage.setItem('activeDerivativesTab', tabId);
             document.querySelectorAll('.client-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
 
@@ -1156,8 +1157,9 @@
                 WorkbookManager.init();
             }
 
-            // Switch to AI tab by default
-            switchClientTab('ai');
+            // Switch to last active tab or AI tab by default
+            const lastTab = localStorage.getItem('activeDerivativesTab') || 'ai';
+            switchClientTab(lastTab);
         });
     </script>
     <script src="/static/js/exportUtils.js"></script>
