@@ -1388,3 +1388,81 @@ def patch_historical_eps_agm_task(self):
         raise
     finally:
         db.close()
+
+@shared_task(bind=True, max_retries=3)
+def process_corporate_announcements_task(self):
+    from backend.infrastructure.db import SessionLocal
+    from backend.ingest.nse_models import CorporateAnnouncement
+    from backend.ingest.nse_lib import NSELib
+    from datetime import datetime
+    import logging
+
+    task_logger = logging.getLogger(__name__)
+    task_logger.info("Executing Corporate Announcements Cron Job via Celery...")
+
+    db = SessionLocal()
+    try:
+        nselib = NSELib()
+        announcements = nselib.get_latest_corporate_announcements()
+
+        if not announcements:
+            task_logger.info("No announcements fetched.")
+            return "No announcements fetched"
+
+        new_inserts = 0
+        for ann in announcements:
+            seq_id = str(ann.get("seq_id", ""))
+            if not seq_id:
+                continue
+
+            exists = db.query(CorporateAnnouncement).filter(CorporateAnnouncement.seq_id == seq_id).first()
+            if exists:
+                continue
+
+            broadcast_str = ann.get("an_dt", "")
+            broadcast_date = None
+            if broadcast_str:
+                try:
+                    broadcast_date = datetime.strptime(broadcast_str, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    try:
+                        broadcast_date = datetime.strptime(broadcast_str, "%d-%b-%Y %H:%M")
+                    except ValueError:
+                        broadcast_date = datetime.now()
+            else:
+                broadcast_date = datetime.now()
+
+            pdf_link = ann.get("attchmntFile")
+            xbrl_link = ann.get("xbrl")
+
+            if pdf_link and not pdf_link.startswith("http"):
+                pdf_link = "https://www.nseindia.com" + pdf_link
+
+            if xbrl_link and not xbrl_link.startswith("http"):
+                xbrl_link = "https://www.nseindia.com" + xbrl_link
+
+            new_record = CorporateAnnouncement(
+                seq_id=seq_id,
+                symbol=ann.get("symbol", "UNKNOWN"),
+                broadcast_date=broadcast_date,
+                subject=ann.get("subject", ""),
+                purpose=ann.get("desc", ""),
+                pdf_link=pdf_link,
+                xbrl_link=xbrl_link,
+                import_time=datetime.now()
+            )
+            db.add(new_record)
+            new_inserts += 1
+
+        if new_inserts > 0:
+            db.commit()
+            task_logger.info(f"Inserted {new_inserts} new corporate announcements.")
+
+        return f"Inserted {new_inserts} new announcements."
+
+    except Exception as e:
+        task_logger.error(f"Error in process_corporate_announcements_task: {e}")
+        db.rollback()
+        raise self.retry(exc=e, countdown=60)
+    finally:
+        db.close()

@@ -354,7 +354,8 @@
         <div class="main-tab" data-target="mutual_fund" onclick="switchMainTab('mutual_fund')" title="Mutual Fund">Mutual Fund</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
-        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
+        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
+        <div class="main-tab" data-target="corporate_announcements" onclick="switchMainTab('corporate_announcements')" title="Alt+A">C<u>o</u>rporate Announcements</div>
         <div class="main-tab" data-target="dividends" onclick="switchMainTab('dividends')" title="Alt+D"><u>D</u>ividends Data Bank</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
@@ -362,6 +363,9 @@
         <div style="margin-left: auto; display: flex; align-items: center; padding-right: 15px;">
             <button class="btn btn-primary" id="master-sync-btn" onclick="triggerMasterSync()" style="display: flex; align-items: center; gap: 8px;">
                 <i class="fas fa-sync"></i> Master Sync
+            </button>
+            <button class="btn btn-secondary" onclick="openCronModal()" style="margin-left: 10px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-clock"></i> Cron Settings
             </button>
         </div>
     </div>
@@ -440,15 +444,7 @@
         <div id="tab-corporate_actions" class="main-tab-content">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Actions</div>
-                        <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
-                        <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Event Calendar</div>
-                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
-                        <div class="wb-tab" id="ca-tab-btn-ofs" onclick="switchCATab('ofs')" style="padding: 6px 15px; border-radius: 4px;">OFS</div>
-                        <div class="wb-tab" id="ca-tab-btn-tender" onclick="switchCATab('tender')" style="padding: 6px 15px; border-radius: 4px;">Tender</div>
-                        <div class="wb-tab" id="ca-tab-btn-circulars" onclick="switchCATab('circulars')" style="padding: 6px 15px; border-radius: 4px;">Circulars</div>
-                    </div>
+
                 </div>
 
                 <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; flex-direction: column;" id="ca-controls-wrapper">
@@ -502,6 +498,38 @@
                 <div class="history-status-bar" style="border-radius: 0 0 4px 4px;">
                     <span id="ca-status-msg">Ready</span>
                     <span id="ca-row-count">0 Rows</span>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- TAB CORPORATE ANNOUNCEMENTS -->
+        <div id="tab-corporate_announcements" class="main-tab-content">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
+                    <div>
+                        <button onclick="loadCorporateAnnouncements()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh Announcements</button>
+                    </div>
+                </div>
+
+                <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                    <table class="data-table" id="announcements-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Broadcast Date (NSE)</th>
+                                <th>Import Time</th>
+                                <th>Subject</th>
+                                <th>Purpose</th>
+                                <th>Attachments</th>
+                                <th>AI Interpretation</th>
+                                <th>Radio Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="announcements-tbody">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -3454,6 +3482,25 @@
     </div>
 
     <!-- Scripts -->
+
+    <!-- Cron Settings Modal -->
+    <div id="cron-settings-modal" class="modal-overlay" style="display:none; z-index:9999;">
+        <div class="modal-content" style="max-width: 600px; padding: 25px; border-radius: 8px; background: #18181b; border: 1px solid #3f3f46;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #3f3f46; padding-bottom: 10px;">
+                <h3 style="margin: 0; color: #fff; font-size: 1.2rem;"><i class="fas fa-clock"></i> Cron Job Settings</h3>
+                <button onclick="closeCronModal()" style="background: none; border: none; color: #a1a1aa; cursor: pointer; font-size: 1.2rem;">&times;</button>
+            </div>
+
+            <div id="cron-jobs-list" style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- Populated by JS -->
+            </div>
+
+            <div style="margin-top: 25px; text-align: right;">
+                <button class="btn btn-primary" onclick="closeCronModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -4817,5 +4864,149 @@ document.addEventListener('click', (e) => {
         }
     }
 </script>
+
+    <script>
+        // --- Corporate Announcements & Cron JS ---
+
+        async function loadCorporateAnnouncements() {
+            try {
+                const res = await fetch('/api/v1/cron/corporate-announcements');
+                const data = await res.json();
+
+                const tbody = document.getElementById('announcements-tbody');
+                tbody.innerHTML = '';
+
+                data.forEach(ann => {
+                    const tr = document.createElement('tr');
+
+                    let attachHtml = '';
+                    if (ann.pdf_link) attachHtml += `<a href="${ann.pdf_link}" target="_blank" style="color:#60a5fa; margin-right:8px;"><i class="fas fa-file-pdf"></i> PDF</a>`;
+                    if (ann.xbrl_link) attachHtml += `<a href="${ann.xbrl_link}" target="_blank" style="color:#34d399;"><i class="fas fa-file-code"></i> XBRL</a>`;
+
+                    tr.innerHTML = `
+                        <td>${ann.symbol}</td>
+                        <td>${ann.broadcast_date || '-'}</td>
+                        <td>${ann.import_time || '-'}</td>
+                        <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.subject || '').replace(/"/g, '&quot;')}">${(ann.subject || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                        <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.purpose || '').replace(/"/g, '&quot;')}">${(ann.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '-'}</td>
+                        <td>${attachHtml || '-'}</td>
+                        <td style="font-style:italic; color:#a1a1aa;">${ann.ai_interpretation || 'Pending Interpretation...'}</td>
+                        <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="alert('Radio feature coming soon!')"><i class="fas fa-play"></i> Play Radio</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Failed to load announcements:", err);
+            }
+        }
+
+        async function openCronModal() {
+            document.getElementById('cron-settings-modal').style.display = 'flex';
+            await loadCronConfigs();
+        }
+
+        function closeCronModal() {
+            document.getElementById('cron-settings-modal').style.display = 'none';
+        }
+
+        async function loadCronConfigs() {
+            try {
+                const res = await fetch('/api/v1/cron/configs');
+                const configs = await res.json();
+
+                const listDiv = document.getElementById('cron-jobs-list');
+                listDiv.innerHTML = '';
+
+                configs.forEach(conf => {
+                    const jobDiv = document.createElement('div');
+                    jobDiv.style.cssText = "background: #27272a; padding: 15px; border-radius: 6px; border: 1px solid #3f3f46;";
+
+                    const header = document.createElement('div');
+                    header.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;";
+
+                    header.innerHTML = `
+                        <h4 style="margin: 0; color: #e4e4e7;">${conf.job_name}</h4>
+                        <label class="switch" style="position: relative; display: inline-block; width: 40px; height: 20px;">
+                            <input type="checkbox" ${conf.is_active ? 'checked' : ''} onchange="updateCronJob('${conf.job_name}', 'is_active', this.checked)">
+                            <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
+                        </label>
+                    `;
+
+                    const controls = document.createElement('div');
+                    controls.style.cssText = "display: flex; gap: 15px; align-items: center;";
+
+                    let controlHtml = '';
+                    if (conf.interval_seconds !== null) {
+                        controlHtml += `
+                            <div style="display:flex; flex-direction:column;">
+                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Interval (seconds)</label>
+                                <input type="number" class="history-input" style="width:100px;" value="${conf.interval_seconds}" onchange="updateCronJob('${conf.job_name}', 'interval_seconds', this.value)">
+                            </div>
+                        `;
+                    }
+                    if (conf.run_time !== null) {
+                        controlHtml += `
+                            <div style="display:flex; flex-direction:column;">
+                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Run Time (HH:MM)</label>
+                                <input type="time" class="history-input" style="width:120px;" value="${conf.run_time}" onchange="updateCronJob('${conf.job_name}', 'run_time', this.value)">
+                            </div>
+                        `;
+                    }
+
+                    controlHtml += `
+                        <div style="display:flex; flex-direction:column; margin-left: auto; text-align: right;">
+                            <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Last Run</label>
+                            <span style="font-size:13px; color:#e4e4e7;">${conf.last_run ? new Date(conf.last_run).toLocaleString() : 'Never'}</span>
+                        </div>
+                    `;
+
+                    controls.innerHTML = controlHtml;
+                    jobDiv.appendChild(header);
+                    jobDiv.appendChild(controls);
+                    listDiv.appendChild(jobDiv);
+                });
+
+            } catch (err) {
+                console.error("Failed to load cron configs:", err);
+            }
+        }
+
+        async function updateCronJob(jobName, field, value) {
+            try {
+                let payload = {};
+                payload[field] = value;
+
+                await fetch(`/api/v1/cron/configs/${jobName}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (err) {
+                console.error("Failed to update cron job:", err);
+            }
+        }
+
+        // Setup initial trigger when switching to the announcements tab
+        const originalSwitchMainTab = window.switchMainTab;
+        window.switchMainTab = function(tabId) {
+            if (originalSwitchMainTab) originalSwitchMainTab(tabId);
+
+            if (tabId === 'corporate_announcements') {
+                loadCorporateAnnouncements();
+            }
+        };
+
+        // Add CSS for the switch toggle
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .switch input { opacity: 0; width: 0; height: 0; }
+            .slider { background-color: #3f3f46; }
+            .switch input:checked + .slider { background-color: #34d399; }
+            .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+            .switch input:checked + .slider:before { transform: translateX(20px); }
+        `;
+        document.head.appendChild(style);
+
+    </script>
 </body>
 </html>

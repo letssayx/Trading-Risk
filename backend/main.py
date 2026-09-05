@@ -78,9 +78,11 @@ app.include_router(nse_routes.router, prefix="/api/v1/nse", tags=["nse"])
 app.include_router(audit_routes.router, prefix="/api/audit", tags=["audit"])
 app.include_router(macro_routes.router)
 from backend.web.api import chat_widgets_routes
+from backend.web.api import cron_routes
 app.include_router(chat_widgets_routes.router)
 app.include_router(ai_router)
 app.include_router(mutual_fund_routes.router)
+app.include_router(cron_routes.router)
 
 
 @app.on_event("startup")
@@ -91,11 +93,17 @@ async def startup_event():
 
     print("Initializing Database...")
     try:
-        from backend.ingest.nse_models import DividendDatabank
+        from backend.ingest.nse_models import DividendDatabank, CorporateAnnouncement, CronJobConfig
         DividendDatabank.__table__.create(bind=engine, checkfirst=True)
         print("DividendDatabank table initialized.")
+
+        CorporateAnnouncement.__table__.create(bind=engine, checkfirst=True)
+        print("CorporateAnnouncement table initialized.")
+
+        CronJobConfig.__table__.create(bind=engine, checkfirst=True)
+        print("CronJobConfig table initialized.")
     except Exception as e:
-        print(f"Error creating DividendDatabank table: {e}")
+        print(f"Error creating tables: {e}")
 
     try:
         # Base.metadata.create_all(bind=engine)
@@ -163,6 +171,11 @@ async def startup_event():
     # asyncio.create_task(logs.log_generator())
     # Start simulated market data (Disabled, now relying on TickVault/DB)
     # asyncio.create_task(live_routes.simulate_market_data())
+
+    # Start the cron manager loop
+    import asyncio
+    from backend.ingest.cron_manager import start_cron_manager
+    asyncio.create_task(start_cron_manager())
 
 @app.get("/")
 def read_root():

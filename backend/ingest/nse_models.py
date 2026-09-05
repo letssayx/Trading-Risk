@@ -816,3 +816,36 @@ class DividendDatabank(Base, TimescaleMixin):
     payout_ratio = Column(Float, nullable=True)
     agm_announcement_date = Column(Date, nullable=True)
     agm_date = Column(Date, nullable=True)
+
+class CorporateAnnouncement(Base, TimescaleMixin):
+    """Corporate Announcements from NSE"""
+    __tablename__ = "corporate_announcements"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, nullable=False)
+    seq_id = Column(String(50), nullable=False, unique=True, index=True)
+    symbol = Column(String(50), nullable=False, index=True)
+    broadcast_date = Column(DateTime, nullable=False, index=True) # Exact date/time from NSE
+    import_time = Column(DateTime, nullable=False, server_default=func.now()) # When we ingested it
+
+    subject = Column(String(500), nullable=True)
+    purpose = Column(Text, nullable=True)
+
+    pdf_link = Column(String(500), nullable=True)
+    xbrl_link = Column(String(500), nullable=True)
+
+    # AI and Radio feature placeholders
+    ai_interpretation = Column(Text, nullable=True)
+    ai_sentiment = Column(String(50), nullable=True)
+    radio_text = Column(Text, nullable=True)
+    radio_status = Column(String(20), default="pending")
+
+class CronJobConfig(Base):
+    """Configuration for Cron Jobs"""
+    __tablename__ = "cron_job_configs"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, nullable=False)
+    job_name = Column(String(100), nullable=False, unique=True, index=True)
+    is_active = Column(Boolean, default=False)
+    interval_seconds = Column(Integer, nullable=True) # E.g. 30 seconds
+    run_time = Column(String(10), nullable=True) # E.g. "11:00"
+    last_run = Column(DateTime, nullable=True)
