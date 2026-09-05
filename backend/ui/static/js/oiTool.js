@@ -61,7 +61,7 @@ const OiTool = {
 
                     <input type="date" id="oi-quadrant-date" class="form-control history-input" style="width: 130px; padding: 4px;" onchange="OiTool.loadAggregatedData(true)">
 
-                    <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="oi-force-refresh"> Force</label>
+                    ${window.location.pathname.includes("/workbench") ? `<label style="color:#ccc; font-size:12px;"><input type="checkbox" id="oi-force-refresh"> Force</label>` : ""}
                     <button id="oi-refresh-btn" onclick="OiTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     <button onclick="OiTool.analyzeSingle()" class="btn btn-secondary">Load Single Symbol History</button>
 

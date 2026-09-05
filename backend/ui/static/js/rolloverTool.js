@@ -59,7 +59,7 @@ const RolloverTool = {
                     </div>
 
                     <div style="display: flex; gap: 10px; align-items: center; margin-left: auto;">
-                        <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>
+                        ${window.location.pathname.includes("/workbench") ? `<label style="color:#ccc; font-size:12px;"><input type="checkbox" id="rollover-force-refresh"> Force</label>` : ""}
                         <button id="rollover-refresh-btn" onclick="RolloverTool.syncAndLoadAggregatedData()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh All</button>
                     </div>
 
