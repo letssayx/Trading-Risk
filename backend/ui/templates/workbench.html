@@ -4319,6 +4319,14 @@ document.addEventListener('click', (e) => {
 
     async function loadMarketWatch(isRefresh = false) {
         const tbody = document.getElementById('marketwatch-body');
+        const loadBtn = document.querySelector('button[onclick="loadMarketWatch(true)"]');
+        let originalText = '';
+        if (loadBtn && isRefresh) {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
         // The user explicitly requested to remove the date input requirement for marketwatch.
         // It will automatically pull the latest F&O data.
         tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">Loading...</td></tr>';
@@ -4371,6 +4379,11 @@ document.addEventListener('click', (e) => {
         } catch(e) {
             console.error(e);
             tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#f44336;">Error loading Market Watch data</td></tr>';
+        } finally {
+            if (loadBtn && isRefresh) {
+                loadBtn.innerHTML = originalText || '<i class="fas fa-sync"></i> Refresh Basis';
+                loadBtn.disabled = false;
+            }
         }
     }
 

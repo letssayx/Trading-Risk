@@ -506,7 +506,7 @@
                     <!-- Option Search Controls -->
                     <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0; background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #333;">
                         <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
-                        <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis(event)"><i class="fas fa-sync"></i> Load OI Analysis</button>
+                        <button class="btn btn-primary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis(event)"><i class="fas fa-sync"></i> Load OI Analysis</button>
                     </div>
 
                     <!-- Top section: Original OI Tool (Table + Scatter Plot) -->
@@ -657,7 +657,7 @@
                             <option value="252">252 Days</option>
                             <option value="500">500 Days</option>
                         </select>
-                        <button class="btn btn-secondary" id="btn-load-fii" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis(event)"><i class="fas fa-sync"></i> Refresh FII Data</button>
+                        <button class="btn btn-primary" id="btn-load-fii" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis(event)"><i class="fas fa-sync"></i> Refresh FII Data</button>
                     </div>
 
                     <div style="display: flex; flex-direction: column; flex: 1; margin-bottom: 0px; padding: 20px; overflow-y: visible;">

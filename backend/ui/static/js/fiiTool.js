@@ -1,7 +1,12 @@
 async function loadFiiAnalysis(event = null) {
     console.log("Loading FII Analysis Tab Data...");
     const btn = document.getElementById('btn-load-fii');
-    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    let originalText = '';
+    if (btn) {
+        originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        btn.disabled = true;
+    }
 
     try {
         const days = document.getElementById('fii-analysis-days')?.value || '30';
@@ -51,6 +56,11 @@ async function loadFiiAnalysis(event = null) {
 
     } catch (e) {
         console.error("Error loading FII Analysis", e);
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalText || '<i class="fas fa-sync"></i> Refresh FII Data';
+            btn.disabled = false;
+        }
     }
 }
 
