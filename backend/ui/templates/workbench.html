@@ -2729,7 +2729,7 @@
                             <option value="252">252 Days</option>
                             <option value="500">500 Days</option>
                         </select>
-                        <button class="btn btn-secondary" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()"><i class="fas fa-sync"></i> Refresh FII Data</button>
+                        <button class="btn btn-primary" id="btn-load-fii" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis(event)"><i class="fas fa-sync"></i> Refresh FII Data</button>
                     </div>
 
                     <div style="display: flex; flex-direction: column; flex: 1; margin-bottom: 0px; padding: 20px; overflow-y: visible;">
