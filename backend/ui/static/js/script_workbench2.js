@@ -2,6 +2,7 @@
         const MAIN_TABS_ORDER = ['terminal', 'ai_analyze', 'derivatives', 'special_arb', 'fundamentals', 'commodities', 'crypto', 'retail_instruments', 'history', 'import', 'corporate_actions', 'dividends', 'audit', 'config'];
 
         function switchMainTab(tabName) {
+            localStorage.setItem('activeWorkbenchTab', tabName);
             // Hide all tabs
             document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
@@ -27,8 +28,9 @@
             if (tabName === 'derivatives') {
                 // Initialize first sub-tab if none selected
                 if (!document.querySelector('.deriv-sub-tab.active')) {
-                    switchDerivTab('matrix');
-                } else if (document.querySelector('#deriv-tab-matrix').classList.contains('active') && document.getElementById('mr-data-body').innerHTML.includes('No data')) {
+                    const lastDerivTab = localStorage.getItem('activeDerivTab') || 'matrix';
+                    switchDerivTab(lastDerivTab);
+                } else if (document.querySelector('#deriv-tab-matrix') && document.querySelector('#deriv-tab-matrix').classList.contains('active') && document.getElementById('mr-data-body') && document.getElementById('mr-data-body').innerHTML.includes('No data')) {
                      // Automatically load NIFTY snapshot if empty
                      if (typeof loadTimeseriesData === 'function') loadTimeseriesData(true);
                 }
@@ -46,6 +48,7 @@
 
         // --- Derivatives Sub-Tab Logic ---
         function switchDerivTab(tabName) {
+            localStorage.setItem('activeDerivTab', tabName);
             document.querySelectorAll('.deriv-sub-tab').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.deriv-sub-tab').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('#tab-derivatives .wb-tab').forEach(el => {
@@ -125,7 +128,11 @@
 
         // Initialize sub-tabs
         document.addEventListener('DOMContentLoaded', () => {
-            switchDerivTab('matrix');
+            const lastMainTab = localStorage.getItem('activeWorkbenchTab') || 'terminal';
+            switchMainTab(lastMainTab);
+
+            const lastDerivTab = localStorage.getItem('activeDerivTab') || 'matrix';
+            switchDerivTab(lastDerivTab);
         });
 
         // --- Corporate Actions & Board Meetings UI ---

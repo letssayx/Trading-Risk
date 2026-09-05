@@ -2259,7 +2259,7 @@
                                 </div>
 
                                 <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="mw-force-refresh"> Force</label>
-                                <button class="btn btn-secondary" onclick="loadMarketWatch(true)"><i class="fas fa-sync"></i> Refresh Basis</button>
+                                <button class="btn btn-primary" onclick="loadMarketWatch(true)"><i class="fas fa-sync"></i> Refresh Basis</button>
                                 <button class="btn btn-secondary" onclick="exportTableToCSV('marketwatch-table', 'Basis_Watch')"><i class="fas fa-download"></i> CSV</button>
                             </div>
                         </div>
@@ -2729,7 +2729,7 @@
                             <option value="252">252 Days</option>
                             <option value="500">500 Days</option>
                         </select>
-                        <button class="btn btn-secondary" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis()"><i class="fas fa-sync"></i> Refresh FII Data</button>
+                        <button class="btn btn-primary" id="btn-load-fii" onclick="if(typeof loadFiiAnalysis === 'function') loadFiiAnalysis(event)"><i class="fas fa-sync"></i> Refresh FII Data</button>
                     </div>
 
                     <div style="display: flex; flex-direction: column; flex: 1; margin-bottom: 0px; padding: 20px; overflow-y: visible;">
@@ -2829,7 +2829,7 @@
                 <div id="deriv-tab-mwpl" class="deriv-sub-tab" style="padding: 20px; height: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
                     <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 0px; flex-shrink: 0;">
                         <label style="color:#ccc; font-size:12px;"><input type="checkbox" id="mwpl-force-refresh"> Force</label>
-                        <button class="btn btn-secondary" id="btn-load-mwpl" onclick="loadMWPLAnalysis(true)"><i class="fas fa-sync"></i> Refresh MWPL</button>
+                        <button class="btn btn-primary" id="btn-load-mwpl" onclick="loadMWPLAnalysis(true)"><i class="fas fa-sync"></i> Refresh MWPL</button>
                         <button class="btn btn-secondary" onclick="exportTableToExcel('mwpl-analysis-table', 'MWPL_Analysis')"><i class="fas fa-download"></i> XLSX</button>
 
                         <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #444; padding-left: 15px;">
@@ -4319,6 +4319,14 @@ document.addEventListener('click', (e) => {
 
     async function loadMarketWatch(isRefresh = false) {
         const tbody = document.getElementById('marketwatch-body');
+        const loadBtn = document.querySelector('button[onclick="loadMarketWatch(true)"]');
+        let originalText = '';
+        if (loadBtn && isRefresh) {
+            originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadBtn.disabled = true;
+        }
+
         // The user explicitly requested to remove the date input requirement for marketwatch.
         // It will automatically pull the latest F&O data.
         tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#888;">Loading...</td></tr>';
@@ -4371,6 +4379,11 @@ document.addEventListener('click', (e) => {
         } catch(e) {
             console.error(e);
             tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#f44336;">Error loading Market Watch data</td></tr>';
+        } finally {
+            if (loadBtn && isRefresh) {
+                loadBtn.innerHTML = originalText || '<i class="fas fa-sync"></i> Refresh Basis';
+                loadBtn.disabled = false;
+            }
         }
     }
 

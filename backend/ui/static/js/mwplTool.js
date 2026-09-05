@@ -318,12 +318,13 @@ async function loadMWPLAnalysis(isRefresh = false) {
             });
 
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
-        }
-
-        if (loadBtn) {
-            loadBtn.disabled = false;
-            loadBtn.innerHTML = originalText;
+            console.error("Failed to load MWPL Analysis", e);
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#f48771;">Error loading data: ${e.message}</td></tr>`;
+        } finally {
+            if (loadBtn) {
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
         }
     }
 window.loadMWPLAnalysis = loadMWPLAnalysis;
