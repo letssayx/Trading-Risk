@@ -88,29 +88,10 @@ app.include_router(cron_routes.router)
 @app.on_event("startup")
 async def startup_event():
     # Initialize DB
-    # Base.metadata.create_all(bind=engine)
-
-
     print("Initializing Database...")
     try:
-        from backend.ingest.nse_models import DividendDatabank, CorporateAnnouncement, CronJobConfig
-        DividendDatabank.__table__.create(bind=engine, checkfirst=True)
-        print("DividendDatabank table initialized.")
-
-        CorporateAnnouncement.__table__.create(bind=engine, checkfirst=True)
-        print("CorporateAnnouncement table initialized.")
-
-        CronJobConfig.__table__.create(bind=engine, checkfirst=True)
-        print("CronJobConfig table initialized.")
-
-        from backend.ingest.nse_models import CorporateActionLive
-        CorporateActionLive.__table__.create(bind=engine, checkfirst=True)
-        print("CorporateActionLive table initialized.")
-    except Exception as e:
-        print(f"Error creating tables: {e}")
-
-    try:
-        # Base.metadata.create_all(bind=engine)
+        from backend.ingest.nse_models import DividendDatabank, CorporateAnnouncement, CronJobConfig, CorporateActionLive
+        Base.metadata.create_all(bind=engine)
 
         # Patch newly added columns for existing schema because Alembic is currently bypassed
         from sqlalchemy import text

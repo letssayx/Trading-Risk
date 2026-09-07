@@ -331,6 +331,331 @@ def get_model_for_type(data_type: str):
     return mapping.get(data_type)
 
 
+@router.get("/api/proxy/rights")
+def proxy_rights():
+    """Fetches Rights Issues directly from NSE API endpoint."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    all_data = []
+    seen_ids = set()
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+
+        url_listing = "https://www.nseindia.com/api/corporate-further-issues-ri"
+        res_listing = session.get(url_listing, headers=headers, timeout=10)
+        if res_listing.ok:
+            data = res_listing.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
+
+        url_in_principle = "https://www.nseindia.com/api/corporate-further-issues-ri?index=FIRIIP"
+        res_in_principle = session.get(url_in_principle, headers=headers, timeout=10)
+        if res_in_principle.ok:
+            data = res_in_principle.json().get('data', [])
+            for item in data:
+                if item.get('appId') not in seen_ids:
+                    all_data.append(item)
+                    seen_ids.add(item.get('appId'))
+    except Exception as e:
+        logger.error(f"Failed to fetch Rights. Error: {e}")
+
+    return {"data": all_data}
+
+
+@router.get("/api/proxy/public-issues")
+def proxy_public_issues():
+    """Fetches Rights, OFS, and Tender Issues from NSE API endpoints."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    all_data = []
+    seen_ids = set()
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+
+        # The user requested no fallbacks. They just want the explicit pages.
+        # Since OFS/Tender might be empty, we just query them. If they 404, we return empty.
+        endpoints = {
+            'rights': "https://www.nseindia.com/api/corporate-further-issues-rits?index=equities",
+            'ofs': "https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities",
+            'tender': "https://www.nseindia.com/api/corporate-further-issues-tender?index=equities"
+        }
+
+        for issue_type, url in endpoints.items():
+            try:
+                res = session.get(url, headers=headers, timeout=10)
+                if res.ok:
+                    data = res.json()
+                    items = data if isinstance(data, list) else data.get('data', [])
+                    for item in items:
+                        uid = item.get('appId') or f"{item.get('symbol', '')}_{item.get('date', '')}"
+                        if uid not in seen_ids:
+                            item['issue_type'] = issue_type
+                            all_data.append(item)
+                            if uid:
+                                seen_ids.add(uid)
+            except Exception as e:
+                logger.warning(f"Failed to fetch exact {issue_type}: {e}.")
+
+    except Exception as e:
+        logger.error(f"Failed to prime session for Public Issues. Error: {e}")
+
+    return {"data": all_data}
+
+@router.get("/api/proxy/announcements")
+def proxy_announcements():
+    """Fetches Corporate Announcements."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        url = "https://www.nseindia.com/api/corporate-announcements?index=equities"
+        res = session.get(url, headers=headers, timeout=10)
+        if res.ok:
+            return res.json()
+    except Exception as e:
+        logger.error(f"Failed to fetch Announcements: {e}")
+    return {"data": []}
+
+@router.get("/api/proxy/event-calendar")
+def proxy_event_calendar():
+    """Fetches Corporate Event Calendar."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        url = "https://www.nseindia.com/api/event-calendar"
+        res = session.get(url, headers=headers, timeout=10)
+        if res.ok:
+            # Event calendar might return raw list
+            data = res.json()
+            if isinstance(data, list):
+                return {"data": data}
+            return data
+    except Exception as e:
+        logger.error(f"Failed to fetch Event Calendar: {e}")
+    return {"data": []}
+
+@router.get("/api/proxy/circulars")
+def proxy_circulars(db: Session = Depends(get_db)):
+    """Fetches Exchange Circulars from local DB first, then scrapes if missing and saves."""
+    from backend.ingest.nse_models import ExchangeCircular
+    from datetime import date
+
+    # 1. Fetch from DB
+    db_records = db.query(ExchangeCircular).order_by(ExchangeCircular.trade_date.desc()).limit(100).all()
+    if db_records:
+        data = []
+        for r in db_records:
+            data.append({
+                "circDate": r.trade_date.strftime("%d-%b-%Y"),
+                "circNo": r.circular_no,
+                "sub": r.subject,
+                "circDepartment": r.department,
+                "circFile": r.link
+            })
+        return {"data": data}
+
+    # 2. If DB is empty, proxy and save (Seed Data)
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    response = None
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+        url = "https://www.nseindia.com/api/circulars"
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        json_data = response.json()
+
+        # Save to DB
+        items = json_data.get('data', [])
+        for item in items:
+            try:
+                dt_str = item.get('cirDate') or item.get('circDate')
+                from datetime import datetime
+                parsed_date = datetime.strptime(dt_str, "%d-%b-%Y").date() if dt_str else date.today()
+
+                circ = ExchangeCircular(
+                    trade_date=parsed_date,
+                    circular_no=item.get('circNumber') or item.get('circNo') or 'UNKNOWN',
+                    subject=item.get('sub') or item.get('subject'),
+                    department=item.get('circDepartment') or item.get('department'),
+                    link=item.get('circFilelink') or item.get('circFile')
+                )
+                db.add(circ)
+            except Exception:
+                db.rollback() # reset failed transaction if duplicate
+                pass # skip duplicates or parsing errors
+        db.commit()
+        return json_data
+    except Exception as e:
+        status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
+        body = getattr(response, 'text', 'N/A') if response else 'N/A'
+        logger.error(f"Failed to fetch Circulars. Status: {status}, Body: {body}, Error: {e}")
+        return {"data": []}
+
+@router.get("/api/proxy/board-meetings")
+def proxy_board_meetings():
+    """Fetches Board Meetings directly from NSE API endpoint."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    response = None
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+        url = "https://www.nseindia.com/api/corporate-board-meetings?index=equities"
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
+        body = getattr(response, 'text', 'N/A') if response else 'N/A'
+        logger.error(f"Failed to fetch Board Meetings. Status: {status}, Body: {body}, Error: {e}")
+        return {"data": []}
+
+@router.get("/api/proxy/corporate-actions")
+def proxy_corporate_actions():
+    """Fetches Corporate Actions directly from NSE API endpoint."""
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    response = None
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10) # Prime
+        url = "https://www.nseindia.com/api/corporates-corporateActions?index=equities"
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        status = getattr(response, 'status_code', 'N/A') if response else 'N/A'
+        body = getattr(response, 'text', 'N/A') if response else 'N/A'
+        logger.error(f"Failed to fetch Corporate Actions. Status: {status}, Body: {body}, Error: {e}")
+        return {"data": []}
+
+
+@router.delete("/api/data/view/range")
+async def delete_data_range(
+    type: str = Query(..., description="Data type"),
+    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db)
+):
+    """Delete data and import logs for a given data type and date range."""
+    model = get_model_for_type(type)
+    if not model:
+        raise HTTPException(status_code=400, detail=f"Invalid data type: {type}")
+
+    try:
+        s_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        e_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must be in YYYY-MM-DD format")
+
+    try:
+        # 1. Determine the date column name in the model
+        date_col = None
+        if hasattr(model, 'date'): date_col = model.date
+        elif hasattr(model, 'trade_date'): date_col = model.trade_date
+        elif hasattr(model, 'meeting_date'): date_col = model.meeting_date
+        elif hasattr(model, 'ex_date'): date_col = model.ex_date
+
+        table_name = model.__tablename__
+
+        def execute_delete():
+            if not date_col:
+                if type == 'security_master':
+                    # Security master doesn't have date filtering. Delete all.
+                    deleted_count = db.query(model).delete(synchronize_session=False)
+                    logs_deleted = db.query(models.ImportLog).filter(
+                        models.ImportLog.table_name == 'nse_security'
+                    ).delete(synchronize_session=False)
+                else:
+                    raise HTTPException(status_code=400, detail=f"Model {type} does not have a recognizable date column")
+            else:
+                # 2. Delete data by date range
+                deleted_count = db.query(model).filter(
+                    date_col >= s_date,
+                    date_col <= e_date
+                ).delete(synchronize_session=False)
+
+                # 3. Delete from import_logs
+                logs_deleted = db.query(models.ImportLog).filter(
+                    models.ImportLog.table_name == table_name,
+                    models.ImportLog.import_date >= s_date,
+                    models.ImportLog.import_date <= e_date
+                ).delete(synchronize_session=False)
+
+            db.commit()
+            return deleted_count, logs_deleted
+
+        from fastapi.concurrency import run_in_threadpool
+        deleted_count, logs_deleted = await run_in_threadpool(execute_delete)
+
+        logger.info(f"Deleted {deleted_count} rows from {table_name} and {logs_deleted} logs between {s_date} and {e_date}")
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted_count} records and {logs_deleted} logs for {type}",
+            "records_deleted": deleted_count,
+            "logs_deleted": logs_deleted
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting data range: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+from backend.ingest.field_mapper import FieldMapper
+
+@router.post("/api/data/dividends/patch")
+def patch_historical_dividends(db: Session = Depends(get_db)):
+    try:
+        from backend.ingest.tasks import build_dividend_databank_task
+        task = build_dividend_databank_task.delay(force=True)
+
+        return {
+            "message": "Full Reparse History triggered in background.",
+            "task_id": str(task.id),
+            "updated_count": "Background Task Started"
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/api/data/view/list")
 async def list_data(
     type: str = Query(..., description="Data type (bhavcopy, participant_oi, etc.)"),
@@ -1018,3 +1343,34 @@ async def export_data(
     )
 
 
+@router.get("/api/proxy/ofs")
+def get_ofs():
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        res = session.get("https://www.nseindia.com/api/corporate-further-issues-ofs?index=equities", headers=headers, timeout=10)
+        data = res.json()
+        return data if isinstance(data, list) else data.get("data", [])
+    except Exception:
+        return []
+
+@router.get("/api/proxy/tender")
+def get_tender():
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    try:
+        session.get("https://www.nseindia.com", headers=headers, timeout=10)
+        res = session.get("https://www.nseindia.com/api/corporate-further-issues-tender?index=equities", headers=headers, timeout=10)
+        data = res.json()
+        return data if isinstance(data, list) else data.get("data", [])
+    except Exception:
+        return []
