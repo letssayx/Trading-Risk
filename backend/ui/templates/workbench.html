@@ -4890,20 +4890,20 @@ document.addEventListener('click', (e) => {
             }
         }
 
-                window.openCronModal = async function() {
+                        window.openCronModal = async function() {
             console.log('openCronModal called');
             const modal = document.getElementById('cron-settings-modal');
             if (modal) {
-                modal.style.display = 'flex';
-                modal.style.zIndex = '100000';
-                modal.style.position = 'fixed';
-                modal.style.top = '0';
-                modal.style.left = '0';
-                modal.style.width = '100vw';
-                modal.style.height = '100vh';
-                modal.style.background = 'rgba(0,0,0,0.8)';
-                modal.style.alignItems = 'center';
-                modal.style.justifyContent = 'center';
+                modal.style.setProperty('display', 'flex', 'important');
+                modal.style.setProperty('z-index', '100000', 'important');
+                modal.style.setProperty('position', 'fixed', 'important');
+                modal.style.setProperty('top', '0', 'important');
+                modal.style.setProperty('left', '0', 'important');
+                modal.style.setProperty('width', '100vw', 'important');
+                modal.style.setProperty('height', '100vh', 'important');
+                modal.style.setProperty('background', 'rgba(0,0,0,0.8)', 'important');
+                modal.style.setProperty('align-items', 'center', 'important');
+                modal.style.setProperty('justify-content', 'center', 'important');
             } else {
                 console.error('Modal element not found');
             }
