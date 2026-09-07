@@ -80,6 +80,8 @@ async def force_fetch_job(job_name: str):
         try:
             handler = JOB_HANDLERS[job_name]
             import asyncio
+            # Since handler calls .delay(), it might block slightly, but it's fine.
+            # We can just await it since it's defined as `async def`
             if asyncio.iscoroutinefunction(handler):
                 await handler()
             else:

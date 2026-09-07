@@ -4890,10 +4890,11 @@ document.addEventListener('click', (e) => {
             }
         }
 
-                        window.openCronModal = async function() {
+                                window.openCronModal = async function() {
             console.log('openCronModal called');
             const modal = document.getElementById('cron-settings-modal');
             if (modal) {
+                modal.style.display = 'flex';
                 modal.style.setProperty('display', 'flex', 'important');
                 modal.style.setProperty('z-index', '100000', 'important');
                 modal.style.setProperty('position', 'fixed', 'important');
