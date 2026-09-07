@@ -1466,3 +1466,71 @@ def process_corporate_announcements_task(self):
         raise self.retry(exc=e, countdown=60)
     finally:
         db.close()
+
+@shared_task(bind=True, max_retries=3)
+def process_live_corporate_actions_task(self):
+    from backend.infrastructure.db import SessionLocal
+    from backend.ingest.nse_models import CorporateActionLive
+    from backend.ingest.nse_lib import NSELib
+    from datetime import datetime
+    import logging
+    import hashlib
+
+    task_logger = logging.getLogger(__name__)
+    task_logger.info("Executing Live Corporate Actions Cron Job via Celery...")
+
+    db = SessionLocal()
+    try:
+        nselib = NSELib()
+        actions = nselib.get_latest_corporate_actions()
+
+        if not actions:
+            task_logger.info("No corporate actions fetched.")
+            return "No corporate actions fetched"
+
+        new_inserts = 0
+        for action in actions:
+            # We must create a unique hash because NSE API does not provide a reliable seq_id for actions
+            symbol = action.get('symbol', 'UNKNOWN')
+            purpose = action.get('purpose', '')
+            ex_date = action.get('exDate', '')
+
+            if not purpose:
+                continue
+
+            hash_string = f"{symbol}-{purpose}-{ex_date}"
+            unique_hash = hashlib.sha256(hash_string.encode('utf-8')).hexdigest()
+
+            exists = db.query(CorporateActionLive).filter(CorporateActionLive.unique_hash == unique_hash).first()
+            if exists:
+                continue
+
+            new_record = CorporateActionLive(
+                symbol=symbol,
+                series=action.get('series', ''),
+                company=action.get('comp', ''),
+                purpose=purpose,
+                ex_date=ex_date,
+                record_date=action.get('recDate', ''),
+                bc_start_date=action.get('bcStartDate', ''),
+                bc_end_date=action.get('bcEndDate', ''),
+                nd_start_date=action.get('ndStartDate', ''),
+                nd_end_date=action.get('ndEndDate', ''),
+                unique_hash=unique_hash,
+                import_time=datetime.now()
+            )
+            db.add(new_record)
+            new_inserts += 1
+
+        if new_inserts > 0:
+            db.commit()
+            task_logger.info(f"Inserted {new_inserts} new live corporate actions.")
+
+        return f"Inserted {new_inserts} new live actions."
+
+    except Exception as e:
+        task_logger.error(f"Error in process_live_corporate_actions_task: {e}")
+        db.rollback()
+        raise self.retry(exc=e, countdown=60)
+    finally:
+        db.close()

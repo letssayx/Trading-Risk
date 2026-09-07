@@ -102,6 +102,10 @@ async def startup_event():
 
         CronJobConfig.__table__.create(bind=engine, checkfirst=True)
         print("CronJobConfig table initialized.")
+
+        from backend.ingest.nse_models import CorporateActionLive
+        CorporateActionLive.__table__.create(bind=engine, checkfirst=True)
+        print("CorporateActionLive table initialized.")
     except Exception as e:
         print(f"Error creating tables: {e}")
 

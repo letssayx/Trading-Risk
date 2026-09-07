@@ -849,3 +849,24 @@ class CronJobConfig(Base):
     interval_seconds = Column(Integer, nullable=True) # E.g. 30 seconds
     run_time = Column(String(10), nullable=True) # E.g. "11:00"
     last_run = Column(DateTime, nullable=True)
+
+class CorporateActionLive(Base):
+    """Redundant Live DB for UI rendering of Corporate Actions"""
+    __tablename__ = "corporate_actions_live"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, nullable=False)
+    symbol = Column(String(50), nullable=False, index=True)
+    series = Column(String(10), nullable=True)
+    company = Column(String(200), nullable=True)
+    purpose = Column(String(1000), nullable=True)
+
+    ex_date = Column(String(50), nullable=True)
+    record_date = Column(String(50), nullable=True)
+    bc_start_date = Column(String(50), nullable=True)
+    bc_end_date = Column(String(50), nullable=True)
+    nd_start_date = Column(String(50), nullable=True)
+    nd_end_date = Column(String(50), nullable=True)
+
+    # We will use a hash of key fields as a unique identifier to prevent duplicates
+    unique_hash = Column(String(64), nullable=False, unique=True, index=True)
+    import_time = Column(DateTime, nullable=False, server_default=func.now())

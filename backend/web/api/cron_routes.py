@@ -50,3 +50,41 @@ def get_corporate_announcements(limit: int = 50, db: Session = Depends(get_db)):
         "ai_interpretation": a.ai_interpretation,
         "radio_status": a.radio_status
     } for a in announcements]
+
+@router.get("/corporate-actions-live")
+def get_corporate_actions_live(limit: int = 50, db: Session = Depends(get_db)):
+    """Fetch the latest live corporate actions from the database"""
+    from backend.ingest.nse_models import CorporateActionLive
+    actions = db.query(CorporateActionLive).order_by(CorporateActionLive.import_time.desc()).limit(limit).all()
+    return [{
+        "id": a.id,
+        "symbol": a.symbol,
+        "series": a.series,
+        "company": a.company,
+        "purpose": a.purpose,
+        "ex_date": a.ex_date,
+        "record_date": a.record_date,
+        "bc_start_date": a.bc_start_date,
+        "bc_end_date": a.bc_end_date,
+        "nd_start_date": a.nd_start_date,
+        "nd_end_date": a.nd_end_date,
+        "import_time": a.import_time.strftime("%Y-%m-%d %H:%M:%S") if a.import_time else None
+    } for a in actions]
+
+@router.post("/force-fetch/{job_name}")
+async def force_fetch_job(job_name: str):
+    """Force execution of a specific cron job immediately, bypassing schedule"""
+    from backend.ingest.cron_manager import JOB_HANDLERS
+    import asyncio
+
+    if job_name in JOB_HANDLERS:
+        try:
+            # Safely create task in the running loop since the function is now async
+            loop = asyncio.get_running_loop()
+            loop.create_task(JOB_HANDLERS[job_name]())
+            return {"status": "success", "message": f"Force triggered {job_name}"}
+        except Exception as e:
+            logger.error(f"Failed to force fetch {job_name}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        raise HTTPException(status_code=404, detail="Job handler not found")

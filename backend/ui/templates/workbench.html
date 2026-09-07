@@ -354,8 +354,7 @@
         <div class="main-tab" data-target="mutual_fund" onclick="switchMainTab('mutual_fund')" title="Mutual Fund">Mutual Fund</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
-        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Actions</div>
-        <div class="main-tab" data-target="corporate_announcements" onclick="switchMainTab('corporate_announcements')" title="Alt+A">C<u>o</u>rporate Announcements</div>
+        <div class="main-tab" data-target="corporate_data" onclick="switchMainTab('corporate_data')" title="Alt+O">C<u>o</u>rporate Data</div>
         <div class="main-tab" data-target="dividends" onclick="switchMainTab('dividends')" title="Alt+D"><u>D</u>ividends Data Bank</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
@@ -440,97 +439,82 @@
             </div>
         </div>
 
-        <!-- TAB CORPORATE ACTIONS -->
-        <div id="tab-corporate_actions" class="main-tab-content">
-            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-                <div style="display: flex; align-items: center; margin-bottom: 15px;">
 
+        <!-- TAB CORPORATE DATA -->
+        <div id="tab-corporate_data" class="main-tab-content">
+            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Live Actions</div>
+                        <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
+                    </div>
                 </div>
 
-                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; flex-direction: column;" id="ca-controls-wrapper">
-                    <!-- Issue Status Sub-tabs (Only visible for Rights, OFS, Tender) -->
-                    <div id="issue-status-tabs" style="display: none; border-bottom: 1px solid #3f3f46; margin-bottom: 15px;">
-                        <button class="status-tab active" data-status="active" onclick="switchIssueStatus('active')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Active</button>
-                        <button class="status-tab" data-status="forthcoming" onclick="switchIssueStatus('forthcoming')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Forthcoming</button>
-                        <button class="status-tab" data-status="past" onclick="switchIssueStatus('past')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Past</button>
-                    </div>
-                    <div style="display: flex; gap: 15px; align-items: center;">
-                        <div class="control-group">
-                            <label>Symbol / Company:</label>
-                            <div class="autocomplete-wrapper">
-                                <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onkeyup="renderCorporateActionsTable()">
+                <!-- SUB TAB: ACTIONS -->
+                <div id="ca-sub-actions" style="flex: 1; display: flex; flex-direction: column;">
+                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <div class="control-group">
+                                <label>Symbol / Company:</label>
+                                <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onkeyup="filterCATable()">
                             </div>
                         </div>
-                    <div class="control-group" id="ca-actions-filters">
-                        <label style="margin-right:10px;">Filter:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Bonus" onchange="filterCATable()"> Bonus</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Split" onchange="filterCATable()"> Split</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="AGM" onchange="filterCATable()"> AGM/EGM</label>
+                        <div>
+                            <button onclick="forceFetchJob('Live Corporate Actions')" class="btn btn-primary"><i class="fas fa-sync"></i> Force Fetch from NSE</button>
+                        </div>
                     </div>
-                    <div class="control-group" id="ca-meetings-filters" style="display:none;">
-                        <label style="margin-right:10px;">Filter:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Financial Results" onchange="filterCATable()"> Financial Results</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Fund Raising" onchange="filterCATable()"> Fund Raising</label>
-                    </div>
-                    <div class="control-group" id="ca-public-filters" style="display:none;">
-                        <label style="margin-right:10px;">Type:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="rights" onchange="filterCATable()"> Rights</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="ofs" onchange="filterCATable()"> OFS</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
-                    </div>
-                    <button onclick="loadCorporateActionsData()" class="btn btn-primary" id="btn-ca-refresh"><i class="fas fa-sync"></i> Refresh Data</button>
-                        <button class="btn btn-secondary" onclick="exportCAData()" style="margin-left: auto;">Export CSV</button>
-                    </div>
-                </div>
 
-                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;" id="ca-table-container">
-                    <table class="data-table" id="ca-main-table">
-                        <thead id="ca-main-head"></thead>
-                        <tbody id="ca-main-body"></tbody>
-                    </table>
-                </div>
-
-                <!-- Used specifically for Circulars since it renders differently -->
-                <div id="circulars-container" style="display: none; flex: 1; min-height: 0;"></div>
-
-                <div class="history-status-bar" style="border-radius: 0 0 4px 4px;">
-                    <span id="ca-status-msg">Ready</span>
-                    <span id="ca-row-count">0 Rows</span>
-                </div>
-            </div>
-        </div>
-
-
-        <!-- TAB CORPORATE ANNOUNCEMENTS -->
-        <div id="tab-corporate_announcements" class="main-tab-content">
-            <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
-                    <div>
-                        <button onclick="loadCorporateAnnouncements()" class="btn btn-primary"><i class="fas fa-sync"></i> Refresh Announcements</button>
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                        <table class="data-table" id="ca-main-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Company</th>
+                                    <th>Series</th>
+                                    <th>Purpose</th>
+                                    <th>Ex Date</th>
+                                    <th>Record Date</th>
+                                    <th>BC Start</th>
+                                    <th>BC End</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ca-main-body">
+                                <tr><td colspan="8" style="text-align:center; color:#888;">Loading data...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
-                    <table class="data-table" id="announcements-table">
-                        <thead>
-                            <tr>
-                                <th>Symbol</th>
-                                <th>Broadcast Date (NSE)</th>
-                                <th>Import Time</th>
-                                <th>Subject</th>
-                                <th>Purpose</th>
-                                <th>Attachments</th>
-                                <th>AI Interpretation</th>
-                                <th>Radio Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="announcements-tbody">
-                            <!-- Populated via JS -->
-                        </tbody>
-                    </table>
+                <!-- SUB TAB: ANNOUNCEMENTS -->
+                <div id="ca-sub-announcements" style="flex: 1; display: none; flex-direction: column;">
+                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
+                        <div>
+                            <button onclick="forceFetchJob('Corporate Announcements')" class="btn btn-primary"><i class="fas fa-sync"></i> Force Fetch from NSE</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                        <table class="data-table" id="announcements-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Broadcast Date (NSE)</th>
+                                    <th>Import Time</th>
+                                    <th>Subject</th>
+                                    <th>Purpose</th>
+                                    <th>Attachments</th>
+                                    <th>AI Interpretation</th>
+                                    <th>Radio Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="announcements-tbody">
+                                <tr><td colspan="8" style="text-align:center; color:#888;">Loading data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
             </div>
         </div>
 
@@ -4986,13 +4970,123 @@ document.addEventListener('click', (e) => {
             }
         }
 
-        // Setup initial trigger when switching to the announcements tab
+
+        // --- Live Corporate Actions ---
+        let liveActionsData = [];
+
+        async function loadLiveCorporateActions() {
+            try {
+                const res = await fetch('/api/v1/cron/corporate-actions-live');
+                liveActionsData = await res.json();
+                renderLiveActions();
+            } catch (err) {
+                console.error("Failed to load live actions:", err);
+            }
+        }
+
+        function renderLiveActions() {
+            const tbody = document.getElementById('ca-main-body');
+            const searchInput = document.getElementById('ca-search-input').value.toLowerCase();
+
+            tbody.innerHTML = '';
+
+            const filteredData = liveActionsData.filter(a => {
+                const symbolMatch = (a.symbol || '').toLowerCase().includes(searchInput);
+                const compMatch = (a.company || '').toLowerCase().includes(searchInput);
+                return symbolMatch || compMatch;
+            });
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">No actions found.</td></tr>';
+                return;
+            }
+
+            filteredData.forEach(a => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${a.symbol || '-'}</td>
+                    <td>${a.company || '-'}</td>
+                    <td>${a.series || '-'}</td>
+                    <td style="max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(a.purpose || '').replace(/"/g, '&quot;')}">${(a.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                    <td>${a.ex_date || '-'}</td>
+                    <td>${a.record_date || '-'}</td>
+                    <td>${a.bc_start_date || '-'}</td>
+                    <td>${a.bc_end_date || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterCATable() {
+            renderLiveActions();
+        }
+
+        // Sub-tab switcher
+        let caCurrentTab = 'actions';
+        function switchCATab(tab) {
+            caCurrentTab = tab;
+            document.getElementById('ca-tab-btn-actions').classList.remove('active');
+            document.getElementById('ca-tab-btn-announcements').classList.remove('active');
+
+            document.getElementById('ca-sub-actions').style.display = 'none';
+            document.getElementById('ca-sub-announcements').style.display = 'none';
+
+            if (tab === 'actions') {
+                document.getElementById('ca-tab-btn-actions').classList.add('active');
+                document.getElementById('ca-sub-actions').style.display = 'flex';
+                loadLiveCorporateActions();
+            } else if (tab === 'announcements') {
+                document.getElementById('ca-tab-btn-announcements').classList.add('active');
+                document.getElementById('ca-sub-announcements').style.display = 'flex';
+                loadCorporateAnnouncements();
+            }
+        }
+
+        // Force Fetch Logic
+        async function forceFetchJob(jobName) {
+            try {
+                // Show loading state based on job
+                if (jobName === 'Live Corporate Actions') {
+                    document.getElementById('ca-main-body').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Force Fetching from NSE... Please wait.</td></tr>';
+                } else if (jobName === 'Corporate Announcements') {
+                    document.getElementById('announcements-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Force Fetching from NSE... Please wait.</td></tr>';
+                }
+
+                const res = await fetch(`/api/v1/cron/force-fetch/${jobName}`, { method: 'POST' });
+                if (res.ok) {
+                    // Wait a second for backend Celery task to insert to DB, then fetch updated
+                    setTimeout(() => {
+                        if (jobName === 'Live Corporate Actions') loadLiveCorporateActions();
+                        if (jobName === 'Corporate Announcements') loadCorporateAnnouncements();
+                    }, 2000);
+                } else {
+                    alert(`Force fetch failed for ${jobName}`);
+                }
+            } catch (err) {
+                console.error("Force fetch error:", err);
+            }
+        }
+
+        // Background Auto-Polling (Gmail-style)
+        setInterval(() => {
+            // Only fetch if the tab is currently active to save resources
+            const isCorporateDataTabActive = document.querySelector('.main-tab[data-target="corporate_data"]').classList.contains('active');
+            if (isCorporateDataTabActive) {
+                if (caCurrentTab === 'actions') {
+                    loadLiveCorporateActions();
+                } else if (caCurrentTab === 'announcements') {
+                    loadCorporateAnnouncements();
+                }
+            }
+        }, 10000); // 10 seconds
+
+        // Setup initial trigger when switching to the corporate data tab
         const originalSwitchMainTab = window.switchMainTab;
         window.switchMainTab = function(tabId) {
             if (originalSwitchMainTab) originalSwitchMainTab(tabId);
 
-            if (tabId === 'corporate_announcements') {
-                loadCorporateAnnouncements();
+            if (tabId === 'corporate_data') {
+                switchCATab('actions'); // Default to actions tab
             }
         };
 

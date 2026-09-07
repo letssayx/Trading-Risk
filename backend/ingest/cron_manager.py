@@ -12,20 +12,41 @@ logger = logging.getLogger(__name__)
 _last_run_times = {}
 
 async def trigger_corporate_announcements():
-    """Trigger the Celery task synchronously in a non-blocking thread, or dispatch via celery."""
     from backend.ingest.tasks import process_corporate_announcements_task
-    # Send to Celery worker without blocking the event loop
     process_corporate_announcements_task.delay()
 
+async def trigger_live_actions():
+    from backend.ingest.tasks import process_live_corporate_actions_task
+    process_live_corporate_actions_task.delay()
+
 async def trigger_mwpl():
-    """Trigger the MWPL celery task."""
-    # from backend.ingest.tasks import import_mwpl_task
-    # import_mwpl_task.delay()
-    pass
+    from backend.ingest.tasks import import_mwpl_task
+    import_mwpl_task.delay()
+
+async def trigger_eod_bhavcopy_eq():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(modules=["bhavcopy_eq"])
+
+async def trigger_eod_bhavcopy_fo():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(modules=["bhavcopy_fo"])
+
+async def trigger_eod_board_meetings():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(modules=["board_meetings"])
+
+async def trigger_eod_fii():
+    from backend.ingest.tasks import import_fii_stats_task
+    import_fii_stats_task.delay()
 
 JOB_HANDLERS = {
     "Corporate Announcements": trigger_corporate_announcements,
-    "MWPL Import": trigger_mwpl
+    "Live Corporate Actions": trigger_live_actions,
+    "MWPL Import": trigger_mwpl,
+    "EOD Bhavcopy EQ": trigger_eod_bhavcopy_eq,
+    "EOD Bhavcopy FO": trigger_eod_bhavcopy_fo,
+    "EOD Board Meetings": trigger_eod_board_meetings,
+    "EOD FII Stats": trigger_eod_fii
 }
 
 def fetch_configs():
@@ -54,21 +75,20 @@ async def start_cron_manager():
     # Initialize default jobs if not present
     db = SessionLocal()
     try:
-        ca_job = db.query(CronJobConfig).filter(CronJobConfig.job_name == "Corporate Announcements").first()
-        if not ca_job:
-            db.add(CronJobConfig(
-                job_name="Corporate Announcements",
-                is_active=False,
-                interval_seconds=30
-            ))
+        default_jobs = [
+            {"job_name": "Corporate Announcements", "is_active": False, "interval_seconds": 30, "run_time": None},
+            {"job_name": "Live Corporate Actions", "is_active": False, "interval_seconds": 30, "run_time": None},
+            {"job_name": "MWPL Import", "is_active": False, "interval_seconds": None, "run_time": "11:00"},
+            {"job_name": "EOD Bhavcopy EQ", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Bhavcopy FO", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Board Meetings", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD FII Stats", "is_active": False, "interval_seconds": None, "run_time": "19:00"}
+        ]
 
-        mwpl_job = db.query(CronJobConfig).filter(CronJobConfig.job_name == "MWPL Import").first()
-        if not mwpl_job:
-            db.add(CronJobConfig(
-                job_name="MWPL Import",
-                is_active=False,
-                run_time="11:00"
-            ))
+        for job in default_jobs:
+            existing = db.query(CronJobConfig).filter(CronJobConfig.job_name == job["job_name"]).first()
+            if not existing:
+                db.add(CronJobConfig(**job))
 
         db.commit()
     except Exception as e:
