@@ -75,13 +75,15 @@ def get_corporate_actions_live(limit: int = 50, db: Session = Depends(get_db)):
 async def force_fetch_job(job_name: str):
     """Force execution of a specific cron job immediately, bypassing schedule"""
     from backend.ingest.cron_manager import JOB_HANDLERS
-    import asyncio
 
     if job_name in JOB_HANDLERS:
         try:
-            # Safely create task in the running loop since the function is now async
-            loop = asyncio.get_running_loop()
-            loop.create_task(JOB_HANDLERS[job_name]())
+            handler = JOB_HANDLERS[job_name]
+            import asyncio
+            if asyncio.iscoroutinefunction(handler):
+                await handler()
+            else:
+                handler()
             return {"status": "success", "message": f"Force triggered {job_name}"}
         except Exception as e:
             logger.error(f"Failed to force fetch {job_name}: {e}")
