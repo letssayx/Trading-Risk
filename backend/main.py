@@ -91,7 +91,7 @@ async def startup_event():
     print("Initializing Database...")
     try:
         from backend.ingest.nse_models import DividendDatabank, CorporateAnnouncement, CronJobConfig, CorporateActionLive
-                try:
+        try:
             from sqlalchemy import text
             with engine.begin() as conn:
                 conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector;'))
