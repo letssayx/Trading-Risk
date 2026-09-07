@@ -91,6 +91,13 @@ async def startup_event():
     print("Initializing Database...")
     try:
         from backend.ingest.nse_models import DividendDatabank, CorporateAnnouncement, CronJobConfig, CorporateActionLive
+                try:
+            from sqlalchemy import text
+            with engine.begin() as conn:
+                conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector;'))
+                print("✅ Vector extension enabled")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not create vector extension: {e}")
         Base.metadata.create_all(bind=engine)
 
         # Patch newly added columns for existing schema because Alembic is currently bypassed
