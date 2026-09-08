@@ -5096,7 +5096,8 @@ document.addEventListener('click', (e) => {
                     document.getElementById('announcements-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Force Fetching from NSE... Please wait.</td></tr>';
                 }
 
-                const res = await fetch(`/api/v1/cron/force-fetch/${encodeURIComponent(jobName)}`, { method: 'POST' });
+                const encodedJobName = encodeURIComponent(jobName);
+                const res = await fetch(`/api/v1/cron/force-fetch/${encodedJobName}`, { method: 'POST' });
                 if (res.ok) {
                     // Wait a second for backend Celery task to insert to DB, then fetch updated
                     setTimeout(() => {
