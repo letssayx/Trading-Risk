@@ -4908,7 +4908,7 @@ document.addEventListener('click', (e) => {
         };
 
         window.closeCronModal = function() {
-            document.getElementById('cron-settings-modal').style.display = 'none';
+            const modal = document.getElementById('cron-settings-modal'); if (modal) modal.style.cssText = 'display: none !important;';
         }
 
         async function loadCronConfigs() {
@@ -5096,7 +5096,7 @@ document.addEventListener('click', (e) => {
                     document.getElementById('announcements-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Force Fetching from NSE... Please wait.</td></tr>';
                 }
 
-                const res = await fetch(`/api/v1/cron/force-fetch/${jobName}`, { method: 'POST' });
+                const res = await fetch(`/api/v1/cron/force-fetch/${encodeURIComponent(jobName)}`, { method: 'POST' });
                 if (res.ok) {
                     // Wait a second for backend Celery task to insert to DB, then fetch updated
                     setTimeout(() => {
