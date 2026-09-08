@@ -47,7 +47,12 @@ async def websocket_endpoint(websocket: WebSocket):
             message = json.loads(data)
             if "subscribe" in message:
                 await manager.subscribe(websocket, message["subscribe"])
-    except WebSocketDisconnect:
+    except Exception:
+        pass
+    finally:
+        # ensure cleanup and don't block the server
+        for symbol in list(manager.active_connections.keys()):
+            manager.disconnect(websocket, symbol)
         pass
 
 # No random walk simulation.
