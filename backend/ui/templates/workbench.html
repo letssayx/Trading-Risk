@@ -4894,7 +4894,8 @@ document.addEventListener('click', (e) => {
             console.log('openCronModal called');
             const modal = document.getElementById('cron-settings-modal');
             if (modal) {
-                modal.style.cssText = 'display: flex !important; z-index: 100000 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.8) !important; align-items: center !important; justify-content: center !important;';
+                // Ensure it's rendered at the highest possible z-index and strictly fixed
+                modal.setAttribute('style', 'display: flex !important; z-index: 2147483647 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.8) !important; align-items: center !important; justify-content: center !important;');
             } else {
                 console.error('Modal element not found');
             }
@@ -4905,10 +4906,10 @@ document.addEventListener('click', (e) => {
                 const list = document.getElementById('cron-jobs-list');
                 if (list) list.innerHTML = '<div style="color: red; padding: 20px;">Failed to load configurations from server.</div>';
             }
-        };
+        }
 
         window.closeCronModal = function() {
-            document.getElementById('cron-settings-modal').style.display = 'none';
+            document.getElementById('cron-settings-modal').setAttribute('style', 'display: none !important;');
         }
 
         async function loadCronConfigs() {
@@ -4978,7 +4979,7 @@ document.addEventListener('click', (e) => {
                 let payload = {};
                 payload[field] = value;
 
-                await fetch(`/api/v1/cron/configs/${jobName}`, {
+                await fetch(`/api/v1/cron/configs/${encodeURIComponent(jobName)}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -5096,7 +5097,7 @@ document.addEventListener('click', (e) => {
                     document.getElementById('announcements-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Force Fetching from NSE... Please wait.</td></tr>';
                 }
 
-                const res = await fetch(`/api/v1/cron/force-fetch/${jobName}`, { method: 'POST' });
+                const res = await fetch(`/api/v1/cron/force-fetch/${encodeURIComponent(jobName)}`, { method: 'POST' });
                 if (res.ok) {
                     // Wait a second for backend Celery task to insert to DB, then fetch updated
                     setTimeout(() => {
