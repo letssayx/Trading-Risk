@@ -4894,7 +4894,7 @@ document.addEventListener('click', (e) => {
             console.log('openCronModal called');
             const modal = document.getElementById('cron-settings-modal');
             if (modal) {
-                modal.setAttribute('style', 'display: flex !important; z-index: 2147483647 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.8) !important; align-items: center !important; justify-content: center !important;');
+                modal.style.setProperty('display', 'flex', 'important'); modal.style.setProperty('z-index', '2147483647', 'important');
             } else {
                 console.error('Modal element not found');
             }
@@ -4907,7 +4907,7 @@ document.addEventListener('click', (e) => {
         }
 
         window.closeCronModal = function() {
-            document.getElementById('cron-settings-modal').setAttribute('style', 'display: none !important;');
+            document.getElementById('cron-settings-modal').style.setProperty('display', 'none', 'important');
         }
 
         async function loadCronConfigs() {
