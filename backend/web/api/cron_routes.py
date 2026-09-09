@@ -74,17 +74,21 @@ def get_corporate_actions_live(limit: int = 50, db: Session = Depends(get_db)):
 @router.post("/force-fetch/{job_name}")
 async def force_fetch_job(job_name: str):
     """Force execution of a specific cron job immediately, bypassing schedule"""
-    from backend.ingest.cron_manager import JOB_HANDLERS
+    import urllib.parse
     import asyncio
+    from backend.ingest.cron_manager import JOB_HANDLERS
 
-    if job_name in JOB_HANDLERS:
+    # Sometimes path variables decode differently based on router config, decode just in case
+    job_name_decoded = urllib.parse.unquote(job_name)
+
+    if job_name_decoded in JOB_HANDLERS:
         try:
             # Safely create task in the running loop since the function is now async
             loop = asyncio.get_running_loop()
-            loop.create_task(JOB_HANDLERS[job_name]())
-            return {"status": "success", "message": f"Force triggered {job_name}"}
+            loop.create_task(JOB_HANDLERS[job_name_decoded]())
+            return {"status": "success", "message": f"Force triggered {job_name_decoded}"}
         except Exception as e:
-            logger.error(f"Failed to force fetch {job_name}: {e}")
+            logger.error(f"Failed to force fetch {job_name_decoded}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
     else:
-        raise HTTPException(status_code=404, detail="Job handler not found")
+        raise HTTPException(status_code=404, detail=f"Job handler not found: {job_name_decoded}")

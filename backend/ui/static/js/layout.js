@@ -16,9 +16,7 @@ const Layout = {
         });
     },
 
-    logAction: async function(eventType, message, meta = {}) {
-        try {
-            await fetch('/api/audit/log', {
+    logAction: function(eventType, message, meta = {}) { try { fetch('/api/audit/log', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

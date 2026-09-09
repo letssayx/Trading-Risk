@@ -4890,22 +4890,20 @@ document.addEventListener('click', (e) => {
             }
         }
 
-        window.openCronModal = async function() {
+        window.openCronModal = function() {
             console.log('openCronModal called');
             const modal = document.getElementById('cron-settings-modal');
             if (modal) {
-                // Ensure it's rendered at the highest possible z-index and strictly fixed
                 modal.setAttribute('style', 'display: flex !important; z-index: 2147483647 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.8) !important; align-items: center !important; justify-content: center !important;');
             } else {
                 console.error('Modal element not found');
             }
-            try {
-                await loadCronConfigs();
-            } catch (e) {
+            // Trigger async data load without blocking the synchronous click event
+            loadCronConfigs().catch(e => {
                 console.error("Failed to load configs", e);
                 const list = document.getElementById('cron-jobs-list');
                 if (list) list.innerHTML = '<div style="color: red; padding: 20px;">Failed to load configurations from server.</div>';
-            }
+            });
         }
 
         window.closeCronModal = function() {
