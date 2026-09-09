@@ -76,7 +76,11 @@
             overflow: hidden;
         }
 
+        .main-tabs-bar::-webkit-scrollbar { display: none; }
+        .main-tabs-bar { -ms-overflow-style: none; scrollbar-width: none; }
         .main-tabs-bar {
+            overflow-x: auto;
+            overflow-y: hidden;
             height: 35px;
             background: #252526;
             display: flex;
@@ -87,6 +91,8 @@
         }
 
         .main-tab {
+            white-space: nowrap;
+            flex-shrink: 0;
             padding: 8px 15px;
             cursor: pointer;
             font-size: 0.9em;
@@ -354,7 +360,7 @@
         <div class="main-tab" data-target="mutual_fund" onclick="switchMainTab('mutual_fund')" title="Mutual Fund">Mutual Fund</div>
         <div class="main-tab" data-target="history" onclick="switchMainTab('history')" title="Alt+H"><u>H</u>istorical Data</div>
         <div class="main-tab" data-target="import" onclick="switchMainTab('import')" title="Alt+I"><u>I</u>mport Data</div>
-        <div class="main-tab" data-target="corporate_actions" onclick="switchMainTab('corporate_actions')" title="Alt+O">C<u>o</u>rporate Filings</div>
+        <div class="main-tab" data-target="corporate_data" onclick="switchMainTab('corporate_data')" title="Alt+O">C<u>o</u>rporate Data</div>
         <div class="main-tab" data-target="dividends" onclick="switchMainTab('dividends')" title="Alt+D"><u>D</u>ividends Data Bank</div>
         <div class="main-tab" data-target="audit" onclick="switchMainTab('audit')" title="Alt+U">A<u>u</u>dit Trail</div>
         <div class="main-tab" data-target="config" onclick="switchMainTab('config')" title="Alt+C"><u>C</u>onfig</div>
@@ -362,6 +368,9 @@
         <div style="margin-left: auto; display: flex; align-items: center; padding-right: 15px;">
             <button class="btn btn-primary" id="master-sync-btn" onclick="triggerMasterSync()" style="display: flex; align-items: center; gap: 8px;">
                 <i class="fas fa-sync"></i> Master Sync
+            </button>
+            <button class="btn btn-secondary" onclick="openCronModal()" style="margin-left: 10px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-clock"></i> Cron Settings
             </button>
         </div>
     </div>
@@ -436,73 +445,82 @@
             </div>
         </div>
 
-        <!-- TAB CORPORATE ACTIONS -->
-        <div id="tab-corporate_actions" class="main-tab-content">
+
+        <!-- TAB CORPORATE DATA -->
+        <div id="tab-corporate_data" class="main-tab-content">
             <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
                     <div class="wb-tabs-header" style="border-bottom: none; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Actions</div>
+                        <div class="wb-tab active" id="ca-tab-btn-actions" onclick="switchCATab('actions')" style="padding: 6px 15px; border-radius: 4px;">Corporate Actions</div>
                         <div class="wb-tab" id="ca-tab-btn-announcements" onclick="switchCATab('announcements')" style="padding: 6px 15px; border-radius: 4px;">Announcements</div>
-                        <div class="wb-tab" id="ca-tab-btn-meetings" onclick="switchCATab('meetings')" style="padding: 6px 15px; border-radius: 4px;">Event Calendar</div>
-                        <div class="wb-tab" id="ca-tab-btn-rights" onclick="switchCATab('rights')" style="padding: 6px 15px; border-radius: 4px;">Rights</div>
-                        <div class="wb-tab" id="ca-tab-btn-ofs" onclick="switchCATab('ofs')" style="padding: 6px 15px; border-radius: 4px;">OFS</div>
-                        <div class="wb-tab" id="ca-tab-btn-tender" onclick="switchCATab('tender')" style="padding: 6px 15px; border-radius: 4px;">Tender</div>
-                        <div class="wb-tab" id="ca-tab-btn-circulars" onclick="switchCATab('circulars')" style="padding: 6px 15px; border-radius: 4px;">Circulars</div>
                     </div>
                 </div>
 
-                <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; flex-direction: column;" id="ca-controls-wrapper">
-                    <!-- Issue Status Sub-tabs (Only visible for Rights, OFS, Tender) -->
-                    <div id="issue-status-tabs" style="display: none; border-bottom: 1px solid #3f3f46; margin-bottom: 15px;">
-                        <button class="status-tab active" data-status="active" onclick="switchIssueStatus('active')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Active</button>
-                        <button class="status-tab" data-status="forthcoming" onclick="switchIssueStatus('forthcoming')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Forthcoming</button>
-                        <button class="status-tab" data-status="past" onclick="switchIssueStatus('past')" style="background:none;border:none;color:#a1a1aa;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;">Past</button>
-                    </div>
-                    <div style="display: flex; gap: 15px; align-items: center;">
-                        <div class="control-group">
-                            <label>Symbol / Company:</label>
-                            <div class="autocomplete-wrapper">
-                                <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onkeyup="renderCorporateActionsTable()">
+                <!-- SUB TAB: ACTIONS -->
+                <div id="ca-sub-actions" style="flex: 1; display: flex; flex-direction: column;">
+                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <div class="control-group">
+                                <label>Symbol / Company:</label>
+                                <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onkeyup="filterCATable()">
                             </div>
                         </div>
-                    <div class="control-group" id="ca-actions-filters">
-                        <label style="margin-right:10px;">Filter:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Bonus" onchange="filterCATable()"> Bonus</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Split" onchange="filterCATable()"> Split</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="AGM" onchange="filterCATable()"> AGM/EGM</label>
+                        <div>
+                            <button onclick="forceFetchJob('Live Corporate Actions')" class="btn btn-primary"><i class="fas fa-sync"></i> Force Fetch from NSE</button>
+                        </div>
                     </div>
-                    <div class="control-group" id="ca-meetings-filters" style="display:none;">
-                        <label style="margin-right:10px;">Filter:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Financial Results" onchange="filterCATable()"> Financial Results</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Dividend" onchange="filterCATable()"> Dividend</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="Fund Raising" onchange="filterCATable()"> Fund Raising</label>
-                    </div>
-                    <div class="control-group" id="ca-public-filters" style="display:none;">
-                        <label style="margin-right:10px;">Type:</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="rights" onchange="filterCATable()"> Rights</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="ofs" onchange="filterCATable()"> OFS</label>
-                        <label class="checkbox-label" style="margin-right: 10px;"><input type="checkbox" class="ca-filter-cb" value="tender" onchange="filterCATable()"> Tender</label>
-                    </div>
-                    <button onclick="loadCorporateActionsData()" class="btn btn-primary" id="btn-ca-refresh"><i class="fas fa-sync"></i> Refresh Data</button>
-                        <button class="btn btn-secondary" onclick="exportCAData()" style="margin-left: auto;">Export CSV</button>
+
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                        <table class="data-table" id="ca-main-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Company</th>
+                                    <th>Series</th>
+                                    <th>Purpose</th>
+                                    <th>Ex Date</th>
+                                    <th>Record Date</th>
+                                    <th>BC Start</th>
+                                    <th>BC End</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ca-main-body">
+                                <tr><td colspan="8" style="text-align:center; color:#888;">Loading data...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px;" id="ca-table-container">
-                    <table class="data-table" id="ca-main-table">
-                        <thead id="ca-main-head"></thead>
-                        <tbody id="ca-main-body"></tbody>
-                    </table>
+                <!-- SUB TAB: ANNOUNCEMENTS -->
+                <div id="ca-sub-announcements" style="flex: 1; display: none; flex-direction: column;">
+                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
+                        <div>
+                            <button onclick="forceFetchJob('Corporate Announcements')" class="btn btn-primary"><i class="fas fa-sync"></i> Force Fetch from NSE</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                        <table class="data-table" id="announcements-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Broadcast Date (NSE)</th>
+                                    <th>Import Time</th>
+                                    <th>Subject</th>
+                                    <th>Purpose</th>
+                                    <th>Attachments</th>
+                                    <th>AI Interpretation</th>
+                                    <th>Radio Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="announcements-tbody">
+                                <tr><td colspan="8" style="text-align:center; color:#888;">Loading data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <!-- Used specifically for Circulars since it renders differently -->
-                <div id="circulars-container" style="display: none; flex: 1; min-height: 0;"></div>
-
-                <div class="history-status-bar" style="border-radius: 0 0 4px 4px;">
-                    <span id="ca-status-msg">Ready</span>
-                    <span id="ca-row-count">0 Rows</span>
-                </div>
             </div>
         </div>
 
@@ -3454,6 +3472,25 @@
     </div>
 
     <!-- Scripts -->
+
+    <!-- Cron Settings Modal -->
+    <div id="cron-settings-modal" class="modal-overlay" style="display:none; z-index:100000; position:fixed !important; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width: 600px; padding: 25px; border-radius: 8px; background: #18181b; border: 1px solid #3f3f46;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #3f3f46; padding-bottom: 10px;">
+                <h3 style="margin: 0; color: #fff; font-size: 1.2rem;"><i class="fas fa-clock"></i> Cron Job Settings</h3>
+                <button onclick="closeCronModal()" style="background: none; border: none; color: #a1a1aa; cursor: pointer; font-size: 1.2rem;">&times;</button>
+            </div>
+
+            <div id="cron-jobs-list" style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- Populated by JS -->
+            </div>
+
+            <div style="margin-top: 25px; text-align: right;">
+                <button class="btn btn-primary" onclick="closeCronModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -4817,5 +4854,298 @@ document.addEventListener('click', (e) => {
         }
     }
 </script>
+
+    <script>
+        // --- Corporate Announcements & Cron JS ---
+
+        async function loadCorporateAnnouncements() {
+            try {
+                const res = await fetch('/api/v1/cron/corporate-announcements');
+                const data = await res.json();
+
+                const tbody = document.getElementById('announcements-tbody');
+                tbody.innerHTML = '';
+
+                data.forEach(ann => {
+                    const tr = document.createElement('tr');
+
+                    let attachHtml = '';
+                    if (ann.pdf_link) attachHtml += `<a href="${ann.pdf_link}" target="_blank" style="color:#60a5fa; margin-right:8px;"><i class="fas fa-file-pdf"></i> PDF</a>`;
+                    if (ann.xbrl_link) attachHtml += `<a href="${ann.xbrl_link}" target="_blank" style="color:#34d399;"><i class="fas fa-file-code"></i> XBRL</a>`;
+
+                    tr.innerHTML = `
+                        <td>${ann.symbol}</td>
+                        <td>${ann.broadcast_date || '-'}</td>
+                        <td>${ann.import_time || '-'}</td>
+                        <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.subject || '').replace(/"/g, '&quot;')}">${(ann.subject || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                        <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.purpose || '').replace(/"/g, '&quot;')}">${(ann.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '-'}</td>
+                        <td>${attachHtml || '-'}</td>
+                        <td style="font-style:italic; color:#a1a1aa;">${ann.ai_interpretation || 'Pending Interpretation...'}</td>
+                        <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="alert('Radio feature coming soon!')"><i class="fas fa-play"></i> Play Radio</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Failed to load announcements:", err);
+            }
+        }
+
+        window.openCronModal = async function() {
+            console.log('openCronModal called');
+            const modal = document.getElementById('cron-settings-modal');
+            if (modal) {
+                // Ensure it's rendered at the highest possible z-index and strictly fixed
+                modal.setAttribute('style', 'display: flex !important; z-index: 2147483647 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.8) !important; align-items: center !important; justify-content: center !important;');
+            } else {
+                console.error('Modal element not found');
+            }
+            try {
+                await loadCronConfigs();
+            } catch (e) {
+                console.error("Failed to load configs", e);
+                const list = document.getElementById('cron-jobs-list');
+                if (list) list.innerHTML = '<div style="color: red; padding: 20px;">Failed to load configurations from server.</div>';
+            }
+        }
+
+        window.closeCronModal = function() {
+            document.getElementById('cron-settings-modal').setAttribute('style', 'display: none !important;');
+        }
+
+        async function loadCronConfigs() {
+            try {
+                const res = await fetch('/api/v1/cron/configs');
+                const configs = await res.json();
+
+                const listDiv = document.getElementById('cron-jobs-list');
+                listDiv.innerHTML = '';
+
+                configs.forEach(conf => {
+                    const jobDiv = document.createElement('div');
+                    jobDiv.style.cssText = "background: #27272a; padding: 15px; border-radius: 6px; border: 1px solid #3f3f46;";
+
+                    const header = document.createElement('div');
+                    header.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;";
+
+                    header.innerHTML = `
+                        <h4 style="margin: 0; color: #e4e4e7;">${conf.job_name}</h4>
+                        <label class="switch" style="position: relative; display: inline-block; width: 40px; height: 20px;">
+                            <input type="checkbox" ${conf.is_active ? 'checked' : ''} onchange="updateCronJob('${conf.job_name}', 'is_active', this.checked)">
+                            <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
+                        </label>
+                    `;
+
+                    const controls = document.createElement('div');
+                    controls.style.cssText = "display: flex; gap: 15px; align-items: center;";
+
+                    let controlHtml = '';
+                    if (conf.interval_seconds !== null) {
+                        controlHtml += `
+                            <div style="display:flex; flex-direction:column;">
+                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Interval (seconds)</label>
+                                <input type="number" class="history-input" style="width:100px;" value="${conf.interval_seconds}" onchange="updateCronJob('${conf.job_name}', 'interval_seconds', this.value)">
+                            </div>
+                        `;
+                    }
+                    if (conf.run_time !== null) {
+                        controlHtml += `
+                            <div style="display:flex; flex-direction:column;">
+                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Run Time (HH:MM)</label>
+                                <input type="time" class="history-input" style="width:120px;" value="${conf.run_time}" onchange="updateCronJob('${conf.job_name}', 'run_time', this.value)">
+                            </div>
+                        `;
+                    }
+
+                    controlHtml += `
+                        <div style="display:flex; flex-direction:column; margin-left: auto; text-align: right;">
+                            <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Last Run</label>
+                            <span style="font-size:13px; color:#e4e4e7;">${conf.last_run ? new Date(conf.last_run).toLocaleString() : 'Never'}</span>
+                        </div>
+                    `;
+
+                    controls.innerHTML = controlHtml;
+                    jobDiv.appendChild(header);
+                    jobDiv.appendChild(controls);
+                    listDiv.appendChild(jobDiv);
+                });
+
+            } catch (err) {
+                console.error("Failed to load cron configs:", err);
+            }
+        }
+
+        async function updateCronJob(jobName, field, value) {
+            try {
+                let payload = {};
+                payload[field] = value;
+
+                await fetch(`/api/v1/cron/configs/${encodeURIComponent(jobName)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (err) {
+                console.error("Failed to update cron job:", err);
+            }
+        }
+
+
+        // --- Live Corporate Actions ---
+        let liveActionsData = [];
+
+        async function loadLiveCorporateActions() {
+            try {
+                const res = await fetch('/api/v1/cron/corporate-actions-live');
+                liveActionsData = await res.json();
+                renderLiveActions();
+            } catch (err) {
+                console.error("Failed to load live actions:", err);
+            }
+        }
+
+        function renderLiveActions() {
+            const tbody = document.getElementById('ca-main-body');
+            const searchInput = document.getElementById('ca-search-input').value.toLowerCase();
+
+            tbody.innerHTML = '';
+
+            const filteredData = liveActionsData.filter(a => {
+                const symbolMatch = (a.symbol || '').toLowerCase().includes(searchInput);
+                const compMatch = (a.company || '').toLowerCase().includes(searchInput);
+                return symbolMatch || compMatch;
+            });
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">No actions found.</td></tr>';
+                return;
+            }
+
+            filteredData.forEach(a => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${a.symbol || '-'}</td>
+                    <td>${a.company || '-'}</td>
+                    <td>${a.series || '-'}</td>
+                    <td style="max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(a.purpose || '').replace(/"/g, '&quot;')}">${(a.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                    <td>${a.ex_date || '-'}</td>
+                    <td>${a.record_date || '-'}</td>
+                    <td>${a.bc_start_date || '-'}</td>
+                    <td>${a.bc_end_date || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterCATable() {
+            renderLiveActions();
+        }
+
+        // Sub-tab switcher
+        let caCurrentTab = 'actions';
+
+        // Master Sync implementation
+        async function triggerMasterSync() {
+            const btn = document.getElementById('master-sync-btn');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+            btn.disabled = true;
+
+            try {
+                // Example of syncing actions & announcements
+                await forceFetchJob('Live Corporate Actions');
+                await forceFetchJob('Corporate Announcements');
+                // You can add more master sync calls here in the future
+
+                // Add a small delay for user feedback
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                }, 2000);
+            } catch (e) {
+                console.error("Master Sync failed", e);
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        }
+
+        function switchCATab(tab) {
+            caCurrentTab = tab;
+            document.getElementById('ca-tab-btn-actions').classList.remove('active');
+            document.getElementById('ca-tab-btn-announcements').classList.remove('active');
+
+            document.getElementById('ca-sub-actions').style.display = 'none';
+            document.getElementById('ca-sub-announcements').style.display = 'none';
+
+            if (tab === 'actions') {
+                document.getElementById('ca-tab-btn-actions').classList.add('active');
+                document.getElementById('ca-sub-actions').style.display = 'flex';
+                loadLiveCorporateActions();
+            } else if (tab === 'announcements') {
+                document.getElementById('ca-tab-btn-announcements').classList.add('active');
+                document.getElementById('ca-sub-announcements').style.display = 'flex';
+                loadCorporateAnnouncements();
+            }
+        }
+
+        // Force Fetch Logic
+        async function forceFetchJob(jobName) {
+            try {
+                // Show loading state based on job
+                if (jobName === 'Live Corporate Actions') {
+                    document.getElementById('ca-main-body').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Force Fetching from NSE... Please wait.</td></tr>';
+                } else if (jobName === 'Corporate Announcements') {
+                    document.getElementById('announcements-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Force Fetching from NSE... Please wait.</td></tr>';
+                }
+
+                const res = await fetch(`/api/v1/cron/force-fetch/${encodeURIComponent(jobName)}`, { method: 'POST' });
+                if (res.ok) {
+                    // Wait a second for backend Celery task to insert to DB, then fetch updated
+                    setTimeout(() => {
+                        if (jobName === 'Live Corporate Actions') loadLiveCorporateActions();
+                        if (jobName === 'Corporate Announcements') loadCorporateAnnouncements();
+                    }, 2000);
+                } else {
+                    alert(`Force fetch failed for ${jobName}`);
+                }
+            } catch (err) {
+                console.error("Force fetch error:", err);
+            }
+        }
+
+        // Background Auto-Polling (Gmail-style)
+        setInterval(() => {
+            // Only fetch if the tab is currently active to save resources
+            const isCorporateDataTabActive = document.querySelector('.main-tab[data-target="corporate_data"]').classList.contains('active');
+            if (isCorporateDataTabActive) {
+                if (caCurrentTab === 'actions') {
+                    loadLiveCorporateActions();
+                } else if (caCurrentTab === 'announcements') {
+                    loadCorporateAnnouncements();
+                }
+            }
+        }, 10000); // 10 seconds
+
+        // Setup initial trigger when switching to the corporate data tab
+        const originalSwitchMainTab = window.switchMainTab;
+        window.switchMainTab = function(tabId) {
+            if (originalSwitchMainTab) originalSwitchMainTab(tabId);
+
+            if (tabId === 'corporate_data') {
+                switchCATab('actions'); // Default to actions tab
+            }
+        };
+
+        // Add CSS for the switch toggle
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .switch input { opacity: 0; width: 0; height: 0; }
+            .slider { background-color: #3f3f46; }
+            .switch input:checked + .slider { background-color: #34d399; }
+            .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+            .switch input:checked + .slider:before { transform: translateX(20px); }
+        `;
+        document.head.appendChild(style);
+
+    </script>
 </body>
 </html>
