@@ -61,7 +61,8 @@ class WebSocketLogHandler(logging.Handler):
                         # No loop, flush synchronously
                         batch = LOG_BUFFER[:]
                         LOG_BUFFER.clear()
-                        persist_log_batch.delay(batch)
+                        loop = asyncio.get_running_loop()
+                        loop.run_in_executor(None, persist_log_batch.delay, batch)
                 except:
                     pass
 
@@ -100,7 +101,7 @@ async def log_flusher():
             LOG_BUFFER.clear()
             # Send to Celery
             try:
-                persist_log_batch.delay(batch)
+                await asyncio.to_thread(persist_log_batch.delay, batch)
             except Exception as e:
                 print(f"Log flush failed: {e}")
 
