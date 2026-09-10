@@ -69,10 +69,7 @@ def update_last_run_db(job_name, run_time):
     finally:
         db.close()
 
-async def start_cron_manager():
-    logger.info("Starting Cron Manager Loop...")
-
-    # Initialize default jobs if not present
+def _init_default_jobs():
     db = SessionLocal()
     try:
         default_jobs = [
@@ -96,6 +93,12 @@ async def start_cron_manager():
         db.rollback()
     finally:
         db.close()
+
+async def start_cron_manager():
+    logger.info("Starting Cron Manager Loop...")
+
+    # Initialize default jobs if not present safely in a thread
+    await asyncio.to_thread(_init_default_jobs)
 
     while True:
         try:

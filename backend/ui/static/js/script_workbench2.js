@@ -160,13 +160,13 @@
             caCurrentTab = tab;
 
             // UI Toggle
-            document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
-            document.getElementById('ca-tab-btn-announcements').classList.toggle('active', tab === 'announcements');
-            document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
-            document.getElementById('ca-tab-btn-rights').classList.toggle('active', tab === 'rights');
-            document.getElementById('ca-tab-btn-ofs').classList.toggle('active', tab === 'ofs');
-            document.getElementById('ca-tab-btn-tender').classList.toggle('active', tab === 'tender');
-            document.getElementById('ca-tab-btn-circulars').classList.toggle('active', tab === 'circulars');
+            if (document.getElementById('ca-tab-btn-actions')) document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
+            if (document.getElementById('ca-tab-btn-announcements')) document.getElementById('ca-tab-btn-announcements').classList.toggle('active', tab === 'announcements');
+            if (document.getElementById('ca-tab-btn-meetings')) document.getElementById('ca-tab-btn-meetings').classList.toggle('active', tab === 'meetings');
+            if (document.getElementById('ca-tab-btn-rights')) document.getElementById('ca-tab-btn-rights').classList.toggle('active', tab === 'rights');
+            if (document.getElementById('ca-tab-btn-ofs')) document.getElementById('ca-tab-btn-ofs').classList.toggle('active', tab === 'ofs');
+            if (document.getElementById('ca-tab-btn-tender')) document.getElementById('ca-tab-btn-tender').classList.toggle('active', tab === 'tender');
+            if (document.getElementById('ca-tab-btn-circulars')) document.getElementById('ca-tab-btn-circulars').classList.toggle('active', tab === 'circulars');
 
             // Show sub-tabs for Rights, OFS, Tender
             const issueTabs = ['rights', 'ofs', 'tender'];
