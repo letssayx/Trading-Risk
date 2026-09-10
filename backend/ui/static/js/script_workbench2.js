@@ -136,7 +136,7 @@
         });
 
         // --- Corporate Actions & Board Meetings UI ---
-        let caCurrentTab = 'actions';
+        window.caCurrentTab = 'actions';
         let issueCurrentStatus = 'active';
         let caRawData = [];
         let caSortCol = 'date';
@@ -157,7 +157,7 @@
         }
         function filterCATable() { renderCorporateActionsTable(); }
         function switchCATab(tab) {
-            caCurrentTab = tab;
+            window.caCurrentTab = tab;
 
             // UI Toggle
             if (document.getElementById('ca-tab-btn-actions')) document.getElementById('ca-tab-btn-actions').classList.toggle('active', tab === 'actions');
@@ -224,11 +224,11 @@
             rowCount.innerText = "0 Rows";
 
             let endpoint = '/api/proxy/corporate-actions';
-            if (caCurrentTab === 'announcements') endpoint = '/api/proxy/announcements';
-            if (caCurrentTab === 'meetings') endpoint = '/api/proxy/event-calendar';
-            if (caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
-            if (caCurrentTab === 'ofs') endpoint = '/api/proxy/ofs';
-            if (caCurrentTab === 'tender') endpoint = '/api/proxy/tender';
+            if (window.caCurrentTab === 'announcements') endpoint = '/api/proxy/announcements';
+            if (window.caCurrentTab === 'meetings') endpoint = '/api/proxy/event-calendar';
+            if (window.caCurrentTab === 'rights') endpoint = '/api/proxy/rights';
+            if (window.caCurrentTab === 'ofs') endpoint = '/api/proxy/ofs';
+            if (window.caCurrentTab === 'tender') endpoint = '/api/proxy/tender';
 
             try {
                 const response = await fetch(endpoint);
@@ -264,7 +264,7 @@
 
             const tr = document.createElement('tr');
             let cols = [];
-            if (caCurrentTab === 'actions') {
+            if (window.caCurrentTab === 'actions') {
                 cols = [
                     { id: 'symbol', label: 'Symbol' },
                     { id: 'comp', label: 'Company' },
@@ -274,7 +274,7 @@
                     { id: 'recDate', label: 'Record Date' },
                     { id: 'attachment', label: 'Attachment' }
                 ];
-            } else if (caCurrentTab === 'announcements') {
+            } else if (window.caCurrentTab === 'announcements') {
                 cols = [
                     { id: 'symbol', label: 'Symbol' },
                     { id: 'sm_name', label: 'Company' },
@@ -282,7 +282,7 @@
                     { id: 'an_dt', label: 'Date' },
                     { id: 'attchmntFile', label: 'Attachment' }
                 ];
-            } else if (caCurrentTab === 'meetings') {
+            } else if (window.caCurrentTab === 'meetings') {
                 cols = [
                     { id: 'symbol', label: 'Symbol' },
                     { id: 'company', label: 'Company' },
@@ -291,7 +291,7 @@
                     { id: 'date', label: 'Meeting Date' },
                     { id: 'attachment', label: 'Attachment' }
                 ];
-            } else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
+            } else if (window.caCurrentTab === 'rights' || window.caCurrentTab === 'ofs' || window.caCurrentTab === 'tender') {
                 cols = [
                     { id: 'nseSymbol', label: 'Symbol' },
                     { id: 'companyName', label: 'Company' },
@@ -369,9 +369,9 @@
 
             let activeFilters = [];
             let filterContainerId = '';
-            if (caCurrentTab === 'actions') filterContainerId = 'ca-actions-filters';
-            else if (caCurrentTab === 'meetings') filterContainerId = 'ca-meetings-filters';
-            else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') filterContainerId = 'ca-public-filters';
+            if (window.caCurrentTab === 'actions') filterContainerId = 'ca-actions-filters';
+            else if (window.caCurrentTab === 'meetings') filterContainerId = 'ca-meetings-filters';
+            else if (window.caCurrentTab === 'rights' || window.caCurrentTab === 'ofs' || window.caCurrentTab === 'tender') filterContainerId = 'ca-public-filters';
 
             if (filterContainerId) {
                 activeFilters = Array.from(document.querySelectorAll(`#${filterContainerId} .ca-filter-cb:checked`)).map(cb => cb.value.toLowerCase());
@@ -386,7 +386,7 @@
                 if (search && !isFuzzyMatch(search, sym) && !isFuzzyMatch(search, comp)) return false;
 
                 // Status Filter for Rights, OFS, Tender
-                if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
+                if (window.caCurrentTab === 'rights' || window.caCurrentTab === 'ofs' || window.caCurrentTab === 'tender') {
                     const status = (item.status || item.stage || '').toLowerCase();
                     if (issueCurrentStatus && issueCurrentStatus !== 'all' && status !== issueCurrentStatus.toLowerCase()) {
                         return false;
@@ -396,14 +396,14 @@
 
                 // Advanced Filters
                 if (activeFilters.length > 0) {
-                    if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
+                    if (window.caCurrentTab === 'rights' || window.caCurrentTab === 'ofs' || window.caCurrentTab === 'tender') {
                         const issueType = (item.issue_type || '').toLowerCase();
                         let match = false;
                         for (const f of activeFilters) {
                             if (issueType === f) { match = true; break; }
                         }
                         if (!match) return false;
-                    } else if (caCurrentTab === 'actions' || caCurrentTab === 'meetings') {
+                    } else if (window.caCurrentTab === 'actions' || window.caCurrentTab === 'meetings') {
                         const purpose = (item.subject || item.bm_purpose || item.bm_desc || '').toLowerCase();
                         let match = false;
                         for (const f of activeFilters) {
@@ -489,7 +489,7 @@
                 const linkUrl = linkVal ? (linkVal.startsWith('http') ? linkVal : `https://www.nseindia.com${linkVal}`) : '#';
                 const linkHtml = linkVal ? `<a href="${linkUrl}" target="_blank" style="color: #60a5fa; text-decoration: underline;">View PDF</a>` : '-';
 
-                if (caCurrentTab === 'actions') {
+                if (window.caCurrentTab === 'actions') {
                     tr.innerHTML = `
                         <td><strong>${item.symbol || '-'}</strong></td>
                         <td style="white-space:normal; max-width:200px;">${item.comp || '-'}</td>
@@ -499,7 +499,7 @@
                         <td>${item.recDate || '-'}</td>
                         <td>${linkHtml}</td>
                     `;
-                } else if (caCurrentTab === 'announcements') {
+                } else if (window.caCurrentTab === 'announcements') {
                     // Format announcement date
                     let formattedDate = '-';
                     if (item.an_dt) {
@@ -521,7 +521,7 @@
                         <td>${formattedDate}</td>
                         <td>${linkHtml}</td>
                     `;
-                } else if (caCurrentTab === 'meetings') {
+                } else if (window.caCurrentTab === 'meetings') {
                      tr.innerHTML = `
                         <td><strong>${item.symbol || item.bm_symbol || '-'}</strong></td>
                         <td style="white-space:normal; max-width:200px;">${item.company || item.sm_name || '-'}</td>
@@ -530,7 +530,7 @@
                         <td>${item.date || item.bm_date || '-'}</td>
                         <td>${linkHtml}</td>
                     `;
-                } else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') {
+                } else if (window.caCurrentTab === 'rights' || window.caCurrentTab === 'ofs' || window.caCurrentTab === 'tender') {
                     // Rights, OFS, Tender
                     let typeBadge = '';
                     if (item.issue_type === 'ofs') typeBadge = '<span class="badge" style="background:#2196F3; padding:2px 6px; border-radius:3px; color:white; font-size:11px;">OFS</span>';
@@ -585,10 +585,10 @@
             a.setAttribute('hidden', '');
             a.setAttribute('href', url);
             let filename = 'Corporate_Actions';
-            if (caCurrentTab === 'meetings') filename = 'Board_Meetings';
-            else if (caCurrentTab === 'announcements') filename = 'Announcements';
-            else if (caCurrentTab === 'rights') filename = 'Rights_Issues';
-            else if (caCurrentTab === 'rights' || caCurrentTab === 'ofs' || caCurrentTab === 'tender') filename = caCurrentTab.charAt(0).toUpperCase() + caCurrentTab.slice(1);
+            if (window.caCurrentTab === 'meetings') filename = 'Board_Meetings';
+            else if (window.caCurrentTab === 'announcements') filename = 'Announcements';
+            else if (window.caCurrentTab === 'rights') filename = 'Rights_Issues';
+            else if (window.caCurrentTab === 'rights' || window.caCurrentTab === 'ofs' || window.caCurrentTab === 'tender') filename = window.caCurrentTab.charAt(0).toUpperCase() + window.caCurrentTab.slice(1);
 
             a.setAttribute('download', `NSE_${filename}_${new Date().toISOString().slice(0,10)}.csv`);
             document.body.appendChild(a);

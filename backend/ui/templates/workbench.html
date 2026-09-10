@@ -3473,19 +3473,22 @@
 
     <!-- Scripts -->
 
-    <!-- Cron Settings Modal -->
+        <!-- Cron Settings Modal -->
     <div id="cron-settings-modal" class="modal-overlay" style="display:none; z-index:100000; position:fixed !important; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); align-items:center; justify-content:center;">
-        <div class="modal-content" style="max-width: 600px; padding: 25px; border-radius: 8px; background: #18181b; border: 1px solid #3f3f46;">
+        <div class="modal-content" style="width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; padding: 25px; border-radius: 8px; background: #18181b; border: 1px solid #3f3f46; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #3f3f46; padding-bottom: 10px;">
                 <h3 style="margin: 0; color: #fff; font-size: 1.2rem;"><i class="fas fa-clock"></i> Cron Job Settings</h3>
-                <button onclick="closeCronModal()" style="background: none; border: none; color: #a1a1aa; cursor: pointer; font-size: 1.2rem;">&times;</button>
+                <button onclick="closeCronModal()" style="background: none; border: none; color: #a1a1aa; cursor: pointer; font-size: 1.5rem; line-height: 1;">&times;</button>
             </div>
 
-            <div id="cron-jobs-list" style="display: flex; flex-direction: column; gap: 15px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="cron-filter" class="history-input" style="flex: 1;" placeholder="Search jobs..." onkeyup="filterCronJobs()">
+            </div>
+            <div id="cron-jobs-list" style="display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 10px; flex: 1;">
                 <!-- Populated by JS -->
             </div>
 
-            <div style="margin-top: 25px; text-align: right;">
+            <div style="margin-top: 25px; text-align: right; border-top: 1px solid #3f3f46; padding-top: 15px;">
                 <button class="btn btn-primary" onclick="closeCronModal()">Close</button>
             </div>
         </div>
@@ -4239,11 +4242,11 @@ document.addEventListener('click', (e) => {
 
         // 3. Load EChart Multi-Axis
         const container = document.getElementById('echart-container');
-        if (!echartInstance) {
-            echartInstance = echarts.init(container, 'dark', { renderer: 'canvas' });
+        if (!window.echartInstance) {
+            window.echartInstance = echarts.init(container, 'dark', { renderer: 'canvas' });
         }
 
-        echartInstance.showLoading({ text: 'Loading Data...', color: '#60a5fa', textColor: '#fff', maskColor: 'rgba(30, 30, 30, 0.8)' });
+        window.echartInstance.showLoading({ text: 'Loading Data...', color: '#60a5fa', textColor: '#fff', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
         try {
             const res = await fetch(`/api/market-activity/dynamic-chart/${symbol}`);
@@ -4327,11 +4330,11 @@ document.addEventListener('click', (e) => {
                 ]
             };
 
-            echartInstance.setOption(option, true);
+            window.echartInstance.setOption(option, true);
         } catch (e) {
             container.innerHTML = `<div style="color:red; text-align:center; padding-top: 200px;">Error: ${e.message}</div>`;
         } finally {
-            echartInstance?.hideLoading();
+            window.echartInstance?.hideLoading();
         }
 
         if (loadBtn) {
@@ -4728,7 +4731,7 @@ document.addEventListener('click', (e) => {
 
     // Listen for resize
     window.addEventListener('resize', () => {
-        if (echartInstance) echartInstance.resize();
+        if (window.echartInstance) window.echartInstance.resize();
         if (volPreExpiryChart) volPreExpiryChart.resize();
         if (volConeChart) volConeChart.resize();
         if (window.pcrChartInstance) window.pcrChartInstance.resize();
@@ -4929,8 +4932,9 @@ document.addEventListener('click', (e) => {
                     header.innerHTML = `
                         <h4 style="margin: 0; color: #e4e4e7;">${conf.job_name}</h4>
                         <label class="switch" style="position: relative; display: inline-block; width: 40px; height: 20px;">
-                            <input type="checkbox" ${conf.is_active ? 'checked' : ''} onchange="updateCronJob('${conf.job_name}', 'is_active', this.checked)">
-                            <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px;"></span>
+                            <input type="checkbox" ${conf.is_active ? 'checked' : ''} onchange="updateCronJob('${conf.job_name}', 'is_active', this.checked); const span = this.nextElementSibling; const knob = span.nextElementSibling; if(this.checked){ span.style.backgroundColor='#34d399'; span.style.boxShadow='inset 0 0 2px rgba(0,0,0,0.5)'; knob.style.left='22px'; }else{ span.style.backgroundColor='#52525b'; knob.style.left='2px'; }" style="opacity: 0; width: 0; height: 0; position:absolute; z-index:-1;">
+                            <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: ${conf.is_active ? '#34d399' : '#52525b'}; transition: .4s; border-radius: 20px; box-shadow: inset 0 0 2px rgba(0,0,0,0.5);"></span>
+                            <span class="knob" style="position: absolute; cursor: pointer; top: 2px; left: ${conf.is_active ? '22px' : '2px'}; width: 16px; height: 16px; background-color: white; transition: .4s; border-radius: 50%; pointer-events: none;"></span>
                         </label>
                     `;
 
@@ -4973,7 +4977,17 @@ document.addEventListener('click', (e) => {
             }
         }
 
-        async function updateCronJob(jobName, field, value) {
+
+        function filterCronJobs() {
+            const term = document.getElementById('cron-filter').value.toLowerCase();
+            const jobs = document.getElementById('cron-jobs-list').children;
+            for(let job of jobs) {
+                const text = job.innerText.toLowerCase();
+                if(text.includes(term)) job.style.display = 'flex';
+                else job.style.display = 'none';
+            }
+        }
+async function updateCronJob(jobName, field, value) {
             try {
                 let payload = {};
                 payload[field] = value;
@@ -5067,7 +5081,7 @@ document.addEventListener('click', (e) => {
         }
 
         function switchCATab(tab) {
-            caCurrentTab = tab;
+            window.caCurrentTab = tab;
             document.getElementById('ca-tab-btn-actions').classList.remove('active');
             document.getElementById('ca-tab-btn-announcements').classList.remove('active');
 
@@ -5115,9 +5129,9 @@ document.addEventListener('click', (e) => {
             // Only fetch if the tab is currently active to save resources
             const isCorporateDataTabActive = document.querySelector('.main-tab[data-target="corporate_data"]').classList.contains('active');
             if (isCorporateDataTabActive) {
-                if (caCurrentTab === 'actions') {
+                if (window.caCurrentTab === 'actions') {
                     loadLiveCorporateActions();
-                } else if (caCurrentTab === 'announcements') {
+                } else if (window.caCurrentTab === 'announcements') {
                     loadCorporateAnnouncements();
                 }
             }
