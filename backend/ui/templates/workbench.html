@@ -3495,8 +3495,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>window.echartInstance = null; window.openCronModal = null; window.forceFetchJob = null;</script>
     <script src="/static/js/layout.js"></script>
     <script src="/static/js/fiiTool.js"></script>
     <script src="/static/js/specialSitTool.js"></script>
@@ -5039,7 +5040,6 @@ document.addEventListener('click', (e) => {
         }
 
         // Sub-tab switcher
-        let caCurrentTab = 'actions';
 
         // Master Sync implementation
         async function triggerMasterSync() {
@@ -5086,7 +5086,7 @@ document.addEventListener('click', (e) => {
         }
 
         // Force Fetch Logic
-        async function forceFetchJob(jobName) {
+        window.forceFetchJob = async function forceFetchJob(jobName) {
             try {
                 // Show loading state based on job
                 if (jobName === 'Live Corporate Actions') {
