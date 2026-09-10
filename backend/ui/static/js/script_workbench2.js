@@ -155,7 +155,15 @@
             });
             renderCorporateActionsTable();
         }
-        function filterCATable() { renderCorporateActionsTable(); }
+        function filterCATable() {
+            // Check if we are rendering the live CA tab or the general CA proxy tab
+            // If live CA tab, renderLiveActions is called, but we intercept it here to add FO and Date filtering
+            if (window.caCurrentTab === 'actions' && typeof renderLiveActions !== 'undefined') {
+                 // Try to call renderLiveActions if it's in global scope or script block
+                 try { renderLiveActions(); return; } catch(e){}
+            }
+            renderCorporateActionsTable();
+        }
         function switchCATab(tab) {
             window.caCurrentTab = tab;
 

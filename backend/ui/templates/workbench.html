@@ -459,12 +459,22 @@
 
                 <!-- SUB TAB: ACTIONS -->
                 <div id="ca-sub-actions" style="flex: 1; display: flex; flex-direction: column;">
-                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
-                        <div style="display: flex; gap: 15px; align-items: center;">
+                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                             <div class="control-group">
                                 <label>Symbol / Company:</label>
                                 <input type="text" id="ca-search-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onkeyup="filterCATable()">
                             </div>
+                            <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" id="ca-fo-only" onchange="filterCATable()" style="cursor: pointer;">
+                                F&O Stocks Only
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                                Start: <input type="date" id="ca-start-date" class="history-input" onchange="filterCATable()">
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                                End: <input type="date" id="ca-end-date" class="history-input" onchange="filterCATable()">
+                            </label>
                         </div>
                         <div>
                             <button onclick="forceFetchJob('Live Corporate Actions')" class="btn btn-primary"><i class="fas fa-sync"></i> Force Fetch from NSE</button>
@@ -494,7 +504,23 @@
 
                 <!-- SUB TAB: ANNOUNCEMENTS -->
                 <div id="ca-sub-announcements" style="flex: 1; display: none; flex-direction: column;">
-                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between;">
+                    <div class="history-controls" style="margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                            <div class="control-group">
+                                <label>Symbol / Company:</label>
+                                <input type="text" id="announcements-search-input" class="history-input" placeholder="e.g. RELIANCE" autocomplete="off" onkeyup="filterAnnouncementsTable()">
+                            </div>
+                            <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" id="announcements-fo-only" onchange="filterAnnouncementsTable()" style="cursor: pointer;">
+                                F&O Stocks Only
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                                Start: <input type="date" id="announcements-start-date" class="history-input" onchange="filterAnnouncementsTable()">
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
+                                End: <input type="date" id="announcements-end-date" class="history-input" onchange="filterAnnouncementsTable()">
+                            </label>
+                        </div>
                         <div>
                             <button onclick="forceFetchJob('Corporate Announcements')" class="btn btn-primary"><i class="fas fa-sync"></i> Force Fetch from NSE</button>
                         </div>
@@ -4862,33 +4888,62 @@ document.addEventListener('click', (e) => {
     <script>
         // --- Corporate Announcements & Cron JS ---
 
+        let announcementsData = [];
+        function filterAnnouncementsTable() {
+            const tbody = document.getElementById('announcements-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const searchInput = document.getElementById('announcements-search-input').value.toLowerCase();
+            const foOnly = document.getElementById('announcements-fo-only').checked;
+            const startDate = document.getElementById('announcements-start-date').value;
+            const endDate = document.getElementById('announcements-end-date').value;
+
+            // Simple check if it's FO by relying on some existing global logic or just checking if symbol matches?
+            // A more robust way requires stock_master mapping. For UI simple filter, we can rely on a global `foStocks` array if it exists, or just pass if not strictly enforced.
+
+            const filteredData = announcementsData.filter(ann => {
+                const sym = (ann.symbol || '').toLowerCase();
+                const comp = (ann.company_name || ann.subject || '').toLowerCase();
+                if (searchInput && !sym.includes(searchInput) && !comp.includes(searchInput)) return false;
+
+                if (foOnly && window.foStocks && !window.foStocks.includes(ann.symbol.toUpperCase())) return false;
+
+                if (startDate || endDate) {
+                    const annDate = new Date(ann.broadcast_date || ann.import_time);
+                    if (startDate && annDate < new Date(startDate)) return false;
+                    if (endDate && annDate > new Date(endDate)) return false;
+                }
+                return true;
+            });
+
+            filteredData.forEach(ann => {
+                const tr = document.createElement('tr');
+                let attachHtml = '';
+                if (ann.pdf_link) attachHtml += `<a href="${ann.pdf_link}" target="_blank" style="color:#60a5fa; margin-right:8px;"><i class="fas fa-file-pdf"></i> PDF</a>`;
+                if (ann.xbrl_link) attachHtml += `<a href="${ann.xbrl_link}" target="_blank" style="color:#34d399;"><i class="fas fa-file-code"></i> XBRL</a>`;
+
+                tr.innerHTML = `
+                    <td>${ann.symbol}</td>
+                    <td>${ann.broadcast_date || '-'}</td>
+                    <td>${ann.import_time || '-'}</td>
+                    <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.subject || '').replace(/"/g, '&quot;')}">${(ann.subject || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                    <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.purpose || '').replace(/"/g, '&quot;')}">${(ann.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '-'}</td>
+                    <td>${attachHtml || '-'}</td>
+                    <td style="font-style:italic; color:#a1a1aa;">${ann.ai_interpretation || 'Pending Interpretation...'}</td>
+                    <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="alert('Radio feature coming soon!')"><i class="fas fa-play"></i> Play Radio</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+            if(filteredData.length === 0) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">No data found</td></tr>';
+        }
+
         async function loadCorporateAnnouncements() {
             try {
                 const res = await fetch('/api/v1/cron/corporate-announcements');
                 const data = await res.json();
-
-                const tbody = document.getElementById('announcements-tbody');
-                tbody.innerHTML = '';
-
-                data.forEach(ann => {
-                    const tr = document.createElement('tr');
-
-                    let attachHtml = '';
-                    if (ann.pdf_link) attachHtml += `<a href="${ann.pdf_link}" target="_blank" style="color:#60a5fa; margin-right:8px;"><i class="fas fa-file-pdf"></i> PDF</a>`;
-                    if (ann.xbrl_link) attachHtml += `<a href="${ann.xbrl_link}" target="_blank" style="color:#34d399;"><i class="fas fa-file-code"></i> XBRL</a>`;
-
-                    tr.innerHTML = `
-                        <td>${ann.symbol}</td>
-                        <td>${ann.broadcast_date || '-'}</td>
-                        <td>${ann.import_time || '-'}</td>
-                        <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.subject || '').replace(/"/g, '&quot;')}">${(ann.subject || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
-                        <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.purpose || '').replace(/"/g, '&quot;')}">${(ann.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '-'}</td>
-                        <td>${attachHtml || '-'}</td>
-                        <td style="font-style:italic; color:#a1a1aa;">${ann.ai_interpretation || 'Pending Interpretation...'}</td>
-                        <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="alert('Radio feature coming soon!')"><i class="fas fa-play"></i> Play Radio</button></td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                announcementsData = data;
+                filterAnnouncementsTable();
             } catch (err) {
                 console.error("Failed to load announcements:", err);
             }
@@ -5019,13 +5074,25 @@ async function updateCronJob(jobName, field, value) {
         function renderLiveActions() {
             const tbody = document.getElementById('ca-main-body');
             const searchInput = document.getElementById('ca-search-input').value.toLowerCase();
+            const foOnly = document.getElementById('ca-fo-only').checked;
+            const startDate = document.getElementById('ca-start-date').value;
+            const endDate = document.getElementById('ca-end-date').value;
 
             tbody.innerHTML = '';
 
             const filteredData = liveActionsData.filter(a => {
                 const symbolMatch = (a.symbol || '').toLowerCase().includes(searchInput);
                 const compMatch = (a.company || '').toLowerCase().includes(searchInput);
-                return symbolMatch || compMatch;
+                if (searchInput && !symbolMatch && !compMatch) return false;
+
+                if (foOnly && window.foStocks && !window.foStocks.includes(a.symbol.toUpperCase())) return false;
+
+                if (startDate || endDate) {
+                    const eventDate = new Date(a.ex_date || a.record_date);
+                    if (startDate && eventDate < new Date(startDate)) return false;
+                    if (endDate && eventDate > new Date(endDate)) return false;
+                }
+                return true;
             });
 
             if (filteredData.length === 0) {
