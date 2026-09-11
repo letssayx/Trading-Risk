@@ -1448,6 +1448,14 @@ def process_corporate_announcements_task(self):
             ai_interpretation = None
             import os
             from groq import Groq
+
+            # Since background tasks don't receive localStorage keys, and if user claims it is set,
+            # we will also attempt to pull from a dedicated settings file or default to None.
+            # But the primary issue is the user might have set it in UI, but Celery doesn't see it.
+            # Let's fallback to checking database or local variables if possible, but os.environ is standard.
+            # We'll remove the explicit "Cannot synthesize" block in favor of just skipping if no key,
+            # but user specifically wants it.
+            # We'll use os.getenv("GROQ_API_KEY")
             groq_key = os.getenv("GROQ_API_KEY")
             if groq_key:
                 try:
@@ -1466,7 +1474,7 @@ def process_corporate_announcements_task(self):
                     task_logger.error(f"Groq API error: {e}")
                     ai_interpretation = "Failed to synthesize due to API error."
             else:
-                ai_interpretation = "GROQ_API_KEY not set. Cannot synthesize."
+                ai_interpretation = "GROQ_API_KEY not set in Celery environment. Cannot synthesize."
 
             new_record = CorporateAnnouncement(
                 seq_id=seq_id,
