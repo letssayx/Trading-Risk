@@ -481,7 +481,7 @@
                         </div>
                     </div>
 
-                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto; max-height: calc(100vh - 250px);">
                         <table class="data-table" id="ca-main-table">
                             <thead>
                                 <tr>
@@ -526,7 +526,7 @@
                         </div>
                     </div>
 
-                    <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                    <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto; max-height: calc(100vh - 250px);">
                         <table class="data-table" id="announcements-table">
                             <thead>
                                 <tr>
@@ -4889,6 +4889,127 @@ document.addEventListener('click', (e) => {
         // --- Corporate Announcements & Cron JS ---
 
         let announcementsData = [];
+
+        // Load FO Stocks Globally
+        window.foStocks = [];
+        async function loadFOStocks() {
+            try {
+                const res = await fetch('/api/v1/nse/symbol-master');
+                const result = await res.json();
+                if (result.success && result.data) {
+                    window.foStocks = result.data.map(r => r.symbol.toUpperCase());
+                    console.log(`Loaded ${window.foStocks.length} F&O stocks into global filter array.`);
+
+                    // Re-trigger filters if data is already loaded
+                    if (typeof filterCATable === 'function') filterCATable();
+                    if (typeof filterAnnouncementsTable === 'function') filterAnnouncementsTable();
+                }
+            } catch (err) {
+                console.error("Failed to load symbol master for F&O filter:", err);
+            }
+        }
+
+        // Call it on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFOStocks();
+        });
+
+
+        // --- Radio Broadcast Logic ---
+        let radioPlaying = false;
+        let radioQueue = [];
+        let synth = window.speechSynthesis;
+        let currentUtterance = null;
+
+        function populateRadioQueue() {
+            // Filter to only F&O announcements that have an AI interpretation
+            const foAnns = announcementsData.filter(ann => {
+                if (window.foStocks && !window.foStocks.includes(ann.symbol.toUpperCase())) return false;
+                if (!ann.ai_interpretation || ann.ai_interpretation.includes('Pending Interpretation') || ann.ai_interpretation.includes('Failed')) return false;
+                return true;
+            });
+            // Sort by broadcast date ascending (oldest first) so it reads chronologically
+            foAnns.sort((a, b) => new Date(a.broadcast_date) - new Date(b.broadcast_date));
+            radioQueue = foAnns;
+        }
+
+        window.toggleRadio = function() {
+            const btn = document.getElementById('btn-toggle-radio');
+            const display = document.getElementById('radio-now-playing');
+
+            if (radioPlaying) {
+                radioPlaying = false;
+                synth.cancel();
+                btn.innerHTML = '<i class="fas fa-play-circle"></i>';
+                btn.style.color = '#34d399';
+                display.innerText = 'Radio stopped.';
+            } else {
+                radioPlaying = true;
+                btn.innerHTML = '<i class="fas fa-stop-circle"></i>';
+                btn.style.color = '#ef4444';
+                populateRadioQueue();
+                playNextInQueue();
+            }
+        };
+
+        window.playSingleRadio = function(symbol, date, text) {
+             if (radioPlaying) {
+                 synth.cancel();
+             }
+             const btn = document.getElementById('btn-toggle-radio');
+             const display = document.getElementById('radio-now-playing');
+             radioPlaying = true;
+             btn.innerHTML = '<i class="fas fa-stop-circle"></i>';
+             btn.style.color = '#ef4444';
+
+             display.innerText = `Reading: ${symbol} (${date})`;
+             const msg = new SpeechSynthesisUtterance(`Announcement for ${symbol} on ${date}. ${text}`);
+             msg.rate = 0.95;
+             msg.onend = () => {
+                  radioPlaying = false;
+                  btn.innerHTML = '<i class="fas fa-play-circle"></i>';
+                  btn.style.color = '#34d399';
+                  display.innerText = 'Radio stopped.';
+             };
+             synth.speak(msg);
+        };
+
+        function playNextInQueue() {
+            if (!radioPlaying) return;
+            if (radioQueue.length === 0) {
+                // If queue is empty, wait and try to repopulate
+                document.getElementById('radio-now-playing').innerText = 'Waiting for new announcements...';
+                setTimeout(() => {
+                    if(radioPlaying) {
+                        populateRadioQueue();
+                        playNextInQueue();
+                    }
+                }, 10000);
+                return;
+            }
+
+            const ann = radioQueue.shift();
+            document.getElementById('radio-now-playing').innerText = `Now Playing: ${ann.symbol} - ${ann.subject}`;
+
+            const textToRead = `Symbol ${ann.symbol}. Date ${ann.broadcast_date}. ${ann.ai_interpretation}`;
+            currentUtterance = new SpeechSynthesisUtterance(textToRead);
+            currentUtterance.rate = 0.95; // Slightly slower for clarity
+
+            currentUtterance.onend = function() {
+                // Read next item after a small pause
+                setTimeout(() => {
+                    if (radioPlaying) playNextInQueue();
+                }, 2000);
+            };
+
+            currentUtterance.onerror = function(e) {
+                console.error("Speech synthesis error", e);
+                if (radioPlaying) playNextInQueue();
+            };
+
+            synth.speak(currentUtterance);
+        }
+
         function filterAnnouncementsTable() {
             const tbody = document.getElementById('announcements-tbody');
             if (!tbody) return;
@@ -4931,7 +5052,7 @@ document.addEventListener('click', (e) => {
                     <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.purpose || '').replace(/"/g, '&quot;')}">${(ann.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '-'}</td>
                     <td>${attachHtml || '-'}</td>
                     <td style="font-style:italic; color:#a1a1aa;">${ann.ai_interpretation || 'Pending Interpretation...'}</td>
-                    <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="alert('Radio feature coming soon!')"><i class="fas fa-play"></i> Play Radio</button></td>
+                    <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="playSingleRadio(`${ann.symbol}`, `${ann.broadcast_date}`, `${(ann.ai_interpretation || '').replace(/'/g, \"\\'\")}`)"><i class="fas fa-play"></i> Play Radio</button></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -5226,5 +5347,17 @@ async function updateCronJob(jobName, field, value) {
         document.head.appendChild(style);
 
     </script>
+
+    <!-- Floating Radio Player -->
+    <div id="radio-player" style="position: fixed; bottom: 20px; right: 20px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; padding: 15px; width: 300px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); z-index: 9999; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3f3f46; padding-bottom: 5px;">
+            <h4 style="margin: 0; color: #fff; font-size: 14px;"><i class="fas fa-broadcast-tower" style="color: #3b82f6;"></i> F&O News Radio</h4>
+            <button onclick="toggleRadio()" id="btn-toggle-radio" style="background: none; border: none; color: #34d399; cursor: pointer; font-size: 18px;"><i class="fas fa-play-circle"></i></button>
+        </div>
+        <div id="radio-now-playing" style="color: #a1a1aa; font-size: 12px; height: 40px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+            Radio stopped.
+        </div>
+    </div>
+
 </body>
 </html>

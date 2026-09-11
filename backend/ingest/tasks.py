@@ -1441,16 +1441,45 @@ def process_corporate_announcements_task(self):
             if xbrl_link and not xbrl_link.startswith("http"):
                 xbrl_link = "https://www.nseindia.com" + xbrl_link
 
+            subject = ann.get("subject", "")
+            purpose = ann.get("desc", "")
+
+            # AI Synthesis via Groq DeepSeek
+            ai_interpretation = None
+            import os
+            from groq import Groq
+            groq_key = os.getenv("GROQ_API_KEY")
+            if groq_key:
+                try:
+                    client = Groq(api_key=groq_key)
+                    prompt = f"Analyze the following Corporate Announcement.\nSubject: {subject}\nPurpose: {purpose}\n\nProvide a concise, comprehensive summary of the most important points that a financial trader needs to know. Keep it to 1-2 brief sentences max, focusing strictly on the financial or strategic impact."
+                    chat_completion = client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model="deepseek-r1-distill-llama-70b",
+                        temperature=0.3,
+                        max_tokens=150,
+                    )
+                    ai_interpretation = chat_completion.choices[0].message.content.strip()
+                    # Deepseek models might include <think> tags. Remove them.
+                    ai_interpretation = re.sub(r'<think>.*?</think>', '', ai_interpretation, flags=re.DOTALL).strip()
+                except Exception as e:
+                    task_logger.error(f"Groq API error: {e}")
+                    ai_interpretation = "Failed to synthesize due to API error."
+            else:
+                ai_interpretation = "GROQ_API_KEY not set. Cannot synthesize."
+
             new_record = CorporateAnnouncement(
                 seq_id=seq_id,
                 symbol=ann.get("symbol", "UNKNOWN"),
                 broadcast_date=broadcast_date,
-                subject=ann.get("subject", ""),
-                purpose=ann.get("desc", ""),
+                subject=subject,
+                purpose=purpose,
                 pdf_link=pdf_link,
                 xbrl_link=xbrl_link,
+                ai_interpretation=ai_interpretation,
                 import_time=datetime.now()
             )
+
             db.add(new_record)
             new_inserts += 1
 
