@@ -4922,13 +4922,11 @@ document.addEventListener('click', (e) => {
         let currentUtterance = null;
 
         function populateRadioQueue() {
-            // Filter to only F&O announcements that have an AI interpretation
             const foAnns = announcementsData.filter(ann => {
                 if (window.foStocks && !window.foStocks.includes(ann.symbol.toUpperCase())) return false;
                 if (!ann.ai_interpretation || ann.ai_interpretation.includes('Pending Interpretation') || ann.ai_interpretation.includes('Failed')) return false;
                 return true;
             });
-            // Sort by broadcast date ascending (oldest first) so it reads chronologically
             foAnns.sort((a, b) => new Date(a.broadcast_date) - new Date(b.broadcast_date));
             radioQueue = foAnns;
         }
@@ -4977,7 +4975,6 @@ document.addEventListener('click', (e) => {
         function playNextInQueue() {
             if (!radioPlaying) return;
             if (radioQueue.length === 0) {
-                // If queue is empty, wait and try to repopulate
                 document.getElementById('radio-now-playing').innerText = 'Waiting for new announcements...';
                 setTimeout(() => {
                     if(radioPlaying) {
@@ -4993,10 +4990,9 @@ document.addEventListener('click', (e) => {
 
             const textToRead = `Symbol ${ann.symbol}. Date ${ann.broadcast_date}. ${ann.ai_interpretation}`;
             currentUtterance = new SpeechSynthesisUtterance(textToRead);
-            currentUtterance.rate = 0.95; // Slightly slower for clarity
+            currentUtterance.rate = 0.95;
 
             currentUtterance.onend = function() {
-                // Read next item after a small pause
                 setTimeout(() => {
                     if (radioPlaying) playNextInQueue();
                 }, 2000);
@@ -5052,7 +5048,7 @@ document.addEventListener('click', (e) => {
                     <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(ann.purpose || '').replace(/"/g, '&quot;')}">${(ann.purpose || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '-'}</td>
                     <td>${attachHtml || '-'}</td>
                     <td style="font-style:italic; color:#a1a1aa;">${ann.ai_interpretation || 'Pending Interpretation...'}</td>
-                    <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="playSingleRadio(`${ann.symbol}`, `${ann.broadcast_date}`, `${(ann.ai_interpretation || '').replace(/'/g, \"\\'\")}`)"><i class="fas fa-play"></i> Play Radio</button></td>
+                    <td><button class="btn btn-sm" style="background:#3f3f46; color:#fff;" onclick="playSingleRadio(`${ann.symbol}`, `${ann.broadcast_date}`, `${(ann.ai_interpretation || \'\').replace(/[\'\"]/g, \'\')}`)"><i class="fas fa-play"></i> Play Radio</button></td>
                 `;
                 tbody.appendChild(tr);
             });
