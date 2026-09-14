@@ -1529,6 +1529,13 @@ def process_corporate_announcements_task(self):
             # We'll remove the explicit "Cannot synthesize" block in favor of just skipping if no key,
             # but user specifically wants it.
             # We'll use os.getenv("GROQ_API_KEY")
+            # Ensure dotenv is reloaded dynamically since Celery might have booted before the key was saved
+            try:
+                from dotenv import load_dotenv
+                load_dotenv(override=True)
+            except ImportError:
+                pass
+
             groq_key = os.getenv("GROQ_API_KEY")
             if groq_key:
                 try:
