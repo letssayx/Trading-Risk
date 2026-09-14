@@ -1543,3 +1543,39 @@ class NSELib:
         except Exception as e:
             logger.error(f"Error in Arihant pure HTTP fallback scraper: {e}")
             return pd.DataFrame()
+
+    def get_latest_corporate_announcements(self) -> list:
+        """
+        Fetch the most recent corporate announcements from the NSE.
+        Returns a list of dictionaries with announcement details.
+        """
+        try:
+            url = f"{self.BASE_URL}/api/corporate-announcements?index=equities"
+            logger.info(f"Fetching latest corporate announcements from: {url}")
+            resp = self.get(url)
+            if resp and resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    return data
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching latest corporate announcements: {e}")
+            return []
+
+    def get_latest_corporate_actions(self) -> list:
+        """
+        Fetch the most recent forward-looking corporate actions directly from the NSE API.
+        Returns a list of dictionaries with action details.
+        """
+        try:
+            url = f"{self.BASE_URL}/api/corporates-corporateActions?index=equities"
+            logger.info(f"Fetching latest corporate actions from: {url}")
+            resp = self.get(url)
+            if resp and resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    return data
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching latest corporate actions: {e}")
+            return []
