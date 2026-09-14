@@ -216,7 +216,8 @@ async def start_cron_manager():
             # Run DB queries safely using to_thread to prevent blocking the event loop
             configs = await asyncio.to_thread(fetch_configs)
 
-            now = datetime.now()
+            utc_now = datetime.utcnow()
+            now = utc_now + __import__('datetime').timedelta(hours=5, minutes=30)
 
             for config in configs:
                 job_name = config.job_name
