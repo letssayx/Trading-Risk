@@ -382,7 +382,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
 
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_latest')
 def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
-    """Import data for the most recent trading day."""
+    """Import data for the most recent trading day, with auto-resume (backfill) for missing days and retries for failed downloads."""
     set_active_task(self.request.id)
 
     def progress_callback(progress_dict: dict):
@@ -403,43 +403,116 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
             self.update_state(state='PROGRESS', meta={'status': 'RESUMED', 'message': 'Task resumed.'})
 
     try:
+        from backend.infrastructure.db import SessionLocal
+        from backend.ingest.nse_models import ImportLog
+        from sqlalchemy import func
+
         importer = NSEDataImporter()
-        # Find last trading day using IST
+
+        # 1. Determine target date (latest available trading day based on time)
         utc_now = datetime.utcnow()
         ist_now = utc_now + timedelta(hours=5, minutes=30)
         today = ist_now.date()
-
-        # If after 18:00 IST, consider today as potential trading day (data usually available)
-        # Else consider previous day
         cutoff_time = 18  # 6 PM IST
 
         if ist_now.hour >= cutoff_time:
-            # Check if today is trading day
             if NSEHolidayCalendar.is_trading_day(today):
                 target_date = today
             else:
                 target_date = NSEHolidayCalendar.get_previous_trading_day(today)
         else:
-            # Before 6 PM, today's data not ready, so look for previous trading day
             target_date = NSEHolidayCalendar.get_previous_trading_day(today)
 
-        logger.info(f"Auto-importing for latest trading day: {target_date} (IST: {ist_now})")
-        result = importer.import_date(target_date, patterns=patterns, force=force, progress_callback=progress_callback, check_cancel=is_cancelled, include_non_fo=include_non_fo, specific_symbol=specific_symbol)
-        if result.get('status') == 'ABORTED':
-            self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
-            return {"status": "ABORTED"}
+        logger.info(f"Auto-import target date: {target_date} (IST: {ist_now})")
+
+        # Define patterns
+        available_keys = [
+            'bhavcopy_eq', 'bhavcopy_fo', 'fao_participant_oi', 'fo_volatility',
+            'block_deals', 'bulk_deals', 'fii_derivatives_stats', 'mto', 'mwpl_cli',
+            'pe_ratio', 'pe_ratio_idx', 'india_vix', 'var_stats', 'contract_delta', 'margin_trading', 'corporate_actions', 'board_meetings',
+            'nse_security', 'fii_dii_cash', 'historical_index_data', 'financial_results'
+        ]
+        patterns_to_run = patterns if patterns else available_keys
+
+        # 2. Backfill loop: Find the last successful import date for these patterns, and loop forward to target_date
+        db = SessionLocal()
+        try:
+            # Find the max date in ImportLog for any of the patterns requested, that was SUCCESSFUL
+            # We look at the overall max date, or we could look per pattern. For simplicity, we find the earliest last date among patterns, or just backfill a max of 7 days
+            earliest_last_date = target_date
+            for p in patterns_to_run:
+                last_log = db.query(func.max(ImportLog.import_date)).filter(ImportLog.table_name == p, ImportLog.status == 'SUCCESS').scalar()
+                if last_log:
+                    if last_log < earliest_last_date:
+                        earliest_last_date = last_log
+
+            # Limit backfill to max 14 days to prevent runaway loops if a table was never imported
+            if (target_date - earliest_last_date).days > 14:
+                start_date = target_date - timedelta(days=14)
+            else:
+                start_date = earliest_last_date
+        finally:
+            db.close()
+
+        # Advance start_date by 1 if it's already successful (we only want to backfill missing days)
+        # Actually, if we just loop from start_date to target_date, the importer's built-in `_is_already_imported` handles skipping perfectly.
+        current_date = start_date
+        results = []
+        has_failures = False
+        failed_patterns = []
+
+        while current_date <= target_date:
+            if not NSEHolidayCalendar.is_trading_day(current_date):
+                current_date += timedelta(days=1)
+                continue
+
+            logger.info(f"Checking/Importing data for {current_date}...")
+            # progress callback might need adjustment for multi-day, but simple is fine
+            result = importer.import_date(current_date, patterns=patterns_to_run, force=force, progress_callback=progress_callback, check_cancel=is_cancelled, include_non_fo=include_non_fo, specific_symbol=specific_symbol)
+
+            if result.get('status') == 'ABORTED':
+                self.update_state(state='REVOKED', meta={'exc_type': 'Abort', 'exc_message': 'Aborted by user'})
+                return {"status": "ABORTED"}
+
+            results.append(result)
+
+            # Check for failures in this date's result
+            details = result.get('details', {})
+            for key, val in details.items():
+                if val.get('status') == 'ERROR':
+                    has_failures = True
+                    if key not in failed_patterns:
+                        failed_patterns.append(key)
+
+            current_date += timedelta(days=1)
+
         clear_active_task(self.request.id)
-        return result
+
+        # 3. Handle retries if there were failures (e.g. NSE delayed data)
+        if has_failures:
+            # We retry the entire task. The successfully imported files will be skipped automatically on the next run.
+            if self.request.retries < self.max_retries:
+                logger.warning(f"Imports failed for {failed_patterns}. Retrying in 10 minutes... ({self.request.retries + 1}/3)")
+                self.retry(countdown=600) # 10 minutes
+            else:
+                logger.error(f"Max retries reached. Some imports failed: {failed_patterns}")
+                # We do not raise an exception so we don't crash, but we return a warning status
+                return {"status": "COMPLETED_WITH_ERRORS", "results": results}
+
+        return {"status": "COMPLETED", "results": results}
 
     except Exception as exc:
+        if isinstance(exc, self.retry.base.Retry):
+            raise # Let celery handle the retry correctly
+
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
             logger.error(f"Max retries exceeded for latest import: {err_msg}")
             self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Latest Import Failed: {err_msg}"})
             raise Exception(f"Latest Import Failed: {err_msg}")
 
-        logger.error(f"Latest import failed: {exc}. Retrying... ({self.request.retries}/3)")
-        self.retry(exc=Exception(str(exc)), countdown=300)
+        logger.error(f"Latest import failed: {exc}. Retrying in 10 mins... ({self.request.retries + 1}/3)")
+        self.retry(exc=Exception(str(exc)), countdown=600)
 
 @shared_task(bind=True, acks_late=True, name="prepare_morning_data_task")
 def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = None):
@@ -1456,6 +1529,13 @@ def process_corporate_announcements_task(self):
             # We'll remove the explicit "Cannot synthesize" block in favor of just skipping if no key,
             # but user specifically wants it.
             # We'll use os.getenv("GROQ_API_KEY")
+            # Ensure dotenv is reloaded dynamically since Celery might have booted before the key was saved
+            try:
+                from dotenv import load_dotenv
+                load_dotenv(override=True)
+            except ImportError:
+                pass
+
             groq_key = os.getenv("GROQ_API_KEY")
             if groq_key:
                 try:

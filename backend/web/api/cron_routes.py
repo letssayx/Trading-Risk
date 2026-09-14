@@ -14,7 +14,7 @@ def get_cron_configs(db: Session = Depends(get_db)):
     configs = db.query(CronJobConfig).all()
     return [{"id": c.id, "job_name": c.job_name, "is_active": c.is_active,
              "interval_seconds": c.interval_seconds, "run_time": c.run_time,
-             "last_run": c.last_run} for c in configs]
+             "last_run": c.last_run, "pause_start": c.pause_start, "pause_end": c.pause_end} for c in configs]
 
 @router.put("/configs/{job_name}")
 def update_cron_config(job_name: str, payload: dict = Body(...), db: Session = Depends(get_db)):
@@ -29,6 +29,10 @@ def update_cron_config(job_name: str, payload: dict = Body(...), db: Session = D
         config.interval_seconds = payload["interval_seconds"]
     if "run_time" in payload:
         config.run_time = payload["run_time"]
+    if "pause_start" in payload:
+        config.pause_start = payload["pause_start"]
+    if "pause_end" in payload:
+        config.pause_end = payload["pause_end"]
 
     db.commit()
     return {"status": "success", "message": f"Updated config for {job_name}"}

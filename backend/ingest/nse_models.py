@@ -849,6 +849,8 @@ class CronJobConfig(Base):
     interval_seconds = Column(Integer, nullable=True) # E.g. 30 seconds
     run_time = Column(String(10), nullable=True) # E.g. "11:00"
     last_run = Column(DateTime, nullable=True)
+    pause_start = Column(String(10), default="20:00")
+    pause_end = Column(String(10), default="08:00")
 
 class CorporateActionLive(Base):
     """Redundant Live DB for UI rendering of Corporate Actions"""
