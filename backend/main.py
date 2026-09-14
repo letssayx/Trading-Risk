@@ -120,6 +120,14 @@ async def startup_event():
             except Exception:
                 pass # column likely exists
 
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE cron_job_configs ADD COLUMN IF NOT EXISTS pause_start VARCHAR(10) DEFAULT '20:00';"))
+                conn.execute(text("ALTER TABLE cron_job_configs ADD COLUMN IF NOT EXISTS pause_end VARCHAR(10) DEFAULT '08:00';"))
+                print("Successfully patched cron_job_configs with pause times")
+        except Exception as e:
+            print(f"Failed to patch cron_job_configs: {e}")
+
         hist_index_cols = [
             ("total_traded_qty", "BIGINT"),
             ("turnover_cr", "FLOAT"),

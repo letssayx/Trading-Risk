@@ -5002,8 +5002,16 @@ document.addEventListener('click', (e) => {
                     if (conf.interval_seconds !== null) {
                         controlHtml += `
                             <div style="display:flex; flex-direction:column;">
-                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Interval (seconds)</label>
-                                <input type="number" class="history-input" style="width:100px;" value="${conf.interval_seconds}" onchange="updateCronJob('${conf.job_name}', 'interval_seconds', this.value)">
+                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Interval (sec)</label>
+                                <input type="number" class="history-input" style="width:80px;" value="${conf.interval_seconds}" onchange="updateCronJob('${conf.job_name}', 'interval_seconds', this.value)">
+                            </div>
+                            <div style="display:flex; flex-direction:column;">
+                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Pause Start</label>
+                                <input type="time" class="history-input" style="width:100px;" value="${conf.pause_start || '20:00'}" onchange="updateCronJob('${conf.job_name}', 'pause_start', this.value)">
+                            </div>
+                            <div style="display:flex; flex-direction:column;">
+                                <label style="font-size:12px; color:#a1a1aa; margin-bottom:4px;">Pause End</label>
+                                <input type="time" class="history-input" style="width:100px;" value="${conf.pause_end || '08:00'}" onchange="updateCronJob('${conf.job_name}', 'pause_end', this.value)">
                             </div>
                         `;
                     }

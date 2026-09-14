@@ -25,19 +25,92 @@ async def trigger_mwpl():
 
 async def trigger_eod_bhavcopy_eq():
     from backend.ingest.tasks import import_nse_latest
-    import_nse_latest.delay(modules=["bhavcopy_eq"])
+    import_nse_latest.delay(patterns=["bhavcopy_eq"])
 
 async def trigger_eod_bhavcopy_fo():
     from backend.ingest.tasks import import_nse_latest
-    import_nse_latest.delay(modules=["bhavcopy_fo"])
+    import_nse_latest.delay(patterns=["bhavcopy_fo"])
 
 async def trigger_eod_board_meetings():
     from backend.ingest.tasks import import_nse_latest
-    import_nse_latest.delay(modules=["board_meetings"])
+    import_nse_latest.delay(patterns=["board_meetings"])
 
 async def trigger_eod_fii():
     from backend.ingest.tasks import import_fii_stats_task
     import_fii_stats_task.delay()
+
+async def trigger_eod_fao_participant_oi():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["fao_participant_oi"])
+
+async def trigger_eod_fo_volatility():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["fo_volatility"])
+
+async def trigger_eod_block_deals():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["block_deals"])
+
+async def trigger_eod_bulk_deals():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["bulk_deals"])
+
+async def trigger_eod_fii_derivatives_stats():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["fii_derivatives_stats"])
+
+async def trigger_eod_mto():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["mto"])
+
+async def trigger_eod_mwpl_cli():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["mwpl_cli"])
+
+async def trigger_eod_pe_ratio():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["pe_ratio"])
+
+async def trigger_eod_pe_ratio_idx():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["pe_ratio_idx"])
+
+async def trigger_eod_india_vix():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["india_vix"])
+
+async def trigger_eod_var_stats():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["var_stats"])
+
+async def trigger_eod_contract_delta():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["contract_delta"])
+
+async def trigger_eod_margin_trading():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["margin_trading"])
+
+async def trigger_eod_corporate_actions():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["corporate_actions"])
+
+async def trigger_eod_nse_security():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["nse_security"])
+
+async def trigger_eod_fii_dii_cash():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["fii_dii_cash"])
+
+async def trigger_eod_historical_index_data():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["historical_index_data"])
+
+async def trigger_eod_financial_results():
+    from backend.ingest.tasks import import_nse_latest
+    import_nse_latest.delay(patterns=["financial_results"])
+
 
 JOB_HANDLERS = {
     "Corporate Announcements": trigger_corporate_announcements,
@@ -46,7 +119,25 @@ JOB_HANDLERS = {
     "EOD Bhavcopy EQ": trigger_eod_bhavcopy_eq,
     "EOD Bhavcopy FO": trigger_eod_bhavcopy_fo,
     "EOD Board Meetings": trigger_eod_board_meetings,
-    "EOD FII Stats": trigger_eod_fii
+    "EOD FII Stats": trigger_eod_fii,
+    "EOD FAO Participant OI": trigger_eod_fao_participant_oi,
+    "EOD FO Volatility": trigger_eod_fo_volatility,
+    "EOD Block Deals": trigger_eod_block_deals,
+    "EOD Bulk Deals": trigger_eod_bulk_deals,
+    "EOD FII Derivatives Stats": trigger_eod_fii_derivatives_stats,
+    "EOD MTO": trigger_eod_mto,
+    "EOD MWPL CLI": trigger_eod_mwpl_cli,
+    "EOD PE Ratio": trigger_eod_pe_ratio,
+    "EOD PE Ratio Index": trigger_eod_pe_ratio_idx,
+    "EOD India VIX": trigger_eod_india_vix,
+    "EOD VAR Stats": trigger_eod_var_stats,
+    "EOD Contract Delta": trigger_eod_contract_delta,
+    "EOD Margin Trading": trigger_eod_margin_trading,
+    "EOD Corporate Actions": trigger_eod_corporate_actions,
+    "EOD NSE Security": trigger_eod_nse_security,
+    "EOD FII DII Cash": trigger_eod_fii_dii_cash,
+    "EOD Historical Index Data": trigger_eod_historical_index_data,
+    "EOD Financial Results": trigger_eod_financial_results
 }
 
 def fetch_configs():
@@ -79,7 +170,25 @@ def _init_default_jobs():
             {"job_name": "EOD Bhavcopy EQ", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
             {"job_name": "EOD Bhavcopy FO", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
             {"job_name": "EOD Board Meetings", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
-            {"job_name": "EOD FII Stats", "is_active": False, "interval_seconds": None, "run_time": "19:00"}
+            {"job_name": "EOD FII Stats", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD FAO Participant OI", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD FO Volatility", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Block Deals", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Bulk Deals", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD FII Derivatives Stats", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD MTO", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD MWPL CLI", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD PE Ratio", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD PE Ratio Index", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD India VIX", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD VAR Stats", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Contract Delta", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Margin Trading", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Corporate Actions", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD NSE Security", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD FII DII Cash", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Historical Index Data", "is_active": False, "interval_seconds": None, "run_time": "19:00"},
+            {"job_name": "EOD Financial Results", "is_active": False, "interval_seconds": None, "run_time": "19:00"}
         ]
 
         for job in default_jobs:
@@ -114,12 +223,23 @@ async def start_cron_manager():
 
                 # Check interval-based execution
                 if config.interval_seconds:
-                    # Enforce quiet hours (8:00 PM to 8:00 AM) for 24x7 corporate data streams
-                    if job_name in ["Corporate Announcements", "Live Corporate Actions"]:
-                        current_hour = now.hour
-                        # If time is >= 20:00 (8 PM) or < 8:00 (8 AM), skip execution
-                        if current_hour >= 20 or current_hour < 8:
-                            continue
+                    # Enforce configurable quiet hours for continuous streams
+                    if config.pause_start and config.pause_end:
+                        try:
+                            start_time = datetime.strptime(config.pause_start, "%H:%M").time()
+                            end_time = datetime.strptime(config.pause_end, "%H:%M").time()
+                            current_time = now.time()
+
+                            if start_time < end_time:
+                                # Pause window is within the same day
+                                if start_time <= current_time <= end_time:
+                                    continue
+                            else:
+                                # Pause window crosses midnight (e.g. 20:00 to 08:00)
+                                if current_time >= start_time or current_time <= end_time:
+                                    continue
+                        except ValueError:
+                            pass # Fallback if invalid time format
 
                     last_run = _last_run_times.get(job_name, datetime.min)
 
