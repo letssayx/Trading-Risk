@@ -87,6 +87,13 @@ app.include_router(cron_routes.router)
 
 @app.on_event("startup")
 async def startup_event():
+    import os, time
+    os.environ["TZ"] = "Asia/Kolkata"
+    time.tzset()
+    print("Timezone explicitly set to Asia/Kolkata")
+
+
+
     # Initialize DB
     print("Initializing Database...")
     try:
