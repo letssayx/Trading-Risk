@@ -38,7 +38,7 @@ def update_cron_config(job_name: str, payload: dict = Body(...), db: Session = D
     return {"status": "success", "message": f"Updated config for {job_name}"}
 
 @router.get("/corporate-announcements")
-def get_corporate_announcements(limit: int = 50, db: Session = Depends(get_db)):
+def get_corporate_announcements(limit: int = 500, db: Session = Depends(get_db)):
     """Fetch the latest corporate announcements from the database"""
     announcements = db.query(CorporateAnnouncement).order_by(CorporateAnnouncement.broadcast_date.desc()).limit(limit).all()
     return [{
@@ -56,7 +56,7 @@ def get_corporate_announcements(limit: int = 50, db: Session = Depends(get_db)):
     } for a in announcements]
 
 @router.get("/corporate-actions-live")
-def get_corporate_actions_live(limit: int = 50, db: Session = Depends(get_db)):
+def get_corporate_actions_live(limit: int = 500, db: Session = Depends(get_db)):
     """Fetch the latest live corporate actions from the database"""
     from backend.ingest.nse_models import CorporateActionLive
     actions = db.query(CorporateActionLive).order_by(CorporateActionLive.import_time.desc()).limit(limit).all()

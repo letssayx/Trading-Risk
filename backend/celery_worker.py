@@ -1,5 +1,14 @@
 from celery import Celery
 import os
+from dotenv import load_dotenv
+
+
+import time
+os.environ["TZ"] = "Asia/Kolkata"
+time.tzset()
+
+# Load env variables explicitly when worker boots
+load_dotenv(override=True)
 
 # Placeholder Celery App
 # In production, this would load config from backend.config
