@@ -374,10 +374,20 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
         build_dividend_databank_task.delay(force=True)
 
         return f"Range import finished: {start_date} to {end_date}. Details: {len(results)} days processed."
-    except Exception as e:
-        logger.error(f"Error in range import: {e}")
+    except Exception as exc:
+        logger.error(f"Error in range import: {exc}")
         clear_active_task(self.request.id)
-        raise
+        if isinstance(exc, self.retry.base.Retry):
+            raise
+
+        if self.request.retries >= self.max_retries:
+            err_msg = str(exc)
+            logger.error(f"Max retries exceeded for range import: {err_msg}")
+            self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Range Import Failed: {err_msg}"})
+            raise Exception(f"Range Import Failed: {err_msg}")
+
+        logger.error(f"Range import failed: {exc}. Retrying... ({self.request.retries + 1}/3)")
+        self.retry(exc=Exception(str(exc)), countdown=60)
 
 
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_latest')
@@ -516,8 +526,8 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
                 except Exception as e_log:
                     logger.error(f"Could not write to SystemLog: {e_log}")
 
-                # We do not raise an exception so we don't crash, but we return a warning status
-                return {"status": "COMPLETED_WITH_ERRORS", "results": results}
+                # Raise exception so Celery marks as FAILED instead of COMPLETED_WITH_ERRORS, breaking infinite loops
+                raise Exception(f"Max retries reached. Some imports failed: {failed_patterns}")
 
         return {"status": "COMPLETED", "results": results}
 

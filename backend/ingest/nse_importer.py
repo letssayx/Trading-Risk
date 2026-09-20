@@ -504,11 +504,19 @@ class NSEDataImporter:
             valid_cols = set(c.name for c in table.columns)
             cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
 
+            # Dynamically calculate safe batch size to avoid Postgres 32767 bind param limit (f405)
+            # max bind params = 32767. We leave some buffer (32000).
+            num_cols = len(valid_cols)
+            if num_cols > 0:
+                safe_batch_size = max(1, min(batch_size, 32000 // num_cols))
+            else:
+                safe_batch_size = batch_size
+
             # Simple Insert in chunks. Use ON CONFLICT DO NOTHING to handle edge cases
             # where delete_for_date might not have caught unique constraint overlaps from
             # a different date insertion process.
-            for i in range(0, len(cleaned), batch_size):
-                chunk = cleaned[i:i + batch_size]
+            for i in range(0, len(cleaned), safe_batch_size):
+                chunk = cleaned[i:i + safe_batch_size]
                 stmt = pg_insert(table).values(chunk)
                 stmt = stmt.on_conflict_do_nothing()
                 result = db.execute(stmt)
@@ -539,9 +547,18 @@ class NSEDataImporter:
             valid_cols = set(c.name for c in table.columns)
             cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
 
+            # Dynamically calculate safe batch size to avoid Postgres 32767 bind param limit (f405)
+            num_cols = len(valid_cols)
+            if num_cols > 0:
+                # Upsert bind parameters can be 2x if we set all columns in DO UPDATE,
+                # so we are conservative and divide by (num_cols * 2)
+                safe_batch_size = max(1, min(batch_size, 32000 // (num_cols * 2)))
+            else:
+                safe_batch_size = batch_size
+
             # Upsert in chunks to avoid massive SQL statements that bog down Postgres
-            for i in range(0, len(cleaned), batch_size):
-                chunk = cleaned[i:i + batch_size]
+            for i in range(0, len(cleaned), safe_batch_size):
+                chunk = cleaned[i:i + safe_batch_size]
                 stmt = pg_insert(table).values(chunk)
                 update_cols = {c.name: c for c in stmt.excluded
                               if c.name not in unique_fields and c.name not in ['id', 'created_at']}
