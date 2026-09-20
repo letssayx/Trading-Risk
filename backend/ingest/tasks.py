@@ -1546,12 +1546,15 @@ def process_corporate_announcements_task(self):
             broadcast_date = None
             if broadcast_str:
                 try:
-                    broadcast_date = datetime.strptime(broadcast_str, "%Y-%m-%d %H:%M:%S")
+                    broadcast_date = datetime.strptime(broadcast_str, "%d-%b-%Y %H:%M:%S")
                 except ValueError:
                     try:
-                        broadcast_date = datetime.strptime(broadcast_str, "%d-%b-%Y %H:%M")
+                        broadcast_date = datetime.strptime(broadcast_str, "%Y-%m-%d %H:%M:%S")
                     except ValueError:
-                        broadcast_date = datetime.now()
+                        try:
+                            broadcast_date = datetime.strptime(broadcast_str, "%d-%b-%Y %H:%M")
+                        except ValueError:
+                            broadcast_date = datetime.now()
             else:
                 broadcast_date = datetime.now()
 
@@ -1564,8 +1567,8 @@ def process_corporate_announcements_task(self):
             if xbrl_link and not xbrl_link.startswith("http"):
                 xbrl_link = "https://www.nseindia.com" + xbrl_link
 
-            subject = ann.get("subject", "")
-            purpose = ann.get("desc", "")
+            subject = ann.get("sub", "") or ann.get("desc", "")
+            purpose = ann.get("attchmntText", "")
 
             # AI Synthesis via Groq DeepSeek
             ai_interpretation = None
