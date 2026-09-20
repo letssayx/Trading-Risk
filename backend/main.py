@@ -97,7 +97,7 @@ async def startup_event():
     # Initialize DB
     print("Initializing Database...")
     try:
-        from backend.ingest.nse_models import DividendDatabank, CorporateAnnouncement, CronJobConfig, CorporateActionLive
+        from backend.ingest.nse_models import DividendDatabank, CorporateAnnouncement, CronJobConfig, CorporateActionLive, SecurityMaster
         Base.metadata.create_all(bind=engine)
 
         # Patch newly added columns for existing schema because Alembic is currently bypassed
