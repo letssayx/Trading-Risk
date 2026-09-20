@@ -1,3 +1,4 @@
+import math
 """NSE Data Importer - Direct-to-TimescaleDB (Refactored using backend.nselib)"""
 import logging
 from datetime import datetime, date
@@ -502,13 +503,24 @@ class NSEDataImporter:
         try:
             table = model_class.__table__
             valid_cols = set(c.name for c in table.columns)
-            cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
+            cleaned = []
+            for r in records:
+                new_r = {}
+                for k, v in r.items():
+                    if k in valid_cols:
+                        if pd.isna(v):
+                            new_r[k] = None
+                        elif isinstance(v, float) and math.isnan(v):
+                            new_r[k] = None
+                        else:
+                            new_r[k] = v
+                cleaned.append(new_r)
 
             # Dynamically calculate safe batch size to avoid Postgres 32767 bind param limit (f405)
             # max bind params = 32767. We leave some buffer (32000).
             num_cols = len(valid_cols)
             if num_cols > 0:
-                safe_batch_size = max(1, min(batch_size, 32000 // num_cols))
+                safe_batch_size = max(1, min(batch_size, 32000 // max(1, num_cols)))
             else:
                 safe_batch_size = batch_size
 
@@ -545,14 +557,25 @@ class NSEDataImporter:
         try:
             table = model_class.__table__
             valid_cols = set(c.name for c in table.columns)
-            cleaned = [{k: v for k, v in r.items() if k in valid_cols} for r in records]
+            cleaned = []
+            for r in records:
+                new_r = {}
+                for k, v in r.items():
+                    if k in valid_cols:
+                        if pd.isna(v):
+                            new_r[k] = None
+                        elif isinstance(v, float) and math.isnan(v):
+                            new_r[k] = None
+                        else:
+                            new_r[k] = v
+                cleaned.append(new_r)
 
             # Dynamically calculate safe batch size to avoid Postgres 32767 bind param limit (f405)
             num_cols = len(valid_cols)
             if num_cols > 0:
                 # Upsert bind parameters can be 2x if we set all columns in DO UPDATE,
                 # so we are conservative and divide by (num_cols * 2)
-                safe_batch_size = max(1, min(batch_size, 32000 // (num_cols * 2)))
+                safe_batch_size = max(1, min(batch_size, 32000 // max(1, num_cols * 2)))
             else:
                 safe_batch_size = batch_size
 

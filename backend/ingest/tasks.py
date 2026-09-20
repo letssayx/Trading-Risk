@@ -1,3 +1,4 @@
+from celery.exceptions import Retry
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from datetime import datetime, timedelta
@@ -377,7 +378,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
     except Exception as exc:
         logger.error(f"Error in range import: {exc}")
         clear_active_task(self.request.id)
-        if isinstance(exc, self.retry.base.Retry):
+        if isinstance(exc, Retry):
             raise
 
         if self.request.retries >= self.max_retries:
@@ -503,7 +504,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
             # We retry the entire task. The successfully imported files will be skipped automatically on the next run.
             if self.request.retries < self.max_retries:
                 logger.warning(f"Imports failed for {failed_patterns}. Retrying in 10 minutes... ({self.request.retries + 1}/3)")
-                self.retry(countdown=600) # 10 minutes
+                self.retry(kwargs={'patterns': failed_patterns, 'force': force, 'include_non_fo': include_non_fo, 'specific_symbol': specific_symbol}, countdown=600) # 10 minutes
             else:
                 logger.error(f"Max retries reached. Some imports failed: {failed_patterns}")
 
@@ -532,7 +533,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         return {"status": "COMPLETED", "results": results}
 
     except Exception as exc:
-        if isinstance(exc, self.retry.base.Retry):
+        if isinstance(exc, Retry):
             raise # Let celery handle the retry correctly
 
         if self.request.retries >= self.max_retries:
