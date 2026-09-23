@@ -519,15 +519,24 @@ class NSELib:
 
         resp = self.get(url)
         if resp.status_code == 200:
-            # These are usually comma separated without header? Or with header?
-            # Let's inspect content logic or assume standard CSV
             try:
-                df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
-                # Ensure columns are stripped
+                columns = [
+                    'RecordType', 'Symbol', 'Series', 'ISIN',
+                    'Security VaR', 'Index VaR', 'VaR Margin',
+                    'Extreme Loss Rate', 'Adhoc Margin', 'Applicable Margin Rate'
+                ]
+                df = pd.read_csv(io.BytesIO(resp.content), header=None, names=columns, low_memory=False)
+
+                # The file has a summary row (RecordType 10) and data rows (RecordType 20)
+                # Filter to only keep the data rows and cast RecordType to string to be safe
+                df['RecordType'] = df['RecordType'].astype(str)
+                df = df[df['RecordType'] == '20'].copy()
+
+                # Ensure columns are stripped (names are already clean, but let's be safe)
                 df.columns = [str(c).strip() for c in df.columns]
                 return df
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Error parsing VaR Stats: {e}")
         return pd.DataFrame()
 
     def get_board_meetings(self, trade_date: date) -> pd.DataFrame:

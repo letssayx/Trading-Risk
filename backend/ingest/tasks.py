@@ -102,6 +102,9 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
         return result
 
     except Exception as exc:
+        if isinstance(exc, Retry):
+            raise
+
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
             logger.error(f"Max retries exceeded for date import: {err_msg}")
@@ -109,7 +112,7 @@ def import_nse_date(self, date_str: str, patterns: Optional[List[str]] = None, f
             raise Exception(f"Date Import Failed: {err_msg}")
 
         logger.error(f"Import failed: {exc}. Retrying... ({self.request.retries}/3)")
-        self.retry(exc=Exception(str(exc)), countdown=60)  # Convert complex exceptions to string explicitly before retry
+        raise self.retry(exc=Exception(str(exc)), countdown=60)  # Convert complex exceptions to string explicitly before retry
 
 from celery import shared_task
 
@@ -243,6 +246,9 @@ def retry_failed_imports(self, pattern: str):
         return {'range': f"Retried {total_days} failed dates for {pattern}", 'results': results}
 
     except Exception as exc:
+        if isinstance(exc, Retry):
+            raise
+
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
             logger.error(f"Max retries exceeded for retry failed imports: {err_msg}")
@@ -250,7 +256,7 @@ def retry_failed_imports(self, pattern: str):
             raise Exception(f"Retry Failed: {err_msg}")
 
         logger.error(f"Retry failed: {exc}. Retrying... ({self.request.retries}/3)")
-        self.retry(exc=Exception(str(exc)), countdown=60)
+        raise self.retry(exc=Exception(str(exc)), countdown=60)
 
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_range')
 def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Optional[List[str]] = None, force: bool = False, include_non_fo: bool = False, specific_symbol: Optional[str] = None):
@@ -388,7 +394,7 @@ def import_nse_range(self, start_date_str: str, end_date_str: str, patterns: Opt
             raise Exception(f"Range Import Failed: {err_msg}")
 
         logger.error(f"Range import failed: {exc}. Retrying... ({self.request.retries + 1}/3)")
-        self.retry(exc=Exception(str(exc)), countdown=60)
+        raise self.retry(exc=Exception(str(exc)), countdown=60)
 
 
 @shared_task(bind=True, max_retries=3, acks_late=True, name='backend.ingest.tasks.import_nse_latest')
@@ -504,7 +510,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
             # We retry the entire task. The successfully imported files will be skipped automatically on the next run.
             if self.request.retries < self.max_retries:
                 logger.warning(f"Imports failed for {failed_patterns}. Retrying in 10 minutes... ({self.request.retries + 1}/3)")
-                self.retry(kwargs={'patterns': failed_patterns, 'force': force, 'include_non_fo': include_non_fo, 'specific_symbol': specific_symbol}, countdown=600) # 10 minutes
+                raise self.retry(kwargs={'patterns': failed_patterns, 'force': force, 'include_non_fo': include_non_fo, 'specific_symbol': specific_symbol}, countdown=600) # 10 minutes
             else:
                 logger.error(f"Max retries reached. Some imports failed: {failed_patterns}")
 
@@ -563,7 +569,7 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
             raise Exception(f"Latest Import Failed: {err_msg}")
 
         logger.error(f"Latest import failed: {exc}. Retrying in 10 mins... ({self.request.retries + 1}/3)")
-        self.retry(exc=Exception(str(exc)), countdown=600)
+        raise self.retry(exc=Exception(str(exc)), countdown=600)
 
 @shared_task(bind=True, acks_late=True, name="prepare_morning_data_task")
 def prepare_morning_data_task(self, target_date_str: str, end_date_str: str = None):
