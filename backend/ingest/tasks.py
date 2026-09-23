@@ -510,7 +510,8 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
             # We retry the entire task. The successfully imported files will be skipped automatically on the next run.
             if self.request.retries < self.max_retries:
                 logger.warning(f"Imports failed for {failed_patterns}. Retrying in 10 minutes... ({self.request.retries + 1}/3)")
-                raise self.retry(kwargs={'patterns': failed_patterns, 'force': force, 'include_non_fo': include_non_fo, 'specific_symbol': specific_symbol}, countdown=600) # 10 minutes
+                # Pass all arguments strictly as positional arguments to avoid TypeError: got multiple values for argument
+                raise self.retry(args=[failed_patterns, force, include_non_fo, specific_symbol], kwargs={}, countdown=600) # 10 minutes
             else:
                 logger.error(f"Max retries reached. Some imports failed: {failed_patterns}")
 
