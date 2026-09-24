@@ -2778,12 +2778,12 @@
 
                     <div style="display: flex; flex-direction: column; flex: 1; margin-bottom: 0px; padding: 20px; overflow-y: visible;">
                         <!-- FII/DII Cash Flow -->
-                        <div style="height: 450px; min-height: 450px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: block; margin-bottom: 20px;">
+                        <div style="height: 600px; min-height: 600px; flex-shrink: 0; background: #1e1e1e; border: 1px solid #333; padding: 15px; border-radius: 4px; display: block; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
                                 <h3 style="margin: 0; font-size: 14px; color: #ccc;">FII/DII Institutional Flows (Cash)</h3>
                                 <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.fiiDiiTabChartInstance) exportChartDataToExcel(window.fiiDiiTabChartInstance, 'FII_DII_Net_Pos');"><i class="fas fa-download"></i> XLSX</button>
                             </div>
-                            <div style="flex: 1; min-width: 0; height: 100%;">
+                            <div style="flex: 1; min-width: 0; height: calc(100% - 30px);">
                                 <canvas id="fiiDiiTabChart"></canvas>
                             </div>
                         </div>

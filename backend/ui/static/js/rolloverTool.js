@@ -468,14 +468,14 @@ const RolloverTool = {
                     const titleText = isMoM ? `${selectedStock} - Month-on-Month Rollover History` : `${selectedStock} - Daily Rollover History`;
 
                     const option = {
-                        title: { text: titleText, textStyle: { color: '#ccc', fontSize: 14 }, left: 'center', top: 10 },
+                        title: { text: titleText, textStyle: { color: '#f0f0f0', fontSize: 18, fontWeight: 'bold' }, left: 'center', top: 10 },
                         tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                        legend: { data: ['Rollover %', 'Spread'], top: 30, textStyle: { color: '#ccc' } },
+                        legend: { data: ['Rollover %', 'Spread'], top: 40, textStyle: { color: '#ccc', fontSize: 12 } },
                         grid: { left: '5%', right: '5%', bottom: '15%', top: '25%', containLabel: true },
-                        xAxis: { type: 'category', data: expiries, axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 10 } },
+                        xAxis: { type: 'category', data: expiries, axisLabel: { color: '#ccc', rotate: 45, interval: 0, fontSize: 12 } },
                         yAxis: [
-                            { type: 'value', name: 'Rollover %', axisLabel: { color: '#ff9800', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333' } } },
-                            { type: 'value', name: 'Spread', position: 'right', axisLabel: { color: '#60a5fa' }, splitLine: { show: false } }
+                            { type: 'value', name: 'Rollover %', nameTextStyle: { color: '#ffcc80', fontSize: 12, padding: [0, 0, 0, 30] }, axisLabel: { color: '#ff9800', formatter: '{value}%', fontSize: 12 }, splitLine: { lineStyle: { color: '#444', type: 'dashed' } } },
+                            { type: 'value', name: 'Spread', nameTextStyle: { color: '#60a5fa', fontSize: 12 }, position: 'right', axisLabel: { color: '#60a5fa', fontSize: 12 }, splitLine: { show: false } }
                         ],
                         series: [
                             {
@@ -483,19 +483,23 @@ const RolloverTool = {
                                 type: 'line',
                                 yAxisIndex: 0,
                                 symbol: 'circle',
-                                symbolSize: 8,
-                                itemStyle: { color: '#ff9800' }, // Orange
-                                lineStyle: { width: 3 },
+                                symbolSize: 10,
+                                itemStyle: { color: '#ff9800', shadowBlur: 10, shadowColor: 'rgba(255, 152, 0, 0.5)' }, // Orange
+                                lineStyle: { width: 3, shadowBlur: 10, shadowColor: 'rgba(255, 152, 0, 0.5)' },
                                 data: values,
-                                label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                                label: { show: true, position: 'top', color: '#fff', formatter: '{c}%', fontSize: 11, fontWeight: 'bold' }
                             },
                             {
                                 name: 'Spread',
                                 type: 'bar',
                                 yAxisIndex: 1,
-                                itemStyle: { color: (params) => params.value >= 0 ? '#60a5fa' : '#ff4d4d' }, // Blue positive, Red negative
+                                itemStyle: {
+                                    color: (params) => params.value >= 0 ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: '#60a5fa'}, {offset: 1, color: '#3b82f6'}]) : new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: '#ff4d4d'}, {offset: 1, color: '#ef4444'}]),
+                                    borderRadius: [4, 4, 0, 0],
+                                    opacity: 0.8
+                                },
                                 data: spreads,
-                                label: { show: true, position: 'inside', color: '#fff', formatter: '{c}', fontSize: 9 }
+                                label: { show: true, position: 'inside', color: '#fff', formatter: '{c}', fontSize: 11, fontWeight: 'bold' }
                             }
                         ]
                     };
@@ -596,7 +600,7 @@ const RolloverTool = {
                     <h4 style="margin: 0; color: #fff;" id="single-symbol-history-title">24-Month Rollover History</h4>
                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.rolloverMomChartInstance) exportChartDataToExcel(window.rolloverMomChartInstance, 'Rollover_History_${symbol}');"><i class="fas fa-download"></i> XLSX</button>
                 </div>
-                <div id="rollover-mom-history-chart" style="width: 100%; height: 250px; margin-top: 10px;"></div>
+                <div id="rollover-mom-history-chart" style="width: 100%; height: 400px; margin-top: 10px;"></div>
                 <div id="rollover-mom-history-table-container"></div>
                 <p style="color: #888; font-size: 0.85em; margin-top: 15px;">To return to the all F&O view, clear the search and click "Refresh All".</p>
             </div>`;
@@ -631,16 +635,16 @@ const RolloverTool = {
                     // Render Chart
                     const momChartDom = document.getElementById('rollover-mom-history-chart');
                     if (window.rolloverMomChartInstance) window.rolloverMomChartInstance.dispose();
-                    window.rolloverMomChartInstance = echarts.init(momChartDom);
+                    window.rolloverMomChartInstance = echarts.init(momChartDom, null, { renderer: 'canvas', devicePixelRatio: 2 });
                     window.rolloverMomChartInstance.setOption({
                         backgroundColor: 'transparent',
                         tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                        legend: { data: ['Rollover %', 'Spread'], top: 0, textStyle: { color: '#ccc' } },
+                        legend: { data: ['Rollover %', 'Spread'], top: 0, textStyle: { color: '#ccc', fontSize: 12 } },
                         grid: { left: '3%', right: '3%', bottom: '15%', top: '15%', containLabel: true },
-                        xAxis: { type: 'category', data: expiries, axisLabel: { color: '#888', fontSize: 10 } },
+                        xAxis: { type: 'category', data: expiries, axisLabel: { color: '#ccc', fontSize: 12 } },
                         yAxis: [
-                            { type: 'value', name: 'Rollover %', axisLabel: { color: '#ff9800', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#333', type: 'dashed' } } },
-                            { type: 'value', name: 'Spread', position: 'right', axisLabel: { color: '#60a5fa' }, splitLine: { show: false } }
+                            { type: 'value', name: 'Rollover %', nameTextStyle: { color: '#ffcc80', fontSize: 12, padding: [0, 0, 0, 30] }, axisLabel: { color: '#ff9800', formatter: '{value}%', fontSize: 12 }, splitLine: { lineStyle: { color: '#444', type: 'dashed' } } },
+                            { type: 'value', name: 'Spread', nameTextStyle: { color: '#60a5fa', fontSize: 12 }, position: 'right', axisLabel: { color: '#60a5fa', fontSize: 12 }, splitLine: { show: false } }
                         ],
                         series: [
                             {
@@ -648,19 +652,23 @@ const RolloverTool = {
                                 type: 'line',
                                 yAxisIndex: 0,
                                 symbol: 'circle',
-                                symbolSize: 6,
-                                itemStyle: { color: '#ff9800' }, // Orange
-                                lineStyle: { width: 2 },
+                                symbolSize: 10,
+                                itemStyle: { color: '#ff9800', shadowBlur: 10, shadowColor: 'rgba(255, 152, 0, 0.5)' }, // Orange
+                                lineStyle: { width: 3, shadowBlur: 10, shadowColor: 'rgba(255, 152, 0, 0.5)' },
                                 data: values,
-                                label: { show: true, position: 'top', color: '#ccc', formatter: '{c}%', fontSize: 9 }
+                                label: { show: true, position: 'top', color: '#fff', formatter: '{c}%', fontSize: 11, fontWeight: 'bold' }
                             },
                             {
                                 name: 'Spread',
                                 type: 'bar',
                                 yAxisIndex: 1,
-                                itemStyle: { color: (params) => params.value >= 0 ? '#60a5fa' : '#ff4d4d' }, // Blue positive, Red negative
+                                itemStyle: {
+                                    color: (params) => params.value >= 0 ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: '#60a5fa'}, {offset: 1, color: '#3b82f6'}]) : new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: '#ff4d4d'}, {offset: 1, color: '#ef4444'}]),
+                                    borderRadius: [4, 4, 0, 0],
+                                    opacity: 0.8
+                                },
                                 data: spreads,
-                                label: { show: true, position: 'inside', color: '#fff', formatter: '{c}', fontSize: 9 }
+                                label: { show: true, position: 'inside', color: '#fff', formatter: '{c}', fontSize: 11, fontWeight: 'bold' }
                             }
                         ]
                     });
