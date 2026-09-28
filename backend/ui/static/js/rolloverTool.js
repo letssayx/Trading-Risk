@@ -113,6 +113,8 @@ const RolloverTool = {
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('symbol')">Symbol ↕</th>
                                         <th style="padding: 8px;">Date</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_pct')">Rollover % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('current_to_next_pct')" title="Current to Next (%)">Curr->Next % ↕</th>
+                                        <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('current_to_far_pct')" title="Current to Far (%)">Curr->Far % ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost')">Spread (Pts) ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('bps')">BPS ↕</th>
                                         <th style="padding: 8px; cursor: pointer;" onclick="RolloverTool.sortData('rollover_cost_pct')">Cost % ↕</th>
@@ -123,7 +125,7 @@ const RolloverTool = {
                                     </tr>
                                 </thead>
                                 <tbody id="rollover-analysis-body">
-                                    <tr><td colspan="11" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
+                                    <tr><td colspan="13" style="text-align:center; color:#888;">Loading Rollover Data...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -199,7 +201,7 @@ const RolloverTool = {
 
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">Fetching aggregated F&O Rollover data...</td></tr>';
 
         try {
             let days = '14';
@@ -245,7 +247,7 @@ const RolloverTool = {
             this.renderMatrix(this.allData, isMoM);
 
         } catch(e) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:red;">Error: ${e.message}</td></tr>`;
         }
     },
 
@@ -283,7 +285,7 @@ const RolloverTool = {
         tbody.innerHTML = '';
 
         if (displayData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#888;">No F&O stocks found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#888;">No F&O stocks found.</td></tr>';
         } else {
             let html = '';
             displayData.forEach(d => {
@@ -299,6 +301,8 @@ const RolloverTool = {
                     <td style="padding: 10px 8px;"><b>${d.symbol}</b></td>
                     <td style="padding: 10px 8px; color: #aaa;">${d.date || d.history?.[0]?.date || '-'} (Latest)</td>
                     <td style="padding: 10px 8px; color: ${rollColor}; font-weight: bold;">${(d.rollover_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px; color: #60a5fa;">${(d.current_to_next_pct||0).toFixed(2)}%</td>
+                    <td style="padding: 10px 8px; color: #9c27b0;">${(d.current_to_far_pct||0).toFixed(2)}%</td>
                     <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost||0).toFixed(2)}</td>
                     <td style="padding: 10px 8px; color: #ffffff;">${bps.toFixed(1)}</td>
                     <td style="padding: 10px 8px; color: ${costColor};">${(d.rollover_cost_pct||0).toFixed(2)}%</td>
@@ -322,6 +326,8 @@ const RolloverTool = {
                             <td style="padding: 6px 8px;"></td>
                             <td style="padding: 6px 8px; color: #888;">└ ${h.date}</td>
                             <td style="padding: 6px 8px; color: ${hRollColor};">${(h.rollover_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #60a5fa;">${(h.current_to_next_pct || 0).toFixed(2)}%</td>
+                            <td style="padding: 6px 8px; color: #9c27b0;">${(h.current_to_far_pct || 0).toFixed(2)}%</td>
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost || 0).toFixed(2)}</td>
                             <td style="padding: 6px 8px; color: #ffffff;">${hBps.toFixed(1)}</td>
                             <td style="padding: 6px 8px; color: ${hCostColor};">${(h.rollover_cost_pct || 0).toFixed(2)}%</td>
@@ -373,7 +379,7 @@ const RolloverTool = {
         if (window.rolloverDynamicChartInstance) {
             window.rolloverDynamicChartInstance.dispose();
         }
-        window.rolloverDynamicChartInstance = echarts.init(chartDom);
+        window.rolloverDynamicChartInstance = echarts.init(chartDom, null, { renderer: 'canvas', devicePixelRatio: 2 });
 
         try {
             if (selectedSector === 'ALL') {

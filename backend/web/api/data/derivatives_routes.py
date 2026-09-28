@@ -556,6 +556,8 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
                 c_price = curr_r.fut_close
                 c_total_oi = curr_r.total_oi
                 c_rollover_pct = curr_r.rollover_pct
+                c_current_to_next_pct = curr_r.current_to_next_pct
+                c_current_to_far_pct = curr_r.current_to_far_pct
                 c_spread = curr_r.rollover_cost
                 c_spread_pct = curr_r.rollover_cost_pct
 
@@ -568,6 +570,8 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
                     history_arr.append({
                         "date": str(dt),
                         "rollover_pct": round(c_rollover_pct, 2) if c_rollover_pct is not None else 0,
+                        "current_to_next_pct": round(c_current_to_next_pct, 2) if c_current_to_next_pct is not None else 0,
+                        "current_to_far_pct": round(c_current_to_far_pct, 2) if c_current_to_far_pct is not None else 0,
                         "rollover_cost": round(c_spread, 2) if c_spread is not None else 0,
                         "rollover_cost_pct": round(c_spread_pct, 2) if c_spread_pct is not None else 0,
                         "price": c_price if c_price is not None else 0,
@@ -580,6 +584,8 @@ def get_aggregated_rollover_analysis(days: int = 14, expiry_only: str = "false",
                 "symbol": sym,
                 "sector": sector_map.get(sym, "Unknown"),
                 "rollover_pct": round(rollover_pct, 2) if rollover_pct is not None else 0,
+                "current_to_next_pct": round(latest_r.current_to_next_pct, 2) if latest_r.current_to_next_pct is not None else 0,
+                "current_to_far_pct": round(latest_r.current_to_far_pct, 2) if latest_r.current_to_far_pct is not None else 0,
                 "rollover_cost": round(spread, 2) if spread is not None else 0,
                 "rollover_cost_pct": round(spread_pct, 2) if spread_pct is not None else 0,
                 "near_oi": latest_r.near_month_oi,
@@ -1651,6 +1657,8 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
 
             total_oi = near["oi"] + next_month["oi"] + far_oi
             rollover_pct = ((next_month["oi"] + far_oi) / total_oi * 100) if total_oi > 0 else 0
+            current_to_next_pct = (next_month["oi"] / total_oi * 100) if total_oi > 0 else 0
+            current_to_far_pct = (far_oi / total_oi * 100) if total_oi > 0 else 0
             rollover_cost = next_month["close"] - near["close"]
 
             interp = "Neutral"
@@ -1679,6 +1687,8 @@ def compute_rollover_analysis(db: Session = Depends(get_db), latest_metric_date:
                 "trade_date": d,
                 "symbol": sym,
                 "rollover_pct": rollover_pct,
+                "current_to_next_pct": current_to_next_pct,
+                "current_to_far_pct": current_to_far_pct,
                 "rollover_cost": rollover_cost,
                 "rollover_cost_pct": rollover_cost_pct,
                 "near_month_oi": int(near["oi"]),

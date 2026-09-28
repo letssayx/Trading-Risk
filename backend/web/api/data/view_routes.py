@@ -1374,3 +1374,27 @@ def get_tender():
         return data if isinstance(data, list) else data.get("data", [])
     except Exception:
         return []
+
+@router.get("/export/dividends_xlsx")
+def export_dividends_xlsx(
+    db: Session = Depends(get_db),
+    force_rebuild: bool = False,
+    is_fo: bool = False
+):
+    import pandas as pd
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    from backend.ingest.tasks import get_dividend_databank
+    df = get_dividend_databank(db, force_rebuild=force_rebuild)
+    if is_fo and not df.empty:
+        df = df[df['is_fo'] == True]
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+
+    headers = {
+        'Content-Disposition': 'attachment; filename="dividends_databank.xlsx"'
+    }
+    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
