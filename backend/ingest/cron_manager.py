@@ -114,7 +114,15 @@ async def start_cron_manager():
 
                 # Check interval-based execution
                 if config.interval_seconds:
+                    # Enforce quiet hours (8:00 PM to 8:00 AM) for 24x7 corporate data streams
+                    if job_name in ["Corporate Announcements", "Live Corporate Actions"]:
+                        current_hour = now.hour
+                        # If time is >= 20:00 (8 PM) or < 8:00 (8 AM), skip execution
+                        if current_hour >= 20 or current_hour < 8:
+                            continue
+
                     last_run = _last_run_times.get(job_name, datetime.min)
+
                     if (now - last_run).total_seconds() >= config.interval_seconds:
                         _last_run_times[job_name] = now
                         await asyncio.to_thread(update_last_run_db, job_name, now)

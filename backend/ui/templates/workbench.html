@@ -481,7 +481,7 @@
                         </div>
                     </div>
 
-                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                    <div class="table-wrapper" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto; max-height: calc(100vh - 250px);">
                         <table class="data-table" id="ca-main-table">
                             <thead>
                                 <tr>
@@ -526,7 +526,7 @@
                         </div>
                     </div>
 
-                    <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto;">
+                    <div class="table-container" style="flex: 1; border: 1px solid #333; border-radius: 4px; overflow-y: auto; max-height: calc(100vh - 250px);">
                         <table class="data-table" id="announcements-table">
                             <thead>
                                 <tr>
@@ -4890,6 +4890,8 @@ document.addEventListener('click', (e) => {
 
         let announcementsData = [];
         function filterAnnouncementsTable() {
+            const showFO = document.getElementById('ca-fo-filter')?.checked;
+
             const tbody = document.getElementById('announcements-tbody');
             if (!tbody) return;
             tbody.innerHTML = '';
@@ -5226,5 +5228,125 @@ async function updateCronJob(jobName, field, value) {
         document.head.appendChild(style);
 
     </script>
+
+<script>
+    // F&O Symbols logic
+    window.foStocks = [];
+    async function loadFOSymbols() {
+        try {
+            const res = await fetch('/api/v1/nse/symbol-master');
+            if (res.ok) {
+                const data = await res.json();
+                window.foStocks = data.map(d => d.symbol);
+            }
+        } catch (e) {
+            console.error("Failed to load F&O symbols:", e);
+        }
+    }
+    document.addEventListener("DOMContentLoaded", loadFOSymbols);
+</script>
+
+
+        <!-- F&O News Radio Widget -->
+        <div id="radio-widget" style="position:fixed; bottom:20px; right:20px; background:#18181b; border:1px solid #3f3f46; border-radius:8px; padding:15px; width:300px; display:flex; flex-direction:column; gap:10px; z-index:9999; box-shadow:0 10px 15px -3px rgba(0,0,0,0.5); display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:#60a5fa;"><i class="fas fa-broadcast-tower"></i> F&O News Radio</strong>
+                <button id="radio-toggle-btn" class="btn btn-sm" style="background:transparent; border:none; color:#10b981; font-size:1.2rem;" onclick="toggleRadio()">
+                    <i class="fas fa-play-circle"></i>
+                </button>
+            </div>
+            <div id="radio-status" style="font-size:0.8rem; color:#a1a1aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Radio stopped.</div>
+        </div>
+
+
+<script>
+    let radioIsPlaying = false;
+    let radioQueue = [];
+    let currentSpeech = null;
+    let radioTimer = null;
+
+    function toggleRadio() {
+        const btn = document.getElementById('radio-toggle-btn');
+        const status = document.getElementById('radio-status');
+
+        if (radioIsPlaying) {
+            radioIsPlaying = false;
+            btn.innerHTML = '<i class="fas fa-play-circle"></i>';
+            btn.style.color = '#10b981';
+            status.textContent = 'Radio stopped.';
+            if (currentSpeech) {
+                window.speechSynthesis.cancel();
+            }
+            if (radioTimer) clearTimeout(radioTimer);
+        } else {
+            radioIsPlaying = true;
+            btn.innerHTML = '<i class="fas fa-stop-circle"></i>';
+            btn.style.color = '#ef4444';
+            status.textContent = 'Radio started, waiting for news...';
+            pollRadioQueue();
+        }
+    }
+
+    async function pollRadioQueue() {
+        if (!radioIsPlaying) return;
+
+        if (window.speechSynthesis.speaking) {
+            radioTimer = setTimeout(pollRadioQueue, 2000);
+            return;
+        }
+
+        try {
+            // Find unread F&O announcements that have AI interpretation
+            const res = await fetch('/api/v1/cron/corporate-announcements');
+            if (res.ok) {
+                const data = await res.json();
+
+                // Filter F&O and has ai_interpretation
+                const validNews = data.filter(a =>
+                    window.foStocks.includes(a.symbol) &&
+                    a.ai_interpretation &&
+                    a.ai_interpretation.length > 5
+                );
+
+                // Sort oldest first or however you like to play them
+                // Here we just pick a random one or iterate
+                if (validNews.length > 0) {
+                     // For radio simulation, pick the first valid one we haven't read
+                     // In a real app we'd track IDs read.
+                     const newsToRead = validNews[Math.floor(Math.random() * validNews.length)];
+
+                     document.getElementById('radio-status').textContent = `Now Playing: ${newsToRead.symbol}`;
+
+                     const textToSpeak = `News for ${newsToRead.symbol} on ${newsToRead.broadcast_date}. ${newsToRead.ai_interpretation}`;
+
+                     currentSpeech = new SpeechSynthesisUtterance(textToSpeak);
+                     currentSpeech.rate = 0.9; // Slightly slower, more human-like news reader pace
+
+                     currentSpeech.onend = () => {
+                         if(radioIsPlaying) {
+                             document.getElementById('radio-status').textContent = 'Waiting for next news...';
+                             radioTimer = setTimeout(pollRadioQueue, 5000); // 5 sec break between news
+                         }
+                     };
+
+                     window.speechSynthesis.speak(currentSpeech);
+                     return;
+                }
+            }
+        } catch(e) {
+            console.error("Radio poll error", e);
+        }
+
+        radioTimer = setTimeout(pollRadioQueue, 10000);
+    }
+
+    function playSingleRadio(symbol, date, text) {
+        window.speechSynthesis.cancel(); // Stop anything playing
+        const textToSpeak = `News for ${symbol} on ${date}. ${text}`;
+        currentSpeech = new SpeechSynthesisUtterance(textToSpeak);
+        window.speechSynthesis.speak(currentSpeech);
+    }
+</script>
+
 </body>
 </html>

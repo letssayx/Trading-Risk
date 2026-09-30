@@ -33,14 +33,18 @@ function saveConfig() {
 
         // Also attempt to update the backend config if Admin Token is present
         const adminToken = localStorage.getItem('admin_token');
-        if (adminToken && google) {
+        if (adminToken) {
             fetch('/api/config', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Admin-Token': adminToken
                 },
-                body: JSON.stringify({ google_api_key: google })
+                body: JSON.stringify({
+                    google_api_key: google,
+                    groq_api_key: groq,
+                    openrouter_api_key: openrouter
+                })
             }).then(response => {
                 if (!response.ok) {
                     console.warn("Failed to sync config with backend:", response.status);
