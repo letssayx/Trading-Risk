@@ -79,7 +79,7 @@ window.loadFiiTrendChart = async function(overrideDays) {
 
         const pcrContainer = document.getElementById('fii-trend-chart-container');
 
-        if (!window.fiiTrendChartInstance) window.fiiTrendChartInstance = echarts.init(pcrContainer);
+        if (!window.fiiTrendChartInstance) window.fiiTrendChartInstance = echarts.init(pcrContainer, null, { renderer: 'canvas', devicePixelRatio: 2 });
         window.fiiTrendChartInstance.showLoading({ text: 'Loading...', color: '#60a5fa', maskColor: 'rgba(30, 30, 30, 0.8)' });
 
         const res = await fetch(`/api/data/derivatives/pcr_history?symbol=${symbol}&days=${days}&expiry_only=${expiryOnly}`);
