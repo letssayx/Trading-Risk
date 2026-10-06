@@ -12,19 +12,28 @@ from backend.ingest.nse_models import SecurityMaster, BhavcopyFO, BhavcopyEQ, Co
 router = APIRouter()
 
 @router.get("/api/special-sit/dividends")
-def get_special_sit_dividends(db: Session = Depends(get_db)):
+def get_special_sit_dividends(is_fo: bool = True, db: Session = Depends(get_db)):
     # 1. Fetch all F&O stocks from the latest FO bhavcopy to determine F&O universe
     latest_fo_date = db.query(func.max(BhavcopyFO.trade_date)).scalar()
 
-    if not latest_fo_date:
-        return []
-
-    fo_tickers = db.query(BhavcopyFO.ticker_symb).filter(
-        BhavcopyFO.trade_date == latest_fo_date,
-        BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
-    ).distinct().all()
+    fo_tickers = []
+    if latest_fo_date:
+        fo_tickers = db.query(BhavcopyFO.ticker_symb).filter(
+            BhavcopyFO.trade_date == latest_fo_date,
+            BhavcopyFO.instrument_type.in_(['STF', 'IDF', 'FUTIDX', 'FUTSTK'])
+        ).distinct().all()
 
     symbols = list(set([t[0].upper() for t in fo_tickers]))
+
+    if not is_fo:
+        # Fetch all symbols if not restricted to F&O
+        latest_eq_date = db.query(func.max(BhavcopyEQ.trade_date)).scalar()
+        if latest_eq_date:
+            eq_tickers = db.query(BhavcopyEQ.symbol).filter(
+                BhavcopyEQ.trade_date == latest_eq_date,
+                BhavcopyEQ.series == 'EQ'
+            ).distinct().all()
+            symbols = list(set([t[0].upper() for t in eq_tickers]))
 
     if not symbols:
         return []
