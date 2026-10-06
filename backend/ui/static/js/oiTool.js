@@ -468,10 +468,10 @@ const OiTool = {
         // Change sorting from total oi_chg_pct to fut_oi_chg_pct to match the displayed metric
         let sortedByOI = [...universe].sort((a,b) => (b.fut_oi_chg_pct || b.oi_chg_pct || 0) - (a.fut_oi_chg_pct || a.oi_chg_pct || 0));
 
-        const longBuildup = sortedByOI.filter(d => d.interpretation === 'Long Build Up');
-        const shortCovering = sortedByOI.filter(d => d.interpretation === 'Short Covering');
-        const shortBuildup = sortedByOI.slice().reverse().filter(d => d.interpretation === 'Short Build Up');
-        const longUnwinding = sortedByOI.slice().reverse().filter(d => d.interpretation === 'Long Unwinding');
+        const longBuildup = sortedByOI.filter(d => d.interpretation === 'Long Build Up').slice(0, 5);
+        const shortCovering = sortedByOI.filter(d => d.interpretation === 'Short Covering').slice(0, 5);
+        const shortBuildup = sortedByOI.slice().reverse().filter(d => d.interpretation === 'Short Build Up').slice(0, 5);
+        const longUnwinding = sortedByOI.slice().reverse().filter(d => d.interpretation === 'Long Unwinding').slice(0, 5);
 
         const domLB = document.getElementById('oi-top-long-buildup');
         const domSB = document.getElementById('oi-top-short-buildup');
