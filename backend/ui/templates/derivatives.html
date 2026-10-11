@@ -362,7 +362,7 @@
             <button class="nav-btn" id="btn-tab-rollover" onclick="switchClientTab('rollover')"><i class="fas fa-sync text-accent"></i> Rollover Analysis</button>
             <button class="nav-btn" id="btn-tab-mwpl" onclick="switchClientTab('mwpl')"><i class="fas fa-percentage text-accent"></i> MWPL Analysis</button>
             <button class="nav-btn" id="btn-tab-fii" onclick="switchClientTab('fii')"><i class="fas fa-globe text-accent"></i> Market Activity</button>
-            <button class="nav-btn" onclick="switchMainTab(\'corporate-data-tab\')" data-tab="corporate-data-tab"><i class="fas fa-building text-accent"></i> Corporate Data</button>
+            <button class="nav-btn" id="btn-tab-corporate-data" onclick="switchClientTab('corporate-data')"><i class="fas fa-building text-accent"></i> Corporate Data</button>
             <button class="nav-btn" id="btn-tab-arb-fund" onclick="switchClientTab('arb-fund')"><i class="fas fa-chart-line text-accent"></i> Arb Fund Marketwatch</button>
             <button class="nav-btn active" id="btn-tab-ai" onclick="switchClientTab('ai')"><i class="fas fa-robot text-accent"></i> AI Analyze</button>
         </div>
@@ -462,6 +462,9 @@
                         <div style="display: flex; gap: 10px;">
                             <button class="btn btn-secondary" onclick="exportSSDivXLS()"><i class="fas fa-file-excel"></i> Download XLS</button>
                             <button class="btn btn-secondary" onclick="exportSSDivPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = true; loadSSDividends();"><i class="fas fa-filter"></i> F&O Stocks</button>
+                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = false; loadSSDividends();"><i class="fas fa-list"></i> ALL Stocks</button>
+                            <input type="checkbox" id="ss-div-is-fo" style="display:none;" checked>
                             <button class="btn btn-primary" id="btn-load-ss-div" onclick="loadSSDividends(event)"><i class="fas fa-sync"></i> Refresh Data</button>
                         </div>
                     </div>
@@ -645,7 +648,7 @@
     </div>
 
 
-    <div class="client-tab-content" id="corporate-data-tab">
+    <div class="client-tab-content" id="tab-corporate-data">
         <h2 style="margin-top: 0; color: #fff; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 18px;">
             Corporate Data
         </h2>
@@ -876,7 +879,17 @@
             setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
 
             // Trigger respective initialization if not already loaded
-            if (tabId === 'dividend') {
+            if (tabId === 'corporate-data') {
+                if (typeof CorporateDataTool !== 'undefined') {
+                    const activeCorpTab = document.querySelector('[data-corp-tab].active');
+                    if (activeCorpTab) {
+                        switchCorpTab(activeCorpTab.getAttribute('data-corp-tab'));
+                    } else {
+                        switchCorpTab('announcements-tab');
+                    }
+                }
+            }
+            else if (tabId === 'dividend') {
                 const tbody = document.getElementById('ss-div-tbody');
                 if (!tbody || tbody.innerHTML.includes('Click \'Refresh Data\' to load')) {
                     if (typeof loadSSDividends === 'function') loadSSDividends();
@@ -1217,7 +1230,7 @@
     <script src="/static/js/specialSitTool.js"></script>
     <script src="/static/js/chartTabs.js"></script>
     <script src="/static/js/opt_analysis.js"></script>
-    <script src="/static/js/oiTool.js"></script>
+    <script src="/static/js/oiTool.js?v=2"></script>
     <script src="/static/js/rolloverTool.js"></script>
     <script src="/static/js/workbookManager.js"></script>
     <script>

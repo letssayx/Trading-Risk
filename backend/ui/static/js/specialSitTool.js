@@ -749,7 +749,8 @@ async function loadSSDividends(event = null) {
     if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
 
     try {
-        const res = await fetch('/api/special-sit/dividends');
+        const isFoChecked = document.getElementById('ss-div-is-fo') ? document.getElementById('ss-div-is-fo').checked : true;
+        const res = await fetch(`/api/special-sit/dividends?is_fo=${isFoChecked}`);
         if (!res.ok) throw new Error("Failed to fetch special sit dividends");
         const payload = await res.json();
 

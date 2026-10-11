@@ -623,7 +623,10 @@
                                 </div>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = true; loadSSDividends();"><i class="fas fa-filter"></i> F&O Stocks</button>
+                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = false; loadSSDividends();"><i class="fas fa-list"></i> ALL Stocks</button>
+                            <input type="checkbox" id="ss-div-is-fo" style="display:none;" checked>
                             <button class="btn btn-secondary" onclick="exportSSDivXLS()"><i class="fas fa-file-excel"></i> Download XLS</button>
                             <button class="btn btn-secondary" onclick="exportSSDivPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
                             <button class="btn btn-primary" onclick="loadSSDividends()"><i class="fas fa-sync"></i> Refresh Data</button>
@@ -1296,10 +1299,11 @@
                         </div>
                     </div>
 
-                    <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px; cursor: pointer;" title="Uses Stock Master to only load F&O stocks">
-                        <input type="checkbox" id="div-fo-only-filter" onchange="loadDividendsData()" style="cursor: pointer;">
-                        F&O Stocks Only
-                    </label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-left: auto;">
+                        <button class="btn btn-secondary" onclick="document.getElementById('div-fo-only-filter').checked = true; loadDividendsData();"><i class="fas fa-filter"></i> F&O Stocks</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('div-fo-only-filter').checked = false; loadDividendsData();"><i class="fas fa-list"></i> ALL Stocks</button>
+                        <input type="checkbox" id="div-fo-only-filter" style="display:none;" checked>
+                    </div>
 
                     <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
                         Start:
@@ -3534,13 +3538,13 @@
     <script src="/static/js/opt_analysis.js"></script>
     <script src="/static/js/turtleTab.js"></script>
     <script src="/static/js/statarbTab.js"></script>
-    <script src="/static/js/oiTool.js"></script>
+    <script src="/static/js/oiTool.js?v=2"></script>
     <script src="/static/js/rolloverTool.js"></script>
     <script src="/static/js/workbookManager.js"></script>
     <script src="/static/js/toolbox.js"></script>
     <script src="/static/js/edge.js"></script>
     <script src="/static/js/uploadModal.js?v=4"></script>
-    <script src="/static/js/exportUtils.js"></script>
+    <script src="/static/js/exportUtils.js?v=2"></script>
     <script src="/static/js/config.js"></script>
     <script src="/static/js/script_workbench2.js"></script>
     <script src="/static/js/putCallParity.js"></script>

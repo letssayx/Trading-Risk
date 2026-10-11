@@ -4,10 +4,8 @@ function exportTableToExcel(tableId, filename) {
 
     if (typeof XLSX === 'undefined') {
         console.warn("XLSX library not loaded. Falling back to CSV.");
-        return exportTableToCSV(tableId, filename) {
-        console.error("Deprecated");
-    },
-    exportTableToXLSX(tableId, filename);
+        console.warn("Falling back to exportTableToCSV");
+        return exportTableToCSV(tableId, filename);
     }
 
     try {
@@ -15,17 +13,12 @@ function exportTableToExcel(tableId, filename) {
         XLSX.writeFile(wb, filename + '.xlsx');
     } catch (e) {
         console.error("Error exporting to Excel:", e);
-        exportTableToCSV(tableId, filename) {
-        console.error("Deprecated");
-    },
-    exportTableToXLSX(tableId, filename); // Fallback
+        console.warn("Falling back to exportTableToCSV");
+        return exportTableToCSV(tableId, filename);
     }
 }
 
 function exportTableToCSV(tableId, filename) {
-        console.error("Deprecated");
-    },
-    exportTableToXLSX(tableId, filename) {
     const table = document.getElementById(tableId);
     if (!table) return;
 

@@ -84,13 +84,21 @@ const OiTool = {
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
                     <!-- Top Derived Info Panels -->
                     <div id="oi-derived-panels" style="display: flex; gap: 20px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
-                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top OI Additions</h4>
-                            <div id="oi-top-add-chart" style="height: 180px;"></div>
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Long Buildup</h4>
+                            <div id="oi-top-long-buildup" style="height: 180px; overflow-y: auto;"></div>
                         </div>
-                        <div style="flex: 1; min-width: 300px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
-                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Top OI Reductions</h4>
-                            <div id="oi-top-red-chart" style="height: 180px;"></div>
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Short Buildup</h4>
+                            <div id="oi-top-short-buildup" style="height: 180px; overflow-y: auto;"></div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Short Covering</h4>
+                            <div id="oi-top-short-covering" style="height: 180px; overflow-y: auto;"></div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #333; border-radius: 4px; background: #1e1e1e; padding: 10px;">
+                            <h4 style="margin: 0 0 10px 0; color: #ccc; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 5px;">Long Unwinding</h4>
+                            <div id="oi-top-long-unwinding" style="height: 180px; overflow-y: auto;"></div>
                         </div>
                     </div>
 
@@ -459,13 +467,18 @@ const OiTool = {
     renderDerivedPanels: function(universe) {
         // Change sorting from total oi_chg_pct to fut_oi_chg_pct to match the displayed metric
         let sortedByOI = [...universe].sort((a,b) => (b.fut_oi_chg_pct || b.oi_chg_pct || 0) - (a.fut_oi_chg_pct || a.oi_chg_pct || 0));
-        const top5Add = sortedByOI.slice(0, 5);
-        const top5Red = sortedByOI.slice().reverse().slice(0, 5);
 
-        const addDom = document.getElementById('oi-top-add-chart');
-        const redDom = document.getElementById('oi-top-red-chart');
+        const longBuildup = sortedByOI.filter(d => d.interpretation === 'Long Build Up').slice(0, 5);
+        const shortCovering = sortedByOI.filter(d => d.interpretation === 'Short Covering').slice(0, 5);
+        const shortBuildup = sortedByOI.slice().reverse().filter(d => d.interpretation === 'Short Build Up').slice(0, 5);
+        const longUnwinding = sortedByOI.slice().reverse().filter(d => d.interpretation === 'Long Unwinding').slice(0, 5);
 
-        if (!addDom || !redDom) return;
+        const domLB = document.getElementById('oi-top-long-buildup');
+        const domSB = document.getElementById('oi-top-short-buildup');
+        const domSC = document.getElementById('oi-top-short-covering');
+        const domLU = document.getElementById('oi-top-long-unwinding');
+
+        if (!domLB || !domSB || !domSC || !domLU) return;
 
         const buildTableHTML = (dataSubset) => {
             let html = `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;">
@@ -497,12 +510,10 @@ const OiTool = {
             return html;
         };
 
-        // Dispose previous charts to prevent memory leaks if they existed
-        if (window.oiAddChart) { window.oiAddChart.dispose(); window.oiAddChart = null; }
-        if (window.oiRedChart) { window.oiRedChart.dispose(); window.oiRedChart = null; }
-
-        addDom.innerHTML = buildTableHTML(top5Add);
-        redDom.innerHTML = buildTableHTML(top5Red);
+        domLB.innerHTML = buildTableHTML(longBuildup);
+        domSB.innerHTML = buildTableHTML(shortBuildup);
+        domSC.innerHTML = buildTableHTML(shortCovering);
+        domLU.innerHTML = buildTableHTML(longUnwinding);
     },
 
     renderAggregatedChart: function(data) {
