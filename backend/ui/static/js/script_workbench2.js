@@ -2718,3 +2718,205 @@ switchMainTab = function(tabId) {
     }
 }
 window.switchMainTab = switchMainTab;
+
+// ==========================================
+// Covered Call Strategy Logic
+// ==========================================
+
+let ccDailyData = [];
+let ccMtmChart = null;
+let ccConeChart = null;
+
+function initCoveredCallDates() {
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+    if(document.getElementById('cc-end-date')) {
+        document.getElementById('cc-end-date').value = today.toISOString().split('T')[0];
+        document.getElementById('cc-start-date').value = oneYearAgo.toISOString().split('T')[0];
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initCoveredCallDates();
+
+    const useCollarChk = document.getElementById('cc-use-collar');
+    if(useCollarChk) {
+        useCollarChk.addEventListener('change', (e) => {
+            const container = document.getElementById('cc-put-pct-container');
+            if(e.target.checked) {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+            } else {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+            }
+        });
+        // trigger initial
+        useCollarChk.dispatchEvent(new Event('change'));
+    }
+});
+
+async function runCoveredCallBacktest() {
+    const btn = document.getElementById('cc-run-btn');
+    const errorMsg = document.getElementById('cc-error-msg');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+    errorMsg.style.display = 'none';
+
+    const symbol = document.getElementById('cc-symbol').value;
+    const startDate = document.getElementById('cc-start-date').value;
+    const endDate = document.getElementById('cc-end-date').value;
+    const callPct = document.getElementById('cc-call-pct').value;
+    const useCollar = document.getElementById('cc-use-collar').checked;
+    const putPct = document.getElementById('cc-put-pct').value;
+
+    try {
+        const response = await fetch(`/api/data/derivatives/covered_call_backtest?symbol=${symbol}&start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}`);
+        const data = await response.json();
+
+        if (data.status === 'error') {
+            errorMsg.innerText = data.message;
+            errorMsg.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = 'Run Backtest';
+            return;
+        }
+
+        ccDailyData = data.daily_mtm || [];
+        if(ccDailyData.length > 0) {
+            document.getElementById('cc-export-btn').style.display = 'inline-block';
+        }
+
+        // 1. Render Summary Table
+        renderCCSummary(data.cycles);
+
+        // 2. Render MTM Chart
+        renderCCMtmChart(data.daily_mtm);
+
+        // 3. Fetch and Render Cone Chart (predictive)
+        await fetchAndRenderCCCone(symbol);
+
+    } catch(err) {
+        console.error(err);
+        errorMsg.innerText = "Network error occurred.";
+        errorMsg.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Run Backtest';
+    }
+}
+
+function renderCCSummary(cycles) {
+    const tbody = document.getElementById('cc-summary-body');
+    tbody.innerHTML = '';
+
+    if(!cycles || cycles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #666;">No cycles found</td></tr>';
+        return;
+    }
+
+    cycles.forEach(c => {
+        const pnlColor = c.final_pnl >= 0 ? '#4caf50' : '#ff5252';
+        tbody.innerHTML += `
+            <tr>
+                <td>${c.expiry}</td>
+                <td>${c.entry_spot.toFixed(2)}</td>
+                <td>${c.call_strike}</td>
+                <td>${c.call_premium.toFixed(2)}</td>
+                <td>${c.implied_move_vol_pct.toFixed(2)}%</td>
+                <td>${c.implied_move_emp_pct.toFixed(2)}%</td>
+                <td style="color: #4caf50;">${c.max_profit.toFixed(2)}</td>
+                <td style="color: #ff5252;">${c.max_loss.toFixed(2)}</td>
+                <td style="color: ${pnlColor}; font-weight: bold;">${c.final_pnl.toFixed(2)}</td>
+                <td style="color: ${pnlColor};">${c.final_pnl_pct.toFixed(2)}%</td>
+            </tr>
+        `;
+    });
+}
+
+function renderCCMtmChart(dailyMtm) {
+    if(!ccMtmChart) {
+        ccMtmChart = echarts.init(document.getElementById('cc-mtm-chart'), 'dark', {renderer: 'canvas'});
+    }
+
+    const dates = dailyMtm.map(d => d.date);
+    const pnlPct = dailyMtm.map(d => d.total_pnl_pct.toFixed(2));
+
+    const option = {
+        backgroundColor: 'transparent',
+        title: { text: 'Cumulative Daily PnL % (MTM)', left: 'center', textStyle: {fontSize: 14, color: '#ccc'} },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: dates, splitLine: {show: false} },
+        yAxis: { type: 'value', splitLine: {lineStyle: {color: '#444'}} },
+        grid: { left: '10%', right: '5%', bottom: '15%', top: '15%' },
+        series: [
+            {
+                name: 'PnL %',
+                type: 'line',
+                data: pnlPct,
+                itemStyle: { color: '#2196F3' },
+                areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: 'rgba(33,150,243,0.5)'}, {offset: 1, color: 'rgba(33,150,243,0.1)'}]) }
+            }
+        ]
+    };
+
+    ccMtmChart.setOption(option, true);
+}
+
+async function fetchAndRenderCCCone(symbol) {
+    try {
+        const res = await fetch(`/api/data/derivatives/binomial_paths?symbol=${symbol}`);
+        const data = await res.json();
+        if(data.status === 'success') {
+            renderCCConeChart(data);
+        }
+    } catch(err) {
+        console.error("Failed to load cone data", err);
+    }
+}
+
+function renderCCConeChart(data) {
+    if(!ccConeChart) {
+        ccConeChart = echarts.init(document.getElementById('cc-cone-chart'), 'dark', {renderer: 'canvas'});
+    }
+
+    const paths = data.paths;
+    const dates = paths.map(p => p.date);
+    const spot = paths.map(p => p.spot_ref);
+    const sd1up = paths.map(p => p.sd_1_up);
+    const sd1down = paths.map(p => p.sd_1_down);
+    const sd2up = paths.map(p => p.sd_2_up);
+    const sd2down = paths.map(p => p.sd_2_down);
+
+    const option = {
+        backgroundColor: 'transparent',
+        title: { text: 'Predictive Path (Cone) to Expiry', left: 'center', textStyle: {fontSize: 14, color: '#ccc'} },
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Spot', '+1 SD', '-1 SD', '+2 SD', '-2 SD'], bottom: 0, textStyle: {color: '#ccc', fontSize: 10} },
+        xAxis: { type: 'category', data: dates, splitLine: {show: false} },
+        yAxis: { type: 'value', splitLine: {lineStyle: {color: '#444'}, scale: true} },
+        grid: { left: '10%', right: '5%', bottom: '20%', top: '15%' },
+        series: [
+            { name: 'Spot', type: 'line', data: spot, itemStyle: {color: '#fff'} },
+            { name: '+1 SD', type: 'line', data: sd1up, itemStyle: {color: '#ff9800'}, lineStyle: {type: 'dashed'} },
+            { name: '-1 SD', type: 'line', data: sd1down, itemStyle: {color: '#ff9800'}, lineStyle: {type: 'dashed'} },
+            { name: '+2 SD', type: 'line', data: sd2up, itemStyle: {color: '#f44336'}, lineStyle: {type: 'dotted'} },
+            { name: '-2 SD', type: 'line', data: sd2down, itemStyle: {color: '#f44336'}, lineStyle: {type: 'dotted'} }
+        ]
+    };
+
+    ccConeChart.setOption(option, true);
+}
+
+function exportCoveredCallData() {
+    if(!ccDailyData || ccDailyData.length === 0) {
+        alert("No data to export");
+        return;
+    }
+    const ws = XLSX.utils.json_to_sheet(ccDailyData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "CoveredCall_MTM");
+    XLSX.writeFile(wb, `CoveredCall_Backtest_${new Date().getTime()}.xlsx`);
+}
