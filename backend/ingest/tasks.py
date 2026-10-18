@@ -1492,7 +1492,7 @@ def process_live_corporate_actions_task(self):
         for action in actions:
             # We must create a unique hash because NSE API does not provide a reliable seq_id for actions
             symbol = action.get('symbol', 'UNKNOWN')
-            purpose = action.get('purpose', '')
+            purpose = action.get('subject', action.get('purpose', ''))
             ex_date = action.get('exDate', '')
 
             if not purpose:

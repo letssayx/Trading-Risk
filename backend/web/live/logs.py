@@ -100,7 +100,7 @@ async def log_flusher():
             LOG_BUFFER.clear()
             # Send to Celery
             try:
-                persist_log_batch.delay(batch)
+                await asyncio.to_thread(persist_log_batch.delay, batch)
             except Exception as e:
                 print(f"Log flush failed: {e}")
 

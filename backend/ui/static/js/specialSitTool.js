@@ -381,7 +381,7 @@ window.loadSSDividends = loadSSDividends;
 window.filterSSDividends = filterSSDividends;
 window.toggleSSDivHistory = toggleSSDivHistory;
 window.clearSSDivSearch = clearSSDivSearch;
-window.exportSSDivCSV = exportSSDivCSV;
+window.exportSSDivXLS = exportSSDivXLS;
 window.exportSSDivPDF = exportSSDivPDF;
 
 function calculateOFS(fromPct = false) {
