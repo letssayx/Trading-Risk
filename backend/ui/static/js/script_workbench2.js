@@ -2753,60 +2753,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 container.style.pointerEvents = 'none';
             }
         });
-        // trigger initial
         useCollarChk.dispatchEvent(new Event('change'));
+    }
+
+    // Trigger All F&O toggle logic initially
+    if(document.getElementById('cc-all-fo-chk')){
+        toggleCCAllFO();
     }
 });
 
-async function runCoveredCallBacktest() {
-    const btn = document.getElementById('cc-run-btn');
-    const errorMsg = document.getElementById('cc-error-msg');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
-    errorMsg.style.display = 'none';
-
-    const symbol = document.getElementById('cc-symbol').value;
-    const startDate = document.getElementById('cc-start-date').value;
-    const endDate = document.getElementById('cc-end-date').value;
-    const callPct = document.getElementById('cc-call-pct').value;
-    const useCollar = document.getElementById('cc-use-collar').checked;
-    const putPct = document.getElementById('cc-put-pct').value;
-
-    try {
-        const response = await fetch(`/api/data/derivatives/covered_call_backtest?symbol=${symbol}&start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}`);
-        const data = await response.json();
-
-        if (data.status === 'error') {
-            errorMsg.innerText = data.message;
-            errorMsg.style.display = 'block';
-            btn.disabled = false;
-            btn.innerHTML = 'Run Backtest';
-            return;
-        }
-
-        ccDailyData = data.daily_mtm || [];
-        if(ccDailyData.length > 0) {
-            document.getElementById('cc-export-btn').style.display = 'inline-block';
-        }
-
-        // 1. Render Summary Table
-        renderCCSummary(data.cycles);
-
-        // 2. Render MTM Chart
-        renderCCMtmChart(data.daily_mtm);
-
-        // 3. Fetch and Render Cone Chart (predictive)
-        await fetchAndRenderCCCone(symbol);
-
-    } catch(err) {
-        console.error(err);
-        errorMsg.innerText = "Network error occurred.";
-        errorMsg.style.display = 'block';
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Run Backtest';
-    }
-}
 
 function renderCCSummary(cycles) {
     const tbody = document.getElementById('cc-summary-body');
@@ -2926,24 +2881,91 @@ function exportCoveredCallData() {
 }
 
 
-async function updateConeChart() {
-    const symbol = document.getElementById('cc-symbol').value;
-    const customIv = document.getElementById('cc-custom-iv').value;
-    if(!symbol) return;
 
-    const btn = event.currentTarget;
-    const oldText = btn.innerHTML;
-    btn.innerHTML = '...';
-    btn.disabled = true;
 
-    await fetchAndRenderCCCone(symbol, customIv);
 
-    btn.innerHTML = oldText;
-    btn.disabled = false;
+function toggleCCAllFO() {
+    const chk = document.getElementById('cc-all-fo-chk');
+    if(!chk) return;
+    const isChecked = chk.checked;
+    const symbolInput = document.getElementById('cc-symbol');
+    const actionBtn = document.getElementById('cc-action-btn');
+    const exportSingleBtn = document.getElementById('cc-export-single-btn');
+
+    if(isChecked) {
+        symbolInput.disabled = true;
+        symbolInput.style.opacity = '0.5';
+        actionBtn.innerHTML = '<i class="fas fa-download"></i> Download All F&O Report';
+        actionBtn.style.backgroundColor = '#4CAF50';
+        actionBtn.style.borderColor = '#4CAF50';
+        if(exportSingleBtn) exportSingleBtn.style.display = 'none';
+    } else {
+        symbolInput.disabled = false;
+        symbolInput.style.opacity = '1';
+        actionBtn.innerHTML = '<i class="fas fa-play"></i> Run Backtest';
+        actionBtn.style.backgroundColor = '';
+        actionBtn.style.borderColor = '';
+    }
 }
 
-async function exportAllFOCoveredCall() {
-    const btn = document.getElementById('cc-all-fo-btn');
+async function executeCCAction() {
+    const isChecked = document.getElementById('cc-all-fo-chk').checked;
+    if(isChecked) {
+        await executeCCBulkDownload();
+    } else {
+        await executeCCSingleBacktest();
+    }
+}
+
+async function executeCCSingleBacktest() {
+    const btn = document.getElementById('cc-action-btn');
+    const errorMsg = document.getElementById('cc-error-msg');
+    const exportBtn = document.getElementById('cc-export-single-btn');
+
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+    errorMsg.style.display = 'none';
+    exportBtn.style.display = 'none';
+
+    const symbol = document.getElementById('cc-symbol').value;
+    const startDate = document.getElementById('cc-start-date').value;
+    const endDate = document.getElementById('cc-end-date').value;
+    const callPct = document.getElementById('cc-call-pct').value;
+    const useCollar = document.getElementById('cc-use-collar').checked;
+    const putPct = document.getElementById('cc-put-pct').value;
+
+    try {
+        const response = await fetch(`/api/data/derivatives/covered_call_backtest?symbol=${symbol}&start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}`);
+        const data = await response.json();
+
+        if (data.status === 'error') {
+            errorMsg.innerText = data.message;
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        ccDailyData = data.daily_mtm || [];
+        if(ccDailyData.length > 0) {
+            exportBtn.style.display = 'inline-block';
+        }
+
+        renderCCSummary(data.cycles);
+        renderCCMtmChart(data.daily_mtm);
+        await fetchAndRenderCCCone(symbol);
+
+    } catch(err) {
+        console.error(err);
+        errorMsg.innerText = "Network error occurred.";
+        errorMsg.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+    }
+}
+
+async function executeCCBulkDownload() {
+    const btn = document.getElementById('cc-action-btn');
     const oldText = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Massive Report...';
     btn.disabled = true;
@@ -2961,8 +2983,6 @@ async function exportAllFOCoveredCall() {
         if(!response.ok) throw new Error("Failed to generate report");
 
         const blob = await response.blob();
-
-        // If it returned JSON error instead of blob Excel
         if(blob.type === 'application/json') {
             const text = await blob.text();
             const errData = JSON.parse(text);
@@ -2987,4 +3007,23 @@ async function exportAllFOCoveredCall() {
         btn.innerHTML = oldText;
         btn.disabled = false;
     }
+}
+
+async function runConeSimulation() {
+    const symbol = document.getElementById('cc-symbol').value;
+    const customIv = document.getElementById('cc-custom-iv').value;
+    if(!symbol) {
+        alert("Please enter a symbol first");
+        return;
+    }
+
+    const btn = document.getElementById('cc-sim-btn');
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    await fetchAndRenderCCCone(symbol, customIv);
+
+    btn.innerHTML = oldHtml;
+    btn.disabled = false;
 }
