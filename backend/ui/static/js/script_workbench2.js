@@ -3129,3 +3129,13 @@ function failCCProgressBar() {
         bar.style.width = '0%';
     }, 1500);
 }
+
+// Expose Covered Call Functions to Global Window (for inline onclick handlers)
+window.executeCCAction = executeCCAction;
+window.runConeSimulation = runConeSimulation;
+window.toggleCCAllFO = toggleCCAllFO;
+window.executeCCBulkDownload = executeCCBulkDownload;
+window.executeCCSingleBacktest = executeCCSingleBacktest;
+window.exportCoveredCallData = exportCoveredCallData;
+window.exportConeData = exportConeData;
+window.updateConeChart = updateConeChart;

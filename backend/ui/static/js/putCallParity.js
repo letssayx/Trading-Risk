@@ -222,3 +222,7 @@ function exportPutCallParity() {
         alert("Export function not available.");
     }
 }
+
+// Global Window bindings
+window.loadPutCallParity = loadPutCallParity;
+window.exportPutCallParity = exportPutCallParity;
