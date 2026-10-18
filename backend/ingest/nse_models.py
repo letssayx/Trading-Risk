@@ -529,7 +529,9 @@ class DailyDerivativesAnalysis(Base, TimescaleMixin):
     z_score = Column(Float)                # 20-Day Z-Score
 
     # Limits & Carry
-    rollover_pct = Column(Float)           # (Next OI + Far OI) / Total OI
+    rollover_pct = Column(Float)
+    current_to_next_pct = Column(Float)
+    current_to_far_pct = Column(Float)           # (Next OI + Far OI) / Total OI
     mwpl_array = Column(JSONB)             # Array of top clients [{"client_1": 45.2}, ...]
     basis_1_bps = Column(Float)            # (Near Fut - Cash) / Cash * 10000
     basis_2_bps = Column(Float)            # (Next Fut - Cash) / Cash * 10000
@@ -697,6 +699,8 @@ class RolloverAnalysisMetrics(Base, TimescaleMixin):
     symbol = Column(String(50), nullable=False, index=True)
 
     rollover_pct = Column(Float)
+    current_to_next_pct = Column(Float)
+    current_to_far_pct = Column(Float)
     rollover_cost = Column(Float)
     rollover_cost_pct = Column(Float)
     near_month_oi = Column(BigInteger)

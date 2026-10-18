@@ -21,17 +21,21 @@ async function loadFiiAnalysis(event = null) {
             data: {
                 labels: cashData.dates,
                 datasets: [
-                    { label: 'FII Net', data: cashData.fii_net, backgroundColor: '#3176B8' },
-                    { label: 'DII Net', data: cashData.dii_net, backgroundColor: '#ff9800' }
+                    { label: 'FII Net', data: cashData.fii_net, backgroundColor: 'rgba(49, 118, 184, 0.8)', borderColor: '#3176B8', borderWidth: 1, borderRadius: 2 },
+                    { label: 'DII Net', data: cashData.dii_net, backgroundColor: 'rgba(255, 152, 0, 0.8)', borderColor: '#ff9800', borderWidth: 1, borderRadius: 2 }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: '#ccc' } } },
+                devicePixelRatio: 2,
+                plugins: {
+                    legend: { labels: { color: '#ccc', font: { size: 12, weight: 'bold' } } },
+                    title: { display: true, text: 'Cash Market Net Flows (in Cr)', color: '#f0f0f0', font: { size: 16 } }
+                },
                 scales: {
-                    x: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } },
-                    y: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } }
+                    x: { stacked: true, ticks: { color: '#aaa', font: { size: 11 } }, grid: { color: '#333' } },
+                    y: { stacked: true, ticks: { color: '#aaa', font: { size: 11 } }, grid: { color: '#444', drawBorder: false, borderDash: [5, 5] } }
                 },
                 interaction: {
                     mode: 'index',
