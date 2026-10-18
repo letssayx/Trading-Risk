@@ -2928,6 +2928,8 @@ async function executeCCSingleBacktest() {
     errorMsg.style.display = 'none';
     exportBtn.style.display = 'none';
 
+    startCCProgressBar(2000); // Expect ~2 seconds for single stock
+
     const symbol = document.getElementById('cc-symbol').value;
     const startDate = document.getElementById('cc-start-date').value;
     const endDate = document.getElementById('cc-end-date').value;
@@ -2942,6 +2944,7 @@ async function executeCCSingleBacktest() {
         if (data.status === 'error') {
             errorMsg.innerText = data.message;
             errorMsg.style.display = 'block';
+            failCCProgressBar();
             return;
         }
 
@@ -2953,11 +2956,13 @@ async function executeCCSingleBacktest() {
         renderCCSummary(data.cycles);
         renderCCMtmChart(data.daily_mtm);
         await fetchAndRenderCCCone(symbol);
+        completeCCProgressBar();
 
     } catch(err) {
         console.error(err);
         errorMsg.innerText = "Network error occurred.";
         errorMsg.style.display = 'block';
+        failCCProgressBar();
     } finally {
         btn.disabled = false;
         btn.innerHTML = oldHtml;
@@ -2969,6 +2974,8 @@ async function executeCCBulkDownload() {
     const oldText = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Massive Report...';
     btn.disabled = true;
+
+    startCCProgressBar(20000); // Expect ~20 seconds for massive F&O bulk computation
 
     const startDate = document.getElementById('cc-start-date').value;
     const endDate = document.getElementById('cc-end-date').value;
@@ -2987,6 +2994,7 @@ async function executeCCBulkDownload() {
             const text = await blob.text();
             const errData = JSON.parse(text);
             alert("Error: " + errData.message);
+            failCCProgressBar();
             return;
         }
 
@@ -2999,10 +3007,12 @@ async function executeCCBulkDownload() {
         a.click();
         window.URL.revokeObjectURL(downloadUrl);
         a.remove();
+        completeCCProgressBar();
 
     } catch(err) {
         console.error(err);
         alert("Failed to download All F&O report. It might have timed out.");
+        failCCProgressBar();
     } finally {
         btn.innerHTML = oldText;
         btn.disabled = false;
@@ -3026,4 +3036,61 @@ async function runConeSimulation() {
 
     btn.innerHTML = oldHtml;
     btn.disabled = false;
+}
+
+
+let ccProgressInterval = null;
+
+function startCCProgressBar(expectedDurationMs) {
+    const container = document.getElementById('cc-progress-container');
+    const bar = document.getElementById('cc-progress-bar');
+    if(!container || !bar) return;
+
+    // Reset state
+    clearInterval(ccProgressInterval);
+    container.style.display = 'block';
+    bar.style.width = '0%';
+    bar.style.backgroundColor = '#2196F3'; // Blue
+
+    let currentPct = 0;
+    const intervalMs = 100;
+    // We want to reach ~95% over the expected duration
+    const increment = (95.0 / (expectedDurationMs / intervalMs));
+
+    ccProgressInterval = setInterval(() => {
+        if(currentPct < 95) {
+            currentPct += increment;
+            if(currentPct > 95) currentPct = 95;
+            bar.style.width = currentPct + '%';
+        }
+    }, intervalMs);
+}
+
+function completeCCProgressBar() {
+    const container = document.getElementById('cc-progress-container');
+    const bar = document.getElementById('cc-progress-bar');
+    if(!container || !bar) return;
+
+    clearInterval(ccProgressInterval);
+    bar.style.width = '100%';
+    bar.style.backgroundColor = '#4CAF50'; // Green
+
+    setTimeout(() => {
+        container.style.display = 'none';
+        bar.style.width = '0%';
+    }, 800);
+}
+
+function failCCProgressBar() {
+    const container = document.getElementById('cc-progress-container');
+    const bar = document.getElementById('cc-progress-bar');
+    if(!container || !bar) return;
+
+    clearInterval(ccProgressInterval);
+    bar.style.backgroundColor = '#f44336'; // Red
+
+    setTimeout(() => {
+        container.style.display = 'none';
+        bar.style.width = '0%';
+    }, 1500);
 }
