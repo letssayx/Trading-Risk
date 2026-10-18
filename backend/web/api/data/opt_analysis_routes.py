@@ -381,7 +381,7 @@ def get_covered_call_backtest(
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 @router.get("/api/data/derivatives/binomial_paths")
-def get_binomial_paths(symbol: str, expiry_date: str = None, lookback_days: int = 500, db: Session = Depends(get_db)):
+def get_binomial_paths(symbol: str, expiry_date: str = None, custom_iv: float = None, lookback_days: int = 500, db: Session = Depends(get_db)):
     """
     Generates probability paths (1 SD, 2 SD) from the current spot price to expiry based on current IV.
     Used for overlaying a predictive 'cone' on the UI chart.
@@ -420,11 +420,13 @@ def get_binomial_paths(symbol: str, expiry_date: str = None, lookback_days: int 
         if days_to_expiry < 0:
             return {"status": "error", "message": "Expiry date is in the past."}
 
-        # Get ATM IV
-        iv_query = text("SELECT atm_iv FROM historical_atm_iv WHERE symbol = :symbol AND trade_date <= :dt ORDER BY trade_date DESC LIMIT 1")
-        iv_res = db.execute(iv_query, {"symbol": symbol, "dt": current_date}).first()
-
-        atm_iv = float(iv_res[0]) / 100.0 if iv_res and iv_res[0] else 0.20 # default 20%
+        # Get ATM IV or use Custom IV
+        if custom_iv is not None and custom_iv > 0:
+            atm_iv = custom_iv / 100.0
+        else:
+            iv_query = text("SELECT atm_iv FROM historical_atm_iv WHERE symbol = :symbol AND trade_date <= :dt ORDER BY trade_date DESC LIMIT 1")
+            iv_res = db.execute(iv_query, {"symbol": symbol, "dt": current_date}).first()
+            atm_iv = float(iv_res[0]) / 100.0 if iv_res and iv_res[0] else 0.20 # default 20%
 
         # Generate paths
         # We'll generate daily SD lines up to expiry
@@ -458,3 +460,231 @@ def get_binomial_paths(symbol: str, expiry_date: str = None, lookback_days: int 
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+@router.get("/api/data/derivatives/covered_call_all_fo_export")
+def get_covered_call_all_fo_export(
+    start_date: str,
+    end_date: str,
+    call_strike_pct: float = 4.0,
+    put_strike_pct: float = 0.0,
+    use_collar: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Highly optimized bulk export of covered call / collar strategy for ALL F&O stocks.
+    Generates a cycle-by-cycle summary for every valid F&O stock and streams as XLSX.
+    """
+    try:
+        import pandas as pd
+        import io
+        import datetime
+        from fastapi.responses import StreamingResponse
+        from sqlalchemy import text
+        from backend.ingest.nse_models import BhavcopyFO, BhavcopyEQ
+
+        start_dt = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        # 1. Get all monthly expiries for ALL F&O symbols within range
+        exp_query = text("""
+            WITH Expiries AS (
+                SELECT DISTINCT ticker_symb, expiry_date,
+                       EXTRACT(YEAR FROM expiry_date) as exp_year,
+                       EXTRACT(MONTH FROM expiry_date) as exp_month
+                FROM bhavcopy_fo
+                WHERE instrument_type IN ('OPTSTK', 'OPTIDX')
+                  AND trade_date BETWEEN :start AND :end
+            ),
+            MonthlyExpiries AS (
+                SELECT ticker_symb, exp_year, exp_month, MAX(expiry_date) as monthly_expiry
+                FROM Expiries
+                GROUP BY ticker_symb, exp_year, exp_month
+            )
+            SELECT ticker_symb, monthly_expiry FROM MonthlyExpiries ORDER BY ticker_symb, monthly_expiry ASC
+        """)
+        exp_res = db.execute(exp_query, {"start": start_dt, "end": end_dt}).fetchall()
+
+        # Group expiries by symbol
+        sym_expiries = {}
+        for r in exp_res:
+            sym, exp = r[0], r[1]
+            if sym not in sym_expiries:
+                sym_expiries[sym] = []
+            sym_expiries[sym].append(exp)
+
+        # 2. Get all trading dates for all symbols to define cycle starts
+        # We need equity spots. For indices, we need index spots.
+        eq_dates_query = text("""
+            SELECT symbol, trade_date, close_price
+            FROM bhavcopy_eq
+            WHERE series = 'EQ' AND trade_date BETWEEN :start AND :end
+        """)
+        eq_res = db.execute(eq_dates_query, {"start": start_dt, "end": end_dt}).fetchall()
+
+        idx_dates_query = text("""
+            SELECT index_name, trade_date, close_price
+            FROM historical_index_data
+            WHERE trade_date BETWEEN :start AND :end
+        """)
+        idx_res = db.execute(idx_dates_query, {"start": start_dt, "end": end_dt}).fetchall()
+
+        # Build massive spot map: spot_map[symbol][date] = price
+        spot_map = {}
+        for r in eq_res:
+            sym, dt, prc = r[0], r[1], float(r[2])
+            if sym not in spot_map: spot_map[sym] = {}
+            spot_map[sym][dt] = prc
+
+        for r in idx_res:
+            sym, dt, prc = r[0], r[1], float(r[2])
+            if sym not in spot_map: spot_map[sym] = {}
+            spot_map[sym][dt] = prc
+
+        # Get all distinct trading dates generally (to find first available day for indices/stocks)
+        all_dates_query = text("SELECT DISTINCT trade_date FROM bhavcopy_eq WHERE trade_date BETWEEN :start AND :end ORDER BY trade_date ASC")
+        all_dates = [r[0] for r in db.execute(all_dates_query, {"start": start_dt, "end": end_dt}).fetchall()]
+
+        # 3. Identify Entry Dates and Expiry Dates for all cycles
+        cycle_targets = []  # List of tuples: (symbol, cycle_start, expiry)
+
+        for sym, expiries in sym_expiries.items():
+            if sym not in spot_map:
+                continue # Skip if no spot data at all
+
+            sym_dates = sorted(spot_map[sym].keys())
+            if not sym_dates: continue
+
+            for i, expiry in enumerate(expiries):
+                if i == 0:
+                    possible_starts = [d for d in sym_dates if d <= expiry]
+                    if not possible_starts: continue
+                    cycle_start = possible_starts[0]
+                else:
+                    prev_expiry = expiries[i-1]
+                    possible_starts = [d for d in sym_dates if d > prev_expiry and d <= expiry]
+                    if not possible_starts: continue
+                    cycle_start = possible_starts[0]
+
+                cycle_targets.append((sym, cycle_start, expiry))
+
+        if not cycle_targets:
+            raise Exception("No valid cycles found for any F&O symbol.")
+
+        # 4. Fetch all necessary option data in bulk
+        # To avoid massive memory explosion, we'll query options only on cycle_start and expiry dates
+        target_option_dates = list(set([c[1] for c in cycle_targets] + [c[2] for c in cycle_targets]))
+
+        # Batch option fetching to avoid huge IN clauses
+        chunk_size = 50
+        all_opts = []
+        for i in range(0, len(target_option_dates), chunk_size):
+            chunk_dates = target_option_dates[i:i+chunk_size]
+            opts_q = text("""
+                SELECT ticker_symb, trade_date, expiry_date, option_type, strike_price, close_price
+                FROM bhavcopy_fo
+                WHERE instrument_type IN ('OPTSTK', 'OPTIDX')
+                  AND trade_date IN :dates
+                  AND expiry_date IN :expiries
+            """)
+            # using target_option_dates as expiries as well to cover the span, though slightly wider than needed.
+            # actually better to just filter on trade_date.
+            opts_q2 = text("""
+                SELECT ticker_symb, trade_date, expiry_date, option_type, strike_price, close_price
+                FROM bhavcopy_fo
+                WHERE instrument_type IN ('OPTSTK', 'OPTIDX')
+                  AND trade_date IN :dates
+            """)
+            o_res = db.execute(opts_q2, {"dates": tuple(chunk_dates) if len(chunk_dates)>1 else (chunk_dates[0], chunk_dates[0])}).fetchall()
+            all_opts.extend(o_res)
+
+        # Build options map: opt_map[sym][trade_date][expiry][(type, strike)] = price
+        opt_map = {}
+        for r in all_opts:
+            sym, dt, exp, typ, stk, prc = r[0], r[1], r[2], r[3], float(r[4]), float(r[5])
+            if sym not in opt_map: opt_map[sym] = {}
+            if dt not in opt_map[sym]: opt_map[sym][dt] = {}
+            if exp not in opt_map[sym][dt]: opt_map[sym][dt][exp] = {}
+            opt_map[sym][dt][exp][(typ, stk)] = prc
+
+        # 5. Process cycles and build result rows
+        results = []
+
+        for sym, cycle_start, expiry in cycle_targets:
+            entry_spot = spot_map[sym].get(cycle_start)
+            expiry_spot = spot_map[sym].get(expiry)
+
+            if entry_spot is None: continue
+
+            target_call_strike = entry_spot * (1 + (call_strike_pct / 100.0))
+            target_put_strike = entry_spot * (1 + (put_strike_pct / 100.0))
+
+            available_opts = opt_map.get(sym, {}).get(cycle_start, {}).get(expiry, {})
+            if not available_opts: continue
+
+            calls = [(k[1], v) for k, v in available_opts.items() if k[0] == 'CE']
+            puts = [(k[1], v) for k, v in available_opts.items() if k[0] == 'PE']
+
+            if not calls: continue
+
+            closest_call = min(calls, key=lambda x: abs(x[0] - target_call_strike))
+            call_strike, call_entry_price = closest_call
+
+            put_strike, put_entry_price = None, 0.0
+            if use_collar and puts:
+                closest_put = min(puts, key=lambda x: abs(x[0] - target_put_strike))
+                put_strike, put_entry_price = closest_put
+
+            # Evaluate final PnL at expiry
+            # If no expiry spot (e.g. holiday mapping issue), skip cycle
+            if expiry_spot is None: continue
+
+            stock_pnl = expiry_spot - entry_spot
+            call_expiry_prc = max(0, expiry_spot - call_strike)
+            call_pnl = call_entry_price - call_expiry_prc
+
+            put_pnl = 0
+            if put_strike:
+                put_expiry_prc = max(0, put_strike - expiry_spot)
+                put_pnl = put_expiry_prc - put_entry_price
+
+            total_pnl = stock_pnl + call_pnl + put_pnl
+            total_pnl_pct = (total_pnl / entry_spot) * 100
+
+            results.append({
+                "Symbol": sym,
+                "Cycle Start": cycle_start.strftime("%Y-%m-%d"),
+                "Expiry Date": expiry.strftime("%Y-%m-%d"),
+                "Entry Spot": entry_spot,
+                "Expiry Spot": expiry_spot,
+                "Call Strike": call_strike,
+                "Call Premium": call_entry_price,
+                "Put Strike": put_strike if put_strike else "N/A",
+                "Put Premium": put_entry_price if put_strike else 0,
+                "Net Premium": call_entry_price - (put_entry_price if put_strike else 0),
+                "Stock PnL": round(stock_pnl, 2),
+                "Options PnL": round(call_pnl + put_pnl, 2),
+                "Final PnL": round(total_pnl, 2),
+                "Final Return %": round(total_pnl_pct, 2)
+            })
+
+        df = pd.DataFrame(results)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='All_FO_Backtest')
+
+        output.seek(0)
+
+        filename = f"CoveredCall_All_FO_{start_date}_to_{end_date}.xlsx"
+        return StreamingResponse(
+            output,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    except Exception as e:
+        import traceback
+        import logging
+        logging.error(f"Bulk F&O Export Error: {traceback.format_exc()}")
+        # Returning JSON error instead of streaming on fail
+        return {"status": "error", "message": str(e)}

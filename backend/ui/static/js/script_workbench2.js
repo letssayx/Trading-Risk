@@ -2865,9 +2865,13 @@ function renderCCMtmChart(dailyMtm) {
     ccMtmChart.setOption(option, true);
 }
 
-async function fetchAndRenderCCCone(symbol) {
+async function fetchAndRenderCCCone(symbol, customIv = null) {
     try {
-        const res = await fetch(`/api/data/derivatives/binomial_paths?symbol=${symbol}`);
+        let url = `/api/data/derivatives/binomial_paths?symbol=${symbol}`;
+        if(customIv) {
+            url += `&custom_iv=${customIv}`;
+        }
+        const res = await fetch(url);
         const data = await res.json();
         if(data.status === 'success') {
             renderCCConeChart(data);
@@ -2919,4 +2923,68 @@ function exportCoveredCallData() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "CoveredCall_MTM");
     XLSX.writeFile(wb, `CoveredCall_Backtest_${new Date().getTime()}.xlsx`);
+}
+
+
+async function updateConeChart() {
+    const symbol = document.getElementById('cc-symbol').value;
+    const customIv = document.getElementById('cc-custom-iv').value;
+    if(!symbol) return;
+
+    const btn = event.currentTarget;
+    const oldText = btn.innerHTML;
+    btn.innerHTML = '...';
+    btn.disabled = true;
+
+    await fetchAndRenderCCCone(symbol, customIv);
+
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+}
+
+async function exportAllFOCoveredCall() {
+    const btn = document.getElementById('cc-all-fo-btn');
+    const oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Massive Report...';
+    btn.disabled = true;
+
+    const startDate = document.getElementById('cc-start-date').value;
+    const endDate = document.getElementById('cc-end-date').value;
+    const callPct = document.getElementById('cc-call-pct').value;
+    const useCollar = document.getElementById('cc-use-collar').checked;
+    const putPct = document.getElementById('cc-put-pct').value;
+
+    const url = `/api/data/derivatives/covered_call_all_fo_export?start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}`;
+
+    try {
+        const response = await fetch(url);
+        if(!response.ok) throw new Error("Failed to generate report");
+
+        const blob = await response.blob();
+
+        // If it returned JSON error instead of blob Excel
+        if(blob.type === 'application/json') {
+            const text = await blob.text();
+            const errData = JSON.parse(text);
+            alert("Error: " + errData.message);
+            return;
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.download = `CoveredCall_All_FO_${startDate}_to_${endDate}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+
+    } catch(err) {
+        console.error(err);
+        alert("Failed to download All F&O report. It might have timed out.");
+    } finally {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+    }
 }
