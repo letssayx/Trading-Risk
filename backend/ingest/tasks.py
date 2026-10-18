@@ -496,6 +496,26 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
                 self.retry(countdown=600) # 10 minutes
             else:
                 logger.error(f"Max retries reached. Some imports failed: {failed_patterns}")
+
+                # Create a flagged message in SystemLog for UI visibility
+                try:
+                    from backend.models.audit import SystemLog
+                    from backend.infrastructure.db import SessionLocal
+                    db_log = SessionLocal()
+                    try:
+                        new_log = SystemLog(
+                            level="ERROR",
+                            source="Celery Worker",
+                            event_type="Cron_Failure",
+                            message=f"CRITICAL: Failed to import EOD data after 3 retries. Missing: {failed_patterns}. Please check NSE website or run manual import."
+                        )
+                        db_log.add(new_log)
+                        db_log.commit()
+                    finally:
+                        db_log.close()
+                except Exception as e_log:
+                    logger.error(f"Could not write to SystemLog: {e_log}")
+
                 # We do not raise an exception so we don't crash, but we return a warning status
                 return {"status": "COMPLETED_WITH_ERRORS", "results": results}
 
@@ -508,6 +528,26 @@ def import_nse_latest(self, patterns: Optional[List[str]] = None, force: bool = 
         if self.request.retries >= self.max_retries:
             err_msg = str(exc)
             logger.error(f"Max retries exceeded for latest import: {err_msg}")
+
+            # Create a flagged message in SystemLog for UI visibility
+            try:
+                from backend.models.audit import SystemLog
+                from backend.infrastructure.db import SessionLocal
+                db_log = SessionLocal()
+                try:
+                    new_log = SystemLog(
+                        level="ERROR",
+                        source="Celery Worker",
+                        event_type="Cron_Failure",
+                        message=f"CRITICAL: Import completely failed after 3 retries due to error: {err_msg}"
+                    )
+                    db_log.add(new_log)
+                    db_log.commit()
+                finally:
+                    db_log.close()
+            except Exception as e_log:
+                logger.error(f"Could not write to SystemLog: {e_log}")
+
             self.update_state(state='FAILURE', meta={"exc_type": "Exception", "exc_message": f"Latest Import Failed: {err_msg}"})
             raise Exception(f"Latest Import Failed: {err_msg}")
 
@@ -1532,7 +1572,9 @@ def process_corporate_announcements_task(self):
             # Ensure dotenv is reloaded dynamically since Celery might have booted before the key was saved
             try:
                 from dotenv import load_dotenv
-                load_dotenv(override=True)
+                # The .env file is stored at the root level of the project.
+                dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+                load_dotenv(dotenv_path=dotenv_path, override=True)
             except ImportError:
                 pass
 

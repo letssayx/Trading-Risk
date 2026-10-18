@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Track last run times in memory to avoid constant DB writes if interval is short
 _last_run_times = {}
+_last_sleep_log_times = {}
 
 async def trigger_corporate_announcements():
     from backend.ingest.tasks import process_corporate_announcements_task
@@ -209,6 +210,35 @@ async def start_cron_manager():
     # Initialize default jobs if not present safely in a thread
     await asyncio.to_thread(_init_default_jobs)
 
+    # Check for missing days (Option A: Automatically check database on boot)
+    # By doing this in start_cron_manager, we avoid the FastAPI multi-worker duplicate trigger problem.
+    try:
+        from backend.infrastructure.db import SessionLocal
+        from backend.ingest.nse_models import ImportLog
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+        import pytz
+
+        db = SessionLocal()
+        ist = pytz.timezone('Asia/Kolkata')
+        today = datetime.now(ist).date()
+
+        # Check last successful import for core EOD table
+        last_log = db.query(func.max(ImportLog.import_date)).filter(
+            ImportLog.table_name == 'bhavcopy_fo',
+            ImportLog.status == 'SUCCESS'
+        ).scalar()
+
+        db.close()
+
+        if last_log and last_log < today - timedelta(days=1):
+            logger.info(f"Missed days detected! Last import was {last_log}. Dispatching backfill task...")
+            from backend.ingest.tasks import import_nse_latest
+            import_nse_latest.delay()
+    except Exception as e:
+        logger.error(f"Failed to check for missed days on startup: {e}")
+
+
     while True:
         try:
             # We use a non-blocking asyncio loop to monitor configurations.
@@ -234,10 +264,16 @@ async def start_cron_manager():
                             if start_time < end_time:
                                 # Pause window is within the same day
                                 if start_time <= current_time <= end_time:
+                                    if job_name not in _last_sleep_log_times or (now - _last_sleep_log_times[job_name]).total_seconds() > 3600:
+                                        logger.info(f"System is in sleep mode for {job_name}. Outside cron/market hours.")
+                                        _last_sleep_log_times[job_name] = now
                                     continue
                             else:
                                 # Pause window crosses midnight (e.g. 20:00 to 08:00)
                                 if current_time >= start_time or current_time <= end_time:
+                                    if job_name not in _last_sleep_log_times or (now - _last_sleep_log_times[job_name]).total_seconds() > 3600:
+                                        logger.info(f"System is in sleep mode for {job_name}. Outside cron/market hours.")
+                                        _last_sleep_log_times[job_name] = now
                                     continue
                         except ValueError:
                             pass # Fallback if invalid time format

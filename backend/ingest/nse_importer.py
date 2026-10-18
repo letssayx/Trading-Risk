@@ -482,7 +482,7 @@ class NSEDataImporter:
             # To strictly prevent duplicates in any time-series import (FO Bhavcopy, etc.),
             # use a delete-and-insert strategy for the specific trade_date instead of upserting.
             deleted = self._delete_for_date(db, model_class, trade_date)
-            inserted = self._insert_batch(db, model_class, records, batch_size=2000)
+            inserted = self._insert_batch(db, model_class, records, batch_size=500)
             updated = 0
             logger.info(f"{key}: Deleted {deleted} old records, Inserted {inserted} new records.")
 
@@ -496,7 +496,7 @@ class NSEDataImporter:
         self._log_import(db, trade_date, key, 'SUCCESS', inserted, updated)
         completed_files.append(key)
 
-    def _insert_batch(self, db: Session, model_class, records: list[dict[str, Any]], batch_size: int = 1000) -> int:
+    def _insert_batch(self, db: Session, model_class, records: list[dict[str, Any]], batch_size: int = 500) -> int:
         if not records: return 0
         total_inserted = 0
         try:
@@ -531,7 +531,7 @@ class NSEDataImporter:
             raise
 
     def _upsert_batch(self, db: Session, model_class, records: list[dict[str, Any]],
-                     unique_fields: list[str], batch_size: int = 1000) -> tuple[int, int]:
+                     unique_fields: list[str], batch_size: int = 500) -> tuple[int, int]:
         if not records: return 0, 0
         total_processed = 0
         try:
@@ -583,7 +583,7 @@ class NSEDataImporter:
         )
         db.add(sys_log)
 
-    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str, batch_size: int = 1000):
+    def _upsert_legacy_bhavcopy(self, db: Session, records: list[dict[str, Any]], segment: str, batch_size: int = 500):
         if not records: return
         try:
             legacy_records = []

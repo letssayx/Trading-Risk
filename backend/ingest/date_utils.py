@@ -122,7 +122,16 @@ def parse_nse_date(date_str: str) -> Optional[date]:
 
     # Pandas fallback (very robust)
     try:
-        ts = pd.to_datetime(date_str, dayfirst=True)
+        # Check if the string is entirely digits (e.g. Unix timestamp)
+        if date_str.isdigit():
+            val = int(date_str)
+            if val > 3000000000:
+                ts = pd.to_datetime(val, unit='ms')
+            else:
+                ts = pd.to_datetime(val, unit='s')
+        else:
+            ts = pd.to_datetime(date_str, dayfirst=True)
+
         if not pd.isna(ts):
             return ts.date()
     except:
