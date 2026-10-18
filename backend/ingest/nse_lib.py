@@ -571,11 +571,16 @@ class NSELib:
 
                 # Get corporate announcements globally to extract XBRL attachment texts
                 # This has the actual "Rs 54" amounts and record dates for announcements without CA entries yet
-                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend"
-                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date"
-                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+                # Announcements often come out a few days after a Board Meeting is scheduled (especially Outcomes).
+                # A 180-day future lookahead crashes the NSE server with massive payloads (curl 28 timeout).
+                # We cap the announcements to a reasonable +14 days to capture delayed Outcomes without crashing the API.
+                to_date_ann = (trade_date + timedelta(days=14)).strftime("%d-%m-%Y")
+
+                announcement_url_div = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Dividend&from_date={from_date_str}&to_date={to_date_ann}"
+                announcement_url_rec = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Record%20Date&from_date={from_date_str}&to_date={to_date_ann}"
+                announcement_url_agm = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_ann}"
                 announcement_url_fin = f"{self.BASE_URL}/api/corporate-announcements?index=equities&subject=Financial%20Results"
-                announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_str}"
+                announcement_url_out = f"{self.BASE_URL}/api/corporate-announcements?index=equities&from_date={from_date_str}&to_date={to_date_ann}"
 
                 div_announcements = []
                 rec_announcements = []
@@ -632,7 +637,7 @@ class NSELib:
                             # but let's fetch all general announcements on the specific date later if needed.
                             # Actually, per memory: "cross-reference all global corporate announcements for the date range on the NSE /api/corporate-announcements endpoint (without restricting to specific subject filters), because outcome PDFs containing dividends are frequently miscategorized"
                             # CRITICAL FIX: Only collect announcements for symbols we are actually processing board meetings for to avoid downloading every company's PDF
-                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols]
+                            out_announcements = [a for a in all_out if a.get('symbol') in target_symbols and ('Outcome of Board Meeting' in str(a.get('desc', '')) or 'Outcome of Board Meeting' in str(a.get('subject', '')))]
                     except Exception as e:
                         logger.error(f"Failed to parse outcome announcements: {e}")
 
@@ -708,7 +713,7 @@ class NSELib:
                                     pass
 
                     if has_dividend_mention or is_agm:
-                        base_type = 'Final' if ('final' in purpose or 'findiv' in purpose or 'fin div' in purpose) else ('Interim' if 'interim' in purpose or 'intdiv' in purpose or 'int div' in purpose or 'quarterly' in purpose or 'quarterly' in desc else ('Special' if 'special' in purpose else 'Dividend'))
+                        base_type = 'Final' if ('final' in purpose.lower() or 'findiv' in purpose.lower() or 'fin div' in purpose.lower() or 'yearly audited' in purpose.lower() or 'annual results' in purpose.lower() or 'yearly audited' in desc.lower() or 'annual results' in desc.lower()) else ('Interim' if 'interim' in purpose.lower() or 'intdiv' in purpose.lower() or 'int div' in purpose.lower() or 'quarterly' in purpose.lower() or 'quarterly' in desc.lower() else ('Special' if 'special' in purpose.lower() else 'Dividend'))
                         if is_agm:
                             base_type = 'AGM'
                             item['bm_purpose'] = 'Annual General Meeting'
@@ -759,10 +764,10 @@ class NSELib:
                                 subj = str(ann.get('subject', '')).lower()
                                 desc_ann = str(ann.get('desc', '')).lower()
                                 text_lower = attchmntText.lower() + " " + subj + " " + desc_ann
-                                if 'interim' in text_lower or 'intdiv' in text_lower or 'int div' in text_lower: found_type = 'Interim'
-                                elif 'final' in text_lower or 'finai' in text_lower or 'findiv' in text_lower or 'fin div' in text_lower: found_type = 'Final'
+                                if 'findiv' in text_lower or 'fin div' in text_lower or 'final' in text_lower or 'finai' in text_lower: found_type = 'Final'
+                                elif 'yearly audited' in text_lower or 'annual results' in text_lower: found_type = 'Final'
+                                elif 'interim' in text_lower or 'intdiv' in text_lower or 'int div' in text_lower or 'quarterly' in text_lower: found_type = 'Interim'
                                 elif 'special' in text_lower: found_type = 'Special'
-                                elif 'quarterly' in text_lower: found_type = 'Interim'
 
                                 # Add AGM explicit regex check for text fallback if XML fails/404s
                                 if re.search(r'\b(agm|annual general meeting)\b', text_lower):
@@ -833,6 +838,9 @@ class NSELib:
                             except ValueError:
                                 bm_date_obj = None
 
+                            best_ca = None
+                            best_ca_score = -9999
+
                             for ca in symbol_ca_map[symbol]:
                                 ca_ex_date_str = str(ca.get('exDate', ''))
                                 try:
@@ -847,13 +855,43 @@ class NSELib:
 
                                 subject = str(ca.get('subject', ''))
 
-                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|\u20b9)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE | re.DOTALL)
+                                ca_type = 'Dividend'
+                                if 'interim' in subject.lower() or 'intdiv' in subject.lower() or 'int div' in subject.lower() or 'quarterly' in subject.lower(): ca_type = 'Interim'
+                                elif 'findiv' in subject.lower() or 'fin div' in subject.lower() or 'final' in subject.lower() or 'finai' in subject.lower(): ca_type = 'Final'
+                                elif 'special' in subject.lower(): ca_type = 'Special'
+
+                                # Enforce Type Matching!
+                                # If the base_type of the Board Meeting is known, the CA must match it or be generic
+                                if base_type != 'Dividend' and ca_type != 'Dividend' and base_type != ca_type:
+                                    continue
+
+                                # Enforce Proximity to prevent matching future unrelated dividends
+                                if bm_date_obj and ca_ex_date_obj:
+                                    window = 180 if base_type == 'Final' else 45
+                                    if days_diff > window:
+                                        continue
+
+                                # Calculate a score for this match
+                                score = 0
+                                if base_type != 'Dividend' and ca_type == base_type:
+                                    score += 100 # Exact type match
+                                if bm_date_obj and ca_ex_date_obj:
+                                    score -= days_diff # Penalize for distance in time. We want the CLOSEST matching action.
+
+                                if score > best_ca_score:
+                                    best_ca_score = score
+                                    best_ca = ca
+
+                            if best_ca:
+                                subject = str(best_ca.get('subject', ''))
+
+                                _clean_subject = re.sub(r'(?:face value|fv|paid-up capital|paid up capital|equity shares? of|shares? of)\s*(?:of\s*)?(?:rs\.?|re\.?|rupees?|inr|[-/]|\s|₹)*\d+(?:\.\d+)?(?:/-)?(?:\s*each)?', '', subject, flags=re.IGNORECASE | re.DOTALL)
                                 if 'including' in _clean_subject.lower() or 'includes' in _clean_subject.lower():
-                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
+                                    match = re.search(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
                                     if match:
                                         found_amount = float(match.group(1))
                                 else:
-                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|\u20b9)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
+                                    matches = re.findall(r'(?:rs\.?|re\.?|rupees?|inr|₹)\s*(\d+(?:\.\d+)?)', _clean_subject, re.IGNORECASE | re.DOTALL)
                                     if matches:
                                         found_amount = sum(float(m) for m in matches)
 
@@ -862,12 +900,9 @@ class NSELib:
                                     elif 'findiv' in subject.lower() or 'fin div' in subject.lower() or 'final' in subject.lower() or 'finai' in subject.lower(): found_type = 'Final'
                                     elif 'special' in subject.lower(): found_type = 'Special'
 
-                                rec_date = ca.get('recDate')
+                                rec_date = best_ca.get('recDate')
                                 if rec_date and rec_date != '-':
                                     found_record_date = rec_date
-
-                                if found_amount or found_record_date:
-                                    break
 
                         if found_amount is None:
                             text_to_search = f"{purpose} {desc}"
@@ -891,8 +926,9 @@ class NSELib:
                                         break
 
                             if found_amount or found_type == 'Dividend':
-                                if 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
-                                elif 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
+                                if 'findiv' in text_to_search.lower() or 'fin div' in text_to_search.lower() or 'final' in text_to_search.lower() or 'finai' in text_to_search.lower(): found_type = 'Final'
+                                elif 'yearly audited' in text_to_search.lower() or 'annual results' in text_to_search.lower(): found_type = 'Final'
+                                elif 'interim' in text_to_search.lower() or 'intdiv' in text_to_search.lower() or 'int div' in text_to_search.lower() or 'quarterly' in text_to_search.lower(): found_type = 'Interim'
                                 elif 'special' in text_to_search.lower(): found_type = 'Special'
                                 elif re.search(r'\b(agm|annual general meeting)\b', text_to_search.lower()):
                                     # ONLY override to AGM if we didn't find a dividend amount, otherwise keep it as a Dividend (with potential AGM side-note)
@@ -957,8 +993,9 @@ class NSELib:
                             agm_date = None
 
                             text_lower = attchmntText + " " + subj + " " + desc
-                            if 'interim' in text_lower or 'intdiv' in text_lower or 'int div' in text_lower or 'quarterly' in text_lower: found_type = 'Interim'
-                            elif 'final' in text_lower or 'finai' in text_lower or 'findiv' in text_lower or 'fin div' in text_lower: found_type = 'Final'
+                            if 'findiv' in text_lower or 'fin div' in text_lower or 'final' in text_lower or 'finai' in text_lower: found_type = 'Final'
+                            elif 'yearly audited' in text_lower or 'annual results' in text_lower: found_type = 'Final'
+                            elif 'interim' in text_lower or 'intdiv' in text_lower or 'int div' in text_lower or 'quarterly' in text_lower: found_type = 'Interim'
                             elif 'special' in text_lower: found_type = 'Special'
                             else: found_type = 'Dividend' # Don't guess Final
 

@@ -755,9 +755,20 @@ def build_dividend_databank_task(self, force: bool = False):
 
                                 if a_date and a_date >= m_date:
                                     diff_days = abs((a_date - m_date).days)
-                                    div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
+
+                                    a_type = (a.get('dividend_type') or '').lower()
+                                    m_type = (m.extracted_dividend_type or '').lower()
+
+                                    # Strict Type Check during Phase 1 Anchor & Enrich
+                                    type_conflict = False
+                                    if a_type and a_type not in ['-', 'dividend', 'agm'] and m_type and m_type not in ['-', 'dividend', 'agm']:
+                                        if a_type != m_type:
+                                            type_conflict = True
+
+                                    div_type_lower = (a_type or m_type or '')
                                     window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
-                                    if diff_days <= window:
+
+                                    if diff_days <= window and not type_conflict:
                                         has_linked_action = True
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
                                             a['amount'] = m.extracted_dividend_amount
@@ -779,6 +790,13 @@ def build_dividend_databank_task(self, force: bool = False):
                                         div_type_lower = (a.get('dividend_type') or m.extracted_dividend_type or '').lower()
                                         window = 180 if any(x in div_type_lower for x in ['final', 'bonus', 'split']) else 45
                                         if diff_days > window: is_time_match = False
+
+                                    if is_time_match:
+                                        a_type = (a.get('dividend_type') or '').lower()
+                                        m_type = (m.extracted_dividend_type or '').lower()
+                                        if a_type and a_type not in ['-', 'dividend', 'agm'] and m_type and m_type not in ['-', 'dividend', 'agm']:
+                                            if a_type != m_type:
+                                                is_time_match = False
 
                                     if is_time_match:
                                         if (a.get('amount') is None or a.get('amount') == "-") and m.extracted_dividend_amount:
@@ -889,16 +907,44 @@ def build_dividend_databank_task(self, force: bool = False):
                         # but do not merge 'Interim' with 'Final'
 
                         is_potential_duplicate = is_duplicate_event
+
+                        syn_amount_check = syn.get('amount')
+                        ex_amount_check = ex.get('amount')
+                        amounts_conflict_check = (syn_amount_check is not None and str(syn_amount_check) != '-' and
+                                            ex_amount_check is not None and str(ex_amount_check) != '-' and
+                                            syn_amount_check != ex_amount_check)
+                        try:
+                            if amounts_conflict_check and abs(float(syn_amount_check) - float(ex_amount_check)) <= 0.001:
+                                amounts_conflict_check = False
+                        except Exception:
+                            pass
+
+                        if is_potential_duplicate and amounts_conflict_check:
+                            is_potential_duplicate = False
+
+                        # CRITICAL: Prevent merging back-to-back same-type dividends if they are declared in different months
+                        # e.g., if a company declares Interim in May and Interim in July, they shouldn't merge even if amount is same
+                        if is_potential_duplicate and syn_m and ex_m:
+                            # if diff between actual broadcast/meeting dates is > 15 days, do NOT merge them!
+                            bm_diff = abs((safe_date(syn_m.meeting_date) - safe_date(ex_m.meeting_date)).days)
+                            if bm_diff > 15:
+                                is_potential_duplicate = False
                         upgrade_syn_type = None
                         upgrade_ex_type = None
 
                         if not is_potential_duplicate:
                             if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
-                                is_potential_duplicate = True
+                                if syn_m and ex_m and abs((safe_date(syn_m.meeting_date) - safe_date(ex_m.meeting_date)).days) > 15:
+                                    pass
+                                else:
+                                    is_potential_duplicate = True
                                 if syn_type in ['-', 'Dividend', 'AGM'] and ex_type in ['Interim', 'Final', 'Special']:
                                     upgrade_syn_type = ex_type
                             elif ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special', 'Dividend', '-']:
-                                is_potential_duplicate = True
+                                if syn_m and ex_m and abs((safe_date(syn_m.meeting_date) - safe_date(ex_m.meeting_date)).days) > 15:
+                                    pass
+                                else:
+                                    is_potential_duplicate = True
                                 if ex_type in ['-', 'Dividend', 'AGM'] and syn_type in ['Interim', 'Final', 'Special']:
                                     upgrade_ex_type = syn_type
 
