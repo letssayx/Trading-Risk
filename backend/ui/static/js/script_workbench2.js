@@ -2763,17 +2763,23 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+let ccCycleData = [];
+
 function renderCCSummary(cycles) {
+    ccCycleData = cycles;
     const tbody = document.getElementById('cc-summary-body');
     tbody.innerHTML = '';
 
     if(!cycles || cycles.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #666;">No cycles found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #666;">No cycles found</td></tr>';
         return;
     }
 
     cycles.forEach(c => {
         const pnlColor = c.final_pnl >= 0 ? '#4caf50' : '#ff5252';
+        const actualMove = c.actual_move_pct !== undefined ? c.actual_move_pct : 0;
+        const moveColor = actualMove >= 0 ? '#4caf50' : '#ff5252';
+
         tbody.innerHTML += `
             <tr>
                 <td>${c.expiry}</td>
@@ -2782,6 +2788,7 @@ function renderCCSummary(cycles) {
                 <td>${c.call_premium.toFixed(2)}</td>
                 <td>${c.implied_move_vol_pct.toFixed(2)}%</td>
                 <td>${c.implied_move_emp_pct.toFixed(2)}%</td>
+                <td style="color: ${moveColor};">${actualMove.toFixed(2)}%</td>
                 <td style="color: #4caf50;">${c.max_profit.toFixed(2)}</td>
                 <td style="color: #ff5252;">${c.max_loss.toFixed(2)}</td>
                 <td style="color: ${pnlColor}; font-weight: bold;">${c.final_pnl.toFixed(2)}</td>
@@ -2830,17 +2837,27 @@ async function fetchAndRenderCCCone(symbol, customIv = null) {
         const data = await res.json();
         if(data.status === 'success') {
             renderCCConeChart(data);
+
+            // Update UI Expectations
+            if(document.getElementById('cc-sim-vol-move')) {
+                document.getElementById('cc-sim-vol-move').innerText = data.current_vol_implied_move_pct ? data.current_vol_implied_move_pct.toFixed(2) + '%' : '-';
+                document.getElementById('cc-sim-emp-move').innerText = data.current_emp_implied_move_pct ? data.current_emp_implied_move_pct.toFixed(2) + '%' : '-';
+                document.getElementById('cc-export-cone-btn').style.display = 'inline-block';
+            }
         }
     } catch(err) {
         console.error("Failed to load cone data", err);
     }
 }
 
+
+let ccConePaths = [];
 function renderCCConeChart(data) {
     if(!ccConeChart) {
         ccConeChart = echarts.init(document.getElementById('cc-cone-chart'), 'dark', {renderer: 'canvas'});
     }
 
+    ccConePaths = data.paths || [];
     const paths = data.paths;
     const dates = paths.map(p => p.date);
     const spot = paths.map(p => p.spot_ref);
@@ -2851,7 +2868,7 @@ function renderCCConeChart(data) {
 
     const option = {
         backgroundColor: 'transparent',
-        title: { text: 'Predictive Path (Cone) to Expiry', left: 'center', textStyle: {fontSize: 14, color: '#ccc'} },
+        title: { text: `Predictive Path to Expiry (${data.expiry_date})`, left: 'center', textStyle: {fontSize: 14, color: '#ccc'} },
         tooltip: { trigger: 'axis' },
         legend: { data: ['Spot', '+1 SD', '-1 SD', '+2 SD', '-2 SD'], bottom: 0, textStyle: {color: '#ccc', fontSize: 10} },
         xAxis: { type: 'category', data: dates, splitLine: {show: false} },
@@ -2869,15 +2886,33 @@ function renderCCConeChart(data) {
     ccConeChart.setOption(option, true);
 }
 
+function exportConeData() {
+    if(!ccConePaths || ccConePaths.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(ccConePaths);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Simulation_Paths");
+    XLSX.writeFile(wb, `Cone_Simulation_${document.getElementById('cc-symbol').value}.xlsx`);
+}
+
+
 function exportCoveredCallData() {
     if(!ccDailyData || ccDailyData.length === 0) {
         alert("No data to export");
         return;
     }
-    const ws = XLSX.utils.json_to_sheet(ccDailyData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "CoveredCall_MTM");
-    XLSX.writeFile(wb, `CoveredCall_Backtest_${new Date().getTime()}.xlsx`);
+
+    // Sheet 1: Cycle Summary
+    if(ccCycleData && ccCycleData.length > 0) {
+        const wsCycles = XLSX.utils.json_to_sheet(ccCycleData);
+        XLSX.utils.book_append_sheet(wb, wsCycles, "Cycle_Summary");
+    }
+
+    // Sheet 2: Daily MTM
+    const wsDaily = XLSX.utils.json_to_sheet(ccDailyData);
+    XLSX.utils.book_append_sheet(wb, wsDaily, "Daily_MTM");
+
+    XLSX.writeFile(wb, `CoveredCall_Backtest_${document.getElementById('cc-symbol').value}_${new Date().getTime()}.xlsx`);
 }
 
 

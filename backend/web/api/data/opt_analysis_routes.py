@@ -350,7 +350,10 @@ def get_covered_call_backtest(
             if use_collar and put_strike:
                 max_loss = entry_spot - put_strike - call_entry_price + put_entry_price
 
+            actual_move_pct = ((current_spot - entry_spot) / entry_spot) * 100
+
             cycles.append({
+                "actual_move_pct": actual_move_pct,
                 "expiry": expiry.strftime("%Y-%m-%d"),
                 "entry_date": cycle_start.strftime("%Y-%m-%d"),
                 "entry_spot": entry_spot,
@@ -428,6 +431,34 @@ def get_binomial_paths(symbol: str, expiry_date: str = None, custom_iv: float = 
             iv_res = db.execute(iv_query, {"symbol": symbol, "dt": current_date}).first()
             atm_iv = float(iv_res[0]) / 100.0 if iv_res and iv_res[0] else 0.20 # default 20%
 
+        # Calculate Current Implied Moves for today
+        trading_days_to_expiry = len([d for d in [current_date + datetime.timedelta(days=x) for x in range(days_to_expiry+1)] if d.weekday() < 5])
+        current_vol_implied_move = atm_iv * math.sqrt(trading_days_to_expiry / 252.0)
+
+        # Try to calculate Empirical from straddle
+        current_emp_implied_move = 0
+        try:
+            opt_query = text("""
+                SELECT strike_price, option_type, close_price
+                FROM bhavcopy_fo
+                WHERE ticker_symb = :symbol
+                  AND trade_date = :dt
+                  AND expiry_date = :exp
+            """)
+            opt_res = db.execute(opt_query, {"symbol": symbol, "dt": current_date, "exp": target_expiry}).fetchall()
+            if opt_res:
+                calls = [r for r in opt_res if r[1] == 'CE']
+                puts = [r for r in opt_res if r[1] == 'PE']
+                if calls and puts:
+                    atm_strike = min(calls, key=lambda x: abs(x[0] - current_spot))[0]
+                    atm_call = next((r for r in calls if r[0] == atm_strike), None)
+                    atm_put = next((r for r in puts if r[0] == atm_strike), None)
+                    if atm_call and atm_put:
+                        straddle_price = float(atm_call[2]) + float(atm_put[2])
+                        current_emp_implied_move = 0.85 * (straddle_price / current_spot)
+        except Exception as straddle_e:
+            pass
+
         # Generate paths
         # We'll generate daily SD lines up to expiry
         paths = []
@@ -454,6 +485,8 @@ def get_binomial_paths(symbol: str, expiry_date: str = None, custom_iv: float = 
             "expiry_date": target_expiry.strftime("%Y-%m-%d"),
             "current_spot": current_spot,
             "current_iv": atm_iv * 100,
+            "current_vol_implied_move_pct": current_vol_implied_move * 100,
+            "current_emp_implied_move_pct": current_emp_implied_move * 100,
             "paths": paths
         }
 
