@@ -2780,6 +2780,9 @@ function renderCCSummary(cycles) {
         const actualMove = c.actual_move_pct !== undefined ? c.actual_move_pct : 0;
         const moveColor = actualMove >= 0 ? '#4caf50' : '#ff5252';
 
+        const straddle = (c.atm_straddle !== undefined) ? c.atm_straddle.toFixed(2) : '-';
+        const iv = (c.atm_iv !== undefined) ? c.atm_iv.toFixed(2) + '%' : '-';
+
         tbody.innerHTML += `
             <tr>
                 <td style="text-align: left;">${c.expiry}</td>
@@ -2787,6 +2790,8 @@ function renderCCSummary(cycles) {
                 <td style="text-align: right;">${(c.expiry_spot !== undefined) ? c.expiry_spot.toFixed(2) : '-'}</td>
                 <td style="text-align: right;">${c.call_strike}</td>
                 <td style="text-align: right;">${c.call_premium.toFixed(2)}</td>
+                <td style="text-align: right;">${iv}</td>
+                <td style="text-align: right;">${straddle}</td>
                 <td style="text-align: right;">${c.implied_move_vol_pct.toFixed(2)}%</td>
                 <td style="text-align: right;">${c.implied_move_emp_pct.toFixed(2)}%</td>
                 <td style="text-align: right; color: ${moveColor};">${actualMove.toFixed(2)}%</td>

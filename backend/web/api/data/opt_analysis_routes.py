@@ -382,6 +382,7 @@ def get_covered_call_backtest(
                 "implied_move_vol_pct": implied_move_vol * 100,
                 "implied_move_emp_pct": implied_move_empirical * 100,
                 "atm_iv": atm_iv,
+                "atm_straddle": straddle_price,
                 "max_profit": max_profit,
                 "max_profit_pct": (max_profit / entry_spot) * 100,
                 "max_loss": max_loss,
