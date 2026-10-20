@@ -2617,11 +2617,133 @@
                         </div>
 
                         <!-- Covered Call Tab -->
-                        <div id="optstrat-tab-coveredcall" class="optstrat-sub-tab" style="padding: 20px; height: 100%; display: none;">
-                            <h2 style="color: #fff; margin-top: 0; font-size: 18px;">Covered Call</h2>
-                            <p style="color: #888;">Coming Soon</p>
-                        </div>
+                        <div id="optstrat-tab-coveredcall" class="optstrat-sub-tab" style="padding: 20px; height: 100%; display: none; overflow-y: auto;">
 
+                            <h2 style="color: #fff; margin-top: 0; margin-bottom: 20px; font-size: 18px;">Covered Call & Collar Analysis</h2>
+
+                            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+
+                                <!-- PANEL 1: BACKTEST CONFIGURATION -->
+                                <div style="background: #2a2a2a; border: 1px solid #333; border-radius: 6px; padding: 15px; flex: 2; min-width: 300px;">
+                                    <h3 style="color: #4CAF50; margin-top: 0; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 8px;"><i class="fas fa-history"></i> Historical Backtest</h3>
+
+                                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; margin-top: 15px;">
+
+                                        <!-- Inputs block -->
+                                        <div style="display: flex; gap: 15px; flex-wrap: wrap; flex: 1; min-width: 300px;">
+                                            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px;">
+                                                <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Symbol <span style="font-size:10px; color:#888;">(<input type="checkbox" id="cc-all-fo-chk" onchange="toggleCCAllFO()" style="margin:0 2px 0 5px;"> All F&O)</span></label>
+                                                <input type="text" id="cc-symbol" class="history-input" placeholder="INFY" value="INFY" style="padding: 4px 8px; width: 100%;">
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px;">
+                                                <label style="color: #ccc; font-size: 12px;">Start Date</label>
+                                                <input type="date" id="cc-start-date" class="history-input" style="padding: 4px 8px; width: 100%;">
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px;">
+                                                <label style="color: #ccc; font-size: 12px;">End Date</label>
+                                                <input type="date" id="cc-end-date" class="history-input" style="padding: 4px 8px; width: 100%;">
+                                            </div>
+
+                                            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px;">
+                                                <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Call Tgt (%)</label>
+                                                <input type="number" id="cc-call-pct" class="history-input" value="4.0" step="0.5" min="-100" max="100" style="padding: 4px 8px; width: 100%;" title="+ for OTM, - for ITM">
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px;">
+                                                <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Hold Continuous?</label>
+                                                <div style="padding: 4px 0;">
+                                                    <input type="checkbox" id="cc-hold-continuous" style="margin-right: 5px;" title="Buy stock once at start, hold until end.">
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px;">
+                                                <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Put Tgt (%) <span style="font-size:10px; color:#888;">(<input type="checkbox" id="cc-use-collar" style="margin:0 2px 0 5px;" title="Use Collar?">)</span></label>
+                                                <input type="number" id="cc-put-pct" class="history-input" value="0.0" step="0.5" style="padding: 4px 8px; width: 100%;" title="0 for ATM, - for OTM">
+                                            </div>
+                                        </div>
+
+                                        <!-- Buttons block -->
+                                        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; justify-content: flex-start;">
+                                            <button class="btn btn-primary" onclick="executeCCAction()" id="cc-action-btn" style="min-width: 120px; white-space: nowrap;"><i class="fas fa-play"></i> Run Backtest</button>
+                                            <button class="btn btn-secondary" onclick="exportCoveredCallData()" id="cc-export-single-btn" style="display: none; font-size: 12px; padding: 4px 8px; white-space: nowrap;"><i class="fas fa-file-excel"></i> Export All Results (XLSX)</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Progress Bar -->
+                                    <div id="cc-progress-container" style="display: none; margin-top: 15px; width: 100%; height: 6px; background-color: #333; border-radius: 3px; overflow: hidden;">
+                                        <div id="cc-progress-bar" style="width: 0%; height: 100%; background-color: #2196F3; transition: width 0.1s linear, background-color 0.3s;"></div>
+                                    </div>
+
+                                    <div id="cc-error-msg" style="color: #ff5252; margin-top: 10px; font-size: 12px; display: none;"></div>
+                                </div>
+
+                                <!-- PANEL 2: FUTURE SIMULATION -->
+                                <div style="background: #2a2a2a; border: 1px solid #333; border-radius: 6px; padding: 15px; flex: 1; min-width: 300px;">
+                                    <h3 style="color: #ff9800; margin-top: 0; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 8px; display: flex; justify-content: space-between;">
+                                        <span><i class="fas fa-project-diagram"></i> Future Cone Simulation</span>
+                                        <button class="btn btn-secondary" onclick="exportConeData()" id="cc-export-cone-btn" style="display: none; font-size: 10px; padding: 2px 6px;"><i class="fas fa-download"></i> XLSX</button>
+                                    </h3>
+
+                                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; margin-top: 15px;">
+                                        <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px;">
+                                            <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Simulated IV (%)</label>
+                                            <input type="number" id="cc-custom-iv" class="history-input" placeholder="e.g. 25" step="1" style="padding: 4px 8px; width: 100%;" title="Leave blank to use actual ATM IV">
+                                        </div>
+                                        <button class="btn btn-secondary" onclick="runConeSimulation()" id="cc-sim-btn" style="color: #ff9800; border-color: #ff9800; min-width: 100px;"><i class="fas fa-bolt"></i> Simulate</button>
+                                    </div>
+
+                                    <div style="margin-top: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; font-size: 12px; color: #ccc;">
+                                        <div style="margin-bottom: 5px; color: #ff9800;"><strong>Today's Expectations:</strong></div>
+                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #444; padding-bottom: 4px; margin-bottom: 4px;">
+                                            <span>Vol. Implied Move:</span>
+                                            <strong id="cc-sim-vol-move">-</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span>Empirical (Straddle):</span>
+                                            <strong id="cc-sim-emp-move">-</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 20px;">
+                                <!-- Summary Table -->
+                                <div id="cc-summary-panel" style="background: #2a2a2a; border: 1px solid #333; border-radius: 4px; padding: 10px; overflow-x: auto;">
+                                    <h3 style="color: #fff; margin-top: 0; font-size: 14px;">Expiry Cycle Summary</h3>
+                                    <table class="history-table" style="width: 100%; font-size: 12px;">
+                                        <thead>
+                                            <tr>
+                                                <th style="text-align: left;">Expiry</th>
+                                                <th style="text-align: right;">Entry Spot</th>
+                                                <th style="text-align: right;">Expiry Spot</th>
+                                                <th style="text-align: right;">Call Strike</th>
+                                                <th style="text-align: right;">Call Prem</th>
+                                                <th style="text-align: right;">ATM IV</th>
+                                                <th style="text-align: right;">ATM Straddle</th>
+                                                <th style="text-align: right;">Vol Imp. Move</th>
+                                                <th style="text-align: right;">Emp. Imp. Move</th>
+                                                <th style="text-align: right;">Actual Move</th>
+                                                <th style="text-align: right;">Max Profit</th>
+                                                <th style="text-align: right;">Max Loss</th>
+                                                <th style="text-align: right;">Final PnL</th>
+                                                <th style="text-align: right;">Final PnL %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cc-summary-body">
+                                            <tr><td colspan="14" style="text-align: center; color: #666;">Run backtest to view data</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Charts -->
+                                <div id="cc-charts-panel" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                    <div style="background: #2a2a2a; border: 1px solid #333; border-radius: 4px; padding: 10px; flex: 1; min-width: 300px; height: 350px;">
+                                        <div id="cc-mtm-chart" style="width: 100%; height: 100%;"></div>
+                                    </div>
+                                    <div style="background: #2a2a2a; border: 1px solid #333; border-radius: 4px; padding: 10px; flex: 1; min-width: 300px; height: 350px;">
+                                        <div id="cc-cone-chart" style="width: 100%; height: 100%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <!-- Volatility Skew Tab -->
                         <div id="optstrat-tab-volskew" class="optstrat-sub-tab" style="padding: 20px; height: 100%; display: none;">
                             <h2 style="color: #fff; margin-top: 0; font-size: 18px;">Volatility Skew</h2>

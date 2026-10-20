@@ -2718,3 +2718,438 @@ switchMainTab = function(tabId) {
     }
 }
 window.switchMainTab = switchMainTab;
+
+// ==========================================
+// Covered Call Strategy Logic
+// ==========================================
+
+let ccDailyData = [];
+let ccMtmChart = null;
+let ccConeChart = null;
+
+function initCoveredCallDates() {
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+    if(document.getElementById('cc-end-date')) {
+        document.getElementById('cc-end-date').value = today.toISOString().split('T')[0];
+        document.getElementById('cc-start-date').value = oneYearAgo.toISOString().split('T')[0];
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initCoveredCallDates();
+
+    const useCollarChk = document.getElementById('cc-use-collar');
+    if(useCollarChk) {
+        useCollarChk.addEventListener('change', (e) => {
+            const container = document.getElementById('cc-put-pct-container');
+            if(e.target.checked) {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+            } else {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+            }
+        });
+        useCollarChk.dispatchEvent(new Event('change'));
+    }
+
+    // Trigger All F&O toggle logic initially
+    if(document.getElementById('cc-all-fo-chk')){
+        toggleCCAllFO();
+    }
+});
+
+
+let ccCycleData = [];
+
+function renderCCSummary(cycles) {
+    ccCycleData = cycles;
+    const tbody = document.getElementById('cc-summary-body');
+    tbody.innerHTML = '';
+
+    if(!cycles || cycles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #666;">No cycles found</td></tr>';
+        return;
+    }
+
+    cycles.forEach(c => {
+        const pnlColor = c.final_pnl >= 0 ? '#4caf50' : '#ff5252';
+        const actualMove = c.actual_move_pct !== undefined ? c.actual_move_pct : 0;
+        const moveColor = actualMove >= 0 ? '#4caf50' : '#ff5252';
+
+        const straddle = (c.atm_straddle !== undefined) ? c.atm_straddle.toFixed(2) : '-';
+        const iv = (c.atm_iv !== undefined) ? c.atm_iv.toFixed(2) + '%' : '-';
+
+        tbody.innerHTML += `
+            <tr>
+                <td style="text-align: left;">${c.expiry}</td>
+                <td style="text-align: right;">${c.entry_spot.toFixed(2)}</td>
+                <td style="text-align: right;">${(c.expiry_spot !== undefined) ? c.expiry_spot.toFixed(2) : '-'}</td>
+                <td style="text-align: right;">${c.call_strike}</td>
+                <td style="text-align: right;">${c.call_premium.toFixed(2)}</td>
+                <td style="text-align: right;">${iv}</td>
+                <td style="text-align: right;">${straddle}</td>
+                <td style="text-align: right;">${c.implied_move_vol_pct.toFixed(2)}%</td>
+                <td style="text-align: right;">${c.implied_move_emp_pct.toFixed(2)}%</td>
+                <td style="text-align: right; color: ${moveColor};">${actualMove.toFixed(2)}%</td>
+                <td style="text-align: right; color: #4caf50;">${c.max_profit.toFixed(2)}</td>
+                <td style="text-align: right; color: #ff5252;">${c.max_loss.toFixed(2)}</td>
+                <td style="text-align: right; color: ${pnlColor}; font-weight: bold;">${c.final_pnl.toFixed(2)}</td>
+                <td style="text-align: right; color: ${pnlColor};">${c.final_pnl_pct.toFixed(2)}%</td>
+            </tr>
+        `;
+    });
+}
+
+function renderCCMtmChart(dailyMtm) {
+    if(!ccMtmChart) {
+        ccMtmChart = echarts.init(document.getElementById('cc-mtm-chart'), 'dark', {renderer: 'canvas'});
+    }
+
+    const dates = dailyMtm.map(d => d.date);
+    const pnlPct = dailyMtm.map(d => d.total_pnl_pct.toFixed(2));
+
+    const option = {
+        backgroundColor: 'transparent',
+        title: { text: 'Cumulative Daily PnL % (MTM)', left: 'center', textStyle: {fontSize: 14, color: '#ccc'} },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: dates, splitLine: {show: false} },
+        yAxis: { type: 'value', splitLine: {lineStyle: {color: '#444'}} },
+        grid: { left: '10%', right: '5%', bottom: '15%', top: '15%' },
+        series: [
+            {
+                name: 'PnL %',
+                type: 'line',
+                data: pnlPct,
+                itemStyle: { color: '#2196F3' },
+                areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: 'rgba(33,150,243,0.5)'}, {offset: 1, color: 'rgba(33,150,243,0.1)'}]) }
+            }
+        ]
+    };
+
+    ccMtmChart.setOption(option, true);
+}
+
+async function fetchAndRenderCCCone(symbol, customIv = null) {
+    try {
+        let url = `/api/data/derivatives/binomial_paths?symbol=${symbol}`;
+        if(customIv) {
+            url += `&custom_iv=${customIv}`;
+        }
+        const res = await fetch(url);
+        const data = await res.json();
+        if(data.status === 'success') {
+            renderCCConeChart(data);
+
+            // Update UI Expectations
+            if(document.getElementById('cc-sim-vol-move')) {
+                document.getElementById('cc-sim-vol-move').innerText = data.current_vol_implied_move_pct ? data.current_vol_implied_move_pct.toFixed(2) + '%' : '-';
+                document.getElementById('cc-sim-emp-move').innerText = data.current_emp_implied_move_pct ? data.current_emp_implied_move_pct.toFixed(2) + '%' : '-';
+                document.getElementById('cc-export-cone-btn').style.display = 'inline-block';
+            }
+        }
+    } catch(err) {
+        console.error("Failed to load cone data", err);
+    }
+}
+
+
+let ccConePaths = [];
+function renderCCConeChart(data) {
+    if(!ccConeChart) {
+        ccConeChart = echarts.init(document.getElementById('cc-cone-chart'), 'dark', {renderer: 'canvas'});
+    }
+
+    ccConePaths = data.paths || [];
+    const paths = data.paths;
+    const dates = paths.map(p => p.date);
+    const spot = paths.map(p => p.spot_ref);
+    const sd1up = paths.map(p => p.sd_1_up);
+    const sd1down = paths.map(p => p.sd_1_down);
+    const sd2up = paths.map(p => p.sd_2_up);
+    const sd2down = paths.map(p => p.sd_2_down);
+
+    const option = {
+        backgroundColor: 'transparent',
+        title: { text: `Predictive Path to Expiry (${data.expiry_date})`, left: 'center', textStyle: {fontSize: 14, color: '#ccc'} },
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Spot', '+1 SD', '-1 SD', '+2 SD', '-2 SD'], bottom: 0, textStyle: {color: '#ccc', fontSize: 10} },
+        xAxis: { type: 'category', data: dates, splitLine: {show: false} },
+        yAxis: {
+            type: 'value',
+            scale: true,
+            splitLine: {lineStyle: {color: '#444'}},
+            min: function(value) { return Math.floor(value.min * 0.95); },
+            max: function(value) { return Math.ceil(value.max * 1.05); }
+        },
+        grid: { left: '10%', right: '5%', bottom: '20%', top: '15%' },
+        series: [
+            { name: 'Spot', type: 'line', data: spot, itemStyle: {color: '#fff'} },
+            { name: '+1 SD', type: 'line', data: sd1up, itemStyle: {color: '#ff9800'}, lineStyle: {type: 'dashed'} },
+            { name: '-1 SD', type: 'line', data: sd1down, itemStyle: {color: '#ff9800'}, lineStyle: {type: 'dashed'} },
+            { name: '+2 SD', type: 'line', data: sd2up, itemStyle: {color: '#f44336'}, lineStyle: {type: 'dotted'} },
+            { name: '-2 SD', type: 'line', data: sd2down, itemStyle: {color: '#f44336'}, lineStyle: {type: 'dotted'} }
+        ]
+    };
+
+    ccConeChart.setOption(option, true);
+}
+
+function exportConeData() {
+    if(!ccConePaths || ccConePaths.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(ccConePaths);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Simulation_Paths");
+    XLSX.writeFile(wb, `Cone_Simulation_${document.getElementById('cc-symbol').value}.xlsx`);
+}
+
+
+function exportCoveredCallData() {
+    if(!ccDailyData || ccDailyData.length === 0) {
+        alert("No data to export");
+        return;
+    }
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Cycle Summary
+    if(ccCycleData && ccCycleData.length > 0) {
+        const wsCycles = XLSX.utils.json_to_sheet(ccCycleData);
+        XLSX.utils.book_append_sheet(wb, wsCycles, "Cycle_Summary");
+    }
+
+    // Sheet 2: Daily MTM
+    const wsDaily = XLSX.utils.json_to_sheet(ccDailyData);
+    XLSX.utils.book_append_sheet(wb, wsDaily, "Daily_MTM");
+
+    XLSX.writeFile(wb, `CoveredCall_Backtest_${document.getElementById('cc-symbol').value}_${new Date().getTime()}.xlsx`);
+}
+
+
+
+
+
+function toggleCCAllFO() {
+    const chk = document.getElementById('cc-all-fo-chk');
+    if(!chk) return;
+    const isChecked = chk.checked;
+    const symbolInput = document.getElementById('cc-symbol');
+    const actionBtn = document.getElementById('cc-action-btn');
+    const exportSingleBtn = document.getElementById('cc-export-single-btn');
+
+    if(isChecked) {
+        symbolInput.disabled = true;
+        symbolInput.style.opacity = '0.5';
+        actionBtn.innerHTML = '<i class="fas fa-download"></i> Download All F&O Report';
+        actionBtn.style.backgroundColor = '#4CAF50';
+        actionBtn.style.borderColor = '#4CAF50';
+        if(exportSingleBtn) exportSingleBtn.style.display = 'none';
+    } else {
+        symbolInput.disabled = false;
+        symbolInput.style.opacity = '1';
+        actionBtn.innerHTML = '<i class="fas fa-play"></i> Run Backtest';
+        actionBtn.style.backgroundColor = '';
+        actionBtn.style.borderColor = '';
+    }
+}
+
+async function executeCCAction() {
+    const isChecked = document.getElementById('cc-all-fo-chk').checked;
+    if(isChecked) {
+        await executeCCBulkDownload();
+    } else {
+        await executeCCSingleBacktest();
+    }
+}
+
+async function executeCCSingleBacktest() {
+    const btn = document.getElementById('cc-action-btn');
+    const errorMsg = document.getElementById('cc-error-msg');
+    const exportBtn = document.getElementById('cc-export-single-btn');
+
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+    errorMsg.style.display = 'none';
+    exportBtn.style.display = 'none';
+
+    startCCProgressBar(2000); // Expect ~2 seconds for single stock
+
+    const symbol = document.getElementById('cc-symbol').value;
+    const startDate = document.getElementById('cc-start-date').value;
+    const endDate = document.getElementById('cc-end-date').value;
+    const callPct = document.getElementById('cc-call-pct').value;
+    const useCollar = document.getElementById('cc-use-collar').checked;
+    const putPct = document.getElementById('cc-put-pct').value;
+    const holdCont = document.getElementById('cc-hold-continuous') ? document.getElementById('cc-hold-continuous').checked : false;
+
+    try {
+        const response = await fetch(`/api/data/derivatives/covered_call_backtest?symbol=${symbol}&start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}&hold_stock_continuously=${holdCont}`);
+        const data = await response.json();
+
+        if (data.status === 'error') {
+            errorMsg.innerText = data.message;
+            errorMsg.style.display = 'block';
+            failCCProgressBar();
+            return;
+        }
+
+        ccDailyData = data.daily_mtm || [];
+        if(ccDailyData.length > 0) {
+            exportBtn.style.display = 'inline-block';
+        }
+
+        renderCCSummary(data.cycles);
+        renderCCMtmChart(data.daily_mtm);
+        await fetchAndRenderCCCone(symbol);
+        completeCCProgressBar();
+
+    } catch(err) {
+        console.error(err);
+        errorMsg.innerText = "Network error occurred.";
+        errorMsg.style.display = 'block';
+        failCCProgressBar();
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+    }
+}
+
+async function executeCCBulkDownload() {
+    const btn = document.getElementById('cc-action-btn');
+    const oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Massive Report...';
+    btn.disabled = true;
+
+    startCCProgressBar(20000); // Expect ~20 seconds for massive F&O bulk computation
+
+    const startDate = document.getElementById('cc-start-date').value;
+    const endDate = document.getElementById('cc-end-date').value;
+    const callPct = document.getElementById('cc-call-pct').value;
+    const useCollar = document.getElementById('cc-use-collar').checked;
+    const putPct = document.getElementById('cc-put-pct').value;
+    const holdCont = document.getElementById('cc-hold-continuous') ? document.getElementById('cc-hold-continuous').checked : false;
+
+    const url = `/api/data/derivatives/covered_call_all_fo_export?start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}&hold_stock_continuously=${holdCont}`;
+
+    try {
+        const response = await fetch(url);
+        if(!response.ok) throw new Error("Failed to generate report");
+
+        const blob = await response.blob();
+        if(blob.type === 'application/json') {
+            const text = await blob.text();
+            const errData = JSON.parse(text);
+            alert("Error: " + errData.message);
+            failCCProgressBar();
+            return;
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.download = `CoveredCall_All_FO_${startDate}_to_${endDate}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+        completeCCProgressBar();
+
+    } catch(err) {
+        console.error(err);
+        alert("Failed to download All F&O report. It might have timed out.");
+        failCCProgressBar();
+    } finally {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+    }
+}
+
+async function runConeSimulation() {
+    const symbol = document.getElementById('cc-symbol').value;
+    const customIv = document.getElementById('cc-custom-iv').value;
+    if(!symbol) {
+        alert("Please enter a symbol first");
+        return;
+    }
+
+    const btn = document.getElementById('cc-sim-btn');
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    await fetchAndRenderCCCone(symbol, customIv);
+
+    btn.innerHTML = oldHtml;
+    btn.disabled = false;
+}
+
+
+let ccProgressInterval = null;
+
+function startCCProgressBar(expectedDurationMs) {
+    const container = document.getElementById('cc-progress-container');
+    const bar = document.getElementById('cc-progress-bar');
+    if(!container || !bar) return;
+
+    // Reset state
+    clearInterval(ccProgressInterval);
+    container.style.display = 'block';
+    bar.style.width = '0%';
+    bar.style.backgroundColor = '#2196F3'; // Blue
+
+    let currentPct = 0;
+    const intervalMs = 100;
+    // We want to reach ~95% over the expected duration
+    const increment = (95.0 / (expectedDurationMs / intervalMs));
+
+    ccProgressInterval = setInterval(() => {
+        if(currentPct < 95) {
+            currentPct += increment;
+            if(currentPct > 95) currentPct = 95;
+            bar.style.width = currentPct + '%';
+        }
+    }, intervalMs);
+}
+
+function completeCCProgressBar() {
+    const container = document.getElementById('cc-progress-container');
+    const bar = document.getElementById('cc-progress-bar');
+    if(!container || !bar) return;
+
+    clearInterval(ccProgressInterval);
+    bar.style.width = '100%';
+    bar.style.backgroundColor = '#4CAF50'; // Green
+
+    setTimeout(() => {
+        container.style.display = 'none';
+        bar.style.width = '0%';
+    }, 800);
+}
+
+function failCCProgressBar() {
+    const container = document.getElementById('cc-progress-container');
+    const bar = document.getElementById('cc-progress-bar');
+    if(!container || !bar) return;
+
+    clearInterval(ccProgressInterval);
+    bar.style.backgroundColor = '#f44336'; // Red
+
+    setTimeout(() => {
+        container.style.display = 'none';
+        bar.style.width = '0%';
+    }, 1500);
+}
+
+// Expose Covered Call Functions to Global Window (for inline onclick handlers)
+window.executeCCAction = executeCCAction;
+window.runConeSimulation = runConeSimulation;
+window.toggleCCAllFO = toggleCCAllFO;
+window.executeCCBulkDownload = executeCCBulkDownload;
+window.executeCCSingleBacktest = executeCCSingleBacktest;
+window.exportCoveredCallData = exportCoveredCallData;
+window.exportConeData = exportConeData;
+window.updateConeChart = updateConeChart;
