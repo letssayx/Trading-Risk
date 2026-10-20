@@ -112,6 +112,7 @@ def get_covered_call_backtest(
     call_strike_pct: float = 4.0,
     put_strike_pct: float = 0.0,
     use_collar: bool = False,
+    hold_stock_continuously: bool = False,
     db: Session = Depends(get_db)
 ):
     """
@@ -180,6 +181,8 @@ def get_covered_call_backtest(
 
         # We will loop through each expiry.
         # The cycle starts on the first trading day after the PREVIOUS expiry (or start_date for the first one).
+        initial_entry_spot = None
+
         for i, expiry in enumerate(monthly_expiries):
             if i == 0:
                 # Find the first trading date in our dataset that is <= expiry
@@ -195,7 +198,18 @@ def get_covered_call_backtest(
             if cycle_start not in spot_prices:
                 continue
 
-            entry_spot = spot_prices[cycle_start]
+            # Entry spot for options calculation is ALWAYS the cycle_start spot
+            cycle_entry_spot = spot_prices[cycle_start]
+
+            # Stock entry spot depends on continuous holding flag
+            if hold_stock_continuously:
+                if initial_entry_spot is None:
+                    initial_entry_spot = cycle_entry_spot
+                stock_entry_spot = initial_entry_spot
+            else:
+                stock_entry_spot = cycle_entry_spot
+
+            entry_spot = cycle_entry_spot # for legacy variables, option targets use this
 
             # Calculate target strikes
             target_call_strike = entry_spot * (1 + (call_strike_pct / 100.0))
@@ -297,7 +311,7 @@ def get_covered_call_backtest(
                 current_spot = spot_prices[dt]
 
                 # Stock PnL
-                stock_pnl = current_spot - entry_spot
+                stock_pnl = current_spot - stock_entry_spot
 
                 # Call PnL (Short Call)
                 call_prc = daily_opts.get(dt, {}).get((call_strike, 'CE'), call_entry_price)
@@ -341,22 +355,26 @@ def get_covered_call_backtest(
                     final_pnl = total_pnl
                     final_pnl_pct = total_pnl_pct
 
-            # Max profit for covered call = (Call Strike - Entry Spot) + Call Premium
-            max_profit = (call_strike - entry_spot) + call_entry_price
+            expiry_spot = spot_prices.get(expiry, current_spot)
+
+            # Max profit for covered call = (Call Strike - Stock Entry Spot) + Call Premium
+            max_profit = (call_strike - stock_entry_spot) + call_entry_price
             if use_collar and put_strike:
                 max_profit -= put_entry_price
 
-            max_loss = entry_spot - call_entry_price
+            max_loss = stock_entry_spot - call_entry_price
             if use_collar and put_strike:
-                max_loss = entry_spot - put_strike - call_entry_price + put_entry_price
+                max_loss = stock_entry_spot - put_strike - call_entry_price + put_entry_price
 
-            actual_move_pct = ((current_spot - entry_spot) / entry_spot) * 100
+            # Actual move is based on the stock entry price logic
+            actual_move_pct = ((expiry_spot - stock_entry_spot) / stock_entry_spot) * 100
 
             cycles.append({
                 "actual_move_pct": actual_move_pct,
                 "expiry": expiry.strftime("%Y-%m-%d"),
                 "entry_date": cycle_start.strftime("%Y-%m-%d"),
-                "entry_spot": entry_spot,
+                "entry_spot": cycle_entry_spot,
+                "expiry_spot": expiry_spot,
                 "call_strike": call_strike,
                 "call_premium": call_entry_price,
                 "put_strike": put_strike,
@@ -501,6 +519,7 @@ def get_covered_call_all_fo_export(
     call_strike_pct: float = 4.0,
     put_strike_pct: float = 0.0,
     use_collar: bool = False,
+    hold_stock_continuously: bool = False,
     db: Session = Depends(get_db)
 ):
     """
@@ -642,9 +661,22 @@ def get_covered_call_all_fo_export(
         # 5. Process cycles and build result rows
         results = []
 
+        initial_spots = {}
+
         for sym, cycle_start, expiry in cycle_targets:
-            entry_spot = spot_map[sym].get(cycle_start)
+            cycle_entry_spot = spot_map[sym].get(cycle_start)
             expiry_spot = spot_map[sym].get(expiry)
+
+            if cycle_entry_spot is None: continue
+
+            if hold_stock_continuously:
+                if sym not in initial_spots:
+                    initial_spots[sym] = cycle_entry_spot
+                stock_entry_spot = initial_spots[sym]
+            else:
+                stock_entry_spot = cycle_entry_spot
+
+            entry_spot = cycle_entry_spot # target logic uses current cycle spot
 
             if entry_spot is None: continue
 
@@ -671,7 +703,7 @@ def get_covered_call_all_fo_export(
             # If no expiry spot (e.g. holiday mapping issue), skip cycle
             if expiry_spot is None: continue
 
-            stock_pnl = expiry_spot - entry_spot
+            stock_pnl = expiry_spot - stock_entry_spot
             call_expiry_prc = max(0, expiry_spot - call_strike)
             call_pnl = call_entry_price - call_expiry_prc
 
@@ -681,13 +713,13 @@ def get_covered_call_all_fo_export(
                 put_pnl = put_expiry_prc - put_entry_price
 
             total_pnl = stock_pnl + call_pnl + put_pnl
-            total_pnl_pct = (total_pnl / entry_spot) * 100
+            total_pnl_pct = (total_pnl / stock_entry_spot) * 100
 
             results.append({
                 "Symbol": sym,
                 "Cycle Start": cycle_start.strftime("%Y-%m-%d"),
                 "Expiry Date": expiry.strftime("%Y-%m-%d"),
-                "Entry Spot": entry_spot,
+                "Entry Spot": cycle_entry_spot,
                 "Expiry Spot": expiry_spot,
                 "Call Strike": call_strike,
                 "Call Premium": call_entry_price,

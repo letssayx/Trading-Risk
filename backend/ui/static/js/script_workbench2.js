@@ -2771,7 +2771,7 @@ function renderCCSummary(cycles) {
     tbody.innerHTML = '';
 
     if(!cycles || cycles.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #666;">No cycles found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #666;">No cycles found</td></tr>';
         return;
     }
 
@@ -2782,17 +2782,18 @@ function renderCCSummary(cycles) {
 
         tbody.innerHTML += `
             <tr>
-                <td>${c.expiry}</td>
-                <td>${c.entry_spot.toFixed(2)}</td>
-                <td>${c.call_strike}</td>
-                <td>${c.call_premium.toFixed(2)}</td>
-                <td>${c.implied_move_vol_pct.toFixed(2)}%</td>
-                <td>${c.implied_move_emp_pct.toFixed(2)}%</td>
-                <td style="color: ${moveColor};">${actualMove.toFixed(2)}%</td>
-                <td style="color: #4caf50;">${c.max_profit.toFixed(2)}</td>
-                <td style="color: #ff5252;">${c.max_loss.toFixed(2)}</td>
-                <td style="color: ${pnlColor}; font-weight: bold;">${c.final_pnl.toFixed(2)}</td>
-                <td style="color: ${pnlColor};">${c.final_pnl_pct.toFixed(2)}%</td>
+                <td style="text-align: left;">${c.expiry}</td>
+                <td style="text-align: right;">${c.entry_spot.toFixed(2)}</td>
+                <td style="text-align: right;">${(c.expiry_spot !== undefined) ? c.expiry_spot.toFixed(2) : '-'}</td>
+                <td style="text-align: right;">${c.call_strike}</td>
+                <td style="text-align: right;">${c.call_premium.toFixed(2)}</td>
+                <td style="text-align: right;">${c.implied_move_vol_pct.toFixed(2)}%</td>
+                <td style="text-align: right;">${c.implied_move_emp_pct.toFixed(2)}%</td>
+                <td style="text-align: right; color: ${moveColor};">${actualMove.toFixed(2)}%</td>
+                <td style="text-align: right; color: #4caf50;">${c.max_profit.toFixed(2)}</td>
+                <td style="text-align: right; color: #ff5252;">${c.max_loss.toFixed(2)}</td>
+                <td style="text-align: right; color: ${pnlColor}; font-weight: bold;">${c.final_pnl.toFixed(2)}</td>
+                <td style="text-align: right; color: ${pnlColor};">${c.final_pnl_pct.toFixed(2)}%</td>
             </tr>
         `;
     });
@@ -2872,7 +2873,13 @@ function renderCCConeChart(data) {
         tooltip: { trigger: 'axis' },
         legend: { data: ['Spot', '+1 SD', '-1 SD', '+2 SD', '-2 SD'], bottom: 0, textStyle: {color: '#ccc', fontSize: 10} },
         xAxis: { type: 'category', data: dates, splitLine: {show: false} },
-        yAxis: { type: 'value', splitLine: {lineStyle: {color: '#444'}, scale: true} },
+        yAxis: {
+            type: 'value',
+            scale: true,
+            splitLine: {lineStyle: {color: '#444'}},
+            min: function(value) { return Math.floor(value.min * 0.95); },
+            max: function(value) { return Math.ceil(value.max * 1.05); }
+        },
         grid: { left: '10%', right: '5%', bottom: '20%', top: '15%' },
         series: [
             { name: 'Spot', type: 'line', data: spot, itemStyle: {color: '#fff'} },
@@ -2971,9 +2978,10 @@ async function executeCCSingleBacktest() {
     const callPct = document.getElementById('cc-call-pct').value;
     const useCollar = document.getElementById('cc-use-collar').checked;
     const putPct = document.getElementById('cc-put-pct').value;
+    const holdCont = document.getElementById('cc-hold-continuous') ? document.getElementById('cc-hold-continuous').checked : false;
 
     try {
-        const response = await fetch(`/api/data/derivatives/covered_call_backtest?symbol=${symbol}&start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}`);
+        const response = await fetch(`/api/data/derivatives/covered_call_backtest?symbol=${symbol}&start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}&hold_stock_continuously=${holdCont}`);
         const data = await response.json();
 
         if (data.status === 'error') {
@@ -3017,8 +3025,9 @@ async function executeCCBulkDownload() {
     const callPct = document.getElementById('cc-call-pct').value;
     const useCollar = document.getElementById('cc-use-collar').checked;
     const putPct = document.getElementById('cc-put-pct').value;
+    const holdCont = document.getElementById('cc-hold-continuous') ? document.getElementById('cc-hold-continuous').checked : false;
 
-    const url = `/api/data/derivatives/covered_call_all_fo_export?start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}`;
+    const url = `/api/data/derivatives/covered_call_all_fo_export?start_date=${startDate}&end_date=${endDate}&call_strike_pct=${callPct}&put_strike_pct=${putPct}&use_collar=${useCollar}&hold_stock_continuously=${holdCont}`;
 
     try {
         const response = await fetch(url);

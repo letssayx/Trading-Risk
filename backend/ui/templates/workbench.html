@@ -2646,7 +2646,13 @@
 
                                             <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px;">
                                                 <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Call Tgt (%)</label>
-                                                <input type="number" id="cc-call-pct" class="history-input" value="4.0" step="0.5" style="padding: 4px 8px; width: 100%;" title="+ for OTM, - for ITM">
+                                                <input type="number" id="cc-call-pct" class="history-input" value="4.0" step="0.5" min="-100" max="100" style="padding: 4px 8px; width: 100%;" title="+ for OTM, - for ITM">
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px;">
+                                                <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Hold Continuous?</label>
+                                                <div style="padding: 4px 0;">
+                                                    <input type="checkbox" id="cc-hold-continuous" style="margin-right: 5px;" title="Buy stock once at start, hold until end.">
+                                                </div>
                                             </div>
                                             <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 100px;">
                                                 <label style="color: #ccc; font-size: 12px; white-space: nowrap;">Put Tgt (%) <span style="font-size:10px; color:#888;">(<input type="checkbox" id="cc-use-collar" style="margin:0 2px 0 5px;" title="Use Collar?">)</span></label>
@@ -2657,7 +2663,7 @@
                                         <!-- Buttons block -->
                                         <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; justify-content: flex-start;">
                                             <button class="btn btn-primary" onclick="executeCCAction()" id="cc-action-btn" style="min-width: 120px; white-space: nowrap;"><i class="fas fa-play"></i> Run Backtest</button>
-                                            <button class="btn btn-secondary" onclick="exportCoveredCallData()" id="cc-export-single-btn" style="display: none; font-size: 12px; padding: 4px 8px; white-space: nowrap;"><i class="fas fa-file-excel"></i> Export Results</button>
+                                            <button class="btn btn-secondary" onclick="exportCoveredCallData()" id="cc-export-single-btn" style="display: none; font-size: 12px; padding: 4px 8px; white-space: nowrap;"><i class="fas fa-file-excel"></i> Export All Results (XLSX)</button>
                                         </div>
                                     </div>
 
@@ -2705,21 +2711,22 @@
                                     <table class="history-table" style="width: 100%; font-size: 12px;">
                                         <thead>
                                             <tr>
-                                                <th>Expiry</th>
-                                                <th>Entry Spot</th>
-                                                <th>Call Strike</th>
-                                                <th>Call Prem</th>
-                                                <th title="Annualized ATM IV × √(Days to Expiry / 252)" style="text-decoration: underline dotted; cursor: help;">Vol Imp. Move (?)</th>
-                                                <th title="85% × (ATM Straddle Premium / Spot Price)" style="text-decoration: underline dotted; cursor: help;">Emp. Imp. Move (?)</th>
-                                                <th>Actual Move</th>
-                                                <th>Max Profit</th>
-                                                <th>Max Loss</th>
-                                                <th>Final PnL</th>
-                                                <th>Final PnL %</th>
+                                                <th style="text-align: left;">Expiry</th>
+                                                <th style="text-align: right;">Entry Spot</th>
+                                                <th style="text-align: right;">Expiry Spot</th>
+                                                <th style="text-align: right;">Call Strike</th>
+                                                <th style="text-align: right;">Call Prem</th>
+                                                <th style="text-align: right; text-decoration: underline dotted; cursor: help;" title="Annualized ATM IV × √(Days to Expiry / 252)">Vol Imp. Move (?)</th>
+                                                <th style="text-align: right; text-decoration: underline dotted; cursor: help;" title="85% × (ATM Straddle Premium / Spot Price)">Emp. Imp. Move (?)</th>
+                                                <th style="text-align: right;">Actual Move</th>
+                                                <th style="text-align: right;">Max Profit</th>
+                                                <th style="text-align: right;">Max Loss</th>
+                                                <th style="text-align: right;">Final PnL</th>
+                                                <th style="text-align: right;">Final PnL %</th>
                                             </tr>
                                         </thead>
                                         <tbody id="cc-summary-body">
-                                            <tr><td colspan="11" style="text-align: center; color: #666;">Run backtest to view data</td></tr>
+                                            <tr><td colspan="12" style="text-align: center; color: #666;">Run backtest to view data</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
