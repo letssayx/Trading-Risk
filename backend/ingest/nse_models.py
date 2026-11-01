@@ -685,6 +685,7 @@ class MwplAnalysisMetrics(Base, TimescaleMixin):
     limit_for_next_day = Column(BigInteger)
     price = Column(Float)
     price_chg_pct = Column(Float)
+    fut_close = Column(Float)
 
     __table_args__ = (
         UniqueConstraint('trade_date', 'symbol', name='uq_mwpl_analysis_metrics_date_symbol'),

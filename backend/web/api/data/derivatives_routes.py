@@ -711,16 +711,16 @@ def get_mwpl_historical(days: int = 14, db: Session = Depends(get_db)):
         d = r.trade_date
         sym = r.symbol
         clients = grouped_mwpl.get((d, sym), [])
-        clients.sort(key=lambda x: x["pct"], reverse=True)
+        clients.sort(key=lambda x: x["client"])
 
         parsed_arr = []
-        for idx, client in enumerate(clients):
-            parsed_arr.append({f"Client {idx+1}": client["pct"]})
+        for client in clients:
+            parsed_arr.append({f"Client {client['client']}": client["pct"]})
 
         result[sym].append({
             "date": d.strftime("%Y-%m-%d"),
             "eq_close": r.price,  # the UI calculates change based on this
-            "fut1_close": r.price,
+            "fut1_close": getattr(r, 'fut_close', r.price) if getattr(r, 'fut_close', None) is not None else r.price,
             "mwpl": r.mwpl_pct,
             "mwpl_array": parsed_arr,
             "interpretation": "Neutral",
@@ -1532,6 +1532,9 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
                 # For this PR, since the table only uses 'mwpl_pct' in the UI directly (it doesn't show mwpl_chg_pct in the existing UI table), we will set it to 0.0.
                 pass
 
+            # Explicitly extract near futures price
+            fut_price = fo_map.get((d, sym), {}).get("close", None)
+
             metrics.append({
                 "trade_date": d,
                 "symbol": sym,
@@ -1540,7 +1543,8 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
                 "open_interest": int(oi),
                 "limit_for_next_day": 0,
                 "price": price,
-                "price_chg_pct": price_chg_pct
+                "price_chg_pct": price_chg_pct,
+                "fut_close": fut_price
             })
 
         if metrics:
