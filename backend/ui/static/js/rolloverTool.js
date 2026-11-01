@@ -724,17 +724,9 @@ const RolloverTool = {
 
         // Rows
         const rows = table.querySelectorAll('tbody tr');
-        let currentSymbol = "";
-        rows.forEach((row, index) => {
+        rows.forEach(row => {
             const cols = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
-            // Because the first row of each Symbol has rowspan="3", it has an extra column at the beginning.
-            // The 2nd and 3rd rows are missing the symbol column. We must inject an empty string so the 2D array is perfectly aligned.
-            if (index % 3 === 0) {
-                currentSymbol = cols[0];
-                dataArray.push(cols);
-            } else {
-                dataArray.push([""].concat(cols));
-            }
+            dataArray.push(cols);
         });
 
         const filename = "rollover_history_matrix";

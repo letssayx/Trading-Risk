@@ -150,6 +150,13 @@ async def startup_event():
             except Exception:
                 pass # column likely exists
 
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE mwpl_analysis_metrics ADD COLUMN fut_close FLOAT;"))
+                print("Successfully added fut_close to mwpl_analysis_metrics")
+        except Exception:
+            pass # column likely exists
+
     except Exception as e:
         print(f"⚠️ Metadata Create Warning: {e}")
 

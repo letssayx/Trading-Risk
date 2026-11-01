@@ -90,14 +90,20 @@ async function loadMWPLAnalysis(isRefresh = false) {
 
                 const latest = rows[0];
 
-                // Use the true MWPL % from the main analysis table
-                const trueTotal = parseFloat(latest.mwpl) || 0;
+                // Calculate total of client MWPLs
+                let calculatedTotal = 0;
+                if (latest.mwpl_array && Array.isArray(latest.mwpl_array)) {
+                    latest.mwpl_array.forEach(item => {
+                        const val = parseFloat(Object.values(item)[0]) || 0;
+                        calculatedTotal += val;
+                    });
+                }
 
                 tableRowsData.push({
                     sym,
                     rows,
                     latest,
-                    total: trueTotal
+                    total: calculatedTotal
                 });
             });
 
@@ -176,7 +182,12 @@ async function loadMWPLAnalysis(isRefresh = false) {
                     if (latest.fut1_close > prev.fut1_close) { futColor = '#60a5fa'; futArrow = '▲'; }
                     else if (latest.fut1_close < prev.fut1_close) { futColor = '#ff4d4d'; futArrow = '▼'; }
 
-                    let prevTotal = parseFloat(prev.mwpl) || 0;
+                    let prevTotal = 0;
+                    if (prev.mwpl_array && Array.isArray(prev.mwpl_array)) {
+                        prev.mwpl_array.forEach(item => {
+                            prevTotal += parseFloat(Object.values(item)[0]) || 0;
+                        });
+                    }
 
                     if (prevTotal !== 0) {
                         const pctChg = ((total - prevTotal) / Math.abs(prevTotal)) * 100;
@@ -217,7 +228,13 @@ async function loadMWPLAnalysis(isRefresh = false) {
                     historyTr.style.backgroundColor = '#1a1a1a';
                     const hColor = parseFloat(r.mwpl) > 20 ? '#ff4d4d' : '#ccc';
 
-                    let rowTotal = parseFloat(r.mwpl) || 0;
+                    let rowTotal = 0;
+                    if (r.mwpl_array && Array.isArray(r.mwpl_array)) {
+                        r.mwpl_array.forEach(item => {
+                            const val = parseFloat(Object.values(item)[0]) || 0;
+                            rowTotal += val;
+                        });
+                    }
 
                     let clientTds = '';
                     clientNames.forEach(c => {
