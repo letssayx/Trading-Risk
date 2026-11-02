@@ -726,7 +726,17 @@ const RolloverTool = {
         const rows = table.querySelectorAll('tbody tr');
         rows.forEach(row => {
             const cols = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
-            dataArray.push(cols);
+            // Since rowspan is used in HTML for the Symbol column, the first row of a group has all columns.
+            // The second and third rows have one less column (Symbol is missing).
+            // For Excel export, we should pad them so columns align correctly.
+            if (cols.length === headers.length) {
+                dataArray.push(cols);
+            } else if (cols.length === headers.length - 1) {
+                const newCols = ['', ...cols];
+                dataArray.push(newCols);
+            } else {
+                dataArray.push(cols);
+            }
         });
 
         const filename = "rollover_history_matrix";
@@ -744,7 +754,7 @@ const RolloverTool = {
         }
 
         console.warn("XLSX library not loaded or failed. Falling back to CSV.");
-        let csvContent = dataArray.map(row => row.map(v => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+        let csvContent = dataArray.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
