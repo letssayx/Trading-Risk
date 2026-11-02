@@ -689,7 +689,9 @@ def get_mwpl_historical(days: int = 14, db: Session = Depends(get_db)):
     from backend.ingest.nse_models import MwplAnalysisMetrics, MWPLClientPosition
     from collections import defaultdict
 
+    # Get the latest FO date
     dates_query = db.query(MwplAnalysisMetrics.trade_date).distinct().order_by(MwplAnalysisMetrics.trade_date.desc()).limit(days).all()
+
     if not dates_query:
         return {"data": {}}
 
@@ -720,7 +722,7 @@ def get_mwpl_historical(days: int = 14, db: Session = Depends(get_db)):
         result[sym].append({
             "date": d.strftime("%Y-%m-%d"),
             "eq_close": r.price,  # the UI calculates change based on this
-            "fut1_close": getattr(r, 'fut_close', r.price) if getattr(r, 'fut_close', None) is not None else r.price,
+            "fut1_close": getattr(r, 'fut_close', "-") if getattr(r, 'fut_close', None) is not None else "-",
             "mwpl": r.mwpl_pct,
             "mwpl_array": parsed_arr,
             "interpretation": "Neutral",
@@ -1503,7 +1505,10 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
             sym = r.underlying_stock
             mwpl_pct = float(r.position_pct) if r.position_pct else 0.0
 
-            price = eq_map.get((d, sym), fo_map.get((d, sym), {}).get("close", 0.0))
+            # Explicitly extract near futures price
+            fut_price = fo_map.get((d, sym), {}).get("close", None)
+
+            price = eq_map.get((d, sym), fut_price if fut_price is not None else 0.0)
             oi = fo_map.get((d, sym), {}).get("oi", 0.0)
 
             # Find previous date
@@ -1531,9 +1536,6 @@ def compute_mwpl_analysis(db: Session = Depends(get_db), latest_metric_date: str
                 # We need prev mwpl pct to calculate mwpl_chg_pct. It is easier to fetch it from the records since we are looping or grouping.
                 # For this PR, since the table only uses 'mwpl_pct' in the UI directly (it doesn't show mwpl_chg_pct in the existing UI table), we will set it to 0.0.
                 pass
-
-            # Explicitly extract near futures price
-            fut_price = fo_map.get((d, sym), {}).get("close", None)
 
             metrics.append({
                 "trade_date": d,
