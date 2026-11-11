@@ -624,9 +624,8 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = true; loadSSDividends();"><i class="fas fa-filter"></i> F&O Stocks</button>
-                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = false; loadSSDividends();"><i class="fas fa-list"></i> ALL Stocks</button>
-                            <input type="checkbox" id="ss-div-is-fo" style="display:none;" checked>
+                            <button class="btn btn-secondary active-filter-btn" id="btn-ss-div-fo" onclick="loadSSDividends(true)"><i class="fas fa-filter"></i> F&O Stocks</button>
+                            <button class="btn btn-secondary" id="btn-ss-div-all" onclick="loadSSDividends(false)"><i class="fas fa-list"></i> ALL Stocks</button>
                             <button class="btn btn-secondary" onclick="exportSSDivXLS()"><i class="fas fa-file-excel"></i> Download XLS</button>
                             <button class="btn btn-secondary" onclick="exportSSDivPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
                             <button class="btn btn-primary" onclick="loadSSDividends()"><i class="fas fa-sync"></i> Refresh Data</button>
@@ -653,7 +652,7 @@
                                     <th style="background: #2b3a4a;">AGM Date</th>
                                     <th style="background: #2b3a4a;">AGM Ann.</th>
                                     <th style="background: #1a1a1a;">Board Meeting<br>Date</th>
-                                    <th style="background: #1a1a1a;">Broadcast<br>Date & Time</th>
+                                    <th style="background: #1a1a1a;">Board Meeting<br>Announcement Date</th>
                                     <th>Is above 2%<br>(Extra-ordinary)</th>
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
                                     <th style="background: #334d3d;">Expected Dividend<br>highly likely</th>
@@ -1300,9 +1299,8 @@
                     </div>
 
                     <div style="display: flex; gap: 10px; align-items: center; margin-left: auto;">
-                        <button class="btn btn-secondary" onclick="document.getElementById('div-fo-only-filter').checked = true; loadDividendsData();"><i class="fas fa-filter"></i> F&O Stocks</button>
-                        <button class="btn btn-secondary" onclick="document.getElementById('div-fo-only-filter').checked = false; loadDividendsData();"><i class="fas fa-list"></i> ALL Stocks</button>
-                        <input type="checkbox" id="div-fo-only-filter" style="display:none;" checked>
+                        <button class="btn btn-secondary active-filter-btn" id="btn-div-fo-only" onclick="loadDividendsData(null, true)"><i class="fas fa-filter"></i> F&O Stocks</button>
+                        <button class="btn btn-secondary" id="btn-div-all" onclick="loadDividendsData(null, false)"><i class="fas fa-list"></i> ALL Stocks</button>
                     </div>
 
                     <label style="display: flex; align-items: center; gap: 5px; color: #fff; font-size: 13px;">
@@ -1322,7 +1320,7 @@
                         <table class="data-table" id="div-actions-table">
                             <thead>
                                 <tr>
-                                    <th>BROADCAST DATE</th>
+                                    <th>BOARD MEETING ANNOUNCEMENT DATE</th>
                                     <th>BOARD MEETING DATE</th>
                                     <th style="cursor: pointer;" onclick="sortDividends('ex_date')">EX-DATE <span id="sort-icon-ex_date">▼</span></th>
                                     <th style="cursor: pointer;" onclick="sortDividends('symbol')">SYMBOL <span id="sort-icon-symbol"></span></th>
@@ -2851,6 +2849,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Trend: Price & PCR vs OI</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
+                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.pcrChartInstance) exportChartDataToExcel(window.pcrChartInstance, 'Trend_Price_PCR_OI');"><i class="fas fa-download"></i> XLSX</button>
                                         <input type="text" id="opt-analysis-symbol" class="history-input" placeholder="Symbol (e.g., NIFTY)" value="NIFTY" style="width: 150px; padding: 4px;" onkeydown="if(event.key==='Enter') loadOptionsAnalysis()">
                                         <button class="btn btn-secondary" id="btn-load-options-analysis" onclick="loadOptionsAnalysis()"><i class="fas fa-sync"></i> Load</button>
                                         <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Expiry</label>
@@ -2924,6 +2923,8 @@
                                         <input type="text" id="fii-analysis-index-symbol" class="history-input" style="width: 120px; padding: 4px; font-size: 11px; font-weight: bold; text-align: center; color: #fff; background: #333;" value="NIFTY" placeholder="Enter Symbol (e.g. NIFTY)" onkeydown="if(event.key === 'Enter' && typeof loadFiiTrendChart === 'function') loadFiiTrendChart()">
                                     </div>
                                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"><i class="fas fa-search"></i></button>
+
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-left: 5px;" onclick="if(window.fiiTrendChartInstance) exportChartDataToExcel(window.fiiTrendChartInstance, 'FII_Trend_Price_PCR_OI');"><i class="fas fa-download"></i> XLSX</button>
 
                                     <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center; margin-left: 5px;"><input type="checkbox" id="fii-opt-expiry-only" style="margin-right: 2px;" onchange="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"> Expiry</label>
                                     <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center; margin-left: 5px;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="fii-opt-combined-oi" style="margin-right: 2px;" onchange="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"> Comb. OI</label>
@@ -3680,6 +3681,7 @@
 // --- DIVIDENDS DATA BANK LOGIC ---
 let divRawData = [];
 let divMeetingsData = [];
+let isDividendsFoOnly = true;
 let currentDivTab = 'actions';
 let divSortCol = 'ex_date';
 let divSortAsc = false;
@@ -3828,12 +3830,26 @@ async function syncDividendsData() {
     }
 }
 
-async function loadDividendsData(forcedSymbol = null) {
+async function loadDividendsData(forcedSymbol = null, isFo = null) {
     const loadBtn = document.querySelector('button[onclick="loadDividendsData()"]');
     const originalHtml = loadBtn ? loadBtn.innerHTML : '';
     if (loadBtn) {
         loadBtn.disabled = true;
         loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    }
+    if (isFo !== null) {
+        isDividendsFoOnly = isFo;
+        const foBtn = document.getElementById('btn-div-fo-only');
+        const allBtn = document.getElementById('btn-div-all');
+        if (foBtn && allBtn) {
+            if (isFo) {
+                foBtn.classList.add('active-filter-btn');
+                allBtn.classList.remove('active-filter-btn');
+            } else {
+                foBtn.classList.remove('active-filter-btn');
+                allBtn.classList.add('active-filter-btn');
+            }
+        }
     }
 
     try {
@@ -3858,8 +3874,7 @@ async function loadDividendsData(forcedSymbol = null) {
         const hasDateRange = startDate || endQueryDate;
         const limitQuery = hasDateRange ? '&limit=100000' : (symbolVal ? '&limit=0' : '&limit=5000');
 
-        const foCheckbox = document.getElementById('div-fo-only-filter');
-        const foQuery = foCheckbox && foCheckbox.checked ? '&fo_only=true' : '';
+        const foQuery = isDividendsFoOnly ? '&fo_only=true' : '';
 
         // Fetch dividends
         let dbActionsRes = await fetch(`/api/data/view/list?type=dividend${limitQuery}${symbolQuery}${foQuery}${startDate}${endQueryDate}`);
@@ -4104,8 +4119,6 @@ function renderDividendsData() {
                 let officialBcd = formatDateTime(d.broadcast_date);
                 if (officialBcd.date !== '-') {
                     bcdObj = officialBcd;
-                } else {
-                    bcdObj = formatDateTime(d.date);
                 }
             }
 
