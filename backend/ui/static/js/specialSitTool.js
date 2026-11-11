@@ -744,13 +744,29 @@ window.handleOFSFutureSelectionChange = handleOFSFutureSelectionChange;
 
 
 
-async function loadSSDividends(event = null) {
+let isSSDivFoOnly = true;
+
+async function loadSSDividends(isFo = null) {
     const btn = document.getElementById('btn-load-ss-div') || document.querySelector('#ss-tab-dividends button[onclick*="loadSSDividends"]');
     if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
 
+    if (isFo !== null && typeof isFo === 'boolean') {
+        isSSDivFoOnly = isFo;
+        const foBtn = document.getElementById('btn-ss-div-fo');
+        const allBtn = document.getElementById('btn-ss-div-all');
+        if (foBtn && allBtn) {
+            if (isFo) {
+                foBtn.classList.add('active-filter-btn');
+                allBtn.classList.remove('active-filter-btn');
+            } else {
+                foBtn.classList.remove('active-filter-btn');
+                allBtn.classList.add('active-filter-btn');
+            }
+        }
+    }
+
     try {
-        const isFoChecked = document.getElementById('ss-div-is-fo') ? document.getElementById('ss-div-is-fo').checked : true;
-        const res = await fetch(`/api/special-sit/dividends?is_fo=${isFoChecked}`);
+        const res = await fetch(`/api/special-sit/dividends?is_fo=${isSSDivFoOnly}`);
         if (!res.ok) throw new Error("Failed to fetch special sit dividends");
         const payload = await res.json();
 
@@ -868,7 +884,7 @@ function exportSSDivXLS() {
     // Main Headers
     wsData.push([
         'Index / Scrip', 'Sector', 'Lot size', 'Spot', 'Future 1', 'Future 2', 'Future 3',
-        'Type', 'Ex-date', 'Amount', 'Upcoming Meeting', 'Broadcast Date & Time', 'BM Date',
+        'Type', 'Ex-date', 'Amount', 'Upcoming Meeting', 'Board Meeting Announcement Date', 'BM Date',
         'Is above 2% (Extra-ordinary)', 'Expected Amount', 'Expected Dividend highly likely',
         'Expected Dividend Less Likely', 'Note'
     ]);

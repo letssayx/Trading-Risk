@@ -462,10 +462,9 @@
                         <div style="display: flex; gap: 10px;">
                             <button class="btn btn-secondary" onclick="exportSSDivXLS()"><i class="fas fa-file-excel"></i> Download XLS</button>
                             <button class="btn btn-secondary" onclick="exportSSDivPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
-                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = true; loadSSDividends();"><i class="fas fa-filter"></i> F&O Stocks</button>
-                            <button class="btn btn-secondary" onclick="document.getElementById('ss-div-is-fo').checked = false; loadSSDividends();"><i class="fas fa-list"></i> ALL Stocks</button>
-                            <input type="checkbox" id="ss-div-is-fo" style="display:none;" checked>
-                            <button class="btn btn-primary" id="btn-load-ss-div" onclick="loadSSDividends(event)"><i class="fas fa-sync"></i> Refresh Data</button>
+                            <button class="btn btn-secondary active-filter-btn" id="btn-ss-div-fo" onclick="loadSSDividends(true)"><i class="fas fa-filter"></i> F&O Stocks</button>
+                            <button class="btn btn-secondary" id="btn-ss-div-all" onclick="loadSSDividends(false)"><i class="fas fa-list"></i> ALL Stocks</button>
+                            <button class="btn btn-primary" id="btn-load-ss-div" onclick="loadSSDividends()"><i class="fas fa-sync"></i> Refresh Data</button>
                         </div>
                     </div>
 
@@ -486,7 +485,7 @@
                                     <th style="background: #2b3a4a;">Purpose</th>
                                     <th style="background: #2b3a4a;">Amount</th>
                                     <th style="background: #1a1a1a;">Upcoming<br>Meeting</th>
-                                    <th style="background: #1a1a1a;">Broadcast<br>Date & Time</th>
+                                    <th style="background: #1a1a1a;">Board Meeting<br>Announcement Date</th>
                                     <th>Is above 2%<br>(Extra-ordinary)</th>
                                     <th style="background: #334d3d;">Expected<br>Amount</th>
                                     <th style="background: #334d3d;">Expected Dividend<br>highly likely</th>
@@ -532,6 +531,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <h3 style="margin: 0; font-size: 14px; color: #ccc;">Trend: Price & PCR vs OI</h3>
                                     <div style="display: flex; gap: 10px; align-items: center;">
+                                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(window.pcrChartInstance) exportChartDataToExcel(window.pcrChartInstance, 'Trend_Price_PCR_OI');"><i class="fas fa-download"></i> XLSX</button>
                                         <label class="checkbox-label" style="font-size: 11px; display: flex; align-items: center;"><input type="checkbox" id="pcr-expiry-only" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Expiry</label>
                                         <label class="checkbox-label" style="font-size: 11px; margin-right: 10px; display: flex; align-items: center;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="pcr-combined-oi" style="margin-right: 5px;" onchange="loadOptionsAnalysis()"> Comb. OI</label>
                                         <select id="opt-analysis-lookback" class="history-input" style="padding: 2px 5px;" onchange="loadOptionsAnalysis()">
@@ -664,7 +664,7 @@
                     <thead>
                         <tr style="background: #2a2a2a; border-bottom: 1px solid #333; color: #aaa;">
                             <th style="padding: 10px 8px; font-weight: normal;">Symbol</th>
-                            <th style="padding: 10px 8px; font-weight: normal;">Broadcast Date</th>
+                            <th style="padding: 10px 8px; font-weight: normal;">Board Meeting Announcement Date</th>
                             <th style="padding: 10px 8px; font-weight: normal;">Subject</th>
                             <th style="padding: 10px 8px; font-weight: normal;">Attachment</th>
                         </tr>
@@ -737,6 +737,8 @@
                                         <input type="text" id="fii-analysis-index-symbol" class="history-input" style="width: 120px; padding: 4px; font-size: 11px; font-weight: bold; text-align: center; color: #fff; background: #333;" value="NIFTY" placeholder="Enter Symbol (e.g. NIFTY)" onkeydown="if(event.key === 'Enter' && typeof loadFiiTrendChart === 'function') loadFiiTrendChart()">
                                     </div>
                                     <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"><i class="fas fa-search"></i></button>
+
+                                    <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px; margin-left: 5px;" onclick="if(window.fiiTrendChartInstance) exportChartDataToExcel(window.fiiTrendChartInstance, 'FII_Trend_Price_PCR_OI');"><i class="fas fa-download"></i> XLSX</button>
 
                                     <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center; margin-left: 5px;"><input type="checkbox" id="fii-opt-expiry-only" style="margin-right: 2px;" onchange="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"> Expiry</label>
                                     <label class="checkbox-label" style="font-size: 9px; display: flex; align-items: center; margin-left: 5px;" title="Show Combined OI of Futures, Calls, and Puts instead of just Futures OI"><input type="checkbox" id="fii-opt-combined-oi" style="margin-right: 2px;" onchange="if(typeof loadFiiTrendChart === 'function') loadFiiTrendChart()"> Comb. OI</label>
